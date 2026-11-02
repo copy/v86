@@ -2015,27 +2015,8 @@
                 .filter(entry => entry[1])
                 .sort((a, b) => a[0] - b[0]);
             const conversions = this.options.inputConversions || {};
-            const conversionKinds = new Set(Object.values(conversions));
-            if (conversionKinds.has("udec3")) {
-                out.push("fn d9_unpack_udec3(value: u32) -> vec4<f32> {");
-                out.push("    return vec4<f32>(f32(value & 0x3ffu), " +
-                    "f32((value >> 10u) & 0x3ffu), " +
-                    "f32((value >> 20u) & 0x3ffu), 1.0);");
-                out.push("}");
-                out.push("");
-            }
-            if (conversionKinds.has("dec3n")) {
-                out.push("fn d9_snorm10(value: u32) -> f32 {");
-                out.push("    let signed_value = i32(value << 22u) >> 22;");
-                out.push("    return max(f32(signed_value) / 511.0, -1.0);");
-                out.push("}");
-                out.push("fn d9_unpack_dec3n(value: u32) -> vec4<f32> {");
-                out.push("    return vec4<f32>(d9_snorm10(value & 0x3ffu), " +
-                    "d9_snorm10((value >> 10u) & 0x3ffu), " +
-                    "d9_snorm10((value >> 20u) & 0x3ffu), 1.0);");
-                out.push("}");
-                out.push("");
-            }
+            const inputHelpers = vertexInputHelpers(Object.values(conversions));
+            if (inputHelpers) out.push(inputHelpers);
             out.push("struct D9VertexOutput {");
             out.push("    @builtin(position) position: vec4<f32>,");
             for (let slot = 0; slot < VARYING_COUNT; ++slot)
@@ -2046,10 +2027,7 @@
                     ") clip" + group + ": vec4<f32>,");
             out.push("};");
             out.push("");
-            const inputType = location => ({
-                ubyte4: "vec4<u32>", short2: "vec2<i32>",
-                short4: "vec4<i32>", udec3: "u32", dec3n: "u32",
-            })[conversions[location]] || "vec4<f32>";
+            const inputType = location => vertexInputType(conversions[location]);
             const parameters = inputs.map(entry =>
                 "@location(" + entry[0] + ") in" + entry[0] + ": " +
                     inputType(entry[0]));
@@ -2069,18 +2047,8 @@
             // WebGPU exposes integer vertex formats as integer WGSL values,
             // while D3D9 always presents them to v# as a float4.
             const bgra = new Set(this.options.bgraInputLocations || []);
-            const inputValue = location => {
-                const name = "in" + location;
-                switch (conversions[location]) {
-                case "ubyte4":
-                case "short4": return "vec4<f32>(" + name + ")";
-                case "short2":
-                    return "vec4<f32>(vec2<f32>(" + name + "), 0.0, 1.0)";
-                case "udec3": return "d9_unpack_udec3(" + name + ")";
-                case "dec3n": return "d9_unpack_dec3n(" + name + ")";
-                default: return name + (bgra.has(location) ? ".bgra" : "");
-                }
-            };
+            const inputValue = location => vertexInputValue("in" + location,
+                conversions[location], bgra.has(location));
             for (const entry of inputs)
                 out.push("    vin" + entry[0] + " = " +
                     inputValue(entry[0]) + ";");
@@ -2341,6 +2309,59 @@
     // module cannot handle comes back as {ok:false, error}, because the
     // caller's contract (plan 4.2) is to mark the handle unusable and skip
     // draws that bind it -- not to fail the whole command batch.
+
+    function vertexInputHelpers(conversions) {
+        const out = [];
+        const conversionKinds = new Set(conversions);
+        if (conversionKinds.has("udec3")) {
+            out.push("fn d9_unpack_udec3(value: u32) -> vec4<f32> {");
+            out.push("    return vec4<f32>(f32(value & 0x3ffu), " +
+                "f32((value >> 10u) & 0x3ffu), " +
+                "f32((value >> 20u) & 0x3ffu), 1.0);");
+            out.push("}");
+            out.push("");
+        }
+        if (conversionKinds.has("dec3n")) {
+            out.push("fn d9_snorm10(value: u32) -> f32 {");
+            out.push("    let signed_value = i32(value << 22u) >> 22;");
+            out.push("    return max(f32(signed_value) / 511.0, -1.0);");
+            out.push("}");
+            out.push("fn d9_unpack_dec3n(value: u32) -> vec4<f32> {");
+            out.push("    return vec4<f32>(d9_snorm10(value & 0x3ffu), " +
+                "d9_snorm10((value >> 10u) & 0x3ffu), " +
+                "d9_snorm10((value >> 20u) & 0x3ffu), 1.0);");
+            out.push("}");
+            out.push("");
+        }
+        return out.join("\n");
+    }
+    function vertexInputConversion(type) {
+        switch (type) {
+        case 4: return "color";
+        case 5: return "ubyte4";
+        case 6: return "short2";
+        case 7: return "short4";
+        case 13: return "udec3";
+        case 14: return "dec3n";
+        default: return "";
+        }
+    }
+    function vertexInputType(conversion) {
+        return {ubyte4: "vec4<u32>", short2: "vec2<i32>", short4: "vec4<i32>",
+            udec3: "u32", dec3n: "u32"}[conversion] || "vec4<f32>";
+    }
+    function vertexInputValue(name, conversion, bgra) {
+        switch (conversion) {
+        case "ubyte4":
+        case "short4": return "vec4<f32>(" + name + ")";
+        case "short2": return "vec4<f32>(vec2<f32>(" + name + "), 0.0, 1.0)";
+        case "udec3": return "d9_unpack_udec3(" + name + ")";
+        case "dec3n": return "d9_unpack_dec3n(" + name + ")";
+        case "color": return name + ".bgra";
+        default: return name + (bgra ? ".bgra" : "");
+        }
+    }
+
     function compileShader(tokens, options) {
         try {
             const parsed = parseShader(tokens);
@@ -2510,6 +2531,7 @@
 
     const api = {
         compileShader, parseShader, hashTokens, D3D9ShaderCache, sampleSwizzleExpression,
+        vertexInputConversion, vertexInputType, vertexInputValue, vertexInputHelpers,
         TRANSLATOR_REVISION,
         VARYING_COLOR0, VARYING_COLOR1, VARYING_TEXCOORD0, VARYING_FOG,
         VARYING_COUNT, varyingForSemantic,

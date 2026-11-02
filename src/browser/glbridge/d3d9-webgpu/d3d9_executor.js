@@ -3442,7 +3442,17 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             let blendWeightType = -1;
             let blendIndicesType = -1;
             const texCoordSets = [], texCoordDimensions = {};
+            let inputConversions = null;
             for (const element of elements) {
+                const location = fixedFunctionLocationFor(element);
+                const conversion = shaderPipeline.vertexInputConversion(element.type);
+                // COLOR keeps its existing per-color swizzle. Blend inputs have
+                // their own palette/index rules and are not mapped without a plan.
+                if (location >= 0 && conversion &&
+                        !(conversion === "color" && element.usage === DECLUSAGE_COLOR)) {
+                    if (!inputConversions) inputConversions = {};
+                    inputConversions[location] = conversion;
+                }
                 if (element.usage === DECLUSAGE_BLENDWEIGHT &&
                         element.usageIndex === 0)
                     blendWeightType = element.type;
@@ -3483,6 +3493,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return { positionType, hasColor, colorIsBGRA, hasColor1,
                 color1IsBGRA, hasNormal, hasPointSize, texCoordSets, texCoordDimensions,
                 blendWeightType, blendIndicesType,
+                ...(inputConversions ? { inputConversions } : null),
                 hasTexCoord: texCoordSets.length > 0 };
         }
 
@@ -4651,10 +4662,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     if (location !== undefined && element.type === DECLTYPE_D3DCOLOR)
                         bgra.push(location);
                     if (location === undefined) continue;
-                    const conversion = {
-                        5: "ubyte4", 6: "short2", 7: "short4",
-                        13: "udec3", 14: "dec3n",
-                    }[element.type];
+                    const conversion = element.type === DECLTYPE_D3DCOLOR ? "" :
+                        shaderPipeline.vertexInputConversion(element.type);
                     if (conversion) inputConversions[location] = conversion;
                 }
                 bgra.sort((a, b) => a - b);

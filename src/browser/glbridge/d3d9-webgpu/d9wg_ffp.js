@@ -116,10 +116,9 @@
         // (_, 0, 0, 1), which is exactly D3D9's rule for a FLOAT3 POSITION or a
         // FLOAT2 texcoord. One declared type per location also keeps a shader
         // module independent of which declaration is bound with it.
-        // The one exception is an integer vertex format: WebGPU requires the WGSL
-        // input's base type to match the format's, so a UBYTE4 BLENDINDICES has to
-        // be declared vec4<u32>. `scalar` names that base type; it defaults to the
-        // f32 every other fixed-function attribute uses.
+        // Raw palette indices retain their integer base type. Other integer
+        // and packed inputs use the shared programmable-entry conversion below;
+        // the fixed-function body then consumes canonical float4 values.
         function vertexInputDeclaration(location, scalar) {
             return "@location(" + location + ") in" + location +
                 ": vec4<" + (scalar || "f32") + ">";
@@ -444,15 +443,26 @@
             const lighting = signature.lighting;
             const position = "in" + FF_LOCATION_POSITION;
 
-            const parameters = [vertexInputDeclaration(FF_LOCATION_POSITION)];
+            const conversions = signature.inputConversions || {}, inputLines = [];
+            const parameter = location => {
+                const conversion = conversions[location];
+                if (!conversion) return vertexInputDeclaration(location);
+                const name = "d9_raw_in" + location;
+                inputLines.push("    let in" + location + " = " +
+                    shaderPipeline.vertexInputValue(name, conversion) + ";");
+                return "@location(" + location + ") " + name + ": " +
+                    shaderPipeline.vertexInputType(conversion);
+            };
+            const inputHelpers = shaderPipeline.vertexInputHelpers(Object.values(conversions));
+            const parameters = [parameter(FF_LOCATION_POSITION)];
             if (signature.hasColor)
-                parameters.push(vertexInputDeclaration(FF_LOCATION_COLOR0));
+                parameters.push(parameter(FF_LOCATION_COLOR0));
             if (signature.hasColor1)
-                parameters.push(vertexInputDeclaration(FF_LOCATION_COLOR1));
+                parameters.push(parameter(FF_LOCATION_COLOR1));
             if (signature.hasNormal)
-                parameters.push(vertexInputDeclaration(FF_LOCATION_NORMAL));
+                parameters.push(parameter(FF_LOCATION_NORMAL));
             if (signature.hasPointSize)
-                parameters.push(vertexInputDeclaration(FF_LOCATION_PSIZE));
+                parameters.push(parameter(FF_LOCATION_PSIZE));
             const blend = signature.vertexBlend;
             if (blend && blend.weightCount)
                 parameters.push(vertexInputDeclaration(FF_LOCATION_BLENDWEIGHT));
@@ -460,7 +470,7 @@
                 parameters.push(vertexInputDeclaration(FF_LOCATION_BLENDINDICES,
                     blend.indexScalar));
             for (const set of signature.texCoordSets)
-                parameters.push(vertexInputDeclaration(FF_LOCATION_TEXCOORD0 + set));
+                parameters.push(parameter(FF_LOCATION_TEXCOORD0 + set));
             if (signature.pointExpansion)
                 parameters.push("@builtin(vertex_index) d9_vertex_index: u32");
 
@@ -876,7 +886,7 @@ fn func_sphere_map(r: vec3<f32>) -> vec4<f32> {
 
             return `${lightStruct}${uniformBlockStruct("D9FixedUniforms", layout)}
 @group(0) @binding(0) var<uniform> uniforms: D9FixedUniforms;
-${sphereMapHelper}
+${sphereMapHelper}${inputHelpers ? "\n" + inputHelpers : ""}
 
 struct D9VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -886,7 +896,7 @@ ${clipVaryings.join("\n")}
 
 @vertex
 fn d9_vs_main(${parameters.join(", ")}) -> D9VertexOutput {
-    var result: D9VertexOutput;
+${inputLines.length ? inputLines.join("\n") + "\n" : ""}    var result: D9VertexOutput;
 ${positionBody}
 ${varyings.map((_, slot) =>
             "    result.varying" + slot + " = vec4<f32>(0.0);").join("\n")}

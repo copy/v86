@@ -1,0 +1,1749 @@
+{
+  "stage": "4D2i2b shared programmable/fixed-function vertex input conversion",
+  "date": "2026-11-02",
+  "bundle": "3e84336e0707ddf60aa8",
+  "coreSuites": 138,
+  "siteIntegrationTests": 2,
+  "gpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS required WebGPU adapter: google swiftshader  "
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual fixed-function typed attributes: 85 color/normal/texture/position/size scenes, 348160 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS real vertex fetch / production D3D input conversion / C reference: 66624 vectors, all 17 types, strict finite binary16 values, nonfinite diagnostics and zero GPU errors"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 24 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 18 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    }
+  ],
+  "baseline": {
+    "commit": "03a16ca3",
+    "scenes": 85,
+    "failedPixelScenes": 28,
+    "gpuErrors": 40,
+    "droppedDraws": 5,
+    "evidenceSha256": "92d2a2721b3a6fc27c644ed21c685222b5c6e970f0dd2ebfdde5c83f84497d35"
+  },
+  "backends": {
+    "swift": {
+      "formatSourceSha256": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+      "scenes": [
+        {
+          "role": "color",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "position",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "size",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 961
+        },
+        {
+          "role": "size",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 841
+        },
+        {
+          "role": "size",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 49
+        },
+        {
+          "role": "size",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 196
+        },
+        {
+          "role": "size",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "size",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        }
+      ],
+      "stats": {
+        "batches": 340,
+        "commands": 5542,
+        "presents": 170,
+        "queueSubmits": 340,
+        "drawCalls": 170,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 170,
+        "pipelineCreations": 85,
+        "pipelineHits": 85,
+        "pipelinesRejected": 0,
+        "programBuilds": 170,
+        "programCacheHits": 0,
+        "bindGroupCreations": 170,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 170,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 170,
+        "backBufferPresents": 170,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 170,
+        "readbackRequests": 170,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 204,
+        "textureUploads": 34,
+        "textureBytesUploaded": 544,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 34,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 37,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 1,
+        "samplerHits": 33,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 34,
+        "uploadStagingUploads": 34,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 169,
+        "sessionsEnded": 0,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 0,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 170,
+        "renderTargetBinds": 170,
+        "renderPasses": 204,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 7341650,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 136,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 60928,
+        "pointSpriteDraws": 68,
+        "pointSpriteInstances": 68,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 170,
+        "renderTargetReadbackBytes": 2785280,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    },
+    "metal": {
+      "formatSourceSha256": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+      "scenes": [
+        {
+          "role": "color",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "color",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "normal",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "texture",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "position",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "position",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 25
+        },
+        {
+          "role": "size",
+          "type": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 961
+        },
+        {
+          "role": "size",
+          "type": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 841
+        },
+        {
+          "role": "size",
+          "type": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 49
+        },
+        {
+          "role": "size",
+          "type": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 4,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 5,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 196
+        },
+        {
+          "role": "size",
+          "type": 6,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 7,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 8,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 9,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 10,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 11,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 12,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 13,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "role": "size",
+          "type": 14,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 15,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        },
+        {
+          "role": "size",
+          "type": 16,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 1
+        }
+      ],
+      "stats": {
+        "batches": 340,
+        "commands": 5542,
+        "presents": 170,
+        "queueSubmits": 340,
+        "drawCalls": 170,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 170,
+        "pipelineCreations": 85,
+        "pipelineHits": 85,
+        "pipelinesRejected": 0,
+        "programBuilds": 170,
+        "programCacheHits": 0,
+        "bindGroupCreations": 170,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 170,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 170,
+        "backBufferPresents": 170,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 170,
+        "readbackRequests": 170,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 204,
+        "textureUploads": 34,
+        "textureBytesUploaded": 544,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 34,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 37,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 1,
+        "samplerHits": 33,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 34,
+        "uploadStagingUploads": 34,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 169,
+        "sessionsEnded": 0,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 0,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 170,
+        "renderTargetBinds": 170,
+        "renderPasses": 204,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 7341650,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 136,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 60928,
+        "pointSpriteDraws": 68,
+        "pointSpriteInstances": 68,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 170,
+        "renderTargetReadbackBytes": 2785280,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    }
+  },
+  "pixelPairsPerBackend": 348160,
+  "mutations": {
+    "baselineRef": "03a16ca3",
+    "before": "85 actual fixed-function scenes under the baseline production sources",
+    "sourceSha256": {
+      "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "3ce03eccf86b43e244e8668c494920204f15c68da893e27ee5b43f75821f2ae4",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "c411f50a4621113426b29b6bd34e5206f974da8b28d66aa39f38b230ae604106",
+      "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "facad5d0bf66e982361f513dd7b6db74fc460fd92d162470fcb8d132f84aac71"
+    },
+    "mutations": [
+      {
+        "label": "raw integer input routing lost",
+        "detector": "d3d_fixed_vertex_formats_browser_test.html",
+        "killed": true
+      },
+      {
+        "label": "ARGB geometry/normal/texture swizzle lost",
+        "detector": "d3d_fixed_vertex_formats_browser_test.html",
+        "killed": true
+      },
+      {
+        "label": "signed two-component input loses default w",
+        "detector": "d3d_vertex_formats_browser_test.html",
+        "killed": true
+      },
+      {
+        "label": "signed 10-bit minimum is not clamped",
+        "detector": "d3d_vertex_formats_browser_test.html",
+        "killed": true
+      },
+      {
+        "label": "fixed-function ignores the declaration conversion",
+        "detector": "d3d_fixed_vertex_formats_browser_test.html",
+        "killed": true
+      },
+      {
+        "label": "fixed shader cache aliases different input conversions",
+        "detector": "d3d_fixed_vertex_formats_browser_test.html",
+        "killed": true
+      }
+    ]
+  },
+  "compatibility": {
+    "programEntryVariants": 12,
+    "canonicalFixedShaders": 1,
+    "comparison": "byte-identical WGSL under pre-existing options and canonical FFP input"
+  },
+  "guestValidationReused": "4D2i2a: no guest production code changed; 106 C suites, three x87 precisions, real XP typed COM and three-API TNL, six DLLs",
+  "checks": [
+    "one input-kind mapping, WGSL parameter type, float4 extension, ARGB ordering and 10-bit unpack helper serve both shader paths",
+    "fixed-function canonical float4 locals cover position, normal, color, texture and point size",
+    "blend index/weight normalization rules are preserved without double swizzles",
+    "conversion kinds participate in module keys while ordinary data values do not; conversion descriptions are allocated only when needed",
+    "existing programmable option combinations and canonical FFP emitted WGSL remain byte-identical",
+    "85 actual executor scenes compare typed input to independently decoded float4 values on both backends, max pixel byte error zero",
+    "six real GPU semantic mutants plus the previous-source baseline are detected, exact source restoration verified",
+    "updated host bundle and site cache revision pass integration"
+  ],
+  "scope": "Actual typed vertex-fetch and fixed-function rendering. CPU float colors, typed output, multiple streams/programmed ProcessVertices, native D3D8/9, complete Wine and game acceptance continue.",
+  "coreSha256": {
+    "Makefile": "4e8d4dbcf9c1e94477d3e9e3550298afebb1c46fc480f41d674a6a56b79b9d58",
+    "docs/d3d-webgpu-review.md": "c6aba696cf35cbced6da758c36af91e965e166b096a4ca9d5736be994c158cd4",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "facad5d0bf66e982361f513dd7b6db74fc460fd92d162470fcb8d132f84aac71",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "3ce03eccf86b43e244e8668c494920204f15c68da893e27ee5b43f75821f2ae4",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "c411f50a4621113426b29b6bd34e5206f974da8b28d66aa39f38b230ae604106",
+    "tests/glbridge/d3d_fixed_vertex_formats_browser_test.html": "b03c15c31491cc64b1d600420e29c9f7e78769203c862524cb73ac3a9e643a38",
+    "tests/glbridge/d3d_typed_input_mutations.mjs": "9d4a0eaeca984f7433e6c079c9b1cf6a1780ad520667628e6cab7a48d3e2920e",
+    "tests/glbridge/fixtures/d3d_vertex_formats_cpu.json": "47e189f549b955658394bf73d18e0e9cf54fea81d42333425670023e5fb6d6fb"
+  },
+  "siteSha256": {
+    "game.html": "c0a88fd501c10d94f7df8c7b7983e6ff7da46a1f4a24729a9ba187385b861f30",
+    "vendor/v86/glbridge/d3d9_shader_pipeline.js": "5eeb13f09986df5f11631a4b3d3b2aecada8f18a13bec315370fda9a2622f095",
+    "vendor/v86/glbridge/d3d9_shader_worker.js": "fad924f15f24a859db9adca6135af24f8a2dc4c7a73bad08c0e0cf31bb95c44b",
+    "vendor/v86/glbridge/d9wg_diagnostics.js": "6602bbb140d1b0aaaf7d97e8032c8b6f5fc364eb4ed677916fc205b1a6a4fad1",
+    "vendor/v86/glbridge/graphics_journal_worker.js": "bae58a946f4aa117e93a9816130ba3af77ce2c09a1188259e106bcda713db0a7",
+    "vendor/v86/glbridge/libv86-webgpu.js": "4726c0398add5575e55951a858c51f418b290fa4b7281ef515b8f9854f470e5a",
+    "vendor/v86/glbridge/manifest.json": "fc67ca95f62452d90ebda7b1c4da4e3bf79c4e09943e4c8468dfe80ba47d9457",
+    "vendor/v86/glbridge/v86gl-device.js": "51a9c8fa72ea2db82ed3842766682007007e6afa99332601dde3e58c9d017515"
+  },
+  "logs": {
+    "d3d-i2b-mutations-final.log": "5ef09244a8e4a456cb77d4050e9f71cb81e3230a2ae15c3f0c89df8341e32ad7",
+    "d3d-i2b-compat.log": "101d0df3968c54a24cd7ced2b33c766d0c3a47c5683150c4662fd1c076f4d484",
+    "d3d-i2b-build.log": "8044e264b7ed13cccba2687bf5c7b9e26e548adc898b4fd4f78e1290cd323f64",
+    "d3d-i2b-sync.log": "d4162d56ffbef20716d2faa206066ae33f44ce570a28a9225146a096c3409985",
+    "d3d-i2b-core-final.log": "869ac9ae0e2cfeb3b03ab7634a04cdfb6143d8c300426830fac1f92e6db9e746",
+    "d3d-i2b-gpu-final.log": "8949d16a319cfe8bba0f064771d46b75341be97e24d3f0fae40ff86d3d10a3e4",
+    "d3d-i2b-metal-final.log": "fbab6074f023aff2b48071e88cb0600b2c3c68b24b2b99d76ca0e3f7f2e2ccbc",
+    "d3d-i2b-integration.log": "daf8acb68e327d320990579908dd1ee202b547efac26d4bb852c3d642749c62c",
+    "d3d-i2b-lint.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

@@ -1,0 +1,78 @@
+<!doctype html><meta charset="utf-8"><title>D9WG fixed-function typed attribute differential</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async () => {
+    const P=D9WGProtocol,C=P.C,suite=D3D9Conformance,{cmd,rs,tss,cat,element}=suite.builders;
+    const gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false});
+    try {
+        const fixture=await fetch("fixtures/d3d_vertex_formats_cpu.json").then(r=>r.json()),scenes=[];
+        const identity=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+        const decode=bits=>new Float32Array(new Uint32Array(bits).buffer);
+        const bits=value=>new Uint32Array(new Float32Array([value]).buffer)[0];
+        async function render(type,role,row,canonical,index) {
+            const decoded=decode(row.expected),position=role==="position",point=position||role==="size",stride=(position?0:12)+(canonical?16:row.bytes.length),vertices=point?1:3;
+            const data=new Uint8Array(stride*vertices),view=new DataView(data.buffer),positions=[[-1,-1,.5],[3,-1,.5],[-1,3,.5]];
+            for(let v=0;v<vertices;++v){
+                if(!position)(role==="size"?[0,0,.5]:positions[v]).forEach((n,c)=>view.setFloat32(v*stride+c*4,n,true));
+                data.set(canonical?new Uint8Array(decoded.buffer):row.bytes,v*stride+(position?0:12));
+            }
+            const world=identity.slice();if(position){world[12]=-decoded[0]/decoded[3];world[13]=-decoded[1]/decoded[3];world[14]=.5-decoded[2]/decoded[3];}
+            const body=dev=>{
+                const usage=position?0:role==="color"?10:role==="normal"?3:role==="size"?4:5;
+                const elements=position?[element(0,canonical?3:type,0)]:[element(0,2,0),element(12,canonical?3:type,usage)];
+                const commands=[rs(dev,7,0),rs(dev,22,1),rs(dev,137,role==="normal"?1:0),rs(dev,141,0),rs(dev,143,0),rs(dev,29,0),
+                    rs(dev,154,bits(5)),rs(dev,155,bits(1)),rs(dev,166,bits(64)),rs(dev,157,0),
+                    cmd(P.OP.SET_TRANSFORM,P.encode("SetTransform",{device_handle:dev,state:256,matrix:world})),
+                    cmd(P.OP.SET_TRANSFORM,P.encode("SetTransform",{device_handle:dev,state:2,matrix:identity})),
+                    cmd(P.OP.SET_TRANSFORM,P.encode("SetTransform",{device_handle:dev,state:3,matrix:identity})),
+                    tss(dev,0,1,2),tss(dev,0,2,role==="texture"?2:0),tss(dev,0,4,2),tss(dev,0,5,role==="texture"?2:0),
+                    cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,element_count:elements.length}),...elements]))];
+                if(role==="normal")commands.push(
+                    cmd(P.OP.SET_MATERIAL,P.encode("SetMaterial",{device_handle:dev,diffuse:[1,1,1,1],ambient:[0,0,0,0],specular:[0,0,0,0],emissive:[0,0,0,0],power:0})),
+                    cmd(P.OP.SET_LIGHT,P.encode("SetLight",{device_handle:dev,index:0,type:3,diffuse:[1,1,1,1],specular:[0,0,0,0],ambient:[0,0,0,0],position:[0,0,0],direction:[0,0,-1],range:100,falloff:1,attenuation:[1,0,0],theta:0,phi:0})),
+                    cmd(P.OP.LIGHT_ENABLE,P.encode("LightEnable",{device_handle:dev,index:0,enable:1})));
+                if(role==="texture"){
+                    const texture=0x600000+dev,texels=new Uint8Array([32,64,255,255,128,16,64,255,255,128,16,255,64,255,128,255]);
+                    commands.push(cmd(P.OP.CREATE_TEXTURE_2D,P.encode("CreateTexture2D",{device_handle:dev,resource_handle:texture,width:2,height:2,level_count:1,format:21,usage:0,pool:0,multisample_type:0,multisample_quality:0})),
+                        cmd(P.OP.UPDATE_TEXTURE,P.encode("UpdateTexture",{resource_handle:texture,level:0,width:2,height:2,depth:1,row_pitch:8,data_bytes:16}),[{offsetField:"data_offset",data:texels}]),
+                        cmd(P.OP.SET_TEXTURE,P.encode("SetTexture",{device_handle:dev,stage:0,texture_handle:texture})),tss(dev,0,11,0),tss(dev,0,24,0));
+                    for(const [state,value] of [[1,3],[2,3],[5,1],[6,1],[7,0]])commands.push(cmd(P.OP.SET_SAMPLER_STATE,P.encode("SetSamplerState",{device_handle:dev,sampler:0,state,value})));
+                }
+                commands.push(cmd(P.OP.DRAW_PRIMITIVE_UP,P.encode("DrawPrimitiveUP",{device_handle:dev,primitive_type:point?1:4,primitive_count:1,stride,vertex_count:vertices,vertex_bytes:data.length}),[{offsetField:"vertex_data_offset",data}]));return commands;
+            };
+            const batch=suite.caseBatch(index,{clear:0xff101010,body});await gpu.submit(batch.bytes,{writeGuestMemory(){}});
+            let reply;await gpu.submit(suite.readbackBatch(index+1,batch.dev,batch.rt),{writeGuestMemory(offset,bytes){if(offset===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET)reply=bytes.slice();}});
+            await gpu.checkpointIdle();if(!reply||reply.length!==16400||new DataView(reply.buffer).getUint32(P.F.ReadbackResponse.status,true)!==C.D9WG_RESPONSE_OK)throw Error("Missing format pixel readback");return reply.subarray(16);
+        }
+        for(const role of ["color","normal","texture","position","size"])for(let type=0;type<17;++type){
+            const rows=fixture.cases.filter(r=>r.type===type),row=role==="position"?rows.slice(4).find(r=>{const v=decode(r.expected);return [...v].every(Number.isFinite)&&v[3]>=.25;}):rows.slice(4).find(r=>[...decode(r.expected)].every(Number.isFinite));
+            if(!row)throw Error("No finite case for type "+type);
+            const index=scenes.length*2,actual=await render(type,role,row,false,index),expected=await render(type,role,row,true,index+1);
+            let differingPixels=0,maximumByteError=0,coveredPixels=0;
+            for(let i=0;i<actual.length;i+=4){let delta=0;for(let c=0;c<4;++c)delta=Math.max(delta,Math.abs(actual[i+c]-expected[i+c]));maximumByteError=Math.max(maximumByteError,delta);if(delta>1)differingPixels++;if(actual[i]!==16||actual[i+1]!==16||actual[i+2]!==16||actual[i+3]!==255)coveredPixels++;}
+            scenes.push({role,type,differingPixels,maximumByteError,coveredPixels});
+        }
+        await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;++i)await new Promise(r=>setTimeout(r,0));
+        const evidence={formatSourceSha256:fixture.sourceSha256,scenes,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};
+        await fetch("/__test_file?name=d9wg-fixed-vertex-formats.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+        const failures=scenes.filter(s=>s.differingPixels||s.coveredPixels<(s.role==="position"?4:s.role==="size"?1:500));
+        if(failures.length||gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.droppedDraws)throw Error("Typed fixed-function mismatch "+JSON.stringify({failures,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors}));
+        document.querySelector("#result").textContent="PASS actual fixed-function typed attributes: "+scenes.length+" color/normal/texture/position/size scenes, "+scenes.length*4096+" pixel pairs within 1 byte/channel";
+    }catch(error){document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>
