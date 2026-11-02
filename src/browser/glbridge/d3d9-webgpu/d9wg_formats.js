@@ -57,6 +57,75 @@
     const D3DFMT_INDEX16 = 101;
     const D3DFMT_INDEX32 = 102;
 
+    // Native SDK storage geometry; apis bits preserve the frontend layout
+    // entry points (7=bit0, 8=bit1, 9=bit2), independently of GPU capability.
+    // [format, block width, block height, bytes/block, apis, legacy depth].
+    const FORMAT_LAYOUT_ROWS = Object.freeze([
+        Object.freeze([D3DFMT_R8G8B8, 1, 1, 3, 7, 0]),
+        Object.freeze([D3DFMT_A8R8G8B8, 1, 1, 4, 7, 0]),
+        Object.freeze([D3DFMT_X8R8G8B8, 1, 1, 4, 7, 0]),
+        Object.freeze([D3DFMT_R5G6B5, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_X1R5G5B5, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_A1R5G5B5, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_A4R4G4B4, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_R3G3B2, 1, 1, 1, 7, 0]),
+        Object.freeze([D3DFMT_A8, 1, 1, 1, 7, 0]),
+        Object.freeze([D3DFMT_A8R3G3B2, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_X4R4G4B4, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_A2B10G10R10, 1, 1, 4, 6, 0]),
+        Object.freeze([D3DFMT_A8B8G8R8, 1, 1, 4, 4, 0]),
+        Object.freeze([D3DFMT_X8B8G8R8, 1, 1, 4, 4, 0]),
+        Object.freeze([D3DFMT_G16R16, 1, 1, 4, 6, 0]),
+        Object.freeze([D3DFMT_A2R10G10B10, 1, 1, 4, 4, 0]),
+        Object.freeze([D3DFMT_A16B16G16R16, 1, 1, 8, 4, 0]),
+        Object.freeze([D3DFMT_A8P8, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_P8, 1, 1, 1, 7, 0]),
+        Object.freeze([D3DFMT_L8, 1, 1, 1, 7, 0]),
+        Object.freeze([D3DFMT_A8L8, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_A4L4, 1, 1, 1, 6, 0]),
+        Object.freeze([D3DFMT_V8U8, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_L6V5U5, 1, 1, 2, 7, 0]),
+        Object.freeze([D3DFMT_X8L8V8U8, 1, 1, 4, 7, 0]),
+        Object.freeze([D3DFMT_Q8W8V8U8, 1, 1, 4, 6, 0]),
+        Object.freeze([D3DFMT_V16U16, 1, 1, 4, 6, 0]),
+        Object.freeze([D3DFMT_W11V11U10, 1, 1, 4, 2, 0]),
+        Object.freeze([D3DFMT_A2W10V10U10, 1, 1, 4, 6, 0]),
+        Object.freeze([70, 1, 1, 2, 0, 1]),
+        Object.freeze([71, 1, 1, 4, 1, 1]),
+        Object.freeze([73, 1, 1, 2, 1, 1]),
+        Object.freeze([75, 1, 1, 4, 1, 1]),
+        Object.freeze([77, 1, 1, 4, 1, 1]),
+        Object.freeze([79, 1, 1, 4, 1, 1]),
+        Object.freeze([80, 1, 1, 2, 1, 1]),
+        Object.freeze([D3DFMT_L16, 1, 1, 2, 4, 0]),
+        Object.freeze([D3DFMT_INDEX16, 1, 1, 2, 2, 0]),
+        Object.freeze([D3DFMT_INDEX32, 1, 1, 4, 2, 0]),
+        Object.freeze([D3DFMT_Q16W16V16U16, 1, 1, 8, 4, 0]),
+        Object.freeze([D3DFMT_R16F, 1, 1, 2, 4, 0]),
+        Object.freeze([D3DFMT_G16R16F, 1, 1, 4, 4, 0]),
+        Object.freeze([D3DFMT_A16B16G16R16F, 1, 1, 8, 4, 0]),
+        Object.freeze([D3DFMT_R32F, 1, 1, 4, 4, 0]),
+        Object.freeze([D3DFMT_G32R32F, 1, 1, 8, 4, 0]),
+        Object.freeze([D3DFMT_A32B32G32R32F, 1, 1, 16, 4, 0]),
+        Object.freeze([D3DFMT_CxV8U8, 1, 1, 2, 4, 0]),
+        Object.freeze([D3DFMT_ATI1N, 4, 4, 8, 4, 0]),
+        Object.freeze([D3DFMT_DXT1, 4, 4, 8, 7, 0]),
+        Object.freeze([D3DFMT_ATI2N, 4, 4, 16, 4, 0]),
+        Object.freeze([D3DFMT_DXT2, 4, 4, 16, 7, 0]),
+        Object.freeze([D3DFMT_YUY2, 2, 1, 4, 6, 0]),
+        Object.freeze([D3DFMT_DXT3, 4, 4, 16, 7, 0]),
+        Object.freeze([D3DFMT_DXT4, 4, 4, 16, 7, 0]),
+        Object.freeze([D3DFMT_DXT5, 4, 4, 16, 7, 0]),
+        Object.freeze([D3DFMT_G8R8_G8B8, 2, 1, 4, 4, 0]),
+        Object.freeze([D3DFMT_R8G8_B8G8, 2, 1, 4, 4, 0]),
+        Object.freeze([D3DFMT_UYVY, 2, 1, 4, 6, 0]),
+    ]);
+    const FORMAT_LAYOUTS = new Map(FORMAT_LAYOUT_ROWS.map(row => [row[0], row]));
+    function formatLayout(format, api) {
+        const row = FORMAT_LAYOUTS.get(format);
+        return row && (api === undefined || (api >= 7 && api <= 9 && (row[4] & (1 << (api - 7))))) ? row : null;
+    }
+
     function srgbSiblingOf(gpuFormat) {
         return {
             "bgra8unorm": "bgra8unorm-srgb",
@@ -68,14 +137,13 @@
     }
 
     function isCompressedFormat(format) {
-        return format === D3DFMT_DXT1 || format === D3DFMT_DXT2 ||
-            format === D3DFMT_DXT3 || format === D3DFMT_DXT4 ||
-            format === D3DFMT_DXT5 ||
-            format === D3DFMT_ATI1N || format === D3DFMT_ATI2N;
+        const row = formatLayout(format);
+        return !!row && row[2] === 4;
     }
 
     function compressedBlockBytes(format) {
-        return (format === D3DFMT_DXT1 || format === D3DFMT_ATI1N) ? 8 : 16;
+        const row = formatLayout(format);
+        return row && row[2] === 4 ? row[3] : 0;
     }
 
     function blockAlignedCopyExtent(size, compressed) {
@@ -846,6 +914,8 @@
         D3DFMT_DXT5,
         D3DFMT_INDEX16,
         D3DFMT_INDEX32,
+        FORMAT_LAYOUT_ROWS,
+        formatLayout,
         srgbSiblingOf,
         isCompressedFormat,
         compressedBlockBytes,

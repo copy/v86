@@ -1498,6 +1498,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 独立 64×64 深度图以半边失败/半边通过定义比较结果；指定 UV=32.25/64，POINT 必须为 1、线性 PCF 为 0.75，分别用 UV 导数选择放大/缩小。默认值及四种 MAG/MIN 组合共十个场景，加上两个零常量场景：修复前八个像素失败，修复后 SwiftShader/Metal 各 12/12；四种常量/POINT/MIN/缓存语义变异全部被像素拦截。
 > - 153 组核心、完整 WebGPU 36 次运行及 Metal 全部 349 场景通过，两项站点集成通过；缓存和带边界保护的 RGBA uniform 单测通过。此为宿主修改，客体源/DLL 沿用 4E3 已验字节。运行包 `c3ca1373a9dc431a030d` 已同步站点，见 [stage4e4-validation.json](fixtures/d3d-review/stage4e4-validation.json)。接着共用格式表与真实后端能力查询，阶段 4/5/6 继续。
 
+
+> **阶段 4F1（2026-11-03）：共用 SDK 格式/块布局与溢出安全的 mip 计算完成。**
+> - `d9wg_formats.js` 统一 58 种原生像素/块几何，生成 SDK 无关的 `d9wg_format_layouts.h`。D3D8/9 的布局及 mip 行计算、DDraw 的像素/压缩块大小和旧深度分类均接入该表；保留原有 29/34/48 个前端布局范围。宿主 BCn 分类和块大小也读取此表。布局掩码只是兼容范围，不作为过滤/混合能力宣称。
+> - 共享 mip 计算使用商与余数求块数，避免 `UINT32_MAX + block - 1` 回绕，并在行步长/总字节溢出时原子失败。独立 SDK 几何、冻结的旧范围、实际三个前端函数和 BigInt 数学参考检查 58 行及 1,160 个尺寸/边界组合；10/10 C 语义变异、ASan/UBSan、生成文件一致性检查通过。
+> - XP 实际 D3D8/9 对 34/48 种格式分别创建纹理、检查四级 mip 描述与 LockRect 步长，再只读锁定逐字节复查，共 82 张纹理、328 层、19,548 字节。捕获的真实 UPDATE_TEXTURE 逐字节一致；每层只上传一次，只读解锁没有额外上传。线协议检查器会拒绝错字节、错 pitch 和缺层；三 API T&L/录制回归通过。
+> - 156 组核心、144 组客体、36 个既有 SDK 冒烟 EXE 与两个新探针、六个严格零售/诊断 DLL、两项集成和完整 WebGPU 36 次运行通过，Metal 全部 349 场景通过。运行包 `d765137eda37adc53ad7` 已同步；发布的 D3D8/9 为格式探针原 DLL，DDraw 为 T&L 探针原 DLL。见 [stage4f1-validation.json](fixtures/d3d-review/stage4f1-validation.json)。继续运行时特性协商及查询谓词；未宣称 S2-32、D3D8 包装或阶段 4/5/6 已完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
