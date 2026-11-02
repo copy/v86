@@ -1181,6 +1181,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 宿主 100,000 组三角形解析/重心检查；XP 三种 x87 精度共 60,000 组，并执行缓冲和绘制检查及全部前序数值验证，117 秒、控制字保持。三个 API 的原有 COM 回归另用 115 秒通过，6 批、三个 owner 完整释放。裁剪变异 6/6、管线变异 8/8、前序顶点 9/9、混合 6/6 均检出。
 > - 134 组核心、96 组客体、两项站点集成、35 个冒烟 EXE、六个 DLL 严格构建、327 项一致性与预算模式及全部前序 GPU 回归通过。宿主包仍为 `46b300fb4065049393df`；见 [stage4d2h3a-validation.json](fixtures/d3d-review/stage4d2h3a-validation.json)。接下来把相同缓冲/绘制核心接入 D3D8/9，继续用户平面、布局、可编程处理及完整 Wine/游戏验收。
 
+> **阶段 4D2h3b（2026-11-02）：D3D8/9 的处理缓冲裁剪接入完成。**
+>
+> - D3D8/9 现在在 `ProcessVertices` 开启 CLIPPING 时保留缓冲内部记录，普通及索引绘制共用已有齐次裁剪核；处理后改变 CLIPPING 不会丢失原记录。覆盖非零源/目标顶点、D3D9 流偏移和 POSITIONT 不在首位的输出声明。DISCARD/释放清理记录，D3D8 同缓冲输入先快照。
+> - 裁剪后的内部命令保留应用的 VB/IB 绑定；共享 Windows 工作区分配也用于 D3D7。索引范围同时检查 MinVertexIndex、上界和实际有符号基顶点；D3D8 验证 16/32 位索引。guard band 全零时按视口边界处理，不把它当成四个零坐标。
+> - **真实 XP D3D8 88 秒、D3D9 122 秒，各 37 批、36 次 COM 绘制**。每 API 六个几何场景及六种调用路径；SwiftShader/Metal 每 API、每后端 **491,520 对像素**，全部在预设 1 字节容差内，绑定检查通过。公共回放已清除无关系统光标/纹理像素及诊断文本，并纳入完整 GPU 目标。
+> - 135 组核心、96 组客体、两项站点集成、35 个冒烟 EXE、六个 DLL 严格构建、23 个 GPU 页及适配器检查通过；327 项一致性的普通、uniform 溢出和小上传预算模式均通过。XP 三种 x87 精度重新执行全部前序数学及 60,000 组三角形、缓冲/绘制检查，另复跑三个 API 的 COM 数值回归。裁剪管线变异 **9/9**，包括低于 MinVertexIndex 的索引。
+> - 宿主包仍为 `46b300fb4065049393df`；见 [stage4d2h3b-validation.json](fixtures/d3d-review/stage4d2h3b-validation.json)。系统原生参考仍来自独立 D3D7 测量，本次不宣称 Microsoft D3D8/9、完整 Wine 或游戏等价；继续用户裁剪平面、通用布局和可编程顶点处理。直接零 W 插值的后端差异继续单列诊断。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -20,10 +20,11 @@
     const P = D9WGProtocol, C = P.C, pictures = [], scenes = [];
     const gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), { strict: true, shaderWorkerUrl: null });
     try {
-        const params = new URLSearchParams(location.search), capture = params.get("capture");
+        const params = new URLSearchParams(location.search), capture = params.get("capture"), api = params.get("api") || "7";
+        if (!["7", "8", "9"].includes(api)) throw new Error("Invalid API fixture");
         if (capture && !/^[a-z0-9_-]+$/.test(capture)) throw new Error("Invalid capture directory");
         const response = await fetch(capture ? "/build/d3d-review/" + capture + "/graphics.bin" :
-            "fixtures/d3d7_processed_clip_xp.bin.gz");
+            "fixtures/d3d" + api + "_processed_clip_xp.bin.gz");
         if (!response.ok) throw new Error("Missing XP graphics capture");
         const bytes = new Uint8Array(capture ? await response.arrayBuffer() :
             await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());
@@ -59,7 +60,7 @@
         await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
         for (let i = 0; i < 4; i++) await new Promise(resolve => setTimeout(resolve, 0));
         const modes = pictures.length/6;
-        if (modes !== 2 && modes !== 3) throw new Error("Expected twelve or eighteen actual COM draw results, got " + pictures.length);
+        if (![2, 3, 6].includes(modes)) throw new Error("Expected twelve, eighteen or thirty-six actual COM draw results, got " + pictures.length);
         gpu.dispatchCommand = dispatch;
         // W=0 interpolation differs between GPU backends before clipping.
         // Use the independently derived, positive-W polygon as this scene's
@@ -113,7 +114,7 @@
                 const covered = picture => picture[pixel] !== 0x30 || picture[pixel+1] !== 0x20 || picture[pixel+2] !== 0x10;
                 directCoverage += covered(direct);processedCoverage += covered(processed);
             }
-            scenes.push({ scene, indexed: mode === 2, reference: scene === 4 ? "independent positive-W polygon" : "actual direct COM draw",
+            scenes.push({ scene, mode, indexed: mode === 2 || mode === 3, reference: scene === 4 ? "independent positive-W polygon" : "actual direct COM draw",
                 differingPixels, maximumByteError, directCoverage, processedCoverage });
         }
         const evidence = { batches, tolerance: 1, scenes, zeroWDirectMismatch, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors,

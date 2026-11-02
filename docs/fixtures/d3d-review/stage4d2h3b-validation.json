@@ -1,0 +1,1504 @@
+{
+  "stage": "4D2h3b shared processed-buffer clipping for D3D8/9",
+  "date": "2026-11-02",
+  "bundle": "46b300fb4065049393df",
+  "coreSuites": 135,
+  "guestSuites": 96,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "xp": {
+    "d3d8": {
+      "status": "PASS",
+      "seconds": 88,
+      "batches": 37,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "artifacts": {
+        "graphics.bin": {
+          "bytes": 22084,
+          "crc32": "75eeb816"
+        }
+      }
+    },
+    "d3d9": {
+      "status": "PASS",
+      "seconds": 122,
+      "batches": 37,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "artifacts": {
+        "graphics.bin": {
+          "bytes": 30140,
+          "crc32": "0ba0f939"
+        }
+      }
+    },
+    "math": {
+      "status": "PASS",
+      "seconds": 114,
+      "batches": 0,
+      "owners": [],
+      "releases": []
+    },
+    "tnl": {
+      "status": "PASS",
+      "seconds": 107,
+      "batches": 6,
+      "owners": [
+        1,
+        2,
+        3
+      ],
+      "releases": [
+        1,
+        2,
+        3
+      ]
+    }
+  },
+  "gpuBackends": {
+    "d3d8": {
+      "swift": {
+        "batches": 37,
+        "tolerance": 1,
+        "scenes": [
+          {
+            "scene": 0,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 3,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 3,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 3,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 3,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 3,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 4,
+            "mode": 1,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 4,
+            "mode": 2,
+            "indexed": true,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 4,
+            "mode": 3,
+            "indexed": true,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 4,
+            "mode": 4,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 4,
+            "mode": 5,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 5,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          }
+        ],
+        "zeroWDirectMismatch": 3277,
+        "gpuErrors": [],
+        "hostErrors": [],
+        "droppedDraws": 0,
+        "commandsFailed": 0
+      },
+      "metal": {
+        "batches": 37,
+        "tolerance": 1,
+        "scenes": [
+          {
+            "scene": 0,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 3,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 3,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 3,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 3,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 3,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 4,
+            "mode": 1,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 4,
+            "mode": 2,
+            "indexed": true,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 4,
+            "mode": 3,
+            "indexed": true,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 4,
+            "mode": 4,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 4,
+            "mode": 5,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 5,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          }
+        ],
+        "zeroWDirectMismatch": 0,
+        "gpuErrors": [],
+        "hostErrors": [],
+        "droppedDraws": 0,
+        "commandsFailed": 0
+      }
+    },
+    "d3d9": {
+      "swift": {
+        "batches": 37,
+        "tolerance": 1,
+        "scenes": [
+          {
+            "scene": 0,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 3,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 3,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 3,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 3,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 3,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 954,
+            "processedCoverage": 954
+          },
+          {
+            "scene": 4,
+            "mode": 1,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 4,
+            "mode": 2,
+            "indexed": true,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 4,
+            "mode": 3,
+            "indexed": true,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 4,
+            "mode": 4,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 4,
+            "mode": 5,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3277,
+            "processedCoverage": 3277
+          },
+          {
+            "scene": 5,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          }
+        ],
+        "zeroWDirectMismatch": 3277,
+        "gpuErrors": [],
+        "hostErrors": [],
+        "droppedDraws": 0,
+        "commandsFailed": 0
+      },
+      "metal": {
+        "batches": 37,
+        "tolerance": 1,
+        "scenes": [
+          {
+            "scene": 0,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 0,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 1,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 2,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 1901,
+            "processedCoverage": 1901
+          },
+          {
+            "scene": 3,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 3,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 3,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 3,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 3,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 953,
+            "processedCoverage": 953
+          },
+          {
+            "scene": 4,
+            "mode": 1,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 4,
+            "mode": 2,
+            "indexed": true,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 4,
+            "mode": 3,
+            "indexed": true,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 4,
+            "mode": 4,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 4,
+            "mode": 5,
+            "indexed": false,
+            "reference": "independent positive-W polygon",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 3264,
+            "processedCoverage": 3264
+          },
+          {
+            "scene": 5,
+            "mode": 1,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 2,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 3,
+            "indexed": true,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 4,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          },
+          {
+            "scene": 5,
+            "mode": 5,
+            "indexed": false,
+            "reference": "actual direct COM draw",
+            "differingPixels": 0,
+            "maximumByteError": 1,
+            "directCoverage": 4150,
+            "processedCoverage": 4150
+          }
+        ],
+        "zeroWDirectMismatch": 0,
+        "gpuErrors": [],
+        "hostErrors": [],
+        "droppedDraws": 0,
+        "commandsFailed": 0
+      }
+    }
+  },
+  "fullGpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS required WebGPU adapter: google swiftshader  "
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 18 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    }
+  ],
+  "primitiveMath": {
+    "nativeRandomTriangles": 100000,
+    "xpRandomTriangles": 60000,
+    "controlWords": [
+      "007f",
+      "027f",
+      "037f"
+    ],
+    "clipPipelineMutations": {
+      "killed": 9,
+      "total": 9
+    }
+  },
+  "pixelComparisonsPerApiPerBackend": 491520,
+  "checks": [
+    "D3D8 and D3D9 retain per-buffer processed clip records when CLIPPING is enabled during ProcessVertices",
+    "ordinary and indexed draws share the existing homogeneous clipping kernel; draw-time CLIPPING changes do not discard processing records",
+    "byte-addressed positions preserve nonzero source/destination indices, D3D9 source/draw stream offsets and output declaration POSITIONT offsets",
+    "indexed draws validate MinVertexIndex as well as the upper bound, signed D3D9 base indices and nonzero StartIndex; D3D8 exercises 16/32-bit indices",
+    "internal draw emission preserves application VB/IB bindings across successive calls",
+    "shared Windows scratch allocation replaces D3D7-only allocation; DISCARD and VB release free processing records",
+    "zero guard-band caps select viewport boundaries; D3D9 permissive advertised guard bands still use caps",
+    "D3D8 snapshots aliased ProcessVertices input, matching the existing D3D9 rule",
+    "public traces contain only procedural draw data; unrelated cursor/texture bytes and diagnostic text are zeroed"
+  ],
+  "scope": "Frustum clipping integration for supported fixed-function, single-stream processed layouts in D3D7/8/9. The original Microsoft D3D7 storage/raster reference remains independent; this stage does not claim native Microsoft D3D8/9 or full Wine/game equivalence. User planes, general packed/output/multistream layouts and programmable processing continue next. Raw direct zero-W backend interpolation remains diagnostic.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-processvertices",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/viewports-and-clipping",
+    "https://learn.microsoft.com/en-us/previous-versions/ms889708(v=msdn.10)"
+  ],
+  "siteSha256": {
+    "glbridge/runtime/d9wg_clip_draw.c": "732e772f850e0ef7407db8abf8fa4b53c951ef43b47197dfbc685badda0b9b3f",
+    "glbridge/runtime/d9wg_clip_draw.h": "c9eb7b4ba9c3cb01517873f5c649dbacc2349e510093ea676173bbe63930a7ae",
+    "glbridge/runtime/d9wg_vertex_windows.h": "010f034442455a09f3eb3d0241360dfcc18e25412f937d33664cb55659276399",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "175331284aca1ed5e8d13039ff2a42899de363d517a9e976f0c21075eba4552a",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "618885abc1488a5853d8156dad0ed407e65a7b87dfd714e3c61dfe0c488734e1",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "d32e4583e3d98780f57fbdf3e23304e420d33d5b71d67e4bc1778fdf97d00d48",
+    "glbridge/sample/d3d_processed_clip_draw_test.c": "fda5207917819d436cf8fccb4ee119529b73046fd7a1bb996d0973784577e1cd",
+    "glbridge/sample/d3d_process_lighting_test.c": "cc637cd2a36abe4422c5e2719ae4f8e316947bc8123740b95fa5e5c3d598cfa1",
+    "glbridge/tests/d3d8_protocol_consistency_test.js": "ab5900dccce48771b4b56ca15fed909641fe8c62bfbe8d084822ab80c7e1ca65",
+    "glbridge/tests/d9wg_clip_pipeline_mutation_test.js": "7695c56d7b9fc013ab4eba005bad44685400b09334784e0dafef7c2af38318b1",
+    "glbridge/tests/native/d9wg_clip_draw_cases.h": "49ce51ce3e9baad4ffd49a3da6ae163f12ab2e4939f5695340bfe768d8b68909",
+    "glbridge/d3d8proxy/d3d8.dll": "6ba7bf71e9cd0e97625d8a8674c6f758771caa9de7cea849b5bac34e44d674ee",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "fe00498f26043b815b3fc7d072842223bfe8de50dc48bd805f5cf89a2ac8b5ee",
+    "glbridge/d3d9proxy/d3d9.dll": "050daa62eb55754c42aa4e74c46e34f89aea3c406f1cb91681eefb2481e8e063",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "bd5b56115c522e49f02e16b51b87396732fac55d9afd2595882ad28a2b27bc8a",
+    "glbridge/ddrawproxy/ddraw.dll": "d25803dd1fe404badac258b3454093b7b6fe901f76a65fed7ffcf234a3d2a620",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "7a5ba9acc96054e25e370a6956cef71a859757071f7740c8bc680ef13828bf8e"
+  },
+  "coreSha256": {
+    "Makefile": "be3f7d25ee2c75dd7f6e98b4debd854514a8fa846c3e9822192d17c8b2d87da7",
+    "tests/glbridge/d3d_processed_clip_draw_xp.mjs": "3d37f0e7ba8e16cdb72211fe6747ee73c76a12459a28a2ebd4c5e8888342e6c1",
+    "tests/glbridge/d3d_processed_clip_trace_fixture_test.js": "2c96fc5bf0fabc7c51ca81d292f27f698abfdb10ef1dc83a8c0b11435b45274c",
+    "tests/glbridge/d3d7_clip_draw_replay_browser_test.html": "9bcd286d09bcb4494a871a43d886cad4879503be8783e4bfce1ce8f29f03ae63",
+    "tools/d3d_clip_trace_fixture.mjs": "111285d609762a229b4f06b430e9150e2253bb19428e2fae7fb7b931e9f1b95b",
+    "tests/glbridge/fixtures/d3d8_processed_clip_xp.bin.gz": "773f0071b34603b7f337cb1b534d05ca518b50eec17d459fd1c8200f7309f2fc",
+    "tests/glbridge/fixtures/d3d8_processed_clip_xp.json": "af4809c15b43fbbbbe3d44398870d70807990743fecda3a21434a88764458269",
+    "tests/glbridge/fixtures/d3d9_processed_clip_xp.bin.gz": "81dcd79792efcd621926b53d3322f1b293044b661774023d32f5c21fc3940548",
+    "tests/glbridge/fixtures/d3d9_processed_clip_xp.json": "57170d9e6e52e6d7e3ec9291bfcbbdf0cb50e12e5f1ada0d056e5d85ccc01863"
+  },
+  "logs": {
+    "d3d-h3b-api8-metal.log": "fc3b7a2d1fbab0e25cecedb9c23b432aad4680a037ca5e0a2276b99f41ec6e02",
+    "d3d-h3b-api8-swift-final.log": "fc3b7a2d1fbab0e25cecedb9c23b432aad4680a037ca5e0a2276b99f41ec6e02",
+    "d3d-h3b-api8-swift.log": "a590ba9097dc14379422727b4ce7ea1f44d6892c56a3eb0c534e131aa9786af6",
+    "d3d-h3b-api9-metal.log": "fc3b7a2d1fbab0e25cecedb9c23b432aad4680a037ca5e0a2276b99f41ec6e02",
+    "d3d-h3b-api9-swift-final.log": "fc3b7a2d1fbab0e25cecedb9c23b432aad4680a037ca5e0a2276b99f41ec6e02",
+    "d3d-h3b-api9-swift.log": "27b71c94ed9fbdcf7bfa16420d3bfd15a3e070898035b31fd9dd86f40e195ef6",
+    "d3d-h3b-build-complete.log": "b4a8098afb21012b957b7ce7756b086aed3e683df734903e4da97432e52d3d8e",
+    "d3d-h3b-build8.log": "1747b1c9ee884ad6a278a7cbdc0d5b6be2a59216133b0676c895aa3f4128ecab",
+    "d3d-h3b-build9.log": "833b281cc4610ee642c5ff37dcd165bc391721f468ddf14a162fa6a734225a2a",
+    "d3d-h3b-bundle.log": "d0364c8b5d06e3c7291b488427d50619fd0d5a92f9cc193bb43ec2563d90e696",
+    "d3d-h3b-core-final.log": "4045d02d061db0d8e3f344dd39fbf9202164a81be12a2bf611f4ef84bb654a80",
+    "d3d-h3b-core.log": "850e802a5218b885fd034935d19efac28b979153304b3142513ed3d6f3979e0c",
+    "d3d-h3b-fixture-blend.log": "522ef62474230fc5e5a74b1c35040eed814ad8fd15f944f1707b07a573013674",
+    "d3d-h3b-fixture-light.log": "9bd75c34fd73ba29de18a0c164012eed3d424af97e7a5753d9608fe2c3ed58ea",
+    "d3d-h3b-fixture-tex.log": "05070d10cea7996da44cba064fb2ae0567984d04d77bf32b07186b7744ddc609",
+    "d3d-h3b-gpu.log": "673f5f2778c0bccd0060605bb9eb926ff3c7bbbcff5ee11efb7334fc7fcda2dc",
+    "d3d-h3b-guest.log": "5c0bcbff1772109d86809eaa9e7831868ada050f1bf7981f444ec097f1d3c053",
+    "d3d-h3b-integration.log": "b38e43d593cbb40b8f6cfea302b9ae8573c38d6a9f42e21aa2199d6f363fb060",
+    "d3d-h3b-lint-core.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "d3d-h3b-math-xp.log": "9cdf78b285fd3820cb681d251b6d59a68220c2749a09a7e473f7cb69ce158ac8",
+    "d3d-h3b-mutations.log": "a8721d6734a2190695a3486cb503fc7680abc97c96705921507aeaea4cb467e1",
+    "d3d-h3b-sync.log": "c00f9ee0ea283c5a81c1b903528097e0012eddd8a3cb1f53e155d84538cd347c",
+    "d3d-h3b-tnl-xp.log": "eebd7659bc758fec9b1bc231b2aa29f87a4e587e9df400e20a6ad2b9f6eca900",
+    "d3d-h3b-xp8.log": "74dcf16411bee354c41d5b199881499fefecdc0f299618368a9516dafce0e5f0",
+    "d3d-h3b-xp9.log": "0b24872c2b30918c43f62435238e2e88edae68afba1536f205183a5756e9ac91"
+  }
+}
