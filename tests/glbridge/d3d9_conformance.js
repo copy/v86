@@ -311,6 +311,20 @@
           probes: [{ at: [32, 32], expect: [0, 255, 0] }, { at: [8, 8], expect: [0, 0, 255] }] },
     ];
 
+    // Binding a depth surface later does not change the creation-time ZENABLE.
+    for (const enabled of [false, true]) CASES.push({
+        name: "creation-time depth default with later depth binding: " + enabled,
+        ref: "D3DRS_ZENABLE default follows EnableAutoDepthStencil", autoDepth: enabled,
+        body: (d, rt) => [
+            cmd(OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: d, resource_handle: rt + 1, width: W, height: W, level_count: 1, format: 75, usage: 2, pool: 0 })),
+            cmd(OP.SET_DEPTH_STENCIL_SURFACE_LEVEL, P.encode("SetDepthStencilSurfaceLevel", { device_handle: d, depth_texture_handle: rt + 1, width: W, height: W })),
+            clear(d, T | Z, 0xff000000),
+            draw(d, quad(0, 0, W, W, .25, 0xffff0000)),
+            draw(d, quad(0, 0, W, W, .75, 0xff0000ff)),
+        ],
+        probes: [{ at: [32, 32], expect: enabled ? [255, 0, 0] : [0, 0, 255] }],
+    });
+
     const KNOWN_FAILURES = {};
 
     // The setup every case starts from: device `dev`, render target(s), full
@@ -320,7 +334,7 @@
         const samples = c.msaa || 0;
         // `backBuffer`: draw into the device's implicit back buffer instead
         const commands = [
-            cmd(OP.CREATE_DEVICE, P.encode("CreateDevice", { device_handle: dev, hwnd: 0x1234, x: 0, y: 0, width: W, height: W, backbuffer_format: 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: 1, auto_depth_stencil_format: 75, multisample_type: samples, multisample_quality: 0 })),
+            cmd(OP.CREATE_DEVICE, P.encode("CreateDevice", { device_handle: dev, hwnd: 0x1234, x: 0, y: 0, width: W, height: W, backbuffer_format: 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: c.autoDepth === false ? 0 : 1, auto_depth_stencil_format: 75, multisample_type: samples, multisample_quality: 0 })),
         ];
         if (!c.backBuffer) {
             commands.push(cmd(OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: dev, resource_handle: rt, width: W, height: W, level_count: 1, format: c.targetFormat || 21, usage: 1, pool: 0, multisample_type: samples, multisample_quality: 0 })),

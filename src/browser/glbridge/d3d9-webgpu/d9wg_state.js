@@ -3,7 +3,131 @@
 // mutable maps, registers, frames and uniform storage belong to one owner.
 (function(global) {
     "use strict";
-    function createDeviceState(handle, constants) {
+    // [state, D3D8, D3D9]. null means absent in that API; contextual values
+    // resolve at creation/reset. This table also generates the guest C header.
+    // Wine stateblock tests and DirectX 8.1/9 SDK defaults are independent test references.
+    const RENDER_DEFAULT_ROWS = Object.freeze([
+        [7, "autoDepth", "autoDepth"], // D3DRS_ZENABLE
+        [8, 3, 3], // D3DRS_FILLMODE
+        [9, 2, 2], // D3DRS_SHADEMODE
+        [14, 1, 1], // D3DRS_ZWRITEENABLE
+        [15, 0, 0], // D3DRS_ALPHATESTENABLE
+        [16, 1, 1], // D3DRS_LASTPIXEL
+        [19, 2, 2], // D3DRS_SRCBLEND
+        [20, 1, 1], // D3DRS_DESTBLEND
+        [22, 3, 3], // D3DRS_CULLMODE
+        [23, 4, 4], // D3DRS_ZFUNC
+        [24, 0, 0], // D3DRS_ALPHAREF
+        [25, 8, 8], // D3DRS_ALPHAFUNC
+        [26, 0, 0], // D3DRS_DITHERENABLE
+        [27, 0, 0], // D3DRS_ALPHABLENDENABLE
+        [28, 0, 0], // D3DRS_FOGENABLE
+        [29, 0, 0], // D3DRS_SPECULARENABLE
+        [34, 0, 0], // D3DRS_FOGCOLOR
+        [35, 0, 0], // D3DRS_FOGTABLEMODE
+        [36, 0, 0], // D3DRS_FOGSTART
+        [37, 0x3F800000, 0x3F800000], // D3DRS_FOGEND
+        [38, 0x3F800000, 0x3F800000], // D3DRS_FOGDENSITY
+        [47, 0, null], // D3D8RS_ZBIAS
+        [48, 0, 0], // D3DRS_RANGEFOGENABLE
+        [52, 0, 0], // D3DRS_STENCILENABLE
+        [53, 1, 1], // D3DRS_STENCILFAIL
+        [54, 1, 1], // D3DRS_STENCILZFAIL
+        [55, 1, 1], // D3DRS_STENCILPASS
+        [56, 8, 8], // D3DRS_STENCILFUNC
+        [57, 0, 0], // D3DRS_STENCILREF
+        [58, 0xFFFFFFFF, 0xFFFFFFFF], // D3DRS_STENCILMASK
+        [59, 0xFFFFFFFF, 0xFFFFFFFF], // D3DRS_STENCILWRITEMASK
+        [60, 0xFFFFFFFF, 0xFFFFFFFF], // D3DRS_TEXTUREFACTOR
+        [128, 0, 0], // D3DRS_WRAP0
+        [129, 0, 0], // D3DRS_WRAP1
+        [130, 0, 0], // D3DRS_WRAP2
+        [131, 0, 0], // D3DRS_WRAP3
+        [132, 0, 0], // D3DRS_WRAP4
+        [133, 0, 0], // D3DRS_WRAP5
+        [134, 0, 0], // D3DRS_WRAP6
+        [135, 0, 0], // D3DRS_WRAP7
+        [136, 1, 1], // D3DRS_CLIPPING
+        [137, 1, 1], // D3DRS_LIGHTING
+        [139, 0, 0], // D3DRS_AMBIENT
+        [140, 0, 0], // D3DRS_FOGVERTEXMODE
+        [141, 1, 1], // D3DRS_COLORVERTEX
+        [142, 1, 1], // D3DRS_LOCALVIEWER
+        [143, 0, 0], // D3DRS_NORMALIZENORMALS
+        [145, 1, 1], // D3DRS_DIFFUSEMATERIALSOURCE
+        [146, 2, 2], // D3DRS_SPECULARMATERIALSOURCE
+        [147, 0, 0], // D3DRS_AMBIENTMATERIALSOURCE
+        [148, 0, 0], // D3DRS_EMISSIVEMATERIALSOURCE
+        [151, 0, 0], // D3DRS_VERTEXBLEND
+        [152, 0, 0], // D3DRS_CLIPPLANEENABLE
+        [154, 0x3F800000, 0x3F800000], // D3DRS_POINTSIZE
+        [155, 0, 0x3F800000], // D3DRS_POINTSIZE_MIN
+        [156, 0, 0], // D3DRS_POINTSPRITEENABLE
+        [157, 0, 0], // D3DRS_POINTSCALEENABLE
+        [158, 0x3F800000, 0x3F800000], // D3DRS_POINTSCALE_A
+        [159, 0, 0], // D3DRS_POINTSCALE_B
+        [160, 0, 0], // D3DRS_POINTSCALE_C
+        [161, 1, 1], // D3DRS_MULTISAMPLEANTIALIAS
+        [162, 0xFFFFFFFF, 0xFFFFFFFF], // D3DRS_MULTISAMPLEMASK
+        [163, 0, 0], // D3DRS_PATCHEDGESTYLE
+        [166, "pointMax", "pointMax"], // D3DRS_POINTSIZE_MAX
+        [167, 0, 0], // D3DRS_INDEXEDVERTEXBLENDENABLE
+        [168, 15, 15], // D3DRS_COLORWRITEENABLE
+        [170, 0, 0], // D3DRS_TWEENFACTOR
+        [171, 1, 1], // D3DRS_BLENDOP
+        [172, 3, 3], // D3DRS_POSITIONDEGREE
+        [173, 1, 1], // D3DRS_NORMALDEGREE
+        [174, null, 0], // D3DRS_SCISSORTESTENABLE
+        [175, null, 0], // D3DRS_SLOPESCALEDEPTHBIAS
+        [176, null, 0], // D3DRS_ANTIALIASEDLINEENABLE
+        [178, null, 0x3F800000], // D3DRS_MINTESSELLATIONLEVEL
+        [179, null, 0x3F800000], // D3DRS_MAXTESSELLATIONLEVEL
+        [180, null, 0], // D3DRS_ADAPTIVETESS_X
+        [181, null, 0], // D3DRS_ADAPTIVETESS_Y
+        [182, null, 0x3F800000], // D3DRS_ADAPTIVETESS_Z
+        [183, null, 0], // D3DRS_ADAPTIVETESS_W
+        [184, null, 0], // D3DRS_ENABLEADAPTIVETESSELLATION
+        [185, null, 0], // D3DRS_TWOSIDEDSTENCILMODE
+        [186, null, 1], // D3DRS_CCW_STENCILFAIL
+        [187, null, 1], // D3DRS_CCW_STENCILZFAIL
+        [188, null, 1], // D3DRS_CCW_STENCILPASS
+        [189, null, 8], // D3DRS_CCW_STENCILFUNC
+        [190, null, 15], // D3DRS_COLORWRITEENABLE1
+        [191, null, 15], // D3DRS_COLORWRITEENABLE2
+        [192, null, 15], // D3DRS_COLORWRITEENABLE3
+        [193, null, 0xFFFFFFFF], // D3DRS_BLENDFACTOR
+        [194, null, 0], // D3DRS_SRGBWRITEENABLE
+        [195, null, 0], // D3DRS_DEPTHBIAS
+        [198, null, 0], // D3DRS_WRAP8
+        [199, null, 0], // D3DRS_WRAP9
+        [200, null, 0], // D3DRS_WRAP10
+        [201, null, 0], // D3DRS_WRAP11
+        [202, null, 0], // D3DRS_WRAP12
+        [203, null, 0], // D3DRS_WRAP13
+        [204, null, 0], // D3DRS_WRAP14
+        [205, null, 0], // D3DRS_WRAP15
+        [206, null, 0], // D3DRS_SEPARATEALPHABLENDENABLE
+        [207, null, 2], // D3DRS_SRCBLENDALPHA
+        [208, null, 1], // D3DRS_DESTBLENDALPHA
+        [209, null, 1], // D3DRS_BLENDOPALPHA
+    ].map(Object.freeze));
+    function renderDefaults(api = 9, autoDepth = true, pointMax = 256) {
+        const result = new Map();
+        for (const [state, d8, d9] of RENDER_DEFAULT_ROWS) {
+            const value = api === 8 ? d8 : d9;
+            if (value === null) continue;
+            let word = value;
+            if (value === "autoDepth") word = autoDepth ? 1 : 0;
+            if (value === "pointMax") {
+                const floats = new Float32Array([pointMax > 1 ? pointMax : 64]);
+                word = new Uint32Array(floats.buffer)[0];
+            }
+            result.set(state, word);
+        }
+        return result;
+    }
+
+    function createDeviceState(handle, constants, autoDepth = true) {
         const { D3DMULTISAMPLE_NONE, D3DTS_VIEW, D3DTS_PROJECTION, D3DTS_WORLD, IDENTITY4x4,
             MAX_VS_CONST_F, MAX_PS_CONST_F, MAX_CONST_I, MAX_CONST_B } = constants;
         return {
@@ -46,7 +170,7 @@
             // than from the 256 D3D9 allows, so an app using eight bones
             // uploads eight matrices per draw and not 256.
             maxWorldMatrixIndex: 0,
-            renderStates: new Map(),
+            renderStates: renderDefaults(9, autoDepth),
             // Auto depth-stencil surface, created on CREATE_DEVICE/RESET
             // when the guest asked for one. hasDepth drives both the
             // render pass attachment and whether pipelines declare a
@@ -151,7 +275,7 @@
     function activateSession(executor, state) {
         for (const field of SESSION_FIELDS) executor[field] = state[field];
     }
-    const api = { createDeviceState, createSessionState, captureSession, activateSession, SESSION_FIELDS };
+    const api = { RENDER_DEFAULT_ROWS, renderDefaults, createDeviceState, createSessionState, captureSession, activateSession, SESSION_FIELDS };
     global.D9WGState = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

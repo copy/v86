@@ -1466,6 +1466,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 146 组核心、144 组客体、18 个 D3D8 SDK 冒烟 EXE 与零售/诊断 DLL 通过；完整 WebGPU 验收扩为 36 次运行。宿主包保持 `dffb0322a62fa650c089`。见 [stage4d2k3d-validation.json](fixtures/d3d-review/stage4d2k3d-validation.json)。
 > - 本步关闭 D3D8 Tween 能力缺口，继续阶段 4 的共用核心/默认状态/运行时 caps 与包装层工作；未宣称原生 Microsoft D3D8、Wine/游戏或 FPS 验收完成。
 
+> **阶段 4E1（2026-11-03）：D3D8/9 与宿主的共用渲染状态默认表完成。**
+>
+> - `d9wg_state.js` 维护唯一的版本化渲染状态表，生成 SDK 无关的 `d9wg_state_defaults.h`；两个客体初始化/Reset 与宿主新建/Reset 都从此表取值。补齐 D3D8 的 FILLMODE、LASTPIXEL、CLIPPING、点大小/衰减、MULTISAMPLEANTIALIAS/MASK、BLENDOP 和补丁阶数，补齐 D3D9 的补丁阶数与自适应细分默认值。生成器与常规测试检查头文件漂移。
+> - ZENABLE 根据创建/Reset 的 EnableAutoDepthStencil 决定，之后绑定深度表面不会自动改变它；POINTSIZE_MAX 根据实际报告的 MaxPointSize，0/1 使用软件默认 64。D3D8 的 POINTSIZE_MIN 保留 0，D3D9 为 1；共用桥只同步有版本或能力差异的两项，范围/失败行为有实际 C 检查。宿主诊断现在读取包含默认值的有效状态。
+> - 冻结独立的 [Wine D3D8](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c)/[D3D9](https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/stateblock.c) 默认值事实及原始源码 SHA，保留自动深度和点上限上下文；另以 DirectX 8.1/9 SDK 核对点大小和补丁默认值。实际 C/JS 对照 1,002 个上下文组合参考值，覆盖头文件生成、设备隔离、宿主创建/Reset、零冗余补丁及两次传输失败；9/9 C 语义变异、两种畸形同步流和 ASan/UBSan 通过。
+> - 实际 XP 公开 COM 完成 688 次精确 GetRenderState 查询，覆盖新建、ALL 块恢复及关闭→开启→关闭自动深度的两次 Reset；原始图形流核对 D3D8 三次 POINTSIZE_MIN 初始化补丁与两 API 的创建参数。三 API T&L/录制/着色器生命周期回归通过，分别 2/3 个 owner 正常释放。发布默认值探针所测的两个零售 DLL；T&L 使用同源码的独立构建，不将时间戳不同的 PE 文件当作相同字节。
+> - 148 组核心、144 组客体、32 个 D3D8/9 SDK 冒烟 EXE 与四个严格零售/诊断 DLL、两项站点集成通过；完整 WebGPU 36 次运行通过。新增两组“后绑定深度表面”的独立像素用例，SwiftShader/Metal 均通过全部 331 个用例；忽略创建深度参数的 GPU 变异只使新增关闭场景失败，源码已精确还原。
+> - 新宿主包 `cfad0009655b0a109c05` 已同步到站点。见 [stage4e1-validation.json](fixtures/d3d-review/stage4e1-validation.json)。本步统一已核对的渲染默认值；纹理阶段、采样器、材料及其他对象/模式默认值接着处理，运行时 caps、窗口/格式和包装层仍待继续；不是原生 Microsoft D3D8/9、Wine 全套或游戏/FPS 验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

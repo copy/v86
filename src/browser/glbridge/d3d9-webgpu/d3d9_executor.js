@@ -1785,8 +1785,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return state;
         }
 
-        createDeviceState(handle) {
-            return stateFactory.createDeviceState(handle, DEVICE_STATE_CONSTANTS);
+        createDeviceState(handle, autoDepth = true) {
+            return stateFactory.createDeviceState(handle, DEVICE_STATE_CONSTANTS, autoDepth);
         }
 
         createSessionState(key) {
@@ -2077,7 +2077,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 this.finishFrame(false);
                 this.retireDeviceState(previous, "replace");
             }
-            const state = this.createDeviceState(handle);
+            const state = this.createDeviceState(handle, enableAutoDepth !== 0);
             this.devices.set(handle, state);
             state.viewport = { x: 0, y: 0, width, height, minZ: 0, maxZ: 1 };
             state.surface = { hwnd, x, y, width, height, visible: true,
@@ -2124,7 +2124,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
             // Reset changes the generation/defaults of an existing logical
             // device; it cannot introduce a previously unknown device.
-            const state = Object.assign(oldState, this.createDeviceState(newHandle));
+            const state = Object.assign(oldState, this.createDeviceState(newHandle, enableAutoDepth !== 0));
             this.devices.set(newHandle, state);
             state.viewport = { x: 0, y: 0, width, height, minZ: 0, maxZ: 1 };
             state.surface = { hwnd, x, y, width, height, visible: true,
@@ -2771,10 +2771,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     tableMode: rs.get(D3DRS_FOGTABLEMODE) || 0,
                     vertexMode: rs.get(D3DRS_FOGVERTEXMODE) || 0,
                     color: "#" + (color & 0xffffff).toString(16).padStart(6, "0"),
-                    // null means the game never set it and the D3D9 default
-                    // (start 0, end 1) applies -- which fogs everything past
-                    // one unit completely, so a null here with LINEAR mode is
-                    // itself the explanation for a uniformly washed-out frame.
+                    // These are effective values, including the generated
+                    // creation/reset defaults when the game has not changed them.
                     start: asFloat(D3DRS_FOGSTART),
                     end: asFloat(D3DRS_FOGEND),
                     density: asFloat(D3DRS_FOGDENSITY),

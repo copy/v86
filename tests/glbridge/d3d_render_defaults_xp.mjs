@@ -1,0 +1,15 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {execFileSync as run} from "node:child_process";
+import {fileURLToPath as file_url_to_path} from "node:url";
+import {site_directory} from "../lib/site.mjs";
+import {inspect_render_defaults_wire} from "../lib/d3d_render_defaults_wire.mjs";
+import {run_xp_ram_probe} from "../lib/xp_ram_probe.mjs";
+const root=file_url_to_path(new URL("../../",import.meta.url)),site=site_directory(root),out=path.resolve(process.env.D9WG_DEFAULTS_OUT||root+"build/d3d-review/stage4e1-defaults-xp");fs.mkdirSync(out,{recursive:true});
+const files={"V86GL.SYS":fs.readFileSync(site+"/glbridge/v86gl_driver/v86gl.sys")};
+for(const api of [8,9]){run("sh",[site+"/glbridge/d3d"+api+"proxy/build.sh",out+"/D3D"+api+".DLL"],{stdio:"pipe"});run(process.env.D9WG_CC||"i686-w64-mingw32-gcc",["-mwindows","-std=gnu99","-Os","-s","-nostdlib","-Wall","-Wextra","-Werror","-DD9WG_DEFAULTS_API="+api,"-Wl,--subsystem,windows:5.01","-Wl,-e,_WinMainCRTStartup@0","-o",out+"/DEFAULT"+api+".EXE",site+"/glbridge/sample/d3d_render_defaults_test.c","-luser32","-lkernel32"],{stdio:"pipe"});files["DEFAULT"+api+".EXE"]=fs.readFileSync(out+"/DEFAULT"+api+".EXE");files["D3D"+api+".DLL"]=fs.readFileSync(out+"/D3D"+api+".DLL");}
+files["PROBE.CMD"]=Buffer.from(["@echo off","sc stop v86gl","copy /y %~d0\\v86gl.sys C:\\WINDOWS\\system32\\drivers\\v86gl.sys","sc config v86gl binPath= C:\\WINDOWS\\system32\\drivers\\v86gl.sys","sc start v86gl","%~d0\\DEFAULT8.EXE","if errorlevel 1 goto failed","type %~d0\\DEFAULT.TXT >%~d0\\DEFAULT8.TXT","%~d0\\DEFAULT9.EXE","if errorlevel 1 goto failed","type %~d0\\DEFAULT.TXT >%~d0\\DEFAULT9.TXT","echo PASS render default probes >%~d0\\OWNER.TXT","exit /b",":failed","echo FAIL render default probes >%~d0\\OWNER.TXT",""].join("\r\n"));
+const result=await run_xp_ram_probe({root,out,files,image:process.env.XP_IMAGE||site+"/windowsxp/windowsxp_multidisk_C_4G.img",success:"PASS render default probes",log_files:["DEFAULT.TXT","DEFAULT8.TXT","DEFAULT9.TXT"],capture_graphics:true,inspect(result){assert(result.logs["DEFAULT8.TXT"].includes("PASS D3D8 render defaults: 280 exact queries"));assert(result.logs["DEFAULT9.TXT"].includes("PASS D3D9 render defaults: 408 exact queries"));assert.equal(result.owners.length,2);assert.equal(result.releases.length,2);}});const wire=inspect_render_defaults_wire(fs.readFileSync(out+"/graphics.bin"),result.owners);fs.writeFileSync(out+"/defaults-wire.json",JSON.stringify(wire,null,2)+"\n");
+console.log(JSON.stringify({status:result.status,seconds:result.seconds,owners:result.owners.length,releases:result.releases.length}));
