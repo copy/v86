@@ -1,0 +1,701 @@
+{
+  "description": "Actual XP D3D8 fixed declaration Tween draws paired with CPU processing; all source/index/output bytes independently checked, diagnostics/cursors zeroed.",
+  "frames": 16,
+  "scenes": [
+    {
+      "name": "both/.25",
+      "mode": "both",
+      "factor": 0.25,
+      "expected": {
+        "vertices": [
+          [
+            -8,
+            50,
+            0.1875,
+            1
+          ],
+          [
+            24,
+            18,
+            0.1875,
+            1
+          ],
+          [
+            56,
+            50,
+            0.1875,
+            1
+          ]
+        ],
+        "storedVertices": [
+          [
+            -0.125,
+            0.21875,
+            0.1875,
+            1
+          ],
+          [
+            24,
+            18,
+            0.1875,
+            1
+          ],
+          [
+            56,
+            50,
+            0.1875,
+            1
+          ]
+        ],
+        "polygon": [
+          [
+            0,
+            42
+          ],
+          [
+            24,
+            18
+          ],
+          [
+            56,
+            50
+          ],
+          [
+            0,
+            50
+          ]
+        ],
+        "diffuse": 3208650768,
+        "specular": 2667577344,
+        "colorRGBA": [
+          64,
+          32,
+          16,
+          191
+        ],
+        "fogFactor": 0.625,
+        "pixelRGBA": [
+          52,
+          44,
+          46,
+          191
+        ]
+      }
+    },
+    {
+      "name": "both/.75/indexed-base",
+      "mode": "both",
+      "factor": 0.75,
+      "indexed": true,
+      "expected": {
+        "vertices": [
+          [
+            8,
+            46,
+            0.3125,
+            1
+          ],
+          [
+            40,
+            14,
+            0.3125,
+            1
+          ],
+          [
+            72,
+            46,
+            0.3125,
+            1
+          ]
+        ],
+        "storedVertices": [
+          [
+            8,
+            46,
+            0.3125,
+            1
+          ],
+          [
+            40,
+            14,
+            0.3125,
+            1
+          ],
+          [
+            1.125,
+            0.28125,
+            0.3125,
+            1
+          ]
+        ],
+        "polygon": [
+          [
+            8,
+            46
+          ],
+          [
+            40,
+            14
+          ],
+          [
+            64,
+            38
+          ],
+          [
+            64,
+            46
+          ]
+        ],
+        "diffuse": 3216990256,
+        "specular": 1610612736,
+        "colorRGBA": [
+          191,
+          96,
+          48,
+          191
+        ],
+        "fogFactor": 0.375,
+        "pixelRGBA": [
+          92,
+          76,
+          78,
+          191
+        ]
+      }
+    },
+    {
+      "name": "position-only",
+      "mode": "position",
+      "factor": 0.75,
+      "expected": {
+        "vertices": [
+          [
+            8,
+            46,
+            0.3125,
+            1
+          ],
+          [
+            40,
+            14,
+            0.3125,
+            1
+          ],
+          [
+            72,
+            46,
+            0.3125,
+            1
+          ]
+        ],
+        "storedVertices": [
+          [
+            8,
+            46,
+            0.3125,
+            1
+          ],
+          [
+            40,
+            14,
+            0.3125,
+            1
+          ],
+          [
+            1.125,
+            0.28125,
+            0.3125,
+            1
+          ]
+        ],
+        "polygon": [
+          [
+            8,
+            46
+          ],
+          [
+            40,
+            14
+          ],
+          [
+            64,
+            38
+          ],
+          [
+            64,
+            46
+          ]
+        ],
+        "diffuse": 3204448256,
+        "specular": 1610612736,
+        "colorRGBA": [
+          0,
+          0,
+          0,
+          191
+        ],
+        "fogFactor": 0.375,
+        "pixelRGBA": [
+          20,
+          40,
+          60,
+          191
+        ]
+      }
+    },
+    {
+      "name": "normal-only",
+      "mode": "normal",
+      "factor": 0.75,
+      "expected": {
+        "vertices": [
+          [
+            -16,
+            52,
+            0.125,
+            1
+          ],
+          [
+            16,
+            20,
+            0.125,
+            1
+          ],
+          [
+            48,
+            52,
+            0.125,
+            1
+          ]
+        ],
+        "storedVertices": [
+          [
+            -0.25,
+            0.1875,
+            0.125,
+            1
+          ],
+          [
+            16,
+            20,
+            0.125,
+            1
+          ],
+          [
+            48,
+            52,
+            0.125,
+            1
+          ]
+        ],
+        "polygon": [
+          [
+            0,
+            36
+          ],
+          [
+            16,
+            20
+          ],
+          [
+            48,
+            52
+          ],
+          [
+            0,
+            52
+          ]
+        ],
+        "diffuse": 3216990256,
+        "specular": 3204448256,
+        "colorRGBA": [
+          191,
+          96,
+          48,
+          191
+        ],
+        "fogFactor": 0.75,
+        "pixelRGBA": [
+          151,
+          88,
+          60,
+          191
+        ]
+      }
+    },
+    {
+      "name": "constant-secondary",
+      "mode": "both",
+      "factor": 0.25,
+      "constant": true,
+      "expected": {
+        "vertices": [
+          [
+            4,
+            48,
+            0.1875,
+            1
+          ],
+          [
+            28,
+            24,
+            0.1875,
+            1
+          ],
+          [
+            52,
+            48,
+            0.1875,
+            1
+          ]
+        ],
+        "storedVertices": [
+          [
+            4,
+            48,
+            0.1875,
+            1
+          ],
+          [
+            28,
+            24,
+            0.1875,
+            1
+          ],
+          [
+            52,
+            48,
+            0.1875,
+            1
+          ]
+        ],
+        "polygon": [
+          [
+            4,
+            48
+          ],
+          [
+            28,
+            24
+          ],
+          [
+            52,
+            48
+          ]
+        ],
+        "diffuse": 3208650768,
+        "specular": 2667577344,
+        "colorRGBA": [
+          64,
+          32,
+          16,
+          191
+        ],
+        "fogFactor": 0.625,
+        "pixelRGBA": [
+          52,
+          44,
+          46,
+          191
+        ]
+      }
+    },
+    {
+      "name": "world-user-plane",
+      "mode": "both",
+      "factor": 0.75,
+      "indexed": true,
+      "plane": true,
+      "expected": {
+        "vertices": [
+          [
+            8,
+            46,
+            0.3125,
+            1
+          ],
+          [
+            40,
+            14,
+            0.3125,
+            1
+          ],
+          [
+            72,
+            46,
+            0.3125,
+            1
+          ]
+        ],
+        "storedVertices": [
+          [
+            0.125,
+            0.28125,
+            0.3125,
+            1
+          ],
+          [
+            40,
+            14,
+            0.3125,
+            1
+          ],
+          [
+            1.125,
+            0.28125,
+            0.3125,
+            1
+          ]
+        ],
+        "polygon": [
+          [
+            32,
+            22
+          ],
+          [
+            40,
+            14
+          ],
+          [
+            64,
+            38
+          ],
+          [
+            64,
+            46
+          ],
+          [
+            32,
+            46
+          ]
+        ],
+        "diffuse": 3216990256,
+        "specular": 1610612736,
+        "colorRGBA": [
+          191,
+          96,
+          48,
+          191
+        ],
+        "fogFactor": 0.375,
+        "pixelRGBA": [
+          92,
+          76,
+          78,
+          191
+        ]
+      }
+    },
+    {
+      "name": "normalized-normal",
+      "mode": "both",
+      "factor": 0.75,
+      "normalize": true,
+      "expected": {
+        "vertices": [
+          [
+            8,
+            46,
+            0.3125,
+            1
+          ],
+          [
+            40,
+            14,
+            0.3125,
+            1
+          ],
+          [
+            72,
+            46,
+            0.3125,
+            1
+          ]
+        ],
+        "storedVertices": [
+          [
+            8,
+            46,
+            0.3125,
+            1
+          ],
+          [
+            40,
+            14,
+            0.3125,
+            1
+          ],
+          [
+            1.125,
+            0.28125,
+            0.3125,
+            1
+          ]
+        ],
+        "polygon": [
+          [
+            8,
+            46
+          ],
+          [
+            40,
+            14
+          ],
+          [
+            64,
+            38
+          ],
+          [
+            64,
+            46
+          ]
+        ],
+        "diffuse": 3220339004,
+        "specular": 1610612736,
+        "colorRGBA": [
+          242,
+          121,
+          60,
+          191
+        ],
+        "fogFactor": 0.375,
+        "pixelRGBA": [
+          111,
+          85,
+          83,
+          191
+        ]
+      }
+    },
+    {
+      "name": "secondary-normal-alone",
+      "mode": "normal-alone",
+      "factor": 0.75,
+      "expected": {
+        "vertices": [
+          [
+            -16,
+            52,
+            0.125,
+            1
+          ],
+          [
+            16,
+            20,
+            0.125,
+            1
+          ],
+          [
+            48,
+            52,
+            0.125,
+            1
+          ]
+        ],
+        "storedVertices": [
+          [
+            -0.25,
+            0.1875,
+            0.125,
+            1
+          ],
+          [
+            16,
+            20,
+            0.125,
+            1
+          ],
+          [
+            48,
+            52,
+            0.125,
+            1
+          ]
+        ],
+        "polygon": [
+          [
+            0,
+            36
+          ],
+          [
+            16,
+            20
+          ],
+          [
+            48,
+            52
+          ],
+          [
+            0,
+            52
+          ]
+        ],
+        "diffuse": 3216990256,
+        "specular": 3204448256,
+        "colorRGBA": [
+          191,
+          96,
+          48,
+          191
+        ],
+        "fogFactor": 0.75,
+        "pixelRGBA": [
+          151,
+          88,
+          60,
+          191
+        ]
+      }
+    }
+  ],
+  "counts": {
+    "HELLO": 1,
+    "CREATE_DEVICE": 1,
+    "CREATE_TEXTURE_2D": 1,
+    "SET_RENDER_TARGET": 1,
+    "SET_DEPTH_STENCIL_SURFACE_LEVEL": 1,
+    "CREATE_VERTEX_DECLARATION": 4,
+    "CREATE_BUFFER": 4,
+    "UPDATE_BUFFER": 11,
+    "SET_INDICES": 2,
+    "SET_TRANSFORM": 3,
+    "SET_MATERIAL": 1,
+    "SET_LIGHT": 1,
+    "LIGHT_ENABLE": 1,
+    "SET_RENDER_STATE": 65,
+    "SET_TEXTURE_STAGE_STATE": 3,
+    "SET_CLIP_PLANE": 1,
+    "SET_VERTEX_DECLARATION": 8,
+    "SET_VERTEX_SHADER": 17,
+    "SET_STREAM_SOURCE": 22,
+    "CLEAR": 16,
+    "BEGIN_SCENE": 16,
+    "DRAW_PRIMITIVE": 6,
+    "END_SCENE": 16,
+    "PRESENT": 16,
+    "SET_FVF": 9,
+    "DRAW_PRIMITIVE_UP": 8,
+    "DRAW_INDEXED_PRIMITIVE": 2,
+    "DESTROY_RESOURCE": 10,
+    "SESSION_END": 1
+  },
+  "traceBytes": 11728,
+  "traceSha256": "4503e47fbc4709b74c7723663d6820dc4bef6f973131673de80ef885e86af3bb",
+  "sourceCaptureSha256": "4503e47fbc4709b74c7723663d6820dc4bef6f973131673de80ef885e86af3bb",
+  "removedPayloads": [],
+  "captureBuild": {
+    "api": 8,
+    "source": "glbridge/sample/d3d8_tween_draw_test.c",
+    "sourceSha256": "9dff0f9d58e010d5bcff156405ad71a2da914b91528519a49ba3712710a12fd9",
+    "proxySourceSha256": "dbb4eb3946562b161398c304828e504e25a71868a40a9670188f9c86036f6b4a",
+    "dllSha256": "e7ab8b2b6d67ca63d228668e1ebd42c202f5b2feaa43c357cc37abf06e401311",
+    "executableSha256": "2b8afd4ea8b07f7267893bb1d3441a7fcf4b5311fa24f3bdbee069a7dd94fda8",
+    "sha256": "4503e47fbc4709b74c7723663d6820dc4bef6f973131673de80ef885e86af3bb",
+    "bytes": 11728,
+    "frames": 16,
+    "owners": [
+      1
+    ]
+  },
+  "reference": "Independent affine position/normal, directional diffuse and linear fog formulas; no production vertex/shader helper"
+}

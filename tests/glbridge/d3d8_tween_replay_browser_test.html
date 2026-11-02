@@ -1,0 +1,45 @@
+<!doctype html><meta charset="utf-8"><title>D9WG real XP D3D8 Tween drawing</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+ const P=D9WGProtocol,C=P.C,pictures=[],comparisons=[];
+ const gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false});
+ try{
+  const metadata=await(await fetch("fixtures/d3d8_tween_xp.json")).json();
+  const response=await fetch("fixtures/d3d8_tween_xp.bin.gz");if(!response.ok)throw Error("Missing XP Tween capture");
+  const bytes=new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()),view=new DataView(bytes.buffer);
+  await gpu.initialize();const dispatch=gpu.dispatchCommand;
+  gpu.dispatchCommand=function(opcode,bytes,view,offset,length,commandMetadata){
+   const result=dispatch.call(this,opcode,bytes,view,offset,length,commandMetadata);if(opcode!==P.OP.PRESENT)return result;const handle=view.getUint32(offset+P.F.Present.device_handle,true);
+   return Promise.resolve(result).then(async()=>{const state=gpu.devices.get(handle);if(!state)throw Error("Missing Tween device");const payload=P.encode("ReadbackSurface",{device_handle:handle,texture_handle:state.renderTargets[0],format:21,width:64,height:64,row_count:64,destination_pitch:256,destination_bytes:16384,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:pictures.length+1});let reply;await gpu.onReadbackSurface(payload,new DataView(payload.buffer),0,payload.length,{writeGuestMemory(at,data){reply=data.slice();}});if(!reply||reply.length!==16400||new DataView(reply.buffer).getUint32(P.F.ReadbackResponse.status,true)!==C.D9WG_RESPONSE_OK)throw Error("XP Tween readback failed");pictures.push(reply.subarray(16));});
+  };
+  let at=0,batches=0;while(at<bytes.length){if(at+12>bytes.length)throw Error("Truncated capture");const ownerToken=view.getUint32(at,true),flags=view.getUint32(at+4,true),size=view.getUint32(at+8,true);at+=12;if(size<8||size>bytes.length-at||view.getUint16(at,true)!==0xffe1||view.getUint16(at+2,true)!==0xffff||view.getUint32(at+4,true)!==size-8)throw Error("Invalid D9WG carrier");await gpu.submit(bytes.subarray(at+8,at+size),{ownerToken,flags});at+=size;batches++;}
+  await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;++i)await new Promise(r=>setTimeout(r,0));
+  if(pictures.length!==16)throw Error("Expected sixteen paired Tween frames, got "+pictures.length);
+  for(let scene=0;scene<metadata.scenes.length;++scene){const reference=metadata.scenes[scene],a=pictures[scene*2],b=pictures[scene*2+1];let differingPixels=0,maximumByteError=0,coveredPixels=0;
+   for(let pixel=0;pixel<a.length;pixel+=4){let delta=0;for(let c=0;c<4;++c)delta=Math.max(delta,Math.abs(a[pixel+c]-b[pixel+c]));if(delta>1)differingPixels++;maximumByteError=Math.max(maximumByteError,delta);if(a[pixel]!==16||a[pixel+1]!==16||a[pixel+2]!==16||a[pixel+3]!==255)coveredPixels++;}
+   const polygon=reference.expected.polygon,x=Math.floor(polygon.reduce((sum,p)=>sum+p[0],0)/polygon.length),y=Math.floor(polygon.reduce((sum,p)=>sum+p[1],0)/polygon.length),pixel=(y*64+x)*4,color=reference.expected.pixelRGBA,expected=[color[2],color[1],color[0],color[3]],actual=[...a.subarray(pixel,pixel+4)],processed=[...b.subarray(pixel,pixel+4)];
+   const probeError=Math.max(...actual.map((n,c)=>Math.abs(n-expected[c])),...processed.map((n,c)=>Math.abs(n-expected[c])));
+   comparisons.push({scene,name:reference.name,differingPixels,maximumByteError,coveredPixels,probe:{x,y,expected,actual,processed,maximumByteError:probeError}});
+  }
+  const evidence={captureDllSha256:metadata.captureBuild.dllSha256,traceSha256:metadata.traceSha256,reference:metadata.reference,frames:pictures.length,batches,comparisons,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch("/__test_file?name=d8wg-tween-guest.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+  if(comparisons.some(r=>r.differingPixels||r.coveredPixels<32||r.probe.maximumByteError>1)||gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.droppedDraws||gpu.stats.commandsFailed)throw Error("XP Tween mismatch "+JSON.stringify(evidence));
+  document.querySelector("#result").textContent="PASS actual XP D3D8 Tween: 16 frames, eight direct/CPU pairs and 32768 pixel comparisons within 1 byte/channel; independent geometry/color references, indexed base, constant stream, user plane and normalization";
+ }catch(error){document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>

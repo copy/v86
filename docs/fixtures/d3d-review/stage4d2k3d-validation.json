@@ -1,0 +1,1019 @@
+{
+  "stage": "4D2k3d D3D8 guest Tween pixel acceptance and caps",
+  "date": "2026-11-03",
+  "bundle": "dffb0322a62fa650c089",
+  "coreSuites": 146,
+  "guestSuites": 144,
+  "webgpuRuns": 36,
+  "siteIntegrationTests": 2,
+  "d3d8CrossCompiledSmokeExecutables": 18,
+  "d3d8RetailAndDiagnosticDLLs": 2,
+  "smoke": [
+    {
+      "file": "d3d8_caps_audit_test.exe",
+      "sha256": "55fd8041151a836e2aad6970221d1cc76cc222f2c72dccbe509ce818db4a6e76"
+    },
+    {
+      "file": "d3d8_dynamic_resources_test.exe",
+      "sha256": "ce1cbdb847f7ae36d1cee6c777ad947a8f828d2cc28b9aefaf880f804a236ca8"
+    },
+    {
+      "file": "d3d8_fog_test.exe",
+      "sha256": "c3a31044bc17411d38be02a35580859445024f83e4e88dcd048510819dcaefa5"
+    },
+    {
+      "file": "d3d8_geometry_test.exe",
+      "sha256": "50edf2360c4127c553c636c4dd9afa042132d7c0d56e47d34c271bb2f458a9f5"
+    },
+    {
+      "file": "d3d8_lifecycle_compat_test.exe",
+      "sha256": "52f41460712be7b55dd5672e2472c56433fe536d0e0ee0fb76a23caaf3cfe1f8"
+    },
+    {
+      "file": "d3d8_lighting_test.exe",
+      "sha256": "23797e3ea63789ac36c25631b5fe481c9356e61b8a5b07605095fafefdcc138b"
+    },
+    {
+      "file": "d3d8_maple_gr2d_test.exe",
+      "sha256": "95dd4d0104f26516144d37963a7ce0cdebee8c661910532a290f1aecab2779c7"
+    },
+    {
+      "file": "d3d8_mipmap_filter_test.exe",
+      "sha256": "1b8950b2b86b6f42a6682b6a966b9125da5c40e6ba806a88b960b0839dc3b7ea"
+    },
+    {
+      "file": "d3d8_multitexture_test.exe",
+      "sha256": "51a7e7e83f6d13f561cb198ad69a129ffed0007962e4cdae51095907781ceb21"
+    },
+    {
+      "file": "d3d8_raster_stencil_test.exe",
+      "sha256": "0da31d97d5494353da7bb857eadabae163718e77b029612074d9574bab4beeb8"
+    },
+    {
+      "file": "d3d8_reset_lifecycle_test.exe",
+      "sha256": "1bdd968f56aa71e27f11fe6dcaf896703d82c62811e69d966c58e4706cee41a9"
+    },
+    {
+      "file": "d3d8_stateblock_test.exe",
+      "sha256": "a282b4b7779869b3ab11918f93bb9772c17952279047395fb2d005ce8db8dd8c"
+    },
+    {
+      "file": "d3d8_texture_formats_test.exe",
+      "sha256": "bcdc9715173cc28870664a144d314be2f9c437764c768becc0ca91780fc72120"
+    },
+    {
+      "file": "d3d8_texture_stage_ops_test.exe",
+      "sha256": "ab7c21f11469f695276701e67d265418783de3ad8f910fe82f9c7a8dad635e05"
+    },
+    {
+      "file": "d3d8_texture_test.exe",
+      "sha256": "73e9d52928ba5a11ad9aec73e058e8ba985992dc35e3a3f637c0209e4d7d07e4"
+    },
+    {
+      "file": "d3d8_textured_cube_test.exe",
+      "sha256": "74c15590ab2209e29403d1dc557071d7e43ff6675d1c08e65f987ec74aa6e053"
+    },
+    {
+      "file": "d3d8_transform_depth_test.exe",
+      "sha256": "8e734cf038b3c48482d17663ee43cd540f58b12897f9fb7c288bf007befb465f"
+    },
+    {
+      "file": "d3d8_tween_draw_test.exe",
+      "sha256": "a08f05d779a608d43432c6abdb993febba82eeea03027febc5780d18b5bb29ff"
+    }
+  ],
+  "raster": {
+    "swift": {
+      "file": "build/d3d-review/stage4d2k3d-final-swift/result.json",
+      "sha256": "ed9d702c8c2f43bbe6c036112bc7ebd37db483ed6e800bc990557d2468165651",
+      "pixelPairs": 32768,
+      "captureDllSha256": "e7ab8b2b6d67ca63d228668e1ebd42c202f5b2feaa43c357cc37abf06e401311",
+      "traceSha256": "4503e47fbc4709b74c7723663d6820dc4bef6f973131673de80ef885e86af3bb",
+      "reference": "Independent affine position/normal, directional diffuse and linear fog formulas; no production vertex/shader helper",
+      "frames": 16,
+      "batches": 18,
+      "comparisons": [
+        {
+          "scene": 0,
+          "name": "both/.25",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 964,
+          "probe": {
+            "x": 20,
+            "y": 40,
+            "expected": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "actual": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "processed": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 1,
+          "name": "both/.75/indexed-base",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 964,
+          "probe": {
+            "x": 44,
+            "y": 36,
+            "expected": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "actual": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "processed": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 2,
+          "name": "position-only",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 964,
+          "probe": {
+            "x": 44,
+            "y": 36,
+            "expected": [
+              60,
+              40,
+              20,
+              191
+            ],
+            "actual": [
+              60,
+              40,
+              20,
+              191
+            ],
+            "processed": [
+              60,
+              40,
+              20,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 3,
+          "name": "normal-only",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 872,
+          "probe": {
+            "x": 16,
+            "y": 40,
+            "expected": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "actual": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "processed": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 4,
+          "name": "constant-secondary",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 552,
+          "probe": {
+            "x": 28,
+            "y": 40,
+            "expected": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "actual": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "processed": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 5,
+          "name": "world-user-plane",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 688,
+          "probe": {
+            "x": 46,
+            "y": 33,
+            "expected": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "actual": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "processed": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 6,
+          "name": "normalized-normal",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "coveredPixels": 964,
+          "probe": {
+            "x": 44,
+            "y": 36,
+            "expected": [
+              83,
+              85,
+              111,
+              191
+            ],
+            "actual": [
+              83,
+              85,
+              111,
+              191
+            ],
+            "processed": [
+              82,
+              85,
+              111,
+              191
+            ],
+            "maximumByteError": 1
+          }
+        },
+        {
+          "scene": 7,
+          "name": "secondary-normal-alone",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 872,
+          "probe": {
+            "x": 16,
+            "y": 40,
+            "expected": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "actual": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "processed": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        }
+      ],
+      "stats": {
+        "batches": 18,
+        "commands": 248,
+        "presents": 16,
+        "queueSubmits": 48,
+        "drawCalls": 14,
+        "indexedDrawCalls": 2,
+        "upDrawCalls": 8,
+        "pipelineCreations": 9,
+        "pipelineHits": 7,
+        "pipelinesRejected": 0,
+        "programBuilds": 16,
+        "programCacheHits": 0,
+        "bindGroupCreations": 9,
+        "bindGroupHits": 7,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 1,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 1,
+        "backBufferPresents": 16,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 16,
+        "readbackRequests": 16,
+        "frameFlushes": 16,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 1,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 9,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 16,
+        "uploadChunksAllocated": 1,
+        "uploadStagingUploads": 9,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 1,
+        "sessionChanges": 0,
+        "sessionsEnded": 1,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 0,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 1,
+        "renderTargetBinds": 1,
+        "renderPasses": 16,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 1,
+        "zeroNormalDrawsWithoutTexture": 1,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 16,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 12288,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 16,
+        "renderTargetReadbackBytes": 262144,
+        "renderTargetReadbackFailures": 0,
+        "unreadStateIds": {
+          "renderStates": [
+            136,
+            170
+          ]
+        }
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    },
+    "metal": {
+      "file": "build/d3d-review/stage4d2k3d-final-metal/result.json",
+      "sha256": "ed9d702c8c2f43bbe6c036112bc7ebd37db483ed6e800bc990557d2468165651",
+      "pixelPairs": 32768,
+      "captureDllSha256": "e7ab8b2b6d67ca63d228668e1ebd42c202f5b2feaa43c357cc37abf06e401311",
+      "traceSha256": "4503e47fbc4709b74c7723663d6820dc4bef6f973131673de80ef885e86af3bb",
+      "reference": "Independent affine position/normal, directional diffuse and linear fog formulas; no production vertex/shader helper",
+      "frames": 16,
+      "batches": 18,
+      "comparisons": [
+        {
+          "scene": 0,
+          "name": "both/.25",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 964,
+          "probe": {
+            "x": 20,
+            "y": 40,
+            "expected": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "actual": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "processed": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 1,
+          "name": "both/.75/indexed-base",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 964,
+          "probe": {
+            "x": 44,
+            "y": 36,
+            "expected": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "actual": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "processed": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 2,
+          "name": "position-only",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 964,
+          "probe": {
+            "x": 44,
+            "y": 36,
+            "expected": [
+              60,
+              40,
+              20,
+              191
+            ],
+            "actual": [
+              60,
+              40,
+              20,
+              191
+            ],
+            "processed": [
+              60,
+              40,
+              20,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 3,
+          "name": "normal-only",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 872,
+          "probe": {
+            "x": 16,
+            "y": 40,
+            "expected": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "actual": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "processed": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 4,
+          "name": "constant-secondary",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 552,
+          "probe": {
+            "x": 28,
+            "y": 40,
+            "expected": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "actual": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "processed": [
+              46,
+              44,
+              52,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 5,
+          "name": "world-user-plane",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 688,
+          "probe": {
+            "x": 46,
+            "y": 33,
+            "expected": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "actual": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "processed": [
+              78,
+              76,
+              92,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        },
+        {
+          "scene": 6,
+          "name": "normalized-normal",
+          "differingPixels": 0,
+          "maximumByteError": 1,
+          "coveredPixels": 964,
+          "probe": {
+            "x": 44,
+            "y": 36,
+            "expected": [
+              83,
+              85,
+              111,
+              191
+            ],
+            "actual": [
+              83,
+              85,
+              111,
+              191
+            ],
+            "processed": [
+              82,
+              85,
+              111,
+              191
+            ],
+            "maximumByteError": 1
+          }
+        },
+        {
+          "scene": 7,
+          "name": "secondary-normal-alone",
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 872,
+          "probe": {
+            "x": 16,
+            "y": 40,
+            "expected": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "actual": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "processed": [
+              60,
+              88,
+              151,
+              191
+            ],
+            "maximumByteError": 0
+          }
+        }
+      ],
+      "stats": {
+        "batches": 18,
+        "commands": 248,
+        "presents": 16,
+        "queueSubmits": 48,
+        "drawCalls": 14,
+        "indexedDrawCalls": 2,
+        "upDrawCalls": 8,
+        "pipelineCreations": 9,
+        "pipelineHits": 7,
+        "pipelinesRejected": 0,
+        "programBuilds": 16,
+        "programCacheHits": 0,
+        "bindGroupCreations": 9,
+        "bindGroupHits": 7,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 1,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 1,
+        "backBufferPresents": 16,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 16,
+        "readbackRequests": 16,
+        "frameFlushes": 16,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 1,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 9,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 16,
+        "uploadChunksAllocated": 1,
+        "uploadStagingUploads": 9,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 1,
+        "sessionChanges": 0,
+        "sessionsEnded": 1,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 0,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 1,
+        "renderTargetBinds": 1,
+        "renderPasses": 16,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 1,
+        "zeroNormalDrawsWithoutTexture": 1,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 16,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 12288,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 16,
+        "renderTargetReadbackBytes": 262144,
+        "renderTargetReadbackFailures": 0,
+        "unreadStateIds": {
+          "renderStates": [
+            136,
+            170
+          ]
+        }
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    }
+  },
+  "gpuMutations": {
+    "killed": 5,
+    "total": 5,
+    "restoredFixtureSha256": "bb5e8544e4c73c44f63874ea381834d23d85eaeada0ebcf868a713f575f1ca44",
+    "results": [
+      {
+        "name": "tween-factor",
+        "killed": true
+      },
+      {
+        "name": "primary-constant",
+        "killed": true
+      },
+      {
+        "name": "indexed-base",
+        "killed": true
+      },
+      {
+        "name": "user-plane",
+        "killed": true
+      },
+      {
+        "name": "normalization",
+        "killed": true
+      }
+    ]
+  },
+  "scope": "Actual XP D3D8 NULL-function declarations with primary stream 15 and secondary stream 1 draw sixteen paired raw/CPU frames. Independent formulas check every source/index/output and clipped triangle, plus eight GPU color probes. Raw and ProcessVertices pixels match on SwiftShader/Metal within one byte/channel. Factors, independent/absent primary normal, indexed base, constant stream, world user plane and normalization are covered. D3D8 factory/device advertise TWEENING only after initial pixel acceptance; a fresh final capture checks both caps and ships that exact DLL. No original Microsoft D3D8/Wine/game/FPS claim.",
+  "capture": {
+    "api": 8,
+    "source": "glbridge/sample/d3d8_tween_draw_test.c",
+    "sourceSha256": "9dff0f9d58e010d5bcff156405ad71a2da914b91528519a49ba3712710a12fd9",
+    "proxySourceSha256": "dbb4eb3946562b161398c304828e504e25a71868a40a9670188f9c86036f6b4a",
+    "dllSha256": "e7ab8b2b6d67ca63d228668e1ebd42c202f5b2feaa43c357cc37abf06e401311",
+    "executableSha256": "2b8afd4ea8b07f7267893bb1d3441a7fcf4b5311fa24f3bdbee069a7dd94fda8",
+    "sha256": "4503e47fbc4709b74c7723663d6820dc4bef6f973131673de80ef885e86af3bb",
+    "bytes": 11728,
+    "frames": 16,
+    "owners": [
+      1
+    ]
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 108,
+    "owners": [
+      1
+    ],
+    "releases": [
+      1
+    ],
+    "logs": {
+      "TWEEN.TXT": "PASS D3D8 Tween draws: 16 paired declaration/CPU frames, factors, independent channels, indexed base, constant stream, user plane and normalized normals\r\n"
+    },
+    "diskWrites": "RAM sector overlay only"
+  },
+  "inheritedValidation": {
+    "file": "stage4d2k3c-validation.json",
+    "sha256": "3cda77d477d3b17a0ceb7f9cd64e55b378ce22345a27dcbd2ab7e8daefe84117",
+    "scope": "Three-API XP TNL/recording/lifetime and D3D8 declared draw ranges/ClipStatus remain from the immediately preceding substage. This substage changes only the D3D8 Tween cap and adds a separate actual guest pixel probe. Host production JS/bundle is unchanged."
+  },
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "7ed6dac7fe0c65bdac0786b1ec72489fd74905e4e0afbf74655b9b8e60c13f78",
+    "Makefile": "161807b6a443443096d17e43da5886972d346ede3211e8ca366995d57672dda0",
+    "tests/glbridge/d3d8_tween_draw_xp.mjs": "27cf62ca38192731d9e22f40deaa73b3013f95c115dd52b278a6fea20842a14f",
+    "tests/glbridge/d3d8_tween_fixture_test.js": "279c01f4113fc67ac139bf8a8b7aa6fb45826e40eabb414a0373bcf41d37c8fe",
+    "tests/glbridge/d3d8_tween_replay_browser_test.html": "c2d630df9ea1d76af073d5cbfd97411fd57b79b620e92f20d06c3dd6de94d773",
+    "tests/glbridge/fixtures/d3d8_tween_xp.json": "607d4efff93acff3a7bb48552df4d091f83d18ffceef9e71dafc9914bf824b12",
+    "tests/glbridge/fixtures/d3d8_tween_xp.bin.gz": "bb5e8544e4c73c44f63874ea381834d23d85eaeada0ebcf868a713f575f1ca44",
+    "tools/d3d8_tween_fixture.mjs": "3db122bbe50ddd73f0a6c49058dbe6de700fecda139875b8c654bfd7cd612d04",
+    "tools/d3d8_tween_mutations.mjs": "cdca7ae3396ed32739d9e3560ee56cbef28387964ce729fada4fa713cd9e9812"
+  },
+  "siteSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "dbb4eb3946562b161398c304828e504e25a71868a40a9670188f9c86036f6b4a",
+    "glbridge/d3d8proxy/d3d8.dll": "e7ab8b2b6d67ca63d228668e1ebd42c202f5b2feaa43c357cc37abf06e401311",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "a95882b1c55344fcdb3186e91ba6d3e789eb8132cd8bbe3de8535eb935044b66",
+    "glbridge/d3d8proxy/build.sh": "9f39898f3163721d458eda0a502240a3e08e7ec616e627420b04425e7417feb7",
+    "glbridge/d3d8proxy/README.md": "248c8ddc551d82214b7d36f5da328f28abd39ca95ccbdec4fd1e892a4274c10d",
+    "glbridge/sample/d3d8_tween_draw_test.c": "9dff0f9d58e010d5bcff156405ad71a2da914b91528519a49ba3712710a12fd9",
+    "vendor/v86/glbridge/manifest.json": "5159728a07ca7925d3af6f37bbac54c15f1aaf16f8afdc5baa0dae947fe6528e"
+  },
+  "logSha256": {
+    "final-xp": "089e98860096f95fcd643c8dd239752ebd89eb84252d6e760d8727b449ad13fb",
+    "core": "e0e9d5929bbc6283ee11a0e4e5e3cd85f15cfb5818972440b14a48d0a63454ef",
+    "guest": "6aa9794cb236da6df68e42835430d28f358868fefcb6dd926c01e4274e5f99cb",
+    "builds": "8bad6dbf205636f50fa23cde4cf8421a398e6923e5e5c18da0882f09c496cfa5",
+    "gpu": "0abc86f52676dea1b86a539e2582892263e4a2a4aa82a783d439e0504802d5a3",
+    "final-metal": "fe05d442eba2dd7f52a402e5c5c68c97a96db9f9d5dfd65342b4ffb090a788de",
+    "mutations": "4473952b53b90c89bbe771fc62ea8145306dc80af12db308f1a4e208bfde5390",
+    "fixture": "ba6777021b665dd9cc434be5549b615621f91edc25db86356e4f01f7a8fa0ba8",
+    "integration": "9d5a5baa50e80227a1031a82c03f0ef204d87fd05bda314f51ab2594e550ffa7"
+  }
+}

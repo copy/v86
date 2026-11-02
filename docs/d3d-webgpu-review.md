@@ -1457,6 +1457,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 145 组核心、144 组客体、D3D8 十七个 SDK 冒烟 EXE 和严格零售/诊断 DLL 通过；发布 XP 所测 D3D8 DLL。宿主包保持 `dffb0322a62fa650c089`，GPU/Metal/站点集成沿用 4D2k2。见 [stage4d2k3c-validation.json](fixtures/d3d-review/stage4d2k3c-validation.json)。
 > - 下一步用实际 D3D8 客体捕获完成 Tween 普通绘制/ProcessVertices 的像素回放验收，再开启其 Tween caps；尚未宣称原生 Microsoft D3D8/Wine/游戏验收完成。
 
+> **阶段 4D2k3d（2026-11-03）：D3D8 Tween 客体像素验收与能力声明完成。**
+>
+> - 新增实际 SDK COM 客体程序，以主流 15、第二通道流 1 和 NULL 函数声明绘制，再以同一输入执行 ProcessVertices 后绘制，捕获 16 帧；八组覆盖 .25/.75 因子、独立第二位置/法线、无主法线、索引基址、常量第二流、世界用户平面和插值后归一化。每个原始绘制都不绑定流 0。
+> - 冻结工具独立计算几何、方向光颜色、线性雾和裁剪多边形，逐字节检查原始 VB/IB 和八次 CPU 输出，再检查裁剪后提交的三角形；包含被裁顶点的原生存储规则，未调用生产顶点/着色器函数。仅保留已检查的过程数据，诊断/光标内容清零。常规核心测试核对四种精确声明、16 帧状态/基址/流范围以及固定数学锚点。
+> - 最终客体捕获在 SwiftShader 和 Metal 上各比较 32,768 个像素对，并核对八个独立颜色探针；法线归一化一组最大误差为 1 字节/通道，其余七组完全一致，每组至少 552 个覆盖像素。无 WebGPU/宿主错误、命令失败或丢弃绘制；不放宽既有误差要求。五项仅修改回放输入的因子、主流步长、索引基址、用户平面与归一化变异均触发像素失败，随后精确还原冻结文件。
+> - 在首轮两种后端像素通过后开启 D3D8 的 `D3DVTXPCAPS_TWEENING`；最终重新构建/捕获验证工厂与设备查询均包含该能力，发布这一最终 XP 所测 DLL。D3D8 CPU 与 GPU Tween 均已验收，程序 VS 的 CPU 执行仍未实现。
+> - 146 组核心、144 组客体、18 个 D3D8 SDK 冒烟 EXE 与零售/诊断 DLL 通过；完整 WebGPU 验收扩为 36 次运行。宿主包保持 `dffb0322a62fa650c089`。见 [stage4d2k3d-validation.json](fixtures/d3d-review/stage4d2k3d-validation.json)。
+> - 本步关闭 D3D8 Tween 能力缺口，继续阶段 4 的共用核心/默认状态/运行时 caps 与包装层工作；未宣称原生 Microsoft D3D8、Wine/游戏或 FPS 验收完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
