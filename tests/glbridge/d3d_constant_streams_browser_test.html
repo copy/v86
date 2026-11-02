@@ -1,0 +1,77 @@
+<!doctype html><meta charset="utf-8"><title>D9WG constant vertex streams</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async () => {
+    const P=D9WGProtocol,C=P.C,suite=D3D9Conformance,{cmd,rs,tss,cat,vertexShader,asm,f}=suite.builders;
+    const gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false});
+    try {
+        const modes=[{name:"float-color"},{name:"packed-color",packed:true},{name:"programmable",programmable:true},
+            {name:"indexed",indexed:true},{name:"instance-divisor-one",indexed:true,divisor:1},{name:"instance-divisor-three",indexed:true,divisor:3},
+            {name:"points",point:true},{name:"indexed-points",point:true,indexed:true},
+            {name:"constant-position",point:true,constantPosition:true},{name:"indexed-constant-position",point:true,indexed:true,constantPosition:true},
+            {name:"shared-buffer",shared:true},{name:"programmable-shared-buffer",shared:true,programmable:true}];
+        const scenes=[];
+        async function render(mode,repeated,index) {
+            const point=mode.point,packed=mode.packed,constantPosition=mode.constantPosition;
+            const color=[64/255,128/255,191/255,1],positions=point?[[-.5,0,.5],[.5,0,.5],[0,.5,.5]]:[[-1,-1,.5],[3,-1,.5],[-1,3,.5]];
+            const positionData=new Uint8Array(mode.shared?224:84),positionView=new DataView(positionData.buffer);
+            for(let v=0;v<5;++v)(constantPosition?[.25,-.25,.5]:positions[(v+2)%3]).forEach((n,c)=>positionView.setFloat32(4+v*16+c*4,n,true));
+            const colorBase=mode.shared?96:4,colorBytes=packed?4:16,colorStride=repeated?20:0;
+            const colorData=mode.shared?positionData:new Uint8Array(repeated?104:8+colorBytes),colorView=new DataView(colorData.buffer);
+            for(let v=0;v<(repeated?5:1);++v){const at=colorBase+4+v*colorStride;if(packed)colorView.setUint32(at,0xff4080bf,true);else color.forEach((n,c)=>colorView.setFloat32(at+c*4,n,true));}
+            const body=dev=>{
+                const vb=0x600000+dev,cb=mode.shared?vb:vb+1,ib=vb+2;
+                const element=(stream,offset,type,usage)=>P.encode("VertexElement",{stream,offset,type,usage});
+                const elements=[element(3,0,2,0),element(15,4,packed?4:3,10)];
+                const create=(handle,data,kind=1)=>[
+                    cmd(P.OP.CREATE_BUFFER,P.encode("CreateBuffer",{device_handle:dev,resource_handle:handle,resource_kind:kind,byte_count:data.length,fvf:kind===2?101:0})),
+                    cmd(P.OP.UPDATE_BUFFER,P.encode("UpdateBuffer",{resource_handle:handle,byte_count:data.length}),[{offsetField:"data_offset",data}])];
+                const bind=(stream,handle,offset,stride)=>cmd(P.OP.SET_STREAM_SOURCE,P.encode("SetStreamSource",{device_handle:dev,stream,buffer_handle:handle,offset_in_bytes:offset,stride}));
+                const commands=[rs(dev,7,0),rs(dev,22,1),rs(dev,137,0),rs(dev,29,0),rs(dev,154,f(12)),rs(dev,155,f(1)),rs(dev,166,f(64)),rs(dev,157,0),
+                    tss(dev,0,1,2),tss(dev,0,2,0),tss(dev,0,4,2),tss(dev,0,5,0),
+                    cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,element_count:elements.length}),...elements])),
+                    ...create(vb,positionData),...(mode.shared?[]:create(cb,colorData)),
+                    bind(3,vb,4,constantPosition&&!repeated?0:16),bind(15,cb,colorBase,colorStride)];
+                if(mode.programmable){const {OP:O,REG,ins,dst,src}=asm,tokens=[0xfffe0200,
+                    ins(O.DCL,2),0x80000000,dst(REG.INPUT,0),ins(O.DCL,2),0x8000000a,dst(REG.INPUT,1),
+                    ins(O.MOV,2),dst(REG.RASTOUT,0),src(REG.INPUT,0),ins(O.MOV,2),dst(REG.ATTROUT,0),src(REG.INPUT,1),0xffff];
+                    commands.push(vertexShader(dev,vb+3,tokens),cmd(P.OP.SET_VERTEX_SHADER,P.encode("SetShader",{device_handle:dev,shader_handle:vb+3})));}
+                if(mode.divisor)for(const [stream,divider] of [[0,0x40000004],[15,0x80000000|mode.divisor]])commands.push(cmd(P.OP.SET_STREAM_SOURCE_FREQ,P.encode("SetStreamSourceFreq",{device_handle:dev,stream,divider})));
+                if(mode.indexed){commands.push(...create(ib,new Uint8Array(new Uint16Array([2,3,4]).buffer),2),
+                    cmd(P.OP.SET_INDICES,P.encode("SetIndices",{device_handle:dev,buffer_handle:ib})),
+                    cmd(P.OP.DRAW_INDEXED_PRIMITIVE,P.encode("DrawIndexedPrimitive",{device_handle:dev,primitive_type:point?1:4,primitive_count:point?3:1,base_vertex_index:-1,min_vertex_index:2,vertex_count:3})));}
+                else commands.push(cmd(P.OP.DRAW_PRIMITIVE,P.encode("DrawPrimitive",{device_handle:dev,primitive_type:point?1:4,primitive_count:point?3:1,start_vertex:1})));
+                return commands;
+            };
+            const batch=suite.caseBatch(index,{clear:0xff101010,body});await gpu.submit(batch.bytes,{writeGuestMemory(){}});
+            let reply;await gpu.submit(suite.readbackBatch(index+1,batch.dev,batch.rt),{writeGuestMemory(offset,bytes){if(offset===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET)reply=bytes.slice();}});
+            await gpu.checkpointIdle();if(!reply||reply.length!==16400||new DataView(reply.buffer).getUint32(P.F.ReadbackResponse.status,true)!==C.D9WG_RESPONSE_OK)throw Error("Missing constant stream readback");return reply.subarray(16);
+        }
+        for(const mode of modes){const index=scenes.length*2,actual=await render(mode,false,index),expected=await render(mode,true,index+1);
+            let differingPixels=0,maximumByteError=0,coveredPixels=0,wrongColorPixels=0;
+            for(let at=0;at<actual.length;at+=4){let delta=0;for(let c=0;c<4;++c)delta=Math.max(delta,Math.abs(actual[at+c]-expected[at+c]));maximumByteError=Math.max(maximumByteError,delta);if(delta)differingPixels++;
+                if(expected[at]!==16||expected[at+1]!==16||expected[at+2]!==16){coveredPixels++;if([191,128,64,255].some((n,c)=>Math.abs(expected[at+c]-n)>1))wrongColorPixels++;}}
+            scenes.push({name:mode.name,differingPixels,maximumByteError,coveredPixels,wrongColorPixels});}
+        await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;++i)await new Promise(r=>setTimeout(r,0));
+        const evidence={scenes,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch("/__test_file?name=d9wg-constant-streams.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+        const failures=scenes.filter(s=>s.differingPixels||s.wrongColorPixels||s.coveredPixels<100);
+        if(failures.length||gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.droppedDraws)throw Error("Constant stream mismatch "+JSON.stringify({failures,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors}));
+        document.querySelector("#result").textContent="PASS actual constant vertex streams: "+scenes.length+" fixed/programmed/indexed/point/instance/shared-buffer scenes, exact pixel equality and independent covered-color checks";
+    }catch(error){document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>

@@ -1255,6 +1255,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 139 组核心、110 组客体、两项站点集成、35 个标准冒烟 EXE 和六个严格构建 DLL 通过。四个已有数值参考的 cases 保持不变；宿主 JS/运行包没有变化，GPU 验收沿用 4D2i2c 的 30 项结果，不把本次 XP 接口检查计作 GPU 绘制验收。见 [stage4d2i3a-validation.json](fixtures/d3d-review/stage4d2i3a-validation.json)。
 > - 本阶段完成软件 ProcessVertices 的多流输入。继续普通绘制的多流范围/ClipStatus、宿主零步长绘制、可编程处理/打包输出和其余共用核心；原生 D3D8/9、完整 Wine 与真实游戏验收仍待后续完成。
 
+
+> **阶段 4D2i3b（2026-11-02）：宿主常量顶点流绘制完成。**
+>
+> - 宿主区分已绑定的零步长输入与未绑定流，保留原属性类型/偏移，直接使用 WebGPU 的 arrayStride=0；普通顶点、实例和点扩展都重复同一份属性。依据 [WebGPU 顶点布局规则](https://www.w3.org/TR/webgpu/#abstract-opdef-validating-gpuvertexbufferlayout)，零步长属性仍检查真实属性范围。
+> - 大于一的实例分频无需展开常量数据；索引点压缩保留常量流的原始缓冲、偏移和资源引用，因此后续上传继续正确处理已记录绘制。普通步长与零步长切换使用各自的管线布局，回切可复用匹配缓存。
+> - 12 个实际 GPU 场景覆盖浮点/ARGB 颜色、固定/可编程入口、非零位置流、源/属性偏移、StartVertex、负 BaseVertexIndex、索引点、常量位置、实例分频 1/3 及同一缓冲的多个绑定。对照按 D3D 语义显式重复数据，并独立检查覆盖区域的颜色。
+> - SwiftShader、Metal 各 49,152 对像素完全相同，最大字节误差 0；GPU/宿主错误、命令失败和绘制丢弃均为 0。旧实现失败，三个语义变异全部拦截且生产源码已恢复。
+> - 140 组核心、31 项 WebGPU 验证及两项站点集成通过。客体 C 未改变，沿用 4D2i3a 的 110 组客体、三精度 XP 数学、COM/T&L 和六个 DLL 构建结果。运行包 `be0e784a17c9ea12cf09` 已同步站点；见 [stage4d2i3b-validation.json](fixtures/d3d-review/stage4d2i3b-validation.json)。
+> - 本阶段是宿主线协议绘制验收；客体普通绘制还需接入多流范围和 ClipStatus 校验。继续这些内容及可编程软件处理/打包输出、其余共用核心，不宣称原生 D3D8/9、完整 Wine 或真实游戏验收完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

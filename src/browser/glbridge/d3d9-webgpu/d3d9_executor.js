@@ -3901,7 +3901,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     continue;
                 }
                 const stream = state.streams.get(element.stream);
-                if (!stream || !stream.stride) continue;
+                if (!stream || (!stream.stride && !stream.bufferHandle)) continue;
                 let entry = perStream.get(element.stream);
                 if (!entry) {
                     const frequency = (stream.frequency ?? 1) >>> 0;
@@ -5951,7 +5951,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 if (!divisor)
                     return { error: "instance stream " + streamIndex +
                         " has a zero step rate" };
-                if (divisor === 1) continue;
+                // Zero stride already repeats one record for every instance,
+                // independently of its divisor; no expansion is necessary.
+                if (divisor === 1 || binding.stride === 0) continue;
                 const stride = binding.stride || 0;
                 const shadow = binding.resource && binding.resource.shadow;
                 if (!stride || !shadow)
@@ -6006,6 +6008,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             for (const [streamIndex, binding] of streams) {
                 const streamState = state.streams.get(streamIndex);
                 const stride = streamState && streamState.stride;
+                if (stride === 0) {
+                    // Index compaction cannot change a constant attribute.
+                    // Retain its resource so later updates still rename it.
+                    result.set(streamIndex, binding);continue;
+                }
                 const shadow = binding.resource && binding.resource.shadow;
                 if (!stride || !shadow) return null;
                 const outputBytes = indexCount * stride;
