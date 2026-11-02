@@ -1307,6 +1307,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 143 组核心、118 组客体、35 个标准冒烟 EXE 和六个严格构建 DLL 通过；已更新 app-local DLL。宿主 JS 和运行包 `7beb9d03738199295430` 未改变，WebGPU/数学验证沿用 4D2i3e，未声明新的 GPU 像素、FPS 或完整 Wine/游戏验收。见 [stage4d2j1-validation.json](fixtures/d3d-review/stage4d2j1-validation.json)。
 > - 后续顶点处理范围校正：微软规定 ProcessVertices 输出声明只允许 FLOATn / D3DCOLOR，显式输出声明要求 VS3+；此前“任意打包输出”的泛化待办撤销，保留合法输出布局及可编程 CPU 顶点处理。依据：[输出声明规则](https://learn.microsoft.com/en-us/windows/win32/direct3d9/mapping-fvf-codes-to-a-directx-9-declaration)、[LightEnable 默认值](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-lightenable)、[灯光索引与 MaxActiveLights](https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-setlight)。D3D7 的稀疏状态和 D3D8 的录制恢复继续下一步。
 
+
+> **阶段 4D2j2a（2026-11-02）：D3D8 现有状态块入口改为延迟录制。**
+>
+> - 录制中的渲染状态、纹理阶段、视口、材质、变换及乘法、灯光属性/启用、流、索引、纹理与着色器绑定直接写入录制块，不再改写当前设备或提前发射宿主命令。EndStateBlock 保留记录值；显式 Apply 才更新设备。同值调用仍设置掩码，多次写入保留最后值；矩阵乘法使用同一录制中先前记录的矩阵。Capture 继续读取掩码对应的当前状态。
+> - 录制块独立持有 VB/IB/纹理引用；重复记录先持有新引用再释放旧引用，应用释放其引用后块仍可应用。实际 XP COM 检查录制期间的查询及录制后/Apply 后的结果，验证精确引用计数、索引基址、FVF、材质/视口/矩阵与同值掩码；D3D8 的高索引灯光录制恢复用例也通过。
+> - 新实际 XP 命令捕获用三个 Present 划定边界：录制阶段只有第二个 PRESENT，没有任何状态命令；Apply 阶段才出现记录的状态、纹理、材质、变换、流/索引和 FVF 等命令。原始捕获保留在忽略的构建目录，公开验证记录仅含命令名和摘要，不带桌面/光标等像素。
+> - 宿主原生编译实际 D3D8 C 入口，验证重复/同值写入、查询不变、参数校验、局部矩阵组合、零命令发射及退出录制后的普通写入。6/6 语义变异及 ASan/UBSan 通过，上一版 `8c86698` 的实际 C 源码不能通过该检查。120 组客体、17 个 D3D8 标准冒烟 EXE、零售/诊断 D3D8 DLL 和三 API XP T&L 回归通过；已更新 app-local D3D8 DLL。
+> - 143 组核心、WebGPU/三精度数学及两项站点集成沿用前两步；宿主 JS 和运行包 `7beb9d03738199295430` 未改变。此步未声称完整原生 D3D8、Wine、游戏或 FPS 验收。验证见 [stage4d2j2a-validation.json](fixtures/d3d-review/stage4d2j2a-validation.json)。依据 Wine 的 [D3D8 状态块测试](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c) 与 [矩阵录制实现](https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/stateblock.c)。
+> - 继续补齐 D3D8 常量、用户平面/调色板等未进入旧快照的状态、着色器句柄生命周期和预定义块范围；D3D9 录制期间的查询隔离、D3D7 稀疏灯光及其余共用运行时仍在后续步骤。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
