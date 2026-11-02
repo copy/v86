@@ -4366,9 +4366,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const alphaTestKey = alphaTest.enabled
                 ? "_a" + alphaTest.func : "";
             const rs = state.renderStates;
+            const pretransformed = elements.some(element =>
+                element.usage === DECLUSAGE_POSITIONT && element.usageIndex === 0);
             const clipMask = (rs.get(D3DRS_CLIPPLANEENABLE) || 0) & 0x3f;
             if (clipMask) state.clipPlaneCapacity = 6;
-            const clipPlaneCount = state.clipPlaneCapacity || 0;
+            // POSITIONT has already completed vertex processing, including
+            // user clipping. Plane capacity remains cached for later XYZ draws.
+            const clipPlaneCount = pretransformed ? 0 : state.clipPlaneCapacity || 0;
             const clipKey = "_cl" + clipPlaneCount;
             // D3DRS_SHADEMODE, applied to the two colour varyings in both
             // stages, fixed-function or translated (D3D9 flat-shades COLOR0/1
@@ -4385,8 +4389,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // matching POSITIONT against the shader's POSITION input instead
             // dropped the draw, or built a pipeline missing attribute 0, which
             // invalidates the whole frame's command buffer.
-            const pretransformed = elements.some(element =>
-                element.usage === DECLUSAGE_POSITIONT && element.usageIndex === 0);
             const vsHandle = pretransformed ? 0 : state.vertexShaderHandle;
             const psHandle = state.pixelShaderHandle;
             const vsResource = vsHandle ? this.resources.get(vsHandle) : null;

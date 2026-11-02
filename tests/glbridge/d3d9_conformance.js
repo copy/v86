@@ -122,6 +122,14 @@
     const T = 0x1, Z = 0x2;   // D3DCLEAR_TARGET, D3DCLEAR_ZBUFFER
 
     const CASES = [
+        { name: "POSITIONT bypasses enabled user clipping planes",
+          body: d => [cmd(OP.SET_CLIP_PLANE, P.encode("SetClipPlane", { device_handle: d, index: 0, plane: [0, 0, 0, -1] })),
+              rs(d, 152, 1), draw(d, quad(0, 0, 64, 64, .5, 0xFF0000FF))],
+          probes: [{ at: [32, 32], expect: [0, 0, 255] }] },
+        { name: "untransformed XYZ still applies enabled user clipping planes",
+          body: d => [cmd(OP.SET_CLIP_PLANE, P.encode("SetClipPlane", { device_handle: d, index: 0, plane: [0, 0, 0, -1] })),
+              rs(d, 152, 1), ...drawXYZ(d, fullXYZ(.5, 0xFFFF0000))],
+          probes: [{ at: [32, 32], expect: [0, 0, 0] }] },
         { name: "default D3DCULL_CCW keeps a clockwise triangle and culls a counter-clockwise one",
           body: d => [draw(d, [[0, 0, 0.5, 0xFFFF0000], [64, 0, 0.5, 0xFFFF0000], [0, 64, 0.5, 0xFFFF0000]]),
               draw(d, [[0, 0, 0.4, 0xFF00FF00], [0, 64, 0.4, 0xFF00FF00], [64, 0, 0.4, 0xFF00FF00]])],
