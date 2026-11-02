@@ -16,7 +16,8 @@ const vertex_math = process.argv.includes("--vertex-math");
 const fog_math = process.argv.includes("--fog-math");
 const texture_math = process.argv.includes("--texture-math");
 const blend_math = process.argv.includes("--blend-math");
-const vertex_format_math = process.argv.includes("--vertex-formats-math");
+const vertex_color_math = process.argv.includes("--vertex-colors-math");
+const vertex_format_math = process.argv.includes("--vertex-formats-math") || vertex_color_math;
 const legacy_output_math = process.argv.includes("--legacy-output-math") || vertex_format_math;
 const clip_status_math = process.argv.includes("--clip-status-math") || legacy_output_math;
 const clip_user_math = process.argv.includes("--clip-user-math") || clip_status_math;
@@ -29,9 +30,11 @@ if(legacy_output_math) run(process.execPath, [site + "/glbridge/tests/d9wg_legac
     { stdio: "pipe", env: { ...process.env, D9WG_LEGACY_OUTPUT_HEADER_OUT: out + "/legacy-output-cases.h" } });
 if(vertex_format_math) run(process.execPath, [site + "/glbridge/tests/d9wg_vertex_format_test.js"],
     { stdio: "pipe", env: { ...process.env, D9WG_VERTEX_FORMAT_HEADER_OUT: out + "/vertex-format-cases.h" } });
+if(vertex_color_math) run(process.execPath, [site + "/glbridge/tests/d9wg_vertex_color_test.js"],
+    { stdio: "pipe", env: { ...process.env, D9WG_VERTEX_COLOR_HEADER_OUT: out + "/vertex-color-cases.h" } });
 const code = `#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-` + source() + (lighting_math ? '\n#include "tests/native/d9wg_tnl_math_cases.h"\n' : "") + (vertex_math ? '\n#include "tests/native/d9wg_vertex_cases.h"\n' : "") + (fog_math ? '\n#include "tests/native/d9wg_fog_cases.h"\n' : "") + (texture_math ? '\n#include "tests/native/d9wg_texcoord_cases.h"\n' : "") + (blend_math ? '\n#include "tests/native/d9wg_blend_cases.h"\n' : "") + (clip_math ? '\n#include "tests/native/d9wg_clip_cases.h"\n' : "") + (clip_pipeline_math ? '\n#include "tests/native/d9wg_clip_triangle_cases.h"\n#include "tests/native/d9wg_clip_buffer_cases.h"\n#include "tests/native/d9wg_clip_draw_cases.h"\n' : "") + (clip_user_math ? '\n#include "tests/native/d9wg_clip_user_cases.h"\n' : "") + (clip_status_math ? "\n#include " + JSON.stringify(out + "/clip-status-cases.h") + "\n" : "") + (legacy_output_math ? "\n#include " + JSON.stringify(out + "/legacy-output-cases.h") + "\n" : "") + (vertex_format_math ? "\n#include " + JSON.stringify(out + "/vertex-format-cases.h") + "\n" : "") + `
+` + source() + (lighting_math ? '\n#include "tests/native/d9wg_tnl_math_cases.h"\n' : "") + (vertex_math ? '\n#include "tests/native/d9wg_vertex_cases.h"\n' : "") + (fog_math ? '\n#include "tests/native/d9wg_fog_cases.h"\n' : "") + (texture_math ? '\n#include "tests/native/d9wg_texcoord_cases.h"\n' : "") + (blend_math ? '\n#include "tests/native/d9wg_blend_cases.h"\n' : "") + (clip_math ? '\n#include "tests/native/d9wg_clip_cases.h"\n' : "") + (clip_pipeline_math ? '\n#include "tests/native/d9wg_clip_triangle_cases.h"\n#include "tests/native/d9wg_clip_buffer_cases.h"\n#include "tests/native/d9wg_clip_draw_cases.h"\n' : "") + (clip_user_math ? '\n#include "tests/native/d9wg_clip_user_cases.h"\n' : "") + (clip_status_math ? "\n#include " + JSON.stringify(out + "/clip-status-cases.h") + "\n" : "") + (legacy_output_math ? "\n#include " + JSON.stringify(out + "/legacy-output-cases.h") + "\n" : "") + (vertex_format_math ? "\n#include " + JSON.stringify(out + "/vertex-format-cases.h") + "\n" : "") + (vertex_color_math ? "\n#include " + JSON.stringify(out + "/vertex-color-cases.h") + "\n" : "") + `
 static HANDLE log_file;
 static void report(const char *text) {
     DWORD written;WriteFile(log_file,text,(DWORD)lstrlenA(text),&written,NULL);
@@ -61,6 +64,7 @@ void WINAPI WinMainCRTStartup(void) {
         ${clip_status_math ? "if(!error)error=clip_status_cases();" : ""}
         ${legacy_output_math ? "if(!error)error=legacy_output_cases();" : ""}
         ${vertex_format_math ? "if(!error)error=vertex_format_cases();" : ""}
+        ${vertex_color_math ? "if(!error)error=vertex_color_cases();" : ""}
         WORD observed;__asm__ volatile("fnstcw %0":"=m"(observed)::"memory");
         if(observed!=modes[i])error=9999;
         __asm__ volatile("fnclex\\n\\tfldcw %0"::"m"(saved):"memory");
@@ -78,6 +82,7 @@ void WINAPI WinMainCRTStartup(void) {
     }
         ${legacy_output_math ? 'report("PASS legacy output control words=3 native=252");' : ""}
     ${vertex_format_math ? 'report("PASS typed vertex inputs control words=3 vectors=3264 halfPatterns=196608");' : ""}
+    ${vertex_color_math ? 'report("PASS typed vertex colors control words=3 inputs=3276 colorModes=19656");' : ""}
     report("PASS all real XP math checks");CloseHandle(log_file);ExitProcess(0);
 }
 `;
@@ -89,6 +94,7 @@ const files = { "MATH.EXE": fs.readFileSync(out + "/MATH.EXE"),
     "PROBE.CMD": Buffer.from("@echo off\r\necho READY math >%~d0\\OWNER.TXT\r\n%~d0\\MATH.EXE\r\ntype %~d0\\MATH.TXT >>%~d0\\OWNER.TXT\r\n") };
 const result = await run_xp_ram_probe({ root, image: process.env.XP_IMAGE || site + "/windowsxp/windowsxp_multidisk_C_4G.img", out, files,
     success: "PASS all real XP math checks", log_files: ["MATH.TXT"], inspect(result) {
+        if(vertex_color_math) assert(result.text.includes("PASS typed vertex colors control words=3 inputs=3276 colorModes=19656"));
         if(vertex_format_math) assert(result.text.includes("PASS typed vertex inputs control words=3 vectors=3264 halfPatterns=196608"));
         if(legacy_output_math) assert(result.text.includes("PASS legacy output control words=3 native=252"));
         assert.equal(result.batches, 0);assert.equal(result.releases.length, 0);

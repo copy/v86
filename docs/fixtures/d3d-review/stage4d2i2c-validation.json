@@ -1,0 +1,1938 @@
+{
+  "stage": "4D2i2c shared typed floating color inputs and safe final ARGB quantization",
+  "date": "2026-11-02",
+  "bundle": "3e84336e0707ddf60aa8",
+  "coreSuites": 139,
+  "guestSuites": 108,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "referenceInputs": 1092,
+  "colorModesPerInput": 6,
+  "formats": 17,
+  "xp": {
+    "typedColorCOM": {
+      "status": "PASS",
+      "seconds": 107,
+      "batches": 1,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "dllSha256": "ffbbbd1375209f9523d812c763451273180bdd6c432fffae2ce0f669f894e05d",
+      "executableSha256": "beb3b79430da4269b853f6cb9a8d75234e2a7d7d4ad8601a1ac187b8c04d33a3"
+    },
+    "math": {
+      "status": "PASS",
+      "seconds": 132,
+      "batches": 0,
+      "owners": [],
+      "releases": []
+    },
+    "tnl": {
+      "status": "PASS",
+      "seconds": 145,
+      "batches": 6,
+      "owners": [
+        1,
+        2,
+        3
+      ],
+      "releases": [
+        1,
+        2,
+        3
+      ]
+    }
+  },
+  "backends": {
+    "swift": {
+      "sourceSha256": {
+        "runtime/d9wg_vertex.c": "14146dc67520d3c7bb51fffef2df181d887527ea88e7e29d9f821d5c92f0b1ff",
+        "runtime/d9wg_vertex.h": "aaa4e5f6848fa93050ea85410246a987109129d9843cc7da89bfd4b5c84b4d7e",
+        "runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
+        "runtime/d9wg_lighting.h": "c80367615a5c71ed11486466a9daa0daf45c9f0266e8318abc471e9e37763542",
+        "runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+        "runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+        "runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f"
+      },
+      "scenes": [
+        {
+          "name": "type-0-sample-4-row-4-mode-0",
+          "type": 0,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-4-row-4-mode-1",
+          "type": 0,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-4-row-4-mode-2",
+          "type": 0,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-4-row-0-mode-3",
+          "type": 0,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-68-row-68-mode-0",
+          "type": 1,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-68-row-68-mode-1",
+          "type": 1,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-68-row-68-mode-2",
+          "type": 1,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-68-row-64-mode-3",
+          "type": 1,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-132-row-132-mode-0",
+          "type": 2,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-132-row-132-mode-1",
+          "type": 2,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-132-row-132-mode-2",
+          "type": 2,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-132-row-128-mode-3",
+          "type": 2,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-196-row-196-mode-0",
+          "type": 3,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-196-row-196-mode-1",
+          "type": 3,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-196-row-196-mode-2",
+          "type": 3,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-196-row-192-mode-3",
+          "type": 3,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-4-sample-260-row-260-mode-0",
+          "type": 4,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-4-sample-260-row-260-mode-1",
+          "type": 4,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-4-sample-260-row-260-mode-2",
+          "type": 4,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-4-sample-260-row-256-mode-3",
+          "type": 4,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-5-sample-324-row-324-mode-0",
+          "type": 5,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-5-sample-324-row-324-mode-1",
+          "type": 5,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-5-sample-324-row-324-mode-2",
+          "type": 5,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-5-sample-324-row-320-mode-3",
+          "type": 5,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-6-sample-388-row-388-mode-0",
+          "type": 6,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-6-sample-388-row-388-mode-1",
+          "type": 6,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-6-sample-388-row-388-mode-2",
+          "type": 6,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-6-sample-388-row-384-mode-3",
+          "type": 6,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-7-sample-452-row-452-mode-0",
+          "type": 7,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-7-sample-452-row-452-mode-1",
+          "type": 7,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-7-sample-452-row-452-mode-2",
+          "type": 7,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-7-sample-452-row-448-mode-3",
+          "type": 7,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-8-sample-516-row-516-mode-0",
+          "type": 8,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-8-sample-516-row-516-mode-1",
+          "type": 8,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-8-sample-516-row-516-mode-2",
+          "type": 8,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-8-sample-516-row-512-mode-3",
+          "type": 8,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-9-sample-580-row-580-mode-0",
+          "type": 9,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-9-sample-580-row-580-mode-1",
+          "type": 9,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-9-sample-580-row-580-mode-2",
+          "type": 9,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-9-sample-580-row-576-mode-3",
+          "type": 9,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-10-sample-644-row-644-mode-0",
+          "type": 10,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-10-sample-644-row-644-mode-1",
+          "type": 10,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-10-sample-644-row-644-mode-2",
+          "type": 10,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-10-sample-644-row-640-mode-3",
+          "type": 10,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-11-sample-708-row-708-mode-0",
+          "type": 11,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-11-sample-708-row-708-mode-1",
+          "type": 11,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-11-sample-708-row-708-mode-2",
+          "type": 11,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-11-sample-708-row-704-mode-3",
+          "type": 11,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-12-sample-772-row-772-mode-0",
+          "type": 12,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-12-sample-772-row-772-mode-1",
+          "type": 12,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-12-sample-772-row-772-mode-2",
+          "type": 12,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-12-sample-772-row-768-mode-3",
+          "type": 12,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-13-sample-836-row-836-mode-0",
+          "type": 13,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-13-sample-836-row-836-mode-1",
+          "type": 13,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-13-sample-836-row-836-mode-2",
+          "type": 13,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-13-sample-836-row-832-mode-3",
+          "type": 13,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-14-sample-900-row-900-mode-0",
+          "type": 14,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-14-sample-900-row-900-mode-1",
+          "type": 14,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-14-sample-900-row-900-mode-2",
+          "type": 14,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-14-sample-900-row-896-mode-3",
+          "type": 14,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-15-sample-964-row-964-mode-0",
+          "type": 15,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-15-sample-964-row-964-mode-1",
+          "type": 15,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-15-sample-964-row-964-mode-2",
+          "type": 15,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-15-sample-964-row-960-mode-3",
+          "type": 15,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-16-sample-1028-row-1028-mode-0",
+          "type": 16,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-16-sample-1028-row-1028-mode-1",
+          "type": 16,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-16-sample-1028-row-1028-mode-2",
+          "type": 16,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-16-sample-1028-row-1024-mode-3",
+          "type": 16,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-1088-row-1088-mode-0",
+          "type": 0,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-1088-row-1088-mode-1",
+          "type": 0,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-1088-row-1088-mode-2",
+          "type": 0,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-1088-row-0-mode-3",
+          "type": 0,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-1089-row-1089-mode-0",
+          "type": 1,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-1089-row-1089-mode-1",
+          "type": 1,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-1089-row-1089-mode-2",
+          "type": 1,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-1089-row-64-mode-3",
+          "type": 1,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-1090-row-1090-mode-0",
+          "type": 2,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-1090-row-1090-mode-1",
+          "type": 2,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-1090-row-1090-mode-2",
+          "type": 2,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-1090-row-128-mode-3",
+          "type": 2,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-1091-row-1091-mode-0",
+          "type": 3,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-1091-row-1091-mode-1",
+          "type": 3,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-1091-row-1091-mode-2",
+          "type": 3,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-1091-row-192-mode-3",
+          "type": 3,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        }
+      ],
+      "stats": {
+        "batches": 336,
+        "commands": 5964,
+        "presents": 168,
+        "queueSubmits": 336,
+        "drawCalls": 168,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 168,
+        "pipelineCreations": 71,
+        "pipelineHits": 97,
+        "pipelinesRejected": 0,
+        "programBuilds": 168,
+        "programCacheHits": 0,
+        "bindGroupCreations": 168,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 168,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 168,
+        "backBufferPresents": 168,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 168,
+        "readbackRequests": 168,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 168,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 33,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 167,
+        "sessionsEnded": 0,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 0,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 168,
+        "renderTargetBinds": 168,
+        "renderPasses": 168,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 168,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 64512,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 168,
+        "renderTargetReadbackBytes": 2752512,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    },
+    "metal": {
+      "sourceSha256": {
+        "runtime/d9wg_vertex.c": "14146dc67520d3c7bb51fffef2df181d887527ea88e7e29d9f821d5c92f0b1ff",
+        "runtime/d9wg_vertex.h": "aaa4e5f6848fa93050ea85410246a987109129d9843cc7da89bfd4b5c84b4d7e",
+        "runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
+        "runtime/d9wg_lighting.h": "c80367615a5c71ed11486466a9daa0daf45c9f0266e8318abc471e9e37763542",
+        "runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+        "runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+        "runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f"
+      },
+      "scenes": [
+        {
+          "name": "type-0-sample-4-row-4-mode-0",
+          "type": 0,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-4-row-4-mode-1",
+          "type": 0,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-4-row-4-mode-2",
+          "type": 0,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-4-row-0-mode-3",
+          "type": 0,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-68-row-68-mode-0",
+          "type": 1,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-68-row-68-mode-1",
+          "type": 1,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-68-row-68-mode-2",
+          "type": 1,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-68-row-64-mode-3",
+          "type": 1,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-132-row-132-mode-0",
+          "type": 2,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-132-row-132-mode-1",
+          "type": 2,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-132-row-132-mode-2",
+          "type": 2,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-132-row-128-mode-3",
+          "type": 2,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-196-row-196-mode-0",
+          "type": 3,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-196-row-196-mode-1",
+          "type": 3,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-196-row-196-mode-2",
+          "type": 3,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-196-row-192-mode-3",
+          "type": 3,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-4-sample-260-row-260-mode-0",
+          "type": 4,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-4-sample-260-row-260-mode-1",
+          "type": 4,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-4-sample-260-row-260-mode-2",
+          "type": 4,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-4-sample-260-row-256-mode-3",
+          "type": 4,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-5-sample-324-row-324-mode-0",
+          "type": 5,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-5-sample-324-row-324-mode-1",
+          "type": 5,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-5-sample-324-row-324-mode-2",
+          "type": 5,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-5-sample-324-row-320-mode-3",
+          "type": 5,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-6-sample-388-row-388-mode-0",
+          "type": 6,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-6-sample-388-row-388-mode-1",
+          "type": 6,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-6-sample-388-row-388-mode-2",
+          "type": 6,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-6-sample-388-row-384-mode-3",
+          "type": 6,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-7-sample-452-row-452-mode-0",
+          "type": 7,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-7-sample-452-row-452-mode-1",
+          "type": 7,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-7-sample-452-row-452-mode-2",
+          "type": 7,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-7-sample-452-row-448-mode-3",
+          "type": 7,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-8-sample-516-row-516-mode-0",
+          "type": 8,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-8-sample-516-row-516-mode-1",
+          "type": 8,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-8-sample-516-row-516-mode-2",
+          "type": 8,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-8-sample-516-row-512-mode-3",
+          "type": 8,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-9-sample-580-row-580-mode-0",
+          "type": 9,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-9-sample-580-row-580-mode-1",
+          "type": 9,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-9-sample-580-row-580-mode-2",
+          "type": 9,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-9-sample-580-row-576-mode-3",
+          "type": 9,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-10-sample-644-row-644-mode-0",
+          "type": 10,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-10-sample-644-row-644-mode-1",
+          "type": 10,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-10-sample-644-row-644-mode-2",
+          "type": 10,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-10-sample-644-row-640-mode-3",
+          "type": 10,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-11-sample-708-row-708-mode-0",
+          "type": 11,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-11-sample-708-row-708-mode-1",
+          "type": 11,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-11-sample-708-row-708-mode-2",
+          "type": 11,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-11-sample-708-row-704-mode-3",
+          "type": 11,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-12-sample-772-row-772-mode-0",
+          "type": 12,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-12-sample-772-row-772-mode-1",
+          "type": 12,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-12-sample-772-row-772-mode-2",
+          "type": 12,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-12-sample-772-row-768-mode-3",
+          "type": 12,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-13-sample-836-row-836-mode-0",
+          "type": 13,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-13-sample-836-row-836-mode-1",
+          "type": 13,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-13-sample-836-row-836-mode-2",
+          "type": 13,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-13-sample-836-row-832-mode-3",
+          "type": 13,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-14-sample-900-row-900-mode-0",
+          "type": 14,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-14-sample-900-row-900-mode-1",
+          "type": 14,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-14-sample-900-row-900-mode-2",
+          "type": 14,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-14-sample-900-row-896-mode-3",
+          "type": 14,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-15-sample-964-row-964-mode-0",
+          "type": 15,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-15-sample-964-row-964-mode-1",
+          "type": 15,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-15-sample-964-row-964-mode-2",
+          "type": 15,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-15-sample-964-row-960-mode-3",
+          "type": 15,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-16-sample-1028-row-1028-mode-0",
+          "type": 16,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-16-sample-1028-row-1028-mode-1",
+          "type": 16,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-16-sample-1028-row-1028-mode-2",
+          "type": 16,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-16-sample-1028-row-1024-mode-3",
+          "type": 16,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-1088-row-1088-mode-0",
+          "type": 0,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-1088-row-1088-mode-1",
+          "type": 0,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-1088-row-1088-mode-2",
+          "type": 0,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-0-sample-1088-row-0-mode-3",
+          "type": 0,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-1089-row-1089-mode-0",
+          "type": 1,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-1089-row-1089-mode-1",
+          "type": 1,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-1089-row-1089-mode-2",
+          "type": 1,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-1-sample-1089-row-64-mode-3",
+          "type": 1,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-1090-row-1090-mode-0",
+          "type": 2,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-1090-row-1090-mode-1",
+          "type": 2,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-1090-row-1090-mode-2",
+          "type": 2,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-2-sample-1090-row-128-mode-3",
+          "type": 2,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-1091-row-1091-mode-0",
+          "type": 3,
+          "mode": 0,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-1091-row-1091-mode-1",
+          "type": 3,
+          "mode": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-1091-row-1091-mode-2",
+          "type": 3,
+          "mode": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        },
+        {
+          "name": "type-3-sample-1091-row-192-mode-3",
+          "type": 3,
+          "mode": 3,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 4096
+        }
+      ],
+      "stats": {
+        "batches": 336,
+        "commands": 5964,
+        "presents": 168,
+        "queueSubmits": 336,
+        "drawCalls": 168,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 168,
+        "pipelineCreations": 71,
+        "pipelineHits": 97,
+        "pipelinesRejected": 0,
+        "programBuilds": 168,
+        "programCacheHits": 0,
+        "bindGroupCreations": 168,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 168,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 168,
+        "backBufferPresents": 168,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 168,
+        "readbackRequests": 168,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 168,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 33,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 167,
+        "sessionsEnded": 0,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 0,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 168,
+        "renderTargetBinds": 168,
+        "renderPasses": 168,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 168,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 64512,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 168,
+        "renderTargetReadbackBytes": 2752512,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    }
+  },
+  "pixelPairsPerBackend": 344064,
+  "gpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS required WebGPU adapter: google swiftshader  "
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual GPU / shared C typed colors: 84 lighting/specular/fog scenes, 344064 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual fixed-function typed attributes: 85 color/normal/texture/position/size scenes, 348160 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS real vertex fetch / production D3D input conversion / C reference: 66624 vectors, all 17 types, strict finite binary16 values, nonfinite diagnostics and zero GPU errors"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 24 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 18 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    }
+  ],
+  "mutations": {
+    "killed": 6,
+    "total": 6,
+    "undefinedConversion": "executed float-cast-overflow sanitizer detects the deliberately unsafe variant"
+  },
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "checks": [
+    "input color types remain floating point through material/light equations before final ARGB quantization",
+    "word and floating-color entry points share one shading bridge and one geometry preparation helper",
+    "original DWORD passthrough remains direct and all previous lighting/texture/blend fixture cases are unchanged",
+    "1092 source inputs cover all 17 declaration types plus small high-gain material colors; six copy/light/specular/fog modes and destination guards",
+    "NaN and negative infinity pack to zero, positive infinity to 255; fog alpha uses the same defined conversion",
+    "real D3D9 COM independently verifies distinct diffuse/specular float sources, copy controls, half and raw-integer colors",
+    "XP repeats 3276 color inputs / 19656 modes at three x87 control words while all previous math and actual three-API TNL continue passing",
+    "84 GPU cases per backend compare actual direct typed-color rendering against C-generated ARGB values and analytical viewport positions; fog inputs stay in the legal color range; maximum pixel error zero"
+  ],
+  "scope": "Typed source colors and existing fixed-function float/ARGB output. Arbitrary packed output remains with programmable processing; multiple streams and remaining shared-runtime work continue. Native D3D8/9 FVF and copy/generation constraints, complete Wine and game acceptance are not claimed.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3ddecltype",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/fixed-function-vertex-processing"
+  ],
+  "siteSha256": {
+    "glbridge/runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
+    "glbridge/runtime/d9wg_lighting.h": "c80367615a5c71ed11486466a9daa0daf45c9f0266e8318abc471e9e37763542",
+    "glbridge/runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+    "glbridge/runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+    "glbridge/runtime/d9wg_vertex.c": "14146dc67520d3c7bb51fffef2df181d887527ea88e7e29d9f821d5c92f0b1ff",
+    "glbridge/runtime/d9wg_vertex.h": "aaa4e5f6848fa93050ea85410246a987109129d9843cc7da89bfd4b5c84b4d7e",
+    "glbridge/sample/d3d9_vertex_color_cases.h": "5384fa58eae4f8fe0e72651b267e7f373332a698aaedf126fc19cde519b1589d",
+    "glbridge/sample/d3d9_vertex_format_cases.h": "caf56595fe094a845c50fceeef0be9ed25016496becfd3d3ec7c0eff28a54e42",
+    "glbridge/tests/d9wg_vertex_color_test.js": "35b6f28326a807d467830694298cca94e2952172425ca0390686602bb345f4d1",
+    "glbridge/tests/d9wg_vertex_color_mutation_test.js": "db00d808d6720963767ec6aa2e081f9830fd25c60994b0771dbd81e1c170e4b3",
+    "glbridge/tests/native/d9wg_clip_draw_cases.h": "7e59025e319d0782387efb17db90d8f2726d0e4f5c373b1a0702a10baa6a1fc3",
+    "glbridge/d3d8proxy/d3d8.dll": "22d647182041c2cf517075a7b856bd859d90ed16ed1933d93b5d76cb40dae376",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "e85fb9a662a33b7faac8944ee05ed4be1a02e0b4e7dc8e0a3e6253acae483ae6",
+    "glbridge/d3d9proxy/d3d9.dll": "ffbbbd1375209f9523d812c763451273180bdd6c432fffae2ce0f669f894e05d",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "03e172798b03d7524ca94f01df8ee7c66d77f4a25471ffd7d0a66c4ebf3edf15",
+    "glbridge/ddrawproxy/ddraw.dll": "fef99377699b09fc401591e1a65189a29841090551f6071164d10207e18b23b5",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "402cdcef673f5954a0907dbabc2870d58089f25fcb89d72c1d886dc9aa9edd68"
+  },
+  "coreSha256": {
+    "Makefile": "a3e74caf465f62ca094d00646d3071f0684098ef0210ab01af2b1ae6dd7df116",
+    "docs/d3d-webgpu-review.md": "ac77b7c2b536a2cbe872b69fbaf570eaa24c1ecc73f2ba7162c39ce2cca91bf8",
+    "tests/glbridge/d3d_math_xp.mjs": "90478ae964ddc1bf08d26d326ce40e82934ee2b48288fdbe7b32e8f7b98ac50d",
+    "tests/glbridge/d3d_vertex_formats_xp.mjs": "d1410fdb3d0165701cebd9ac5de60105afdc9e70ac62eefc72357144989af9a3",
+    "tests/glbridge/d3d_software_vertex_colors_browser_test.html": "36ac695ab1f78a11a5e48196ca4cf6056692a808d6e8e907a12ec7af3d31ec6f",
+    "tests/glbridge/d3d_software_vertex_colors_fixture_test.js": "f87803cda40e10698fe31d8f0ea50d117fa58da0d0e3faf717933fc9497f981a",
+    "tests/glbridge/fixtures/d3d_software_vertex_colors_cpu.json": "8afa382c9e07640e3b82bb760674db09ad6894c13f42d24361393be5f62621bc",
+    "tests/glbridge/fixtures/d3d_software_blend_cpu.json": "d118857810843b0c8851ea37e008e166521e303d5b9487b0f1fe04d6fd9f623f",
+    "tests/glbridge/fixtures/d3d_software_lighting_cpu.json": "6f9c3cf10a4434d17ad1f7c9cde5b8c6832050deac7819903881e3707df93384",
+    "tests/glbridge/fixtures/d3d_software_texcoord_cpu.json": "191abf1c890f8c8a5a41bf53fd71a4187696e1439171bc03a4622a8c84963fad"
+  },
+  "logs": {
+    "d3d-i2c-color-xp.log": "bb9f4cb1b1fead1498e1dd5eb62d0f621b67941a2fb1e19b3a81d9597f6664f9",
+    "d3d-i2c-math-xp.log": "b40f88516ab70e2f09ab36070116860b20b19cb2fe2fb196d2f926510f7397a8",
+    "d3d-i2c-tnl-final.log": "b15c5c3d78274c42388e146072840a8cc2e0531ba52d200604bd61ca2ea9075f",
+    "d3d-i2c-mutations.log": "d2d13d5e7d97ee7da0921cdc399c4278845c70e81412209229db84a11cc5c73f",
+    "d3d-i2c-sanitize.log": "3449ff59e3f658d1f2e2f989a3a2c0525bbbf0b27100ac7d0933ede2080606bf",
+    "d3d-i2c-fixtures.log": "1da457fd982e538bd1025e56570b00b5ba9c33a78b8ce29eb8432b233d568a37",
+    "d3d-i2c-core-final.log": "726f5e51896216911614f999daa0465979287b24ccebabb80619dc35b295e9fd",
+    "d3d-i2c-guest-final.log": "3538b9cf825a883025397665d4ed584b7beb878125cad83ba5ad0703238e53ca",
+    "d3d-i2c-all-builds.log": "0df99500004ae0427c4344e435fd8f3fde8991a7b959d8b129d9b5078d13187a",
+    "d3d-i2c-gpu-final.log": "3a886fdab7385972411b50fa2d5dea769b9fde8b1445aa3379a7c2744cc9c25b",
+    "d3d-i2c-metal-final.log": "d9412dfdbf7f088abbb0b23437e5df1cfd259f2e6e04ac8774439b63a2ff0335",
+    "d3d-i2c-integration.log": "3dafde7bf2be505b4963910badbaefe10b47f5f503d75c5ad29f67c34875032d"
+  }
+}
