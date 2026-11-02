@@ -1347,6 +1347,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 144 组核心、124 组客体、34 项 WebGPU、35 个标准冒烟 EXE/六个严格 DLL、三 API XP T&L 及 D3D8 六帧零提前命令/精确常量载荷、两项站点集成通过。发布 DLL 与冻结图像捕获中的二进制一致；D3D7 发布 DLL 沿用 4D2j1。运行包更新为 `c3bba1907e73f97e09c3`。见 [stage4d2j2d-validation.json](fixtures/d3d-review/stage4d2j2d-validation.json)。
 > - 依据：[D3D9 调色板范围/默认值](https://learn.microsoft.com/en-us/windows/win32/direct3d9/texture-palettes)、[ALL 保存范围](https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-all-device-states-with-a-stateblock)。D3D8 共用行为是代理兼容契约，未冒充原生 D3D8 新测量；完整原生/Wine/游戏/FPS 验收、D3D8 着色器句柄生命周期、D3D9 其余录制隔离、D3D7 稀疏灯光和后续共用运行时继续推进。
 
+> **阶段 4D2j2e（2026-11-02）：D3D8 着色器句柄与状态块对象生命周期完成。**
+>
+> - 着色器的公共句柄与内部状态引用分开：Delete 立即使公共 Set/Delete/GetFunction 拒绝旧句柄，已捕获/录制的对象及配套顶点声明仍由状态块保活。Apply 通过内部绑定恢复该对象；删除状态块后，当前绑定继续持有它，最后一次解绑或 Capture 替换才发送最终销毁。引用替换先获取新引用，避免相同对象 Capture 的提前释放；销毁从设备链表移除对象。
+> - 预定义捕获、显式录制、Capture、Apply、状态块删除、设备绑定清理/退出均接入同一引用逻辑。删除当前对象时，常规路径解绑；录制期间的解绑写入录制块，公共句柄立即失效，实时查询仍保持原绑定。绑定发送失败不替换客体原引用。这里依据 Wine 的对象/状态块实现建立兼容契约，尚无原生 Microsoft D3D8 新测量。
+> - XP 新用例暴露 `SetVertexShader(0)` 原本在 FVF 展开时失败；现按空声明发出 FVF 0，确保恢复/最后解绑成功。移除相应旧源码正则断言，改用实际 C 调用链检查 shader-null 与空 FVF 的命令顺序；其余现有协议检查保留。
+> - 宿主编译实际前端函数，检查 VS/PS 的旧句柄失败、记录重复写入、实时查询隔离、内部恢复、相同引用替换、资源内容查询、绑定持有、录制期间删除、传输失败原子性、shader/声明恰好销毁及完整内存释放。7/7 故障变异和 ASan/UBSan 通过。
+> - 实际 XP 三 API T&L 与新增 VS/PS 生命周期用例通过；D3D8 六帧零提前状态命令和精确常量/平面载荷仍通过。原始命令流另检查六个 VS、六个 PS 和六个配套声明：每次绑定均引用尚存对象，销毁晚于最后绑定、不会销毁当前绑定或重复销毁；D3D9 的额外声明按 owner 隔离。
+> - 核心 144 组、客体 126 组、D3D8 17 个标准冒烟 EXE 与零售/诊断两份严格 DLL 通过，更新已测试的 app-local D3D8 DLL。D3D9/7 发布 DLL、宿主 JS 和 `c3bba1907e73f97e09c3` 运行包未改变；WebGPU 34 项、SwiftShader/Metal 图像与两项站点集成沿用 4D2j2d，本阶段未新宣称 GPU 图像、原生/Wine/游戏/FPS 验收。见 [stage4d2j2e-validation.json](fixtures/d3d-review/stage4d2j2e-validation.json)。
+> - 依据：[Wine D3D8 设备句柄删除/内部状态绑定](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c)、[Wine shader 父对象延迟销毁](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/shader.c)。接着补齐 D3D9 全部录制查询隔离、D3D7 稀疏灯光及其余共用运行时。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

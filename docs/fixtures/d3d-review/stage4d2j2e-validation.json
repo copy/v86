@@ -1,0 +1,425 @@
+{
+  "stage": "4D2j2e D3D8 shader handles, state-block objects and binding lifetime",
+  "date": "2026-11-02",
+  "bundle": "c3bba1907e73f97e09c3",
+  "coreSuites": 144,
+  "guestSuites": 126,
+  "d3d8CrossCompiledSmokeExecutables": 17,
+  "d3d8RetailAndDiagnosticDLLs": 2,
+  "smoke": [
+    {
+      "file": "d3d8_caps_audit_test.exe",
+      "sha256": "cbdee9a571ef4e2b274ba0d90080e8d60f1d0cb3130e79091c26258854029c2b"
+    },
+    {
+      "file": "d3d8_dynamic_resources_test.exe",
+      "sha256": "0aab8f948b117eb34648f63c163207034ee3d9fc0ed15103160e43dcbf645c77"
+    },
+    {
+      "file": "d3d8_fog_test.exe",
+      "sha256": "07c2db369857eeab8c01aeac88dca268fc02472df8642ac36cde0b34c21fdad0"
+    },
+    {
+      "file": "d3d8_geometry_test.exe",
+      "sha256": "4e43654205974bf616fc994ef1b2ee22e1ff729de112b9add0b9900842347a9d"
+    },
+    {
+      "file": "d3d8_lifecycle_compat_test.exe",
+      "sha256": "c0d6530f781e6a8994366ff67f0eb806b1669331281a7c171e034683de335fe9"
+    },
+    {
+      "file": "d3d8_lighting_test.exe",
+      "sha256": "8dd484cc34874da62f2162f0eb479c8dbcc78ac6e64b37012e73b6e39bceae46"
+    },
+    {
+      "file": "d3d8_maple_gr2d_test.exe",
+      "sha256": "3b8d564dda97b3b8b2edff1b4f50b2c563f19d3decde6e4c1ebc65d421602313"
+    },
+    {
+      "file": "d3d8_mipmap_filter_test.exe",
+      "sha256": "48ba756c5b87f0d69b289ed5db37f09fef36c953120fb593189f369ad8ca17cb"
+    },
+    {
+      "file": "d3d8_multitexture_test.exe",
+      "sha256": "e7b7ace86e7c917276bbd94afcb892c0bad0ccedf0b87315c67a746b41d69023"
+    },
+    {
+      "file": "d3d8_raster_stencil_test.exe",
+      "sha256": "013273b636ab8cb880fd13dd57aa470dae67c539f9a36dd44958f871c969e2d6"
+    },
+    {
+      "file": "d3d8_reset_lifecycle_test.exe",
+      "sha256": "a96b666a9c0a7d6d72214648de18d4c4f4e424db584477b012ef4adbf6947daf"
+    },
+    {
+      "file": "d3d8_stateblock_test.exe",
+      "sha256": "82ff2a17ade9bfafbcef666e66bae823e96b753bad4e8ff27805018dbdf895ab"
+    },
+    {
+      "file": "d3d8_texture_formats_test.exe",
+      "sha256": "45425194ad27dcff8d46e5d944eb70efa5fb9a29056990a9ea15e72d58c6089e"
+    },
+    {
+      "file": "d3d8_texture_stage_ops_test.exe",
+      "sha256": "442d7670b464ebb5b0b39471413e6e418a124a0e7392f18d375917a176275e1c"
+    },
+    {
+      "file": "d3d8_texture_test.exe",
+      "sha256": "01ec89a6e0eedbe1dcea59e5ba63fc4ffff1f6412501924a31cc75431a0d361c"
+    },
+    {
+      "file": "d3d8_textured_cube_test.exe",
+      "sha256": "2a09c04ccf9bf045ee3f56d688c05335f44cda37566cd4475d0575bd387fbe18"
+    },
+    {
+      "file": "d3d8_transform_depth_test.exe",
+      "sha256": "2670926e365999ab4c567048d1ecf9e7b11d9e175a3fddb4abcdae3f23ae6f74"
+    }
+  ],
+  "cMutations": {
+    "killed": 7,
+    "total": 7
+  },
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "xp": {
+    "status": "PASS",
+    "seconds": 129,
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "testedDllSha256": "9e0db820031fcdefb03a7a79fd90c661ad14e5efdc951d7afd85d711789f0147",
+    "executableSha256": "c67037e429d1b746b29c35325caa33cd49502cf49d60ca1976baa8b8a4639679",
+    "graphicsSha256": "2209b023947b8664746af95a09bdc2d7339bb2239e72629fcc67b70bc126a727"
+  },
+  "wire": {
+    "frames": 6,
+    "groups": [
+      {
+        "recordingCommands": [
+          "PRESENT"
+        ],
+        "applyCommands": [
+          "SET_RENDER_STATE",
+          "SET_TEXTURE_STAGE_STATE",
+          "SET_TEXTURE",
+          "SET_VIEWPORT",
+          "SET_MATERIAL",
+          "SET_TRANSFORM",
+          "SET_STREAM_SOURCE",
+          "SET_INDICES",
+          "SET_VERTEX_SHADER",
+          "SET_FVF",
+          "PRESENT"
+        ],
+        "values": []
+      },
+      {
+        "recordingCommands": [
+          "PRESENT"
+        ],
+        "applyCommands": [
+          "SET_VERTEX_SHADER_CONSTANT_F",
+          "SET_VERTEX_SHADER_CONSTANT_F",
+          "SET_PIXEL_SHADER_CONSTANT_F",
+          "SET_PIXEL_SHADER_CONSTANT_F",
+          "SET_CLIP_PLANE",
+          "PRESENT"
+        ],
+        "values": [
+          {
+            "command": "SET_VERTEX_SHADER_CONSTANT_F",
+            "index": 94,
+            "values": [
+              0.375,
+              0.625,
+              0.875,
+              1
+            ]
+          },
+          {
+            "command": "SET_VERTEX_SHADER_CONSTANT_F",
+            "index": 95,
+            "values": [
+              0.125,
+              0.25,
+              0.5,
+              0.75
+            ]
+          },
+          {
+            "command": "SET_PIXEL_SHADER_CONSTANT_F",
+            "index": 6,
+            "values": [
+              0.375,
+              0.625,
+              0.875,
+              1
+            ]
+          },
+          {
+            "command": "SET_PIXEL_SHADER_CONSTANT_F",
+            "index": 7,
+            "values": [
+              0.125,
+              0.25,
+              0.5,
+              0.75
+            ]
+          },
+          {
+            "command": "SET_CLIP_PLANE",
+            "index": 5,
+            "values": [
+              1,
+              -2,
+              0.5,
+              3
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "lifetime": {
+    "shaders": 12,
+    "vertexShaders": 6,
+    "pixelShaders": 6,
+    "vertexDeclarationsDestroyed": 6,
+    "resources": [
+      {
+        "handle": 1073741825,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1046,
+        "binds": [
+          1050,
+          1054
+        ],
+        "destroyed": 1153
+      },
+      {
+        "handle": 1073741827,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1048,
+        "binds": [
+          1052
+        ],
+        "destroyed": 1155
+      },
+      {
+        "handle": 1073741829,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1158,
+        "binds": [
+          1160
+        ],
+        "destroyed": 1163
+      },
+      {
+        "handle": 1073741831,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1166,
+        "binds": [
+          1170
+        ],
+        "destroyed": 1173
+      },
+      {
+        "handle": 1073741833,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1168,
+        "binds": [
+          1172
+        ],
+        "destroyed": 1177
+      },
+      {
+        "handle": 1073741835,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_SHADER",
+        "created": 1180,
+        "binds": [
+          1182
+        ],
+        "destroyed": 1185
+      },
+      {
+        "handle": 1073741837,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1187,
+        "binds": [
+          1189,
+          1191
+        ],
+        "destroyed": 1201
+      },
+      {
+        "handle": 1073741839,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1188,
+        "binds": [
+          1190
+        ],
+        "destroyed": 1202
+      },
+      {
+        "handle": 1073741841,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1203,
+        "binds": [
+          1204
+        ],
+        "destroyed": 1206
+      },
+      {
+        "handle": 1073741843,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1207,
+        "binds": [
+          1209
+        ],
+        "destroyed": 1211
+      },
+      {
+        "handle": 1073741845,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1208,
+        "binds": [
+          1210
+        ],
+        "destroyed": 1213
+      },
+      {
+        "handle": 1073741847,
+        "owner": 2,
+        "kind": "CREATE_PIXEL_SHADER",
+        "created": 1214,
+        "binds": [
+          1215
+        ],
+        "destroyed": 1217
+      },
+      {
+        "handle": 1048583,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1045,
+        "binds": [
+          1049,
+          1053
+        ],
+        "destroyed": 1154
+      },
+      {
+        "handle": 1048584,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1047,
+        "binds": [
+          1051
+        ],
+        "destroyed": 1156
+      },
+      {
+        "handle": 1048585,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1157,
+        "binds": [
+          1159
+        ],
+        "destroyed": 1164
+      },
+      {
+        "handle": 1048586,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1165,
+        "binds": [
+          1169
+        ],
+        "destroyed": 1174
+      },
+      {
+        "handle": 1048587,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1167,
+        "binds": [
+          1171
+        ],
+        "destroyed": 1178
+      },
+      {
+        "handle": 1048588,
+        "owner": 2,
+        "kind": "CREATE_VERTEX_DECLARATION",
+        "created": 1179,
+        "binds": [
+          1181
+        ],
+        "destroyed": 1186
+      }
+    ]
+  },
+  "inheritedValidation": {
+    "file": "stage4d2j2d-validation.json",
+    "sha256": "58a100c6351860144a9692226d70fc35915ea6dd98e14e0b923cb6d7b7b3e2ba",
+    "scope": "Unchanged host JS/bundle and D3D9/7 shipped DLLs. 34 WebGPU runs, SwiftShader/Metal palette pixels, two site integration checks and remaining strict cross builds inherited; no new pixel/native/game/FPS acceptance claim."
+  },
+  "scope": "Wine implementation informed proxy contract; native Microsoft D3D8 shader deletion/state-block behavior not newly measured. General D3D9 deferred recording and later runtime stages remain.",
+  "sources": [
+    "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+    "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/shader.c"
+  ],
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "33af6ca85dd28409b2362de3b0904176a8484fa6e02bec4779982439581ab2a5",
+    "tests/glbridge/d3d_process_lighting_xp.mjs": "8377d3ee8add5ef1f2bd0872ab2639dce66688263c085779d0370ebf92a0c0de",
+    "tests/lib/d3d_shader_lifetime_wire.mjs": "0e53a94068b24f369abb3709a33485a1fb61163092f0c6249df936c3cba42ca2",
+    "tests/lib/d3d_recording_wire.mjs": "117f00a0f70f59fbaf4e0492bdb9c34f2d4f7d88c94f8c7c4e9a42655fefd00e"
+  },
+  "siteSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "223503fd792bc116c013c43a93fa02f088f38c5081df1ebb2955b41ee6c6afbc",
+    "glbridge/sample/d3d8_shader_lifetime_cases.h": "a8857cab441cdd575c2ccfc2980ba385fbef295fb94f937a1c7e431146e83881",
+    "glbridge/sample/d3d_process_lighting_test.c": "f87bb830019923b962a85eceb0ec0891a5126450e1f5977e10d2178b801ef216",
+    "glbridge/tests/d8wg_shader_lifetime_test.js": "853fc91d78a2bff38f85500e1e58bce828de9a05bd196cc59bac28ed08edb1e6",
+    "glbridge/tests/d8wg_shader_lifetime_mutation_test.js": "3a21440567cd862fc25100a2d128954137c67bb12070f3ec55bb1194592563fb",
+    "glbridge/tests/d3d8_protocol_consistency_test.js": "c029ee1d495e5d5957f1cc8404211d815d653d8b1232951d1ea4f0b88e7625b4",
+    "glbridge/d3d8proxy/d3d8.dll": "9e0db820031fcdefb03a7a79fd90c661ad14e5efdc951d7afd85d711789f0147",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "f14e34ab6513bca128d3f933e802da8a8162b5b998d93a3e07cf053792b67124",
+    "vendor/v86/glbridge/manifest.json": "dca5b7c2dabecd8a68c60234e5bd4d03137c7a38ec9f2487bd0fb846dc051c69"
+  },
+  "logSha256": {
+    "tnl": "164baf353239c3aa27edea20ef9d63bcff367d27232933766a859111551b41b9",
+    "core": "1ac6451470d1801dae7a5d01642fe0814d824db757153b594f0ddf4c6854d42b",
+    "guest": "62a4417ac0ce7d088cd634d38a976d9da28ee33b60fa506be2e100b397ba3d09",
+    "mutations": "2b7dbb833207e88e71c2bef9f4940eeb8fcb65a7c087418166c046d9a83908f1",
+    "sanitize": "53f01508ba65e635282911625094b31e83608a1a379d845fcec06f28d27dca3e",
+    "builds": "69854bc7ea4607087ed8db260ef92982c0ea51f0f5ba8187667cca0a2fe39775"
+  }
+}
