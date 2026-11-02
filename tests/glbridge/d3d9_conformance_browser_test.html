@@ -21,6 +21,7 @@
 <script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
 <script src="d3d9_conformance.js"></script>
 <script src="d3d9_feature_cases.js"></script>
+<script src="d3d_test_device.js"></script>
 <script>
 // Runs d3d9_conformance.js's cases on the real GPU:
 //   node tests/glbridge/gl_multipass_browser_runner.js d3d9_conformance_browser_test.html
@@ -31,7 +32,7 @@
     let failed = 0;
     try {
         const executor = new D3D9WebGPUExecutor(document.getElementById("screen"),
-            { strict: true, shaderWorkerUrl: null,
+            { ...await D3D9TestDevice.options(new URLSearchParams(location.search)), strict: true, shaderWorkerUrl: null,
                 uploadBudgetBytes: new URLSearchParams(location.search).has("upload_budget") ? 1 : undefined });
         await executor.initialize();
         if (new URLSearchParams(location.search).has("uniform_overflow")) {
@@ -48,7 +49,7 @@
             const hostErrorsBefore = executor.hostErrors.length;
             const droppedBefore = executor.stats.droppedDraws;
             const failedBefore = executor.stats.commandsFailed;
-            const { dev, rt, bytes } = caseBatch(i, c);
+            const { dev, rt, bytes } = caseBatch(i, c, {hostFeatures: D3D9TestDevice.featureBits(device)});
             await executor.submit(bytes, { writeGuestMemory() {} });
             await executor.idle();
             await device.queue.onSubmittedWorkDone();
@@ -90,9 +91,10 @@
                 }
                 const got = read(probe.at[0], probe.at[1]);
                 const tolerance = probe.tolerance || 0;
-                if (!probe.expect.every((v, k) => Math.abs(v - got[k]) <= tolerance))
+                const expect = probe.feature && !device.features.has(probe.feature) ? probe.unsupportedExpect : probe.expect;
+                if (!expect.every((v, k) => Math.abs(v - got[k]) <= tolerance))
                     pixels.push((probe.target ? "rt" + probe.target + " " : "") + "@" + probe.at + " got " + got +
-                        " want " + probe.expect);
+                        " want " + expect);
             }
             const ok = !problems.length && !pixels.length;
             const known = KNOWN_FAILURES[c.name];

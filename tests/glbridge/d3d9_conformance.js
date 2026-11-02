@@ -395,9 +395,9 @@
         return commands;
     }
 
-    function caseBatch(index, c) {
+    function caseBatch(index, c, runtime = {}) {
         const dev = 0x100002 + index * 0x10, rt = 0x200000 + index * 2;
-        return { dev, rt, bytes: batch(index + 1, [...prologue(dev, rt, c), ...c.body(dev, rt),
+        return { dev, rt, bytes: batch(index + 1, [...prologue(dev, rt, c), ...c.body(dev, rt, runtime),
             cmd(OP.END_SCENE, P.encode("DeviceOnly", { device_handle: dev }).subarray(0, 4)), cmd(OP.PRESENT, P.encode("Present", { device_handle: dev, hwnd: 0x1234, x: 0, y: 0, width: W, height: W }))], true) };
     }
 

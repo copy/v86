@@ -14,10 +14,11 @@ const P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"), {m
     function metadata(owner, fail = false) {
         if (!memories.has(owner)) { memories.set(owner, Buffer.alloc(16, 0xcc)); writes.set(owner, []); }
         let attempts = 0;
-        return {ownerToken: owner, writeGuestMemory(offset, bytes) {
+        return {ownerToken: owner, writeGuestMemory(offset, bytes, inline) {
             ++attempts;
             if (fail === true || (typeof fail === "number" && attempts === fail)) throw Error("injected capability transport failure");
             assert(offset >= absolute && offset + bytes.length <= absolute + 16, "capabilities must stay in reserved owner tail");
+            if (offset !== absolute) assert.equal(inline, false, "capability responses always use arena writes");
             Buffer.from(bytes).copy(memories.get(owner), offset - absolute); writes.get(owner).push({offset: offset - absolute, bytes: Buffer.from(bytes), snapshot: Buffer.from(memories.get(owner))});
         }};
     }

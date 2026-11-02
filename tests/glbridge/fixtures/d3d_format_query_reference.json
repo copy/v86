@@ -1,0 +1,104 @@
+{
+  "description": "Independent query expectations for this backend storage and implemented shader paths, not original Microsoft D3D9 measurements. Color formats come from the frozen pre-query layout reference. SDK query bits and resources are separate from production functions.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dusage-query",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/vertex-textures-in-vs-3-0",
+    "https://www.w3.org/TR/webgpu/#texture-format-caps"
+  ],
+  "queryBits": {
+    "LEGACYBUMPMAP": 32768,
+    "SRGBREAD": 65536,
+    "FILTER": 131072,
+    "SRGBWRITE": 262144,
+    "BLENDING": 524288,
+    "VERTEXTEXTURE": 1048576,
+    "WRAPANDMIP": 2097152
+  },
+  "colorReference": "d3d_format_layout_reference.json",
+  "float32Formats": [
+    114,
+    115,
+    116
+  ],
+  "srgbStorageFormats": [
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    32,
+    33,
+    40,
+    41,
+    50,
+    51,
+    52,
+    1498831189,
+    844715353,
+    1195525970,
+    1111970375,
+    827611204,
+    844388420,
+    861165636,
+    877942852,
+    894720068
+  ],
+  "renderTargetFormats": [
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    31,
+    35,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116
+  ],
+  "comparisonDepthFormats": [
+    70,
+    71,
+    73,
+    75,
+    77,
+    79,
+    80
+  ],
+  "rawDepthFormats": [
+    909198916,
+    875710020,
+    1515474505
+  ],
+  "resourceTypes": {
+    "SURFACE": 1,
+    "TEXTURE": 3,
+    "VOLUMETEXTURE": 4,
+    "CUBETEXTURE": 5,
+    "VERTEXBUFFER": 6
+  },
+  "shaderProfiles": [
+    0,
+    2,
+    3
+  ],
+  "notes": "Filtering of float32 needs enabled host bit 0, blending needs bit 1. sRGB follows physical sRGB views; writes/blending additionally require supported color targets. Vertex texture YES is limited to pixel-verified 2D VS3 color formats. Programmable software vertex textures, cube/volume VTF, depth VTF/raw-depth filtering and legacy bump queries stay conservative NO. Layout/create success is checked separately. BC storage additionally requires enabled host bit 2, including queries with usage zero; no CPU BC fallback exists in D3D.",
+  "nativeBCFormats": [
+    827611204,
+    844388420,
+    861165636,
+    877942852,
+    894720068,
+    826889281,
+    843666497
+  ]
+}

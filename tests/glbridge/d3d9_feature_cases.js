@@ -113,6 +113,117 @@
         probes: [{ at: [32, 32], expect: rgba, tolerance: 0 }] });
 
     const { OP: S, REG: R, ins, dst, src, def } = asm;
+    // Prove every color format before granting a vertex-texture format query.
+    // The same independent channel facts used for PS sampling now pass through
+    // a VS3 texldl and color output, with no pixel texture sampling involved.
+    for (const spec of formats) add("vertex-texture-formats", {
+        name: "vertex texture format " + spec[0] + " sampled RGBA",
+        body: dev => {
+            const handle = dev + 0x500000, vs = dev + 0x600000, ps = vs + 1;
+            return [...texture(dev, handle, spec), wire("SetTexture", {device_handle: dev, stage: 0, texture_handle: 0}),
+                wire("SetTexture", {device_handle: dev, stage: 257, texture_handle: handle}),
+                vertexShader(dev, vs, [0xfffe0300, ins(S.DCL, 2), 0x80000000, dst(R.INPUT, 0),
+                    ins(S.DCL, 2), 0x80000000, dst(R.OUTPUT, 0), ins(S.DCL, 2), 0x8000000a, dst(R.OUTPUT, 1),
+                    ins(S.DCL, 2), 0x90000000, dst(R.SAMPLER, 0), ...def(0, .5, .5, 0, 0),
+                    ins(S.TEXLDL, 3), dst(R.TEMP, 0), src(R.CONST, 0), src(R.SAMPLER, 0),
+                    ins(S.MOV, 2), dst(R.OUTPUT, 0), src(R.INPUT, 0), ins(S.MOV, 2), dst(R.OUTPUT, 1), src(R.TEMP, 0), 0xffff]),
+                cmd(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", {device_handle: dev, shader_handle: vs})),
+                pixelShader(dev, ps, [0xffff0300, ins(S.DCL, 2), 0x8000000a, dst(R.INPUT, 0),
+                    ins(S.MOV, 2), dst(R.COLOROUT, 0), src(R.INPUT, 0), 0xffff]),
+                cmd(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", {device_handle: dev, shader_handle: ps})),
+                ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: spec[3], tolerance: 1}],
+    });
+    const floatFilterFormats = [["R16F", 111, 1, 2], ["G16R16F", 112, 2, 2], ["A16B16G16R16F", 113, 4, 2],
+        ["R32F", 114, 1, 4], ["G32R32F", 115, 2, 4], ["A32B32G32R32F", 116, 4, 4]];
+    for (const [name, format, channels, bytes] of floatFilterFormats) add("format-filter-capabilities", {
+        name: "linear filter capability " + name + " interpolates two texels", body: dev => {
+            const handle = dev + 0x500000, data = new Uint8Array(4 * 4 * channels * bytes), view = new DataView(data.buffer);
+            const left = [.25, .125, .25, .5], right = [.75, .625, .5, 1], half = new Map([[.125, 0x3000], [.25, 0x3400], [.5, 0x3800], [.625, 0x3900], [.75, 0x3a00], [1, 0x3c00]]);
+            for (let y = 0; y < 4; ++y) for (let x = 0; x < 4; ++x) for (let channel = 0; channel < channels; ++channel) {
+                const value = (x < 2 ? left : right)[channel], offset = ((y * 4 + x) * channels + channel) * bytes;
+                if (bytes === 4) view.setFloat32(offset, value, true); else view.setUint16(offset, half.get(value), true);
+            }
+            return [wire("CreateTexture2D", {device_handle: dev, resource_handle: handle, width: 4, height: 4, level_count: 1, format}),
+                wire("UpdateTexture", {resource_handle: handle, width: 4, height: 4, depth: 1, row_pitch: 4 * channels * bytes, slice_pitch: data.length, data_bytes: data.length}, [blob("UpdateTexture", "data_offset", data)]),
+                wire("SetTexture", {device_handle: dev, texture_handle: handle}), tss(dev, 0, 1, 2), tss(dev, 0, 2, 2), tss(dev, 0, 4, 2), tss(dev, 0, 5, 2),
+                wire("SetSamplerState", {device_handle: dev, state: 5, value: 2}), wire("SetSamplerState", {device_handle: dev, state: 6, value: 2}), ...texturedQuad(dev)];
+        }, probes: [{at: [32, 32], expect: channels === 1 ? [128, 255, 255, 255] : channels === 2 ? [128, 96, 255, 255] : [128, 96, 96, 191],
+            feature: bytes === 4 ? "float32-filterable" : undefined, unsupportedExpect: channels === 1 ? [191, 255, 255, 255] : channels === 2 ? [191, 159, 255, 255] : [191, 159, 128, 255], tolerance: 1}],
+    });
+    const srgbDecode = value => Math.round(255 * (value / 255 <= .04045 ? value / 255 / 12.92 : Math.pow((value / 255 + .055) / 1.055, 2.4)));
+    const mid565 = le16(0x8410), midBlock = [...mid565, 0, 0, 0, 0, 0, 0];
+    const srgbSpecs = [
+        ["R8G8B8", 20, [128, 128, 128], [128, 128, 128, 255]], ["A8R8G8B8", 21, [128, 128, 128, 128], [128, 128, 128, 128]],
+        ["X8R8G8B8", 22, [128, 128, 128, 0], [128, 128, 128, 255]], ["R5G6B5", 23, mid565, [132, 130, 132, 255]],
+        ["X1R5G5B5", 24, le16(0x4210), [132, 132, 132, 255]], ["A1R5G5B5", 25, le16(0xc210), [132, 132, 132, 255]],
+        ["A4R4G4B4", 26, le16(0x8888), [136, 136, 136, 136]], ["R3G3B2", 27, [0x92], [146, 146, 170, 255]],
+        ["A8", 28, [128], [0, 0, 0, 128]], ["A8R3G3B2", 29, [0x92, 128], [146, 146, 170, 128]],
+        ["X4R4G4B4", 30, le16(0x0888), [136, 136, 136, 255]], ["A8B8G8R8", 32, [128, 128, 128, 128], [128, 128, 128, 128]],
+        ["X8B8G8R8", 33, [128, 128, 128, 0], [128, 128, 128, 255]], ["A8P8", 40, [1, 128], [153, 102, 51, 128]], ["P8", 41, [1], [153, 102, 51, 255]],
+        ["L8", 50, [128], [128, 128, 128, 255]], ["A8L8", 51, [128, 128], [128, 128, 128, 128]], ["A4L4", 52, [0x88], [136, 136, 136, 136]],
+        ["UYVY", fourcc("UYVY"), [128, 126, 128, 126], [128, 128, 128, 255], "pair"], ["YUY2", fourcc("YUY2"), [126, 128, 126, 128], [128, 128, 128, 255], "pair"],
+        ["RGBG", fourcc("RGBG"), [128, 128, 128, 128], [128, 128, 128, 255], "pair"], ["GRGB", fourcc("GRGB"), [128, 128, 128, 128], [128, 128, 128, 255], "pair"],
+        ["DXT1", fourcc("DXT1"), midBlock, [132, 130, 132, 255], "block"],
+    ];
+    for (const name of ["DXT2", "DXT3", "DXT4", "DXT5"]) srgbSpecs.push([name, fourcc(name), [...(name === "DXT2" || name === "DXT3" ? Array(8).fill(255) : [255, 0, 0, 0, 0, 0, 0, 0]), ...midBlock], [132, 130, 132, 255], "block"]);
+    for (const spec of srgbSpecs) add("format-srgb-capabilities", {name: "sRGB read capability " + spec[0], body: dev => [
+        ...texture(dev, dev + 0x500000, spec), wire("SetSamplerState", {device_handle: dev, state: 11, value: 1}), ...texturedQuad(dev)],
+        probes: [{at: [32, 32], expect: spec[3].map((value, channel) => channel < 3 ? srgbDecode(value) : value), tolerance: 1}]});
+    for (const format of [21, 22, 23, 24, 25, 26]) add("format-srgb-capabilities", {name: "sRGB write capability mapped target " + format, targetFormat: format,
+        body: dev => [rs(dev, 194, 1), draw(dev, quad(0, 0, 64, 64, .5, 0xff808080))], probes: [{at: [32, 32], expect: [188, 188, 188], tolerance: 1}]});
+    // Native BC sRGB storage must decode before linear interpolation, and
+    // copies must stay between the uploads/draws that consume each version.
+    const bcColorBlock = color => [...le16(color), 0, 0, 0, 0, 0, 0];
+    const bcRGBA = color => [((color >> 11) << 3) | (color >> 13), (((color >> 5) & 63) << 2) | ((color >> 9) & 3), ((color & 31) << 3) | ((color & 31) >> 2), 255];
+    const bcUpload = (handle, level, face, size, data) => wire("UpdateTexture", {resource_handle: handle, level, z: face, width: size, height: size, depth: 1, row_pitch: data.length, slice_pitch: data.length, data_bytes: data.length}, [blob("UpdateTexture", "data_offset", Uint8Array.from(data))]);
+    for (const name of ["DXT1", "DXT2", "DXT3", "DXT4", "DXT5"]) add("bc-srgb", {
+        name: name + " sRGB decode precedes linear filtering across blocks", body: dev => {
+            const handle = dev + 0x500000, alpha = name === "DXT1" ? [] : name === "DXT2" || name === "DXT3" ? Array(8).fill(255) : [255, 0, 0, 0, 0, 0, 0, 0];
+            const data = Uint8Array.from([...alpha, ...bcColorBlock(0x4208), ...alpha, ...bcColorBlock(0xc618)]);
+            return [wire("CreateTexture2D", {device_handle: dev, resource_handle: handle, width: 8, height: 4, level_count: 1, format: fourcc(name)}),
+                wire("UpdateTexture", {resource_handle: handle, width: 8, height: 4, depth: 1, row_pitch: data.length, slice_pitch: data.length, data_bytes: data.length}, [blob("UpdateTexture", "data_offset", data)]),
+                wire("SetTexture", {device_handle: dev, texture_handle: handle}), tss(dev, 0, 1, 2), tss(dev, 0, 2, 2), tss(dev, 0, 4, 2), tss(dev, 0, 5, 2),
+                wire("SetSamplerState", {device_handle: dev, state: 11, value: 1}), wire("SetSamplerState", {device_handle: dev, state: 5, value: 2}), wire("SetSamplerState", {device_handle: dev, state: 6, value: 2}), ...texturedQuad(dev)];
+        }, probes: [{at: [32, 32], expect: bcRGBA(0x4208).map((value, channel) => channel === 3 ? 255 : Math.round((srgbDecode(value) + srgbDecode(bcRGBA(0xc618)[channel])) / 2)), tolerance: 1}],
+    });
+    add("bc-srgb", {name: "BC sRGB ordered upload and alternating linear sampling", body: dev => {
+        const handle = dev + 0x500000, commands = [...texture(dev, handle, srgbSpecs.find(s => s[0] === "DXT1")), rs(dev, 174, 1)];
+        for (let column = 0; column < 4; ++column) {
+            if (column === 2) commands.push(bcUpload(handle, 0, 0, 4, bcColorBlock(0x4208)));
+            commands.push(wire("SetScissorRect", {device_handle: dev, left: column * 16, right: column * 16 + 16, bottom: 64}),
+                wire("SetSamplerState", {device_handle: dev, state: 11, value: column === 1 || column === 2 ? 1 : 0}), ...texturedQuad(dev));
+        }
+        return commands;
+    }, probes: [0, 1, 2, 3].map(column => ({at: [column * 16 + 8, 32], expect: bcRGBA(column < 2 ? 0x8410 : 0x4208).map((value, channel) => channel < 3 && (column === 1 || column === 2) ? srgbDecode(value) : value), tolerance: 1}))});
+    for (const cube of [false, true]) {
+        const colors = [0x8410, 0x4208, 0xc618, 0xf800, 0x07e0, 0x001f], axes = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+        add("bc-srgb", {name: "BC sRGB " + (cube ? "all six cube faces" : "2D") + " includes 2x2 and 1x1 mip tails", body: dev => {
+            const handle = dev + 0x500000, ps = dev + 0x600000;
+            const commands = [wire(cube ? "CreateTextureCube" : "CreateTexture2D", {device_handle: dev, resource_handle: handle, ...(cube ? {edge_length: 4} : {width: 4, height: 4}), level_count: 3, format: fourcc("DXT1")})];
+            for (let level = 0; level < 3; ++level) for (let face = 0; face < (cube ? 6 : 1); ++face)
+                commands.push(bcUpload(handle, level, face, 4 >> level, bcColorBlock(colors[(face + level) % 6])));
+            commands.push(wire("SetTexture", {device_handle: dev, texture_handle: handle}), wire("SetSamplerState", {device_handle: dev, state: 11, value: 1}), wire("SetSamplerState", {device_handle: dev, state: 7, value: 1}), rs(dev, 174, 1),
+                pixelShader(dev, ps, [0xffff0300, ins(S.DCL, 2), cube ? 0x98000000 : 0x90000000, dst(R.SAMPLER, 0),
+                    ins(S.TEXLDL, 3), dst(R.TEMP, 0), src(R.CONST, 0), src(R.SAMPLER, 0), ins(S.MOV, 2), dst(R.COLOROUT, 0), src(R.TEMP, 0), 0xffff]),
+                cmd(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", {device_handle: dev, shader_handle: ps})));
+            for (let level = 0; level < 3; ++level) for (let face = 0; face < (cube ? 6 : 1); ++face) commands.push(
+                cmd(P.OP.SET_PIXEL_SHADER_CONSTANT_F, P.encode("SetShaderConstantF", {device_handle: dev, vector_count: 1}), [blob("SetShaderConstantF", "data_offset", Uint8Array.from(floats(...(cube ? axes[face] : [.5, .5, 0]), level)))]),
+                wire("SetScissorRect", {device_handle: dev, left: cube ? face * 10 : 0, right: cube ? face * 10 + 10 : 64, top: level * 20, bottom: level * 20 + 20}), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff)));
+            return commands;
+        }, probes: Array.from({length: cube ? 18 : 3}, (_, i) => {const level = cube ? Math.floor(i / 6) : i, face = cube ? i % 6 : 0;return {at: [cube ? face * 10 + 5 : 32, level * 20 + 10], expect: bcRGBA(colors[(face + level) % 6]).map((value, channel) => channel < 3 ? srgbDecode(value) : value), tolerance: 1};})});
+    }
+    for (const format of [21, 22, 23, 24, 25, 26, 31, 35, 111, 112, 113, 114, 115, 116]) add("format-blend-capabilities", {
+        name: "post-pixel blending capability mapped target " + format, targetFormat: format, clear: 0xff0000ff,
+        body: (dev, rt, runtime) => {
+            void rt;
+            // Exercise the same canonical query policy before attempting an
+            // optional blend. Expected pixels depend only on real device caps.
+            if (!global.D9WGFormats.formatQuerySupported(3, 0x80000, format, runtime.hostFeatures || 0, 3, true)) return [];
+            return [rs(dev, 7, 0), rs(dev, 27, 1), rs(dev, 19, 5), rs(dev, 20, 6), draw(dev, quad(0, 0, 64, 64, .5, 0x80ff0000))];
+        }, probes: [{at: [32, 32], expect: [128], feature: format >= 114 ? "float32-blendable" : undefined, unsupportedExpect: [0], tolerance: 1}],
+    });
+
     // Explicit zero is a valid D3DCOLOR, including its transparent alpha.
     // This does not use the disputed undocumented initial CONSTANT value.
     for (const stage of [0, 3]) add("default-consumers", {

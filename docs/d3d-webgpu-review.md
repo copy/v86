@@ -1512,6 +1512,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 共用 SDK 无关的 C 读取器验证 magic/版本、屏蔽未知位；缺失、旧版和错误响应不写调用者输出，不授予可选特性。16 种设备特性组合、完整响应顺序/生命周期、C ABI 和保守解码通过；8/8 C/JS 语义变异及 ASan/UBSan 通过。
 > - SwiftShader 与 Metal 从实际设备特性独立计算位图，均收到 `15`，两个 owner、重复空批次和交错写入均通过。158 组核心、144 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL 构建、两项集成和加入新页面后的 WebGPU 37 次运行通过，Metal 349 个像素场景通过。运行包 `24ce510eae7000c6d0e3` 已同步，已发布客体 DLL 保持 4F1 已测字节。见 [stage4f2a-validation.json](fixtures/d3d-review/stage4f2a-validation.json)。此步完成协商响应/读取基础；接着接入 CheckDeviceFormat 查询谓词，尚未宣称 S2-32 或后续阶段完成。
 
+> **阶段 4F2b（2026-11-03）：D3D9 公开格式查询接入真实后端能力，压缩纹理 sRGB 修复完成。**
+>
+> - 共用格式查询事实从宿主表生成 SDK 无关 C 谓词；FILTER、SRGBREAD/WRITE、POSTPIXELSHADER_BLENDING、VERTEXTEXTURE、WRAPANDMIP 逐项验证，复合请求必须全部满足。FP32 过滤/混合分别要求实际设备位，BC 格式连 usage=0 也要求原生 BC 位；D3D 路径没有 CPU BC 解压回退。VS3 顶点纹理仅宣称已经逐格式像素验证的 2D 颜色格式，CPU 可编程纹理、cube/volume VTF、原始深度过滤及旧 bump 查询仍回答不支持。
+> - `CheckDeviceFormat` 在需要时通过进程共用 transport 发 HELLO 获取能力；有效零位图可缓存，缺失响应不授予可选特性，等待限于 1 秒并限频重试。锁、会话/profile 字段、延迟、打开/分配/提交失败及计时回绕均验证。新增共用进程字段后，三个 DLL 作为同一版本发布；宿主能力响应明确走 arena 写入，不能把 CPU 构造的记录当作 inline 回包。
+> - 真 GPU 揭示 SwiftShader 的 BC sRGB reinterpretation view 不执行解码；改为按需建立原生 sRGB 压缩副本，以有序原始 GPU 复制同步全部 mip/面，保留线性原纹理。更新使副本失效，释放等待在途帧完成；仅使用 BC sRGB 时增加一份压缩纹理存储。两后端验证过滤前解码、上传与线性/sRGB 交错、2×2/1×1 mip 尾块及六个 cube 面。
+> - 7200 组独立格式/type/profile/设备上下文各验证 128 种查询组合；查询、transport 和副本的 25/25 新语义变异、两个真 GPU 像素变异及 ASan/UBSan 通过。XP 明确模拟位图 0/15，各跑 FFP/SM2/SM3 共 11520 次公开 SDK 查询；这是客体接口验收，不是 Microsoft 原生 D3D9 或 GPU 功能测量。真实设备另验证正常、关闭 FP32 特性和关闭 BC 三种配置。
+> - 164 组核心、144 组客体、六个严格 DLL 构建、36 个 SDK 冒烟 EXE、两项集成、SwiftShader 完整 41 次运行和 Metal 全部 458 个像素场景通过。格式/T&L XP 回归继续检查 328 个 mip 的 19548 个精确字节、状态块与对象生命周期。运行包 `8aa5a0758eba94e27f0f` 已同步，发布 DLL 使用验收时的原始字节；见 [stage4f2b-validation.json](fixtures/d3d-review/stage4f2b-validation.json)。S2-32 的查询缺陷在此关闭；接着检查自动 mip 能力及共用核心的剩余内容，阶段 4/5/6 继续。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -3,7 +3,7 @@ const assert = require("node:assert/strict"), fs = require("node:fs"), path = re
 (async () => {
     const {site_directory} = await import("../lib/site.mjs"), site = site_directory(path.resolve(__dirname, "../.."));
     const sources = {js: fs.readFileSync(path.resolve(__dirname, "../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"), "utf8"), c: fs.readFileSync(site + "/glbridge/runtime/d9wg_host_caps.h", "utf8")};
-    const data = "writer(at, out.subarray(0, D9WG.F.HostCapabilities.magic));", completion = "writer(at + D9WG.F.HostCapabilities.magic, out.subarray(D9WG.F.HostCapabilities.magic));";
+    const data = "writer(at, out.subarray(0, D9WG.F.HostCapabilities.magic), false);", completion = "writer(at + D9WG.F.HostCapabilities.magic, out.subarray(D9WG.F.HostCapabilities.magic), false);";
     const cases = [
         ["adapter features instead of enabled device", "js", "const features = this.device && this.device.features;", "const features = this.adapter && this.adapter.features;"],
         ["filter flag", "js", "has(\"float32-filterable\") ? D9WG.C.D9WG_HOST_FEATURE_FLOAT32_FILTERABLE", "has(\"float32-filterable\") ? D9WG.C.D9WG_HOST_FEATURE_FLOAT32_BLENDABLE"],

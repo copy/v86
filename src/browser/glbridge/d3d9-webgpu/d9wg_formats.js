@@ -276,6 +276,43 @@
     });
     function formatToGPU(format) { return GPU_STORAGE[format] || null; }
 
+    // CheckDeviceFormat query bits (D3D9 SDK), independently of creation flags.
+    const FORMAT_QUERY = Object.freeze({ LEGACYBUMPMAP: 0x8000, SRGBREAD: 0x10000,
+        FILTER: 0x20000, SRGBWRITE: 0x40000, BLENDING: 0x80000,
+        VERTEXTEXTURE: 0x100000, WRAPANDMIP: 0x200000, MASK: 0x3f8000 });
+    // Information flags: sampleable color/depth, sRGB sibling, float32,
+    // depth, filtered depth comparison, and required native BC storage.
+    const FORMAT_QUERY_ROWS = Object.freeze([
+        ...Object.entries(GPU_STORAGE).filter(([id]) => Number(id) !== D3DFMT_NULL)
+            .map(([id, gpu]) => Object.freeze([Number(id), 1 | (srgbSiblingOf(gpu) ? 2 : 0) | (isFloat32GPUFormat(gpu) ? 4 : 0) | (gpu.startsWith("bc") ? 32 : 0)])),
+        ...[70, 71, 73, 75, 77, 79, 80].map(id => Object.freeze([id, 1 | 8 | 16])),
+        ...[D3DFMT_DF16, D3DFMT_DF24, D3DFMT_INTZ].map(id => Object.freeze([id, 1 | 8])),
+    ]);
+    const FORMAT_QUERY_INFO = new Map(FORMAT_QUERY_ROWS);
+    function formatQueryInfo(format) { return FORMAT_QUERY_INFO.get(format) || 0; }
+    function formatQuerySupported(type, usage, format, hostFeatures, shaderModel, renderable) {
+        // Programmable ProcessVertices/CPU shader textures are not implemented.
+        if (usage & 0x10) return false;
+        const info = formatQueryInfo(format);
+        // D3D has no CPU BC fallback; even a plain creation-format query needs
+        // the feature enabled on the actual WebGPU device.
+        if ((info & 32) && !(hostFeatures & 4)) return false;
+        const query = usage & FORMAT_QUERY.MASK;
+        if (!query) return true;
+        const texture = type === 3 || type === 4 || type === 5;
+        const target = renderable && (type === 1 || type === 3 || type === 5);
+        if (!info || (query & FORMAT_QUERY.LEGACYBUMPMAP)) return false;
+        if ((query & FORMAT_QUERY.FILTER) && (!texture || !(info & 1) || ((info & 8) && !(info & 16)) || ((info & 4) && !(hostFeatures & 1)))) return false;
+        if ((query & FORMAT_QUERY.SRGBREAD) && (!texture || !(info & 2))) return false;
+        if ((query & FORMAT_QUERY.SRGBWRITE) && (!target || !(info & 2))) return false;
+        if ((query & FORMAT_QUERY.BLENDING) && (!target || (info & 8) || ((info & 4) && !(hostFeatures & 2)))) return false;
+        // 2D VS3 texture sampling is pixel-verified for every advertised color
+        // format. Cube/volume VTF stays unadvertised until its own acceptance.
+        if ((query & FORMAT_QUERY.VERTEXTEXTURE) && (type !== 3 || shaderModel < 3 || (info & 8))) return false;
+        if ((query & FORMAT_QUERY.WRAPANDMIP) && (!texture || (info & 8))) return false;
+        return true;
+    }
+
     function samplingSwizzle(format) {
         if (format === D3DFMT_R16F || format === D3DFMT_R32F) return "r111";
         if (format === D3DFMT_G16R16F || format === D3DFMT_G32R32F) return "rg11";
@@ -914,6 +951,10 @@
         D3DFMT_DXT5,
         D3DFMT_INDEX16,
         D3DFMT_INDEX32,
+        FORMAT_QUERY,
+        FORMAT_QUERY_ROWS,
+        formatQueryInfo,
+        formatQuerySupported,
         FORMAT_LAYOUT_ROWS,
         formatLayout,
         srgbSiblingOf,

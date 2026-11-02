@@ -19,12 +19,13 @@
 <script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
 <script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
 <script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script src="d3d_test_device.js"></script>
 <script>
 (async () => {
     "use strict";
     const result = document.getElementById("result");
     try {
-        const gpu = new D3D9WebGPUExecutor(document.getElementById("screen"), {strict: true, shaderWorkerUrl: null}); await gpu.initialize();
+        const gpu = new D3D9WebGPUExecutor(document.getElementById("screen"), {...await D3D9TestDevice.options(new URLSearchParams(location.search)), strict: true, shaderWorkerUrl: null}); await gpu.initialize();
         const P = D9WGProtocol, C = P.C, start = (16 << 20) - 16, memories = new Map(), events = new Map();
         const names = ["float32-filterable", "float32-blendable", "texture-compression-bc", "timestamp-query"];
         const expected = names.reduce((bits, name, i) => bits | (gpu.device.features.has(name) ? 1 << i : 0), 0);
@@ -46,6 +47,8 @@
         }
         await gpu.submit(batch(false), metadata(17)); await gpu.idle();
         check(events.get(17).length === 6 && events.get(29).length === 5, "interleaved owners or equal session IDs leaked capability cache");
+        for (const format of [0x31545844, 0x32545844, 0x33545844, 0x34545844, 0x35545844, 0x31495441, 0x32495441])
+            for (const usage of [0, 0x20000, 0x100000]) check(D9WGFormats.formatQuerySupported(3, usage, format, expected, 3, false) === !!(expected & 4), "BC query must follow enabled device storage");
         check(C.D9WG_HOST_CAPS_OFFSET + P.STRUCTS.HostCapabilities.size === C.D9WG_RESPONSE_REGION_BYTES, "reply ABI exceeds reserved region");
         check(!gpu.stats.responseWriteFailures && !gpu.stats.commandsFailed && !gpu.hostErrors.length && !gpu.gpuErrors.errors.length, "host/GPU response failure");
         const evidence = {enabledFeatures: [...gpu.device.features].sort(), featureBits: expected, names, owners: [...events].map(([owner, writes]) => ({owner, writes, tail: Array.from(new Uint32Array(memories.get(owner).buffer))})), stats: gpu.stats, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors};

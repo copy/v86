@@ -8,9 +8,11 @@ import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
     success, log_files = [], binary_files = [], capture_graphics = false, expected_releases = null,
-    rendering = "not exercised", inspect })
+    rendering = "not exercised", simulated_host_features = null, inspect })
 {
     const before = fs.statSync(image);
+    assert(simulated_host_features === null || (Number.isInteger(simulated_host_features) && simulated_host_features >= 0 && simulated_host_features <= 15));
+    const caps_protocol = simulated_host_features === null ? null : create_require(import.meta.url)("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
     const tools = new MemoryDisk(make_fat16(files)), disk = new ReadOnlyOverlayDisk(image);
     const require = create_require(import.meta.url), { createV86GLDevice: create_device } = require("../../src/browser/glbridge/v86gl_device.js");
     const handlers = [null, null];
@@ -30,6 +32,10 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                     header.writeUInt32LE((message.flags || 0) >>> 0, 4);header.writeUInt32LE(message.bytes.length, 8);
                     captured.push(header, Buffer.from(message.bytes));
                 }
+            }
+            if(caps_protocol) {
+                const bytes = caps_protocol.encode("HostCapabilities", {feature_bits: simulated_host_features, version: 1, magic: 0x50414348});
+                channel.host.post({type: "write", generation: message.generation, offset: (16 << 20) - 12, bytes});
             }
             channel.host.post({ type: "done", id: message.id });
         }
@@ -125,6 +131,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
         }
         const result = { status: "PASS", seconds: elapsed(), batches, releases, owners: Array.from(owners),
             text, logs: read_logs(), diskWrites: "RAM sector overlay only", rendering,
+            ...(simulated_host_features === null ? {} : {simulatedHostFeatures: simulated_host_features}),
             ...(binary_files.length || capture_graphics ? { artifacts } : {}) };
         if(inspect) inspect(result);
         fs.writeFileSync(out + "/probe-result.json", JSON.stringify(result, null, 2) + "\n");

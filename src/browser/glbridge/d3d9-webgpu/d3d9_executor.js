@@ -1248,6 +1248,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 cursorUploads: 0, cursorDraws: 0,
                 texturesRejected: 0,
                 srgbTextureSamples: 0, srgbViewsCreated: 0,
+                srgbCopyTexturesCreated: 0, srgbTextureCopies: 0,
                 srgbTextureUnavailable: 0, srgbWriteRequests: 0,
                 srgbWriteUnavailable: 0,
                 cubeTexturesCreated: 0, volumeTexturesCreated: 0,
@@ -2433,9 +2434,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             try {
                 // Invalidate any earlier publication, write data, then publish
                 // completion. These bytes never overlap queries or readbacks.
-                writer(at + D9WG.F.HostCapabilities.magic, new Uint8Array(4));
-                writer(at, out.subarray(0, D9WG.F.HostCapabilities.magic));
-                writer(at + D9WG.F.HostCapabilities.magic, out.subarray(D9WG.F.HostCapabilities.magic));
+                writer(at + D9WG.F.HostCapabilities.magic, new Uint8Array(4), false);
+                writer(at, out.subarray(0, D9WG.F.HostCapabilities.magic), false);
+                writer(at + D9WG.F.HostCapabilities.magic, out.subarray(D9WG.F.HostCapabilities.magic), false);
                 reply.publishedBits = bits;
                 return true;
             } catch (error) {

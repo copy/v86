@@ -113,6 +113,7 @@
                 if (!resource) return;
                 this.retireGPUObject(resource.gpuBuffer);
                 this.retireGPUObject(resource.gpuTexture);
+                this.retireGPUObject(resource.srgbCopyTexture);
                 this.retireGPUObject(resource.msaaTexture);
                 // Palettised sample resources have companion textures. A
                 // SESSION_END bypasses per-resource opcodes, so its companion
@@ -774,6 +775,7 @@
             // but semantically it is the set of initialized levels/faces.
             markTextureSubresourceWritten(resource, level, layer = 0) {
                 if (!resource) return;
+                if (resource.srgbCopyTexture) resource.srgbCopyDirty = true;
                 if (resource.ddIndexed) resource.ddContentSerial = (resource.ddContentSerial || 0) + 1;
                 if (resource.uploadedLevels) {
                     if (resource.textureType === "3d") {
@@ -1035,6 +1037,42 @@
                         "linear and comes out too bright", { format: texture.format,
                             gpuFormat: texture.gpuFormat });
                     return texture.view;
+                }
+                if (isCompressedFormat(texture.format)) {
+                    // BC sRGB reinterpretation views are ignored by some
+                    // backends. A bit-preserving copy into native sRGB storage
+                    // gives the required decode before filtering. Keep both
+                    // representations for simultaneous linear/sRGB stages.
+                    if (!texture.srgbCopyTexture) {
+                        texture.srgbCopyTexture = this.createTextureOrNull({
+                            ...texture.textureDescriptor,
+                            format: texture.srgbFormat, viewFormats: [],
+                        }, texture.format);
+                        if (!texture.srgbCopyTexture) return texture.view;
+                        texture.srgbView = texture.srgbCopyTexture.createView({
+                            dimension: texture.textureType === "cube" ? "cube" : "2d",
+                        });
+                        texture.srgbCopyDirty = true;
+                        ++this.stats.srgbCopyTexturesCreated;
+                        ++this.stats.srgbViewsCreated;
+                    }
+                    if (texture.srgbCopyDirty) {
+                        texture.srgbCopyDirty = false;
+                        const frame = this.ensureFrame();
+                        for (let level = 0; level < texture.levelCount; ++level) {
+                            frame.record({ kind: "copy",
+                                source: { texture: texture.gpuTexture, mipLevel: level },
+                                destination: { texture: texture.srgbCopyTexture, mipLevel: level },
+                                size: { width: blockAlignedCopyExtent(Math.max(1, texture.width >> level), true),
+                                    height: blockAlignedCopyExtent(Math.max(1, texture.height >> level), true),
+                                    depthOrArrayLayers: texture.layerCount || 1 },
+                            });
+                            ++this.stats.srgbTextureCopies;
+                        }
+                        texture.frameReferenced = frame.serial;
+                    }
+                    ++this.stats.srgbTextureSamples;
+                    return texture.srgbView;
                 }
                 if (!texture.srgbView) {
                     texture.srgbView = texture.gpuTexture.createView({
