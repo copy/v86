@@ -1547,6 +1547,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 169 组核心、149 组客体、36 个 SDK 冒烟 EXE、六个严格 D3D DLL、两项集成、完整 WebGPU 44 次运行及 Metal 533 场景通过；XP 三 API T&L/状态块/生命周期回归通过。三个发布零售 DLL 均为本次窗口 XP 验收原字节，宿主运行包保持 `8cc48a9a2b75d0296e91`。见 [stage4g2-validation.json](fixtures/d3d-review/stage4g2-validation.json)。接着共用 WinEvent 注册/分发与生命周期；D3D8 包装和阶段 4/5/6 仍在继续。
 > - 依据：[GetClientRect 的客户区约定](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect)、[GetRandomRgn 的屏幕坐标与时效限制](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-getrandomrgn)、[GetRegionData 的所需容量和失败返回](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/nf-wingdi-getregiondata)。保留既有 SYSRGN 算法，不宣称在窗口移动期间取得原子的可见区域快照。
 
+> **阶段 4G3（2026-11-03）：共用 WinEvent 订阅、消息线程和回调生命周期完成。**
+>
+> - 新增 CRT-free 的 `d9wg_window_watch.c/.h`，三个前端共用事件过滤、订阅、分发、重入合并、重试及退出实现，仅保留各自的报告/flush 策略。各加载模块的钩子由自己的消息线程安装、泵消息和卸载；应用停止 Present 或消息泵时仍能更新窗口。移除三套固定 8 对象数组，订阅节点随 API 对象保存。
+> - 移除操作持有进程 transport 锁，与正在执行的回调同步后才允许释放对象。每次通知后重新读取订阅链表，回调可移除/释放自己或其他对象；回调中新注册对象由后续合并刷新通知，处理 epoch 回绕，避免重入颠倒更新顺序。D3D9 仍在一轮报告发生变化后合批 flush，D3D8/DDraw 保留立即提交策略。
+> - 私有线程持有 DLL 引用，使用 `FreeLibraryAndExitThread` 完成退出；旧线程清理不会覆盖新线程状态。消息队列先于 ready 发布，调用方复制 ready 句柄并在锁外有界等待；锁指针原子发布。分配/event/模块引用/线程启动失败按一秒限速重试，部分钩子失败由工作线程 timer 重试，timer 创建失败可由后续 Present 恢复；正常 Present 不增加几何/GDI/时钟探测。
+> - 补充并修复事件和 Present 的交错顺序：三个实际 Present 函数在采集后插入较新窗口事件时，修复前均会把新位置覆盖回旧位置。现在采集、对应报告和 Present 排队在同一把锁内完成；D3D9 主动恢复/提升窗口时先解锁，完成后重新加锁采集。reserve/emit/submit 失败均释放锁，窗口报告及 DirectDraw no-surface 采集也与事件线程串行。这保证协议提交顺序，不宣称 Win32/GDI 观测原子化。
+> - 原生并发测试通过 64 个订阅、六类事件/非窗口过滤、重复注册、epoch 回绕、回调中新建及自删/互删、另一线程等待正在执行的回调后移除、四种启动失败、钩子/timer 重试及线程代际退出。新增 30/30 事件/前端语义变异，原有 17/17 探测/Present 和 10/10 报告缓存变异通过；ASan/UBSan 及共用线程实现的 ThreadSanitizer 通过。
+> - **真实 XP：每 API 12 个对象，共 36 个，验收第 12 个对象。** 动作后既不 Present 也不泵应用消息，仅 Sleep；22 个独立 Win32 几何/前台/隐藏/主表面释放步骤全部匹配，产生 136 条报告。解码验证每个 owner 创建 12 个设备、步骤对应最后一个设备；释放后全部三个 DLL 在进程仍运行时成功卸载。新命令流 `d3d_window_event_xp` 单独冻结，三代 fixture 共通过 12 种数据破坏检查。
+> - 新流在 SwiftShader/Metal 均通过 136 报告、22 步 surface 几何/隐藏状态检查，零宿主/GPU 错误；前两代回放入口也通过，本轮共四次窗口浏览器运行。169 组核心、151 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL、两项集成及三 API T&L/状态块/生命周期 XP 回归通过；零售 DLL 为最终窗口 XP 探针原字节。运行包仍为 `8cc48a9a2b75d0296e91`，宿主源码和发布包未变，沿用 4G2 完整 44 次 WebGPU/Metal 533 场景基线；完整 GPU 目标已加入新流，现含 45 次运行。见 [stage4g3-validation.json](fixtures/d3d-review/stage4g3-validation.json)。接着零售输入语义、D3D8 包装及其余客体核心，阶段 4/5/6 继续。
+> - 依据：[SetWinEventHook 的消息线程与重入约定](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwineventhook)、[UnhookWinEvent 必须在安装线程调用](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-unhookwinevent)、[PostThreadMessage 的消息队列就绪要求](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-postthreadmessagea)、[DLL 引用与线程一起释放](https://learn.microsoft.com/en-us/windows/win32/api/libloaderapi/nf-libloaderapi-freelibraryandexitthread)。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
