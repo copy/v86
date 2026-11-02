@@ -1403,6 +1403,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 144 组核心、136 组客体、DDraw 四个冒烟 EXE 和零售/诊断严格 DLL，以及 XP 三版本 T&L/录制载荷回归通过；发布本次 XP 所测 DDraw DLL。宿主及运行包未变，GPU/Metal/站点集成沿用 4D2j2d。见 [stage4d2j3c-validation.json](fixtures/d3d-review/stage4d2j3c-validation.json) 与 [170 条原生参考](../tests/glbridge/fixtures/d3d7_native_state_blocks.json)。
 > - 继续核对完整 D3D7 预定义状态表、旧式 RS/TSS 别名与交错顺序；本次不宣称完整 Wine、游戏/FPS 或阶段 4 验收完成。
 
+> **阶段 4D2j3d（2026-11-02）：D3D7 完整预定义状态范围与旧接口版本隔离完成。**
+>
+> - 原生 Microsoft RGB 探针逐个测量 113 个 RS 编号（2–152 内的 SDK 编号）和 24 个 TSS 的 ALL/PIXEL/VERTEX/显式录制，冻结 548 条调用/查询/End/Apply 结果；另测 504 条旧 RS 与 TSS 交错查询，共 1,052 条。最终原生采集 126 秒，零代理 owner/命令；代理运行逐条比较完整状态字和 HRESULT。
+> - PIXEL 的 41 个 RS、VERTEX 的 24 个 RS 采用各自明确范围，SHADEMODE 与 FOGSTART/END/DENSITY 同属两者，ALL 保存并集 61 个。FOGCOLOR、FOGTABLEMODE、RANGEFOGENABLE、CLIPPING、EXTENTS 等修正到 VERTEX；ZVISIBLE/FLUSHBATCH 可查询且可显式录制，所有预定义块均不保存。24 个 TSS 全属于 PIXEL，只有坐标编号/变换标志同时属于 VERTEX。
+> - D3D7 公开 RS 入口与 D3D1–3 的内部旧状态引擎分开；旧接口继续支持纹理过滤/寻址/混合及 Wrap 别名。D3D7 拒绝测得的旧编号且查询不改输出，不再把旧 RS 当作有效 TSS 别名。原生还显示：普通调用会缓存被拒绝的旧值，再次设置相同值可以无操作返回成功；Begin 内既不查询也不修改此缓存。代理按该零售行为处理，失败/重复调用均不发送状态。
+> - 实际 C 回归现在重放此前 170 条普通状态和新增 1,052 条完整结果，额外调用实际旧接口 Set/Get 检查版本隔离与无副作用。19/19 普通状态语义变异、8/8 灯光变异及 ASan/UBSan 通过；回归不从代理自身生成期望值。
+> - 144 组核心、136 组客体、DDraw 四个冒烟 EXE、零售/诊断严格 DLL、最终 XP 三 API T&L 与录制载荷验证通过；发布最终 T&L 所测 DDraw DLL。宿主/运行包不变，GPU/Metal/站点集成沿用 4D2j2d。见 [stage4d2j3d-validation.json](fixtures/d3d-review/stage4d2j3d-validation.json) 和 [原生范围参考](../tests/glbridge/fixtures/d3d7_native_state_scope.json)。
+> - 此探针不覆盖非零旧纹理句柄资源生命周期；后续继续共用 T&L 的 Tween/可编程处理、默认值/caps、包装层与 Wine/游戏验收，未宣称阶段 4 完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
