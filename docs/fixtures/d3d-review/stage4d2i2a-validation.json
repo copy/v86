@@ -1,0 +1,879 @@
+{
+  "stage": "4D2i2a packed source attributes and shared typed vertex decoding",
+  "date": "2026-11-02",
+  "bundle": "46b300fb4065049393df",
+  "coreSuites": 138,
+  "guestSuites": 106,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "formats": 17,
+  "referenceVectors": 1088,
+  "halfPatterns": 65536,
+  "xp": {
+    "typedCOM": {
+      "status": "PASS",
+      "seconds": 91,
+      "batches": 1,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "dllSha256": "8a616372f0dfe42d53965e6b8f6b1f9192ca814a6cd1377114f6b026d946bf1b",
+      "executableSha256": "276a0bedc2b7fdcf49bf59ea3de4c4afed8b35eadba1fa4234beda4993b24e7a"
+    },
+    "math": {
+      "status": "PASS",
+      "seconds": 123,
+      "batches": 0,
+      "owners": [],
+      "releases": []
+    },
+    "tnl": {
+      "status": "PASS",
+      "seconds": 126,
+      "batches": 6,
+      "owners": [
+        1,
+        2,
+        3
+      ],
+      "releases": [
+        1,
+        2,
+        3
+      ]
+    }
+  },
+  "backends": {
+    "swift": {
+      "adapter": {
+        "vendor": "google",
+        "architecture": "swiftshader",
+        "device": "",
+        "description": ""
+      },
+      "results": [
+        {
+          "label": "D3DDECLTYPE 0",
+          "type": 0,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 1",
+          "type": 1,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 2",
+          "type": 2,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 3",
+          "type": 3,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 4",
+          "type": 4,
+          "vectors": 64,
+          "maximumUlp": 1,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 5",
+          "type": 5,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 6",
+          "type": 6,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 7",
+          "type": 7,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 8",
+          "type": 8,
+          "vectors": 64,
+          "maximumUlp": 1,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 9",
+          "type": 9,
+          "vectors": 64,
+          "maximumUlp": 1,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 10",
+          "type": 10,
+          "vectors": 64,
+          "maximumUlp": 1,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 11",
+          "type": 11,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 12",
+          "type": 12,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 13",
+          "type": 13,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 14",
+          "type": 14,
+          "vectors": 64,
+          "maximumUlp": 1,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 15",
+          "type": 15,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 6,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 6,
+            "samples": [
+              {
+                "row": 1,
+                "component": 0,
+                "expectedBits": 4290772992,
+                "actualBits": 3355435008
+              },
+              {
+                "row": 1,
+                "component": 1,
+                "expectedBits": 4290772992,
+                "actualBits": 3355435008
+              },
+              {
+                "row": 3,
+                "component": 0,
+                "expectedBits": 2143289344,
+                "actualBits": 1207951360
+              },
+              {
+                "row": 3,
+                "component": 1,
+                "expectedBits": 2143289344,
+                "actualBits": 1207951360
+              }
+            ]
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 16",
+          "type": 16,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 12,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 12,
+            "samples": [
+              {
+                "row": 1,
+                "component": 0,
+                "expectedBits": 4290772992,
+                "actualBits": 3355435008
+              },
+              {
+                "row": 1,
+                "component": 1,
+                "expectedBits": 4290772992,
+                "actualBits": 3355435008
+              },
+              {
+                "row": 1,
+                "component": 2,
+                "expectedBits": 4290772992,
+                "actualBits": 3355435008
+              },
+              {
+                "row": 1,
+                "component": 3,
+                "expectedBits": 4290772992,
+                "actualBits": 3355435008
+              }
+            ]
+          }
+        },
+        {
+          "label": "all binary16 patterns",
+          "type": 15,
+          "vectors": 65536,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 2048,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 2048,
+            "samples": [
+              {
+                "row": 31744,
+                "component": 0,
+                "expectedBits": 2139095040,
+                "actualBits": 1199570944
+              },
+              {
+                "row": 31745,
+                "component": 0,
+                "expectedBits": 2143289344,
+                "actualBits": 1199579136
+              },
+              {
+                "row": 31746,
+                "component": 0,
+                "expectedBits": 2143289344,
+                "actualBits": 1199587328
+              },
+              {
+                "row": 31747,
+                "component": 0,
+                "expectedBits": 2143289344,
+                "actualBits": 1199595520
+              }
+            ]
+          }
+        }
+      ],
+      "errors": [],
+      "totalVectors": 66624
+    },
+    "metal": {
+      "adapter": {
+        "vendor": "apple",
+        "architecture": "metal-3",
+        "device": "",
+        "description": ""
+      },
+      "results": [
+        {
+          "label": "D3DDECLTYPE 0",
+          "type": 0,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 1",
+          "type": 1,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 2",
+          "type": 2,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 3",
+          "type": 3,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 4",
+          "type": 4,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 5",
+          "type": 5,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 6",
+          "type": 6,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 7",
+          "type": 7,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 8",
+          "type": 8,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 9",
+          "type": 9,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 10",
+          "type": 10,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 11",
+          "type": 11,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 12",
+          "type": 12,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 13",
+          "type": 13,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 14",
+          "type": 14,
+          "vectors": 64,
+          "maximumUlp": 1,
+          "nonfinite": {
+            "tested": 0,
+            "returnedNaN": 0,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": []
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 15",
+          "type": 15,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 6,
+            "returnedNaN": 6,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": [
+              {
+                "row": 1,
+                "component": 0,
+                "expectedBits": 4290772992,
+                "actualBits": 2143289344
+              },
+              {
+                "row": 1,
+                "component": 1,
+                "expectedBits": 4290772992,
+                "actualBits": 2143289344
+              },
+              {
+                "row": 3,
+                "component": 0,
+                "expectedBits": 2143289344,
+                "actualBits": 2143289344
+              },
+              {
+                "row": 3,
+                "component": 1,
+                "expectedBits": 2143289344,
+                "actualBits": 2143289344
+              }
+            ]
+          }
+        },
+        {
+          "label": "D3DDECLTYPE 16",
+          "type": 16,
+          "vectors": 64,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 12,
+            "returnedNaN": 12,
+            "returnedInfinity": 0,
+            "returnedFinite": 0,
+            "samples": [
+              {
+                "row": 1,
+                "component": 0,
+                "expectedBits": 4290772992,
+                "actualBits": 2143289344
+              },
+              {
+                "row": 1,
+                "component": 1,
+                "expectedBits": 4290772992,
+                "actualBits": 2143289344
+              },
+              {
+                "row": 1,
+                "component": 2,
+                "expectedBits": 4290772992,
+                "actualBits": 2143289344
+              },
+              {
+                "row": 1,
+                "component": 3,
+                "expectedBits": 4290772992,
+                "actualBits": 2143289344
+              }
+            ]
+          }
+        },
+        {
+          "label": "all binary16 patterns",
+          "type": 15,
+          "vectors": 65536,
+          "maximumUlp": 0,
+          "nonfinite": {
+            "tested": 2048,
+            "returnedNaN": 2046,
+            "returnedInfinity": 2,
+            "returnedFinite": 0,
+            "samples": [
+              {
+                "row": 31744,
+                "component": 0,
+                "expectedBits": 2139095040,
+                "actualBits": 2139095040
+              },
+              {
+                "row": 31745,
+                "component": 0,
+                "expectedBits": 2143289344,
+                "actualBits": 2143289344
+              },
+              {
+                "row": 31746,
+                "component": 0,
+                "expectedBits": 2143289344,
+                "actualBits": 2143289344
+              },
+              {
+                "row": 31747,
+                "component": 0,
+                "expectedBits": 2143289344,
+                "actualBits": 2143289344
+              }
+            ]
+          }
+        }
+      ],
+      "errors": [],
+      "totalVectors": 66624
+    }
+  },
+  "gpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS required WebGPU adapter: google swiftshader  "
+    },
+    {
+      "status": "PASS",
+      "details": "PASS real vertex fetch / production D3D input conversion / C reference: 66624 vectors, all 17 types, strict finite binary16 values, nonfinite diagnostics and zero GPU errors"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 24 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 18 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 327 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    }
+  ],
+  "mutations": {
+    "killed": 9,
+    "total": 9
+  },
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "checks": [
+    "all 17 declaration types use one unaligned-safe SDK-independent decoder with default components and signed-normalized extrema",
+    "position/normal/size/texture, normalized blend weights, lighting normals and clip-code transforms consume typed inputs",
+    "1088 independently generated vectors and all 65536 binary16 bit patterns pass C checks at native precision; XP repeats at three x87 control words",
+    "actual D3D9 COM packed source attributes, stream/destination offsets, copy flags, retained output components and clip status passed",
+    "packed output and truncated input refuse before a destination write",
+    "production programmable vertex conversion and MOV body feed integer flat varyings and fragment storage for actual GPU vertex-fetch comparison",
+    "66624 vectors per backend, finite half exact, normalized values maximum 1 ULP within a preset 2 ULP limit; all nonfinite diagnostics retained",
+    "all previous numeric fixture cases unchanged; header provenance added",
+    "shared-layout test helpers prevent oversized x86 entry-point frames without adding CRT stack-probe dependencies"
+  ],
+  "scope": "Source geometry and typed decoding only. Float colors, packed output, multiple streams and CPU vertex programs continue. The GPU test covers actual vertex fetch and production programmable-entry conversion, not complete fixed-function packed-declaration rendering. WGSL finite-math rules make NaN/Infinity runtime results diagnostic; SwiftShader returns finite values for special half inputs while Metal preserves their classification. Original D3D8/9 HAL/REF parity, full Wine and games are not claimed.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3ddecltype",
+    "https://www.w3.org/TR/WGSL/#floating-point-evaluation",
+    "https://www.w3.org/TR/webgpu/#vertex-formats"
+  ],
+  "siteSha256": {
+    "glbridge/runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+    "glbridge/runtime/d9wg_vertex.h": "870c5827f8e89492fc52679aa61c38fe5e8deeb6fc7ae837b871ac7b753555b4",
+    "glbridge/runtime/d9wg_vertex.c": "36777c065832a241e99bdffac6dd1da08787d41a7926a62b3ee4f34d3d8ad2ae",
+    "glbridge/runtime/d9wg_blend.c": "f22d262432aa5425f31ed60c31a85b2f5c755cffe62775e1ac5a427ef48027c0",
+    "glbridge/runtime/d9wg_clip_draw.c": "ee453106d0a179172085dd85bf16aac00a0d33b4089e6aab15dbcc93f5e43538",
+    "glbridge/sample/d3d9_vertex_format_cases.h": "685782b78738037cab3ae49f81c053bde91a9cc24d23fff167d9961fd7b17e57",
+    "glbridge/sample/d3d_processed_clip_draw_test.c": "c405d2cc8ded1a82286753b2bcf14b8d0c8355a8ae866c55a2b486fb42227f23",
+    "glbridge/tests/d9wg_vertex_format_test.js": "3ed2d9071d1e91e1a30f618756847b21d8fcaf39c9d28e057b15a33ea9f9cfec",
+    "glbridge/tests/d9wg_vertex_format_mutation_test.js": "8a6358f32631224bb10f82eacb4d47abd3654f71634e2366c8fe9a6acce626a2",
+    "glbridge/tests/d9wg_lighting_harness.js": "ca0db2c2d9c3e0c6ecfdaa96d09ca402b56e17e0d325494d6efb006a3ec54269",
+    "glbridge/tests/d9wg_clip_mask_test.js": "ff12d93296647057948fc9bbb3193ef5fc32142fbfef693682d30ccc2a8592db",
+    "glbridge/tests/native/d9wg_vertex_cases.h": "6016de0a656750001625afaf38e4b6ddb5f1f7fc0ace76c38b02b6ac384196b8",
+    "glbridge/tests/native/d9wg_clip_draw_cases.h": "e13c3da30f4c5708715d4cd8896894cb24cf8ae612ff95adb95a0b89fbaa54d4",
+    "glbridge/d3d8proxy/d3d8.dll": "f6f22d2ea02c50f0910eaf10e4dc682696ef0dc76d60ddbfb5f169a0fe75aa36",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "8a59a28374e39ef08cc2ae303c1566a7a9bcb8f35f0d48b9bf9bee2eb8d51aa7",
+    "glbridge/d3d9proxy/d3d9.dll": "8a616372f0dfe42d53965e6b8f6b1f9192ca814a6cd1377114f6b026d946bf1b",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "62539fe8105380771665da3e259571ac796880f870b53124d1897ffbaca2b865",
+    "glbridge/ddrawproxy/ddraw.dll": "5498bb8a52413ee85a50c370535967587f24bcfb7ffb06e6c489612e8b4fff39",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "decba4ecff84dc861b7bd9c0570f65797f3680b07c8a8d74f5cfe5b01c86d26a"
+  },
+  "coreSha256": {
+    "Makefile": "5c950d972f1cebc6ceba590f16906a9791a8e8e49530a7292c31545a4df504f5",
+    "docs/d3d-webgpu-review.md": "0bdfbe8cc318d6f019eb3b76f39a1a064324ab8818f146e0a9ae99fa40caaf79",
+    "tests/glbridge/d3d_vertex_formats_browser_test.html": "c36356d02a78e9b812a27305ffe56ee20fb245c87f8d329a9947a2dc7bc085b1",
+    "tests/glbridge/d3d_vertex_formats_fixture_test.js": "917b27a6064e50c326968eb843f6ffda051aba70782d175256a0bee5c42561e6",
+    "tests/glbridge/d3d_vertex_formats_xp.mjs": "799a46538c5a01ac7d6eff8229f57fd28e04756981f80123a6e6c962f3553007",
+    "tests/glbridge/d3d_math_xp.mjs": "360cb0d8d3c300db6fdba38da543844d682be1a750fad45b6d14820d29058678",
+    "tests/glbridge/fixtures/d3d_vertex_formats_cpu.json": "47e189f549b955658394bf73d18e0e9cf54fea81d42333425670023e5fb6d6fb",
+    "tests/glbridge/fixtures/d3d_software_blend_cpu.json": "a602e947994e64ebe44ae991bdead04d1b77790c0b1d13c18c5fc61001110e4d",
+    "tests/glbridge/fixtures/d3d_software_lighting_cpu.json": "a8cb11d3f78bc6ac6e2796ab7797e8d1c1ab5a822c448c0bf64f9f4d754e9e6e",
+    "tests/glbridge/fixtures/d3d_software_texcoord_cpu.json": "d548f24d73bbb5ec3b5bc960839e0e0dc6d7d170c3a95f43be20e6a94fab7113"
+  },
+  "logs": {
+    "d3d-i2-formats-xp.log": "c8d70de3cf79dd65bec9f0f31f683145be3380e4824d62e5750a3826dbfe046d",
+    "d3d-i2-math-verified.log": "c4a3f7db483b3da600817fd0e9fd91f42b25162b67ecc5c24d6056fad8feb325",
+    "d3d-i2-tnl-final.log": "ec21b63fe3fb18972913ccd8f4159052dd52e35e17d25fc6b42b4c742dab4e9f",
+    "d3d-i2-format-mutations.log": "fc642bf95722f780e19cfe6105e91a6fe401aece6b707dcf19ff5eb6c75a4449",
+    "d3d-i2-sanitize.log": "08d58401ee23e16de3d42d5ee8cd1c59f24cfbe6b5a6d086d592a0073d12fd58",
+    "d3d-i2-core-final.log": "146ba1c8050a926801f4273c6afca8112b0de56b8e20b0b5df1a2c5ba977f249",
+    "d3d-i2-guest-final.log": "352a98c720929db907d61ffb07f262112f82358ac1a9d77413973262280f80dc",
+    "d3d-i2-gpu-final.log": "12f99de6b3a8dbd5addd6898c026a2cdcb11f8699ea6668cf06482db31ac0598",
+    "d3d-i2-format-metal-final.log": "9d910d7721ed65b8c5dc657cf83fb51b0b511c4ba1d3d782b1192a8292e59720",
+    "d3d-i2-all-builds.log": "c1751a46fdced2524c598f48bca9db27686a310d8bef44c0f87bd0b38fe75577",
+    "d3d-i2-integration.log": "3a35d97274f9b0001a128a8d196ac9d028e2ee86876e665106e3973a6beda078"
+  }
+}

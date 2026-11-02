@@ -1,0 +1,83 @@
+<!doctype html><meta charset="utf-8"><title>D3D typed vertex input differential</title><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script>
+(async () => {
+    let device;
+    try {
+        const fixture = await fetch("fixtures/d3d_vertex_formats_cpu.json").then(r => r.json());
+        const adapter = await navigator.gpu.requestAdapter();if (!adapter) throw Error("WebGPU adapter unavailable");
+        device = await adapter.requestDevice();const errors = [];
+        device.addEventListener("uncapturederror", e => errors.push(e.error.message));
+        const info = adapter.info || {}, results = [];
+        const formats = ["float32","float32x2","float32x3","float32x4","unorm8x4","uint8x4","sint16x2","sint16x4","unorm8x4","snorm16x2","snorm16x4","unorm16x2","unorm16x4","uint32","uint32","float16x2","float16x4"];
+        const sizes = [4,8,12,16,4,4,4,8,4,4,8,4,8,4,4,4,8];
+        const conversion = {5:"ubyte4",6:"short2",7:"short4",13:"udec3",14:"dec3n"};
+        const words = new Uint32Array(1), floats = new Float32Array(words.buffer);
+        const fromBits = bits => {words[0] = bits;return floats[0];};
+        const bitsOf = value => {floats[0] = value;return words[0];};
+        const ordered = bits => bits & 0x80000000 ? 0x80000000 - (bits & 0x7fffffff) : 0x80000000 + bits;
+        async function check(type, cases, label) {
+            const options = {inputConversions: conversion[type] ? {0:conversion[type]} : {}, bgraInputLocations: type === 4 ? [0] : []};
+            const translated = D3D9ShaderPipeline.compileShader(new Uint32Array([0xfffe0101,1,0xc00f0000,0x90e40000,0x0000ffff]), options);
+            if (!translated.ok) throw Error(translated.error);
+            // Retain the production input conversion and MOV body. Carry v0
+            // flat to a distinct pixel; fragment storage preserves its range.
+            let code = translated.wgsl.replace("fn d9_vs_main(", "fn d9_vs_main(@builtin(vertex_index) capture_index: u32, ");
+            const width = Math.min(cases.length,256), height = Math.ceil(cases.length/width);
+            code = code.replace("@location(0) varying0: vec4<f32>", "@location(0) @interpolate(flat) varying0: vec4<u32>");
+            code = code.replace("result.varying0 = o_varying0;", "result.varying0 = bitcast<vec4<u32>>(o_varying0);");
+            code = code.replace("    return result;", "    result.varying0 = bitcast<vec4<u32>>(vin0);\n    result.position = vec4<f32>((f32(capture_index % "+width+"u)+0.5)*2.0/"+width+".0-1.0, 1.0-(f32(capture_index / "+width+"u)+0.5)*2.0/"+height+".0,0.5,1.0);\n    return result;");
+            device.pushErrorScope("validation");
+            const module = device.createShaderModule({code}), compilation = await module.getCompilationInfo();
+            if (compilation.messages.some(m => m.type === "error")) throw Error(compilation.messages.map(m => m.message).join("\n"));
+            const pixel = device.createShaderModule({code:"@group(0) @binding(1) var<storage,read_write> captured:array<vec4<u32>>; @fragment fn fs(@builtin(position) p:vec4<f32>,@location(0) @interpolate(flat) value:vec4<u32>) -> @location(0) vec4<f32> {captured[u32(p.y)*"+width+"u+u32(p.x)] = value;return vec4<f32>(1.0);}"});
+            const pipeline = await device.createRenderPipelineAsync({layout:"auto",vertex:{module,entryPoint:"d9_vs_main",buffers:[{arrayStride:sizes[type],attributes:[{shaderLocation:0,offset:0,format:formats[type]}]}]},fragment:{module:pixel,entryPoint:"fs",targets:[{format:"rgba8unorm"}]},primitive:{topology:"point-list"}});
+            const data = new Uint8Array(cases.length*sizes[type]);cases.forEach((r,i) => data.set(r.bytes,i*sizes[type]));
+            const vertex = device.createBuffer({size:data.length,usage:GPUBufferUsage.VERTEX|GPUBufferUsage.COPY_DST});device.queue.writeBuffer(vertex,0,data);
+            const uniform = device.createBuffer({size:translated.reflection.uniformBytes,usage:GPUBufferUsage.UNIFORM|GPUBufferUsage.COPY_DST});
+            const constants = new Float32Array(translated.reflection.uniformBytes/4);constants.set([1,1,0,0],translated.reflection.viewportOffset/4);device.queue.writeBuffer(uniform,0,constants);
+            const output = device.createBuffer({size:cases.length*16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC});
+            const readback = device.createBuffer({size:cases.length*16,usage:GPUBufferUsage.COPY_DST|GPUBufferUsage.MAP_READ});
+            const bind = device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:uniform}},{binding:1,resource:{buffer:output}}]});
+            const texture = device.createTexture({size:[width,height],format:"rgba8unorm",usage:GPUTextureUsage.RENDER_ATTACHMENT});
+            const encoder = device.createCommandEncoder(), pass = encoder.beginRenderPass({colorAttachments:[{view:texture.createView(),loadOp:"clear",storeOp:"store",clearValue:{r:0,g:0,b:0,a:1}}]});
+            pass.setPipeline(pipeline);pass.setBindGroup(0,bind);pass.setVertexBuffer(0,vertex);pass.draw(cases.length);pass.end();encoder.copyBufferToBuffer(output,0,readback,0,cases.length*16);device.queue.submit([encoder.finish()]);
+            await readback.mapAsync(GPUMapMode.READ);const actual = new Float32Array(readback.getMappedRange());
+            let maximumUlp = 0;const nonfinite = {tested:0,returnedNaN:0,returnedInfinity:0,returnedFinite:0,samples:[]};
+            for (let row=0;row<cases.length;++row) for (let c=0;c<4;++c) {
+                const expected = fromBits(cases[row].expected[c]), got = actual[row*4+c];
+                // WGSL permits finite-math assumptions for runtime evaluation.
+                // Keep every finite input strict; report special values separately.
+                if (!Number.isFinite(expected)) {
+                    nonfinite.tested++;
+                    if (Number.isNaN(got)) nonfinite.returnedNaN++;
+                    else if (!Number.isFinite(got)) nonfinite.returnedInfinity++;
+                    else nonfinite.returnedFinite++;
+                    if (nonfinite.samples.length < 4) nonfinite.samples.push({row,component:c,expectedBits:cases[row].expected[c],actualBits:bitsOf(got)});
+                    continue;
+                }
+                const ulp = Math.abs(ordered(bitsOf(got))-ordered(cases[row].expected[c]));maximumUlp = Math.max(maximumUlp,ulp);
+                const tolerance = [4,8,9,10,11,12,14].includes(type) ? 2 : 0;
+                if (ulp > tolerance) throw Error(label+" row "+row+" component "+c+": "+got+" != "+expected+" ("+ulp+" ULP)");
+            }
+            readback.unmap();const error = await device.popErrorScope();if (error) throw error;
+            for (const buffer of [vertex,uniform,output,readback]) buffer.destroy();texture.destroy();
+            results.push({label,type,vectors:cases.length,maximumUlp,nonfinite});
+        }
+        for (let type=0;type<17;++type) await check(type,fixture.cases.filter(r => r.type === type),"D3DDECLTYPE "+type);
+        const halfCases = [];
+        for (let h=0;h<65536;++h) {
+            const exponent=(h>>>10)&31, fraction=h&1023;
+            let value=exponent===31 ? fraction ? NaN : Infinity : (exponent ? 1+fraction/1024 : fraction/1024)*2**(exponent ? exponent-15 : -14);
+            if (h>=32768) value=-value;
+            halfCases.push({bytes:[h&255,h>>>8,0,0],expected:[bitsOf(value),0,0,0x3f800000]});
+        }
+        await check(15,halfCases,"all binary16 patterns");
+        if (errors.length) throw Error(errors.join("\n"));
+        const evidence = {adapter:{vendor:info.vendor,architecture:info.architecture,device:info.device,description:info.description},results,errors,totalVectors:results.reduce((n,r)=>n+r.vectors,0)};
+        await fetch("/__test_file?name=d9wg-vertex-formats.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+        document.querySelector("#result").textContent="PASS real vertex fetch / production D3D input conversion / C reference: "+evidence.totalVectors+" vectors, all 17 types, strict finite binary16 values, nonfinite diagnostics and zero GPU errors";
+    } catch (e) {document.querySelector("#result").textContent="FAIL "+e.stack;}
+    finally {device?.destroy();}
+})();
+</script>

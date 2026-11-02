@@ -1216,6 +1216,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 137 组核心、104 组客体、27 项 WebGPU 验证、2 项站点集成、35 个冒烟 EXE、六个严格构建 DLL 及实际 XP 三 API T&L 回归通过。三个既有数值参考的 cases 不变，仅更新源码哈希。宿主运行包仍为 `46b300fb4065049393df`；见 [stage4d2i1-validation.json](fixtures/d3d-review/stage4d2i1-validation.json)。
 > - 本次原生依据是 Microsoft RGB 的软件输出行为；不宣称原生 HAL、D3D8/9、原生重叠缓冲或会挂起的 XYZ 裁剪调用一致性。继续通用打包/多流布局、可编程处理及其余共用核心；完整 Wine 与游戏验收仍待后续阶段。
 
+> **阶段 4D2i2a（2026-11-02）：共用打包输入解码及软件几何属性接入完成。**
+>
+> - 增加 SDK 无关的 17 种 D3DDECLTYPE 读取：float、ARGB/字节、带符号短整数、8/16 位归一化值、10:10:10、半浮点及缺省分量。未对齐数据通过字节复制读取；SNORM 极小值钳制为 −1，半浮点保留有限值和有符号零，并产生正确的 Infinity/quiet NaN 分类。
+> - 同一解码器接入软件位置、法线、点大小、纹理坐标、归一化混合权重、光照/混合的法线以及 ClipStatus 位置读取。范围校验使用真实压缩字节数；现阶段输出仍限规范 float/ARGB 布局，打包输出在写入前明确拒绝，避免写坏缓冲。D3D7 的原生 RGB 输出特例仍通过。
+> - 独立公式生成 1,088 组格式向量，并穷举全部 65,536 种 binary16 位模式；C 核逐字/NaN 分类检查、未对齐字段、混合/光照/裁剪、末尾范围和额外纹理分量检查通过。新增语义变异 9/9 拦截，AddressSanitizer/UBSan 通过。XP x87 三种精度累计验证 3,264 组格式向量和 196,608 个半浮点模式，原有全套数学检查也通过。
+> - 实际 D3D9 COM 检查通过：半浮点位置、DEC3N 法线、SHORT2N 纹理、半浮点点大小、源/目标偏移、DONOTCOPYDATA、ClipStatus，以及不支持输出/截断输入时的原子拒绝。三 API 的实际 XP T&L 回归通过。
+> - 新增 GPU 顶点读取差分：保留生产着色器的输入转换与 MOV 主体，通过整数 flat varying 与片段 storage 记录值。SwiftShader 和 Metal 各处理 66,624 组向量；有限半浮点值精确相符，归一化格式最大 1 ULP，在事先固定的 2 ULP 范围内。NaN/Infinity 单独记录，不能作为可移植 GPU 精确相等的依据；SwiftShader 对 2,048 个特殊半浮点模式返回有限值，Metal 保留 2,046 个 NaN 和两个 Infinity，见 [WGSL 有限数学规则](https://www.w3.org/TR/WGSL/#floating-point-evaluation)。
+> - 138 组核心、106 组客体、28 项 WebGPU 验证、2 项站点集成、35 个标准冒烟 EXE 和六个严格构建 DLL 通过。既有三个数值参考的 cases 不变，并把新头文件加入来源哈希。运行包仍为 `46b300fb4065049393df`；见 [stage4d2i2a-validation.json](fixtures/d3d-review/stage4d2i2a-validation.json)。
+> - 本次 GPU 检查覆盖实际格式读取与生产可编程入口转换，不等于完整固定功能绘制已支持所有打包位置/法线。继续固定功能入口的类型转换、浮点颜色、打包输出、多流和可编程处理；原生 D3D8/9、完整 Wine 与游戏验收仍待后续阶段。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
