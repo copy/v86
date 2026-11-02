@@ -1,0 +1,4111 @@
+{
+  "stage": "4D2i3e typed attributes in processed multi-stream clipping",
+  "date": "2026-11-02",
+  "bundle": "7beb9d03738199295430",
+  "coreSuites": 143,
+  "guestSuites": 116,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "pixelPairsPerBackend": 622592,
+  "independentColorProbesPerBackend": 76,
+  "xp": {
+    "typed": {
+      "status": "PASS",
+      "seconds": 121,
+      "batches": 77,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "text": "READY D3D8/9 processed clipping COM probe\r\nPASS real XP floating color precision, specular source, fog, half/integer colors and copy flags\r\nPASS real XP multi-stream: nonzero position stream, offsets, packed normal, floating constant color, copy flags, clip records, all-constant huge index, multiple destination aliases and atomic refusals\r\nPASS real XP multi-stream draws: absent/unused stream zero, full declared indexed range, negative base, world planes, final attribute bounds, constant position, instancing bounds and atomic status failures\r\nIMAGE typed case=0 frame=0 type=0\r\nIMAGE typed case=0 frame=1 type=0\r\nIMAGE typed case=0 frame=2 type=0\r\nIMAGE typed case=0 frame=3 type=0\r\nIMAGE typed case=1 frame=0 type=1\r\nIMAGE typed case=1 frame=1 type=1\r\nIMAGE typed case=1 frame=2 type=1\r\nIMAGE typed case=1 frame=3 type=1\r\nIMAGE typed case=2 frame=0 type=2\r\nIMAGE typed case=2 frame=1 type=2\r\nIMAGE typed case=2 frame=2 type=2\r\nIMAGE typed case=2 frame=3 type=2\r\nIMAGE typed case=3 frame=0 type=3\r\nIMAGE typed case=3 frame=1 type=3\r\nIMAGE typed case=3 frame=2 type=3\r\nIMAGE typed case=3 frame=3 type=3\r\nIMAGE typed case=4 frame=0 type=4\r\nIMAGE typed case=4 frame=1 type=4\r\nIMAGE typed case=4 frame=2 type=4\r\nIMAGE typed case=4 frame=3 type=4\r\nIMAGE typed case=5 frame=0 type=5\r\nIMAGE typed case=5 frame=1 type=5\r\nIMAGE typed case=5 frame=2 type=5\r\nIMAGE typed case=5 frame=3 type=5\r\nIMAGE typed case=6 frame=0 type=6\r\nIMAGE typed case=6 frame=1 type=6\r\nIMAGE typed case=6 frame=2 type=6\r\nIMAGE typed case=6 frame=3 type=6\r\nIMAGE typed case=7 frame=0 type=7\r\nIMAGE typed case=7 frame=1 type=7\r\nIMAGE typed case=7 frame=2 type=7\r\nIMAGE typed case=7 frame=3 type=7\r\nIMAGE typed case=8 frame=0 type=8\r\nIMAGE typed case=8 frame=1 type=8\r\nIMAGE typed case=8 frame=2 type=8\r\nIMAGE typed case=8 frame=3 type=8\r\nIMAGE typed case=9 frame=0 type=9\r\nIMAGE typed case=9 frame=1 type=9\r\nIMAGE typed case=9 frame=2 type=9\r\nIMAGE typed case=9 frame=3 type=9\r\nIMAGE typed case=10 frame=0 type=10\r\nIMAGE typed case=10 frame=1 type=10\r\nIMAGE typed case=10 frame=2 type=10\r\nIMAGE typed case=10 frame=3 type=10\r\nIMAGE typed case=11 frame=0 type=11\r\nIMAGE typed case=11 frame=1 type=11\r\nIMAGE typed case=11 frame=2 type=11\r\nIMAGE typed case=11 frame=3 type=11\r\nIMAGE typed case=12 frame=0 type=12\r\nIMAGE typed case=12 frame=1 type=12\r\nIMAGE typed case=12 frame=2 type=12\r\nIMAGE typed case=12 frame=3 type=12\r\nIMAGE typed case=13 frame=0 type=13\r\nIMAGE typed case=13 frame=1 type=13\r\nIMAGE typed case=13 frame=2 type=13\r\nIMAGE typed case=13 frame=3 type=13\r\nIMAGE typed case=14 frame=0 type=14\r\nIMAGE typed case=14 frame=1 type=14\r\nIMAGE typed case=14 frame=2 type=14\r\nIMAGE typed case=14 frame=3 type=14\r\nIMAGE typed case=15 frame=0 type=15\r\nIMAGE typed case=15 frame=1 type=15\r\nIMAGE typed case=15 frame=2 type=15\r\nIMAGE typed case=15 frame=3 type=15\r\nIMAGE typed case=16 frame=0 type=16\r\nIMAGE typed case=16 frame=1 type=16\r\nIMAGE typed case=16 frame=2 type=16\r\nIMAGE typed case=16 frame=3 type=16\r\nIMAGE typed case=17 frame=0 type=3\r\nIMAGE typed case=17 frame=1 type=3\r\nIMAGE typed case=17 frame=2 type=3\r\nIMAGE typed case=17 frame=3 type=3\r\nIMAGE typed case=18 frame=0 type=3\r\nIMAGE typed case=18 frame=1 type=3\r\nIMAGE typed case=18 frame=2 type=3\r\nIMAGE typed case=18 frame=3 type=3\r\nPASS real XP typed clipping: 76 direct/processed/restored frames, 17 colour formats with 64x gain, half point size, floating specular and independent raw draw controls\r\nPASS real XP typed input: half positions, DEC3N normals, normalized coordinates, half size, stream/destination offsets, retained components, copy flags, clip status and atomic refusals\r\n",
+      "dllSha256": "dcfc4e288f8c493ed60097d8921e3344c4da1e7cb03e364287a98cd82ebe739f",
+      "executableSha256": "6d96cf5cc042e7e79038b59c75d738d9f1ef6659744374e049951204d26304e9"
+    },
+    "math": {
+      "status": "PASS",
+      "seconds": 122,
+      "batches": 0,
+      "owners": [],
+      "releases": [],
+      "text": "READY math \r\nREADY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS texture math control=007f cases=20000\r\nPASS blend math control=007f cases=20000\r\nPASS clip math control=007f cases=20000\r\nPASS clip pipeline control=007f triangles=20000 buffers=1 draws=1\r\nPASS clip user control=007f cases=20000 world-blend=1\r\nPASS clip status control=007f native=100 histories=100000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS texture math control=027f cases=20000\r\nPASS blend math control=027f cases=20000\r\nPASS clip math control=027f cases=20000\r\nPASS clip pipeline control=027f triangles=20000 buffers=1 draws=1\r\nPASS clip user control=027f cases=20000 world-blend=1\r\nPASS clip status control=027f native=100 histories=100000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS texture math control=037f cases=20000\r\nPASS blend math control=037f cases=20000\r\nPASS clip math control=037f cases=20000\r\nPASS clip pipeline control=037f triangles=20000 buffers=1 draws=1\r\nPASS clip user control=037f cases=20000 world-blend=1\r\nPASS clip status control=037f native=100 histories=100000\r\nPASS legacy output control words=3 native=252\r\nPASS typed vertex inputs control words=3 vectors=3264 halfPatterns=196608\r\nPASS typed vertex colors control words=3 inputs=3276 colorModes=19656\r\nPASS multi-stream math control words=3 ranges=300000 rotations=48\r\nPASS multi-stream clip math control words=3 full-ranges=1 atomic-palette=1 POSITIONT=1\r\nPASS multi-stream clipped draws control words=3 exact-packed-attributes=1 constant-overflow=1\r\nPASS typed clipping control words=3 inputs=3246 roleCases=16230\r\nPASS all real XP math checks\r\n"
+    },
+    "tnl": {
+      "status": "PASS",
+      "seconds": 114,
+      "batches": 6,
+      "owners": [
+        1,
+        2,
+        3
+      ],
+      "releases": [
+        1,
+        2,
+        3
+      ],
+      "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS all real XP TNL probes \r\n"
+    }
+  },
+  "backends": {
+    "swift": {
+      "captureDllSha256": "dcfc4e288f8c493ed60097d8921e3344c4da1e7cb03e364287a98cd82ebe739f",
+      "traceSha256": "1aee2182c4d31e7c0a6f8d4b560c563ab786c93b65e7070e481c972b961284ad",
+      "frames": 76,
+      "batches": 77,
+      "comparisons": [
+        {
+          "scene": 0,
+          "name": "type-0",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 0,
+          "name": "type-0",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 1,
+          "name": "type-1",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 1,
+          "name": "type-1",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 2,
+          "name": "type-2",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 2,
+          "name": "type-2",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 3,
+          "name": "type-3",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 3,
+          "name": "type-3",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 4,
+          "name": "type-4",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 4,
+          "name": "type-4",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 5,
+          "name": "type-5",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 5,
+          "name": "type-5",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 6,
+          "name": "type-6",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 6,
+          "name": "type-6",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 7,
+          "name": "type-7",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 7,
+          "name": "type-7",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 8,
+          "name": "type-8",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 8,
+          "name": "type-8",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 9,
+          "name": "type-9",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 9,
+          "name": "type-9",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 10,
+          "name": "type-10",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 10,
+          "name": "type-10",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 11,
+          "name": "type-11",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 11,
+          "name": "type-11",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 12,
+          "name": "type-12",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 12,
+          "name": "type-12",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 13,
+          "name": "type-13",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 13,
+          "name": "type-13",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 14,
+          "name": "type-14",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 14,
+          "name": "type-14",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 15,
+          "name": "type-15",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 15,
+          "name": "type-15",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 16,
+          "name": "type-16",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 16,
+          "name": "type-16",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 17,
+          "name": "half-point-size",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 81,
+          "minimumCoverage": 16
+        },
+        {
+          "scene": 17,
+          "name": "half-point-size",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 81,
+          "minimumCoverage": 16
+        },
+        {
+          "scene": 18,
+          "name": "float-specular-gain",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 18,
+          "name": "float-specular-gain",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        }
+      ],
+      "probes": [
+        {
+          "scene": 0,
+          "frame": 0,
+          "value": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 0,
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 0,
+          "frame": 2,
+          "value": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 0,
+          "frame": 3,
+          "value": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 1,
+          "frame": 0,
+          "value": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 1,
+          "frame": 1,
+          "value": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 1,
+          "frame": 2,
+          "value": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 1,
+          "frame": 3,
+          "value": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 2,
+          "frame": 0,
+          "value": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 2,
+          "frame": 1,
+          "value": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 2,
+          "frame": 2,
+          "value": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 2,
+          "frame": 3,
+          "value": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 3,
+          "frame": 0,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 3,
+          "frame": 1,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 3,
+          "frame": 2,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 3,
+          "frame": 3,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 4,
+          "frame": 0,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 4,
+          "frame": 1,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 4,
+          "frame": 2,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 4,
+          "frame": 3,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 5,
+          "frame": 0,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 5,
+          "frame": 1,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 5,
+          "frame": 2,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 5,
+          "frame": 3,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 6,
+          "frame": 0,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 6,
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 6,
+          "frame": 2,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 6,
+          "frame": 3,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 7,
+          "frame": 0,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 7,
+          "frame": 1,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 7,
+          "frame": 2,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 7,
+          "frame": 3,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 8,
+          "frame": 0,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 8,
+          "frame": 1,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 8,
+          "frame": 2,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 8,
+          "frame": 3,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 9,
+          "frame": 0,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 9,
+          "frame": 1,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 9,
+          "frame": 2,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 9,
+          "frame": 3,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 10,
+          "frame": 0,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 10,
+          "frame": 1,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 10,
+          "frame": 2,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 10,
+          "frame": 3,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 11,
+          "frame": 0,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 11,
+          "frame": 1,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 11,
+          "frame": 2,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 11,
+          "frame": 3,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 12,
+          "frame": 0,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 12,
+          "frame": 1,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 12,
+          "frame": 2,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 12,
+          "frame": 3,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 13,
+          "frame": 0,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 13,
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 13,
+          "frame": 2,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 13,
+          "frame": 3,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 14,
+          "frame": 0,
+          "value": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 14,
+          "frame": 1,
+          "value": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 14,
+          "frame": 2,
+          "value": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 14,
+          "frame": 3,
+          "value": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 15,
+          "frame": 0,
+          "value": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "expected": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 15,
+          "frame": 1,
+          "value": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "expected": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 15,
+          "frame": 2,
+          "value": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "expected": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 15,
+          "frame": 3,
+          "value": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "expected": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 16,
+          "frame": 0,
+          "value": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "expected": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 16,
+          "frame": 1,
+          "value": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "expected": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 16,
+          "frame": 2,
+          "value": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "expected": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 16,
+          "frame": 3,
+          "value": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "expected": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 17,
+          "frame": 0,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 17,
+          "frame": 1,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 17,
+          "frame": 2,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 17,
+          "frame": 3,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 18,
+          "frame": 0,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 18,
+          "frame": 1,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 18,
+          "frame": 2,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 18,
+          "frame": 3,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 77,
+        "commands": 1009,
+        "presents": 76,
+        "queueSubmits": 228,
+        "drawCalls": 83,
+        "indexedDrawCalls": 2,
+        "upDrawCalls": 21,
+        "pipelineCreations": 47,
+        "pipelineHits": 38,
+        "pipelinesRejected": 0,
+        "programBuilds": 85,
+        "programCacheHits": 0,
+        "bindGroupCreations": 47,
+        "bindGroupHits": 38,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 1,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 1,
+        "backBufferPresents": 76,
+        "redundantStateSkipped": 27,
+        "uniformStagingUploads": 152,
+        "readbackRequests": 76,
+        "frameFlushes": 76,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 1,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 1,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 1,
+        "shaderModulesCreated": 29,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 76,
+        "uploadChunksAllocated": 1,
+        "uploadStagingUploads": 38,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 2,
+        "sessionChanges": 0,
+        "sessionsEnded": 0,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 1,
+        "windowNotForegroundReports": 1,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 1,
+        "cursorDraws": 76,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 1,
+        "renderTargetBinds": 2,
+        "renderPasses": 80,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 81,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 4,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 62208,
+        "pointSpriteDraws": 11,
+        "pointSpriteInstances": 16,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 1,
+        "instancesDrawn": 4,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 76,
+        "renderTargetReadbackBytes": 4980736,
+        "renderTargetReadbackFailures": 0,
+        "unreadStateIds": {
+          "renderStates": [
+            136
+          ]
+        }
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    },
+    "metal": {
+      "captureDllSha256": "dcfc4e288f8c493ed60097d8921e3344c4da1e7cb03e364287a98cd82ebe739f",
+      "traceSha256": "1aee2182c4d31e7c0a6f8d4b560c563ab786c93b65e7070e481c972b961284ad",
+      "frames": 76,
+      "batches": 77,
+      "comparisons": [
+        {
+          "scene": 0,
+          "name": "type-0",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 0,
+          "name": "type-0",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 1,
+          "name": "type-1",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 1,
+          "name": "type-1",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 2,
+          "name": "type-2",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 2,
+          "name": "type-2",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 3,
+          "name": "type-3",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 3,
+          "name": "type-3",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 4,
+          "name": "type-4",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 4,
+          "name": "type-4",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 5,
+          "name": "type-5",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 5,
+          "name": "type-5",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 6,
+          "name": "type-6",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 6,
+          "name": "type-6",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 7,
+          "name": "type-7",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 7,
+          "name": "type-7",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 8,
+          "name": "type-8",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 8,
+          "name": "type-8",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 9,
+          "name": "type-9",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 9,
+          "name": "type-9",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 10,
+          "name": "type-10",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 10,
+          "name": "type-10",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 11,
+          "name": "type-11",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 11,
+          "name": "type-11",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 12,
+          "name": "type-12",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 12,
+          "name": "type-12",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 13,
+          "name": "type-13",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 13,
+          "name": "type-13",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 14,
+          "name": "type-14",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 14,
+          "name": "type-14",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 15,
+          "name": "type-15",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 15,
+          "name": "type-15",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 16,
+          "name": "type-16",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 16,
+          "name": "type-16",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 17,
+          "name": "half-point-size",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 81,
+          "minimumCoverage": 16
+        },
+        {
+          "scene": 17,
+          "name": "half-point-size",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 81,
+          "minimumCoverage": 16
+        },
+        {
+          "scene": 18,
+          "name": "float-specular-gain",
+          "control": 0,
+          "actual": 1,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 2816,
+          "minimumCoverage": 100
+        },
+        {
+          "scene": 18,
+          "name": "float-specular-gain",
+          "control": 3,
+          "actual": 2,
+          "differingPixels": 0,
+          "maximumByteError": 0,
+          "coveredPixels": 8256,
+          "minimumCoverage": 100
+        }
+      ],
+      "probes": [
+        {
+          "scene": 0,
+          "frame": 0,
+          "value": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 0,
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 0,
+          "frame": 2,
+          "value": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 0,
+          "frame": 3,
+          "value": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 1,
+          "frame": 0,
+          "value": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 1,
+          "frame": 1,
+          "value": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 1,
+          "frame": 2,
+          "value": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 1,
+          "frame": 3,
+          "value": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            0,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 2,
+          "frame": 0,
+          "value": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 2,
+          "frame": 1,
+          "value": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 2,
+          "frame": 2,
+          "value": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 2,
+          "frame": 3,
+          "value": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 3,
+          "frame": 0,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 3,
+          "frame": 1,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 3,
+          "frame": 2,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 3,
+          "frame": 3,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 4,
+          "frame": 0,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 4,
+          "frame": 1,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 4,
+          "frame": 2,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 4,
+          "frame": 3,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 5,
+          "frame": 0,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 5,
+          "frame": 1,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 5,
+          "frame": 2,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 5,
+          "frame": 3,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 6,
+          "frame": 0,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 6,
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 6,
+          "frame": 2,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 6,
+          "frame": 3,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 7,
+          "frame": 0,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 7,
+          "frame": 1,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 7,
+          "frame": 2,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 7,
+          "frame": 3,
+          "value": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 8,
+          "frame": 0,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 8,
+          "frame": 1,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 8,
+          "frame": 2,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 8,
+          "frame": 3,
+          "value": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "expected": [
+            192,
+            128,
+            64,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 9,
+          "frame": 0,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 9,
+          "frame": 1,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 9,
+          "frame": 2,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 9,
+          "frame": 3,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 10,
+          "frame": 0,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 10,
+          "frame": 1,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 10,
+          "frame": 2,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 10,
+          "frame": 3,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 11,
+          "frame": 0,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 11,
+          "frame": 1,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 11,
+          "frame": 2,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 11,
+          "frame": 3,
+          "value": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            0,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 12,
+          "frame": 0,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 12,
+          "frame": 1,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 12,
+          "frame": 2,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 12,
+          "frame": 3,
+          "value": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 13,
+          "frame": 0,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 13,
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 13,
+          "frame": 2,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 13,
+          "frame": 3,
+          "value": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 14,
+          "frame": 0,
+          "value": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 14,
+          "frame": 1,
+          "value": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 14,
+          "frame": 2,
+          "value": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 14,
+          "frame": 3,
+          "value": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "expected": [
+            96,
+            64,
+            32,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 15,
+          "frame": 0,
+          "value": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "expected": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 15,
+          "frame": 1,
+          "value": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "expected": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 15,
+          "frame": 2,
+          "value": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "expected": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 15,
+          "frame": 3,
+          "value": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "expected": [
+            0,
+            32,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 16,
+          "frame": 0,
+          "value": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "expected": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 16,
+          "frame": 1,
+          "value": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "expected": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 16,
+          "frame": 2,
+          "value": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "expected": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 16,
+          "frame": 3,
+          "value": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "expected": [
+            48,
+            32,
+            16,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 17,
+          "frame": 0,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 17,
+          "frame": 1,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 17,
+          "frame": 2,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 17,
+          "frame": 3,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 18,
+          "frame": 0,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 18,
+          "frame": 1,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 18,
+          "frame": 2,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "scene": 18,
+          "frame": 3,
+          "value": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "expected": [
+            113,
+            67,
+            18,
+            128
+          ],
+          "maximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 77,
+        "commands": 1009,
+        "presents": 76,
+        "queueSubmits": 228,
+        "drawCalls": 83,
+        "indexedDrawCalls": 2,
+        "upDrawCalls": 21,
+        "pipelineCreations": 47,
+        "pipelineHits": 38,
+        "pipelinesRejected": 0,
+        "programBuilds": 85,
+        "programCacheHits": 0,
+        "bindGroupCreations": 47,
+        "bindGroupHits": 38,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 1,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 1,
+        "backBufferPresents": 76,
+        "redundantStateSkipped": 27,
+        "uniformStagingUploads": 152,
+        "readbackRequests": 76,
+        "frameFlushes": 76,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 1,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 1,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 1,
+        "shaderModulesCreated": 29,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 76,
+        "uploadChunksAllocated": 1,
+        "uploadStagingUploads": 38,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 2,
+        "sessionChanges": 0,
+        "sessionsEnded": 0,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 1,
+        "windowNotForegroundReports": 1,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 1,
+        "cursorDraws": 76,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 1,
+        "renderTargetBinds": 2,
+        "renderPasses": 80,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 81,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 4,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 62208,
+        "pointSpriteDraws": 11,
+        "pointSpriteInstances": 16,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 1,
+        "instancesDrawn": 4,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 76,
+        "renderTargetReadbackBytes": 4980736,
+        "renderTargetReadbackFailures": 0,
+        "unreadStateIds": {
+          "renderStates": [
+            136
+          ]
+        }
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    }
+  },
+  "gpuMutations": {
+    "fixtureSha256": "f5e8030495047d9bd7871856e258fdfcc85cde3abe5c362670739562946f103f",
+    "mutations": [
+      {
+        "label": "premature-color-quantization",
+        "killed": true,
+        "mutatedTraceSha256": "7c896b6728f90db1ecd80fd8b4a3e292fe0b04578536743dd42dfc38794a5899"
+      },
+      {
+        "label": "floating-specular-alpha",
+        "killed": true,
+        "mutatedTraceSha256": "2846b95ddcbb01a6a95eac2defa470bb88b5eb7cf8d8e8cd70501e65742fe3c4"
+      },
+      {
+        "label": "half-point-size",
+        "killed": true,
+        "mutatedTraceSha256": "8b50f6fb373b550d60b733f75d8397a06859c27a7a6b5cb3bc0e199da45b0013"
+      }
+    ]
+  },
+  "cMutations": {
+    "killed": 7,
+    "total": 7
+  },
+  "finiteInputs": 1082,
+  "attributeRoleCases": 5410,
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "gpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS required WebGPU adapter: google swiftshader  "
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP typed clipping: 76 frames, 38 paired comparisons, 76 independent color probes, 17 formats with 64x gain, half point size, floating specular, subsequent raw-draw restoration"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP multi-stream clipping: twelve textured frames, six exact single/split comparisons, independent texture probe, viewport/index/user-plane and subsequent raw-draw state restoration"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual constant vertex streams: 12 fixed/programmed/indexed/point/instance/shared-buffer scenes, exact pixel equality and independent covered-color checks"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual GPU / shared C typed colors: 84 lighting/specular/fog scenes, 344064 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual fixed-function typed attributes: 85 color/normal/texture/position/size scenes, 348160 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS real vertex fetch / production D3D input conversion / C reference: 66624 vectors, all 17 types, strict finite binary16 values, nonfinite diagnostics and zero GPU errors"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 24 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 18 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS actual XP COM/GPU processed VB replay: six scenes, 36 image readbacks within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 329 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 329 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 329 cases"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 8192 final presentation pixels preserve indexed overlay palettes, including Present-only updates"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS 4096 GPU pixels unchanged by debug opt-in; default capture absent; optional module loaded once with matching revision"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending owners with identical session/handles preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending sessions preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS two pending devices preserve all 8192 READBACK pixels and distinct uniform colours"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS exact public-clear-fixture game READBACK: 16384 bytes, 2 packets"
+    }
+  ],
+  "fixture": {
+    "description": "Actual XP D3D9 COM: 19 four-frame typed attribute clipping controls. All desktop/cursor pixels and diagnostic text zeroed; only the explicitly specified nine-token procedural PS3 remains.",
+    "api": 9,
+    "frames": 76,
+    "framesPerCase": 4,
+    "frameOrder": [
+      "direct XYZ GPU control",
+      "processed typed multiple streams",
+      "raw multiple streams after clipping",
+      "explicitly restored raw control"
+    ],
+    "pairs": [
+      [
+        0,
+        1
+      ],
+      [
+        3,
+        2
+      ]
+    ],
+    "reference": "d3d_typed_clip_reference.json",
+    "sourceCaptureSha256": "2119f1242e36c4ed5e5a6beccb8fdbc5b9f148a3373eac2488a9f25efb5909cc",
+    "traceSha256": "1aee2182c4d31e7c0a6f8d4b560c563ab786c93b65e7070e481c972b961284ad",
+    "traceBytes": 54260,
+    "removedPayloads": [
+      {
+        "command": "GUEST_LOG",
+        "bytes": 91
+      },
+      {
+        "command": "SET_CURSOR_PROPERTIES",
+        "bytes": 4096
+      }
+    ],
+    "proceduralShaderTokens": [
+      4294902528,
+      33554463,
+      2147549194,
+      2416902144,
+      50331653,
+      2148468736,
+      2430861312,
+      2699296768,
+      65535
+    ],
+    "counts": {
+      "HELLO": 1,
+      "GUEST_LOG": 1,
+      "CREATE_DEVICE": 1,
+      "WINDOW_STATE": 1,
+      "SET_TRANSFORM": 15,
+      "SET_RENDER_STATE": 17,
+      "SET_VIEWPORT": 7,
+      "CREATE_VERTEX_DECLARATION": 47,
+      "SET_VERTEX_DECLARATION": 86,
+      "CREATE_BUFFER": 17,
+      "UPDATE_BUFFER": 130,
+      "SET_STREAM_SOURCE": 72,
+      "DESTROY_RESOURCE": 67,
+      "SET_MATERIAL": 1,
+      "SET_LIGHT": 2,
+      "LIGHT_ENABLE": 1,
+      "SET_STREAM_SOURCE_FREQ": 6,
+      "SET_INDICES": 2,
+      "BEGIN_SCENE": 77,
+      "DRAW_PRIMITIVE": 62,
+      "DRAW_INDEXED_PRIMITIVE": 2,
+      "SET_CLIP_PLANE": 1,
+      "END_SCENE": 77,
+      "SET_VERTEX_SHADER": 1,
+      "SET_TEXTURE_STAGE_STATE": 14,
+      "CREATE_TEXTURE_2D": 1,
+      "SET_RENDER_TARGET": 2,
+      "SET_SCISSOR_RECT": 2,
+      "SET_DEPTH_STENCIL_SURFACE_LEVEL": 2,
+      "CREATE_PIXEL_SHADER": 1,
+      "SET_PIXEL_SHADER_CONSTANT_F": 1,
+      "SET_PIXEL_SHADER": 20,
+      "CLEAR": 76,
+      "SET_CURSOR_PROPERTIES": 1,
+      "SHOW_CURSOR": 1,
+      "SET_CURSOR_POSITION": 76,
+      "PRESENT": 76,
+      "SET_FVF": 21,
+      "DRAW_PRIMITIVE_UP": 21
+    },
+    "captureBuild": {
+      "api": 9,
+      "dllSha256": "dcfc4e288f8c493ed60097d8921e3344c4da1e7cb03e364287a98cd82ebe739f",
+      "executableSha256": "6d96cf5cc042e7e79038b59c75d738d9f1ef6659744374e049951204d26304e9",
+      "driverSha256": "d241f9517f4811933b89b361a5e0329cc2e80226b474c6d55e9ab9140b8ee7b9",
+      "testArgs": [
+        "--colors",
+        "--streams",
+        "--stream-draws",
+        "--typed-clipping"
+      ],
+      "sourceSha256": {
+        "glbridge/d3d9proxy/d3d9_proxy.c": "4dada9da2f2ecf04c80fb9f4c7162614e7d350fc1d59e6445cdd5c9f4484a330",
+        "glbridge/d3d9proxy/d3d9_protocol.h": "e4b33882315a00c591a7ffeab87bf4590be3f0f9a3b88d8f285381adf95a3094",
+        "glbridge/sample/d3d_processed_clip_draw_test.c": "c405d2cc8ded1a82286753b2bcf14b8d0c8355a8ae866c55a2b486fb42227f23",
+        "glbridge/sample/d3d9_vertex_format_cases.h": "16c70ea20261cb6e4c0cb5b2ab3532d881701a5db850b5b61677c004be565a78",
+        "glbridge/sample/d3d9_vertex_color_cases.h": "5384fa58eae4f8fe0e72651b267e7f373332a698aaedf126fc19cde519b1589d",
+        "glbridge/sample/d3d9_vertex_stream_cases.h": "89708fd6fbf089dd426816b355041720349e708c77ddd8a1d6f847f6d3055c1a",
+        "glbridge/sample/d3d9_vertex_stream_draw_cases.h": "97cddff8ffbbe61bb28f5599ab7e11162741d4ff10958b7e1a49183badc7a2b2",
+        "glbridge/sample/d3d9_vertex_stream_clipping_cases.h": "a3d7b6bc3f289f573b489e7eeebc6a92efe2245a19f9d039428272b8b1e3344c",
+        "glbridge/sample/d3d9_typed_clip_cases.h": "1ce1f67d442538bdb986212d3a0704f7a7070f0429398344e17e83f0fd8af13a",
+        "glbridge/runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
+        "glbridge/runtime/d9wg_clip.h": "8d4f1852cb8d43967d581890d897b61d6d1146e55999e7c5fd0bc243e0e0a9ed",
+        "glbridge/runtime/d9wg_clip_draw.c": "8165363125e96beff66d5a3e94263e32dfe73ba59cf9f1f674594a99dc070068",
+        "glbridge/runtime/d9wg_clip_draw.h": "5bf38f9ecd683d42c441b025848776045e8a6fa5098cff80d0294b7078054c69",
+        "glbridge/runtime/d9wg_vertex.c": "5a6c5c1119453b6801829a130f02fcf4be0fc6da5858d6693707e79318453626",
+        "glbridge/runtime/d9wg_vertex.h": "a30f510be1a643202c88bdf7e110e84abe9dcfea6af8fbb33359cd218caf5b56",
+        "glbridge/runtime/d9wg_vertex_windows.h": "3fbf25a037bf5ce98f39193b1cb2cac7023e26b1dba9e959334aa2bdf76bb8cb",
+        "glbridge/runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+        "glbridge/runtime/d9wg_blend.c": "f22d262432aa5425f31ed60c31a85b2f5c755cffe62775e1ac5a427ef48027c0",
+        "glbridge/runtime/d9wg_blend.h": "7acc88c6fc52fb9526676b51339c282acd24c020bb5b3ae766748a007d932c49",
+        "glbridge/runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
+        "glbridge/runtime/d9wg_lighting.h": "c80367615a5c71ed11486466a9daa0daf45c9f0266e8318abc471e9e37763542",
+        "glbridge/runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+        "glbridge/runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+        "glbridge/runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
+        "glbridge/runtime/d9wg_tnl_math.h": "8cd101ee7ba0765acf6b85dc254a3226219b988ee32f40828fadf0f1352eaf75"
+      },
+      "bytes": 54260,
+      "sha256": "2119f1242e36c4ed5e5a6beccb8fdbc5b9f148a3373eac2488a9f25efb5909cc",
+      "frames": 76,
+      "owners": [
+        1
+      ]
+    },
+    "scope": "Frozen replay of the exact captured DLL; changing guest C requires fresh captures. No complete native/Wine/game acceptance claim."
+  },
+  "checks": [
+    "source declaration types decode independently from expanded float wire output",
+    "all 17 source formats across diffuse/specular/normal/point-size/texture roles; float color precision survives clipping",
+    "legacy D3DCOLOR emitted ARGB is unchanged",
+    "XP 19 four-frame controls, 64x gain and independent source bytes/final pixel oracle",
+    "SwiftShader and Metal pairwise output and independent color probes are exact",
+    "three wire-level semantic mutants fail the actual GPU page and compressed trace restores exactly",
+    "all four existing C numerical fixture cases unchanged"
+  ],
+  "scope": "Application-requested arbitrary packed ProcessVertices output, programmable CPU processing, remaining shared runtime, guest FPS and complete native/Wine/game acceptance remain future stages. GPU comparisons exercise 17 color formats, half point size and float specular; CPU/x87 tests cover all five roles for all 17 finite formats. Host JS and bundle unchanged from 4D2i3d.",
+  "siteSha256": {
+    "glbridge/runtime/d9wg_vertex.c": "5a6c5c1119453b6801829a130f02fcf4be0fc6da5858d6693707e79318453626",
+    "glbridge/runtime/d9wg_vertex.h": "a30f510be1a643202c88bdf7e110e84abe9dcfea6af8fbb33359cd218caf5b56",
+    "glbridge/runtime/d9wg_clip_draw.c": "8165363125e96beff66d5a3e94263e32dfe73ba59cf9f1f674594a99dc070068",
+    "glbridge/runtime/d9wg_clip_draw.h": "5bf38f9ecd683d42c441b025848776045e8a6fa5098cff80d0294b7078054c69",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "4dada9da2f2ecf04c80fb9f4c7162614e7d350fc1d59e6445cdd5c9f4484a330",
+    "glbridge/sample/d3d9_vertex_format_cases.h": "16c70ea20261cb6e4c0cb5b2ab3532d881701a5db850b5b61677c004be565a78",
+    "glbridge/sample/d3d9_vertex_stream_draw_cases.h": "97cddff8ffbbe61bb28f5599ab7e11162741d4ff10958b7e1a49183badc7a2b2",
+    "glbridge/sample/d3d9_typed_clip_cases.h": "1ce1f67d442538bdb986212d3a0704f7a7070f0429398344e17e83f0fd8af13a",
+    "glbridge/tests/d9wg_typed_clip_test.js": "8bd8b8a63c45d11cf290ec55321f189f5b6190976d45b7c5fce4110c96cd26c6",
+    "glbridge/tests/d9wg_typed_clip_mutation_test.js": "88517e7d9a51b5c215fda38fa29c970c02c9e4d1d456fda1eff072dccd9bb342",
+    "glbridge/d3d8proxy/d3d8.dll": "9da6eba4a9763dcc649cf2d35cb3a437c9c456a836b2628467ed2ddbd54fe350",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "21e593f667c7aba766ced1939fe64e67e3a27f4808622a9ff021e01f711a48fa",
+    "glbridge/d3d9proxy/d3d9.dll": "dcfc4e288f8c493ed60097d8921e3344c4da1e7cb03e364287a98cd82ebe739f",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "0eaa9d5b221ea7154c19711709c8655c8516597001c788b744a6cd11ab94599d",
+    "glbridge/ddrawproxy/ddraw.dll": "3a383932453787022aceee1738eb1f90971d92db9fad3e50ca14f74bd48d8edf",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "9571b117b2d5f45927687ea7f65ea1fea4db62bc005bfd47588b3c3542d67531",
+    "vendor/v86/glbridge/manifest.json": "4a22777e816302237c875e139976c2da07be4fe2c6265eae0a81e1d8b5bc813a"
+  },
+  "coreSha256": {
+    "Makefile": "d9b019a04997da5835b2cbfcfedbec094e591a23668d5af0fbb5032ba7035207",
+    "docs/d3d-webgpu-review.md": "26dc63c86e1ec2735c5a4d18f6fe0141f728dbefe7f3d83aa66983fa3aaadfb9",
+    "tests/glbridge/d3d_math_xp.mjs": "4fe23206f0d782acc453c1078e14ebe55e787b9304a74e45f2b585c39608521a",
+    "tests/glbridge/d3d_vertex_formats_xp.mjs": "0b2f1cc8628d0c95703f9a65f7b23aa4858b6976f801885b43b742a3c62cad19",
+    "tests/glbridge/d3d_typed_clip_fixture_test.js": "ad290c65950e8506997760173c42fd87a0be7983f953cffea2de704313bf745c",
+    "tests/glbridge/d3d_typed_clip_mutations.mjs": "6536950904a83009cbb5508a73a03f79248b03170fea9898049896ca66106494",
+    "tests/glbridge/d3d_typed_clip_replay_browser_test.html": "f367071484f21dea7e1a15c1174920427b3e683fb0c92ff77efbd9b29c83bc1d",
+    "tools/d3d_typed_clip_fixture.mjs": "cb3a923ee9a7dc72f5a8e702f434bb31c9ab280d1bec252882fbd386b7741e3d",
+    "tests/glbridge/fixtures/d3d9_processed_typed_clip_xp.bin.gz": "f5e8030495047d9bd7871856e258fdfcc85cde3abe5c362670739562946f103f",
+    "tests/glbridge/fixtures/d3d9_processed_typed_clip_xp.json": "b70123cc9b07a4ec0c27cf968302b4d8f280f252a1504fe42e29fcc2f9b961f3",
+    "tests/glbridge/fixtures/d3d_typed_clip_reference.json": "d1cc95432dd63cd13458d9bfce05b188e6a33c3be04afb3d3bda93621a98cd35",
+    "tests/glbridge/fixtures/d3d_software_blend_cpu.json": "ae4078394859e7069a8c758aceb29c3201d75f7b3316f206823d2776a7667b0f",
+    "tests/glbridge/fixtures/d3d_software_lighting_cpu.json": "13e6d57bdf06c968a6f2a032f3d499d60df47d5927718a57357c9c1c160efecc",
+    "tests/glbridge/fixtures/d3d_software_texcoord_cpu.json": "48ed808190c7bc9032337f2455d56443a888bf6827c7ec800c6d4eb46a93e820",
+    "tests/glbridge/fixtures/d3d_software_vertex_colors_cpu.json": "28380e5697d25a62a1315ae0b427fc2169c2eeec6e121f66ed6f4355689854f9"
+  },
+  "logs": {
+    "d3d-i3e-xp.log": "1c5a2c76801dd4f7d3ff67c6418c7eb52d346f73d42fd2449102531835919bb2",
+    "d3d-i3e-math.log": "3e5153801eba7afa2f90dc86ae95d5f36b5b05ebe9e114ad8a13e54b14e220d5",
+    "d3d-i3e-tnl.log": "7f0046367f3506d71408a1abe7d2d6bc93eb9d429816c4ed2c4927bc87aff7ec",
+    "d3d-i3e-mutations.log": "a2ff30495f282064bc6c162aa98f566ecc93bfe9a6817736b3343b0dbc2e75c7",
+    "d3d-i3e-gpu-mutations.log": "8c0baa319fde42dba272b0c1e7fbddc8012d98967b84ddac582193a15b7bfaa9",
+    "d3d-i3e-sanitize.log": "9d4c0e1f2c6517fff0c51d4538a3173106f5f10615a4e78a742e9f2ab547b975",
+    "d3d-i3e-core.log": "dbcb5b6f8610cdb4d2796b06e71785d2a2f8aa815440ac0a9b63d1ff82137cb8",
+    "d3d-i3e-guest.log": "31ebcce0007b7417497da79bcfb023d12a1d0282273cfce89df2058542c7e421",
+    "d3d-i3e-builds.log": "d87ec0a9b02fda7ec3d8c133c82adc42cbbda1d2212fda6f1f839e249ae7ce01",
+    "d3d-i3e-integration.log": "3d68965908cdd906d67d5a0b602923a04173cbd314bed69375877306ffb6a6e0",
+    "d3d-i3e-gpu.log": "f8442e666eeff3cde69ab7b6a80e4e3b2193d4b7ba10c4684a492a016d467b00",
+    "d3d-i3e-metal.log": "1c03fe15830719959c9d0f54071598db0d5d4ee5f9d491d0c4820e3200f01298",
+    "d3d-i3e-swift.log": "1c03fe15830719959c9d0f54071598db0d5d4ee5f9d491d0c4820e3200f01298"
+  }
+}

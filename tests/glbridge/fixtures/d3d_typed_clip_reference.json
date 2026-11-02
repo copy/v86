@@ -1,0 +1,714 @@
+{
+  "description": "Independent source bytes and decoded values for 64x color gain; expected final pixel conversion is calculated without the C clipping runtime.",
+  "cases": [
+    {
+      "name": "type-0",
+      "type": 0,
+      "bytes": [
+        224,
+        45,
+        144,
+        58
+      ],
+      "decoded": [
+        0.0010999999940395355,
+        0,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        0,
+        18,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-1",
+      "type": 1,
+      "bytes": [
+        224,
+        45,
+        144,
+        58,
+        75,
+        89,
+        134,
+        59
+      ],
+      "decoded": [
+        0.0010999999940395355,
+        0.004100000020116568,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        67,
+        18,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-2",
+      "type": 2,
+      "bytes": [
+        224,
+        45,
+        144,
+        58,
+        75,
+        89,
+        134,
+        59,
+        101,
+        25,
+        226,
+        59
+      ],
+      "decoded": [
+        0.0010999999940395355,
+        0.004100000020116568,
+        0.006899999920278788,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        113,
+        67,
+        18,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-3",
+      "type": 3,
+      "bytes": [
+        224,
+        45,
+        144,
+        58,
+        75,
+        89,
+        134,
+        59,
+        101,
+        25,
+        226,
+        59,
+        0,
+        0,
+        0,
+        63
+      ],
+      "decoded": [
+        0.0010999999940395355,
+        0.004100000020116568,
+        0.006899999920278788,
+        0.5
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        113,
+        67,
+        18,
+        128
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-4",
+      "type": 4,
+      "bytes": [
+        3,
+        2,
+        1,
+        128
+      ],
+      "decoded": [
+        0.00392156862745098,
+        0.00784313725490196,
+        0.011764705882352941,
+        0.5019607843137255
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        192,
+        128,
+        64,
+        128
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-5",
+      "type": 5,
+      "bytes": [
+        0,
+        1,
+        0,
+        1
+      ],
+      "decoded": [
+        0,
+        1,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        255,
+        0,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-6",
+      "type": 6,
+      "bytes": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "decoded": [
+        1,
+        0,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-7",
+      "type": 7,
+      "bytes": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0
+      ],
+      "decoded": [
+        0,
+        1,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        255,
+        0,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-8",
+      "type": 8,
+      "bytes": [
+        1,
+        2,
+        3,
+        128
+      ],
+      "decoded": [
+        0.00392156862745098,
+        0.00784313725490196,
+        0.011764705882352941,
+        0.5019607843137255
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        192,
+        128,
+        64,
+        128
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-9",
+      "type": 9,
+      "bytes": [
+        64,
+        0,
+        128,
+        0
+      ],
+      "decoded": [
+        0.0019531846064638203,
+        0.003906369212927641,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        64,
+        32,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-10",
+      "type": 10,
+      "bytes": [
+        64,
+        0,
+        128,
+        0,
+        192,
+        0,
+        0,
+        64
+      ],
+      "decoded": [
+        0.0019531846064638203,
+        0.003906369212927641,
+        0.005859553819391461,
+        0.500015259254738
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        96,
+        64,
+        32,
+        128
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-11",
+      "type": 11,
+      "bytes": [
+        128,
+        0,
+        0,
+        1
+      ],
+      "decoded": [
+        0.001953154802777142,
+        0.003906309605554284,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        64,
+        32,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-12",
+      "type": 12,
+      "bytes": [
+        128,
+        0,
+        0,
+        1,
+        128,
+        1,
+        0,
+        128
+      ],
+      "decoded": [
+        0.001953154802777142,
+        0.003906309605554284,
+        0.005859464408331426,
+        0.5000076295109483
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        96,
+        64,
+        32,
+        128
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-13",
+      "type": 13,
+      "bytes": [
+        1,
+        0,
+        0,
+        0
+      ],
+      "decoded": [
+        1,
+        0,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        0,
+        255,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-14",
+      "type": 14,
+      "bytes": [
+        1,
+        8,
+        48,
+        0
+      ],
+      "decoded": [
+        0.0019569471624266144,
+        0.003913894324853229,
+        0.005870841487279843,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        96,
+        64,
+        32,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-15",
+      "type": 15,
+      "bytes": [
+        0,
+        20,
+        0,
+        24
+      ],
+      "decoded": [
+        0.0009765625,
+        0.001953125,
+        0,
+        1
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        0,
+        32,
+        16,
+        255
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "type-16",
+      "type": 16,
+      "bytes": [
+        0,
+        20,
+        0,
+        24,
+        0,
+        26,
+        0,
+        56
+      ],
+      "decoded": [
+        0.0009765625,
+        0.001953125,
+        0.0029296875,
+        0.5
+      ],
+      "point": false,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        48,
+        32,
+        16,
+        128
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    },
+    {
+      "name": "half-point-size",
+      "type": 3,
+      "bytes": [
+        224,
+        45,
+        144,
+        58,
+        75,
+        89,
+        134,
+        59,
+        101,
+        25,
+        226,
+        59,
+        0,
+        0,
+        0,
+        63
+      ],
+      "decoded": [
+        0.0010999999940395355,
+        0.004100000020116568,
+        0.006899999920278788,
+        0.5
+      ],
+      "point": true,
+      "specular": false,
+      "gain": 64,
+      "expectedBGRA": [
+        113,
+        67,
+        18,
+        128
+      ],
+      "worldProbe": [
+        64,
+        64
+      ],
+      "rawProbe": [
+        64,
+        64
+      ]
+    },
+    {
+      "name": "float-specular-gain",
+      "type": 3,
+      "bytes": [
+        224,
+        45,
+        144,
+        58,
+        75,
+        89,
+        134,
+        59,
+        101,
+        25,
+        226,
+        59,
+        0,
+        0,
+        0,
+        63
+      ],
+      "decoded": [
+        0.0010999999940395355,
+        0.004100000020116568,
+        0.006899999920278788,
+        0.5
+      ],
+      "point": false,
+      "specular": true,
+      "gain": 64,
+      "expectedBGRA": [
+        113,
+        67,
+        18,
+        128
+      ],
+      "worldProbe": [
+        64,
+        80
+      ],
+      "rawProbe": [
+        16,
+        16
+      ]
+    }
+  ],
+  "framesPerCase": 4,
+  "frameOrder": [
+    "direct XYZ GPU control",
+    "processed typed multiple streams",
+    "raw multiple streams after clipping",
+    "explicitly restored raw control"
+  ],
+  "pairs": [
+    [
+      0,
+      1
+    ],
+    [
+      3,
+      2
+    ]
+  ],
+  "tolerance": 1
+}

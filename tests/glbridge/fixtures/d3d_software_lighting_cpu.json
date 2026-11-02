@@ -4,11 +4,11 @@
     "runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
     "runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
     "runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
-    "runtime/d9wg_vertex.c": "e56da35274d4705fe9fc7a0790b368aca72d9c3ddef28425e9c2842b04ff6c64",
+    "runtime/d9wg_vertex.c": "5a6c5c1119453b6801829a130f02fcf4be0fc6da5858d6693707e79318453626",
     "runtime/d9wg_fvf.c": "53158c1190f037d8d67c35493e145594380453d65962479658569ffd3e597d80",
     "runtime/d9wg_blend.c": "f22d262432aa5425f31ed60c31a85b2f5c755cffe62775e1ac5a427ef48027c0",
     "runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
-    "runtime/d9wg_vertex.h": "8e19d18de0f1a90a97e3f1a4aeb1eb04ee35ea59e61239f70e38ec9f50de4147",
+    "runtime/d9wg_vertex.h": "a30f510be1a643202c88bdf7e110e84abe9dcfea6af8fbb33359cd218caf5b56",
     "runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
     "runtime/d9wg_blend.h": "7acc88c6fc52fb9526676b51339c282acd24c020bb5b3ae766748a007d932c49"
   },

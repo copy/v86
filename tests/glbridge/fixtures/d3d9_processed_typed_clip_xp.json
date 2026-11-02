@@ -1,0 +1,134 @@
+{
+  "description": "Actual XP D3D9 COM: 19 four-frame typed attribute clipping controls. All desktop/cursor pixels and diagnostic text zeroed; only the explicitly specified nine-token procedural PS3 remains.",
+  "api": 9,
+  "frames": 76,
+  "framesPerCase": 4,
+  "frameOrder": [
+    "direct XYZ GPU control",
+    "processed typed multiple streams",
+    "raw multiple streams after clipping",
+    "explicitly restored raw control"
+  ],
+  "pairs": [
+    [
+      0,
+      1
+    ],
+    [
+      3,
+      2
+    ]
+  ],
+  "reference": "d3d_typed_clip_reference.json",
+  "sourceCaptureSha256": "2119f1242e36c4ed5e5a6beccb8fdbc5b9f148a3373eac2488a9f25efb5909cc",
+  "traceSha256": "1aee2182c4d31e7c0a6f8d4b560c563ab786c93b65e7070e481c972b961284ad",
+  "traceBytes": 54260,
+  "removedPayloads": [
+    {
+      "command": "GUEST_LOG",
+      "bytes": 91
+    },
+    {
+      "command": "SET_CURSOR_PROPERTIES",
+      "bytes": 4096
+    }
+  ],
+  "proceduralShaderTokens": [
+    4294902528,
+    33554463,
+    2147549194,
+    2416902144,
+    50331653,
+    2148468736,
+    2430861312,
+    2699296768,
+    65535
+  ],
+  "counts": {
+    "HELLO": 1,
+    "GUEST_LOG": 1,
+    "CREATE_DEVICE": 1,
+    "WINDOW_STATE": 1,
+    "SET_TRANSFORM": 15,
+    "SET_RENDER_STATE": 17,
+    "SET_VIEWPORT": 7,
+    "CREATE_VERTEX_DECLARATION": 47,
+    "SET_VERTEX_DECLARATION": 86,
+    "CREATE_BUFFER": 17,
+    "UPDATE_BUFFER": 130,
+    "SET_STREAM_SOURCE": 72,
+    "DESTROY_RESOURCE": 67,
+    "SET_MATERIAL": 1,
+    "SET_LIGHT": 2,
+    "LIGHT_ENABLE": 1,
+    "SET_STREAM_SOURCE_FREQ": 6,
+    "SET_INDICES": 2,
+    "BEGIN_SCENE": 77,
+    "DRAW_PRIMITIVE": 62,
+    "DRAW_INDEXED_PRIMITIVE": 2,
+    "SET_CLIP_PLANE": 1,
+    "END_SCENE": 77,
+    "SET_VERTEX_SHADER": 1,
+    "SET_TEXTURE_STAGE_STATE": 14,
+    "CREATE_TEXTURE_2D": 1,
+    "SET_RENDER_TARGET": 2,
+    "SET_SCISSOR_RECT": 2,
+    "SET_DEPTH_STENCIL_SURFACE_LEVEL": 2,
+    "CREATE_PIXEL_SHADER": 1,
+    "SET_PIXEL_SHADER_CONSTANT_F": 1,
+    "SET_PIXEL_SHADER": 20,
+    "CLEAR": 76,
+    "SET_CURSOR_PROPERTIES": 1,
+    "SHOW_CURSOR": 1,
+    "SET_CURSOR_POSITION": 76,
+    "PRESENT": 76,
+    "SET_FVF": 21,
+    "DRAW_PRIMITIVE_UP": 21
+  },
+  "captureBuild": {
+    "api": 9,
+    "dllSha256": "dcfc4e288f8c493ed60097d8921e3344c4da1e7cb03e364287a98cd82ebe739f",
+    "executableSha256": "6d96cf5cc042e7e79038b59c75d738d9f1ef6659744374e049951204d26304e9",
+    "driverSha256": "d241f9517f4811933b89b361a5e0329cc2e80226b474c6d55e9ab9140b8ee7b9",
+    "testArgs": [
+      "--colors",
+      "--streams",
+      "--stream-draws",
+      "--typed-clipping"
+    ],
+    "sourceSha256": {
+      "glbridge/d3d9proxy/d3d9_proxy.c": "4dada9da2f2ecf04c80fb9f4c7162614e7d350fc1d59e6445cdd5c9f4484a330",
+      "glbridge/d3d9proxy/d3d9_protocol.h": "e4b33882315a00c591a7ffeab87bf4590be3f0f9a3b88d8f285381adf95a3094",
+      "glbridge/sample/d3d_processed_clip_draw_test.c": "c405d2cc8ded1a82286753b2bcf14b8d0c8355a8ae866c55a2b486fb42227f23",
+      "glbridge/sample/d3d9_vertex_format_cases.h": "16c70ea20261cb6e4c0cb5b2ab3532d881701a5db850b5b61677c004be565a78",
+      "glbridge/sample/d3d9_vertex_color_cases.h": "5384fa58eae4f8fe0e72651b267e7f373332a698aaedf126fc19cde519b1589d",
+      "glbridge/sample/d3d9_vertex_stream_cases.h": "89708fd6fbf089dd426816b355041720349e708c77ddd8a1d6f847f6d3055c1a",
+      "glbridge/sample/d3d9_vertex_stream_draw_cases.h": "97cddff8ffbbe61bb28f5599ab7e11162741d4ff10958b7e1a49183badc7a2b2",
+      "glbridge/sample/d3d9_vertex_stream_clipping_cases.h": "a3d7b6bc3f289f573b489e7eeebc6a92efe2245a19f9d039428272b8b1e3344c",
+      "glbridge/sample/d3d9_typed_clip_cases.h": "1ce1f67d442538bdb986212d3a0704f7a7070f0429398344e17e83f0fd8af13a",
+      "glbridge/runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
+      "glbridge/runtime/d9wg_clip.h": "8d4f1852cb8d43967d581890d897b61d6d1146e55999e7c5fd0bc243e0e0a9ed",
+      "glbridge/runtime/d9wg_clip_draw.c": "8165363125e96beff66d5a3e94263e32dfe73ba59cf9f1f674594a99dc070068",
+      "glbridge/runtime/d9wg_clip_draw.h": "5bf38f9ecd683d42c441b025848776045e8a6fa5098cff80d0294b7078054c69",
+      "glbridge/runtime/d9wg_vertex.c": "5a6c5c1119453b6801829a130f02fcf4be0fc6da5858d6693707e79318453626",
+      "glbridge/runtime/d9wg_vertex.h": "a30f510be1a643202c88bdf7e110e84abe9dcfea6af8fbb33359cd218caf5b56",
+      "glbridge/runtime/d9wg_vertex_windows.h": "3fbf25a037bf5ce98f39193b1cb2cac7023e26b1dba9e959334aa2bdf76bb8cb",
+      "glbridge/runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+      "glbridge/runtime/d9wg_blend.c": "f22d262432aa5425f31ed60c31a85b2f5c755cffe62775e1ac5a427ef48027c0",
+      "glbridge/runtime/d9wg_blend.h": "7acc88c6fc52fb9526676b51339c282acd24c020bb5b3ae766748a007d932c49",
+      "glbridge/runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
+      "glbridge/runtime/d9wg_lighting.h": "c80367615a5c71ed11486466a9daa0daf45c9f0266e8318abc471e9e37763542",
+      "glbridge/runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+      "glbridge/runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+      "glbridge/runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
+      "glbridge/runtime/d9wg_tnl_math.h": "8cd101ee7ba0765acf6b85dc254a3226219b988ee32f40828fadf0f1352eaf75"
+    },
+    "bytes": 54260,
+    "sha256": "2119f1242e36c4ed5e5a6beccb8fdbc5b9f148a3373eac2488a9f25efb5909cc",
+    "frames": 76,
+    "owners": [
+      1
+    ]
+  },
+  "scope": "Frozen replay of the exact captured DLL; changing guest C requires fresh captures. No complete native/Wine/game acceptance claim."
+}
