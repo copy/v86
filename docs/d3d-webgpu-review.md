@@ -1166,6 +1166,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **真实 XP 系统原生 Microsoft DDraw7 RGB 设备对照通过**：96 秒，10 项深度绘制逐项锁定表面读回绿色，确认屏幕顶点不重复应用深度范围。另捕获 252 组 ProcessVertices 原始 DWORD 输出，覆盖 CLIP 操作与 render state、guard band、近远面、W=1/2/−2。仅加载绝对系统目录 DLL，未部署代理；磁盘写入仍仅在 RAM。参考见 [d3d7-native-process-reference.json](fixtures/d3d-review/d3d7-native-process-reference.json)。
 > - 133 组核心、两项站点集成、327 项一致性及两种预算模式、全部前序像素与 owner 隔离通过；Metal 327 项和 Warcraft III 冻结策略回归通过。运行包 `46b300fb4065049393df`；见 [stage4d2h1-validation.json](fixtures/d3d-review/stage4d2h1-validation.json)。继续共用裁剪输出、元数据及绘制接入；这些原生 D3D7 结果不代表 D3D8/9、完整 Wine 或游戏验收完成。
 
+> **阶段 4D2h2（2026-11-02）：共用裁剪几何与原生存储核完成。**
+>
+> - 新增 `d9wg_clip`，分别保留原始裁剪坐标、屏幕坐标、公开 VB 存储、视锥 outcode 与投影标志；六平面边界按 D3D 的 Z=0..W，guard band 独立判断。与 h1 捕获的 **252 组原生 Microsoft DDraw7 输出全部对照通过**，包括 CLIP 操作独立于 render state、guard band、W=1/2/−2，以及原生投影存储 `((x+w)/2,(y+w)/2,z,w)`。
+> - 三个前端的 viewport 投影现在调用同一函数；抽出前后的 26/12/17 组 C 参考数值逐项相同。宿主 100,000 组解析检查、C 裁剪变异 6/6、前序顶点 9/9 及混合 6/6 通过。XP 三种 x87 精度另对照 60,000 组裁剪公式和全部前序数值检查，122 秒、控制字保持。
+> - 真实 XP 三个代理 COM 回归通过：145 秒、6 批、三个 owner 完整释放；92 组客体、两项站点集成、35 个冒烟 EXE、六个 DLL 严格构建通过。SwiftShader 四组 C/GPU 对照共 331,776 对像素通过；宿主代码与运行包仍为 `46b300fb4065049393df`。见 [stage4d2h2-validation.json](fixtures/d3d-review/stage4d2h2-validation.json)。
+> - **尚未切换前端的公开 VB 输出格式**：接下来必须同时接入缓冲裁剪元数据和图元绘制，不能只把投影格式上传为 XYZRHW。用户平面、原生 W=0、输出布局及可编程处理继续执行。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

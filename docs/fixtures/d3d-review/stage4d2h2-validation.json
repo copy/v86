@@ -1,0 +1,141 @@
+{
+  "stage": "4D2h2 shared clipping geometry and native storage reference",
+  "date": "2026-11-02",
+  "bundle": "46b300fb4065049393df",
+  "guestSuites": 92,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "xp": {
+    "status": "PASS",
+    "seconds": 145,
+    "batches": 6,
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS all real XP TNL probes \r\n",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "xpMath": {
+    "status": "PASS",
+    "seconds": 122,
+    "batches": 0,
+    "releases": [],
+    "owners": [],
+    "text": "READY math \r\nREADY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS texture math control=007f cases=20000\r\nPASS blend math control=007f cases=20000\r\nPASS clip math control=007f cases=20000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS texture math control=027f cases=20000\r\nPASS blend math control=027f cases=20000\r\nPASS clip math control=027f cases=20000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS texture math control=037f cases=20000\r\nPASS blend math control=037f cases=20000\r\nPASS clip math control=037f cases=20000\r\nPASS all real XP math checks\r\n",
+    "logs": {
+      "MATH.TXT": "READY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS texture math control=007f cases=20000\r\nPASS blend math control=007f cases=20000\r\nPASS clip math control=007f cases=20000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS texture math control=027f cases=20000\r\nPASS blend math control=027f cases=20000\r\nPASS clip math control=027f cases=20000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS texture math control=037f cases=20000\r\nPASS blend math control=037f cases=20000\r\nPASS clip math control=037f cases=20000\r\nPASS all real XP math checks\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "nativeReferenceCases": 252,
+  "nativeReference": "d3d7-native-process-reference.json captured in 4D2h1 with original Microsoft system DLL",
+  "nativeAnalyticClipCases": 100000,
+  "xpAnalyticClipCases": 60000,
+  "x87ControlWords": [
+    "007f",
+    "027f",
+    "037f"
+  ],
+  "semanticMutations": {
+    "CClip": {
+      "killed": 6,
+      "total": 6
+    },
+    "CVertex": {
+      "killed": 9,
+      "total": 9
+    },
+    "CBlend": {
+      "killed": 6,
+      "total": 6
+    }
+  },
+  "gpuBackend": "SwiftShader",
+  "gpuRuns": [
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU vertex blending: 17 scenes, 69632 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU texture coordinates: 12 scenes, 49152 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU lighting: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    },
+    {
+      "status": "PASS",
+      "details": "PASS shared C/GPU processed vertices: 26 scenes, 106496 pixel pairs within 1 byte/channel"
+    }
+  ],
+  "pixelPairs": 331776,
+  "numericFixturesUnchanged": {
+    "lighting": 26,
+    "textureCoordinates": 12,
+    "vertexBlend": 17
+  },
+  "checks": [
+    "all six D3D frustum outcodes; inclusive boundaries; positive and negative homogeneous W",
+    "guard-band screen storage is distinct from viewing-frustum outcodes",
+    "D3D7 CLIP operation selects native projection storage independently of CLIPPING render state",
+    "native public projection storage is ((x+w)/2,(y+w)/2,z,w), not XYZRHW",
+    "retain original clip position, screen position, stored VB position and code in one descriptor",
+    "the three frontends now share the viewport projection function",
+    "all frozen C/GPU case outputs remain byte-for-byte numerically identical"
+  ],
+  "scope": "Clipping math/storage descriptor and shared viewport projection. Frontends still expose their existing screen output pending buffer metadata and primitive draw integration. User clip planes, W=0 native behavior and complete clipping acceptance remain subsequent work.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/viewports-and-clipping",
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-processvertices"
+  ],
+  "sha256": {
+    "glbridge/runtime/d9wg_clip.c": "d186c167c8b130a965e800445331a83b54f783c611292e5d85fe69b39b2dff77",
+    "glbridge/runtime/d9wg_clip.h": "702967fe666a13c40281b2bb81b547f6785cc674c3e4553686210748914e6649",
+    "glbridge/runtime/d9wg_vertex.c": "d33f292605fb1a8f4de0a664bfb5668c1bcd50b9d85d99249347856257201b7c",
+    "glbridge/runtime/d9wg_vertex.h": "5d42d484fc045ec1238dc42afcb385cde7d4d6c42a56ddf0e7eb64588e8c1b43",
+    "glbridge/runtime/build.sh": "5d0ac9b735a1e9472ed366a6036f337ff8e6f1738bae3593eb08fae8df67d4d5",
+    "glbridge/tests/d9wg_clip_test.js": "f8fb1bc25859ba98b10006a7c9618e2351f95c10b0f26ecb1840974c3073377a",
+    "glbridge/tests/d9wg_clip_mutation_test.js": "267a70c875253b95325717e714c19a83e1b9a288b234edd0a1bf592c5f950dc3",
+    "glbridge/tests/native/d9wg_clip_cases.h": "c9aaa2f35cd8f6274a028573c4162ef421337ddd434728fa258b7b8bd17472fb",
+    "glbridge/tests/fixtures/d9wg_d3d7_native_process_reference.json": "fca61ed437e5549cb17a448749f5f7687995ea7123dd0045df0974e4b419ed43",
+    "glbridge/d3d9proxy/d3d9.dll": "fcc98c3358a86a7a26d9f2a741fb38bdb71f4799441d226170cd1d4b0e505381",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "33b86d04bc6588ba1dcc7c45769ae21cf4191f908925f8a0b9188dfddac1317c",
+    "glbridge/d3d8proxy/d3d8.dll": "b0a83793b0d19ec113f13eb8fb971a8435f25084d9fcf0b7688e0f64be028b0c",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "ab16ab87ca00a43d9de0f09f6028f6cbbce3de6adf0b4e9a878ae9505a14f6c9",
+    "glbridge/ddrawproxy/ddraw.dll": "eb7fe7e35da29c8e293939a673cd6be49aeb9b0a49d34d7162c2eff5689f2f71",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "522e682f3dea279fe438a0d56ca9fc0fa3fc2062abda683306d3a77157a8aa44"
+  },
+  "coreSha256": {
+    "tests/glbridge/d3d_math_xp.mjs": "31f4f4fdd26cc2f795a2449f5e587e943894956edda4bd6c0a74efbb8481350a",
+    "tests/glbridge/fixtures/d3d_software_lighting_cpu.json": "47733364bd941460d187f8579ff8a738c9cbb918a4dd0b062dee136b4d0a2b4b",
+    "tests/glbridge/fixtures/d3d_software_texcoord_cpu.json": "9c3910a3dfdb4a6b585eb2659de70c3173fa5ec8da29b7dbd46c8cafb182df24",
+    "tests/glbridge/fixtures/d3d_software_blend_cpu.json": "2a291bdaad25e81d0c0ccc232150f2bb645e56955a85633042b1950fc0d12fad"
+  },
+  "logs": {
+    "d3d-stage4d2h2-build-d3d8.log": "93a74dfed9ca35039642ba4efe8660fc61bbd6581de1c36fe4569f7427a3d2e2",
+    "d3d-stage4d2h2-build-d3d9.log": "1d095a90ff662d13fbaaf4629d7548f4bb45ffd0cf62b00b7095c99ddf467ade",
+    "d3d-stage4d2h2-build-ddraw.log": "c1f4f2fe495d14addbe3287825ea9d127cea09ede6d604b76566cc6dcfb74512",
+    "d3d-stage4d2h2-clip-mutations.log": "fdeb95158296f4e3efce55402fd8b177652c7868c60a53c26581e6b6a0b3578e",
+    "d3d-stage4d2h2-gpu.log": "a7b04f19afc5505105cc08c29ff5a26925c7340ea87a34b6037c900d0192b467",
+    "d3d-stage4d2h2-guest.log": "65a849cfe2234aec34cb91b4bdd7ba53c3c5521b6badf46fcb2b2cb7a30df4ce",
+    "d3d-stage4d2h2-integration.log": "9f09deae1c1a7ebe38ecebc208c463fda109ebc83bea237219108ad46f2a1e4b",
+    "d3d-stage4d2h2-math-xp.log": "28c53b935b2e63e7e7d3263662c96ffaf020b4283e30df6f353000db08867032",
+    "d3d-stage4d2h2-tnl-xp.log": "ffedce34dc4281aac1d435f1b292f6ba1c299107ad50da99100fc0ddbfc5c3e4"
+  }
+}
