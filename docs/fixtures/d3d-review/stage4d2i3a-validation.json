@@ -1,0 +1,114 @@
+{
+  "stage": "4D2i3a shared multi-stream software inputs and D3D9 ProcessVertices",
+  "date": "2026-11-02",
+  "bundle": "3e84336e0707ddf60aa8",
+  "coreSuites": 139,
+  "guestSuites": 110,
+  "siteIntegrationTests": 2,
+  "crossCompiledSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "independentRangeCases": 100000,
+  "streamRotations": 16,
+  "xp": {
+    "streams": {
+      "status": "PASS",
+      "seconds": 98,
+      "batches": 1,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "text": "READY D3D8/9 processed clipping COM probe\r\nPASS real XP floating color precision, specular source, fog, half/integer colors and copy flags\r\nPASS real XP multi-stream: nonzero position stream, offsets, packed normal, floating constant color, copy flags, clip records, all-constant huge index, multiple destination aliases and atomic refusals\r\nPASS real XP typed input: half positions, DEC3N normals, normalized coordinates, half size, stream/destination offsets, retained components, copy flags, clip status and atomic refusals\r\n",
+      "dllSha256": "a1128bac2724a2bb11877d0f021a9b72f9cff0d2f485284c9fd95855d37b0a01",
+      "executableSha256": "70d9f37297e335ef309bfb369d22185a4a8350b8329fa6d9ea6045efb05f454f"
+    },
+    "math": {
+      "status": "PASS",
+      "seconds": 162,
+      "batches": 0,
+      "owners": [],
+      "releases": [],
+      "text": "READY math \r\nREADY real XP frozen C math probe\r\nPASS x87 control=007f operations=240000\r\nPASS lighting math control=007f checks=60000\r\nPASS vertex math control=007f ranges=20000\r\nPASS fog math control=007f cases=20000\r\nPASS texture math control=007f cases=20000\r\nPASS blend math control=007f cases=20000\r\nPASS clip math control=007f cases=20000\r\nPASS clip pipeline control=007f triangles=20000 buffers=1 draws=1\r\nPASS clip user control=007f cases=20000 world-blend=1\r\nPASS clip status control=007f native=100 histories=100000\r\nPASS x87 control=027f operations=240000\r\nPASS lighting math control=027f checks=60000\r\nPASS vertex math control=027f ranges=20000\r\nPASS fog math control=027f cases=20000\r\nPASS texture math control=027f cases=20000\r\nPASS blend math control=027f cases=20000\r\nPASS clip math control=027f cases=20000\r\nPASS clip pipeline control=027f triangles=20000 buffers=1 draws=1\r\nPASS clip user control=027f cases=20000 world-blend=1\r\nPASS clip status control=027f native=100 histories=100000\r\nPASS x87 control=037f operations=240000\r\nPASS lighting math control=037f checks=60000\r\nPASS vertex math control=037f ranges=20000\r\nPASS fog math control=037f cases=20000\r\nPASS texture math control=037f cases=20000\r\nPASS blend math control=037f cases=20000\r\nPASS clip math control=037f cases=20000\r\nPASS clip pipeline control=037f triangles=20000 buffers=1 draws=1\r\nPASS clip user control=037f cases=20000 world-blend=1\r\nPASS clip status control=037f native=100 histories=100000\r\nPASS legacy output control words=3 native=252\r\nPASS typed vertex inputs control words=3 vectors=3264 halfPatterns=196608\r\nPASS typed vertex colors control words=3 inputs=3276 colorModes=19656\r\nPASS multi-stream math control words=3 ranges=300000 rotations=48\r\nPASS all real XP math checks\r\n"
+    },
+    "tnl": {
+      "status": "PASS",
+      "seconds": 116,
+      "batches": 6,
+      "owners": [
+        1,
+        2,
+        3
+      ],
+      "releases": [
+        1,
+        2,
+        3
+      ],
+      "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS all real XP TNL probes \r\n"
+    }
+  },
+  "mutations": {
+    "killed": 7,
+    "total": 7
+  },
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "gpuValidation": {
+    "inheritedFrom": "stage4d2i2c-validation.json",
+    "reason": "Host JavaScript is unchanged and all four existing C-generated numeric fixture cases remain identical. XP COM and CPU range checks are not new GPU drawing acceptance."
+  },
+  "checks": [
+    "16 streams / 64 raw declaration elements retain all packed source types until the existing shared conversion and lighting kernel",
+    "zero stride repeats data even with UINT_MAX source_start; final vertex only needs actual attribute bytes",
+    "single ordinary stream retains direct processing; multiple or constant streams gather bounded raw slots",
+    "all stream bounds and all palette indices validate before first write",
+    "one pre-call destination snapshot is reused by every aliased input binding",
+    "XP COM checks independent streams, packed normal, constant floating color, copy controls, clipped representation/status, lock/range/frequency refusal, multiple destination aliases and unchanged failure outputs/status",
+    "300000 XP x87 range checks / 48 stream rotations and complete existing math / 3-API TNL regression pass"
+  ],
+  "scope": "ProcessVertices multi-stream software input. Ordinary multi-stream draw range validation / ClipStatus and host zero-stride draws continue in the next substage; programmable CPU processing, arbitrary packed output, native D3D8/9, complete Wine and game acceptance are not claimed.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-setstreamsource",
+    "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-processvertices"
+  ],
+  "siteSha256": {
+    "glbridge/runtime/d9wg_vertex.c": "cde010fdddbd183f2ebde9a0f248f7088ec95efe880c03e0a5e4fb0ba53453b6",
+    "glbridge/runtime/d9wg_vertex.h": "626a60b99445167a185032bf88b82ce5e1a98e15fa71424fb416ac046941d172",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "613ef6dd2d3eb1bb2ecd4ec90879941ead232d21f4126735c036225d0926f72c",
+    "glbridge/sample/d3d9_vertex_format_cases.h": "c9f34186131f11cfc5969795738fd686dfd179b5dc768bafcf2e4e3ff49e599c",
+    "glbridge/sample/d3d9_vertex_stream_cases.h": "89708fd6fbf089dd426816b355041720349e708c77ddd8a1d6f847f6d3055c1a",
+    "glbridge/tests/native/d9wg_vertex_stream_cases.h": "bef90dacf0e37c4babafefc5429f2ddd1c1eb83a49df90761878842a882130e5",
+    "glbridge/tests/d9wg_vertex_stream_test.js": "6b5ee21e17b8cba724b0b76c883a9b3c0501aa40e6dec91a47b0d257ff027e38",
+    "glbridge/tests/d9wg_vertex_stream_mutation_test.js": "51a4a9eb009c428fba4ad142d8df1cdf1cd5792734c14fbfe6dcc1fe355096f2",
+    "glbridge/d3d8proxy/d3d8.dll": "ec7dd71ecfd8e7bdd88e5e2ccbbfcb40b7c919e37f69838379f5971bb9b7a499",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "41c396d048d78dd60bebfbfab1fc7197d5adebbcb9bf0a847903f8737748b727",
+    "glbridge/d3d9proxy/d3d9.dll": "a1128bac2724a2bb11877d0f021a9b72f9cff0d2f485284c9fd95855d37b0a01",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "843507e006b7da4578433811dfe06d6baa7d60c955b13b3056bfe893826ccaa5",
+    "glbridge/ddrawproxy/ddraw.dll": "4cd6b0f0aa8428dff22a377cd878a73411bb11f308da26521c892f2403bd8906",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "352c5b29536b4c49e11816b9b5e939b42943e92329119f8c8dce5a74c3c79358"
+  },
+  "coreSha256": {
+    "docs/d3d-webgpu-review.md": "4f49e1c7845d63d518738dde3157382d6fa524f193506db52a85a364bda4a120",
+    "tests/glbridge/d3d_math_xp.mjs": "bc15fa06ce3a2e3bd3d527e90684566462efe27389bc55d4f1a1053aaa206ab6",
+    "tests/glbridge/d3d_vertex_formats_xp.mjs": "b656d6b15c9906e2d7b5f08d96f4e8afbeac2fa89799af47f30204b609796842",
+    "tests/glbridge/fixtures/d3d_software_blend_cpu.json": "109eaf06e174c56be38c8c6687d41826df1f28090dfce96cbc8ecd63e03df3a5",
+    "tests/glbridge/fixtures/d3d_software_lighting_cpu.json": "f931bcf788ac6ae2be6fae9531695ff5b85ae29fed67466ec9792ee85dec4967",
+    "tests/glbridge/fixtures/d3d_software_texcoord_cpu.json": "2deab928b00de8f17b04c9fa6040bc05d53c51967dd9fff7bf28b246b50fa811",
+    "tests/glbridge/fixtures/d3d_software_vertex_colors_cpu.json": "c625037933e7790cb779d96fe1149ae18bcc8930cd840e0192c0b492f3daebe9"
+  },
+  "logs": {
+    "d3d-i3-xp.log": "8c8079d7383e9f85ce69a871b8b63d710b9070d65ceb6a5bb201618ff83e5cef",
+    "d3d-i3-math.log": "1f95755195109c20e7395c832b1c93ebd094f189bf5f660a8e067648921bfa82",
+    "d3d-i3-tnl.log": "d07b480a5ad9671f1b327fa005e2da25de1dace97f1b7bdc66901aa60165af6e",
+    "d3d-i3-mutations.log": "81ee94d2df608c70427a8407e033f7341202a266baba3486d3cbe9abc1f6e203",
+    "d3d-i3-sanitize.log": "ac48a119f13be2d62cea87187cfd7ce8139cd0d7358c6f7c222e6c84d318635e",
+    "d3d-i3-core.log": "13c423293e9f8433842fcf4da2ae1e7f8ab239115729c3f4a63bc87b970958e2",
+    "d3d-i3-guest.log": "c15d1db94c55cf601a35a2c045b5459c58d194c02e6111dc46e428659d70dd2b",
+    "d3d-i3-builds.log": "ce16cac39fa5dab5d6c5c014c2fe4d02356d610bdae47d77f7ea563f7ec541f6",
+    "d3d-i3-integration.log": "39ebf5d18e4c7cb8faf3a336014a671872046fef667780b4fff1e4faf7130683"
+  }
+}
