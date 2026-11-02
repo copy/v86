@@ -1,0 +1,4722 @@
+{
+  "reference": "Microsoft system DDraw7 RGB software device, original XP system directory DLL",
+  "date": "2026-11-02",
+  "viewport": {
+    "x": 7,
+    "y": 11,
+    "width": 100,
+    "height": 80,
+    "minZ": 0.25,
+    "maxZ": 0.75
+  },
+  "projectionW": [
+    1,
+    2,
+    -2
+  ],
+  "inputs": [
+    [
+      0,
+      0,
+      0.5
+    ],
+    [
+      -2,
+      0,
+      0.5
+    ],
+    [
+      2,
+      0,
+      0.5
+    ],
+    [
+      0,
+      -2,
+      0.5
+    ],
+    [
+      0,
+      2,
+      0.5
+    ],
+    [
+      0,
+      0,
+      -0.5
+    ],
+    [
+      0,
+      0,
+      2
+    ],
+    [
+      -1,
+      0,
+      0.5
+    ],
+    [
+      1,
+      0,
+      0.5
+    ],
+    [
+      0,
+      -1,
+      0.5
+    ],
+    [
+      0,
+      1,
+      0.5
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      1
+    ],
+    [
+      -100000,
+      0,
+      0.5
+    ],
+    [
+      100000,
+      0,
+      0.5
+    ],
+    [
+      0,
+      -100000,
+      0.5
+    ],
+    [
+      0,
+      100000,
+      0.5
+    ],
+    [
+      -128,
+      0,
+      0.5
+    ],
+    [
+      128,
+      0,
+      0.5
+    ],
+    [
+      -65536,
+      0,
+      0.5
+    ],
+    [
+      65536,
+      0,
+      0.5
+    ]
+  ],
+  "guardBand": [
+    -4096,
+    -4096,
+    4095,
+    4095
+  ],
+  "sourceSha256": "1e778f66b1fe1701fe0fa8a2e9cf22d1d3bf8e2649299f75342ca0ffee7f53aa",
+  "probeSha256": "895ebee6588dabc97e80759b7fa9de40332d215d58229b693b5796552fd50011",
+  "results": [
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 1,
+      "words": [
+        "c22c0000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -43,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 2,
+      "words": [
+        "431d0000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        157,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "43030000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        131,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "c1e80000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        -29,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 5,
+      "words": [
+        "42640000",
+        "424c0000",
+        "00000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 6,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3fa00000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        1.25,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 7,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 8,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        107,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        91,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "41300000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        11,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f400000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.75,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 13,
+      "words": [
+        "ca98960e",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -4999943,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 14,
+      "words": [
+        "4a9896f2",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        5000057,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 15,
+      "words": [
+        "42640000",
+        "4a7424cc",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        4000051,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 16,
+      "words": [
+        "42640000",
+        "ca742334",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        -3999949,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 17,
+      "words": [
+        "c5c63800",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -6343,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 18,
+      "words": [
+        "45c9c800",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        6457,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 19,
+      "words": [
+        "ca47ff1c",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -3276743,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 20,
+      "words": [
+        "4a4800e4",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        3276857,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 1,
+      "words": [
+        "c22c0000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -43,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 2,
+      "words": [
+        "431d0000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        157,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "43030000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        131,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "c1e80000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        -29,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 5,
+      "words": [
+        "3f000000",
+        "3f000000",
+        "bf000000",
+        "3f800000"
+      ],
+      "position": [
+        0.5,
+        0.5,
+        -0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 6,
+      "words": [
+        "3f000000",
+        "3f000000",
+        "40000000",
+        "3f800000"
+      ],
+      "position": [
+        0.5,
+        0.5,
+        2,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 7,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 8,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        107,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        91,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "41300000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        11,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f400000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.75,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 13,
+      "words": [
+        "c7434f80",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -49999.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 14,
+      "words": [
+        "47435080",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        50000.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 15,
+      "words": [
+        "3f000000",
+        "c7434f80",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        0.5,
+        -49999.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 16,
+      "words": [
+        "3f000000",
+        "47435080",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        0.5,
+        50000.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 17,
+      "words": [
+        "c27e0000",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -63.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 18,
+      "words": [
+        "42810000",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        64.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 19,
+      "words": [
+        "c6ffff00",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -32767.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 20,
+      "words": [
+        "47000080",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        32768.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 1,
+      "words": [
+        "c22c0000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -43,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 2,
+      "words": [
+        "431d0000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        157,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "43030000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        131,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "c1e80000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        -29,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 5,
+      "words": [
+        "42640000",
+        "424c0000",
+        "00000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 6,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3fa00000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        1.25,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 7,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 8,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        107,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        91,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "41300000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        11,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f400000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.75,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 13,
+      "words": [
+        "ca98960e",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -4999943,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 14,
+      "words": [
+        "4a9896f2",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        5000057,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 15,
+      "words": [
+        "42640000",
+        "4a7424cc",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        4000051,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 16,
+      "words": [
+        "42640000",
+        "ca742334",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        -3999949,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 17,
+      "words": [
+        "c5c63800",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -6343,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 18,
+      "words": [
+        "45c9c800",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        6457,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 19,
+      "words": [
+        "ca47ff1c",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -3276743,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 20,
+      "words": [
+        "4a4800e4",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        3276857,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 1,
+      "words": [
+        "c22c0000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -43,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 2,
+      "words": [
+        "431d0000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        157,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "43030000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        131,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "c1e80000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        -29,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 5,
+      "words": [
+        "3f000000",
+        "3f000000",
+        "bf000000",
+        "3f800000"
+      ],
+      "position": [
+        0.5,
+        0.5,
+        -0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 6,
+      "words": [
+        "3f000000",
+        "3f000000",
+        "40000000",
+        "3f800000"
+      ],
+      "position": [
+        0.5,
+        0.5,
+        2,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 7,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 8,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        107,
+        51,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        91,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "41300000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        11,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f400000",
+        "3f800000"
+      ],
+      "position": [
+        57,
+        51,
+        0.75,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 13,
+      "words": [
+        "c7434f80",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -49999.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 14,
+      "words": [
+        "47435080",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        50000.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 15,
+      "words": [
+        "3f000000",
+        "c7434f80",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        0.5,
+        -49999.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 16,
+      "words": [
+        "3f000000",
+        "47435080",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        0.5,
+        50000.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 17,
+      "words": [
+        "c27e0000",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -63.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 18,
+      "words": [
+        "42810000",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        64.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 19,
+      "words": [
+        "c6ffff00",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        -32767.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 0,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 20,
+      "words": [
+        "47000080",
+        "3f000000",
+        "3f000000",
+        "3f800000"
+      ],
+      "position": [
+        32768.5,
+        0.5,
+        0.5,
+        1
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 1,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 2,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        107,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        91,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "41300000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        11,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 5,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e000000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.125,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 6,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f400000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.75,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 7,
+      "words": [
+        "42000000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        32,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 8,
+      "words": [
+        "42a40000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        82,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "428e0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        71,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "41f80000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        31,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f000000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 13,
+      "words": [
+        "ca18959c",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        -2499943,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 14,
+      "words": [
+        "4a189764",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        2500057,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 15,
+      "words": [
+        "42640000",
+        "49f42598",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        2000051,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 16,
+      "words": [
+        "42640000",
+        "c9f42268",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        -1999949,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 17,
+      "words": [
+        "c5447000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        -3143,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 18,
+      "words": [
+        "454b9000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        3257,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 19,
+      "words": [
+        "c9c7fe38",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        -1638343,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 20,
+      "words": [
+        "49c801c8",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        1638457,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 1,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 2,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        107,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        91,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "41300000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        11,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 5,
+      "words": [
+        "3f800000",
+        "3f800000",
+        "bf000000",
+        "40000000"
+      ],
+      "position": [
+        1,
+        1,
+        -0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 6,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f400000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.75,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 7,
+      "words": [
+        "42000000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        32,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 8,
+      "words": [
+        "42a40000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        82,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "428e0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        71,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "41f80000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        31,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f000000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 13,
+      "words": [
+        "c7434f00",
+        "3f800000",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        -49999,
+        1,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 14,
+      "words": [
+        "47435100",
+        "3f800000",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        50001,
+        1,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 15,
+      "words": [
+        "3f800000",
+        "c7434f00",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        1,
+        -49999,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 16,
+      "words": [
+        "3f800000",
+        "47435100",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        1,
+        50001,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 17,
+      "words": [
+        "c5447000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        -3143,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 18,
+      "words": [
+        "454b9000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        3257,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 19,
+      "words": [
+        "c6fffe00",
+        "3f800000",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        -32767,
+        1,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 20,
+      "words": [
+        "47000100",
+        "3f800000",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        32769,
+        1,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 1,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 2,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        107,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        91,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "41300000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        11,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 5,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e000000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.125,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 6,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f400000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.75,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 7,
+      "words": [
+        "42000000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        32,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 8,
+      "words": [
+        "42a40000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        82,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "428e0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        71,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "41f80000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        31,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f000000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 13,
+      "words": [
+        "ca18959c",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        -2499943,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 14,
+      "words": [
+        "4a189764",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        2500057,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 15,
+      "words": [
+        "42640000",
+        "49f42598",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        2000051,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 16,
+      "words": [
+        "42640000",
+        "c9f42268",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        -1999949,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 17,
+      "words": [
+        "c5447000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        -3143,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 18,
+      "words": [
+        "454b9000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        3257,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 19,
+      "words": [
+        "c9c7fe38",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        -1638343,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 20,
+      "words": [
+        "49c801c8",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        1638457,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 1,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 2,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        107,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        91,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "41300000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        11,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 5,
+      "words": [
+        "3f800000",
+        "3f800000",
+        "bf000000",
+        "40000000"
+      ],
+      "position": [
+        1,
+        1,
+        -0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 6,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f400000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.75,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 7,
+      "words": [
+        "42000000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        32,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 8,
+      "words": [
+        "42a40000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        82,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "428e0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        71,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "41f80000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        31,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3f000000",
+        "3f000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 13,
+      "words": [
+        "c7434f00",
+        "3f800000",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        -49999,
+        1,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 14,
+      "words": [
+        "47435100",
+        "3f800000",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        50001,
+        1,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 15,
+      "words": [
+        "3f800000",
+        "c7434f00",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        1,
+        -49999,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 16,
+      "words": [
+        "3f800000",
+        "47435100",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        1,
+        50001,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 17,
+      "words": [
+        "c5447000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        -3143,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 18,
+      "words": [
+        "454b9000",
+        "424c0000",
+        "3ec00000",
+        "3f000000"
+      ],
+      "position": [
+        3257,
+        51,
+        0.375,
+        0.5
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 19,
+      "words": [
+        "c6fffe00",
+        "3f800000",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        -32767,
+        1,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 1,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 20,
+      "words": [
+        "47000100",
+        "3f800000",
+        "3f000000",
+        "40000000"
+      ],
+      "position": [
+        32769,
+        1,
+        0.5,
+        2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 1,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        107,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 2,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "41300000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        11,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        91,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 5,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3ec00000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.375,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 6,
+      "words": [
+        "42640000",
+        "424c0000",
+        "be800000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        -0.25,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 7,
+      "words": [
+        "42a40000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        82,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 8,
+      "words": [
+        "42000000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        32,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "41f80000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        31,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "428e0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        71,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "00000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        0,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 13,
+      "words": [
+        "4a189764",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        2500057,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 14,
+      "words": [
+        "ca18959c",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        -2499943,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 15,
+      "words": [
+        "42640000",
+        "c9f42268",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        -1999949,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 16,
+      "words": [
+        "42640000",
+        "49f42598",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        2000051,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 17,
+      "words": [
+        "454b9000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        3257,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 18,
+      "words": [
+        "c5447000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        -3143,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 19,
+      "words": [
+        "49c801c8",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        1638457,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 0,
+      "vertex": 20,
+      "words": [
+        "c9c7fe38",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        -1638343,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 0,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 1,
+      "words": [
+        "c0000000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -2,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 2,
+      "words": [
+        "00000000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        0,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 3,
+      "words": [
+        "bf800000",
+        "c0000000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -2,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 4,
+      "words": [
+        "bf800000",
+        "00000000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        0,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 5,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "bf000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        -0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 6,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "40000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        2,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 7,
+      "words": [
+        "bfc00000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1.5,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 8,
+      "words": [
+        "bf000000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -0.5,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 9,
+      "words": [
+        "bf800000",
+        "bfc00000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1.5,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 10,
+      "words": [
+        "bf800000",
+        "bf000000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -0.5,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 11,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "00000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        0,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 12,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "3f800000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        1,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 13,
+      "words": [
+        "c7435100",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -50001,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 14,
+      "words": [
+        "47434f00",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        49999,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 15,
+      "words": [
+        "bf800000",
+        "c7435100",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -50001,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 16,
+      "words": [
+        "bf800000",
+        "47434f00",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        49999,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 17,
+      "words": [
+        "c2820000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -65,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 18,
+      "words": [
+        "427c0000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        63,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 19,
+      "words": [
+        "c7000100",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -32769,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 0,
+      "operationClip": 1,
+      "vertex": 20,
+      "words": [
+        "46fffe00",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        32767,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 0,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 1,
+      "words": [
+        "42d60000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        107,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 2,
+      "words": [
+        "40e00002",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        7.000000953674316,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 3,
+      "words": [
+        "42640000",
+        "41300000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        11,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 4,
+      "words": [
+        "42640000",
+        "42b60000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        91,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 5,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3ec00000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.375,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 6,
+      "words": [
+        "42640000",
+        "424c0000",
+        "be800000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        -0.25,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 7,
+      "words": [
+        "42a40000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        82,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 8,
+      "words": [
+        "42000000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        32,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 9,
+      "words": [
+        "42640000",
+        "41f80000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        31,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 10,
+      "words": [
+        "42640000",
+        "428e0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        71,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 11,
+      "words": [
+        "42640000",
+        "424c0000",
+        "3e800000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        0.25,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 12,
+      "words": [
+        "42640000",
+        "424c0000",
+        "00000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        51,
+        0,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 13,
+      "words": [
+        "4a189764",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        2500057,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 14,
+      "words": [
+        "ca18959c",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        -2499943,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 15,
+      "words": [
+        "42640000",
+        "c9f42268",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        -1999949,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 16,
+      "words": [
+        "42640000",
+        "49f42598",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        57,
+        2000051,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 17,
+      "words": [
+        "454b9000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        3257,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 18,
+      "words": [
+        "c5447000",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        -3143,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 19,
+      "words": [
+        "49c801c8",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        1638457,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 0,
+      "vertex": 20,
+      "words": [
+        "c9c7fe38",
+        "424c0000",
+        "3e000000",
+        "bf000000"
+      ],
+      "position": [
+        -1638343,
+        51,
+        0.125,
+        -0.5
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 0,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 1,
+      "words": [
+        "c0000000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -2,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 2,
+      "words": [
+        "00000000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        0,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 3,
+      "words": [
+        "bf800000",
+        "c0000000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -2,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 4,
+      "words": [
+        "bf800000",
+        "00000000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        0,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 5,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "bf000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        -0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 6,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "40000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        2,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 7,
+      "words": [
+        "bfc00000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1.5,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 8,
+      "words": [
+        "bf000000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -0.5,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 9,
+      "words": [
+        "bf800000",
+        "bfc00000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1.5,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 10,
+      "words": [
+        "bf800000",
+        "bf000000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -0.5,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 11,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "00000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        0,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 12,
+      "words": [
+        "bf800000",
+        "bf800000",
+        "3f800000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -1,
+        1,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 13,
+      "words": [
+        "c7435100",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -50001,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 14,
+      "words": [
+        "47434f00",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        49999,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 15,
+      "words": [
+        "bf800000",
+        "c7435100",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        -50001,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 16,
+      "words": [
+        "bf800000",
+        "47434f00",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -1,
+        49999,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 17,
+      "words": [
+        "c2820000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -65,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 18,
+      "words": [
+        "427c0000",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        63,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 19,
+      "words": [
+        "c7000100",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        -32769,
+        -1,
+        0.5,
+        -2
+      ]
+    },
+    {
+      "projection": 2,
+      "renderStateClipping": 1,
+      "operationClip": 1,
+      "vertex": 20,
+      "words": [
+        "46fffe00",
+        "bf800000",
+        "3f000000",
+        "c0000000"
+      ],
+      "position": [
+        32767,
+        -1,
+        0.5,
+        -2
+      ]
+    }
+  ],
+  "depth": [
+    {
+      "range": 0,
+      "test": 0,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 0,
+      "test": 1,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 1,
+      "test": 0,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 1,
+      "test": 1,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 2,
+      "test": 0,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 2,
+      "test": 1,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 3,
+      "test": 0,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 3,
+      "test": 1,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 4,
+      "test": 0,
+      "pixel": "0000ff00"
+    },
+    {
+      "range": 4,
+      "test": 1,
+      "pixel": "0000ff00"
+    }
+  ]
+}

@@ -1160,6 +1160,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 133 组核心、90 组客体、两项站点集成、35 个冒烟 EXE、3 个 XP 探针、六个 DLL 严格构建通过；前序像素、一致性、预算、检查点及五组 GPU 变异合计 19/19 通过。Warcraft III 首次冻结策略重放出现 3 个策略外像素，随后前后版本各五次成对重放及额外复测均通过；保留首次失败，原因尚未证实，未扩展像素策略。
 > - 运行包 `6a4aa34fffcf89a78f47`；见 [stage4d2g-validation.json](fixtures/d3d-review/stage4d2g-validation.json)。继续裁剪元数据、输出布局和可编程顶点处理；Tween、完整 Wine 与游戏验收尚未完成。
 
+> **阶段 4D2h1（2026-11-02）：软件顶点深度回放修复，建立原生裁剪参考。**
+>
+> - 发现宿主对 XYZRHW 再次应用 MinZ/MaxZ，改变已完成软件顶点处理的深度。录制时屏幕坐标绘制改用 0–1 的有效深度范围，普通 XYZ 保留原范围；回放缓存正确切换同帧两种绘制。新增 11 项独立 GPU 像素用例，修复前 8 项失败，SwiftShader/Metal 修复后全部通过，变异 1/1 检出。原有近面用例误用 XYZRHW，现改用普通 XYZ 保留其预期验证目标。
+> - **真实 XP 系统原生 Microsoft DDraw7 RGB 设备对照通过**：96 秒，10 项深度绘制逐项锁定表面读回绿色，确认屏幕顶点不重复应用深度范围。另捕获 252 组 ProcessVertices 原始 DWORD 输出，覆盖 CLIP 操作与 render state、guard band、近远面、W=1/2/−2。仅加载绝对系统目录 DLL，未部署代理；磁盘写入仍仅在 RAM。参考见 [d3d7-native-process-reference.json](fixtures/d3d-review/d3d7-native-process-reference.json)。
+> - 133 组核心、两项站点集成、327 项一致性及两种预算模式、全部前序像素与 owner 隔离通过；Metal 327 项和 Warcraft III 冻结策略回归通过。运行包 `46b300fb4065049393df`；见 [stage4d2h1-validation.json](fixtures/d3d-review/stage4d2h1-validation.json)。继续共用裁剪输出、元数据及绘制接入；这些原生 D3D7 结果不代表 D3D8/9、完整 Wine 或游戏验收完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

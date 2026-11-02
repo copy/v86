@@ -493,5 +493,26 @@
             return commands;
         }, probes: Array.from({ length: 64 }, (_, mask) => ({ at: [(mask & 7) * 8 + 3, (mask >> 3) * 8 + 3],
             expect: mask & 1 << rejected ? [0, 0, 255, 255] : [255, 0, 0, 255], tolerance: 0 })) });
+    // XYZRHW z is already the depth-buffer value, including any viewport
+    // transform applied by ProcessVertices. Ordinary XYZ still needs MinZ/MaxZ.
+    for (const [minZ, maxZ] of [[.25, .75], [.5, .5], [0, 0], [1, 1], [.8, 1]])
+        for (const [z, clearDepth, compare] of [[.1, .2, 2], [.9, .8, 5]])
+            add("processed-depth", {
+                name: `screen depth ${z} bypasses viewport ${minZ}..${maxZ}`,
+                body: dev => [wire("SetViewport", { device_handle: dev, width: 64, height: 64, min_z: minZ, max_z: maxZ }),
+                    wire("Clear", { device_handle: dev, clear_flags: 3, color: 0xff000000, depth: clearDepth }),
+                    rs(dev, 23, compare), draw(dev, quad(0, 0, 64, 64, z, 0xff00ff00))],
+                probes: [{ at: [32, 32], expect: [0, 255, 0, 255] }],
+            });
+    add("processed-depth", {
+        name: "screen and ordinary draws switch depth ranges within one frame",
+        body: dev => [wire("SetViewport", { device_handle: dev, width: 64, height: 64, min_z: .25, max_z: .75 }),
+            rs(dev, 23, 2), draw(dev, quad(0, 0, 32, 64, .2, 0xff00ff00)),
+            ...drawXYZ(dev, fullXYZ(.1, 0xffff0000)),
+            cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, fvf: 0xc4, element_count: 3 }),
+                element(0, 3, 9), element(16, 4, 10), element(20, 4, 10, 1)])),
+            draw(dev, quad(32, 0, 64, 64, .2, 0xff0000ff))],
+        probes: [{ at: [16, 32], expect: [0, 255, 0, 255] }, { at: [48, 32], expect: [0, 0, 255, 255] }],
+    });
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

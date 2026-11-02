@@ -207,10 +207,18 @@
                 if (this.diagnosticsEnabled) this.captureDrawDiagnostic({
                     which, state, elements, geometry, program, pipelineState, targets, pipeline,
                 });
+                // Screen z already is a depth-buffer value. Applying MinZ/MaxZ
+                // again changes ProcessVertices output and ordinary XYZRHW UI.
+                // Record the effective range so replay's viewport cache also
+                // switches correctly between screen and clip-space draws.
+                const viewport = { ...state.viewport };
+                if (program.fixedFunctionSignature?.positionType === "screen") {
+                    viewport.minZ = 0;viewport.maxZ = 1;
+                }
                 frame.record({
                     kind: "draw", pipeline, bindGroup: binding.group,
                     dynamicOffsets: binding.dynamicOffsets, targets,
-                    viewport: { ...state.viewport },
+                    viewport,
                     scissor: scissorEnabled ? { ...state.scissorRect } : null,
                     blendConstant: pipelineState.blendConstant,
                     stencilReference: pipelineState.stencilReference,

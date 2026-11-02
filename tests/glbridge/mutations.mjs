@@ -88,6 +88,11 @@ const MUTATIONS = {
             'if (stage.transformCount > 0 && signature.positionType !== "screen") {',
             'if (stage.transformCount > 1 && signature.positionType !== "screen") {'],
     ] },
+    d3dprocesseddepth: { floor: 1, node: [], pages: ["d3d9_conformance_browser_test.html?group=processed-depth"], list: [
+        ["screen depth receives a second viewport transform", D + "d9wg_draw_recorder.js",
+            'if (program.fixedFunctionSignature?.positionType === "screen") {',
+            'if (false) {'],
+    ] },
     d3dblend: { floor: 1, node: [], pages: ["d3d9_software_blend_browser_test.html"], list: [
         ["normals use world instead of inverse transpose", D + "d9wg_ffp.js",
             '"        let d9_normal_bone = uniforms.blend_normals[" + index + "];\\n" +',
