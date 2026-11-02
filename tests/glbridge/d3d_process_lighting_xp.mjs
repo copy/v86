@@ -38,6 +38,7 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
     success: "PASS all real XP TNL probes", log_files: ["TNL7.TXT", "TNL8.TXT", "TNL9.TXT"],
     inspect(result) {
         for(const text of Object.values(result.logs)) {
+            assert(text.includes("PASS shared light-enable queries:"));
             assert(text.includes("PASS all real XP ProcessVertices lighting checks"));
             assert(text.includes("PASS shared vertex copy, bounds and layout checks"));
             assert(text.includes("PASS shared vertex fog checks"));

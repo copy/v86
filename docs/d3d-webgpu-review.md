@@ -1376,6 +1376,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 原始捕获的后处理按 owner 区分 D3D8 句柄生命周期契约与 D3D9 设备退出的对象清理，未改写捕获数据。核心 144 组、客体 130 组、D3D9 14 个标准冒烟 EXE 及零售/诊断两份严格 DLL 通过；更新实际 XP 所测 D3D9 DLL。宿主/运行包与 D3D8/7 DLL 未变，GPU/Metal/站点集成沿用 4D2j2d，未新宣称原生/Wine/游戏/FPS 验收。见 [stage4d2j2f2-validation.json](fixtures/d3d-review/stage4d2j2f2-validation.json)。
 > - 现有状态块覆盖的 D3D9 入口已完成延迟录制；继续 D3D7 稀疏灯光、三版本的启用查询返回值/未创建语义，以及其余默认值/caps/格式/窗口共用运行时和后续阶段。
 
+> **阶段 4D2j3a（2026-11-02）：D3D7/8/9 共用 LightEnable 查询契约完成。**
+>
+> - 三版本共用一个查询函数：已创建且启用返回 `0x80`，禁用返回 0；未创建或空输出指针返回失败，不改调用者输出。D3D8/9 同时区分已分配但尚未设置的稀疏节点，修复此前把不存在灯光当作禁用成功，以及把启用结果返回 1 的行为。内部启用标志、线协议和光照计算仍用普通布尔值。
+> - 依据本机原生 Microsoft D3D7 RGB 的既有 35 条冻结查询及 Wine D3D8/9 的 Windows 状态块期望；实际 C GetLightEnable 在三套私有结构下编译，检查已知/未知低编号、D3D8/9 的高编号和最大 DWORD、分配但未设置节点、非标准 BOOL 输入、空指针及失败输出保留。6/6 语义变异和 ASan/UBSan 通过。
+> - 实际 XP 三 API 新增原始 BOOL 检查，确认未创建失败、SetLight 后默认禁用、非零输入启用后精确返回 128、再禁用返回 0。三 API T&L、D3D8 六帧/着色器生命周期、D3D9 八帧录制与 End 零状态回放、精确 Apply 载荷和未完成录制释放继续通过，三个 owner 正常释放。
+> - 144 组核心、132 组客体、35 个标准冒烟 EXE、六份严格零售/诊断 DLL 通过，发布三版本本次 XP 所测 DLL。宿主 JS、`c3bba1907e73f97e09c3` 运行包、数值内核未变，WebGPU/Metal/站点集成沿用 4D2j2d，本项不代表完整原生/Wine/游戏/FPS 验收。见 [stage4d2j3a-validation.json](fixtures/d3d-review/stage4d2j3a-validation.json)。
+> - 参考：[D3D8 Windows 灯光期望](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c)、[D3D9 Windows 灯光期望](https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/stateblock.c)、[原生 D3D7 冻结查询](../tests/glbridge/fixtures/d3d7_native_light_state.json)。D3D7 的存储仍限于旧的低编号表，下一步测量原生录制/捕获行为后接入稀疏存储与默认创建，再继续其余运行时工作。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
