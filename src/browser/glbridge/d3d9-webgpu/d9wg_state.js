@@ -127,6 +127,40 @@
         return result;
     }
 
+    // Common texture cascade defaults. Sampler rows also name the legacy
+    // D3D8 texture-stage ID, so both shadows use the same sampling defaults.
+    const TEXTURE_DEFAULT_ROWS = Object.freeze([
+        [1, "colorOp"], [2, 2], [3, 1], [4, "alphaOp"], [5, 2], [6, 1],
+        [7, 0], [8, 0], [9, 0], [10, 0], [11, "stage"],
+        [22, 0], [23, 0], [24, 0], [26, 1], [27, 1], [28, 1], [32, 0],
+    ].map(Object.freeze));
+    const SAMPLER_DEFAULT_ROWS = Object.freeze([
+        [1, 1, 13], [2, 1, 14], [3, 1, 25], [4, 0, 15],
+        [5, 1, 16], [6, 1, 17], [7, 0, 18], [8, 0, 19],
+        [9, 0, 20], [10, 1, 21], [11, 0, null], [12, 0, null], [13, 0, null],
+    ].map(Object.freeze));
+    const SAMPLER_INDICES = Object.freeze([...Array(16).keys(), 257, 258, 259, 260]);
+    function textureDefaults(api = 9) {
+        const result = new Map();
+        for (let stage = 0; stage < 8; ++stage) {
+            for (const [id, value] of TEXTURE_DEFAULT_ROWS) {
+                if (api === 8 && id === 32) continue;
+                const word = value === "colorOp" ? (stage ? 1 : 4) :
+                    value === "alphaOp" ? (stage ? 1 : 2) : value === "stage" ? stage : value;
+                result.set(stage*64 + id, word);
+            }
+            if (api === 8) for (const [, value, legacy] of SAMPLER_DEFAULT_ROWS)
+                if (legacy !== null) result.set(stage*64 + legacy, value);
+        }
+        return result;
+    }
+    function samplerDefaults() {
+        const result = new Map();
+        for (const sampler of SAMPLER_INDICES)
+            for (const [id, value] of SAMPLER_DEFAULT_ROWS) result.set(sampler*64 + id, value);
+        return result;
+    }
+
     function createDeviceState(handle, constants, autoDepth = true) {
         const { D3DMULTISAMPLE_NONE, D3DTS_VIEW, D3DTS_PROJECTION, D3DTS_WORLD, IDENTITY4x4,
             MAX_VS_CONST_F, MAX_PS_CONST_F, MAX_CONST_I, MAX_CONST_B } = constants;
@@ -181,8 +215,8 @@
             // The implicit chain is not in here: it is the canvas.
             swapChains: new Map(),
             depthView: null,
-            samplerStates: new Map(), // sampler*64+state -> value, read by samplerFor()
-            textureStageStates: new Map(),
+            samplerStates: samplerDefaults(), // sampler*64+state -> value, read by samplerFor()
+            textureStageStates: textureDefaults(),
             vertexShaderHandle: 0,
             pixelShaderHandle: 0,
             // The D3D9 constant register file. Device state, not shader
@@ -275,7 +309,7 @@
     function activateSession(executor, state) {
         for (const field of SESSION_FIELDS) executor[field] = state[field];
     }
-    const api = { RENDER_DEFAULT_ROWS, renderDefaults, createDeviceState, createSessionState, captureSession, activateSession, SESSION_FIELDS };
+    const api = { RENDER_DEFAULT_ROWS, TEXTURE_DEFAULT_ROWS, SAMPLER_DEFAULT_ROWS, SAMPLER_INDICES, renderDefaults, textureDefaults, samplerDefaults, createDeviceState, createSessionState, captureSession, activateSession, SESSION_FIELDS };
     global.D9WGState = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

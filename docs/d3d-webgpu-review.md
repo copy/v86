@@ -1475,6 +1475,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 148 组核心、144 组客体、32 个 D3D8/9 SDK 冒烟 EXE 与四个严格零售/诊断 DLL、两项站点集成通过；完整 WebGPU 36 次运行通过。新增两组“后绑定深度表面”的独立像素用例，SwiftShader/Metal 均通过全部 331 个用例；忽略创建深度参数的 GPU 变异只使新增关闭场景失败，源码已精确还原。
 > - 新宿主包 `cfad0009655b0a109c05` 已同步到站点。见 [stage4e1-validation.json](fixtures/d3d-review/stage4e1-validation.json)。本步统一已核对的渲染默认值；纹理阶段、采样器、材料及其他对象/模式默认值接着处理，运行时 caps、窗口/格式和包装层仍待继续；不是原生 Microsoft D3D8/9、Wine 全套或游戏/FPS 验收。
 
+> **阶段 4E2（2026-11-03）：共用纹理阶段与采样器默认表完成。**
+>
+> - 在同一宿主状态模块维护纹理阶段/采样器默认值及 D3D8 的十项采样状态映射，生成两个客体使用的 C 查询函数；取代三处手写初始化。覆盖八个纹理阶段、十六个像素和四个顶点采样器，保留各阶段的 TEXCOORDINDEX、首阶段/后续阶段操作差异与版本专属 CONSTANT；未知旧状态的既有零值不扩展为新能力。
+> - 修正 D3D8 ADDRESSW、COLORARG0、ALPHAARG0 缺项。后两者默认 CURRENT=1，应用首次设置 DIFFUSE=0 时必须发送命令；实际 C Setter 检查默认相等时省略、首次零值写入、采样状态编号转换和录制隔离。生成器验证状态号、版本映射与重复项。
+> - 独立 [DirectX 8.1 纹理阶段](https://alpyne.me/archive/dx8/directx_cpp/graphics/reference/cpp/d3d/enums/d3dtexturestagestatetype.htm)、[D3D9 纹理阶段](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dtexturestagestatetype)及[采样器](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dsamplerstatetype)事实，验证 620 项 C/JS 默认值与设备隔离；9/9 C 语义变异、ASan/UBSan 通过。SDK 未明确 CONSTANT 初值，零值来自 Wine 清零/默认初始化路径的推断，未当作原生 Windows 测量。
+> - 实际 XP 新增 2,480 次纹理/采样器公开查询，覆盖新建、ALL 恢复和两次 Reset，既有 688 次渲染查询继续通过。原始图形流在两 API 各核对三次首次零值颜色/透明度更新，以及阶段 7/最后一个顶点采样器的 W 寻址更新。三 API T&L/录制/生命周期回归通过，所有 owner 释放；发布默认值探针所测的两个零售 DLL。
+> - 新增三元颜色/透明度运算的独立像素探针，分别验证默认 CURRENT 与首次显式 DIFFUSE 的精确 RGBA。SwiftShader/Metal 全部 333 个用例通过；两个宿主默认值变异均使默认 CURRENT 探针失败，显式 DIFFUSE 保持通过，随后精确恢复源码。
+> - 150 组核心、144 组客体、32 个 SDK 冒烟 EXE、四个严格零售/诊断 DLL、两项站点集成及完整 WebGPU 36 次运行通过。新宿主包 `6f16a361c67d83f7fde8` 已同步站点。见 [stage4e2-validation.json](fixtures/d3d-review/stage4e2-validation.json)。接着处理材料/其他对象默认值及剩余运行时工作；未宣称 Microsoft D3D8/9 原生、Wine 全套或游戏/FPS 验收完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

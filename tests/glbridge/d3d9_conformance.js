@@ -325,6 +325,19 @@
         probes: [{ at: [32, 32], expect: enabled ? [255, 0, 0] : [0, 0, 255] }],
     });
 
+    for (const diffuse of [false, true]) CASES.push({
+        name: "triadic color/alpha operand zero: " + (diffuse ? "first diffuse assignment" : "default current"),
+        ref: "SDK COLORARG0/ALPHAARG0 default CURRENT; explicit DIFFUSE is zero",
+        body: d => [rs(d, RS.TEXTUREFACTOR, 0xc0804020),
+            tss(d, 0, 1, 2), tss(d, 0, 2, 3), tss(d, 0, 4, 2), tss(d, 0, 5, 3),
+            tss(d, 1, 1, 25), tss(d, 1, 2, 0), tss(d, 1, 3, 3),
+            tss(d, 1, 4, 25), tss(d, 1, 5, 0), tss(d, 1, 6, 3),
+            ...(diffuse ? [tss(d, 1, 26, 0), tss(d, 1, 27, 0)] : []),
+            draw(d, quad(0, 0, W, W, .5, 0x404080c0)),
+        ],
+        probes: [{ at: [32, 32], expect: diffuse ? [96, 160, 216, 112] : [160, 96, 56, 240] }],
+    });
+
     const KNOWN_FAILURES = {};
 
     // The setup every case starts from: device `dev`, render target(s), full
