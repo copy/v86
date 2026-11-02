@@ -1,0 +1,56 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>D3D host capability HELLO reply</title>
+<canvas id="screen" width="64" height="64"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async () => {
+    "use strict";
+    const result = document.getElementById("result");
+    try {
+        const gpu = new D3D9WebGPUExecutor(document.getElementById("screen"), {strict: true, shaderWorkerUrl: null}); await gpu.initialize();
+        const P = D9WGProtocol, C = P.C, start = (16 << 20) - 16, memories = new Map(), events = new Map();
+        const names = ["float32-filterable", "float32-blendable", "texture-compression-bc", "timestamp-query"];
+        const expected = names.reduce((bits, name, i) => bits | (gpu.device.features.has(name) ? 1 << i : 0), 0);
+        const check = (ok, message) => {if (!ok) throw Error(message);};
+        function metadata(owner) {
+            if (!memories.has(owner)) {memories.set(owner, new Uint8Array(16).fill(0xcc)); events.set(owner, []);}
+            return {ownerToken: owner, writeGuestMemory(offset, bytes) {
+                check(offset >= start && offset + bytes.length <= start + 16, "reply outside reserved owner tail");
+                memories.get(owner).set(bytes, offset - start); events.get(owner).push({offset: offset - start, bytes: bytes.length});
+            }};
+        }
+        function batch(hello) {return P.encodeBatch(hello ? [{opcode: P.OP.HELLO, payload: P.encode("Hello", {guest_pointer_bits: 32, session_id_low: 0x1234})}] : [], {session_id_low: 0x1234});}
+        for (const owner of [17, 29]) {
+            await gpu.submit(batch(true), metadata(owner)); await gpu.idle();
+            const view = new DataView(memories.get(owner).buffer);
+            check(view.getUint32(4, true) === expected && view.getUint32(8, true) === 1 && view.getUint32(12, true) === 0x50414348, "actual enabled feature reply mismatch");
+            check(JSON.stringify(events.get(owner)) === JSON.stringify([{offset: 12, bytes: 4}, {offset: 4, bytes: 8}, {offset: 12, bytes: 4}, {offset: 0, bytes: 4}]), "owner-scoped data must publish before completion");
+            await gpu.submit(batch(false), metadata(owner)); await gpu.idle(); check(events.get(owner).length === 5, "cached capabilities must keep the original one-write heartbeat cost");
+        }
+        await gpu.submit(batch(false), metadata(17)); await gpu.idle();
+        check(events.get(17).length === 6 && events.get(29).length === 5, "interleaved owners or equal session IDs leaked capability cache");
+        check(C.D9WG_HOST_CAPS_OFFSET + P.STRUCTS.HostCapabilities.size === C.D9WG_RESPONSE_REGION_BYTES, "reply ABI exceeds reserved region");
+        check(!gpu.stats.responseWriteFailures && !gpu.stats.commandsFailed && !gpu.hostErrors.length && !gpu.gpuErrors.errors.length, "host/GPU response failure");
+        const evidence = {enabledFeatures: [...gpu.device.features].sort(), featureBits: expected, names, owners: [...events].map(([owner, writes]) => ({owner, writes, tail: Array.from(new Uint32Array(memories.get(owner).buffer))})), stats: gpu.stats, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors};
+        await fetch("/__test_file?name=d9wg-host-caps.json", {method: "POST", body: JSON.stringify(evidence, null, 2)});
+        result.textContent = "PASS actual WebGPU HELLO capabilities: flags=" + expected + "; enabled device features, colliding owner sessions, ordered publication and unchanged heartbeat cost";
+    } catch (error) {result.textContent = "FAIL " + (error.stack || error);}
+})();
+</script>

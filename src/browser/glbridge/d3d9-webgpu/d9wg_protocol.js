@@ -92,6 +92,15 @@
     { raw: [
         "",
     ] },
+    {"comment": ["/* HELLO replies use the remaining twelve bytes of the existing liveness", " * tail. The heartbeat counter is unchanged. Host magic is published last;", " * missing/old replies imply no optional host features, never all features. */"]},
+    {"define": "D9WG_HOST_CAPS_OFFSET", "c": "(D9WG_HEARTBEAT_OFFSET + 4u)", "text": ["#define D9WG_HOST_CAPS_OFFSET (D9WG_HEARTBEAT_OFFSET + 4u)"]},
+    {"define": "D9WG_HOST_CAPS_MAGIC", "c": "0x50414348u", "text": ["#define D9WG_HOST_CAPS_MAGIC 0x50414348u"]},
+    {"define": "D9WG_HOST_CAPS_VERSION", "c": "1u", "text": ["#define D9WG_HOST_CAPS_VERSION 1u"]},
+    {"define": "D9WG_HOST_FEATURE_FLOAT32_FILTERABLE", "c": "(1u << 0)", "text": ["#define D9WG_HOST_FEATURE_FLOAT32_FILTERABLE (1u << 0)"]},
+    {"define": "D9WG_HOST_FEATURE_FLOAT32_BLENDABLE", "c": "(1u << 1)", "text": ["#define D9WG_HOST_FEATURE_FLOAT32_BLENDABLE (1u << 1)"]},
+    {"define": "D9WG_HOST_FEATURE_TEXTURE_COMPRESSION_BC", "c": "(1u << 2)", "text": ["#define D9WG_HOST_FEATURE_TEXTURE_COMPRESSION_BC (1u << 2)"]},
+    {"define": "D9WG_HOST_FEATURE_TIMESTAMP_QUERY", "c": "(1u << 3)", "text": ["#define D9WG_HOST_FEATURE_TIMESTAMP_QUERY (1u << 3)"]},
+    {"define": "D9WG_HOST_FEATURE_MASK", "c": "0xFu", "text": ["#define D9WG_HOST_FEATURE_MASK 0xFu"]},
     { define: "D9WG_RESPONSE_PENDING", c: "0u", text: ["#define D9WG_RESPONSE_PENDING 0u"] },
     { define: "D9WG_RESPONSE_OK", c: "1u", text: ["#define D9WG_RESPONSE_OK 1u"] },
     { define: "D9WG_RESPONSE_FAILED", c: "2u", text: ["#define D9WG_RESPONSE_FAILED 2u"] },
@@ -395,6 +404,12 @@
     { raw: [
         "",
     ] },
+    { struct: "HostCapabilities", fields: [
+        ["uint32_t", "feature_bits"],
+        ["uint32_t", "version"],
+        ["volatile uint32_t", "magic"],
+    ] },
+    { raw: ["",] },
     { struct: "Hello", fields: [
         ["uint32_t", "guest_pointer_bits"],
         ["uint32_t", "feature_bits"],

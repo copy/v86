@@ -1166,6 +1166,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // the sessions submitted since the arena's owner last released it
             this.ownerSessions = new Set();
             this.ownerSessionScopes = new Map();
+            this.hostCapabilitiesByOwner = new Map();
             this.batchOwnerToken = 0;
             this.frame = null;             // { ops, transientBuffers, serial }
             this.frameSerial = 0;
@@ -1602,6 +1603,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
 
         async resetForReplay() {
             await this.checkpointIdle();
+            for (const reply of this.hostCapabilitiesByOwner.values()) delete reply.publishedBits;
             for (const key of this.sessionStates.keys()) {
                 this.switchSession(key);
                 this.releaseActiveSession("state-restore");
@@ -1930,7 +1932,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return this._handlers;
         }
 
-        onHello(bytes, view, offset) {
+        onHello(bytes, view, offset, length, metadata) {
             void view.getUint32(offset + D9WG.F.Hello.guest_pointer_bits, true); // guest_pointer_bits
             const featureBits = view.getUint32(offset + D9WG.F.Hello.feature_bits, true);
             const sessionLow = view.getUint32(offset + D9WG.F.Hello.session_id_low, true);
@@ -1954,6 +1956,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
             const session = this.sessionStates.get(sessionKey);
             if (session) session.featureBits = featureBits;
+            let reply = this.hostCapabilitiesByOwner.get(this.batchOwnerToken);
+            if (!reply) this.hostCapabilitiesByOwner.set(this.batchOwnerToken, reply = {});
+            this.publishHostCapabilities(reply, metadata);
             this.stats.guestFeatureBits = featureBits;
             // Record the active caps profile so diagnostics can distinguish a
             // fixed-function/SM2 run from a default SM3 run directly.
@@ -2021,6 +2026,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     "D9WG SESSION_END session does not match its batch");
             }
             const endedKey = this.sessionKey;
+            this.hostCapabilitiesByOwner.delete(this.batchOwnerToken);
             this.releaseActiveSession("session-end");
             this.sessionStates.delete(endedKey);
             // SESSION_END is required to be the final command from a process.
@@ -2038,6 +2044,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         }
 
         endOwnerSessions(ownerToken) {
+            if (ownerToken === undefined) this.hostCapabilitiesByOwner.clear();
+            else this.hostCapabilitiesByOwner.delete(ownerToken);
             const sessions = ownerToken === undefined ? this.ownerSessions : this.ownerSessionScopes.get(ownerToken);
             if (!sessions) return;
             const original = this.sessionKey;
@@ -2245,6 +2253,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         }
 
         recoverDevice() {
+
+            for (const reply of this.hostCapabilitiesByOwner.values()) delete reply.publishedBits;
             // Everything below was created by the lost device and cannot be
             // destroyed or reused; dropping the references is all that is
             // possible and all that is needed.
@@ -2401,7 +2411,44 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
          * batches behind from one that has died -- and it gave up on the first,
          * reporting a readback failure for a host that was working correctly.
          */
+        hostFeatureBits() {
+            // Advertised adapter features are not necessarily enabled on the
+            // acquired device. Only that actual device may grant optional caps.
+            const features = this.device && this.device.features;
+            const has = name => !!(features && typeof features.has === "function" && features.has(name));
+            return (has("float32-filterable") ? D9WG.C.D9WG_HOST_FEATURE_FLOAT32_FILTERABLE : 0) |
+                (has("float32-blendable") ? D9WG.C.D9WG_HOST_FEATURE_FLOAT32_BLENDABLE : 0) |
+                (has("texture-compression-bc") ? D9WG.C.D9WG_HOST_FEATURE_TEXTURE_COMPRESSION_BC : 0) |
+                (has("timestamp-query") ? D9WG.C.D9WG_HOST_FEATURE_TIMESTAMP_QUERY : 0);
+        }
+
+        publishHostCapabilities(reply, metadata) {
+            const writer = metadata && metadata.writeGuestMemory;
+            if (typeof writer !== "function") return false;
+            const bits = this.hostFeatureBits();
+            if (reply.publishedBits === bits) return true;
+            const out = D9WG.encode("HostCapabilities", { feature_bits: bits,
+                version: D9WG.C.D9WG_HOST_CAPS_VERSION, magic: D9WG.C.D9WG_HOST_CAPS_MAGIC });
+            const at = D9WG_RESPONSE_REGION_OFFSET + D9WG.C.D9WG_HOST_CAPS_OFFSET;
+            try {
+                // Invalidate any earlier publication, write data, then publish
+                // completion. These bytes never overlap queries or readbacks.
+                writer(at + D9WG.F.HostCapabilities.magic, new Uint8Array(4));
+                writer(at, out.subarray(0, D9WG.F.HostCapabilities.magic));
+                writer(at + D9WG.F.HostCapabilities.magic, out.subarray(D9WG.F.HostCapabilities.magic));
+                reply.publishedBits = bits;
+                return true;
+            } catch (error) {
+                delete reply.publishedBits;
+                ++this.stats.responseWriteFailures;
+                this.warnOnce("host-capabilities-write", "host capabilities could not be written to the guest", { message: String(error) });
+                return false;
+            }
+        }
+
         beat(metadata) {
+            const reply = this.hostCapabilitiesByOwner.get(this.batchOwnerToken);
+            if (reply) this.publishHostCapabilities(reply, metadata);
             const writer = metadata && metadata.writeGuestMemory;
             if (typeof writer !== "function") {
                 this.warnOnce("beat-no-writer",

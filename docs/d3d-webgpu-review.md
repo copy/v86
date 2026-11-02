@@ -1505,6 +1505,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - XP 实际 D3D8/9 对 34/48 种格式分别创建纹理、检查四级 mip 描述与 LockRect 步长，再只读锁定逐字节复查，共 82 张纹理、328 层、19,548 字节。捕获的真实 UPDATE_TEXTURE 逐字节一致；每层只上传一次，只读解锁没有额外上传。线协议检查器会拒绝错字节、错 pitch 和缺层；三 API T&L/录制回归通过。
 > - 156 组核心、144 组客体、36 个既有 SDK 冒烟 EXE 与两个新探针、六个严格零售/诊断 DLL、两项集成和完整 WebGPU 36 次运行通过，Metal 全部 349 场景通过。运行包 `d765137eda37adc53ad7` 已同步；发布的 D3D8/9 为格式探针原 DLL，DDraw 为 T&L 探针原 DLL。见 [stage4f1-validation.json](fixtures/d3d-review/stage4f1-validation.json)。继续运行时特性协商及查询谓词；未宣称 S2-32、D3D8 包装或阶段 4/5/6 已完成。
 
+
+> **阶段 4F2a（2026-11-03）：HELLO 的实际后端能力响应与共用读取器完成。**
+> - 在现有 16 字节心跳尾部剩余的 12 字节加入单一协议定义的 `HostCapabilities`，回报实际已启用设备的 float32 过滤/混合、BC 和 timestamp 位。命令布局、HELLO 长度、心跳计数及现有 DLL 兼容性不变；不能把 adapter 宣称但设备未启用的特性当成支持。
+> - 回报按 DMA owner 缓存，独立于可能被清理的无设备会话；相同 session id 的两个 owner 各自收到响应。只在首次/能力变化时先清完成标记、写数据、最后发布完成；稳定情况下仍只写原先的心跳 DWORD。传输中断清缓存并重试，部分写入后特性恢复旧值也必须重新发布。owner 释放清理，重放/设备恢复使回报失效并更新。
+> - 共用 SDK 无关的 C 读取器验证 magic/版本、屏蔽未知位；缺失、旧版和错误响应不写调用者输出，不授予可选特性。16 种设备特性组合、完整响应顺序/生命周期、C ABI 和保守解码通过；8/8 C/JS 语义变异及 ASan/UBSan 通过。
+> - SwiftShader 与 Metal 从实际设备特性独立计算位图，均收到 `15`，两个 owner、重复空批次和交错写入均通过。158 组核心、144 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL 构建、两项集成和加入新页面后的 WebGPU 37 次运行通过，Metal 349 个像素场景通过。运行包 `24ce510eae7000c6d0e3` 已同步，已发布客体 DLL 保持 4F1 已测字节。见 [stage4f2a-validation.json](fixtures/d3d-review/stage4f2a-validation.json)。此步完成协商响应/读取基础；接着接入 CheckDeviceFormat 查询谓词，尚未宣称 S2-32 或后续阶段完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

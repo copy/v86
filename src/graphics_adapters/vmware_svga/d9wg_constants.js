@@ -199,6 +199,11 @@ export const FIELD_LAYOUT = {
         ["sequence",8,"uint32_t",1],
         ["reserved",12,"uint32_t",1],
     ] },
+    "HostCapabilities": { bytes: 12, fields: [
+        ["feature_bits",0,"uint32_t",1],
+        ["version",4,"uint32_t",1],
+        ["magic",8,"uint32_t",1],
+    ] },
     "Hello": { bytes: 16, fields: [
         ["guest_pointer_bits",0,"uint32_t",1],
         ["feature_bits",4,"uint32_t",1],

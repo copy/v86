@@ -1,0 +1,759 @@
+{
+  "stage": "4F2a host runtime feature HELLO reply and conservative shared reader",
+  "date": "2026-11-03",
+  "bundle": "24ce510eae7000c6d0e3",
+  "coreSuites": 158,
+  "guestSuites": 144,
+  "webgpuRuns": 37,
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "smokeExecutables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "8c647c6a0a504c51a6c479b93ff0dbad27578804f0211c74ad893dc91214e5fc"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "a0cf7c511d957b42b1ff8f46ba6618787ad4206d7b94e57daa1681071b5af8e6"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "a5a49fe2d2f161aa4bb2859f03fd719d32bce8a11fc829a1412c153d424d4c1a"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "2f1167826444c1147913a9c7a2e6124ee3c26dc14d04ebb1b6abef7b922eb841"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "0e2d5a0fb3333e9898771aa78637979355f8dac6d310ed26a59cd803af02b63f"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "a8779510f97229663c4a124e955f3df1766cd56c2c39ac7ee7efe50a1ef42eda"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "55cf714e5966861cc25c25c40884c746f4fdc8c56842fc7ebb7593e304ff14aa"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "6165dba1b8a25df3a42055062a289eba5f9fdb2644920ba4d7b505475a099d03"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "73d88b7a64dba41e807989680b16562b50164be643e415ed4aa2aea32859969c"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "5d59a3892471460f758c21faedb115c9232775b6f097345ebff371f8f560739b"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "2a9b5c41a24d1d9ec2a800d4026d5079c4d48774439909e3402703952521e681"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "54d55570c169ff43e3c4b27418d2e53e40a619b8ceda27c54a868f42e3efe111"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "85e0995a0b2c3289054868957615a45af8625f25ef7de67ce3ab53aa40b12d81"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "de485d619e13441f6f0b541d04d018427ab89ae9104906b5d22b49378c8c3fde"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "08591f94add5cd67df9ad62ed129d861aae2dc891068d35ab9ada14b2dabfb12"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "d28d52a2e38950a9e9e2495816fd77144ecdfbe61b94ef0e2e60228e88f5acd2"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "2fe6a4100f4b31c2a456db4828a0d34bef6d3c37fa3a5789df2bd9970b2f4b55"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "4cfefc59ef56eb90d428ffb101587f16e4bab058e6bb138fdbaea6cbceb50813"
+        }
+      ],
+      "retailSha256": "c3eb968c861a7ffe7b0d413890aa86004a0ebc155b8a3df417dfd7eccd2c2d07",
+      "diagnosticSha256": "656d2e674660986503eedc67a33751dad0c744ba9bbdb0b7d77a842fe365d674"
+    },
+    "d3d9": {
+      "smokeExecutables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "a8817f43a991cdbec2a620c25c196ddf1adc2e3b99b8ed8132330d06417edb6c"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "2b2b1febe9324987a2756f4bf5cb108a88ac8562b9a1bf706edcbbefa73a1f92"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "4dcde2bac8731ed3d7ac90f07eb6c8db38dc18fd3cc156690edce60563dd51bb"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "3496bc41ab82cc5a15491e3d2907aac3d079b6a69c611d044a6165fb66d8d573"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "89dbd24b1d6785103c6ef74c8f8a5c51e1f42deef41d122cc5bd4ab0c32b797c"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "30d0665d41847beff3132890b951339f3fa2c6df3b1cfabc99ca2b5b0157cc2c"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "4cba697b9bf25c5483d695ec4444bb44b03658b678d0b79d5762d6c7c21ea9bc"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "207367f17dc2ec03d0a012238ca09c91e16cd47d3f845e4a7b9b88e8a3cd4709"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "754338d5d03928e038e1577f1c45adb5151f7e42c1e27dbd1c5b7b4b3c90755d"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "56fb536f4c454f82288ddfcb2f51bbfea97a0fe34e589a50caec5a46ea21bd59"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "ded4e9cf41e07eb0e8c4e4672bf0732eda171100c27014cc7e489efd8f6fef7a"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "1a0a026c47efb4ac58fa0743493bc5ea592d6b62136e97feb8293c3d6198172e"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "e90f99ee64e1dc32719925da598d930d7607b3e9c147ab1cca1e4cfb4831e1db"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "56723dbda734e703db887c0184e3eed7d78c91e83ced9de6f033c7a29d680b79"
+        }
+      ],
+      "retailSha256": "018a7fa4fe6b4741cb7df2f63c663eb9baa86c33a6764464fb01951fb5431829",
+      "diagnosticSha256": "fc8421278461444abe0f041a3d7843ec273813f61aa442a4eb37191c8c4b82ad"
+    },
+    "ddraw": {
+      "smokeExecutables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "8ba3b75412f5b1ca552343ed9dadc89488948b8d1599d638833f61eb6903f718"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "583a6e569ba1dd0c767df2fade6771991926d1bc108f8c9c7e109c6cdc914a51"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "08a4fc7f82c2210a1149522aed9a630f9242e4697fbcebb33c804060986e3b7b"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "559929751d854a7f70299ab7cb228c89f522b49cd1cd8a2931f1759f7ef8d527"
+        }
+      ],
+      "retailSha256": "24d92a97d2f4c8a6fc2d45897498de435c2a2b4dd66cbc92c9d19d808b811ab8",
+      "diagnosticSha256": "1237450e6dfc7c18ad05d2d88277a7e017eaf9c2c153cb2e3e9493c149a444a4"
+    }
+  },
+  "unchangedGuest": {
+    "reference": "stage4f1-validation.json",
+    "referenceSha256": "fc42ca7705ad0e662e928db9e8ea3540cff0c1ae72cc34d2e9a4a8877a7a7f6c",
+    "coreCommit": "6d2e5a0b",
+    "siteCommit": "384ef6c",
+    "shippedDlls": {
+      "glbridge/d3d8proxy/d3d8.dll": "4fb87b06e577fcc14616df4d1b16ee1263528bdc62f2c06837a761521e8dbcef",
+      "glbridge/d3d8proxy/d3d8-diagnostic.dll": "2aa867d117ee978ee23657ff0d04fcb7087d5bb770578caef10625d44ea76fe5",
+      "glbridge/d3d9proxy/d3d9.dll": "ec07f58f0135af75dc530a8fedf4de63694a57fab130a69ac5e13b55575de4be",
+      "glbridge/d3d9proxy/d3d9-diagnostic.dll": "49234f45f60d79e237518e12e7d3c519d6ca357ed30021bee03fc8fedf4a2471",
+      "glbridge/ddrawproxy/ddraw.dll": "4fc56dc12914589db4de15850c2191708b22bbb2817acbc88f01dca37f52af33",
+      "glbridge/ddrawproxy/ddraw-diagnostic.dll": "72dc8017913ce753f58b9e6d825e45652e5e82b00cd9735b049cbf47f3a28ee8"
+    }
+  },
+  "adapters": {
+    "swift": {
+      "enabledFeatures": [
+        "bgra8unorm-storage",
+        "clip-distances",
+        "core-features-and-limits",
+        "depth-clip-control",
+        "depth32float-stencil8",
+        "float32-blendable",
+        "float32-filterable",
+        "indirect-first-instance",
+        "rg11b10ufloat-renderable",
+        "texture-component-swizzle",
+        "texture-compression-astc",
+        "texture-compression-bc",
+        "texture-compression-bc-sliced-3d",
+        "texture-compression-etc2",
+        "timestamp-query"
+      ],
+      "featureBits": 15,
+      "names": [
+        "float32-filterable",
+        "float32-blendable",
+        "texture-compression-bc",
+        "timestamp-query"
+      ],
+      "owners": [
+        {
+          "owner": 17,
+          "writes": [
+            {
+              "offset": 12,
+              "bytes": 4
+            },
+            {
+              "offset": 4,
+              "bytes": 8
+            },
+            {
+              "offset": 12,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            }
+          ],
+          "tail": [
+            5,
+            15,
+            1,
+            1346454344
+          ]
+        },
+        {
+          "owner": 29,
+          "writes": [
+            {
+              "offset": 12,
+              "bytes": 4
+            },
+            {
+              "offset": 4,
+              "bytes": 8
+            },
+            {
+              "offset": 12,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            }
+          ],
+          "tail": [
+            4,
+            15,
+            1,
+            1346454344
+          ]
+        }
+      ],
+      "stats": {
+        "batches": 5,
+        "commands": 2,
+        "presents": 0,
+        "queueSubmits": 0,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 0,
+        "uniformRingChunksUsed": 0,
+        "backBufferAllocations": 0,
+        "backBufferPresents": 0,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 0,
+        "readbackRequests": 0,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 0,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 0,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 2,
+        "sessionsEnded": 0,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 0,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 0,
+        "renderPasses": 0,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 0,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 0,
+        "renderTargetReadbackBytes": 0,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "2559db8bbcaec4cad7fb5b7f9a7ef0fa4380bfc7cd8119313f2b6f91cd82e176"
+    },
+    "metal": {
+      "enabledFeatures": [
+        "bgra8unorm-storage",
+        "clip-distances",
+        "core-features-and-limits",
+        "depth-clip-control",
+        "depth32float-stencil8",
+        "dual-source-blending",
+        "float32-blendable",
+        "float32-filterable",
+        "indirect-first-instance",
+        "rg11b10ufloat-renderable",
+        "texture-component-swizzle",
+        "texture-compression-astc",
+        "texture-compression-bc",
+        "texture-compression-bc-sliced-3d",
+        "texture-compression-etc2",
+        "timestamp-query"
+      ],
+      "featureBits": 15,
+      "names": [
+        "float32-filterable",
+        "float32-blendable",
+        "texture-compression-bc",
+        "timestamp-query"
+      ],
+      "owners": [
+        {
+          "owner": 17,
+          "writes": [
+            {
+              "offset": 12,
+              "bytes": 4
+            },
+            {
+              "offset": 4,
+              "bytes": 8
+            },
+            {
+              "offset": 12,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            }
+          ],
+          "tail": [
+            5,
+            15,
+            1,
+            1346454344
+          ]
+        },
+        {
+          "owner": 29,
+          "writes": [
+            {
+              "offset": 12,
+              "bytes": 4
+            },
+            {
+              "offset": 4,
+              "bytes": 8
+            },
+            {
+              "offset": 12,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            },
+            {
+              "offset": 0,
+              "bytes": 4
+            }
+          ],
+          "tail": [
+            4,
+            15,
+            1,
+            1346454344
+          ]
+        }
+      ],
+      "stats": {
+        "batches": 5,
+        "commands": 2,
+        "presents": 0,
+        "queueSubmits": 0,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 0,
+        "uniformRingChunksUsed": 0,
+        "backBufferAllocations": 0,
+        "backBufferPresents": 0,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 0,
+        "readbackRequests": 0,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 0,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 0,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 2,
+        "sessionsEnded": 0,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 0,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 0,
+        "renderPasses": 0,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 0,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 0,
+        "renderTargetReadbackBytes": 0,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "6d8c23d5bfe445c2a244d4009f8eb0f0889c8607b0475638fe7862a7b0f5bf90"
+    }
+  },
+  "portable": {
+    "enabledFeatureCombinations": 16,
+    "mutations": {
+      "killed": 8,
+      "total": 8
+    },
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "pixel": {
+    "metalStatus": "PASS",
+    "cases": 349,
+    "logSha256": "beb25fee04f6a4b1a49d63e59a71e9cc8322670297e54b2a8dba7cb594b57a0b"
+  },
+  "scope": "The existing reserved heartbeat tail now carries a versioned HELLO response from the actually enabled GPUDevice features, with owner-scoped caching, ordered publication, retry after partial writes and retirement/replay/recovery invalidation. Old batch/HELLO/heartbeat layouts remain compatible; stable batches keep one heartbeat write. A shared C reader rejects missing/invalid/future replies and masks unknown bits. Real SwiftShader/Metal capability responses pass, while all 16 feature combinations and failure ordering are tested with fake devices and native C. Existing shipped DLLs remain the XP-tested stage4F1 bytes; strict rebuilds validate new protocol declarations. Public CheckDeviceFormat predicate integration, S2-32 and later stages are not yet complete.",
+  "coreSha256": {
+    "Makefile": "f34e747c08c346a85af44f02a0bcb8ec6afd7ce2baf4f86ab814eeba782ec2bc",
+    "docs/d3d-webgpu-review.md": "3f167064827df3178dd4f62ed9faaf6c692fd783f9c5145e3cacab10799f33a6",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "e87b3b16b8bed3b8cc119a852e2f14d60facd718224c85ff0e9e5eb9ac44c54d",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "085073b7f444c61474e8d1e9e33960cf93c2766b09110af70d88b7a43ec156b6",
+    "src/graphics_adapters/vmware_svga/d9wg_constants.js": "15367773aee045276596d5e04b8c20539a42b221ac885fe13f115e322eb6a424",
+    "tests/glbridge/d9wg_host_caps_test.js": "9f81f8a1ed33df76dcd4b916084b04f91c949d659e55f218ea30ff6a99efcce9",
+    "tests/glbridge/d9wg_host_caps_mutation_test.js": "9d396b7eeff919c814d62c1f76fb8f8f0ecd3c16da3ed0bce4b14a19c4af8f4a",
+    "tests/glbridge/d9wg_host_caps_browser_test.html": "473e2c12ef4012dca572dca011b8719227b4dc3c6489b5051e9257280700e65d"
+  },
+  "siteSha256": {
+    "game.html": "582c257a31c187e28fd429294748815287971727ffe34b726345221146746122",
+    "glbridge/d3d9proxy/d3d9_protocol.h": "fad4355c492fdbf369db0ea3c4bf83e2b8900603cccd2470d3f3d1be7634048f",
+    "glbridge/runtime/d9wg_host_caps.h": "2574cba1d1ddad434f8b56900c64aac597e8063f784ecc067591dbc77fbf5a60",
+    "vendor/v86/glbridge/d3d9_shader_pipeline.js": "895ad2f1ebe57190b6f52547c2ff039c8219e3ba9c59b39076aceea782756245",
+    "vendor/v86/glbridge/d3d9_shader_worker.js": "5794e8910f434ef5cd611b81038a3c6bdc9f90421f80a2fe3e2997f9c907bbb4",
+    "vendor/v86/glbridge/d9wg_diagnostics.js": "c80926b4b36094e0f3c3f41dde13cdb25b0a8e2502eeef5276bf5a6e41ff7ffa",
+    "vendor/v86/glbridge/graphics_journal_worker.js": "ac6dc2aefb190d45053e6f2d8126bb14fe7eaa0818b9c6a547b959ecbcb5a478",
+    "vendor/v86/glbridge/libv86-webgpu.js": "83a0ad21c4d3422ac373a6285ddc4c9cb8b77dfc0b3d888381125a9b7416a68a",
+    "vendor/v86/glbridge/manifest.json": "7e39974f917d9fba306417fe10ec9babefea26a4b5a966ee04ff35eaf359e9aa",
+    "vendor/v86/glbridge/v86gl-device.js": "58752b7c6b8516525f4989ca78b09711b8ebe7392c18f36f95fbaad28922e976"
+  },
+  "logSha256": {
+    "core": "6ab8d6ba97951e725e656f43b2eddcaa6b0c4b68cb65d81b0b3ad422465c6100",
+    "guest": "64b4cba2b503c88326b14e947ff220032aa9804c7cac244a75f6ec9847f840b1",
+    "gpu": "46be8a1a32c47adc2bdf93844635e3c4ccb46654eb0ed1dafe5ca9b0a7279df7",
+    "protocol": "442736e4ea52a0231febba474c51963969b1e4b7849a5d847773bb7f9ee9f5df",
+    "executor": "110907349622188eecd2c7993b619f8138b2983b66c43c34135ab82ce684e4d2",
+    "unit": "80de783dbe175db710d70afe2a4b5fd7bc0c237c9a4c7bc96313b47f640fa59d",
+    "mutations": "55299644ae62c3c7aa38e6432ea8c55d67cc223b7a819066e3c28b5047a23c74",
+    "sanitize": "80de783dbe175db710d70afe2a4b5fd7bc0c237c9a4c7bc96313b47f640fa59d",
+    "caps-swift": "bcdbcd6146f64e6b39cf3bd8b2161d328defba823aa6ee3a66b1504c6a535b49",
+    "caps-metal": "bcdbcd6146f64e6b39cf3bd8b2161d328defba823aa6ee3a66b1504c6a535b49",
+    "full-metal": "beb25fee04f6a4b1a49d63e59a71e9cc8322670297e54b2a8dba7cb594b57a0b",
+    "integration": "39ab95c5628600e5d37e78e9f4fd7220c0360e280c36214adc5e5f4860dcecba",
+    "bundle": "6a7c2f183d3238b20bbcc2e07fc30c81df6317c6a180b86d5a0212d39497182f",
+    "sync": "ceacf4cb16d262ba4ab7186b836b2f2e0787e99d5c3f6a6b2cb58afbb20c99f8"
+  }
+}
