@@ -1439,6 +1439,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 145 组核心、140 组客体、D3D8 十七个 SDK 冒烟 EXE 与严格零售/诊断 DLL 通过；发布本次 XP 所测 D3D8 DLL。宿主运行包不变，35 次 WebGPU、Tween 的 SwiftShader/Metal 和两项站点集成沿用 4D2k2。见 [stage4d2k3a-validation.json](fixtures/d3d-review/stage4d2k3a-validation.json)。
 > - 当前补齐创建/绑定/查询/保活边界；接着把 D3D8 声明输入接到共用多流 CPU 处理与 ClipStatus/Tween。其 TWEENING caps 仍未宣称；不以代理 COM 检查替代原生 Microsoft D3D8 验收。
 
+> **阶段 4D2k3b（2026-11-03）：D3D8 声明式多流 CPU 处理与 Tween 接入完成。**
+>
+> - D3D8 的固定管线声明和 FVF 转成共用流描述，引用创建时缓存的元素；可从任意声明流读取主位置，不再要求流 0 绑定。复用共用布局/范围/收集/处理函数，支持多流和零步长；已删除但被状态块保活的声明从绑定引用读取，实际程序 shader 继续拒绝 CPU 固定管线替代。
+> - 逐个使用的流检查设备归属、锁定和完整属性范围；常量流不计算 `start*stride`，可处理 UINT_MAX 索引。所有与输出相同的输入流共用一份调用前快照；任一布局/范围/分配失败均清理临时内存并保持输出数据。已有单流 FVF 路径继续使用连续输入。
+> - 实际 C 入口适配检查 FVF/保活声明、主流 15、常量流、UINT_MAX、所有权/锁/短范围、多个别名共用快照和每层分配失败；8/8 输入语义变异及 ASan/UBSan 通过。共用 Tween 数学仍由 4D2k1 的独立公式和 4D2k2 的真实 GPU 像素覆盖。
+> - XP 三 API 回归通过；D3D8 新增实际声明式 ProcessVertices，用流 15 保存主位置/法线、流 1 保存常量第二通道，且流 0 未绑定。精确验证 Tween 位置/颜色/雾/坐标、归一化、独立第二通道、延迟因子录制、用户平面 ClipStatus、输出别名和失败原子性。原始流核对新增七个固定声明及其精确流/语义布局；六 VS/六 PS 不变，十三个声明全部释放。
+> - 145 组核心、142 组客体、D3D8 十七个 SDK 冒烟 EXE与严格零售/诊断 DLL 通过；发布最终 XP 所测 D3D8 DLL。宿主包保持 `dffb0322a62fa650c089`，GPU/Metal/站点集成沿用 4D2k2。见 [stage4d2k3b-validation.json](fixtures/d3d-review/stage4d2k3b-validation.json)。
+> - 下一步完成 D3D8 普通声明绘制的范围/ClipStatus 与客体像素回放，再开启其 Tween caps；本步仍未宣称该能力或原生 Microsoft D3D8/Wine/游戏验收完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
