@@ -1,0 +1,22 @@
+{
+  "description": "Independent procedural palette colors from the public COM probe; P8 alpha comes from the selected palette, A8P8 alpha is always the per-texel byte 64.",
+  "sources": ["https://learn.microsoft.com/en-us/windows/win32/direct3d9/texture-palettes", "https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-all-device-states-with-a-stateblock"],
+  "width": 64,
+  "height": 64,
+  "tolerance": 0,
+  "paletteBGRA": {"white": [255,255,255,255], "A": [149,83,17,201], "B": [101,47,211,99], "C": [23,179,61,151]},
+  "frames": [
+    {"name": "implicit palette zero", "palette": "white"},
+    {"name": "update zero without selecting", "palette": "A"},
+    {"name": "select uninitialized high ID", "palette": "white"},
+    {"name": "select palette 65535", "palette": "B"},
+    {"name": "mutate after ALL capture", "palette": "A"},
+    {"name": "ALL restores selector", "palette": "B"},
+    {"name": "End preserves live selector", "palette": "B"},
+    {"name": "recorded Apply restores zero", "palette": "A"},
+    {"name": "ALL still restores high selector", "palette": "B"},
+    {"name": "recorded Apply uses new resource contents", "palette": "C"},
+    {"name": "PIXEL and VERTEX exclude selector", "palette": "B"},
+    {"name": "Capture refreshes recorded selector", "palette": "B"}
+  ]
+}

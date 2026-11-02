@@ -2133,6 +2133,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.configureBackBufferMSAA(state, width, height,
                 multisampleType, multisampleQuality);
             this.ensureDepthTarget(state, width, height, enableAutoDepth !== 0);
+            // Surviving P8 indices must follow the reset selector as well.
+            this.repaintPalettizedTextures(newHandle);
             this.notifySurface(state, "reset");
         }
 

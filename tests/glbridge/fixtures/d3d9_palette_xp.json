@@ -1,0 +1,65 @@
+{
+  "description": "Actual XP D3D9 procedural palette COM capture; all variable blobs checked against explicit texture, palette and vertex bytes; diagnostics/cursors zeroed.",
+  "frames": 12,
+  "counts": {
+    "HELLO": 1,
+    "GUEST_LOG": 1,
+    "CREATE_DEVICE": 1,
+    "WINDOW_STATE": 1,
+    "CREATE_TEXTURE_2D": 3,
+    "SET_RENDER_TARGET": 1,
+    "SET_SCISSOR_RECT": 5,
+    "SET_VIEWPORT": 5,
+    "SET_FVF": 6,
+    "SET_RENDER_STATE": 3,
+    "SET_TEXTURE_STAGE_STATE": 1,
+    "UPDATE_TEXTURE": 2,
+    "CLEAR": 12,
+    "BEGIN_SCENE": 12,
+    "SET_TEXTURE": 25,
+    "DRAW_PRIMITIVE_UP": 24,
+    "END_SCENE": 12,
+    "SET_CURSOR_PROPERTIES": 1,
+    "SHOW_CURSOR": 1,
+    "SET_CURSOR_POSITION": 12,
+    "PRESENT": 12,
+    "SET_PALETTE": 5,
+    "SET_CURRENT_TEXTURE_PALETTE": 10,
+    "SET_TRANSFORM": 1064,
+    "SET_MATERIAL": 4,
+    "SET_CLIP_PLANE": 24,
+    "SET_VERTEX_SHADER": 5,
+    "SET_PIXEL_SHADER": 5,
+    "DESTROY_RESOURCE": 4,
+    "SESSION_END": 1
+  },
+  "traceBytes": 113384,
+  "traceSha256": "848521e2d54ea07427e91def7ecce5e9396b5a063e8959f2cd0002517c1c0459",
+  "sourceCaptureSha256": "e9082c223abc6728e6f0c05d5da61cec09bf0813c6f00ad71e55ccda715b8c97",
+  "removedPayloads": [
+    {
+      "command": "GUEST_LOG",
+      "bytes": 91
+    },
+    {
+      "command": "SET_CURSOR_PROPERTIES",
+      "bytes": 4096
+    }
+  ],
+  "captureBuild": {
+    "api": 9,
+    "source": "glbridge/sample/d3d_palette_test.c",
+    "sourceSha256": "3b2604c98fd82ff7fed62f934b2dec3a480c286b3b67210d81762670ef6a1d4c",
+    "proxySourceSha256": "67bacfbb2a8bbb4b2d672a86f49d8c6e1702a7989baf9b5ea8fc3c91ea7310d9",
+    "paletteHeaderSha256": "9cdb3fa99ece7364ee3e37c053e90a873f0e22d0aea2d59dfde719e51c5a88b5",
+    "dllSha256": "a8cc1266663a04cb57fb9ed7f21f0d8fd691a26628bafe331317a08495474255",
+    "executableSha256": "553c1e206d9689e4ca6e22936c54dceada200f03b919eb49ce33f3e03b01abad",
+    "sha256": "e9082c223abc6728e6f0c05d5da61cec09bf0813c6f00ad71e55ccda715b8c97",
+    "bytes": 113384,
+    "frames": 12,
+    "owners": [
+      1
+    ]
+  },
+  "reference": "d3d_palette_reference.json"
+}

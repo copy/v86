@@ -1337,6 +1337,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 143 组核心、122 组客体、35 个标准冒烟 EXE 和六个严格构建 DLL 通过；已更新 app-local D3D8/9 零售/诊断 DLL。宿主 JS、运行包 `7beb9d03738199295430` 与既有数值内核未改变，GPU/三精度数学和站点集成沿用 4D2i3e，未声明新的像素、FPS 或完整原生/Wine/游戏验收。见 [stage4d2j2c-validation.json](fixtures/d3d-review/stage4d2j2c-validation.json)。
 > - 依据：[Wine D3D8 测试](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/stateblock.c)、[Wine D3D9 测试](https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/stateblock.c)、[ALL 范围](https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-all-device-states-with-a-stateblock)、[顶点范围](https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-vertex-states-with-a-stateblock)。继续调色板、着色器生命周期、D3D9 录制查询隔离、D3D7 稀疏灯光与其余共用运行时。
 
+> **阶段 4D2j2d（2026-11-02）：共用稀疏调色板、状态块选择及实际 P8/A8P8 图像完成。**
+>
+> - D3D8/9 共用两级稀疏存储和 SDK RGBA/线格式 ARGB 转换；编号范围统一为 0..65535，未设置条目隐式为 `0xffffffff`，选择未设置的合法编号也成功。替换原先 D3D8 的 256、D3D9 的 16 份限制，无需为高编号分配中间调色板。新增页面/条目分配失败不发布半成品，实际销毁时释放全部内容。
+> - ALL 与显式录制保存当前选择，PIXEL/VERTEX 不保存；调色板颜色内容不随状态块回滚。两 API 的选择录制均延迟生效，期间 Get 查询保持原值，重复和同值调用也保留录制掩码；Capture 只刷新已有掩码。D3D9 其余状态仍采用旧录制路径，本项不代表完整查询隔离已完成。
+> - 宿主初始选择统一为 0，修复先上传 P8、后更新默认调色板时未重新着色的问题；Reset 迁移资源和颜色内容后，重新按默认选择展开已有 P8。严格假 GPU 检查默认更新、高编号切换、Reset 重新展开及迁移后再次选择；原生 D3D8/9 Reset 细节仍待独立验收。
+> - 两份实际前端 C 的 palette Set/Get/录制函数在宿主直接编译，逐个覆盖 65,536 个编号、SDK 字节/alpha、隐式白色、无效调用输出原子性、两级 OOM、替换复用及完整释放。8/8 语义变异与 ASan/UBSan 通过。XP app-local D3D8、D3D9 COM 检查分别 96/110 秒通过；每个 API 捕获 12 帧、24 次绘制，验证 ALL/显式/Capture/两类排除、录制期间查询及资源内容更新。
+> - 冻结捕获只保留逐字节校验的程序化索引、颜色表和四边形；日志/鼠标数据清零。独立期望检查 P8 的调色板 alpha 和 A8P8 的逐像素 alpha。SwiftShader 与 Metal 各检查 24 帧、48 组、80,640 个内部像素，最大字节误差均为 0；3/3 宿主像素语义变异被拦截，原文件逐字节还原。
+> - 144 组核心、124 组客体、34 项 WebGPU、35 个标准冒烟 EXE/六个严格 DLL、三 API XP T&L 及 D3D8 六帧零提前命令/精确常量载荷、两项站点集成通过。发布 DLL 与冻结图像捕获中的二进制一致；D3D7 发布 DLL 沿用 4D2j1。运行包更新为 `c3bba1907e73f97e09c3`。见 [stage4d2j2d-validation.json](fixtures/d3d-review/stage4d2j2d-validation.json)。
+> - 依据：[D3D9 调色板范围/默认值](https://learn.microsoft.com/en-us/windows/win32/direct3d9/texture-palettes)、[ALL 保存范围](https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-all-device-states-with-a-stateblock)。D3D8 共用行为是代理兼容契约，未冒充原生 D3D8 新测量；完整原生/Wine/游戏/FPS 验收、D3D8 着色器句柄生命周期、D3D9 其余录制隔离、D3D7 稀疏灯光和后续共用运行时继续推进。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

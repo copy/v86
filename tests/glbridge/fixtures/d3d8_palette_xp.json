@@ -1,0 +1,49 @@
+{
+  "description": "Actual XP D3D8 procedural palette COM capture; all variable blobs checked against explicit texture, palette and vertex bytes; diagnostics/cursors zeroed.",
+  "frames": 12,
+  "counts": {
+    "HELLO": 1,
+    "CREATE_DEVICE": 1,
+    "CREATE_TEXTURE_2D": 3,
+    "SET_RENDER_TARGET": 1,
+    "SET_DEPTH_STENCIL_SURFACE_LEVEL": 1,
+    "SET_VERTEX_SHADER": 1,
+    "SET_FVF": 1,
+    "SET_RENDER_STATE": 3,
+    "SET_TEXTURE_STAGE_STATE": 1,
+    "UPDATE_TEXTURE": 2,
+    "CLEAR": 12,
+    "BEGIN_SCENE": 12,
+    "SET_TEXTURE": 25,
+    "DRAW_PRIMITIVE_UP": 24,
+    "END_SCENE": 12,
+    "PRESENT": 12,
+    "SET_PALETTE": 5,
+    "SET_CURRENT_TEXTURE_PALETTE": 10,
+    "SET_VERTEX_SHADER_CONSTANT_F": 288,
+    "SET_PIXEL_SHADER_CONSTANT_F": 24,
+    "SET_CLIP_PLANE": 12,
+    "DESTROY_RESOURCE": 4,
+    "SESSION_END": 1
+  },
+  "traceBytes": 28312,
+  "traceSha256": "aafa251225dddadc639a993192dc5e3b802bb04099648b210c8c2e3b38ca8a54",
+  "sourceCaptureSha256": "aafa251225dddadc639a993192dc5e3b802bb04099648b210c8c2e3b38ca8a54",
+  "removedPayloads": [],
+  "captureBuild": {
+    "api": 8,
+    "source": "glbridge/sample/d3d_palette_test.c",
+    "sourceSha256": "3b2604c98fd82ff7fed62f934b2dec3a480c286b3b67210d81762670ef6a1d4c",
+    "proxySourceSha256": "2a7327a321b17d4daf836dd24de253551d531092c3c096e051a1ef6d77d1333d",
+    "paletteHeaderSha256": "9cdb3fa99ece7364ee3e37c053e90a873f0e22d0aea2d59dfde719e51c5a88b5",
+    "dllSha256": "48147113c2fce4c0f0f6db3fb229a3ff3858711a7dd712236eb3e293dd7d9da1",
+    "executableSha256": "c95a3a825e975b2f23809409dce46d24122f2fd3685a8364373fbb9077be5aa5",
+    "sha256": "aafa251225dddadc639a993192dc5e3b802bb04099648b210c8c2e3b38ca8a54",
+    "bytes": 28312,
+    "frames": 12,
+    "owners": [
+      1
+    ]
+  },
+  "reference": "d3d_palette_reference.json"
+}

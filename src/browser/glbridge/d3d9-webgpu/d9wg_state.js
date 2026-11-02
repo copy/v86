@@ -91,7 +91,7 @@
             renderTargetFaces: [0, 0, 0, 0],
             // D3DFMT_P8/A8P8 sample through this palette; null until
             // SetCurrentTexturePalette names one.
-            currentPalette: null,
+            currentPalette: 0,
             // 0 = the device's auto depth-stencil; depthUnbound is
             // SetDepthStencilSurface(NULL), which is not the same thing --
             // it turns depth testing off for the draws that follow.

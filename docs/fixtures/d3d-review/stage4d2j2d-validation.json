@@ -1,0 +1,2188 @@
+{
+  "stage": "4D2j2d common sparse palettes and state-block selection",
+  "date": "2026-11-02",
+  "bundle": "c3bba1907e73f97e09c3",
+  "coreSuites": 144,
+  "guestSuites": 124,
+  "webgpuRuns": 34,
+  "siteIntegrationTests": 2,
+  "crossCompiledStandardSmokeExecutables": 35,
+  "retailAndDiagnosticDLLs": 6,
+  "cMutations": 8,
+  "gpuMutations": [
+    {
+      "label": "default palette zero not selected",
+      "killed": true
+    },
+    {
+      "label": "selection fails to repaint indices",
+      "killed": true
+    },
+    {
+      "label": "A8P8 uses palette alpha",
+      "killed": true
+    }
+  ],
+  "sanitizers": [
+    "AddressSanitizer",
+    "UndefinedBehaviorSanitizer"
+  ],
+  "palettesPerAPI": 65536,
+  "paletteXP": [
+    {
+      "api": 8,
+      "status": "PASS",
+      "seconds": 96,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "diskWrites": "RAM sector overlay only",
+      "log": {
+        "PALETTE.TXT": "PASS D3D8/9 palette COM: defaults, 65536 IDs, selection-only state blocks, deferred recording, resource contents, alpha and 12 procedural frames\r\n"
+      },
+      "capture": {
+        "api": 8,
+        "source": "glbridge/sample/d3d_palette_test.c",
+        "sourceSha256": "3b2604c98fd82ff7fed62f934b2dec3a480c286b3b67210d81762670ef6a1d4c",
+        "proxySourceSha256": "2a7327a321b17d4daf836dd24de253551d531092c3c096e051a1ef6d77d1333d",
+        "paletteHeaderSha256": "9cdb3fa99ece7364ee3e37c053e90a873f0e22d0aea2d59dfde719e51c5a88b5",
+        "dllSha256": "48147113c2fce4c0f0f6db3fb229a3ff3858711a7dd712236eb3e293dd7d9da1",
+        "executableSha256": "c95a3a825e975b2f23809409dce46d24122f2fd3685a8364373fbb9077be5aa5",
+        "sha256": "aafa251225dddadc639a993192dc5e3b802bb04099648b210c8c2e3b38ca8a54",
+        "bytes": 28312,
+        "frames": 12,
+        "owners": [
+          1
+        ]
+      }
+    },
+    {
+      "api": 9,
+      "status": "PASS",
+      "seconds": 110,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "diskWrites": "RAM sector overlay only",
+      "log": {
+        "PALETTE.TXT": "PASS D3D8/9 palette COM: defaults, 65536 IDs, selection-only state blocks, deferred recording, resource contents, alpha and 12 procedural frames\r\n"
+      },
+      "capture": {
+        "api": 9,
+        "source": "glbridge/sample/d3d_palette_test.c",
+        "sourceSha256": "3b2604c98fd82ff7fed62f934b2dec3a480c286b3b67210d81762670ef6a1d4c",
+        "proxySourceSha256": "67bacfbb2a8bbb4b2d672a86f49d8c6e1702a7989baf9b5ea8fc3c91ea7310d9",
+        "paletteHeaderSha256": "9cdb3fa99ece7364ee3e37c053e90a873f0e22d0aea2d59dfde719e51c5a88b5",
+        "dllSha256": "a8cc1266663a04cb57fb9ed7f21f0d8fd691a26628bafe331317a08495474255",
+        "executableSha256": "553c1e206d9689e4ca6e22936c54dceada200f03b919eb49ce33f3e03b01abad",
+        "sha256": "e9082c223abc6728e6f0c05d5da61cec09bf0813c6f00ad71e55ccda715b8c97",
+        "bytes": 113384,
+        "frames": 12,
+        "owners": [
+          1
+        ]
+      }
+    }
+  ],
+  "gpu": {
+    "swift": {
+      "apis": [
+        {
+          "api": 8,
+          "frames": 12,
+          "batches": 14,
+          "traceSha256": "aafa251225dddadc639a993192dc5e3b802bb04099648b210c8c2e3b38ca8a54",
+          "comparisons": [
+            {
+              "frame": 0,
+              "name": "implicit palette zero",
+              "format": "P8",
+              "expected": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 0,
+              "name": "implicit palette zero",
+              "format": "A8P8",
+              "expected": [
+                255,
+                255,
+                255,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 1,
+              "name": "update zero without selecting",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 1,
+              "name": "update zero without selecting",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 2,
+              "name": "select uninitialized high ID",
+              "format": "P8",
+              "expected": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 2,
+              "name": "select uninitialized high ID",
+              "format": "A8P8",
+              "expected": [
+                255,
+                255,
+                255,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 3,
+              "name": "select palette 65535",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 3,
+              "name": "select palette 65535",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 4,
+              "name": "mutate after ALL capture",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 4,
+              "name": "mutate after ALL capture",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 5,
+              "name": "ALL restores selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 5,
+              "name": "ALL restores selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 6,
+              "name": "End preserves live selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 6,
+              "name": "End preserves live selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 7,
+              "name": "recorded Apply restores zero",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 7,
+              "name": "recorded Apply restores zero",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 8,
+              "name": "ALL still restores high selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 8,
+              "name": "ALL still restores high selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 9,
+              "name": "recorded Apply uses new resource contents",
+              "format": "P8",
+              "expected": [
+                23,
+                179,
+                61,
+                151
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 9,
+              "name": "recorded Apply uses new resource contents",
+              "format": "A8P8",
+              "expected": [
+                23,
+                179,
+                61,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 10,
+              "name": "PIXEL and VERTEX exclude selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 10,
+              "name": "PIXEL and VERTEX exclude selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 11,
+              "name": "Capture refreshes recorded selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 11,
+              "name": "Capture refreshes recorded selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            }
+          ],
+          "stats": {
+            "batches": 14,
+            "commands": 456,
+            "presents": 12,
+            "queueSubmits": 36,
+            "drawCalls": 24,
+            "indexedDrawCalls": 0,
+            "upDrawCalls": 24,
+            "pipelineCreations": 1,
+            "pipelineHits": 23,
+            "pipelinesRejected": 0,
+            "programBuilds": 24,
+            "programCacheHits": 0,
+            "bindGroupCreations": 2,
+            "bindGroupHits": 22,
+            "bindGroupCacheEvictions": 0,
+            "framesRejected": 0,
+            "uniformSlotReuses": 0,
+            "uniformRingOverflows": 0,
+            "uniformRingChunksAllocated": 1,
+            "uniformRingChunksUsed": 1,
+            "backBufferAllocations": 1,
+            "backBufferPresents": 12,
+            "redundantStateSkipped": 60,
+            "uniformStagingUploads": 12,
+            "readbackRequests": 12,
+            "frameFlushes": 12,
+            "unsupportedCommands": 0,
+            "malformedBatches": 0,
+            "batchesFailed": 0,
+            "protocolViolations": 0,
+            "msaaUnresolves": 0,
+            "malformedCommands": 0,
+            "gammaRampUpdates": 0,
+            "fillModeDraws": 0,
+            "swapChainsCreated": 0,
+            "swapChainsDestroyed": 0,
+            "swapChainsRefused": 0,
+            "swapChainPresents": 0,
+            "swapChainPresentsDropped": 0,
+            "gammaPresents": 0,
+            "droppedDraws": 0,
+            "guestReports": 0,
+            "texturesCreated": 3,
+            "textureUploads": 2,
+            "textureBytesUploaded": 32,
+            "texturePreviewsSkipped": 0,
+            "drawsWithTexture": 24,
+            "drawsWithFallbackTexture": 0,
+            "shadersTranslated": 0,
+            "shaderTranslationFailures": 0,
+            "shaderVariantsTranslated": 0,
+            "shaderModulesCreated": 2,
+            "shaderCompileErrors": 0,
+            "shaderCachePersistentLoads": 0,
+            "shaderCachePersistentSaves": 0,
+            "shaderCachePersistentFailures": 0,
+            "shaderWorkerCompiles": 0,
+            "shaderWorkerFallbacks": 0,
+            "samplersCreated": 1,
+            "samplerHits": 23,
+            "framesWithoutColorClear": 0,
+            "framesWithNoOps": 12,
+            "uploadChunksAllocated": 1,
+            "uploadStagingUploads": 11,
+            "bufferRenames": 0,
+            "textureUpdateHazards": 0,
+            "textureRenames": 0,
+            "textureFullCopyRenameBytes": 0,
+            "bufferFullCopyRenames": 0,
+            "bufferNoOverwriteWrites": 0,
+            "emptySurfaceReports": 0,
+            "surfaceChanges": 1,
+            "sessionChanges": 0,
+            "sessionsEnded": 1,
+            "deviceLosses": 0,
+            "deviceRecoveries": 0,
+            "guestFeatureBits": 0,
+            "guestShaderModel2": false,
+            "guestShaderModel3": false,
+            "windowStateChanges": 0,
+            "windowNotForegroundReports": 0,
+            "windowOccludedReports": 0,
+            "windowRegionReports": 0,
+            "cursorUploads": 0,
+            "cursorDraws": 0,
+            "texturesRejected": 0,
+            "srgbTextureSamples": 0,
+            "srgbViewsCreated": 0,
+            "srgbTextureUnavailable": 0,
+            "srgbWriteRequests": 0,
+            "srgbWriteUnavailable": 0,
+            "cubeTexturesCreated": 0,
+            "volumeTexturesCreated": 0,
+            "renderTargetsCreated": 1,
+            "renderTargetBinds": 1,
+            "renderPasses": 12,
+            "depthTargetSizeMismatches": 0,
+            "depthTargetSubstitutions": 0,
+            "depthTargetSubstitutionsUncleared": 0,
+            "blits": 0,
+            "blitsSkipped": 0,
+            "blitsThroughBackBuffer": 0,
+            "colorFills": 0,
+            "partialClears": 0,
+            "drawsWithScissor": 0,
+            "drawsWithIncompleteMipChain": 0,
+            "comparisonSamplersCreated": 0,
+            "depthStageWithoutDepthTexture": 0,
+            "depthAttachmentSampledInPlace": 0,
+            "cubeFaceTargetBinds": 0,
+            "mipChainsGenerated": 0,
+            "mipLevelsGenerated": 0,
+            "explicitMipGenerations": 0,
+            "palettesSet": 5,
+            "paletteSelections": 10,
+            "palettizedRepaints": 28,
+            "depthTextureOnNonDepthStage": 0,
+            "stagesWithoutSampleableView": 0,
+            "commandsFailed": 0,
+            "lastDrawTexture": 1048580,
+            "drawsWithUnsupportedTextureOp": 0,
+            "drawsWithTexCoordIndex": 0,
+            "drawsWithTextureTransform": 0,
+            "drawsWithUnmappedBlend": 0,
+            "drawsWithUnappliedFog": 0,
+            "drawsWithUnappliedLighting": 0,
+            "drawsWithZeroNormalLighting": 0,
+            "zeroNormalDrawsWithoutTexture": 0,
+            "zeroNormalDrawsWithMissingTexture": 0,
+            "zeroNormalDrawsWithUnboundTexture": 0,
+            "zeroNormalDrawsWithUnknownTexture": 0,
+            "zeroNormalDrawsWithLiveTexture": 0,
+            "drawsWithUnwrittenCoordVarying": 0,
+            "drawsWithDefaultedInputs": 0,
+            "drawsWithMissingCoordSet": 0,
+            "blendedDraws": 0,
+            "drawsWithUnappliedVertexBlend": 0,
+            "programmableDraws": 0,
+            "drawsSkippedForBadShader": 0,
+            "drawsWithCompactVertexInputs": 0,
+            "constantUploadBytes": 12288,
+            "pointSpriteDraws": 0,
+            "pointSpriteInstances": 0,
+            "indexedPointExpansions": 0,
+            "instancedDraws": 0,
+            "instancesDrawn": 0,
+            "expandedInstanceStreams": 0,
+            "queriesCreated": 0,
+            "queryBegins": 0,
+            "queryEnds": 0,
+            "occlusionQueriesResolved": 0,
+            "timestampQueriesResolved": 0,
+            "eventQueriesResolved": 0,
+            "queryFailures": 0,
+            "responseWriteFailures": 0,
+            "renderTargetReadbacks": 12,
+            "renderTargetReadbackBytes": 196608,
+            "renderTargetReadbackFailures": 0
+          },
+          "gpuErrors": [],
+          "hostErrors": []
+        },
+        {
+          "api": 9,
+          "frames": 12,
+          "batches": 14,
+          "traceSha256": "848521e2d54ea07427e91def7ecce5e9396b5a063e8959f2cd0002517c1c0459",
+          "comparisons": [
+            {
+              "frame": 0,
+              "name": "implicit palette zero",
+              "format": "P8",
+              "expected": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 0,
+              "name": "implicit palette zero",
+              "format": "A8P8",
+              "expected": [
+                255,
+                255,
+                255,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 1,
+              "name": "update zero without selecting",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 1,
+              "name": "update zero without selecting",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 2,
+              "name": "select uninitialized high ID",
+              "format": "P8",
+              "expected": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 2,
+              "name": "select uninitialized high ID",
+              "format": "A8P8",
+              "expected": [
+                255,
+                255,
+                255,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 3,
+              "name": "select palette 65535",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 3,
+              "name": "select palette 65535",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 4,
+              "name": "mutate after ALL capture",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 4,
+              "name": "mutate after ALL capture",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 5,
+              "name": "ALL restores selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 5,
+              "name": "ALL restores selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 6,
+              "name": "End preserves live selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 6,
+              "name": "End preserves live selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 7,
+              "name": "recorded Apply restores zero",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 7,
+              "name": "recorded Apply restores zero",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 8,
+              "name": "ALL still restores high selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 8,
+              "name": "ALL still restores high selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 9,
+              "name": "recorded Apply uses new resource contents",
+              "format": "P8",
+              "expected": [
+                23,
+                179,
+                61,
+                151
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 9,
+              "name": "recorded Apply uses new resource contents",
+              "format": "A8P8",
+              "expected": [
+                23,
+                179,
+                61,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 10,
+              "name": "PIXEL and VERTEX exclude selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 10,
+              "name": "PIXEL and VERTEX exclude selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 11,
+              "name": "Capture refreshes recorded selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 11,
+              "name": "Capture refreshes recorded selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            }
+          ],
+          "stats": {
+            "batches": 14,
+            "commands": 1263,
+            "presents": 12,
+            "queueSubmits": 36,
+            "drawCalls": 24,
+            "indexedDrawCalls": 0,
+            "upDrawCalls": 24,
+            "pipelineCreations": 1,
+            "pipelineHits": 23,
+            "pipelinesRejected": 0,
+            "programBuilds": 24,
+            "programCacheHits": 0,
+            "bindGroupCreations": 2,
+            "bindGroupHits": 22,
+            "bindGroupCacheEvictions": 0,
+            "framesRejected": 0,
+            "uniformSlotReuses": 0,
+            "uniformRingOverflows": 0,
+            "uniformRingChunksAllocated": 1,
+            "uniformRingChunksUsed": 1,
+            "backBufferAllocations": 1,
+            "backBufferPresents": 12,
+            "redundantStateSkipped": 60,
+            "uniformStagingUploads": 24,
+            "readbackRequests": 12,
+            "frameFlushes": 12,
+            "unsupportedCommands": 0,
+            "malformedBatches": 0,
+            "batchesFailed": 0,
+            "protocolViolations": 0,
+            "msaaUnresolves": 0,
+            "malformedCommands": 0,
+            "gammaRampUpdates": 0,
+            "fillModeDraws": 0,
+            "swapChainsCreated": 0,
+            "swapChainsDestroyed": 0,
+            "swapChainsRefused": 0,
+            "swapChainPresents": 0,
+            "swapChainPresentsDropped": 0,
+            "gammaPresents": 0,
+            "droppedDraws": 0,
+            "guestReports": 1,
+            "texturesCreated": 3,
+            "textureUploads": 2,
+            "textureBytesUploaded": 32,
+            "texturePreviewsSkipped": 0,
+            "drawsWithTexture": 24,
+            "drawsWithFallbackTexture": 0,
+            "shadersTranslated": 0,
+            "shaderTranslationFailures": 0,
+            "shaderVariantsTranslated": 0,
+            "shaderModulesCreated": 2,
+            "shaderCompileErrors": 0,
+            "shaderCachePersistentLoads": 0,
+            "shaderCachePersistentSaves": 0,
+            "shaderCachePersistentFailures": 0,
+            "shaderWorkerCompiles": 0,
+            "shaderWorkerFallbacks": 0,
+            "samplersCreated": 1,
+            "samplerHits": 23,
+            "framesWithoutColorClear": 0,
+            "framesWithNoOps": 12,
+            "uploadChunksAllocated": 1,
+            "uploadStagingUploads": 11,
+            "bufferRenames": 0,
+            "textureUpdateHazards": 0,
+            "textureRenames": 0,
+            "textureFullCopyRenameBytes": 0,
+            "bufferFullCopyRenames": 0,
+            "bufferNoOverwriteWrites": 0,
+            "emptySurfaceReports": 0,
+            "surfaceChanges": 2,
+            "sessionChanges": 0,
+            "sessionsEnded": 1,
+            "deviceLosses": 0,
+            "deviceRecoveries": 0,
+            "guestFeatureBits": 3,
+            "guestShaderModel2": true,
+            "guestShaderModel3": true,
+            "windowStateChanges": 1,
+            "windowNotForegroundReports": 1,
+            "windowOccludedReports": 0,
+            "windowRegionReports": 0,
+            "cursorUploads": 1,
+            "cursorDraws": 12,
+            "texturesRejected": 0,
+            "srgbTextureSamples": 0,
+            "srgbViewsCreated": 0,
+            "srgbTextureUnavailable": 0,
+            "srgbWriteRequests": 0,
+            "srgbWriteUnavailable": 0,
+            "cubeTexturesCreated": 0,
+            "volumeTexturesCreated": 0,
+            "renderTargetsCreated": 1,
+            "renderTargetBinds": 1,
+            "renderPasses": 12,
+            "depthTargetSizeMismatches": 0,
+            "depthTargetSubstitutions": 0,
+            "depthTargetSubstitutionsUncleared": 0,
+            "blits": 0,
+            "blitsSkipped": 0,
+            "blitsThroughBackBuffer": 0,
+            "colorFills": 0,
+            "partialClears": 0,
+            "drawsWithScissor": 0,
+            "drawsWithIncompleteMipChain": 0,
+            "comparisonSamplersCreated": 0,
+            "depthStageWithoutDepthTexture": 0,
+            "depthAttachmentSampledInPlace": 0,
+            "cubeFaceTargetBinds": 0,
+            "mipChainsGenerated": 0,
+            "mipLevelsGenerated": 0,
+            "explicitMipGenerations": 0,
+            "palettesSet": 5,
+            "paletteSelections": 10,
+            "palettizedRepaints": 28,
+            "depthTextureOnNonDepthStage": 0,
+            "stagesWithoutSampleableView": 0,
+            "commandsFailed": 0,
+            "lastDrawTexture": 1048580,
+            "drawsWithUnsupportedTextureOp": 0,
+            "drawsWithTexCoordIndex": 0,
+            "drawsWithTextureTransform": 0,
+            "drawsWithUnmappedBlend": 0,
+            "drawsWithUnappliedFog": 0,
+            "drawsWithUnappliedLighting": 0,
+            "drawsWithZeroNormalLighting": 0,
+            "zeroNormalDrawsWithoutTexture": 0,
+            "zeroNormalDrawsWithMissingTexture": 0,
+            "zeroNormalDrawsWithUnboundTexture": 0,
+            "zeroNormalDrawsWithUnknownTexture": 0,
+            "zeroNormalDrawsWithLiveTexture": 0,
+            "drawsWithUnwrittenCoordVarying": 0,
+            "drawsWithDefaultedInputs": 0,
+            "drawsWithMissingCoordSet": 0,
+            "blendedDraws": 0,
+            "drawsWithUnappliedVertexBlend": 0,
+            "programmableDraws": 0,
+            "drawsSkippedForBadShader": 0,
+            "drawsWithCompactVertexInputs": 0,
+            "constantUploadBytes": 15360,
+            "pointSpriteDraws": 0,
+            "pointSpriteInstances": 0,
+            "indexedPointExpansions": 0,
+            "instancedDraws": 0,
+            "instancesDrawn": 0,
+            "expandedInstanceStreams": 0,
+            "queriesCreated": 0,
+            "queryBegins": 0,
+            "queryEnds": 0,
+            "occlusionQueriesResolved": 0,
+            "timestampQueriesResolved": 0,
+            "eventQueriesResolved": 0,
+            "queryFailures": 0,
+            "responseWriteFailures": 0,
+            "renderTargetReadbacks": 12,
+            "renderTargetReadbackBytes": 196608,
+            "renderTargetReadbackFailures": 0
+          },
+          "gpuErrors": [],
+          "hostErrors": []
+        }
+      ]
+    },
+    "metal": {
+      "apis": [
+        {
+          "api": 8,
+          "frames": 12,
+          "batches": 14,
+          "traceSha256": "aafa251225dddadc639a993192dc5e3b802bb04099648b210c8c2e3b38ca8a54",
+          "comparisons": [
+            {
+              "frame": 0,
+              "name": "implicit palette zero",
+              "format": "P8",
+              "expected": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 0,
+              "name": "implicit palette zero",
+              "format": "A8P8",
+              "expected": [
+                255,
+                255,
+                255,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 1,
+              "name": "update zero without selecting",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 1,
+              "name": "update zero without selecting",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 2,
+              "name": "select uninitialized high ID",
+              "format": "P8",
+              "expected": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 2,
+              "name": "select uninitialized high ID",
+              "format": "A8P8",
+              "expected": [
+                255,
+                255,
+                255,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 3,
+              "name": "select palette 65535",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 3,
+              "name": "select palette 65535",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 4,
+              "name": "mutate after ALL capture",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 4,
+              "name": "mutate after ALL capture",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 5,
+              "name": "ALL restores selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 5,
+              "name": "ALL restores selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 6,
+              "name": "End preserves live selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 6,
+              "name": "End preserves live selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 7,
+              "name": "recorded Apply restores zero",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 7,
+              "name": "recorded Apply restores zero",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 8,
+              "name": "ALL still restores high selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 8,
+              "name": "ALL still restores high selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 9,
+              "name": "recorded Apply uses new resource contents",
+              "format": "P8",
+              "expected": [
+                23,
+                179,
+                61,
+                151
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 9,
+              "name": "recorded Apply uses new resource contents",
+              "format": "A8P8",
+              "expected": [
+                23,
+                179,
+                61,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 10,
+              "name": "PIXEL and VERTEX exclude selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 10,
+              "name": "PIXEL and VERTEX exclude selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 11,
+              "name": "Capture refreshes recorded selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 11,
+              "name": "Capture refreshes recorded selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            }
+          ],
+          "stats": {
+            "batches": 14,
+            "commands": 456,
+            "presents": 12,
+            "queueSubmits": 36,
+            "drawCalls": 24,
+            "indexedDrawCalls": 0,
+            "upDrawCalls": 24,
+            "pipelineCreations": 1,
+            "pipelineHits": 23,
+            "pipelinesRejected": 0,
+            "programBuilds": 24,
+            "programCacheHits": 0,
+            "bindGroupCreations": 2,
+            "bindGroupHits": 22,
+            "bindGroupCacheEvictions": 0,
+            "framesRejected": 0,
+            "uniformSlotReuses": 0,
+            "uniformRingOverflows": 0,
+            "uniformRingChunksAllocated": 1,
+            "uniformRingChunksUsed": 1,
+            "backBufferAllocations": 1,
+            "backBufferPresents": 12,
+            "redundantStateSkipped": 60,
+            "uniformStagingUploads": 12,
+            "readbackRequests": 12,
+            "frameFlushes": 12,
+            "unsupportedCommands": 0,
+            "malformedBatches": 0,
+            "batchesFailed": 0,
+            "protocolViolations": 0,
+            "msaaUnresolves": 0,
+            "malformedCommands": 0,
+            "gammaRampUpdates": 0,
+            "fillModeDraws": 0,
+            "swapChainsCreated": 0,
+            "swapChainsDestroyed": 0,
+            "swapChainsRefused": 0,
+            "swapChainPresents": 0,
+            "swapChainPresentsDropped": 0,
+            "gammaPresents": 0,
+            "droppedDraws": 0,
+            "guestReports": 0,
+            "texturesCreated": 3,
+            "textureUploads": 2,
+            "textureBytesUploaded": 32,
+            "texturePreviewsSkipped": 0,
+            "drawsWithTexture": 24,
+            "drawsWithFallbackTexture": 0,
+            "shadersTranslated": 0,
+            "shaderTranslationFailures": 0,
+            "shaderVariantsTranslated": 0,
+            "shaderModulesCreated": 2,
+            "shaderCompileErrors": 0,
+            "shaderCachePersistentLoads": 0,
+            "shaderCachePersistentSaves": 0,
+            "shaderCachePersistentFailures": 0,
+            "shaderWorkerCompiles": 0,
+            "shaderWorkerFallbacks": 0,
+            "samplersCreated": 1,
+            "samplerHits": 23,
+            "framesWithoutColorClear": 0,
+            "framesWithNoOps": 12,
+            "uploadChunksAllocated": 1,
+            "uploadStagingUploads": 11,
+            "bufferRenames": 0,
+            "textureUpdateHazards": 0,
+            "textureRenames": 0,
+            "textureFullCopyRenameBytes": 0,
+            "bufferFullCopyRenames": 0,
+            "bufferNoOverwriteWrites": 0,
+            "emptySurfaceReports": 0,
+            "surfaceChanges": 1,
+            "sessionChanges": 0,
+            "sessionsEnded": 1,
+            "deviceLosses": 0,
+            "deviceRecoveries": 0,
+            "guestFeatureBits": 0,
+            "guestShaderModel2": false,
+            "guestShaderModel3": false,
+            "windowStateChanges": 0,
+            "windowNotForegroundReports": 0,
+            "windowOccludedReports": 0,
+            "windowRegionReports": 0,
+            "cursorUploads": 0,
+            "cursorDraws": 0,
+            "texturesRejected": 0,
+            "srgbTextureSamples": 0,
+            "srgbViewsCreated": 0,
+            "srgbTextureUnavailable": 0,
+            "srgbWriteRequests": 0,
+            "srgbWriteUnavailable": 0,
+            "cubeTexturesCreated": 0,
+            "volumeTexturesCreated": 0,
+            "renderTargetsCreated": 1,
+            "renderTargetBinds": 1,
+            "renderPasses": 12,
+            "depthTargetSizeMismatches": 0,
+            "depthTargetSubstitutions": 0,
+            "depthTargetSubstitutionsUncleared": 0,
+            "blits": 0,
+            "blitsSkipped": 0,
+            "blitsThroughBackBuffer": 0,
+            "colorFills": 0,
+            "partialClears": 0,
+            "drawsWithScissor": 0,
+            "drawsWithIncompleteMipChain": 0,
+            "comparisonSamplersCreated": 0,
+            "depthStageWithoutDepthTexture": 0,
+            "depthAttachmentSampledInPlace": 0,
+            "cubeFaceTargetBinds": 0,
+            "mipChainsGenerated": 0,
+            "mipLevelsGenerated": 0,
+            "explicitMipGenerations": 0,
+            "palettesSet": 5,
+            "paletteSelections": 10,
+            "palettizedRepaints": 28,
+            "depthTextureOnNonDepthStage": 0,
+            "stagesWithoutSampleableView": 0,
+            "commandsFailed": 0,
+            "lastDrawTexture": 1048580,
+            "drawsWithUnsupportedTextureOp": 0,
+            "drawsWithTexCoordIndex": 0,
+            "drawsWithTextureTransform": 0,
+            "drawsWithUnmappedBlend": 0,
+            "drawsWithUnappliedFog": 0,
+            "drawsWithUnappliedLighting": 0,
+            "drawsWithZeroNormalLighting": 0,
+            "zeroNormalDrawsWithoutTexture": 0,
+            "zeroNormalDrawsWithMissingTexture": 0,
+            "zeroNormalDrawsWithUnboundTexture": 0,
+            "zeroNormalDrawsWithUnknownTexture": 0,
+            "zeroNormalDrawsWithLiveTexture": 0,
+            "drawsWithUnwrittenCoordVarying": 0,
+            "drawsWithDefaultedInputs": 0,
+            "drawsWithMissingCoordSet": 0,
+            "blendedDraws": 0,
+            "drawsWithUnappliedVertexBlend": 0,
+            "programmableDraws": 0,
+            "drawsSkippedForBadShader": 0,
+            "drawsWithCompactVertexInputs": 0,
+            "constantUploadBytes": 12288,
+            "pointSpriteDraws": 0,
+            "pointSpriteInstances": 0,
+            "indexedPointExpansions": 0,
+            "instancedDraws": 0,
+            "instancesDrawn": 0,
+            "expandedInstanceStreams": 0,
+            "queriesCreated": 0,
+            "queryBegins": 0,
+            "queryEnds": 0,
+            "occlusionQueriesResolved": 0,
+            "timestampQueriesResolved": 0,
+            "eventQueriesResolved": 0,
+            "queryFailures": 0,
+            "responseWriteFailures": 0,
+            "renderTargetReadbacks": 12,
+            "renderTargetReadbackBytes": 196608,
+            "renderTargetReadbackFailures": 0
+          },
+          "gpuErrors": [],
+          "hostErrors": []
+        },
+        {
+          "api": 9,
+          "frames": 12,
+          "batches": 14,
+          "traceSha256": "848521e2d54ea07427e91def7ecce5e9396b5a063e8959f2cd0002517c1c0459",
+          "comparisons": [
+            {
+              "frame": 0,
+              "name": "implicit palette zero",
+              "format": "P8",
+              "expected": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 0,
+              "name": "implicit palette zero",
+              "format": "A8P8",
+              "expected": [
+                255,
+                255,
+                255,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 1,
+              "name": "update zero without selecting",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 1,
+              "name": "update zero without selecting",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 2,
+              "name": "select uninitialized high ID",
+              "format": "P8",
+              "expected": [
+                255,
+                255,
+                255,
+                255
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 2,
+              "name": "select uninitialized high ID",
+              "format": "A8P8",
+              "expected": [
+                255,
+                255,
+                255,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 3,
+              "name": "select palette 65535",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 3,
+              "name": "select palette 65535",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 4,
+              "name": "mutate after ALL capture",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 4,
+              "name": "mutate after ALL capture",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 5,
+              "name": "ALL restores selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 5,
+              "name": "ALL restores selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 6,
+              "name": "End preserves live selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 6,
+              "name": "End preserves live selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 7,
+              "name": "recorded Apply restores zero",
+              "format": "P8",
+              "expected": [
+                149,
+                83,
+                17,
+                201
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 7,
+              "name": "recorded Apply restores zero",
+              "format": "A8P8",
+              "expected": [
+                149,
+                83,
+                17,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 8,
+              "name": "ALL still restores high selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 8,
+              "name": "ALL still restores high selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 9,
+              "name": "recorded Apply uses new resource contents",
+              "format": "P8",
+              "expected": [
+                23,
+                179,
+                61,
+                151
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 9,
+              "name": "recorded Apply uses new resource contents",
+              "format": "A8P8",
+              "expected": [
+                23,
+                179,
+                61,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 10,
+              "name": "PIXEL and VERTEX exclude selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 10,
+              "name": "PIXEL and VERTEX exclude selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 11,
+              "name": "Capture refreshes recorded selector",
+              "format": "P8",
+              "expected": [
+                101,
+                47,
+                211,
+                99
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            },
+            {
+              "frame": 11,
+              "name": "Capture refreshes recorded selector",
+              "format": "A8P8",
+              "expected": [
+                101,
+                47,
+                211,
+                64
+              ],
+              "pixels": 1680,
+              "maximumByteError": 0
+            }
+          ],
+          "stats": {
+            "batches": 14,
+            "commands": 1263,
+            "presents": 12,
+            "queueSubmits": 36,
+            "drawCalls": 24,
+            "indexedDrawCalls": 0,
+            "upDrawCalls": 24,
+            "pipelineCreations": 1,
+            "pipelineHits": 23,
+            "pipelinesRejected": 0,
+            "programBuilds": 24,
+            "programCacheHits": 0,
+            "bindGroupCreations": 2,
+            "bindGroupHits": 22,
+            "bindGroupCacheEvictions": 0,
+            "framesRejected": 0,
+            "uniformSlotReuses": 0,
+            "uniformRingOverflows": 0,
+            "uniformRingChunksAllocated": 1,
+            "uniformRingChunksUsed": 1,
+            "backBufferAllocations": 1,
+            "backBufferPresents": 12,
+            "redundantStateSkipped": 60,
+            "uniformStagingUploads": 24,
+            "readbackRequests": 12,
+            "frameFlushes": 12,
+            "unsupportedCommands": 0,
+            "malformedBatches": 0,
+            "batchesFailed": 0,
+            "protocolViolations": 0,
+            "msaaUnresolves": 0,
+            "malformedCommands": 0,
+            "gammaRampUpdates": 0,
+            "fillModeDraws": 0,
+            "swapChainsCreated": 0,
+            "swapChainsDestroyed": 0,
+            "swapChainsRefused": 0,
+            "swapChainPresents": 0,
+            "swapChainPresentsDropped": 0,
+            "gammaPresents": 0,
+            "droppedDraws": 0,
+            "guestReports": 1,
+            "texturesCreated": 3,
+            "textureUploads": 2,
+            "textureBytesUploaded": 32,
+            "texturePreviewsSkipped": 0,
+            "drawsWithTexture": 24,
+            "drawsWithFallbackTexture": 0,
+            "shadersTranslated": 0,
+            "shaderTranslationFailures": 0,
+            "shaderVariantsTranslated": 0,
+            "shaderModulesCreated": 2,
+            "shaderCompileErrors": 0,
+            "shaderCachePersistentLoads": 0,
+            "shaderCachePersistentSaves": 0,
+            "shaderCachePersistentFailures": 0,
+            "shaderWorkerCompiles": 0,
+            "shaderWorkerFallbacks": 0,
+            "samplersCreated": 1,
+            "samplerHits": 23,
+            "framesWithoutColorClear": 0,
+            "framesWithNoOps": 12,
+            "uploadChunksAllocated": 1,
+            "uploadStagingUploads": 11,
+            "bufferRenames": 0,
+            "textureUpdateHazards": 0,
+            "textureRenames": 0,
+            "textureFullCopyRenameBytes": 0,
+            "bufferFullCopyRenames": 0,
+            "bufferNoOverwriteWrites": 0,
+            "emptySurfaceReports": 0,
+            "surfaceChanges": 2,
+            "sessionChanges": 0,
+            "sessionsEnded": 1,
+            "deviceLosses": 0,
+            "deviceRecoveries": 0,
+            "guestFeatureBits": 3,
+            "guestShaderModel2": true,
+            "guestShaderModel3": true,
+            "windowStateChanges": 1,
+            "windowNotForegroundReports": 1,
+            "windowOccludedReports": 0,
+            "windowRegionReports": 0,
+            "cursorUploads": 1,
+            "cursorDraws": 12,
+            "texturesRejected": 0,
+            "srgbTextureSamples": 0,
+            "srgbViewsCreated": 0,
+            "srgbTextureUnavailable": 0,
+            "srgbWriteRequests": 0,
+            "srgbWriteUnavailable": 0,
+            "cubeTexturesCreated": 0,
+            "volumeTexturesCreated": 0,
+            "renderTargetsCreated": 1,
+            "renderTargetBinds": 1,
+            "renderPasses": 12,
+            "depthTargetSizeMismatches": 0,
+            "depthTargetSubstitutions": 0,
+            "depthTargetSubstitutionsUncleared": 0,
+            "blits": 0,
+            "blitsSkipped": 0,
+            "blitsThroughBackBuffer": 0,
+            "colorFills": 0,
+            "partialClears": 0,
+            "drawsWithScissor": 0,
+            "drawsWithIncompleteMipChain": 0,
+            "comparisonSamplersCreated": 0,
+            "depthStageWithoutDepthTexture": 0,
+            "depthAttachmentSampledInPlace": 0,
+            "cubeFaceTargetBinds": 0,
+            "mipChainsGenerated": 0,
+            "mipLevelsGenerated": 0,
+            "explicitMipGenerations": 0,
+            "palettesSet": 5,
+            "paletteSelections": 10,
+            "palettizedRepaints": 28,
+            "depthTextureOnNonDepthStage": 0,
+            "stagesWithoutSampleableView": 0,
+            "commandsFailed": 0,
+            "lastDrawTexture": 1048580,
+            "drawsWithUnsupportedTextureOp": 0,
+            "drawsWithTexCoordIndex": 0,
+            "drawsWithTextureTransform": 0,
+            "drawsWithUnmappedBlend": 0,
+            "drawsWithUnappliedFog": 0,
+            "drawsWithUnappliedLighting": 0,
+            "drawsWithZeroNormalLighting": 0,
+            "zeroNormalDrawsWithoutTexture": 0,
+            "zeroNormalDrawsWithMissingTexture": 0,
+            "zeroNormalDrawsWithUnboundTexture": 0,
+            "zeroNormalDrawsWithUnknownTexture": 0,
+            "zeroNormalDrawsWithLiveTexture": 0,
+            "drawsWithUnwrittenCoordVarying": 0,
+            "drawsWithDefaultedInputs": 0,
+            "drawsWithMissingCoordSet": 0,
+            "blendedDraws": 0,
+            "drawsWithUnappliedVertexBlend": 0,
+            "programmableDraws": 0,
+            "drawsSkippedForBadShader": 0,
+            "drawsWithCompactVertexInputs": 0,
+            "constantUploadBytes": 15360,
+            "pointSpriteDraws": 0,
+            "pointSpriteInstances": 0,
+            "indexedPointExpansions": 0,
+            "instancedDraws": 0,
+            "instancesDrawn": 0,
+            "expandedInstanceStreams": 0,
+            "queriesCreated": 0,
+            "queryBegins": 0,
+            "queryEnds": 0,
+            "occlusionQueriesResolved": 0,
+            "timestampQueriesResolved": 0,
+            "eventQueriesResolved": 0,
+            "queryFailures": 0,
+            "responseWriteFailures": 0,
+            "renderTargetReadbacks": 12,
+            "renderTargetReadbackBytes": 196608,
+            "renderTargetReadbackFailures": 0
+          },
+          "gpuErrors": [],
+          "hostErrors": []
+        }
+      ]
+    }
+  },
+  "tnl": {
+    "status": "PASS",
+    "seconds": 116,
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "diskWrites": "RAM sector overlay only"
+  },
+  "recordingWire": {
+    "frames": 6,
+    "groups": [
+      {
+        "recordingCommands": [
+          "PRESENT"
+        ],
+        "applyCommands": [
+          "SET_RENDER_STATE",
+          "SET_TEXTURE_STAGE_STATE",
+          "SET_TEXTURE",
+          "SET_VIEWPORT",
+          "SET_MATERIAL",
+          "SET_TRANSFORM",
+          "SET_STREAM_SOURCE",
+          "SET_INDICES",
+          "SET_VERTEX_SHADER",
+          "SET_FVF",
+          "PRESENT"
+        ],
+        "values": []
+      },
+      {
+        "recordingCommands": [
+          "PRESENT"
+        ],
+        "applyCommands": [
+          "SET_VERTEX_SHADER_CONSTANT_F",
+          "SET_VERTEX_SHADER_CONSTANT_F",
+          "SET_PIXEL_SHADER_CONSTANT_F",
+          "SET_PIXEL_SHADER_CONSTANT_F",
+          "SET_CLIP_PLANE",
+          "PRESENT"
+        ],
+        "values": [
+          {
+            "command": "SET_VERTEX_SHADER_CONSTANT_F",
+            "index": 94,
+            "values": [
+              0.375,
+              0.625,
+              0.875,
+              1
+            ]
+          },
+          {
+            "command": "SET_VERTEX_SHADER_CONSTANT_F",
+            "index": 95,
+            "values": [
+              0.125,
+              0.25,
+              0.5,
+              0.75
+            ]
+          },
+          {
+            "command": "SET_PIXEL_SHADER_CONSTANT_F",
+            "index": 6,
+            "values": [
+              0.375,
+              0.625,
+              0.875,
+              1
+            ]
+          },
+          {
+            "command": "SET_PIXEL_SHADER_CONSTANT_F",
+            "index": 7,
+            "values": [
+              0.125,
+              0.25,
+              0.5,
+              0.75
+            ]
+          },
+          {
+            "command": "SET_CLIP_PLANE",
+            "index": 5,
+            "values": [
+              1,
+              -2,
+              0.5,
+              3
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "scope": "Proxy D3D8/9 behavior and real XP app-local calls, not new native Microsoft D3D8/9 acceptance. Reset palette preservation/default repaints covered at host protocol layer. General D3D9 recording isolation and shader lifetime remain subsequent work. No game/FPS or complete phase 4/5/6 completion claim.",
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/texture-palettes",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/saving-all-device-states-with-a-stateblock"
+  ],
+  "coreSha256": {
+    "Makefile": "82462fca43d3cf8282c2132d21b8223006afeb745f8d7cce93f8befa595a6c16",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "56157dbdf5ba5dbab2ba765305d1fb136e9e80489df8575bf10b02d9594ac7b2",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "4f76ee44acaf6fb07e2636accdb27bcb61d6f80d9c5d52dc8e05ea9050b14c95",
+    "tests/glbridge/d3d9_webgpu_executor_test.js": "a7b39a5e8f6bed3e77963fe1ae83ff583f871c1e4bd9ef6fd2a566cad2e6bc0f",
+    "tests/glbridge/d3d_palette_fixture_test.js": "c4b920a05de667532463b89202e752981157fa833d126074d8e2c3e6123bfabf",
+    "tests/glbridge/d3d_palette_xp.mjs": "0037f8fd1a0d54f08d69e0257c0aa1329c9e65c677b78d7615527cbcf2964100",
+    "tests/glbridge/d3d_palette_replay_browser_test.html": "9be6e23a74806ec6e3a46804786829153b1c229fe88b1a5d086d0b326f4c9537",
+    "tools/d3d_palette_fixture.mjs": "6040e6ca65b415f4eb9076a88b6a6d8d300d1986e228b4bebd8621914b3de22d",
+    "tools/d3d_palette_mutations.mjs": "25c67a47035c325a711cdfb830d6e557f5cf265dc66d9a5197d7cd9ddb948459",
+    "docs/d3d-webgpu-review.md": "f9e525aa998b2dcab9dea8701e210d75776d3b6171a410ca47d3059495157281",
+    "tests/glbridge/fixtures/d3d8_palette_xp.bin.gz": "59d08b9201eb70d53c2e66cd764f0ca049f7b5105cef5ea03e025e75ae5e465a",
+    "tests/glbridge/fixtures/d3d8_palette_xp.json": "55ea53292aefda0b23e6988c466294cb63004e9f0ba20708a2c204e6e7570553",
+    "tests/glbridge/fixtures/d3d9_palette_xp.bin.gz": "91a07bfd5b3ac39b590bedae0d973b92487daccd188a02ec88e2e2f88f4d8177",
+    "tests/glbridge/fixtures/d3d9_palette_xp.json": "e92d21f44a738dfc7ac0c17363773267de4fb21bf24536f97cb7cf0e5927b41b",
+    "tests/glbridge/fixtures/d3d_palette_reference.json": "ca5d2ec8da4d57bbb14b942d68074a8d28838827000f72561c5c86ec4473c153"
+  },
+  "siteSha256": {
+    "glbridge/runtime/d9wg_palette_state.h": "9cdb3fa99ece7364ee3e37c053e90a873f0e22d0aea2d59dfde719e51c5a88b5",
+    "glbridge/sample/d3d_palette_test.c": "3b2604c98fd82ff7fed62f934b2dec3a480c286b3b67210d81762670ef6a1d4c",
+    "glbridge/tests/d9wg_palette_state_test.js": "d5564fd49328a87565c7a1f49c3a74d88ef6fe02a0b04ded08e76e35dcf4f164",
+    "glbridge/tests/d9wg_palette_state_mutation_test.js": "f57e70596f39178c2b24f3eeaf66c7c6b063c5ff81c15e1c86c0bc5c490c6e87",
+    "glbridge/tests/d3d8_protocol_consistency_test.js": "47c121b55a1470536e58b8a27124907dc47b8aead7fc2139b616da1e24e06e8a",
+    "glbridge/tests/d9wg_state_block_scope_test.js": "4a403307dffa4540c34ff78c90c7040190b409ddf39283c5c72c9f26ddcb21a1",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "2a7327a321b17d4daf836dd24de253551d531092c3c096e051a1ef6d77d1333d",
+    "glbridge/d3d8proxy/d3d8.dll": "48147113c2fce4c0f0f6db3fb229a3ff3858711a7dd712236eb3e293dd7d9da1",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "2b51e20e7fc278244fed8881bb745009409e557fe0bed74c2c54379f3c3b1f37",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "67bacfbb2a8bbb4b2d672a86f49d8c6e1702a7989baf9b5ea8fc3c91ea7310d9",
+    "glbridge/d3d9proxy/d3d9.dll": "a8cc1266663a04cb57fb9ed7f21f0d8fd691a26628bafe331317a08495474255",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "2e191b86524a91157c38d37b4778f494485935f6a7e3e9ea8b67753557b6ffbc",
+    "vendor/v86/glbridge/manifest.json": "dca5b7c2dabecd8a68c60234e5bd4d03137c7a38ec9f2487bd0fb846dc051c69"
+  },
+  "logSha256": {
+    "core": "d337b8c56a26bcbf7bef3fcdda8db6b9290b41b5198037646c108c4ee021432d",
+    "guest": "f9ae089777de2c6e3dba0dded972c984f23a1cff7a1038352ab27f29b719fa55",
+    "builds": "9a575ea5339381ecf43f7e651999078b4019888ec8ad6095be4c86a618d4780e",
+    "tnl": "d529edf7db9df01acd1666906d92e6823a5830d3beefc76b940c49c53c57c97f",
+    "xp8": "4840976b80bc9c9445a279706df9898033e933e47f61cef951ffc56392234053",
+    "xp9": "aeba2c7d57ba3c9ff033dd735aea5d40672b3ba076ce8efa5a800d09235835ce",
+    "swift": "12e9ec93749aef018f540f38c33b0de50e484934808e7a43a96190f57291404c",
+    "metal": "12e9ec93749aef018f540f38c33b0de50e484934808e7a43a96190f57291404c",
+    "mutations": "a5baca7a50a780ef8700a61b7023da0f707db702d33c6a6f152dbba98fe0cc98",
+    "gpu-mutations": "28abb0621e1313bc5ee9d097c87e6b9c6bdb25c300b0c13293be989c259b9915",
+    "sanitize": "e69008a6074354e90a67cf59020af8cdc6e14f1f0f96e813409d3c410f4d57d5",
+    "gpu": "708579e77685b233637f91ab80a37f8782a430a56a3a2fe6ad856d779b7b9094",
+    "bundle": "d9ef0f3fe73e3c9ecc7f255b39ec2f2711a1d8aff3e778a29fc9397dadcf9167",
+    "integration": "4cf8525c1aa465b838d0a1e4d1834ec8e75ff641f204bda81ae39fb130c9b18a"
+  }
+}
