@@ -1430,6 +1430,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 145 组核心、138 组客体、完整 35 次 WebGPU 回归（适配器及 34 页）、两项站点集成、D3D9 十四个 SDK 冒烟 EXE/严格零售诊断 DLL，以及 XP 三 API 检查通过。发布本次 XP 所测 D3D9 DLL，并同步运行包 `dffb0322a62fa650c089`。见 [stage4d2k2-validation.json](fixtures/d3d-review/stage4d2k2-validation.json)。
 > - 接着完成 D3D8 声明输入及其 Tween 接入，再推进可编程 CPU 顶点处理和其余共用核心。此步未宣称原生 Microsoft D3D8/9、完整 Wine 或游戏/FPS 验收完成。
 
+> **阶段 4D2k3a（2026-11-02）：D3D8 固定管线声明对象与生命周期完成。**
+>
+> - `CreateVertexShader(declaration, NULL, …)` 现在创建固定管线声明对象；空函数合法，实际字节码仍走已有版本/指令校验。构造时一次解析并缓存元素、常量和原 SDK token；不创建空 shader 资源，绑定声明后发送零 VS 句柄，销毁时只释放真实声明资源。Reset 使用同一缓存发射入口。
+> - GetDeclaration 保留原始 SDK token 与 END；固定声明的 GetFunction 返回零长度并不写调用者数据。对象仍使用现有公开句柄失效、实时绑定/状态块持有引用、延迟录制、重复 Capture 和最后解绑释放规则。补上 SDK NORMAL2（寄存器 16）到 NORMAL1 的映射；固定管线主法线要求 FLOAT3，声明常量不能越过 c95。NULL 函数行为对照 [原 Microsoft D3D8 SDK](https://alpyne.me/archive/dx8/directx_cpp/graphics/reference/cpp/d3d/interfaces/idirect3ddevice8/createvertexshader.htm)，主法线校验对照 [Wine 的声明初始化](https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/shader.c)。
+> - 宿主编译实际创建/声明解析/发射/绑定/查询/删除/引用函数，检查公开输入、独立 SDK 元素、空代码无资源、录制隔离、删除后应用、常量、校验及每项分配失败的原子清理。9/9 声明语义变异、原有 7/7 shader 生命周期变异和 ASan/UBSan 通过。
+> - XP 三 API T&L/录制检查 111 秒通过，新增 D3D8 NULL 函数创建、精确 token/空代码查询、公开句柄与状态块保活、常量和无效法线校验。原始命令流确认六 VS/六 PS 保持原样，额外三个固定声明均以零 VS 绑定，无虚构 shader 创建/销毁；九个声明最终各销毁一次，三个 owner 正常退出。
+> - 145 组核心、140 组客体、D3D8 十七个 SDK 冒烟 EXE 与严格零售/诊断 DLL 通过；发布本次 XP 所测 D3D8 DLL。宿主运行包不变，35 次 WebGPU、Tween 的 SwiftShader/Metal 和两项站点集成沿用 4D2k2。见 [stage4d2k3a-validation.json](fixtures/d3d-review/stage4d2k3a-validation.json)。
+> - 当前补齐创建/绑定/查询/保活边界；接着把 D3D8 声明输入接到共用多流 CPU 处理与 ClipStatus/Tween。其 TWEENING caps 仍未宣称；不以代理 COM 检查替代原生 Microsoft D3D8 验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

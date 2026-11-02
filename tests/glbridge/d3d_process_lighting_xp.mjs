@@ -47,6 +47,7 @@ const result = await run_xp_ram_probe({ root, out, files, capture_graphics: reco
         }
         assert(result.logs["TNL7.TXT"].includes("PASS D3D7 sparse recorded block restoration and masks"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 shader lifetime:"));
+        assert(result.logs["TNL8.TXT"].includes("PASS D3D8 declaration-only shaders:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 deferred recording:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 constant and plane recording:"));
         assert(result.logs["TNL8.TXT"].includes("PASS D3D8 sparse recorded block restoration and masks"));
