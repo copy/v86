@@ -1,0 +1,976 @@
+{
+  "schema": 1,
+  "owners": [
+    1
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "devices": [
+    {
+      "mode": 0,
+      "device": 1048577,
+      "hwnd": 327912,
+      "surfaces": [
+        {
+          "handle": 1048578,
+          "index": 0,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "index": 1,
+          "retired": true
+        }
+      ],
+      "modes": 1,
+      "uploads": 15,
+      "seedUploads": 1,
+      "nativeBlits": 10,
+      "screens": 20,
+      "presents": 20,
+      "ready": false,
+      "retired": true
+    },
+    {
+      "mode": 1,
+      "device": 1048582,
+      "hwnd": 327912,
+      "surfaces": [
+        {
+          "handle": 1048583,
+          "index": 0,
+          "retired": true
+        },
+        {
+          "handle": 1048585,
+          "index": 1,
+          "retired": false
+        },
+        {
+          "handle": 1048587,
+          "index": 2,
+          "retired": true
+        }
+      ],
+      "modes": 2,
+      "uploads": 15,
+      "seedUploads": 0,
+      "nativeBlits": 10,
+      "screens": 20,
+      "presents": 20,
+      "ready": false,
+      "retired": true
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 1,
+      "op": 0,
+      "color": 4280819729,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 0
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 1,
+      "op": 1,
+      "color": 4280829969,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 1
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 1,
+      "op": 2,
+      "color": 4280840209,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 2
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 1,
+      "op": 3,
+      "color": 4280850449,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 3
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 2,
+      "op": 0,
+      "color": 4281344018,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 4
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 2,
+      "op": 1,
+      "color": 4281354258,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 5
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 2,
+      "op": 2,
+      "color": 4281364498,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 6
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 2,
+      "op": 3,
+      "color": 4281374738,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 7
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 3,
+      "op": 0,
+      "color": 4281868307,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 8
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 3,
+      "op": 1,
+      "color": 4281878547,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 9
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 3,
+      "op": 2,
+      "color": 4281888787,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 10
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 3,
+      "op": 3,
+      "color": 4281899027,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 11
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 4,
+      "op": 0,
+      "color": 4282392596,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 12
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 4,
+      "op": 1,
+      "color": 4282402836,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 13
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 4,
+      "op": 2,
+      "color": 4282413076,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 14
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 4,
+      "op": 3,
+      "color": 4282423316,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 15
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 7,
+      "op": 0,
+      "color": 4283965463,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 16
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 7,
+      "op": 1,
+      "color": 4283975703,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 17
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 7,
+      "op": 2,
+      "color": 4283985943,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 18
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "mode": 0,
+      "api": 7,
+      "op": 3,
+      "color": 4283996183,
+      "width": 800,
+      "height": 600,
+      "area": [
+        30,
+        40,
+        62,
+        64
+      ],
+      "index": 19
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 1,
+      "op": 0,
+      "color": 4287111185,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 20
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 1,
+      "op": 1,
+      "color": 4287121425,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 21
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 1,
+      "op": 2,
+      "color": 4287131665,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 22
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 1,
+      "op": 3,
+      "color": 4287141905,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 23
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 2,
+      "op": 0,
+      "color": 4287635474,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 2,
+      "op": 1,
+      "color": 4287645714,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 25
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 2,
+      "op": 2,
+      "color": 4287655954,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 26
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 2,
+      "op": 3,
+      "color": 4287666194,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 27
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 3,
+      "op": 0,
+      "color": 4288159763,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 28
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 3,
+      "op": 1,
+      "color": 4288170003,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 29
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 3,
+      "op": 2,
+      "color": 4288180243,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 30
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 3,
+      "op": 3,
+      "color": 4288190483,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 31
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 4,
+      "op": 0,
+      "color": 4288684052,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 32
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 4,
+      "op": 1,
+      "color": 4288694292,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 33
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 4,
+      "op": 2,
+      "color": 4288704532,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 34
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 4,
+      "op": 3,
+      "color": 4288714772,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 35
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 7,
+      "op": 0,
+      "color": 4290256919,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 36
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 7,
+      "op": 1,
+      "color": 4290267159,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 37
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 7,
+      "op": 2,
+      "color": 4290277399,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 38
+    },
+    {
+      "owner": 1,
+      "device": 1048582,
+      "texture": 1048583,
+      "mode": 1,
+      "api": 7,
+      "op": 3,
+      "color": 4290287639,
+      "width": 32,
+      "height": 24,
+      "area": [
+        0,
+        0,
+        32,
+        24
+      ],
+      "index": 39
+    }
+  ],
+  "readbacks": [
+    {
+      "mode": 0,
+      "api": 1,
+      "device_handle": 1048577,
+      "texture_handle": 1048578,
+      "level": 0,
+      "format": 22,
+      "width": 800,
+      "height": 600,
+      "first_row": 0,
+      "row_count": 600,
+      "destination_pitch": 3200,
+      "destination_bytes": 1920000,
+      "response_offset": 16384,
+      "request_id": 1,
+      "face": 0
+    },
+    {
+      "mode": 0,
+      "api": 2,
+      "device_handle": 1048577,
+      "texture_handle": 1048578,
+      "level": 0,
+      "format": 22,
+      "width": 800,
+      "height": 600,
+      "first_row": 0,
+      "row_count": 600,
+      "destination_pitch": 3200,
+      "destination_bytes": 1920000,
+      "response_offset": 16384,
+      "request_id": 2,
+      "face": 0
+    },
+    {
+      "mode": 0,
+      "api": 3,
+      "device_handle": 1048577,
+      "texture_handle": 1048578,
+      "level": 0,
+      "format": 22,
+      "width": 800,
+      "height": 600,
+      "first_row": 0,
+      "row_count": 600,
+      "destination_pitch": 3200,
+      "destination_bytes": 1920000,
+      "response_offset": 16384,
+      "request_id": 3,
+      "face": 0
+    },
+    {
+      "mode": 0,
+      "api": 4,
+      "device_handle": 1048577,
+      "texture_handle": 1048578,
+      "level": 0,
+      "format": 22,
+      "width": 800,
+      "height": 600,
+      "first_row": 0,
+      "row_count": 600,
+      "destination_pitch": 3200,
+      "destination_bytes": 1920000,
+      "response_offset": 16384,
+      "request_id": 4,
+      "face": 0
+    },
+    {
+      "mode": 0,
+      "api": 7,
+      "device_handle": 1048577,
+      "texture_handle": 1048578,
+      "level": 0,
+      "format": 22,
+      "width": 800,
+      "height": 600,
+      "first_row": 0,
+      "row_count": 600,
+      "destination_pitch": 3200,
+      "destination_bytes": 1920000,
+      "response_offset": 16384,
+      "request_id": 5,
+      "face": 0
+    },
+    {
+      "mode": 1,
+      "api": 1,
+      "device_handle": 1048582,
+      "texture_handle": 1048583,
+      "level": 0,
+      "format": 22,
+      "width": 32,
+      "height": 24,
+      "first_row": 0,
+      "row_count": 24,
+      "destination_pitch": 128,
+      "destination_bytes": 3072,
+      "response_offset": 16384,
+      "request_id": 6,
+      "face": 0
+    },
+    {
+      "mode": 1,
+      "api": 2,
+      "device_handle": 1048582,
+      "texture_handle": 1048583,
+      "level": 0,
+      "format": 22,
+      "width": 32,
+      "height": 24,
+      "first_row": 0,
+      "row_count": 24,
+      "destination_pitch": 128,
+      "destination_bytes": 3072,
+      "response_offset": 16384,
+      "request_id": 7,
+      "face": 0
+    },
+    {
+      "mode": 1,
+      "api": 3,
+      "device_handle": 1048582,
+      "texture_handle": 1048583,
+      "level": 0,
+      "format": 22,
+      "width": 32,
+      "height": 24,
+      "first_row": 0,
+      "row_count": 24,
+      "destination_pitch": 128,
+      "destination_bytes": 3072,
+      "response_offset": 16384,
+      "request_id": 8,
+      "face": 0
+    },
+    {
+      "mode": 1,
+      "api": 4,
+      "device_handle": 1048582,
+      "texture_handle": 1048583,
+      "level": 0,
+      "format": 22,
+      "width": 32,
+      "height": 24,
+      "first_row": 0,
+      "row_count": 24,
+      "destination_pitch": 128,
+      "destination_bytes": 3072,
+      "response_offset": 16384,
+      "request_id": 9,
+      "face": 0
+    },
+    {
+      "mode": 1,
+      "api": 7,
+      "device_handle": 1048582,
+      "texture_handle": 1048583,
+      "level": 0,
+      "format": 22,
+      "width": 32,
+      "height": 24,
+      "first_row": 0,
+      "row_count": 24,
+      "destination_pitch": 128,
+      "destination_bytes": 3072,
+      "response_offset": 16384,
+      "request_id": 10,
+      "face": 0
+    }
+  ],
+  "primaryPresents": 40,
+  "knownImplicitGuestLeaks": 1,
+  "traceSha256": "b39cb58a01371e2c15f606e664b1db180ad21b03747c7944f3f2eafd12d2f43a",
+  "referenceSha256": "00f5919934bd3aab468ea7306c1aa60b22f45a3f06528eeae326b36600579e36",
+  "sdkLogs": {
+    "PRIM.TXT": "PRIMARY FRAME mode=0 api=1 op=0 color=FF282011 present=1\r\nPRIMARY FRAME mode=0 api=1 op=1 color=FF284811 present=1\r\nPRIMARY FRAME mode=0 api=1 op=2 color=FF287011 present=1\r\nPRIMARY FRAME mode=0 api=1 op=3 color=FF289811 present=1\r\nPRIMARY FRAME mode=0 api=2 op=0 color=FF302012 present=1\r\nPRIMARY FRAME mode=0 api=2 op=1 color=FF304812 present=1\r\nPRIMARY FRAME mode=0 api=2 op=2 color=FF307012 present=1\r\nPRIMARY FRAME mode=0 api=2 op=3 color=FF309812 present=1\r\nPRIMARY FRAME mode=0 api=3 op=0 color=FF382013 present=1\r\nPRIMARY FRAME mode=0 api=3 op=1 color=FF384813 present=1\r\nPRIMARY FRAME mode=0 api=3 op=2 color=FF387013 present=1\r\nPRIMARY FRAME mode=0 api=3 op=3 color=FF389813 present=1\r\nPRIMARY FRAME mode=0 api=4 op=0 color=FF402014 present=1\r\nPRIMARY FRAME mode=0 api=4 op=1 color=FF404814 present=1\r\nPRIMARY FRAME mode=0 api=4 op=2 color=FF407014 present=1\r\nPRIMARY FRAME mode=0 api=4 op=3 color=FF409814 present=1\r\nPRIMARY FRAME mode=0 api=7 op=0 color=FF582017 present=1\r\nPRIMARY FRAME mode=0 api=7 op=1 color=FF584817 present=1\r\nPRIMARY FRAME mode=0 api=7 op=2 color=FF587017 present=1\r\nPRIMARY FRAME mode=0 api=7 op=3 color=FF589817 present=1\r\nPRIMARY MODE mode=0 apis=5 frames=20 primary=800x600 rootRefs=0\r\nPRIMARY FRAME mode=1 api=1 op=0 color=FF882011 present=1\r\nPRIMARY FRAME mode=1 api=1 op=1 color=FF884811 present=1\r\nPRIMARY FRAME mode=1 api=1 op=2 color=FF887011 present=1\r\nPRIMARY FRAME mode=1 api=1 op=3 color=FF889811 present=1\r\nPRIMARY FRAME mode=1 api=2 op=0 color=FF902012 present=1\r\nPRIMARY FRAME mode=1 api=2 op=1 color=FF904812 present=1\r\nPRIMARY FRAME mode=1 api=2 op=2 color=FF907012 present=1\r\nPRIMARY FRAME mode=1 api=2 op=3 color=FF909812 present=1\r\nPRIMARY FRAME mode=1 api=3 op=0 color=FF982013 present=1\r\nPRIMARY FRAME mode=1 api=3 op=1 color=FF984813 present=1\r\nPRIMARY FRAME mode=1 api=3 op=2 color=FF987013 present=1\r\nPRIMARY FRAME mode=1 api=3 op=3 color=FF989813 present=1\r\nPRIMARY FRAME mode=1 api=4 op=0 color=FFA02014 present=1\r\nPRIMARY FRAME mode=1 api=4 op=1 color=FFA04814 present=1\r\nPRIMARY FRAME mode=1 api=4 op=2 color=FFA07014 present=1\r\nPRIMARY FRAME mode=1 api=4 op=3 color=FFA09814 present=1\r\nPRIMARY FRAME mode=1 api=7 op=0 color=FFB82017 present=1\r\nPRIMARY FRAME mode=1 api=7 op=1 color=FFB84817 present=1\r\nPRIMARY FRAME mode=1 api=7 op=2 color=FFB87017 present=1\r\nPRIMARY FRAME mode=1 api=7 op=3 color=FFB89817 present=1\r\nPRIMARY MODE mode=1 apis=5 frames=20 primary=32x24 rootRefs=0\r\nPRIMARY STATUS modes=2 apis=5 frames=40 writeKinds=4 noFlipCall=1 factoryRefs=0\r\nPASS DirectDraw primary writes\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/ddrawproxy/ddraw_proxy.c": "de842f086d54c5612e41197457c72532d72a7104cac7627223f3a00eb1041c78",
+    "glbridge/sample/ddraw_primary_write_test.c": "ffc60485accfa1a3cd1ff291f8d08a756b99146d93c28851e57f5b3e6ea64fa8"
+  },
+  "captureBuild": {
+    "dllSha256": "3899fd92af9f0f485b10d2d408760b7fb143a0aff887e2f22d4cefb7ae0f1e55",
+    "exeSha256": "6479b320a5ce883fe360306557875b4b7f244097fe374a2fe4a6394508c9369e"
+  },
+  "scope": "Actual DD1/2/3/4/7 Blt, BltFast, WRITEONLY Unlock and GDI ReleaseDC on windowed desktop and flip-chain fronts, no Flip call; forty presentations. CPU dirty-shadow replies are zero intent data consumed only before complete overwrites, not pixel validation. GPU replay separately validates client bounds and actual colors. Existing implicit back-buffer CPU cleanup defect S2-53 remains tracked"
+}

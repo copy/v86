@@ -1,0 +1,44 @@
+<!doctype html><meta charset="utf-8"><title>DirectDraw primary writes and window bounds</title><canvas id="screen" width="32" height="24"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+ /* global TextDecoder */
+ "use strict";
+ const P=D9WGProtocol,C=P.C,comparisons=[],surfaces=[],displays=[],callbacks={acquired:0,configured:0,unconfigured:0};let gpu,display,batches=0,rawPixels=0,displayPixels=0,request=100,guestReplies=0;
+ function check(v,m){if(!v)throw Error(m);}
+ async function hash(b){return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",b)),v=>v.toString(16).padStart(2,"0")).join("");}
+ async function artifact(v){await fetch("/__test_file?name=ddraw-primary-write-guest.json",{method:"POST",body:JSON.stringify(v,null,2)});}
+ function checkPixels(data,pitch,offset,xstart,format,f){let error=0;for(let y=0;y<24;y++)for(let x=0;x<32;x++)for(let c=0;c<4;c++){const channel=format.startsWith("bgra")?c:[2,1,0,3][c];error=Math.max(error,Math.abs(data[offset+y*pitch+(x+xstart)*4+c]-(f.color>>>(channel*8)&255)));}return error;}
+ async function readRaw(f){const pitch=f.width*4,size=pitch*24,payload=P.encode("ReadbackSurface",{device_handle:f.device,texture_handle:0,format:22,width:f.width,height:f.height,first_row:f.area[1],row_count:24,destination_pitch:pitch,destination_bytes:size,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:++request});let raw;await gpu.onReadbackSurface(payload,new DataView(payload.buffer),0,payload.length,{writeGuestMemory(at,b){check(at===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET,"raw address");raw=b.slice();}});check(raw&&raw.length===16+size&&new DataView(raw.buffer,raw.byteOffset).getUint32(P.F.ReadbackResponse.status,true)===C.D9WG_RESPONSE_OK,"actual primary readback");rawPixels+=768;return checkPixels(raw,pitch,16,f.area[0],"bgra8unorm",f);}
+ async function readDisplay(f){const buffer=gpu.device.createBuffer({size:256*24,usage:0x9}),encoder=gpu.device.createCommandEncoder();encoder.copyTextureToBuffer({texture:display,origin:{x:f.area[0],y:f.area[1],z:0}},{buffer,bytesPerRow:256,rowsPerImage:24},[32,24]);gpu.device.queue.submit([encoder.finish()]);await buffer.mapAsync(1);const error=checkPixels(new Uint8Array(buffer.getMappedRange()),256,0,0,gpu.format,f);buffer.unmap();buffer.destroy();displayPixels+=768;return error;}
+ try{
+  const prefix="fixtures/ddraw_primary_write_",m=await(await fetch(prefix+"xp.json")).json(),refBytes=new Uint8Array(await(await fetch(prefix+"reference.json")).arrayBuffer());check(await hash(refBytes)===m.referenceSha256,"reference hash");const reference=JSON.parse(new TextDecoder().decode(refBytes)),response=await fetch(prefix+"xp.bin.gz"),bytes=new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()),view=new DataView(bytes.buffer);check(await hash(bytes)===m.traceSha256,"trace hash");
+  gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false,onPresent(surface){surfaces.push({...surface,clipRect:surface.clipRect&&{...surface.clipRect}});}});await gpu.initialize();gpu.context={configure(){callbacks.configured++;},unconfigure(){callbacks.unconfigured++;},getCurrentTexture(){callbacks.acquired++;check(display,"missing display");return display;}};
+  for(let at=0;at<bytes.length;){const ownerToken=view.getUint32(at,true),flags=view.getUint32(at+4,true),size=view.getUint32(at+8,true);at+=12;check(size>=8&&size<=bytes.length-at&&view.getUint16(at,true)===0xffe1&&view.getUint32(at+4,true)===size-8,"carrier");const packet=bytes.subarray(at+8,at+size),pv=new DataView(packet.buffer,packet.byteOffset,packet.byteLength),presents=[],reads=[];
+   for(let x=P.STRUCTS.BatchHeader.size;x<packet.length;){const op=pv.getUint16(x,true),n=pv.getUint32(x+P.F.CommandHeader.size,true);check(n>=16&&x+n<=packet.length,"command");check(op!==P.OP.PRESENT_SWAP_CHAIN,"unexpected swap-chain presentation");if(op===P.OP.PRESENT)presents.push(P.decode("Present",pv,x+16,n-16));if(op===P.OP.READBACK_SURFACE)reads.push(P.decode("ReadbackSurface",pv,x+16,n-16));x+=n;}
+   check(presents.length<=1&&reads.length<=1,"guest batching");const frame=presents.length?m.frames[comparisons.length]:null;if(frame&&(!display||display.width!==frame.width||display.height!==frame.height)){display=gpu.device.createTexture({size:[frame.width,frame.height],format:gpu.format,usage:0x17});displays.push(display);}
+   let observed=0;await gpu.submit(packet,{ownerToken,flags,writeGuestMemory(at,b){const q=reads[0];if(!q||at!==(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+q.response_offset)return;const dv=new DataView(b.buffer,b.byteOffset,b.byteLength);check(b.length===16+q.destination_bytes&&dv.getUint32(P.F.ReadbackResponse.request_id,true)===q.request_id&&dv.getUint32(P.F.ReadbackResponse.status,true)===C.D9WG_RESPONSE_OK,"guest pre-overwrite GPU reply");observed++;guestReplies++;}});await gpu.checkpointIdle();check(observed===reads.length,"missing tracked guest reply");
+   if(frame){const wanted=reference.frames[comparisons.length];check(wanted&&frame.owner===ownerToken&&frame.device===presents[0].device_handle&&frame.color===wanted.color&&frame.api===wanted.api&&frame.op===wanted.op&&frame.mode===wanted.mode,"independent frame");const surface=surfaces[comparisons.length];check(surface,"missing actual present metadata");if(!frame.mode){const r=surface.clipRect;check(surface.ddDesktopPrimary&&r&&r.left===30&&r.top===40&&r.right===62&&r.bottom===64&&r.baseWidth===800&&r.baseHeight===600,"windowed primary exposed outside client");}else check(!surface.ddDesktopPrimary&&!surface.clipRect,"virtual fullscreen clipped as desktop");comparisons.push({...frame,clipRect:surface.clipRect,rawError:await readRaw(frame),displayError:await readDisplay(frame)});}
+   at+=size;batches++;
+  }
+  check(m.ownerReleases.length===1,"real owner release");for(const owner of m.ownerReleases)await gpu.endOwnerSessions(owner);await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
+  await artifact({traceSha256:m.traceSha256,referenceSha256:m.referenceSha256,frames:comparisons.length,rawPixels,displayPixels,guestReplies,comparisons,callbacks,batches,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors});
+  check(comparisons.length===40&&rawPixels===30720&&displayPixels===30720&&comparisons.every(c=>!c.rawError&&!c.displayError),"primary write color mismatch");check(guestReplies===10&&gpu.stats.presents===40&&gpu.stats.readbackRequests===50&&gpu.stats.sessionsEnded===1&&!gpu.stats.commandsFailed&&!gpu.stats.renderTargetReadbackFailures&&!gpu.stats.responseWriteFailures&&!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&callbacks.acquired===40,"primary host lifetime");for(const d of displays)d.destroy();document.querySelector("#result").textContent="PASS actual XP primary writes: forty frames, five APIs and four write methods, flip-chain fronts, client-only masks, 30720 raw and 30720 displayed pixels, zero error";
+ }catch(error){await artifact({failed:true,error:String(error.stack),comparisons,surfaces,stats:gpu&&gpu.stats,gpuErrors:gpu&&gpu.gpuErrors.errors,hostErrors:gpu&&gpu.hostErrors});document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>

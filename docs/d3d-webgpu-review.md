@@ -420,7 +420,7 @@ game.exe
 | S2-47 | stage 0 的 alpha 默认值被 TEXTUREMAPBLEND 回放覆盖；没有按版本区分的默认状态 | `D7:1058, 2410, 1820-1829, 1125`、`ddraw_protocol.h:760-764` | 所有版本共用一套初始化，D3D7 也从 `SELECTARG2(DIFFUSE)` 开始 → alpha 纹理几何画成不透明；传统 MODULATE 应在纹理有 alpha 或未绑纹理时取 `SELECTARG1(TEXTURE)`，否则 `SELECTARG2(CURRENT)`，并在 SetTexture 时重算；D3D7 上 TEXTUREMAPBLEND 应返回 `DDERR_INVALIDPARAMS`；按版本的默认值缺失（v1 COLORKEYENABLE=TRUE，v2 SPECULARENABLE=TRUE，v1–3 NORMALIZENORMALS=TRUE 等） | ✅；W+（`ddraw/device.c:2697-2722` `fixup_texture_alpha_op`、`6943-6953`；ddraw4 `11171-11273`、ddraw7 `16094-16101`、ddraw1 `2165-2170` 等）；4I2 |
 | S2-48 | 对 GPU 写过的表面做 `DDLOCK_WRITEONLY` 锁定会擦掉内容 | `GD:3177, 3333-3335` | 软件光标或 HUD 叠在 D3D 帧上时，把整帧替换掉 | ✅；W（`ddraw/utils.c:570-571` WRITEONLY 只去掉读权限，内容保留；无 Windows 测试）；4I3 |
 | S2-49 | `palette_SetEntries` 不触发呈现 | `GD:3833` | 只改调色板的淡入淡出不可见，要到下一次 Flip | ✅；W（`ddraw/palette.c:160-181` 主表面的调色板立即更新前台）；4I4 |
-| S2-50 | 可见表面写入：丢失或越界 | `GD:2485, 2553, 3036, 3336`、`DO:356` | flip chain 下画在前缓冲的加载画面不可见；窗口模式 `Unlock(NULL)`/`ReleaseDC` 把整个桌面标脏，其他窗口被盖上旧桌面 | ☑️ |
+| S2-50 | 可见表面写入：丢失或越界 | `GD:2485, 2553, 3036, 3336`、`DO:356` | flip chain 下画在前缓冲的加载画面不可见；窗口模式 `Unlock(NULL)`/`ReleaseDC` 把整个桌面标脏，其他窗口被盖上旧桌面 | ✅；4I5 |
 | S2-51 | 非主表面的 flip chain 错误 | `GD:2675`、`DO:717` | overlay flip chain 被 1:1 贴到交换链上，overlay 显示的是应用正在画的那块缓冲 | ☑️ |
 | S2-52 | 执行缓冲 `D3DPROCESSVERTICES_TRANSFORM` 丢掉 LVERTEX 颜色；传统视口映射被忽略 | `DL:2882, 2896-2897`；`DL:639-656, 780-820` | 预光照几何变白；D3DVIEWPORT 的 `dvScaleX/Y` 和 D3DVIEWPORT2 的 `dvClip*`、MinZ/MaxZ 应经裁剪空间矩阵生效（深度范围固定 0..1；`dvMaxX/Y` Wine 也不用） | W+（`ddraw/executebuffer.c:417-429`、`viewport.c:28-101`；ddraw1 `7732-7741`、ddraw2 `12983-13130`） |
 | S2-53 | 对象生命周期 | `GD:4021, 4338, 4650, 3226, 3298` | 释放 flip chain 前缓冲时，隐式后缓冲及其 GPU 纹理全部泄漏，`flip_next` 悬空；经 IDirectDraw4/7 创建的表面应 AddRef DirectDraw 对象（DD1/DD2 不加），现在不加，v4/v7 应用先释放 DirectDraw 就会 use-after-free；SetPalette/SetClipper 先 Release 旧对象再 AddRef 新对象，设回同一个对象时会 AddRef 已释放的内存 | ☑️；W+（`tests/refcount.c:109-191`、ddraw7 `9024-9027`；`surface.c:574-577, 4766-4777` 先 AddRef 后 Release） |
@@ -2029,6 +2029,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 测试使用既有 32×24×8 虚拟全屏模式，Win32 模式切换失败后的桥接 fallback；不代表原生模式接受或真实桌面切换。XP 没有像素读回回复。SwiftShader / 本机 GPU 各独立验证 16 帧、12,288 个真实解析主表面读回像素及 12,288 个实际显示像素，所有棋盘颜色、alpha 和呈现时序均零误差、零 GPU/宿主/读回错误。
 > - 25 组相关核心（包含既有 DDraw 执行器）、17 组完整 DDraw/D3D1–7 相关客体回归、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；其余客体继承紧邻 4I3 的 247 组完整回归。只发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL，D3D8/9、宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变。见 [stage4i4-validation.json](fixtures/d3d-review/stage4i4-validation.json)。
 > - S2-50/51 前缓冲/窗口脏区/非主表面 Flip、S2-52/53/54/55/57、GetDC 调色板 fallback、完整所有权/包装转换/格式/Reset/线程/丢失、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I5（2026-11-04）：前缓冲即时写入与窗口主表面呈现范围（S2-50）完成。**
+>
+> - Blt、BltFast、Unlock、ReleaseDC 共用当前主表面呈现 helper；flip chain 的前缓冲写入同样立即显示。窗口模式的屏幕复制将表面/脏区与客户区屏幕坐标求交，优先使用 clipper HWND；没有 HWND 时保留既有整面 fallback。失败的坐标探测跳过屏幕复制，right/bottom 使用 64 位加法避免溢出。更新已接受而解析/Present 失败时返回 GENERIC，不撤回 CPU/GDI/GPU 前缀。
+> - native 编译实际范围 helper、屏幕 emitter、呈现 helper、Unlock 和 DC 提交，23,658 项断言、10,800 组窗口/脏区组合，覆盖负坐标、空/越界范围、clipper/window 选择、探测失败、溢出、主/非主表面及有/无 flip chain。13 项变异均严格编译后以运行断言检出；新主表面测试与保留 Lock 测试两族 ASan/UBSan 通过。旧屏幕 emitter、Unlock/DC 配当前 helper 定义严格编译后在整桌面复制越界的断言失败，未宣称完整旧 bundle 对照。
+> - XP 在窗口 800×600 主表面和既有 32×24 虚拟全屏 fallback flip-chain 前缓冲上，经五种表面接口分别执行 Blt、BltFast、WRITEONLY Unlock、GDI ReleaseDC；没有调用 Flip，40 次呈现均存在。一次初始 GDI 桌面 seed、30 次确定的 CPU/GDI 上传、20 次 GPU 写入、40 次屏幕复制及十次写前读回逐项核对；冻结记录 30 项语义损坏全部检出，108 秒、57 批命令，真实 owner 归还。
+> - 写前 CPU 读回回复填零，只用于随后完整覆盖的内存，不作像素验收。SwiftShader / 本机 GPU 各验证十个真实客体读回成功回复、40 个独立画面读回及实际显示区域，每后端 30,720 个读回和 30,720 个显示像素全部零误差；窗口模式实际呈现的桌面遮罩固定为客户区 (30,40)–(62,64)，没有扩大到全桌面，虚拟全屏不使用桌面遮罩。没有新增原生模式切换或 HAL 声明。
+> - 28 组相关核心（含执行器、页面合成和网络路由）、19 组完整 DDraw/D3D1–7 相关客体回归、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；其余客体继承 4I3 的 247 组完整回归。发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL；D3D8/9、宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变。见 [stage4i5-validation.json](fixtures/d3d-review/stage4i5-validation.json)。
+> - **S2-53 的隐式后缓冲 CPU/存储清理缺陷仍保留在记录中：** 五份实际纹理、四条显式表面销毁命令，另一个隐式子表面随宿主设备结束处理，其客体分配未单独清理；本阶段不宣称完成客体资源图。S2-51 overlay Flip、S2-52/53/54/55/57、GetDC 失败策略、复杂窗口/遮挡/线程/丢失、完整所有权与包装转换/格式/Reset、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**

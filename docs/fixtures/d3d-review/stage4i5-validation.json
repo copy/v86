@@ -1,0 +1,3285 @@
+{
+  "stage": "4I5 Immediate DirectDraw primary writes and bounded windowed screen copies (S2-50)",
+  "date": "2026-11-04",
+  "bundle": "64aa2cd7f7413ccbe760",
+  "targetedCoreSuites": 28,
+  "targetedGuestSuites": 19,
+  "fullGuestBaseline": 247,
+  "webgpuRuns": 2,
+  "siteIntegrationTests": 2,
+  "baseline": {
+    "fullCoreGPU": {
+      "file": "docs/fixtures/d3d-review/stage4h6f7d-validation.json",
+      "sha256": "3007b57fe847cd52fcd3920b19d191843f1600baca3fdd89496b98feffadd536",
+      "coreSuites": 216,
+      "webgpuRuns": 59
+    },
+    "fullGuest": {
+      "file": "docs/fixtures/d3d-review/stage4i3-validation.json",
+      "sha256": "6f7b12607946dbd9704ae3d530bc01d3a5d8548985ad7954025c4c29ea54abee",
+      "guestSuites": 247
+    },
+    "previousDirectDraw": {
+      "file": "docs/fixtures/d3d-review/stage4i4-validation.json",
+      "sha256": "cdc256efed843a24dd9deb85582081ed8a500a3f00b224db6ed9aa04f028c5e1",
+      "targetedGuestSuites": 17,
+      "webgpuRuns": 2
+    },
+    "reason": "Guest primary presentation and screen bounds only. Fresh full DDraw/D3D1-7 related regression, core fixtures/executor plus compositor and network-route tests, strict DirectDraw builds, two native sanitizer families and actual old screen/write runtime control, real XP five surface APIs in windowed and virtual flip-chain modes and dual GPU pixel/mask checks. Other guest families inherit 247-suite 4I3 full baseline; D3D8/9 and host/protocol/shader/bundle unchanged."
+  },
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "5ce22fa852cd979b2550afedd8d24b433dc4182d66398952e6af040e56eddf30"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "2c80dc417afc64d67c4d9d0f79882541c23dd0090f8cd25cdfd535cb1b368909"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "64bcbd89ed3a22054b5f0a88cb41c5e69b79020b4681b8ef6137918237b6dcf5"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "9341b9fda9ad5d48db65ea057c0f65f5211028472f0f76a0ebb982d7189c2adc"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "9df6d58e4d90501067554c9779960b73367acf00caca7d30dd862b2cce8f9775"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "64fb5208efd27df7ab8e1eff720f411a13f9e5703d8b50218f4506d13f2522bb"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "77c81a4cf810d2391ac7e9be19a1862b97a1f0427189c225b4bb730d383394af"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "978966947a3320f1319077dd62cdd14ecc196d417ea4aba156943784c087767b"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "c9d0983888ce682f5ed48cc876b1f4fefcfc42bc0956d2bd7fb797357d852108"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "7bb67d61cf57516cfd348a6c933bdfc7b221ccd36abf2b9d5361f8b7ac913917"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "896fd67bee52b1f13efc282094e36235c9fed6f0d4ec7f16a45e41efab3f3090"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "d8d3bacc568661a11bc24d32ec16237d80b3a53f06a2de52d833554aa456d900"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "3af581aec91bb8564ad59be1bedb358caef278d8c96033ccc4097f5030edc53d"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "9bd464b8baf10d265aff17a10f342bfb49979d600f1d39f1fcde73def922f5c3"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "e47c586b92c128d0184493cbd59a6c860fb1d0f0bd6ef50f12ba012e08fcdd6e"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "e9d5e13a1b6e74be507c2db0c77fcb7c385fde3f6c2baf03cddbc6840886b56d"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "ee9d703560341e77bedefea4e49610da29485d77cce6b229bdd7e65fa494d068"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "75392ff4d6285289049cee69716d57ab7b1f83ed2080fa544ec003a3986b8dc4"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 0,
+      "publication": "unchanged prior accepted DLLs; source unchanged",
+      "shippedDllSha256": "531c73896948ef2f520d32b05fcb9569a127e185db003e05dd993b24269a6edf",
+      "diagnosticSha256": "36ce622a3fec237b64e2678d565f35c41aa4b7f4a47b3b228d025dca84c65747",
+      "inheritedFrom": "docs/fixtures/d3d-review/stage4i4-validation.json"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "70cb6461537fad41ae246d55f1203773622e3da2d3ee6cda86a6bd919db61a0c"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "239263f9fc6a7e84565e66f26862a48d6cb5e8c3d4d0af184169c671da203c67"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "9d759a7fa7ca0785b88482f50b739da5ffe5f3195f3c2760a9a99c122211daa2"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "5478c44061737ca3c7ffde9ccf9c48354076a9552066dd61464c528455153c21"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "30d4b60dacd2047e21864cbb42e8d0ace2be0d4d4e92a6194356e1a64bfa92ef"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "eee1d6de1cd8160ec2cb6ceac17924408dc3bdb49cba75e72432fbd4d53be865"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "2f10c24f4bd8b74d236f77799ee8470f9612e52f8fae274e838a035c5c319bc2"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "f0978db6f7a01dae6ac5fd2af352730033b44c4e2f97785da2d5988fbb69d7b7"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "954c08a45091ad84eacf874b64aa6b4df7bc5bce42a198a0c4ccb1d112c21280"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "bc1cbd1df20221d5816098e9ea3d4fee2ab4af0df72f654b455d6bd2b1b821d8"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "0c919cc72d44c2b10a5ec6e9d623922acbace1bba74a03f042eef3b4b305e124"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "b092206999e2826e8d09cf47be4aaff0b0dfdbf0a80bc2aabdf7a1104f6a51c7"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "3dfd2bd8bd2f48ac5181406c5e1c680cdf3c5772fe2e286463117ff36301897c"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "17d1b1c388607cd52b853839c2f7c981cbf92af363dc3cc7df3f6bbb37bbefc6"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 0,
+      "publication": "unchanged prior accepted DLLs; source unchanged",
+      "shippedDllSha256": "01f4f4ca1407ecc67d382ddbd31152741096a8f5d01253796e7723aa7b5f5466",
+      "diagnosticSha256": "a0a8b511afc71c9cae3c7b70e0497e6f22e8267aa0ef43da00bd65893b4a8c87",
+      "inheritedFrom": "docs/fixtures/d3d-review/stage4i4-validation.json"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "0c8882a3f5e63d6b36d6fe7fed44d8812c82a204fc38d3d6c6de84dc86df121e"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "9c27439b1ff4773c01890972a5abbf07a8c9a734530da18b2084b58f16f148fd"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "3e9707f35f5f8171c9522ff22a7081b9adfa051ad8048178457adc3e0be3e323"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "92a798d5747cc5bf5ebbd466326ae5162f2ff026adc69108c593f6d0419be5cf"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact accepted XP primary-write presentation DLL",
+      "shippedDllSha256": "3899fd92af9f0f485b10d2d408760b7fb143a0aff887e2f22d4cefb7ae0f1e55",
+      "diagnosticSha256": "37535722489813da18dab1d54c513b4ee2c70df012bb742478a94d1a95d82fa4"
+    }
+  },
+  "customSDKExecutable": {
+    "file": "PRIM.EXE",
+    "sha256": "6479b320a5ce883fe360306557875b4b7f244097fe374a2fe4a6394508c9369e"
+  },
+  "portable": {
+    "nativeChecks": 23658,
+    "nativeIntersections": 10800,
+    "newMutations": 13,
+    "previousSourceRuntimeNegativeControls": 1,
+    "fixtureCorruptions": 30,
+    "sanitizerFamilies": 2,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/ddraw_primary_write_reference.json",
+    "sha256": "00f5919934bd3aab468ea7306c1aa60b22f45a3f06528eeae326b36600579e36",
+    "schema": 1,
+    "width": 32,
+    "height": 24,
+    "frames": [
+      {
+        "mode": 0,
+        "api": 1,
+        "op": 0,
+        "color": 4280819729,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 0
+      },
+      {
+        "mode": 0,
+        "api": 1,
+        "op": 1,
+        "color": 4280829969,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 1
+      },
+      {
+        "mode": 0,
+        "api": 1,
+        "op": 2,
+        "color": 4280840209,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 2
+      },
+      {
+        "mode": 0,
+        "api": 1,
+        "op": 3,
+        "color": 4280850449,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 3
+      },
+      {
+        "mode": 0,
+        "api": 2,
+        "op": 0,
+        "color": 4281344018,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 4
+      },
+      {
+        "mode": 0,
+        "api": 2,
+        "op": 1,
+        "color": 4281354258,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 5
+      },
+      {
+        "mode": 0,
+        "api": 2,
+        "op": 2,
+        "color": 4281364498,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 6
+      },
+      {
+        "mode": 0,
+        "api": 2,
+        "op": 3,
+        "color": 4281374738,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 7
+      },
+      {
+        "mode": 0,
+        "api": 3,
+        "op": 0,
+        "color": 4281868307,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 8
+      },
+      {
+        "mode": 0,
+        "api": 3,
+        "op": 1,
+        "color": 4281878547,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 9
+      },
+      {
+        "mode": 0,
+        "api": 3,
+        "op": 2,
+        "color": 4281888787,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 10
+      },
+      {
+        "mode": 0,
+        "api": 3,
+        "op": 3,
+        "color": 4281899027,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 11
+      },
+      {
+        "mode": 0,
+        "api": 4,
+        "op": 0,
+        "color": 4282392596,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 12
+      },
+      {
+        "mode": 0,
+        "api": 4,
+        "op": 1,
+        "color": 4282402836,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 13
+      },
+      {
+        "mode": 0,
+        "api": 4,
+        "op": 2,
+        "color": 4282413076,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 14
+      },
+      {
+        "mode": 0,
+        "api": 4,
+        "op": 3,
+        "color": 4282423316,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 15
+      },
+      {
+        "mode": 0,
+        "api": 7,
+        "op": 0,
+        "color": 4283965463,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 16
+      },
+      {
+        "mode": 0,
+        "api": 7,
+        "op": 1,
+        "color": 4283975703,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 17
+      },
+      {
+        "mode": 0,
+        "api": 7,
+        "op": 2,
+        "color": 4283985943,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 18
+      },
+      {
+        "mode": 0,
+        "api": 7,
+        "op": 3,
+        "color": 4283996183,
+        "width": 800,
+        "height": 600,
+        "area": [
+          30,
+          40,
+          62,
+          64
+        ],
+        "index": 19
+      },
+      {
+        "mode": 1,
+        "api": 1,
+        "op": 0,
+        "color": 4287111185,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 20
+      },
+      {
+        "mode": 1,
+        "api": 1,
+        "op": 1,
+        "color": 4287121425,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 21
+      },
+      {
+        "mode": 1,
+        "api": 1,
+        "op": 2,
+        "color": 4287131665,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 22
+      },
+      {
+        "mode": 1,
+        "api": 1,
+        "op": 3,
+        "color": 4287141905,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 23
+      },
+      {
+        "mode": 1,
+        "api": 2,
+        "op": 0,
+        "color": 4287635474,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 24
+      },
+      {
+        "mode": 1,
+        "api": 2,
+        "op": 1,
+        "color": 4287645714,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 25
+      },
+      {
+        "mode": 1,
+        "api": 2,
+        "op": 2,
+        "color": 4287655954,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 26
+      },
+      {
+        "mode": 1,
+        "api": 2,
+        "op": 3,
+        "color": 4287666194,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 27
+      },
+      {
+        "mode": 1,
+        "api": 3,
+        "op": 0,
+        "color": 4288159763,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 28
+      },
+      {
+        "mode": 1,
+        "api": 3,
+        "op": 1,
+        "color": 4288170003,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 29
+      },
+      {
+        "mode": 1,
+        "api": 3,
+        "op": 2,
+        "color": 4288180243,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 30
+      },
+      {
+        "mode": 1,
+        "api": 3,
+        "op": 3,
+        "color": 4288190483,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 31
+      },
+      {
+        "mode": 1,
+        "api": 4,
+        "op": 0,
+        "color": 4288684052,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 32
+      },
+      {
+        "mode": 1,
+        "api": 4,
+        "op": 1,
+        "color": 4288694292,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 33
+      },
+      {
+        "mode": 1,
+        "api": 4,
+        "op": 2,
+        "color": 4288704532,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 34
+      },
+      {
+        "mode": 1,
+        "api": 4,
+        "op": 3,
+        "color": 4288714772,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 35
+      },
+      {
+        "mode": 1,
+        "api": 7,
+        "op": 0,
+        "color": 4290256919,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 36
+      },
+      {
+        "mode": 1,
+        "api": 7,
+        "op": 1,
+        "color": 4290267159,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 37
+      },
+      {
+        "mode": 1,
+        "api": 7,
+        "op": 2,
+        "color": 4290277399,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 38
+      },
+      {
+        "mode": 1,
+        "api": 7,
+        "op": 3,
+        "color": 4290287639,
+        "width": 32,
+        "height": 24,
+        "area": [
+          0,
+          0,
+          32,
+          24
+        ],
+        "index": 39
+      }
+    ],
+    "sources": [
+      {
+        "file": "ddraw-colorkey-surface.c",
+        "blobSha1": "b9300a98cf801690399d5f08f6977685123357b5",
+        "sha256": "d24845b55037dac48f5dd5ce84cbed4d35cd0fc06e3ba419413dabdd484e8dd9",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/surface.c",
+        "evidence": "Unlock, Blt and ReleaseDC route frontbuffer writes to ddraw_surface_update_frontbuffer. Actual coordinates and property tests are bridge implementation evidence, not a Microsoft HAL run."
+      }
+    ],
+    "scope": "S2-50: one primary presentation helper used by Blt/BltFast/Unlock/ReleaseDC, including current flip-chain fronts. Windowed desktop-sized primary screen copies intersect surface/dirty bounds with the application client rectangle in screen coordinates, preferring the clipper HWND; no HWND preserves existing whole-primary fallback. Failed coordinate probes skip screen copies; signed 64-bit right/bottom avoid overflow. Accepted CPU/GDI/GPU update prefixes remain committed if screen resolve/Present fails. Native actual area/screen emitter/primary helper/Unlock/DC: 23658 checks, 10800 intersections, negative/offscreen/empty/window failures, overflow, window selection, primary versus offscreen, with/without chain and accepted-prefix errors. Thirteen strict-compiled runtime mutations; old actual screen emitter and write paths combined with current helper definitions strictly compile then fail clipping; not a complete previous-source bundle. XP actual five surface APIs, both windowed 800x600 desktop and 32x24 virtual fallback flip-chain fronts: forty immediate Blt/BltFast/WRITEONLY Unlock/GDI ReleaseDC frames without Flip. One initial GDI desktop seed, thirty deterministic CPU/GDI uploads, twenty native GPU blits, forty clipped screen copies, ten guest dirty-shadow readbacks. Zero-filled CPU readback replies are used only before complete overwrites; they do not validate GPU pixels. GPU replay validates 30720 actual resolved and 30720 displayed client pixels per backend plus exact desktop visibility masks. Five physical textures created; four explicit surface destruction commands, while the known implicit back-buffer CPU/storage cleanup leak remains S2-53. Both host devices retire all GPU resources through device cleanup; real driver owner releases once. No native HAL, genuine mode-switch acceptance, game/FPS, arbitrary clipper/occlusion/thread/device-loss/ownership completion, overlay Flip S2-51 or review stages 4/5/6 completion. Host/protocol/shader/bundle and D3D8/9 unchanged.",
+    "facts": {
+      "nativeChecks": 23658,
+      "nativeIntersections": 10800,
+      "newMutations": 13,
+      "apiVersions": [
+        1,
+        2,
+        3,
+        4,
+        7
+      ],
+      "devices": 2,
+      "textures": 5,
+      "presents": 40,
+      "nativeBlits": 20,
+      "uploads": 30,
+      "desktopSeeds": 1,
+      "guestReadbacks": 10,
+      "rawPixels": 30720,
+      "displayPixels": 30720,
+      "knownImplicitGuestLeaks": 1,
+      "originalMicrosoftHAL": false
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 108,
+    "batches": 57,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "text": "PASS DirectDraw primary probes \r\n",
+    "logs": {
+      "PRIM.TXT": "PRIMARY FRAME mode=0 api=1 op=0 color=FF282011 present=1\r\nPRIMARY FRAME mode=0 api=1 op=1 color=FF284811 present=1\r\nPRIMARY FRAME mode=0 api=1 op=2 color=FF287011 present=1\r\nPRIMARY FRAME mode=0 api=1 op=3 color=FF289811 present=1\r\nPRIMARY FRAME mode=0 api=2 op=0 color=FF302012 present=1\r\nPRIMARY FRAME mode=0 api=2 op=1 color=FF304812 present=1\r\nPRIMARY FRAME mode=0 api=2 op=2 color=FF307012 present=1\r\nPRIMARY FRAME mode=0 api=2 op=3 color=FF309812 present=1\r\nPRIMARY FRAME mode=0 api=3 op=0 color=FF382013 present=1\r\nPRIMARY FRAME mode=0 api=3 op=1 color=FF384813 present=1\r\nPRIMARY FRAME mode=0 api=3 op=2 color=FF387013 present=1\r\nPRIMARY FRAME mode=0 api=3 op=3 color=FF389813 present=1\r\nPRIMARY FRAME mode=0 api=4 op=0 color=FF402014 present=1\r\nPRIMARY FRAME mode=0 api=4 op=1 color=FF404814 present=1\r\nPRIMARY FRAME mode=0 api=4 op=2 color=FF407014 present=1\r\nPRIMARY FRAME mode=0 api=4 op=3 color=FF409814 present=1\r\nPRIMARY FRAME mode=0 api=7 op=0 color=FF582017 present=1\r\nPRIMARY FRAME mode=0 api=7 op=1 color=FF584817 present=1\r\nPRIMARY FRAME mode=0 api=7 op=2 color=FF587017 present=1\r\nPRIMARY FRAME mode=0 api=7 op=3 color=FF589817 present=1\r\nPRIMARY MODE mode=0 apis=5 frames=20 primary=800x600 rootRefs=0\r\nPRIMARY FRAME mode=1 api=1 op=0 color=FF882011 present=1\r\nPRIMARY FRAME mode=1 api=1 op=1 color=FF884811 present=1\r\nPRIMARY FRAME mode=1 api=1 op=2 color=FF887011 present=1\r\nPRIMARY FRAME mode=1 api=1 op=3 color=FF889811 present=1\r\nPRIMARY FRAME mode=1 api=2 op=0 color=FF902012 present=1\r\nPRIMARY FRAME mode=1 api=2 op=1 color=FF904812 present=1\r\nPRIMARY FRAME mode=1 api=2 op=2 color=FF907012 present=1\r\nPRIMARY FRAME mode=1 api=2 op=3 color=FF909812 present=1\r\nPRIMARY FRAME mode=1 api=3 op=0 color=FF982013 present=1\r\nPRIMARY FRAME mode=1 api=3 op=1 color=FF984813 present=1\r\nPRIMARY FRAME mode=1 api=3 op=2 color=FF987013 present=1\r\nPRIMARY FRAME mode=1 api=3 op=3 color=FF989813 present=1\r\nPRIMARY FRAME mode=1 api=4 op=0 color=FFA02014 present=1\r\nPRIMARY FRAME mode=1 api=4 op=1 color=FFA04814 present=1\r\nPRIMARY FRAME mode=1 api=4 op=2 color=FFA07014 present=1\r\nPRIMARY FRAME mode=1 api=4 op=3 color=FFA09814 present=1\r\nPRIMARY FRAME mode=1 api=7 op=0 color=FFB82017 present=1\r\nPRIMARY FRAME mode=1 api=7 op=1 color=FFB84817 present=1\r\nPRIMARY FRAME mode=1 api=7 op=2 color=FFB87017 present=1\r\nPRIMARY FRAME mode=1 api=7 op=3 color=FFB89817 present=1\r\nPRIMARY MODE mode=1 apis=5 frames=20 primary=32x24 rootRefs=0\r\nPRIMARY STATUS modes=2 apis=5 frames=40 writeKinds=4 noFlipCall=1 factoryRefs=0\r\nPASS DirectDraw primary writes\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "Actual DD1/2/3/4/7 Blt, BltFast, WRITEONLY Unlock and GDI ReleaseDC on windowed desktop and flip-chain fronts, no Flip call; forty presentations. CPU dirty-shadow replies are zero intent data consumed only before complete overwrites, not pixel validation. GPU replay separately validates client bounds and actual colors. Existing implicit back-buffer CPU cleanup defect S2-53 remains tracked",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 21196460,
+        "crc32": "ff7cda0d"
+      }
+    },
+    "devices": 2,
+    "textures": 5,
+    "explicitTextureDestroys": 4,
+    "knownImplicitGuestLeaks": 1,
+    "frames": 40,
+    "writeMethods": [
+      "Blt",
+      "BltFast",
+      "Unlock",
+      "ReleaseDC"
+    ],
+    "deterministicUploads": 30,
+    "desktopSeeds": 1,
+    "nativeBlits": 20,
+    "screenCopies": 40,
+    "guestReadbacks": 10,
+    "graphicsSha256": "b39cb58a01371e2c15f606e664b1db180ad21b03747c7944f3f2eafd12d2f43a"
+  },
+  "gpu": {
+    "swift": {
+      "artifactSha256": "5e59fccf804de0b343e5d484282b0bf799a220e111dd06667a0080365849a840",
+      "traceSha256": "b39cb58a01371e2c15f606e664b1db180ad21b03747c7944f3f2eafd12d2f43a",
+      "referenceSha256": "00f5919934bd3aab468ea7306c1aa60b22f45a3f06528eeae326b36600579e36",
+      "frames": 40,
+      "rawPixels": 30720,
+      "displayPixels": 30720,
+      "guestReplies": 10,
+      "comparisons": [
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 1,
+          "op": 0,
+          "color": 4280819729,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 0,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 1,
+          "op": 1,
+          "color": 4280829969,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 1,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 1,
+          "op": 2,
+          "color": 4280840209,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 2,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 1,
+          "op": 3,
+          "color": 4280850449,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 3,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 2,
+          "op": 0,
+          "color": 4281344018,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 4,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 2,
+          "op": 1,
+          "color": 4281354258,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 5,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 2,
+          "op": 2,
+          "color": 4281364498,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 6,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 2,
+          "op": 3,
+          "color": 4281374738,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 7,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 3,
+          "op": 0,
+          "color": 4281868307,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 8,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 3,
+          "op": 1,
+          "color": 4281878547,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 9,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 3,
+          "op": 2,
+          "color": 4281888787,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 10,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 3,
+          "op": 3,
+          "color": 4281899027,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 11,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 4,
+          "op": 0,
+          "color": 4282392596,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 12,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 4,
+          "op": 1,
+          "color": 4282402836,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 13,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 4,
+          "op": 2,
+          "color": 4282413076,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 14,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 4,
+          "op": 3,
+          "color": 4282423316,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 15,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 7,
+          "op": 0,
+          "color": 4283965463,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 16,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 7,
+          "op": 1,
+          "color": 4283975703,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 17,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 7,
+          "op": 2,
+          "color": 4283985943,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 18,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 7,
+          "op": 3,
+          "color": 4283996183,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 19,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 1,
+          "op": 0,
+          "color": 4287111185,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 20,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 1,
+          "op": 1,
+          "color": 4287121425,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 21,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 1,
+          "op": 2,
+          "color": 4287131665,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 22,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 1,
+          "op": 3,
+          "color": 4287141905,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 23,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 2,
+          "op": 0,
+          "color": 4287635474,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 24,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 2,
+          "op": 1,
+          "color": 4287645714,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 25,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 2,
+          "op": 2,
+          "color": 4287655954,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 26,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 2,
+          "op": 3,
+          "color": 4287666194,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 27,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 3,
+          "op": 0,
+          "color": 4288159763,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 28,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 3,
+          "op": 1,
+          "color": 4288170003,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 29,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 3,
+          "op": 2,
+          "color": 4288180243,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 30,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 3,
+          "op": 3,
+          "color": 4288190483,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 31,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 4,
+          "op": 0,
+          "color": 4288684052,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 32,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 4,
+          "op": 1,
+          "color": 4288694292,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 33,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 4,
+          "op": 2,
+          "color": 4288704532,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 34,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 4,
+          "op": 3,
+          "color": 4288714772,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 35,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 7,
+          "op": 0,
+          "color": 4290256919,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 36,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 7,
+          "op": 1,
+          "color": 4290267159,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 37,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 7,
+          "op": 2,
+          "color": 4290277399,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 38,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 7,
+          "op": 3,
+          "color": 4290287639,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 39,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        }
+      ],
+      "callbacks": {
+        "acquired": 40,
+        "configured": 0,
+        "unconfigured": 0
+      },
+      "batches": 57,
+      "stats": {
+        "batches": 57,
+        "commands": 185,
+        "presents": 40,
+        "queueSubmits": 90,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 1,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 40,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 40,
+        "readbackRequests": 50,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 2,
+        "texturesCreated": 5,
+        "textureUploads": 31,
+        "textureBytesUploaded": 21181440,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 40,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 1,
+        "uploadStagingUploads": 31,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 4,
+        "sessionChanges": 0,
+        "sessionsEnded": 1,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 4,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 0,
+        "renderPasses": 50,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 12800,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 50,
+        "renderTargetReadbackBytes": 11212800,
+        "renderTargetReadbackFailures": 0,
+        "ddDisplayModes": 3,
+        "ddColorKeysSet": 20,
+        "ddBlits": 60,
+        "ddFills": 10,
+        "ddBlitsCopied": 10
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    },
+    "metal": {
+      "artifactSha256": "5e59fccf804de0b343e5d484282b0bf799a220e111dd06667a0080365849a840",
+      "traceSha256": "b39cb58a01371e2c15f606e664b1db180ad21b03747c7944f3f2eafd12d2f43a",
+      "referenceSha256": "00f5919934bd3aab468ea7306c1aa60b22f45a3f06528eeae326b36600579e36",
+      "frames": 40,
+      "rawPixels": 30720,
+      "displayPixels": 30720,
+      "guestReplies": 10,
+      "comparisons": [
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 1,
+          "op": 0,
+          "color": 4280819729,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 0,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 1,
+          "op": 1,
+          "color": 4280829969,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 1,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 1,
+          "op": 2,
+          "color": 4280840209,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 2,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 1,
+          "op": 3,
+          "color": 4280850449,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 3,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 2,
+          "op": 0,
+          "color": 4281344018,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 4,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 2,
+          "op": 1,
+          "color": 4281354258,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 5,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 2,
+          "op": 2,
+          "color": 4281364498,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 6,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 2,
+          "op": 3,
+          "color": 4281374738,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 7,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 3,
+          "op": 0,
+          "color": 4281868307,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 8,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 3,
+          "op": 1,
+          "color": 4281878547,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 9,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 3,
+          "op": 2,
+          "color": 4281888787,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 10,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 3,
+          "op": 3,
+          "color": 4281899027,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 11,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 4,
+          "op": 0,
+          "color": 4282392596,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 12,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 4,
+          "op": 1,
+          "color": 4282402836,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 13,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 4,
+          "op": 2,
+          "color": 4282413076,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 14,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 4,
+          "op": 3,
+          "color": 4282423316,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 15,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 7,
+          "op": 0,
+          "color": 4283965463,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 16,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 7,
+          "op": 1,
+          "color": 4283975703,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 17,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 7,
+          "op": 2,
+          "color": 4283985943,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 18,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "mode": 0,
+          "api": 7,
+          "op": 3,
+          "color": 4283996183,
+          "width": 800,
+          "height": 600,
+          "area": [
+            30,
+            40,
+            62,
+            64
+          ],
+          "index": 19,
+          "clipRect": {
+            "left": 30,
+            "top": 40,
+            "right": 62,
+            "bottom": 64,
+            "baseWidth": 800,
+            "baseHeight": 600
+          },
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 1,
+          "op": 0,
+          "color": 4287111185,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 20,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 1,
+          "op": 1,
+          "color": 4287121425,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 21,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 1,
+          "op": 2,
+          "color": 4287131665,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 22,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 1,
+          "op": 3,
+          "color": 4287141905,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 23,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 2,
+          "op": 0,
+          "color": 4287635474,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 24,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 2,
+          "op": 1,
+          "color": 4287645714,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 25,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 2,
+          "op": 2,
+          "color": 4287655954,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 26,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 2,
+          "op": 3,
+          "color": 4287666194,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 27,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 3,
+          "op": 0,
+          "color": 4288159763,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 28,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 3,
+          "op": 1,
+          "color": 4288170003,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 29,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 3,
+          "op": 2,
+          "color": 4288180243,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 30,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 3,
+          "op": 3,
+          "color": 4288190483,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 31,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 4,
+          "op": 0,
+          "color": 4288684052,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 32,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 4,
+          "op": 1,
+          "color": 4288694292,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 33,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 4,
+          "op": 2,
+          "color": 4288704532,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 34,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 4,
+          "op": 3,
+          "color": 4288714772,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 35,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 7,
+          "op": 0,
+          "color": 4290256919,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 36,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 7,
+          "op": 1,
+          "color": 4290267159,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 37,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 7,
+          "op": 2,
+          "color": 4290277399,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 38,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "device": 1048582,
+          "texture": 1048583,
+          "mode": 1,
+          "api": 7,
+          "op": 3,
+          "color": 4290287639,
+          "width": 32,
+          "height": 24,
+          "area": [
+            0,
+            0,
+            32,
+            24
+          ],
+          "index": 39,
+          "clipRect": null,
+          "rawError": 0,
+          "displayError": 0
+        }
+      ],
+      "callbacks": {
+        "acquired": 40,
+        "configured": 0,
+        "unconfigured": 0
+      },
+      "batches": 57,
+      "stats": {
+        "batches": 57,
+        "commands": 185,
+        "presents": 40,
+        "queueSubmits": 90,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 1,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 40,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 40,
+        "readbackRequests": 50,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 2,
+        "texturesCreated": 5,
+        "textureUploads": 31,
+        "textureBytesUploaded": 21181440,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 40,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 1,
+        "uploadStagingUploads": 31,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 4,
+        "sessionChanges": 0,
+        "sessionsEnded": 1,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 4,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 0,
+        "renderPasses": 50,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 12800,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 50,
+        "renderTargetReadbackBytes": 11212800,
+        "renderTargetReadbackFailures": 0,
+        "ddDisplayModes": 3,
+        "ddColorKeysSet": 20,
+        "ddBlits": 60,
+        "ddFills": 10,
+        "ddBlitsCopied": 10
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    }
+  },
+  "fixture": {
+    "metadataSha256": "d616362ec22b7de6b0bf8a69879fa4dfa2aed75c2caacba1f7c50e9a23410c11",
+    "compressedTraceSha256": "99641211fc10094767db1e7ec28b2b188a036da6211d51b8f6a8b374056b6700",
+    "captureBuild": {
+      "dllSha256": "3899fd92af9f0f485b10d2d408760b7fb143a0aff887e2f22d4cefb7ae0f1e55",
+      "exeSha256": "6479b320a5ce883fe360306557875b4b7f244097fe374a2fe4a6394508c9369e"
+    }
+  },
+  "validationRepairs": [
+    "The old screen emitter and Unlock/DC functions compile with the current helper definitions so the control can run. It fails actual old whole-desktop screen-copy bounds; this is not a complete old-bundle replay.",
+    "The first overflow mutation survived existing INT_MIN/INT_MAX boundaries. A positive window origin plus UINT_MAX client width was added; all thirteen mutations now strictly compile and fail runtime assertions.",
+    "The retained Lock native harness now extracts the actual new primary helper, and emitter stubs return BOOL as production does. Both this family and the new primary family pass ASan/UBSan.",
+    "XP dirty-shadow CPU replies are zero-filled only before complete overwrites. No pixel evidence comes from those replies. GPU replay verifies ten real guest pre-overwrite responses plus forty independent raw/display client comparisons and exact desktop masks. Initial GDI desktop seed is pinned but is not an independent color oracle.",
+    "The pre-existing implicit flip-chain child CPU/storage cleanup leak remains deliberately visible in the frozen graph: five textures, four explicit destruction commands. S2-53 is still open; this phase does not claim complete guest resource cleanup or native fullscreen-mode validation."
+  ],
+  "scope": "S2-50: one primary presentation helper used by Blt/BltFast/Unlock/ReleaseDC, including current flip-chain fronts. Windowed desktop-sized primary screen copies intersect surface/dirty bounds with the application client rectangle in screen coordinates, preferring the clipper HWND; no HWND preserves existing whole-primary fallback. Failed coordinate probes skip screen copies; signed 64-bit right/bottom avoid overflow. Accepted CPU/GDI/GPU update prefixes remain committed if screen resolve/Present fails. Native actual area/screen emitter/primary helper/Unlock/DC: 23658 checks, 10800 intersections, negative/offscreen/empty/window failures, overflow, window selection, primary versus offscreen, with/without chain and accepted-prefix errors. Thirteen strict-compiled runtime mutations; old actual screen emitter and write paths combined with current helper definitions strictly compile then fail clipping; not a complete previous-source bundle. XP actual five surface APIs, both windowed 800x600 desktop and 32x24 virtual fallback flip-chain fronts: forty immediate Blt/BltFast/WRITEONLY Unlock/GDI ReleaseDC frames without Flip. One initial GDI desktop seed, thirty deterministic CPU/GDI uploads, twenty native GPU blits, forty clipped screen copies, ten guest dirty-shadow readbacks. Zero-filled CPU readback replies are used only before complete overwrites; they do not validate GPU pixels. GPU replay validates 30720 actual resolved and 30720 displayed client pixels per backend plus exact desktop visibility masks. Five physical textures created; four explicit surface destruction commands, while the known implicit back-buffer CPU/storage cleanup leak remains S2-53. Both host devices retire all GPU resources through device cleanup; real driver owner releases once. No native HAL, genuine mode-switch acceptance, game/FPS, arbitrary clipper/occlusion/thread/device-loss/ownership completion, overlay Flip S2-51 or review stages 4/5/6 completion. Host/protocol/shader/bundle and D3D8/9 unchanged.",
+  "coreSha256": {
+    "tests/glbridge/ddraw_primary_write_fixture_test.js": "d25f74f76390c2da291a0a3b698e6cc5d01e8537dfda96d7e5c37abf39d8fab9",
+    "tests/glbridge/ddraw_primary_write_replay_browser_test.html": "4e40f9bc347bf386359c87b9506d3b623edb3a9ae81d0f175e154151711a01e9",
+    "tests/glbridge/ddraw_primary_write_xp.mjs": "c11ed9a3601192c78b1dfcf689936c45b244808c0364d26ed0d5afb38aced723",
+    "tests/glbridge/fixtures/ddraw_primary_write_reference.json": "00f5919934bd3aab468ea7306c1aa60b22f45a3f06528eeae326b36600579e36",
+    "tests/glbridge/fixtures/ddraw_primary_write_xp.bin.gz": "99641211fc10094767db1e7ec28b2b188a036da6211d51b8f6a8b374056b6700",
+    "tests/glbridge/fixtures/ddraw_primary_write_xp.json": "d616362ec22b7de6b0bf8a69879fa4dfa2aed75c2caacba1f7c50e9a23410c11",
+    "tests/lib/ddraw_primary_write_wire.mjs": "d05d6b29885eda582b4ed1114d0fbb4d624d38607ca7d3a8a7a6ea9fb58fd5e1",
+    "docs/d3d-webgpu-review.md": "3b62cc9d9473baeb0bbea5e9b587993defb16a21e2fdfe890139f310ab5cf912"
+  },
+  "siteSha256": {
+    "glbridge/sample/ddraw_primary_write_test.c": "ffc60485accfa1a3cd1ff291f8d08a756b99146d93c28851e57f5b3e6ea64fa8",
+    "glbridge/tests/ddraw_primary_write_mutation_test.js": "25ddb10231568ce60bee0c3ef35afe19c311589aa54b841ad79d9462791603ce",
+    "glbridge/tests/ddraw_primary_write_test.js": "92baeb412705071f75d2d5b8f546a50578112de71b77d17f0289ad6bcc37df7d",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "37535722489813da18dab1d54c513b4ee2c70df012bb742478a94d1a95d82fa4",
+    "glbridge/ddrawproxy/ddraw.dll": "3899fd92af9f0f485b10d2d408760b7fb143a0aff887e2f22d4cefb7ae0f1e55",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "de842f086d54c5612e41197457c72532d72a7104cac7627223f3a00eb1041c78",
+    "glbridge/tests/ddraw_lock_preservation_test.js": "9291bd586ba3af20f4c9462bd5f9d23e33c912bc30e9f360105b4b0dc8163851"
+  },
+  "logSha256": {
+    "core": "3203f14e6f1829d112cd023b56dbbe3ce4eb8e9344873b470bcd95b5ebbc7b82",
+    "guest": "2bc42ee737a413091117df0e665461ba6ef1c9bed9525c4c4d0e756ffbcf37f7",
+    "xp": "ec8f262d6c27d962cfa8a4ab193b1d90c4a41bda385cdb94c02dcc7175bf01e5",
+    "before": "dd3616a547c1ec9c893221763489c22a1d0e0eed36da17bc7fca690cf22f0db5",
+    "native": "69c7144f8eb2b12326aed4b611f8802f19d741d3887932c909716ed7c0c56e30",
+    "sanitize": "a38abb56fbe11be29ab553ee8da939d5214251678477e7589e4b7f849a07c9c9",
+    "fixture": "30d2935b5c215d6a08643de48c5ee0b71435903540ddb1a4b138f3a4ff0ebcd7",
+    "builds": "6a9d815afe43be8d02416a321129b7ed59e42f6a47a05472fceccd26137516e0",
+    "lint": "e959fc3cc32615f04dc04fbabc5397bc650c0fbab74eedcc786c2172b97d87c4",
+    "site-lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "integration": "83503dbc268b3104dd9d9d720c1c81d6ae7b4fe4c2ca4f656a4d348caf34e782",
+    "mutations": "f3dcff33dd215f6c2f74b8ae1ff1003ea8f0d431d17b6534dec29687fc1dc61f",
+    "swift": "630e8d8898c560d74590640214c371876542e5a9f320752350b1f1c6531af34d",
+    "metal": "630e8d8898c560d74590640214c371876542e5a9f320752350b1f1c6531af34d"
+  }
+}
