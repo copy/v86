@@ -1,0 +1,85 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "hello": 1,
+      "device": 0,
+      "created": [
+        1048577,
+        1048578,
+        1048579,
+        1048580,
+        1048581
+      ],
+      "destroyed": [
+        1048577,
+        1048578,
+        1048579,
+        1048580,
+        1048581
+      ],
+      "targets": 1,
+      "depths": 1,
+      "ended": 1
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "hello": 1,
+      "device": 0,
+      "created": [
+        1048577,
+        1048578,
+        1048579,
+        1048580,
+        1048581
+      ],
+      "destroyed": [
+        1048577,
+        1048578,
+        1048579,
+        1048580,
+        1048581
+      ],
+      "targets": 1,
+      "depths": 1,
+      "ended": 1
+    }
+  ],
+  "ownerReleases": [
+    1,
+    2
+  ],
+  "deviceLifetimes": 10,
+  "privateObjectsFinalized": 22,
+  "protectedQueries": 22,
+  "retainedParents": 2,
+  "reentrantInsertions": 2,
+  "renderTargetBindings": 2,
+  "depthBindings": 2,
+  "renderingOrResetCommands": 0,
+  "traceSha256": "6b64957c2b6c71a2c97d502a4e666bd4f2af052e0acf3259e790ac9e7396a4f0",
+  "referenceSha256": "4b8d39d5a0d03e2751b5e40a1e7b9bceb5a425e39928ddec95a3740a30d683fb",
+  "sdkLogs": {
+    "IPC8.TXT": "IMPLICIT CALLBACK order=0 finalized=2 queryDeviceRefs=1 retainedParent=0 reinserted=0 factoryRefs=1\r\nIMPLICIT CALLBACK order=1 finalized=2 queryDeviceRefs=1 retainedParent=0 reinserted=0 factoryRefs=1\r\nIMPLICIT CALLBACK order=2 finalized=2 queryDeviceRefs=1 retainedParent=0 reinserted=0 factoryRefs=1\r\nIMPLICIT CALLBACK order=3 finalized=2 queryDeviceRefs=1 retainedParent=1 reinserted=0 factoryRefs=1\r\nIMPLICIT CALLBACK order=4 finalized=3 queryDeviceRefs=1 retainedParent=0 reinserted=1 factoryRefs=1\r\nIMPLICIT STATUS devices=5 privateFinalized=11 protectedQueries=11 retainedParent=1 reinserted=1 factoryRefs=1\r\nPASS implicit private callbacks API=8\r\n",
+    "IPC9.TXT": "IMPLICIT CALLBACK order=0 finalized=2 queryDeviceRefs=1 retainedParent=0 reinserted=0 factoryRefs=1\r\nIMPLICIT CALLBACK order=1 finalized=2 queryDeviceRefs=1 retainedParent=0 reinserted=0 factoryRefs=1\r\nIMPLICIT CALLBACK order=2 finalized=2 queryDeviceRefs=1 retainedParent=0 reinserted=0 factoryRefs=1\r\nIMPLICIT CALLBACK order=3 finalized=2 queryDeviceRefs=1 retainedParent=1 reinserted=0 factoryRefs=1\r\nIMPLICIT CALLBACK order=4 finalized=3 queryDeviceRefs=1 retainedParent=0 reinserted=1 factoryRefs=1\r\nIMPLICIT STATUS devices=5 privateFinalized=11 protectedQueries=11 retainedParent=1 reinserted=1 factoryRefs=1\r\nPASS implicit private callbacks API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "1bcdc3eec3c579176a9680b650f3740f2558db5e7a3c3499c689b1e667cd2015",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "4cffa3c0fbdb00f10bd9c029cb719238189b48109f4f64549be012013c9a8bca",
+    "glbridge/sample/d3d_implicit_private_callback_test.c": "e9254abfd2590c5a0abd6237b9a51de8209ab739a7e905f2b7a1fae2c198479a"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "27474ce299cb8b89b34c9e7a01a7f54e4682df05f2843b4dfd9924b3beb31dd2",
+      "9": "cb3411446e0984ed8bf849c20e7d0f9993de1e37194a0c3d93e5c58f961b8b55"
+    },
+    "exeSha256": {
+      "8": "41acd33dfac2f5dae8f45394a5a1a6ad35cde1aff4be23c6d98f507ae9da8d02",
+      "9": "e7ad4a6a7ef03c378691450289666a59b71c3fbb68270798a73dd8eb55d2e96b"
+    }
+  },
+  "scope": "no rendering; both APIs exercise five cached implicit private-IUnknown finalizer orders, protected parent queries, retained parent and reentrant insertion"
+}

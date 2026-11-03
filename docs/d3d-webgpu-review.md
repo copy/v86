@@ -1964,6 +1964,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 17 组相关核心、239 组完整客体、18 个 D3D8 标准 SDK EXE、两份严格 D3D8 DLL、新绑定 SDK EXE及站点两项集成通过。只发布最终 XP 所测 D3D8 零售 DLL及严格诊断 DLL；D3D9/DDraw 维持原验收文件。宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变，继承 7d/e、8c、8h 基线并新增本次双后端 GPU 运行。见 [stage4h6f8i-validation.json](fixtures/d3d-review/stage4h6f8i-validation.json)。
 > - 两版独立表面之外的隐式/链/texture/cube/缓冲/着色器/状态块绑定计数、通用设备根引用消失但外部资源存活时的状态保持及完整回调资源图、其他跨设备入口、完整格式/MSAA/呈现/Reset/线程/物理丢失、多缓冲轮转、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f8j（2026-11-03）：两版隐式缓存私有对象回调的设备保护与重入清理（S2-42 相关）完成。**
+>
+> - 隐式 back/depth 私有对象原先在临时设备引用归还后才析构，回调若查询设备会在设备计数零时重入销毁。现在两版都在既有临时引用下清理缓存，随后才归还临时引用并销毁宿主设备和缓存表面；回调保留设备时，后续 store 延后到其最终 Release，回调重新插入的缓存项由循环继续清理。
+> - 原始两版源均严格编译，在真实私有 IUnknown 回调的设备引用断言中失败；修复后每版五种顺序、11 次恰好一次的析构通过，覆盖空绑定、仅设备持有绑定、最后一个公开表面、保留父设备及重新写入缓存。新增 14 项变异、原有 16 项私有数据变异通过；清理遗漏变异采用直接脱链，严格编译后以泄漏断言检出，避免把无限循环当作有效结果。
+> - XP 使用同一套双 API SDK 用例，十个逻辑设备、22 次实际 AddRef/Release 与协作状态查询、两次保留设备、两次重新插入缓存均通过；被保留设备的深度表面身份与私有对象保持。冻结轨迹逐一核对十次设备创建/销毁、两次 RT/depth 绑定及真实 owner 归还，26 项命令/日志损坏全部检出，没有绘制、Clear、Present 或 Reset。**回调中设备引用为 1 是代理清理安全约束，不是原生 Microsoft HAL 的析构计数测量。**
+> - 18 组相关核心、240 组完整客体、六族 ASan/UBSan、32 个标准 SDK EXE、四份严格零售/诊断 DLL、两份新增 SDK EXE及站点两项集成通过；两版发布最终 XP 所测零售 DLL 和严格诊断 DLL，DDraw 维持原验收文件。宿主/协议/着色器和 bundle `64aa2cd7f7413ccbe760` 不变；本轮没有新增 GPU 运行，继承 7d、8c、8h、8i 像素基线。见 [stage4h6f8j-validation.json](fixtures/d3d-review/stage4h6f8j-validation.json)。
+> - 本轮只补齐缓存清理顺序；隐式/附加链等公共绑定计数、通用设备根引用消失时的状态保持、任意重入/线程/丢失资源图、其他跨设备入口、完整格式/MSAA/呈现/Reset、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

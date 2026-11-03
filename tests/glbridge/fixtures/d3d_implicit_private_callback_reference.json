@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "scope": "Both APIs release cached implicit private-IUnknown entries under the existing temporary device self pin, before dropping that pin and before host/device/cache destruction. Drain reentrant cache insertions while only the temporary pin remains. A callback retaining a public device reference defers subsequent stores until its next final Release. Five orders per API cover empty bindings, device-owned implicit bindings, last public surface, retained device, and reentrant private-store insertion. Public-cache data remains intact while an external surface keeps the device alive. The native harness and real XP query actual device AddRef/Release and cooperative state inside all eleven finalizers per API. The observed count of one during finalization is a project safety contract, not a native HAL finalizer oracle. Native empty/owned/last-public/retained/reentrant tests use real device/cache/public/private-data methods; owned binding setup is modeled in C, and XP exercises full SDK setters. No drawing, Clear, Present, Reset, protocol, host, shader or bundle changes. Implicit/additional public binding counts, other resource families, general root-state preservation, arbitrary callback ownership/thread/device-loss graphs, original Microsoft HAL, games/FPS and review stages 4/5/6 remain open.",
+  "sources": [
+    {
+      "file": "d3d8-container-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+      "evidence": "Supporting cached surface and public zero/nonzero ownership context only. The protected pending-destruction callback count of one is a bridge safety invariant, not an original Microsoft HAL measurement."
+    }
+  ],
+  "facts": {
+    "nativeFinalizersPerAPI": 11,
+    "nativeOrdersPerAPI": 5,
+    "newMutations": 14,
+    "retainedPrivateDataMutations": 16,
+    "xpLogicalDevices": 10,
+    "xpPrivateObjectsFinalized": 22,
+    "xpProtectedQueries": 22,
+    "xpRetainedParents": 2,
+    "xpReentrantInsertions": 2,
+    "xpRenderTargetBindings": 2,
+    "xpDepthBindings": 2,
+    "renderingOrResetCommands": 0,
+    "originalMicrosoftHAL": false
+  }
+}
