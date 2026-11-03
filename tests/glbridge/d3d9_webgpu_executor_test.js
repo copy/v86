@@ -2176,6 +2176,32 @@ await test("SetLOD reaches the host and combines with D3DSAMP_MAXMIPLEVEL",
         "SetLOD(3) is more restrictive than MAXMIPLEVEL(1) and wins");
 });
 
+await test("MAXMIPLEVEL is ignored with NONE while resource LOD still applies", async () => {
+    const elements = [element(0, 0, DECLTYPE.FLOAT3, DECLUSAGE.POSITION),
+        element(0, 12, DECLTYPE.FLOAT2, DECLUSAGE.TEXCOORD)];
+    for(const [filter, maxMip, lod, expected] of [[0,3,0,0], [0,2,1,1], [0,0,2,2], [1,2,1,2]]) {
+        const {executor,find}=makeExecutor();
+        await executor.submit(buildBatch([
+            command(OP.CREATE_DEVICE, createDevicePayload(640,480)),
+            command(OP.CREATE_BUFFER, createBufferPayload(0x201,1,96)),
+            command(OP.CREATE_TEXTURE_2D,encodePayload("CreateTexture2D",{device_handle:DEVICE,resource_handle:0x401,width:8,height:8,level_count:4,format:21,usage:0,pool:1,multisample_type:0,multisample_quality:0})),
+            command(OP.SET_FVF,fvfPayload(0x102,elements)),
+            command(OP.SET_STREAM_SOURCE,setStreamSourcePayload(0,0x201,20)),
+            command(OP.SET_TEXTURE,encodePayload("SetTexture",{device_handle:DEVICE,stage:0,texture_handle:0x401,reserved:0})),
+            command(OP.SET_SAMPLER_STATE,encodePayload("SetSamplerState",{device_handle:DEVICE,sampler:0,state:7,value:filter})),
+            command(OP.SET_SAMPLER_STATE,encodePayload("SetSamplerState",{device_handle:DEVICE,sampler:0,state:9,value:maxMip})),
+            command(OP.SET_TEXTURE_LOD,encodePayload("SetTextureLOD",{device_handle:DEVICE,resource_handle:0x401,lod,reserved:0})),
+            command(OP.DRAW_PRIMITIVE,drawPrimitivePayload(4,0,1)),
+            command(OP.PRESENT,encodePayload("Present",{device_handle:DEVICE,hwnd:0x1234,x:0,y:0,width:640,height:480})),
+        ],{present:true}));
+        await executor.idle();
+        assert.equal(executor.stats.droppedDraws,0);
+        const sampler=find("createSampler").pop()[1];
+        assert.equal(sampler.lodMinClamp||0,expected);
+        if(filter===0)assert.equal(sampler.lodMaxClamp,expected);
+    }
+});
+
 await test("a SetLOD past the end of the chain is clamped, not passed through",
         async () => {
     // lodMinClamp above lodMaxClamp is a WebGPU validation error, so a stale

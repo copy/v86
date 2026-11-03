@@ -246,16 +246,13 @@
                     ? 1 : requestedMipFilter;
                 let maxAnisotropy = get(D3DSAMP_MAXANISOTROPY, 1) | 0;
                 if (unfilterable) maxAnisotropy = 1;
-                // Two independent floors on the mip chain, and D3D9 applies the
-                // more restrictive: D3DSAMP_MAXMIPLEVEL is sampler state and
-                // applies to whatever is bound here, while SetLOD travels with the
-                // texture. Both are level indices; WebGPU spells the same thing as
-                // a LOD clamp. Clamped against the chain that exists so a stale
-                // value cannot produce lodMinClamp > lodMaxClamp, which WebGPU
-                // rejects outright.
+                // Resource LOD always limits the most detailed available mip.
+                // MAXMIPLEVEL applies only when mip filtering is enabled (Wine
+                // visual.c, test_mipmap). With NONE, only resource LOD selects
+                // the single sampled level. Clamp to the actual chain.
                 const levels = Math.max(1, (texture && texture.levelCount) || 1);
                 const lodFloor = Math.min(levels - 1,
-                    Math.max(get(D3DSAMP_MAXMIPLEVEL, 0) >>> 0,
+                    Math.max(mipFilter === 0 ? 0 : get(D3DSAMP_MAXMIPLEVEL, 0) >>> 0,
                         (texture && texture.lod) || 0));
                 const key = [addressU, addressV, addressW, magFilter, minFilter,
                     mipFilter, maxAnisotropy, lodFloor,
@@ -281,7 +278,7 @@
                     // D3DTEXF_NONE means "sample one level and do not blend
                     // between levels". That level is the most detailed one still
                     // allowed, which is the floor -- not level 0, once
-                    // D3DSAMP_MAXMIPLEVEL or SetLOD has raised it.
+                    // SetLOD has raised it; MAXMIPLEVEL is ignored with NONE.
                     descriptor.lodMinClamp = lodFloor;
                     descriptor.lodMaxClamp = lodFloor;
                 } else if (lodFloor > 0) {

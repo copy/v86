@@ -1,0 +1,86 @@
+{
+  "schema": 1,
+  "scope": "D3D8/9 share resource SetLOD semantics for 2D/cube/volume. Managed pools only; resource LOD is live during state-block recording, outside state capture. NONE ignores MAXMIPLEVEL but applies resource LOD; POINT combines both floors. Explicit simulated XP replies and independent GPU replay; no native Microsoft HAL claim.",
+  "paletteARGB": [
+    4294901760,
+    4278255360,
+    4278190335
+  ],
+  "edge": 8,
+  "levels": 3,
+  "extent": 64,
+  "pools": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "cases": [
+    {
+      "requested": 0,
+      "stored": 0,
+      "mipFilter": 0,
+      "maxMip": 3,
+      "sampled": 0
+    },
+    {
+      "requested": 1,
+      "stored": 1,
+      "mipFilter": 0,
+      "maxMip": 0,
+      "sampled": 1
+    },
+    {
+      "requested": 2,
+      "stored": 2,
+      "mipFilter": 1,
+      "maxMip": 1,
+      "sampled": 2
+    },
+    {
+      "requested": 1,
+      "stored": 1,
+      "mipFilter": 1,
+      "maxMip": 2,
+      "sampled": 2
+    },
+    {
+      "requested": 1,
+      "stored": 1,
+      "mipFilter": 0,
+      "maxMip": 2,
+      "sampled": 1
+    },
+    {
+      "requested": 4294967295,
+      "stored": 2,
+      "mipFilter": 1,
+      "maxMip": 0,
+      "sampled": 2
+    },
+    {
+      "requested": 0,
+      "stored": 0,
+      "mipFilter": 0,
+      "maxMip": 0,
+      "sampled": 0
+    }
+  ],
+  "sources": [
+    {
+      "file": "d3d8-lod-texture.c",
+      "sha256": "dc701d9ce6ad9c7eb0d1a8b6343f7c779b2479d06fbd8d398b3523be0f0dd897",
+      "blobSha1": "56b79b3ad6bcb7fea42b6456fc28f4de2e85f80b"
+    },
+    {
+      "file": "wined3d-lod-texture.c",
+      "sha256": "2952415fa9f09b80e1cd64d3d771f001fb8b56da0584cc738f348fd84a92a07c",
+      "blobSha1": "4ada3c3c8af82740cea4dc4a994fd3adb855d373"
+    },
+    {
+      "file": "d3d9-visual-tests.c",
+      "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+      "blobSha1": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+    }
+  ]
+}

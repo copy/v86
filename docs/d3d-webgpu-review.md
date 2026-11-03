@@ -1632,6 +1632,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 探针图形超出视口边界，保证所有样本覆盖；本项只验证 resolve、回读和生命周期，不把纯色结果称为 MSAA 边缘覆盖率验收。184 组核心、171 组客体、36 个标准 SDK 冒烟 EXE 与六份严格零售/诊断 DLL、站点两项集成通过；发布本次 XP 所测 D3D8 DLL。宿主及 `8cc48a9a2b75d0296e91` 运行包未变，完整 GPU 基线沿用 4H5a 加本次新页面（目标总计 53 次）。见 [stage4h5b-validation.json](fixtures/d3d-review/stage4h5b-validation.json)。
 > - S2-42 的 SetLOD、光标、gamma、私有数据、Present 节流、表面 COM 同一性及附加交换链仍待继续；完整 Reset 边界、包装层转换及阶段 4/5/6 未宣称完成。
 
+> **阶段 4H6a（2026-11-03）：共用资源 SetLOD 与 NONE/POINT 采样语义（S2-42 部分）完成。**
+>
+> - D3D8/9 的 2D、立方体和体纹理六个入口共用 MANAGED 池限制、级数夹取、DWORD 存储、旧值返回和 SET_TEXTURE_LOD 编码；D3D8 不再只改本地字段。其他三个池忽略请求；相同值仍发送，提交失败仍保存本地状态，与没有 HRESULT 的资源调用保持一致。
+> - 按冻结的 Wine 共享纹理实现及 Windows visual 期望修正宿主：MIPFILTER=NONE 忽略 MAXMIPLEVEL，但采用资源 SetLOD；POINT 使用两者较大的层级下限。旧纹理复制探针原来用 NONE 配 MAXMIPLEVEL 选择 mip，本阶段改为明确使用 POINT 并重新采集 XP，避免回归依赖旧的错误采样。
+> - 原生编译六个实际 C 方法，每个 API 435 项检查，覆盖三类纹理、四个池、完整 DWORD 请求、夹取、旧值、精确 wire 和失败后的同值重试；旧 D3D8 源码在运行时断言失败。18/18 语义变异与 ASan/UBSan 通过，宿主执行器 176 项检查通过。
+> - 实际 XP 两 API 各创建并释放 12 个纹理，MANAGED 的三类纹理验证资源 LOD 在状态块录制期间实时生效且不随块 Apply 回滚，逐一运行七种 LOD/filter/MAXMIPLEVEL 组合。客体回复明确模拟；独立 SwiftShader/Metal 各检查 42 次实际 GPU 回读、172,032 个像素，全部逐字节一致。更新后的纹理复制捕获两后端各通过 84 帧、252 个颜色探针；五种 LOD 捕获破坏与四种复制捕获破坏均被捕获。
+> - 186 组核心、173 组客体、36 个标准 SDK EXE、六份严格零售/诊断 DLL 和站点两项集成通过；完整 53 页 SwiftShader 目标与 Metal 533 项一致性通过，新/刷新两页另在 Metal 复跑。运行包更新为 `63c129acb57fb1c7d5b5`，发布两 API 本次 LOD XP 所测的零售 DLL；DDraw DLL 不变。见 [stage4h6a-validation.json](fixtures/d3d-review/stage4h6a-validation.json)。
+> - 本步不代表完整 Reset、光标、gamma、私有数据、Present 节流、表面 COM 同一性、附加交换链、D3D8 包装或阶段 4/5/6 完成。参考：[Wine 共享 LOD 实现](https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/texture.c)、[Wine Windows mip 像素期望](https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/visual.c)。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
