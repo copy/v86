@@ -127,6 +127,11 @@ function makeFakeWebGPU() {
     }
     class FakePass {
         constructor(descriptor) {
+            for (const attachment of descriptor.colorAttachments || []) {
+                const storage = attachment?.view?.texture?.descriptor;
+                if (storage?.usage !== undefined)
+                    assert.ok(storage.usage & 0x10, "color attachment storage requires RENDER_ATTACHMENT");
+            }
             this.descriptor = descriptor;
             calls.push(["beginRenderPass", descriptor, this]);
         }
@@ -425,6 +430,39 @@ await test("cube mip uploads and DirectDraw blits address the requested subresou
     assert.deepEqual(copy[1].origin, { x: 0, y: 0, z: 5 });
     assert.equal(copy[2].mipLevel, 0);
     assert.deepEqual(copy[2].origin, { x: 0, y: 0, z: 0 });
+});
+
+await test("ordinary RGB and indexed cube faces support colour fills at every mip",
+        async () => {
+    const { executor, find } = makeExecutor();
+    for (const [handle, format, usage] of [[0x330, FMT_X8R8G8B8, 0], [0x331, FMT_P8, USAGE_DDRAW_INDEXED]]) {
+        await executor.submit(buildBatch([
+            ...(handle === 0x330 ? [command(OP.CREATE_DEVICE, createDevicePayload(64, 64))] : []),
+            command(OP.CREATE_TEXTURE_CUBE, createCubePayload(handle, 8, 3, format, usage)),
+            ...Array.from({ length: 6 }, (_, face) => Array.from({ length: 3 }, (_, level) =>
+                command(OP.DD_BLT, bltPayload({ destinationHandle: handle,
+                    destinationFace: face, destinationLevel: level,
+                    destinationRect: [0, 0, 8 >> level, 8 >> level],
+                    flags: DDBLT.COLOR_FILL, fillColor: format === FMT_P8 ? 7 : 0xff123456 })))).flat(),
+        ], { present: true }));
+        await executor.idle();
+        const resource = executor.resources.get(handle);
+        assert.equal(resource.usage, usage, "public usage flags stay as requested");
+        assert.ok(resource.gpuTexture.descriptor.usage & 0x10,
+            "a normal colour cube must receive blit fills without the public render-target flag");
+        for (let face = 0; face < 6; face++) for (let level = 0; level < 3; level++)
+            assert.ok(find("beginRenderPass").some(call => {
+                const view = call[1].colorAttachments?.[0]?.view;
+                return view?.texture === resource.gpuTexture &&
+                    (view.descriptor.baseArrayLayer || 0) === face && (view.descriptor.baseMipLevel || 0) === level;
+            }), "missing cube colour attachment " + handle + ":" + face + ":" + level);
+    }
+    await executor.submit(buildBatch([
+        command(OP.CREATE_TEXTURE_CUBE, createCubePayload(0x332, 8, 4, 0x31545844)),
+    ]));
+    assert.equal(executor.resources.get(0x332).gpuTexture.descriptor.usage & 0x10, 0,
+        "block-compressed cubes must remain non-attachments");
+    assert.equal(executor.stats.commandsFailed, 0);
 });
 
 await test("a plain same-format blit is a copy, not a render pass", async () => {

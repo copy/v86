@@ -588,11 +588,12 @@
                         ? fullMipLevelCount(edge, edge) : wantsAutoMips ? 1 : levelCount,
                     usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_COPY_SRC |
                         TEXTURE_USAGE_TEXTURE_BINDING |
-                        // A dynamic environment map is a cube render target: the
-                        // app renders the scene six times, once per face, through
-                        // the surfaces GetCubeMapSurface hands out.
-                        ((((usage & D3DUSAGE_RENDERTARGET) || autoGenerateMips) &&
-                            isRenderableGPUFormat(gpuFormat))
+                        // Ordinary cube faces also receive DirectDraw colour
+                        // fills and blits. Use the same attachment eligibility
+                        // as 2D textures without changing public usage flags.
+                        ((isRenderableGPUFormat(gpuFormat) &&
+                            ((usage & D3DUSAGE_RENDERTARGET) || autoGenerateMips ||
+                                !isCompressedFormat(format)))
                             ? TEXTURE_USAGE_RENDER_ATTACHMENT : 0),
                 };
                 const gpuTexture = this.createTextureOrNull(textureDescriptor, format);
