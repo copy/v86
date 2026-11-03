@@ -1980,7 +1980,7 @@ pub unsafe fn translate_address_write_jit(address: i32, wasm_table_index: u16) -
     let has_code = entry & TLB_HAS_CODE != 0;
     let phys_addr = (entry & !0xFFF ^ address) as u32 - memory::mem8 as u32;
     let page = Page::page_of(phys_addr);
-    if !has_code {
+    if !has_code || memory::in_write_protected_rom(phys_addr) {
         return Ok(phys_addr);
     }
     let is_smc = jit::jit_page_has_wasm_table_index(page, wasm_table_index);
@@ -2306,8 +2306,11 @@ pub unsafe fn do_page_walk(
         // address part)
         true
     };
+    // Writes to write-protected shadow rom are discarded in the write slow paths, so such pages
+    // never get a writable tlb entry. Reads and fetches still use the fast path.
+    let writable = for_writing && !memory::in_write_protected_rom(high);
     let info_bits = TLB_VALID
-        | if for_writing { 0 } else { TLB_READONLY }
+        | if writable { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
         | if is_in_mapped_range { TLB_IN_MAPPED_RANGE } else { 0 }
         | if global && 0 != cr4 & CR4_PGE { TLB_GLOBAL } else { 0 }
@@ -3711,7 +3714,9 @@ pub unsafe fn safe_read_slow_jit(
 
         ((scratch as i32) ^ addr) & !0xFFF
     }
-    else if memory::in_mapped_range(addr_low) {
+    else if memory::in_mapped_range(addr_low)
+        || is_write && memory::in_write_protected_rom(addr_low)
+    {
         let scratch = &raw mut jit_paging_scratch_buffer.0[0];
 
         match bitsize {
@@ -3885,6 +3890,12 @@ pub unsafe fn safe_write_slow_jit(
         dbg_assert!(scratch & 0xFFF == 0);
         ((scratch as i32) ^ addr) & !0xFFF
     }
+    else if memory::in_write_protected_rom(addr_low) {
+        // discarded: return dummy pointer for fast path to write into
+        let scratch = &raw mut jit_paging_scratch_buffer.0 as u32;
+        dbg_assert!(scratch & 0xFFF == 0);
+        ((scratch as i32) ^ addr) & !0xFFF
+    }
     else {
         ((addr_low as i32 + memory::mem8 as i32) ^ addr) & !0xFFF
     }
@@ -3943,6 +3954,9 @@ pub unsafe fn safe_write8(addr: i32, value: i32) -> OrPageFault<()> {
     if memory::in_mapped_range(phys_addr) {
         memory::mmap_write8(phys_addr, value);
     }
+    else if memory::in_write_protected_rom(phys_addr) {
+        // discarded
+    }
     else {
         if !can_skip_dirty_page {
             jit::jit_dirty_page(Page::page_of(phys_addr));
@@ -3963,6 +3977,9 @@ pub unsafe fn safe_write16(addr: i32, value: i32) -> OrPageFault<()> {
     }
     else if memory::in_mapped_range(phys_addr) {
         memory::mmap_write16(phys_addr, value);
+    }
+    else if memory::in_write_protected_rom(phys_addr) {
+        // discarded
     }
     else {
         if !can_skip_dirty_page {
@@ -3988,6 +4005,9 @@ pub unsafe fn safe_write32(addr: i32, value: i32) -> OrPageFault<()> {
     else if memory::in_mapped_range(phys_addr) {
         memory::mmap_write32(phys_addr, value);
     }
+    else if memory::in_write_protected_rom(phys_addr) {
+        // discarded
+    }
     else {
         if !can_skip_dirty_page {
             jit::jit_dirty_page(Page::page_of(phys_addr));
@@ -4010,6 +4030,9 @@ pub unsafe fn safe_write64(addr: i32, value: u64) -> OrPageFault<()> {
         let (phys_addr, can_skip_dirty_page) = translate_address_write_and_can_skip_dirty(addr)?;
         if memory::in_mapped_range(phys_addr) {
             memory::mmap_write64(phys_addr, value);
+        }
+        else if memory::in_write_protected_rom(phys_addr) {
+            // discarded
         }
         else {
             if !can_skip_dirty_page {
@@ -4035,6 +4058,9 @@ pub unsafe fn safe_write128(addr: i32, value: reg128) -> OrPageFault<()> {
         if memory::in_mapped_range(phys_addr) {
             memory::mmap_write128(phys_addr, value.u64[0], value.u64[1]);
         }
+        else if memory::in_write_protected_rom(phys_addr) {
+            // discarded
+        }
         else {
             if !can_skip_dirty_page {
                 jit::jit_dirty_page(Page::page_of(phys_addr));
@@ -4057,6 +4083,9 @@ pub unsafe fn safe_read_write8(addr: i32, instruction: &dyn Fn(i32) -> i32) {
     dbg_assert!(value >= 0 && value < 0x100);
     if memory::in_mapped_range(phys_addr) {
         memory::mmap_write8(phys_addr, value);
+    }
+    else if memory::in_write_protected_rom(phys_addr) {
+        // discarded
     }
     else {
         if !can_skip_dirty_page {
@@ -4085,6 +4114,9 @@ pub unsafe fn safe_read_write16(addr: i32, instruction: &dyn Fn(i32) -> i32) {
         if memory::in_mapped_range(phys_addr) {
             memory::mmap_write16(phys_addr, value);
         }
+        else if memory::in_write_protected_rom(phys_addr) {
+            // discarded
+        }
         else {
             if !can_skip_dirty_page {
                 jit::jit_dirty_page(Page::page_of(phys_addr));
@@ -4112,6 +4144,9 @@ pub unsafe fn safe_read_write32(addr: i32, instruction: &dyn Fn(i32) -> i32) {
         let value = instruction(x);
         if memory::in_mapped_range(phys_addr) {
             memory::mmap_write32(phys_addr, value);
+        }
+        else if memory::in_write_protected_rom(phys_addr) {
+            // discarded
         }
         else {
             if !can_skip_dirty_page {

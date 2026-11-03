@@ -376,6 +376,7 @@ CPU.prototype.wasm_patch = function()
     this.write16 = get_import("write16");
     this.write32 = get_import("write32");
     this.in_mapped_range = get_import("in_mapped_range");
+    this.set_rom_write_protect = get_import("set_rom_write_protect");
 
     // used by nasmtests
     this.fpu_load_tag_word = get_import("fpu_load_tag_word");
@@ -942,6 +943,10 @@ CPU.prototype.reboot_internal = function()
 
     this.fw_value = [];
 
+    if(this.devices.pci)
+    {
+        this.devices.pci.reset();
+    }
     if(this.devices.virtio_9p)
     {
         this.devices.virtio_9p.reset();
