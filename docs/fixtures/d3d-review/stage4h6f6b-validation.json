@@ -1,0 +1,399 @@
+{
+  "stage": "4H6f6b D3D8/9 additional-chain effective creation geometry and caller/count normalization (S2-26 / S2-42 related)",
+  "date": "2026-11-03",
+  "bundle": "a532e70eacef8cba3d10",
+  "coreTargetedSuites": 6,
+  "guestTargetedSuites": 13,
+  "fullSuiteBaseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f6a-validation.json",
+    "sha256": "32ae7973114b8837c32104f4e194d190c4848c39d9d47d09651f17d83b0b5bc8",
+    "coreSuites": 210,
+    "guestSuites": 213,
+    "reason": "Guest-only additional constructors and private-surface extraction mock changed; rerun additional/shared geometry, parameter guards, private surfaces, selectors and chain references plus six frozen traces."
+  },
+  "webgpuRuns": 0,
+  "gpuBaselines": [
+    {
+      "file": "docs/fixtures/d3d-review/stage4h6f6a-validation.json",
+      "sha256": "32ae7973114b8837c32104f4e194d190c4848c39d9d47d09651f17d83b0b5bc8",
+      "webgpuRuns": 2,
+      "reason": "No host/protocol/shader changes or new pixel claim."
+    },
+    {
+      "file": "docs/fixtures/d3d-review/stage4h6c-validation.json",
+      "sha256": "4d7a00aa1081a2840b17c3bcffb5987d2fed26531bd53e419ed07f24f48ef0a0",
+      "webgpuRuns": 58,
+      "reason": "No host/protocol/shader changes or new pixel claim."
+    }
+  ],
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "8027d9fa69515feadd586d7d0685122b29bd584d1dfe03c2e892d90168cff34b"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "a3aed270d7cf615a5b67465772a9b77206d506ce639a4904b327b89d87f67256"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "6814c59fe27f7039fa3a5f22139dd43eeee80285cb23e1ffccc6ee411f27709b"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "341a73e9103fb2036896a0af479223359437b72f541e4d3f9294eeceb93088c8"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "a80b53ff63e98ac10da5f984f6964dd2cd87bdd56b9e83fee21a83b135a3c5c3"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "db3f23301f10da5569bdcb86ce3fe09afa5a15a70ee74a9f2f61456727c3f651"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "95437bfbfda3e128bdf61e8083a1985bd6edaed0806e36f1865a37092fc17986"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "76d092efc0cfe5c9ed239525158052d9627a592345a1b9e78ea939790bb353dc"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "92ab97e075a607182955c21fa850a2878901028dd03d5612cd5caff0fd47e935"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "05f18a9a7bc3f0a50865ed8d2e4fa0f2542dfdec80003f022b273ea60b3b9f99"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "ae5150c359300bad22ae1e0c89dd3f358cb66ae05d1b28034f3f2c59327f5086"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "1f45fa373de114b41eea2668a3c153aae90a2afb0a3ad7ba7508bf2d281bdcbb"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "130a46404d99e0848c44e150fc74bab136f1b9ae0c77cc963c41ffd864d1cda8"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "cc8269eb9247cc3db7a2953aa9f685de2b506e5748ae4faacd5d2e07adbd35ca"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "070eae6cbffd57fcd028670f9321798d8bac333791cb3535a97268086485a895"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "cacb91d72921c6a576aca8a9c6eaca04c8f25f11bf9ede4039304c8cf9395be6"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "0c4bf44787d24b3c8561c5f6fb261d1ebb118818f2db83c691fdbf88f05c31ae"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "95fae0f5b05cf39ccf49f1b2161613b3089edad21ebc1fa27564c1ddc5500550"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP additional-parameter probe DLL",
+      "shippedDllSha256": "fd8c60d4d32e5755b190a0de4de7a05c5842a14d9cacf131967a5259881ea3c8",
+      "diagnosticSha256": "e2edde6e7c602c18b481d7ddbdac34e9787c9e32bdbb0b4f7d4f9eb448ccb2fc"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "82805ed1b2e9cb92521539a567d4f3a75f158ec625858416ea8f4c7b2f1324d2"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "5b2184154f00973e8d8022f43eff3cf1022f90c56e80068bc38a5aec1cb8b761"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "83f74f9f9f91ddc32fb9a870b18b5528b2e0b87f0bcc6febf6fe8b82d3d8a752"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "feb2651adb068f69160d413172dc860aa26c8046a94857aa61b0e481f6c04c2d"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "d85348cd9c2bd1758aeba9c7954cd00b88426a9d9f6f02a6e611c292772faa7c"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "95e23d2d693e1a89ece54df9b2fb90d15e3d74aab3102e681089633dcd8735c2"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "de297d89510542d8446c13edea1cfc0d19cfb787d10e4633bdfe7f8cff06e225"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "9338a4d5ac6c9241a09578f724d10e2ed29452164f2b2bb9450b72d060e84924"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "1c85391080c7a78ff19b314bbdb62585b44f7770c324dd6a05122ca2798cc989"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "24599ab62b89602becdec62aa2d5e265b816fabc2d96a67bc0526e4b22c766d7"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "537d11570395524423e6c924af1882594fb307e6c32465db2162a89baa85f77f"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "cbe7b8ab50d051c3560a4cfcb25bcd5f6ef796ef07d7dd3b777bddaecf7b3d83"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "e90b9bdde59317779252fbfec929ba898836c32954afe4a6cff6ddc237460172"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "45568b451a0a03ce8e695df109827762002cb091a8ac0baaa0f5f0ec9ccba851"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP additional-parameter probe DLL",
+      "shippedDllSha256": "653d1432c354ec17a8959228ce4f1e92439c65b7450e204226f1e39247fba46e",
+      "diagnosticSha256": "f097c7432e42be12fc10e322de84895a9bd66aa7f2cbba313384b268329090a7"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "c77c93c957eee9531d798d586fc419e1dc5b3a9f5f2cdc5f78ac430e8e0b9518"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "4ae70809104655e7bba14c4894d46e65a4d2dcc9ad197fcae4a8d5928bc88c4e"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "56724d203df52dfea5a2281d38cf46bae61f733ac3729f6f8b40467cf8a6d794"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "4f31945b25b3140b5f9e6f091dac9e48e2670bea898840b67dede52e7dbfc551"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualAdditionalChecks": {
+      "8": 123,
+      "9": 124
+    },
+    "constructorCasesPerAPI": 24,
+    "additionalMutations": 10,
+    "retainedGeometryMutations": 20,
+    "retainedParameterMutations": 18,
+    "retainedSelectorMutations": 8,
+    "retainedChainLifetimeMutations": 14,
+    "previousRuntimeNegativeControls": 2,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "fixtureCorruptions": 10,
+    "sharedSDKLayoutPolicy": true,
+    "creationGeometryCached": true,
+    "callerNullWindowPreserved": true
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_additional_parameters_reference.json",
+    "sha256": "b2ae5a703b6d8609a53862126ef2f996fe14bba960c477dafaf5edbeff7806e1",
+    "schema": 1,
+    "scope": "Additional-chain successful caller normalization, cached creation geometry/window and count-limit refusal only. Shared version-specific policy from 4H6f6a; D3D8 resolves a secondary window once instead of borrowing the implicit-device dimensions. Preserve the current backing representation: D3D8 still lacks independent GPU backbuffer/COM identity/container, and accepting counts 2/3 does not imply implemented multiple buffers. UNKNOWN-format desktop selection, full Reset, native Microsoft HAL, game/FPS and stages 4/5/6 remain incomplete. No new GPU pixel run; inherit 4H6f6a/4H6c.",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+        "evidence": "Windows test_swapchain: zero count returns one; D3D8 caller dimensions remain zero, D3D9 returns client dimensions; caller NULL window stays NULL while GetPresentParameters returns the effective window."
+      },
+      {
+        "file": "d3d9-device-tests.c",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "evidence": "Windows test_swapchain: zero count returns one; D3D8 caller dimensions remain zero, D3D9 returns client dimensions; caller NULL window stays NULL while GetPresentParameters returns the effective window."
+      }
+    ],
+    "documentation": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+        "fact": "Zero count means one; the normal D3D9 count range is zero through D3DPRESENT_BACK_BUFFERS_MAX."
+      }
+    ],
+    "facts": {
+      "actualEntryChecks": {
+        "8": 123,
+        "9": 124
+      },
+      "constructorCasesPerAPI": 24,
+      "successfulSDKChains": 4,
+      "hostChains": 2,
+      "refusedCounts": 2,
+      "normalizedCount": 1,
+      "maximumAcceptedCount": 3,
+      "additionalBufferSizes": [
+        [
+          96,
+          80
+        ],
+        [
+          128,
+          96
+        ]
+      ],
+      "resizedSecondaryWindow": [
+        160,
+        112
+      ],
+      "creationGeometrySurvivesWindowResize": true,
+      "callerNullWindowPreserved": true,
+      "implicitGeometry": [
+        128,
+        96
+      ]
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 108,
+    "batches": 9,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS additional parameter probes \r\n",
+    "logs": {
+      "ACP8.TXT": "ADDITIONAL PARAMETERS api=8 case=0 width=96 height=80 callerWidth=0 callerHeight=0 count=1 callerNull=0 cached=1\r\nADDITIONAL PARAMETERS api=8 case=1 width=128 height=96 callerWidth=0 callerHeight=0 count=1 callerNull=1 cached=1\r\nADDITIONAL STATUS api=8 accepted=2 refused=1 implicit=128x96 unchangedFailure=1 deviceRefs=1\r\nPASS additional parameters API=8\r\n",
+      "ACP9.TXT": "ADDITIONAL PARAMETERS api=9 case=0 width=96 height=80 callerWidth=96 callerHeight=80 count=1 callerNull=0 cached=1\r\nADDITIONAL PARAMETERS api=9 case=1 width=128 height=96 callerWidth=128 callerHeight=96 count=1 callerNull=1 cached=1\r\nADDITIONAL STATUS api=9 accepted=2 refused=1 implicit=128x96 unchangedFailure=1 deviceRefs=1\r\nPASS additional parameters API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; D3D8/9 additional-chain effective client geometry, caller normalization, post-creation window resizing, implicit geometry isolation and count rejection",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 1652,
+        "crc32": "2c50dbfe"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "device": 0,
+        "created": 1,
+        "destroyed": 1,
+        "hello": 1,
+        "ended": 1,
+        "textures": [],
+        "chains": []
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "device": 0,
+        "created": 1,
+        "destroyed": 1,
+        "hello": 1,
+        "ended": 1,
+        "textures": [
+          {
+            "handle": 1048578,
+            "retired": true
+          },
+          {
+            "handle": 1048580,
+            "retired": true
+          }
+        ],
+        "chains": [
+          {
+            "handle": 1048579,
+            "texture": 1048578,
+            "retired": true
+          },
+          {
+            "handle": 1048581,
+            "texture": 1048580,
+            "retired": true
+          }
+        ]
+      }
+    ],
+    "graphicsSha256": "87f832a9062c5202c5f335febf8fdc35818e0fddfc4102fe6bc3c4f3601803ea"
+  },
+  "fixture": {
+    "metadataSha256": "1bc55cf87d7053141ee31cc98165084a6dd0ab263967adaff1c75331d32a581c",
+    "compressedTraceSha256": "e768a99cb48f9c3b154eaa12e37405a1a3890dc4e8a24ac61bf23e07b7c4e384",
+    "captureBuild": {
+      "dllSha256": {
+        "8": "fd8c60d4d32e5755b190a0de4de7a05c5842a14d9cacf131967a5259881ea3c8",
+        "9": "653d1432c354ec17a8959228ce4f1e92439c65b7450e204226f1e39247fba46e"
+      },
+      "exeSha256": {
+        "8": "338a525ef75a06ce7754959df955bc5f8d9f7b1a6f29188964b15322e18bfa4b",
+        "9": "a8b159f360c2fa8817fb4c89127e732cf1f22c0d1fce9a08765d70362a7b1b0d"
+      }
+    }
+  },
+  "scope": "Additional-chain successful caller normalization, cached creation geometry/window and count-limit refusal only. Shared version-specific policy from 4H6f6a; D3D8 resolves a secondary window once instead of borrowing the implicit-device dimensions. Preserve the current backing representation: D3D8 still lacks independent GPU backbuffer/COM identity/container, and accepting counts 2/3 does not imply implemented multiple buffers. UNKNOWN-format desktop selection, full Reset, native Microsoft HAL, game/FPS and stages 4/5/6 remain incomplete. No new GPU pixel run; inherit 4H6f6a/4H6c. Stages 4/5/6 remain incomplete.",
+  "coreSha256": {
+    "tests/glbridge/d3d_additional_parameters_fixture_test.js": "d78cb5801458a336c2536ace923a95c2c5c5c7195d40e8708f358c9604741e40",
+    "tests/glbridge/d3d_additional_parameters_xp.mjs": "998da4bb753bfeed7f5b2ac2d19406f1b09c7fcf406f7aa81c398e3f9e17803b",
+    "tests/glbridge/fixtures/d3d_additional_parameters_reference.json": "b2ae5a703b6d8609a53862126ef2f996fe14bba960c477dafaf5edbeff7806e1",
+    "tests/glbridge/fixtures/d3d_additional_parameters_xp.bin.gz": "e768a99cb48f9c3b154eaa12e37405a1a3890dc4e8a24ac61bf23e07b7c4e384",
+    "tests/glbridge/fixtures/d3d_additional_parameters_xp.json": "1bc55cf87d7053141ee31cc98165084a6dd0ab263967adaff1c75331d32a581c",
+    "tests/lib/d3d_additional_parameters_wire.mjs": "8d7531a0a98f2b1cff54e44685c26881892b63015f21026be53993d4e64a069e",
+    "docs/d3d-webgpu-review.md": "a3b3d58107ab3190a1b8024cbd6812a84234261f97cd35dc748f376e6c37c1f4"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d_additional_parameters_test.c": "98c2be5882b7c59568ae4dd44709de36631e0939465bd34d9a24ad7251a2e533",
+    "glbridge/tests/d9wg_additional_parameters_entry_test.js": "c8cd3a384d8a4cce63ae152c86b7ddfc558c260bef2011af3e4a4ce50a33859f",
+    "glbridge/tests/d9wg_additional_parameters_mutation_test.js": "ac6a4ebdf3b436d521c7a57e420259c961b3004eba5b78607ddb5bf26e21d75f",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "e2edde6e7c602c18b481d7ddbdac34e9787c9e32bdbb0b4f7d4f9eb448ccb2fc",
+    "glbridge/d3d8proxy/d3d8.dll": "fd8c60d4d32e5755b190a0de4de7a05c5842a14d9cacf131967a5259881ea3c8",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "6a9028f2605f3b06d4552ea717a1416eb2857ca384a668d5c88781cb1f69e1c3",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "f097c7432e42be12fc10e322de84895a9bd66aa7f2cbba313384b268329090a7",
+    "glbridge/d3d9proxy/d3d9.dll": "653d1432c354ec17a8959228ce4f1e92439c65b7450e204226f1e39247fba46e",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "f6ca7775d1a54f575e1508ccfa793e3b62ed759fb3965411ddd272b493f1d096",
+    "glbridge/tests/d9wg_private_surface_test.js": "167c75dd1c3f48192b84dad1c706c3a91be1569a756bb244beb30e95567c170e"
+  },
+  "logSha256": {
+    "core": "2c8a7e446e5d7342e7649fbe1e4dfcc3c3d8457535dc0c580db15f8939329778",
+    "guest": "0f8874e5940973e16362b8c62612efe0657b3a868a78f3107898e9401ac76edb",
+    "xp": "4c233b9a65f76ed2dc8ffefa5ea8e014f0bd26c411e93c1ad6d0b6a9b1cb380a",
+    "before": "b659057ee0e78bf8d99468bb6901adf81695dfb6bc180372361985ee5091f16b",
+    "sanitize": "52451fd4c8778369ada58342c636282fcd5fa0e0c5f853facc01ea6932cc9489",
+    "builds": "b3dacd2099a82756a7e8b47ecc5a26341eda4bf385d3b9349945b35b26b25a55",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "integration": "8c99b258c2da697520903a604a9b2ff84551528cdcd11a89c7ba072e73445957"
+  }
+}

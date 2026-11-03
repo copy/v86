@@ -1,0 +1,58 @@
+{
+  "schema": 1,
+  "scope": "Additional-chain successful caller normalization, cached creation geometry/window and count-limit refusal only. Shared version-specific policy from 4H6f6a; D3D8 resolves a secondary window once instead of borrowing the implicit-device dimensions. Preserve the current backing representation: D3D8 still lacks independent GPU backbuffer/COM identity/container, and accepting counts 2/3 does not imply implemented multiple buffers. UNKNOWN-format desktop selection, full Reset, native Microsoft HAL, game/FPS and stages 4/5/6 remain incomplete. No new GPU pixel run; inherit 4H6f6a/4H6c.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Windows test_swapchain: zero count returns one; D3D8 caller dimensions remain zero, D3D9 returns client dimensions; caller NULL window stays NULL while GetPresentParameters returns the effective window."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Windows test_swapchain: zero count returns one; D3D8 caller dimensions remain zero, D3D9 returns client dimensions; caller NULL window stays NULL while GetPresentParameters returns the effective window."
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+      "fact": "Zero count means one; the normal D3D9 count range is zero through D3DPRESENT_BACK_BUFFERS_MAX."
+    }
+  ],
+  "facts": {
+    "actualEntryChecks": {
+      "8": 123,
+      "9": 124
+    },
+    "constructorCasesPerAPI": 24,
+    "successfulSDKChains": 4,
+    "hostChains": 2,
+    "refusedCounts": 2,
+    "normalizedCount": 1,
+    "maximumAcceptedCount": 3,
+    "additionalBufferSizes": [
+      [
+        96,
+        80
+      ],
+      [
+        128,
+        96
+      ]
+    ],
+    "resizedSecondaryWindow": [
+      160,
+      112
+    ],
+    "creationGeometrySurvivesWindowResize": true,
+    "callerNullWindowPreserved": true,
+    "implicitGeometry": [
+      128,
+      96
+    ]
+  }
+}

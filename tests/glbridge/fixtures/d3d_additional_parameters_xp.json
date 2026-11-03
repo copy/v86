@@ -1,0 +1,76 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "created": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1,
+      "textures": [],
+      "chains": []
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "created": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1,
+      "textures": [
+        {
+          "handle": 1048578,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048579,
+          "texture": 1048578,
+          "retired": true
+        },
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "retired": true
+        }
+      ]
+    }
+  ],
+  "deviceLifetimes": 2,
+  "successfulSDKChains": 4,
+  "hostChains": 2,
+  "backingTextures": 2,
+  "refusedCounts": 2,
+  "renderingCommands": 0,
+  "traceSha256": "87f832a9062c5202c5f335febf8fdc35818e0fddfc4102fe6bc3c4f3601803ea",
+  "referenceSha256": "b2ae5a703b6d8609a53862126ef2f996fe14bba960c477dafaf5edbeff7806e1",
+  "sdkLogs": {
+    "ACP8.TXT": "ADDITIONAL PARAMETERS api=8 case=0 width=96 height=80 callerWidth=0 callerHeight=0 count=1 callerNull=0 cached=1\r\nADDITIONAL PARAMETERS api=8 case=1 width=128 height=96 callerWidth=0 callerHeight=0 count=1 callerNull=1 cached=1\r\nADDITIONAL STATUS api=8 accepted=2 refused=1 implicit=128x96 unchangedFailure=1 deviceRefs=1\r\nPASS additional parameters API=8\r\n",
+    "ACP9.TXT": "ADDITIONAL PARAMETERS api=9 case=0 width=96 height=80 callerWidth=96 callerHeight=80 count=1 callerNull=0 cached=1\r\nADDITIONAL PARAMETERS api=9 case=1 width=128 height=96 callerWidth=128 callerHeight=96 count=1 callerNull=1 cached=1\r\nADDITIONAL STATUS api=9 accepted=2 refused=1 implicit=128x96 unchangedFailure=1 deviceRefs=1\r\nPASS additional parameters API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_present_parameters.h": "8b4f8fdae0d40457a6f47db9abea356819615b8adbc689cdd01ac278093d5861",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "6a9028f2605f3b06d4552ea717a1416eb2857ca384a668d5c88781cb1f69e1c3",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "f6ca7775d1a54f575e1508ccfa793e3b62ed759fb3965411ddd272b493f1d096",
+    "glbridge/sample/d3d_additional_parameters_test.c": "98c2be5882b7c59568ae4dd44709de36631e0939465bd34d9a24ad7251a2e533"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "fd8c60d4d32e5755b190a0de4de7a05c5842a14d9cacf131967a5259881ea3c8",
+      "9": "653d1432c354ec17a8959228ce4f1e92439c65b7450e204226f1e39247fba46e"
+    },
+    "exeSha256": {
+      "8": "338a525ef75a06ce7754959df955bc5f8d9f7b1a6f29188964b15322e18bfa4b",
+      "9": "a8b159f360c2fa8817fb4c89127e732cf1f22c0d1fce9a08765d70362a7b1b0d"
+    }
+  },
+  "scope": "not exercised; D3D8/9 additional-chain effective client geometry, caller normalization, post-creation window resizing, implicit geometry isolation and count rejection"
+}
