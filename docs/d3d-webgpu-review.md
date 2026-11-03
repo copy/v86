@@ -1667,6 +1667,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 191 组核心、180 组客体、36 个标准 SDK EXE、六份严格 DLL和站点两项集成通过；发布本次 XP 所测两 API 零售 DLL及严格诊断 DLL。仅改变客体 CPU 存储/引用路径，宿主与运行包 `a532e70eacef8cba3d10` 不变，沿用 4H6c GPU 基线。见 [stage4h6d1-validation.json](fixtures/d3d-review/stage4h6d1-validation.json)。
 > - 接着接入纹理、cube/volume 与逻辑子资源存储；S2-42 其余部分、完整 Reset、包装转换及阶段 4/5/6 仍待继续。
 
+> **阶段 4H6d2（2026-11-03）：纹理及逻辑 mip/face/volume 子资源私有数据（S2-42 部分）完成。**
+>
+> - 两 API 的 2D/cube/volume 纹理接入同一私有数据存储；父纹理与每个 mip/face 各自拥有独立 GUID 域。子表面/volume 视图访问所属逻辑 level 的存储，释放并重新获取视图后仍可查询；最后一个父/子引用退出时，逐一清理父存储及全部 level 存储。
+> - 每 API 26 项实际 C 入口/销毁测试覆盖父子隔离、cube 六面和各 mip、重复视图、大小/错误和接口引用；30/30 语义变异、ASan/UBSan 通过。另直接编译六种生产纹理结构和转换函数，验证 COM 接口位于偏移 0；字段前置的错误布局在原生测试失败，DLL 构建也加入编译期约束。
+> - 真实 XP 两 API 分别验证 2D 两级、cube 三个面/级组合、volume 两级：父子数据独立、重新获取后保留内容、父引用先释放时子引用仍存活、最后退出仅保留调用者自己的接口引用。两个 owner 正常退出，117 秒；冻结轨迹另核对十个缓冲/纹理资源的完整生存期，五项轨迹/日志损坏均被发现，不产生 GPU 上传或读回。
+> - 192 组核心、183 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主及运行包不变，继续沿用 4H6c 的 GPU 基线。见 [stage4h6d2-validation.json](fixtures/d3d-review/stage4h6d2-validation.json)。
+> - 接着完成独立/隐式表面私有数据；S2-42 的 Present 节流、表面 COM 同一性、D3D8 附加交换链，完整 Reset、包装转换及阶段 4/5/6 仍待继续。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

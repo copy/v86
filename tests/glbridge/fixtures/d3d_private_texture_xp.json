@@ -1,0 +1,143 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "buffers": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        }
+      ],
+      "textures": [
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "levels": 2
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "levels": 2
+        },
+        {
+          "handle": 1048582,
+          "kind": 5,
+          "levels": 2
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580,
+        1048581,
+        1048582
+      ],
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "13": 1,
+        "256": 2,
+        "259": 6,
+        "272": 1,
+        "273": 1,
+        "274": 1,
+        "512": 1,
+        "519": 1,
+        "541": 1
+      }
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "buffers": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        }
+      ],
+      "textures": [
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "levels": 2
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "levels": 2
+        },
+        {
+          "handle": 1048582,
+          "kind": 5,
+          "levels": 2
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580,
+        1048581,
+        1048582
+      ],
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "11": 1,
+        "13": 1,
+        "256": 2,
+        "259": 6,
+        "272": 1,
+        "273": 1,
+        "274": 1,
+        "541": 1
+      }
+    }
+  ],
+  "traceSha256": "daa9fbc7f8e69f5837de30986e7198ab3cdc084e498b5b0c9d2799dfbf5661aa",
+  "referenceSha256": "e7d09035c01aa6695a01197b84a87d24a09abb5d3817056d9ab5d88a55d36c6e",
+  "sdkLogs": {
+    "PRIV8.TXT": "CHECK PRIVATE 8 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 8 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nPASS private API=8\r\n",
+    "PRIV9.TXT": "CHECK PRIVATE 9 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 9 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nPASS private API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_private_data.c": "51f35158629e2fbe3dc21bcef7b72ad3eca5ae51a0a3477a373357ccb215024c",
+    "glbridge/runtime/d9wg_private_data.h": "6acefe7d3f269243601d131f3e72433e5eb2af435115fb7d2f20e47f48e47720",
+    "glbridge/runtime/d9wg_private_data_bridge.h": "c0d697722a15e8e2542f472f1554ca0e2b76a98d73788b031ba9c8520cdb87c5",
+    "glbridge/runtime/build.sh": "2084ab58ac33dbfcd63ff13b8d5b8af64d0f96c06f218e69d20617d427be1322",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "7dc883baa37bbbcefad13656cda78292ff6696677b4715272b28cd2074dba35e",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "6657462da588f8817686ef7f794ebec1a399f05326bc0819f6082c1b3cb3c17c",
+    "glbridge/sample/d3d_private_data_test.c": "7b9b1406193448a4036dc44ca6c54172dc31dfb44ad0c03761af0c7d2054b38e"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "dcdb2160b11bca3251f7be07db26c2e8af057d56e77ac6e67eb5b9d4b28d0ddf",
+      "d3d9": "c3ac20931304744d320c81a968bead4efbb7854a65429e2c466378f574d1dcaa"
+    },
+    "exeSha256": {
+      "8": "f7be505e404e47f22f7378d65641e28e59aca142786cda79d4f4744cee373843",
+      "9": "7a6e097af42857ae2ba4929069ed7860d9457d04841941ebf69466d49447aa6b"
+    },
+    "textureProbeDefine": "D9WG_PRIVATE_TEXTURES=1"
+  },
+  "scope": "not exercised; CPU-only private data and COM lifetime"
+}
