@@ -1,0 +1,198 @@
+{
+  "schema": 1,
+  "width": 4,
+  "height": 1,
+  "scenes": [
+    {
+      "index": 0,
+      "sourceKey": true,
+      "override": false,
+      "fast": false,
+      "source": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "destination": [
+        66051,
+        66051,
+        66051,
+        66051
+      ],
+      "pixels": [
+        4278256131,
+        4285563024,
+        4293976272,
+        4294967295
+      ]
+    },
+    {
+      "index": 1,
+      "sourceKey": false,
+      "override": false,
+      "fast": false,
+      "source": [
+        11542544,
+        11542544,
+        11542544,
+        11542544
+      ],
+      "destination": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "pixels": [
+        4289732624,
+        4285563024,
+        4293976272,
+        4294967295
+      ]
+    },
+    {
+      "index": 2,
+      "sourceKey": true,
+      "override": true,
+      "fast": false,
+      "source": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "destination": [
+        66051,
+        66051,
+        66051,
+        66051
+      ],
+      "pixels": [
+        4278256131,
+        4278256131,
+        4278256131,
+        4294967295
+      ]
+    },
+    {
+      "index": 3,
+      "sourceKey": false,
+      "override": true,
+      "fast": false,
+      "source": [
+        11542544,
+        11542544,
+        11542544,
+        11542544
+      ],
+      "destination": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "pixels": [
+        4289732624,
+        4289732624,
+        4289732624,
+        4294967295
+      ]
+    },
+    {
+      "index": 4,
+      "sourceKey": true,
+      "override": false,
+      "fast": true,
+      "source": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "destination": [
+        66051,
+        66051,
+        66051,
+        66051
+      ],
+      "pixels": [
+        4278256131,
+        4285563024,
+        4293976272,
+        4294967295
+      ]
+    },
+    {
+      "index": 5,
+      "sourceKey": false,
+      "override": false,
+      "fast": true,
+      "source": [
+        11542544,
+        11542544,
+        11542544,
+        11542544
+      ],
+      "destination": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "pixels": [
+        4289732624,
+        4285563024,
+        4293976272,
+        4294967295
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "file": "ddraw7-tests.c",
+      "blobSha1": "f58523e788b9923056f03b09a49a35f552a1b277",
+      "sha256": "61b49e1c0f28d1af3e15130f44c0369f88962973fac6bb9b352e15ffccde8623",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw7.c",
+      "evidence": "test_range_colorkey: creation with ascending/descending flagged ranges returns NOCOLORKEYHW, unflagged setter ranges collapse high to low, equal explicit values succeed, explicit unequal source/destination ranges fail without modifying existing key."
+    },
+    {
+      "file": "ddraw-colorkey-surface.c",
+      "blobSha1": "b9300a98cf801690399d5f08f6977685123357b5",
+      "sha256": "d24845b55037dac48f5dd5ce84cbed4d35cd0fc06e3ba419413dabdd484e8dd9",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/surface.c",
+      "evidence": "ddraw_surface_set_color_key rejects explicit unequal ranges, then canonicalizes both low/high to the input low before updating each of the four selectors. Blt DDBLTFX override keys remain temporary ranges."
+    }
+  ],
+  "scope": "S2-46: one shared surface-key normalization policy for SetColorKey and CreateSurface preflight. Without COLORSPACE, ignore caller high and store/describe/emit high=low. With COLORSPACE, equal endpoints succeed and unequal endpoints return NOCOLORKEYHW before cache/description/overlay changes. Flagged embedded creation keys use explicit-range validation before allocation; unflagged description key values are ignored. Preserve key clearing and existing invalid-input policy. Native harness compiles actual full Set/Get/description helpers and CreateSurface entry with allocation/format/window stubs: 1870 checks, 288 setter combinations and 300 creation combinations. XP executes actual DD1/2/3/4/7 factory/surface thunks: 40 refused creations, 40 refused setters, canonical and equal keys, descriptions, input immutability, clearing, exact release; 43 physical surfaces fully retired. Four canonical source/destination Blt/BltFast and two temporary override range Blt scenes use 4x1 X8R8G8B8 surfaces; six actual guest readback commands flush batches. XP CPU readback replies are simulated and do not validate pixels. Independent GPU replay validates all 24 real pixels, including both endpoints of two override ranges and restoration of canonical cached keys. Fixed XP capture mode is 800x600x32 at 60Hz. No primary presentation, new other-format pixel coverage, original Microsoft HAL, games/FPS, S2-47 defaults, S2-53 ownership, full format/Reset/thread/device-loss/resource binding conversion or review stages 4/5/6 completion. D3D8/9, host/protocol/shader/bundle unchanged.",
+  "facts": {
+    "nativeChecks": 1870,
+    "nativeSetterCases": 288,
+    "nativeCreationCases": 300,
+    "newMutations": 16,
+    "apiVersions": [
+      1,
+      2,
+      3,
+      4,
+      7
+    ],
+    "createdSurfaces": 43,
+    "refusedCreations": 40,
+    "refusedSetters": 40,
+    "canonicalKeyEmissions": 246,
+    "blits": 6,
+    "readbacks": 6,
+    "overrideRanges": 2,
+    "pixels": 24,
+    "format": 22,
+    "captureMode": [
+      800,
+      600,
+      32,
+      60
+    ],
+    "primaryPresents": 0,
+    "originalMicrosoftHAL": false
+  }
+}

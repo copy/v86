@@ -416,7 +416,7 @@ game.exe
 | --- | --- | --- | --- | --- |
 | S2-44 | COLORFILL 颜色的格式，三处说法互相矛盾 | `GD:2331` 原样发送 `dwFillColor`；`PH:1049` 说是“目标格式的值”；`DO:416-431` 按 A8R8G8B8 解码，并注释“客体已转换” | 565 的白色 0xFFFF 变成青色；用颜色键预填的表面不再匹配键；32 位 X8 填充 alpha 为 0。只有索引色填充有测试 | ✅；W+（ddraw7 `test_color_fill`；Wine 用目标格式的掩码解码，`ddraw/utils.c:593-645`） |
 | S2-45 | 窗口剪裁器用客户区坐标裁剪 | `GD:2256-2266, 2417+`（`GetClientRect`，不做 `ClientToScreen`） | 主表面是屏幕坐标 → 不在 (0,0) 的窗口被裁错或完全不画 | ✅；W+（ddraw7 `tests/ddraw7.c:1360-1384`：剪裁列表是映射到屏幕坐标的可见区域） |
-| S2-46 | 表面颜色键没有 `DDCKEY_COLORSPACE` 时仍用 high 值；带 COLORSPACE 的范围键应返回 `DDERR_NOCOLORKEYHW` | `GD:3256, 4435-4446, 2839`、`DO:240-245` | Windows 在缺这个标志时令 high=low，应用常把 high 留 0 或垃圾值 → 精灵不透明或出现空洞。Blt 的覆盖键（DDBLTFX）仍是范围，保持现状 | W+（`ddraw/surface.c:5243-5257`；ddraw7 `test_range_colorkey`） |
+| S2-46 | 表面颜色键没有 `DDCKEY_COLORSPACE` 时仍用 high 值；带 COLORSPACE 的范围键应返回 `DDERR_NOCOLORKEYHW` | `GD:3256, 4435-4446, 2839`、`DO:240-245` | Windows 在缺这个标志时令 high=low，应用常把 high 留 0 或垃圾值 → 精灵不透明或出现空洞。Blt 的覆盖键（DDBLTFX）仍是范围，保持现状 | ✅；W+（`ddraw/surface.c:5243-5257`；ddraw7 `test_range_colorkey`）；4I1 |
 | S2-47 | stage 0 的 alpha 默认值被 TEXTUREMAPBLEND 回放覆盖；没有按版本区分的默认状态 | `D7:1058, 2410, 1820-1829, 1125`、`ddraw_protocol.h:760-764` | 所有版本共用一套初始化，D3D7 也从 `SELECTARG2(DIFFUSE)` 开始 → alpha 纹理几何画成不透明；传统 MODULATE 应在纹理有 alpha 或未绑纹理时取 `SELECTARG1(TEXTURE)`，否则 `SELECTARG2(CURRENT)`，并在 SetTexture 时重算；D3D7 上 TEXTUREMAPBLEND 应返回 `DDERR_INVALIDPARAMS`；按版本的默认值缺失（v1 COLORKEYENABLE=TRUE，v2 SPECULARENABLE=TRUE，v1–3 NORMALIZENORMALS=TRUE 等） | W+（`ddraw/device.c:2697-2722` `fixup_texture_alpha_op`、`6943-6953`；ddraw4 `11171-11273`、ddraw7 `16094-16101`、ddraw1 `2165-2170` 等） |
 | S2-48 | 对 GPU 写过的表面做 `DDLOCK_WRITEONLY` 锁定会擦掉内容 | `GD:3177, 3333-3335` | 软件光标或 HUD 叠在 D3D 帧上时，把整帧替换掉 | ☑️；W（`ddraw/utils.c:570-571` WRITEONLY 只去掉读权限，内容保留；无 Windows 测试） |
 | S2-49 | `palette_SetEntries` 不触发呈现 | `GD:3833` | 只改调色板的淡入淡出不可见，要到下一次 Flip | ☑️；W（`ddraw/palette.c:160-181` 主表面的调色板立即更新前台） |
@@ -1991,6 +1991,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 首链四倍采样 Clear/Present 两帧，另两份 NONE 链只覆盖最后所有者清理。SwiftShader / 本机 GPU 各核对 1,536 个真正四倍附件独立解析像素、1,536 个解析缓冲读回及 1,536 个呈现像素，全部零误差、零 GPU/宿主错误。三个链上下文全部关闭；首链由 Reset 先退休，另两链由最终设备或解绑显式退休，宿主显式销毁计数为二。
 > - 20 组相关核心、242 组完整客体、14 个标准 D3D9 SDK EXE、两份严格 D3D9 DLL、新 SDK EXE及站点两项集成通过。只发布最终 XP 所测 D3D9 零售 DLL及严格诊断 DLL；D3D8/DDraw 维持 8k 文件。宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变，继承 7d、8c、8k 基线并新增本次双后端四倍采样运行。见 [stage4h6f8l-validation.json](fixtures/d3d-review/stage4h6f8l-validation.json)。
 > - 原生 Microsoft HAL、游戏/FPS、texture/cube/缓冲/着色器/状态块公共绑定计数、外部子资源存活时的设备状态保持、完整回调/线程/丢失/隐式私有缓存 Reset 边界、格式/MSAA/全屏/多缓冲轮转、包装转换及阶段 4/5/6 仍未完成。
+
+> **阶段 4I1（2026-11-03）：DirectDraw 表面颜色键规范化、创建范围拒绝及覆盖键保持（S2-46）完成。**
+>
+> - SetColorKey 和创建描述预检共用同一规则：未带 COLORSPACE 时忽略调用者的 high，缓存、描述和命令都使用 high=low；显式相等端点允许，不等端点以 NOCOLORKEYHW 拒绝，拒绝时没有缓存/描述/overlay 变更。创建描述四种带标志的键均在分配前校验，未带描述标志的键值忽略；NULL 清除及既有无效参数策略保留。DDBLTFX 的临时覆盖键继续使用范围。
+> - 固定 Wine Windows test_range_colorkey 和 surface 实现均核验到 Git blob 字节哈希：创建正/反向范围拒绝、普通键收拢、显式相等接受、显式范围拒绝且原键不变。跨版本由实际共用 thunk 接入，XP 验证的是替代 DLL，未宣称原生 Microsoft HAL 全版本运行结果。
+> - native 编译实际 Set/Get、描述 helper 和完整 CreateSurface 入口，分配/格式/窗口部分使用 stub；1,870 项断言、288 组 setter 和 300 组创建预检覆盖四种键、反向/极值、输入不变、无标志描述值及 overlay 失败原子性。旧源严格编译后在实际 high 未收拢的断言中失败；16 项语义变异及 ASan/UBSan 通过，变异均严格编译后以运行时失败检出。
+> - XP 实际 DirectDraw 1/2/3/4/7 创建与表面接口各验证四类键，40 次创建范围及 40 次设置范围被拒绝，接受普通/显式相等键、清除及描述回读，输入全部不变。43 个实际表面完整退休，246 条键命令逐条核对，148 秒退出且真实 owner 归还；六种 source/destination Blt/BltFast、两个覆盖范围和缓存恢复均执行，冻结记录 42 项语义损坏检出。
+> - **XP 的 CPU 读回回复是模拟值，不作像素验收。** SwiftShader / 本机 GPU 独立重放实际命令，各检查六次实际 GPU 读回、24 个 X8R8G8B8 像素，覆盖单值键、两个端点都保留的覆盖范围及缓存恢复；全部零误差、零读回/回复写入/GPU/宿主错误。重放区分能力/心跳与像素回复，并等待异步读回；没有主表面呈现或新的其他格式像素声明。
+> - 21 组相关核心、244 组完整客体、四个标准 DirectDraw SDK EXE、两份严格 DirectDraw DLL、新 SDK EXE及站点两项集成通过；发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL。D3D8/9、宿主/协议/着色器和 bundle `64aa2cd7f7413ccbe760` 不变；继承 7d、8l 基线，新增本次双 GPU 颜色键场景。见 [stage4i1-validation.json](fixtures/d3d-review/stage4i1-validation.json)。
+> - S2-47 分版本默认状态/传统 alpha 修正、S2-53 所有权、其余资源公共绑定计数及包装转换、完整格式/Reset/线程/丢失、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**

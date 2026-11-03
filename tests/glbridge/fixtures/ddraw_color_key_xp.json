@@ -1,0 +1,537 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": "DirectDraw 1/2/3/4/7",
+      "hello": 1,
+      "device": 0,
+      "created": 1,
+      "destroyed": 1,
+      "displayModes": 1,
+      "textures": [
+        {
+          "index": 0,
+          "handle": 1048578,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 1,
+          "handle": 1048580,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 2,
+          "handle": 1048582,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 3,
+          "handle": 1048584,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 4,
+          "handle": 1048586,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 5,
+          "handle": 1048588,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 6,
+          "handle": 1048590,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 7,
+          "handle": 1048592,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 8,
+          "handle": 1048594,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 9,
+          "handle": 1048596,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 10,
+          "handle": 1048598,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 11,
+          "handle": 1048600,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 12,
+          "handle": 1048602,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 13,
+          "handle": 1048604,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 14,
+          "handle": 1048606,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 15,
+          "handle": 1048608,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 16,
+          "handle": 1048610,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 17,
+          "handle": 1048612,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 18,
+          "handle": 1048614,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 19,
+          "handle": 1048616,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 20,
+          "handle": 1048618,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 21,
+          "handle": 1048620,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 22,
+          "handle": 1048622,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 23,
+          "handle": 1048624,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 24,
+          "handle": 1048626,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 25,
+          "handle": 1048628,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 26,
+          "handle": 1048630,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 27,
+          "handle": 1048632,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 28,
+          "handle": 1048634,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 29,
+          "handle": 1048636,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 30,
+          "handle": 1048638,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 31,
+          "handle": 1048640,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 32,
+          "handle": 1048642,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 33,
+          "handle": 1048644,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 34,
+          "handle": 1048646,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 35,
+          "handle": 1048648,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 36,
+          "handle": 1048650,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 37,
+          "handle": 1048652,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 38,
+          "handle": 1048654,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 39,
+          "handle": 1048656,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 4
+        },
+        {
+          "index": 40,
+          "handle": 1048658,
+          "retired": true,
+          "updates": 0,
+          "keyWrites": 64
+        },
+        {
+          "index": 41,
+          "handle": 1048660,
+          "retired": true,
+          "updates": 6,
+          "keyWrites": 11
+        },
+        {
+          "index": 42,
+          "handle": 1048662,
+          "retired": true,
+          "updates": 6,
+          "keyWrites": 11
+        }
+      ],
+      "keyWrites": 246,
+      "uploads": 12,
+      "blits": 6,
+      "readbacks": 6,
+      "ended": 1
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048662,
+      "request": 1,
+      "width": 4,
+      "height": 1,
+      "index": 0,
+      "sourceKey": true,
+      "override": false,
+      "fast": false,
+      "source": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "destination": [
+        66051,
+        66051,
+        66051,
+        66051
+      ],
+      "pixels": [
+        4278256131,
+        4285563024,
+        4293976272,
+        4294967295
+      ]
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048662,
+      "request": 2,
+      "width": 4,
+      "height": 1,
+      "index": 1,
+      "sourceKey": false,
+      "override": false,
+      "fast": false,
+      "source": [
+        11542544,
+        11542544,
+        11542544,
+        11542544
+      ],
+      "destination": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "pixels": [
+        4289732624,
+        4285563024,
+        4293976272,
+        4294967295
+      ]
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048662,
+      "request": 3,
+      "width": 4,
+      "height": 1,
+      "index": 2,
+      "sourceKey": true,
+      "override": true,
+      "fast": false,
+      "source": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "destination": [
+        66051,
+        66051,
+        66051,
+        66051
+      ],
+      "pixels": [
+        4278256131,
+        4278256131,
+        4278256131,
+        4294967295
+      ]
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048662,
+      "request": 4,
+      "width": 4,
+      "height": 1,
+      "index": 3,
+      "sourceKey": false,
+      "override": true,
+      "fast": false,
+      "source": [
+        11542544,
+        11542544,
+        11542544,
+        11542544
+      ],
+      "destination": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "pixels": [
+        4289732624,
+        4289732624,
+        4289732624,
+        4294967295
+      ]
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048662,
+      "request": 5,
+      "width": 4,
+      "height": 1,
+      "index": 4,
+      "sourceKey": true,
+      "override": false,
+      "fast": true,
+      "source": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "destination": [
+        66051,
+        66051,
+        66051,
+        66051
+      ],
+      "pixels": [
+        4278256131,
+        4285563024,
+        4293976272,
+        4294967295
+      ]
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048662,
+      "request": 6,
+      "width": 4,
+      "height": 1,
+      "index": 5,
+      "sourceKey": false,
+      "override": false,
+      "fast": true,
+      "source": [
+        11542544,
+        11542544,
+        11542544,
+        11542544
+      ],
+      "destination": [
+        1056816,
+        7372944,
+        15786192,
+        16777215
+      ],
+      "pixels": [
+        4289732624,
+        4285563024,
+        4293976272,
+        4294967295
+      ]
+    }
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "apiVersions": [
+    1,
+    2,
+    3,
+    4,
+    7
+  ],
+  "createdSurfaces": 43,
+  "refusedCreations": 40,
+  "refusedSetters": 40,
+  "canonicalKeyEmissions": 246,
+  "blits": 6,
+  "readbacks": 6,
+  "overrideRanges": 2,
+  "pixels": 24,
+  "traceSha256": "3817ceeda0454e613c612eff5caeb51951c5385412a2ed4c54b7f0efc0996edd",
+  "referenceSha256": "1fb93a6256bdb86ebe911fb90bfbb5f280e86b5966a620479306e755bdb3b2c1",
+  "sdkLogs": {
+    "CKEY.TXT": "KEY CREATE api=1 accepted=8 refused=8 flagless=4 immutable=16\r\nKEY CREATE api=2 accepted=8 refused=8 flagless=4 immutable=16\r\nKEY CREATE api=3 accepted=8 refused=8 flagless=4 immutable=16\r\nKEY CREATE api=4 accepted=8 refused=8 flagless=4 immutable=16\r\nKEY CREATE api=7 accepted=8 refused=8 flagless=4 immutable=16\r\nKEY SET api=1 kinds=4 canonical=4 equal=4 refused=8 cleared=4 descQueries=20\r\nKEY SET api=2 kinds=4 canonical=4 equal=4 refused=8 cleared=4 descQueries=20\r\nKEY SET api=3 kinds=4 canonical=4 equal=4 refused=8 cleared=4 descQueries=20\r\nKEY SET api=4 kinds=4 canonical=4 equal=4 refused=8 cleared=4 descQueries=20\r\nKEY SET api=7 kinds=4 canonical=4 equal=4 refused=8 cleared=4 descQueries=20\r\nKEY FRAME index=0 sourceKey=1 override=0 fast=0 surfaceLow=00102030 surfaceHigh=00102030 readback=1\r\nKEY FRAME index=1 sourceKey=0 override=0 fast=0 surfaceLow=00102030 surfaceHigh=00102030 readback=1\r\nKEY FRAME index=2 sourceKey=1 override=1 fast=0 surfaceLow=00102030 surfaceHigh=00102030 readback=1\r\nKEY FRAME index=3 sourceKey=0 override=1 fast=0 surfaceLow=00102030 surfaceHigh=00102030 readback=1\r\nKEY FRAME index=4 sourceKey=1 override=0 fast=1 surfaceLow=00102030 surfaceHigh=00102030 readback=1\r\nKEY FRAME index=5 sourceKey=0 override=0 fast=1 surfaceLow=00102030 surfaceHigh=00102030 readback=1\r\nKEY STATUS versions=5 created=43 createRefused=40 setterRefused=40 frames=6 readbacks=6 overrideRanges=2 factoryRefs=0\r\nPASS DirectDraw surface color keys\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/ddrawproxy/ddraw_proxy.c": "ea6d6b54b3bc2e032e1a1fef5d8065fc8d36aeb82d4b547ed886efb0de0acd7a",
+    "glbridge/runtime/d9wg_ddraw_color_key.h": "a8d5b6556cc192bc37bd7566de283100f8c884496427fef42b81f71937509500",
+    "glbridge/sample/ddraw_color_key_test.c": "f344f51e544ca6ad6e4c8b4c43240c7ff33532c732f9010e17dc9653ec9b36ea"
+  },
+  "captureBuild": {
+    "dllSha256": "f45e4fae3d02be3bcaefd6e5c7dc40d10633437367b472c5d6f12fa88fb4c598",
+    "exeSha256": "6aec46117d7888c4847d2e7246f0965a84a161cdfca3b848b7b042726f118841"
+  },
+  "scope": "DirectDraw 1/2/3/4/7 surface-key creation/set/get/descriptions, explicit ranges and immutable inputs; six 32-bit canonical/override Blt/BltFast readback requests; XP transport replies are simulated, independent GPU replay verifies the actual pixels"
+}
