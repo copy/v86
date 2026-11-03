@@ -1,0 +1,233 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "snapshots": [
+        {
+          "step": 0,
+          "width": 800,
+          "height": 600,
+          "format": 22,
+          "refresh": 60
+        },
+        {
+          "step": 1,
+          "width": 640,
+          "height": 480,
+          "format": 22,
+          "refresh": 60
+        },
+        {
+          "step": 2,
+          "width": 800,
+          "height": 600,
+          "format": 22,
+          "refresh": 60
+        },
+        {
+          "step": 3,
+          "width": 640,
+          "height": 480,
+          "format": 23,
+          "refresh": 60
+        },
+        {
+          "step": 4,
+          "width": 800,
+          "height": 600,
+          "format": 23,
+          "refresh": 60
+        },
+        {
+          "step": 5,
+          "width": 800,
+          "height": 600,
+          "format": 22,
+          "refresh": 60
+        }
+      ],
+      "devices": [
+        {
+          "handle": 1048577,
+          "format": 22,
+          "window": 327938,
+          "retired": true
+        },
+        {
+          "handle": 1048578,
+          "format": 22,
+          "window": 327938,
+          "retired": true
+        },
+        {
+          "handle": 1048579,
+          "format": 23,
+          "window": 327938,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "format": 22,
+          "window": 327938,
+          "retired": true
+        }
+      ],
+      "textures": [],
+      "chains": [],
+      "active": 0,
+      "hello": 1,
+      "ended": 1
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "snapshots": [
+        {
+          "step": 0,
+          "width": 800,
+          "height": 600,
+          "format": 22,
+          "refresh": 60
+        },
+        {
+          "step": 1,
+          "width": 640,
+          "height": 480,
+          "format": 22,
+          "refresh": 60
+        },
+        {
+          "step": 2,
+          "width": 800,
+          "height": 600,
+          "format": 22,
+          "refresh": 60
+        },
+        {
+          "step": 3,
+          "width": 640,
+          "height": 480,
+          "format": 23,
+          "refresh": 60
+        },
+        {
+          "step": 4,
+          "width": 800,
+          "height": 600,
+          "format": 23,
+          "refresh": 60
+        },
+        {
+          "step": 5,
+          "width": 800,
+          "height": 600,
+          "format": 22,
+          "refresh": 60
+        }
+      ],
+      "devices": [
+        {
+          "handle": 1048577,
+          "format": 22,
+          "window": 852288,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "format": 22,
+          "window": 852288,
+          "retired": true
+        },
+        {
+          "handle": 1048583,
+          "format": 23,
+          "window": 852288,
+          "retired": true
+        },
+        {
+          "handle": 1048586,
+          "format": 22,
+          "window": 852288,
+          "retired": true
+        }
+      ],
+      "textures": [
+        {
+          "handle": 1048578,
+          "device": 1048577,
+          "retired": true
+        },
+        {
+          "handle": 1048581,
+          "device": 1048580,
+          "retired": true
+        },
+        {
+          "handle": 1048584,
+          "device": 1048583,
+          "retired": true
+        },
+        {
+          "handle": 1048587,
+          "device": 1048586,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048579,
+          "device": 1048577,
+          "retired": true
+        },
+        {
+          "handle": 1048582,
+          "device": 1048580,
+          "retired": true
+        },
+        {
+          "handle": 1048585,
+          "device": 1048583,
+          "retired": true
+        },
+        {
+          "handle": 1048588,
+          "device": 1048586,
+          "retired": true
+        }
+      ],
+      "active": 0,
+      "hello": 1,
+      "ended": 1
+    }
+  ],
+  "deviceLifetimes": 8,
+  "additionalChains": 4,
+  "backingTextures": 4,
+  "snapshots": 12,
+  "renderingCommands": 0,
+  "traceSha256": "91d79e6c688d1baf075a1398fcb41d8fae35fb8112b710cc9acbf4e1df620289",
+  "referenceSha256": "e53b6b603e1097e9a817c5e43061a2f6233f4f9bd8eefbac50aa8b860d67365a",
+  "sdkLogs": {
+    "DSP8.TXT": "DISPLAY QUERY api=8 step=0 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=1 width=640 height=480 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=2 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=3 width=640 height=480 format=23 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=4 width=800 height=600 format=23 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=5 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY STATUS api=8 lifetimes=4 snapshots=6 unchangedBuffers=6 restored=1\r\nPASS live display queries\r\n",
+    "DSP9.TXT": "DISPLAY QUERY api=9 step=0 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=1 width=640 height=480 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=2 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=3 width=640 height=480 format=23 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=4 width=800 height=600 format=23 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=5 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY STATUS api=9 lifetimes=4 snapshots=6 unchangedBuffers=6 restored=1\r\nPASS live display queries\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_display_mode.h": "273e7e6fa787a7dd07de5d8453ab1a1f4cbd14b4aa3ef36995d6d75f55a854f0",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "183e52364b7b094635f7f678677b75de22e523c369880d2bd490f23bd794f00e",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "3ec6690c1081c119fcc588075c6088bf0f870f9b561afcab37850d69ef4b43f5",
+    "glbridge/sample/d3d_display_mode_test.c": "932f2409024ba96939d49770d228c48a72be8d2034be197b03d90e245ef1f172"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "af4b4f55b53990bce89ec766fadacc199d0aa59d71cf7a63a6c0a2efafd751be",
+      "9": "92c6ed71660d99d8b129c3a459cc16b9950ebf071149e54964a2adb675539178"
+    },
+    "exeSha256": {
+      "8": "8a0572e453adbac8bc6c04a0c5ebf26e58c131a8fab89970188959cf7936896c",
+      "9": "621e25b27de34b21b00711ff51f74ecde54c12e8253c5592aafb8cee9f68e26b"
+    }
+  },
+  "scope": "not exercised; factory/device/implicit/additional-chain display queries against Win32 across 16/32-bit live mode changes; unchanged backbuffer descriptors"
+}

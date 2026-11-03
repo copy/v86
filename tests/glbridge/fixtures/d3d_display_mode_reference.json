@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "scope": "Single-adapter live public display queries only. Five factory/device/chain routes share Win32 current-mode data; buffer dimensions remain resource descriptors. Preserve existing D3D9 fallback to 1024x768 X8R8G8B8/60 and unknown-refresh normalization to 60. Additional chains are queried through their own objects; device ordinals and GetNumberOfSwapChains cover implicit chains. No new rendering/pixel run; inherit accepted 4H6f4a/4H6c GPU evidence. D3D8 mode integration, full mode normalization, adapter groups, physical device loss, concurrent publication, native HAL and game/FPS remain outside this step.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-getdisplaymode",
+      "fact": "The query returns the adapter display mode, including when the device does not own fullscreen mode."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-getnumberofswapchains",
+      "fact": "Only swap chains implicitly created by CreateDevice are counted."
+    }
+  ],
+  "facts": {
+    "sharedWin32Query": true,
+    "cachedBufferGeometryNeverReturnedAsAdapter": true,
+    "currentModeReadPerCall": true,
+    "publicRoutes": 5,
+    "unchangedBufferSize": [
+      128,
+      128
+    ],
+    "liveModeChanges": [
+      [
+        640,
+        480,
+        32
+      ],
+      [
+        800,
+        600,
+        32
+      ],
+      [
+        640,
+        480,
+        16
+      ],
+      [
+        800,
+        600,
+        16
+      ]
+    ],
+    "implicitOrdinalCountWithAdditionalChain": 1
+  }
+}

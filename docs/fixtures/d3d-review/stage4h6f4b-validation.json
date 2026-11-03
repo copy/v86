@@ -1,0 +1,562 @@
+{
+  "stage": "4H6f4b shared live adapter queries on D3D8/9 factory/device/chain routes (Reset/S2-42 related)",
+  "date": "2026-11-03",
+  "bundle": "a532e70eacef8cba3d10",
+  "coreSuites": 205,
+  "guestTargetedSuites": 13,
+  "guestBaseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f4a-validation.json",
+    "sha256": "d481dc7bf552eae08ff191fe3f37b4a385a74cb6c461a5a9b32bff881d58d5e5",
+    "fullSuites": 205,
+    "reason": "Only display query routes changed; rerun display, cursor, Reset, implicit surface, mode/window guard and resource ownership checks and mutations."
+  },
+  "webgpuRuns": 0,
+  "gpuBaselines": [
+    {
+      "file": "docs/fixtures/d3d-review/stage4h6f4a-validation.json",
+      "sha256": "d481dc7bf552eae08ff191fe3f37b4a385a74cb6c461a5a9b32bff881d58d5e5",
+      "bundle": "a532e70eacef8cba3d10",
+      "webgpuRuns": 2,
+      "reason": "Inherit accepted actual XP mode pixel replay; no new rendering run in this local query phase."
+    },
+    {
+      "file": "docs/fixtures/d3d-review/stage4h6c-validation.json",
+      "sha256": "4d7a00aa1081a2840b17c3bcffb5987d2fed26531bd53e419ed07f24f48ef0a0",
+      "bundle": "a532e70eacef8cba3d10",
+      "webgpuRuns": 58,
+      "reason": "Host/protocol/shader sources unchanged; retain the full 4H6c GPU baseline."
+    }
+  ],
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "e77eb4d24b084b6b3e062be7030633c405a1ee45ef940b42c40f5b41d6cd5735"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "f0269300847b59dfc2877e7f41728a6a0fae4436486b8395b4eaa429fc75b5a9"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "e08ed4fb64b41595769c9d354048c570e75b93f87b766d4f416a9cb870fa17a4"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "cfe7cdcf5053decb0de4bdc50d0571c1dedee896495ec8d838757ceb94660a5e"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "e6680e46a98980c674973ac63eb83053d8486452ecb5125f04778b8b14cfd213"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "4abb89b2e50bbbf7911c29ecd1bcc312f989d0d4d7aa840be2c5c76054ef9853"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "230c2852a4852640222b6d29863301cf632c3b261fcea911ef2e2ad6bb29d41a"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "fcfb6e4401042289c02249c82abc47936846fc7d007da3a7d7a8c99def4fab31"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "3a989fa027ea60d6ebec62bcf186073ff8cbb86b6707393f843c2838ef3bc25c"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "defe5ddc91fd4fff064408d1e213de8a13022bdb37e4a0f5ceeb8f6f112e2547"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "4f83aa261904c6565a23654d8c1948d1d23c59a1c155cb80d97e185e7544e6d5"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "754ce4f83a9f84ff77ee1500f4ef6e8c6ba6e1859ef4b3f6713859afd1c5a428"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "0ec4697e367b9acf4df9c0d931bdb0aacd4e75afc6feb6cc5519d6e3b6c3bb48"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "c4182b88f006bb4e571315ce7e7696d6377410290276ea38c03065d08ba26452"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "d2e7dace3c0a79f3631088eab405edb53c93de52b93022af44e55d08813d60b4"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "238b3fdf32d4b1518afdb6a8957380bbba3b9263ea38a89881e572d086074016"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "1422c8c01ed328610859cff3f2b7494e4a73816f7e96033b41f67e5879cb8f12"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "d41c8147bda77232686260753dfa804e1ad45f109cc6019dfe0c53e3aefe79b8"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP live-display query probe DLL",
+      "shippedDllSha256": "af4b4f55b53990bce89ec766fadacc199d0aa59d71cf7a63a6c0a2efafd751be",
+      "diagnosticSha256": "30ddd74f078dab519a75f3dcecfa77eb114ac4a1f3d2705d1fa1b0d593b0ae60"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "983ef55164db82bba40a52dd763d39d7be3bc4717d1b56091c29a608db4f7f7a"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "bb3f28b36e961dc1428d78880b90c61ff2d460aa39c548f67621d6624062c3b4"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "038f26e6737696811b505886390dd980a00918b778ca51e1cbfc08b21dcfb1c0"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "d3241ca2ad35601b24e58d8de7c268bf8b49287ee7dfb2214b82d2ca94ef6c7b"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "1749527e2fdf55e5c963e28c1fbea5e130266cc3e34e4a46c529f76e047ea9b4"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "f65ee2ff3469ec5d71cda8dfac3d922db515e8081caea613971914a58a5192ea"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "8170b066d213b21437d895ae340db40b46752e1ac386eb4a24a1712e5ebf7b19"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "b976c1e6a53292e8859710002609ac03a32ac9fd1ebb73669d4887ae6971696f"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "2295d6193f4f82b365561ef894028f495fee88e6b3ffa87346b5367c7b605be5"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "2ca11a369e5ac1095e4a927871ce6ba14a8172022ed35d4684b85c488073b313"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "180890f02ae1118022cc25947bb9d24a4b9515a24da3bf88080ee7017c5fcc2f"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "8aa5e5160a65cbe9dfc5f344b5f7be2d654f9f4010efc9be162e2fbf15e61576"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "123c79cbf3ba723c32e95639e88e0434f6833cf97bb74f324232b3bb8db37a62"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "7ec59b6977365be566fa92edd57f5580944095bab92cd37e23b34c42db8ada8d"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP live-display query probe DLL",
+      "shippedDllSha256": "92c6ed71660d99d8b129c3a459cc16b9950ebf071149e54964a2adb675539178",
+      "diagnosticSha256": "d44f7ee58792902cd09120bebc323c2902acc581db0d1d5dbf396e9067f3420d"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "559b615c79ba1d05b313da0557320d81a4ce610146221e2fb8821cc649c8fce9"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "1a7d4ebe9edf661e15710b528f9b26a5ff33cc057cb04d3fe60670f7c91b7bc4"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "97e2c07c7d2120a52607a7d28320937de0df3237d6e59b44ab85f828713b9a44"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "643b642bf6e8e34d8d634771a59f2c7753565f5163f915a7331e9730c7aa7174"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualDisplayQueryChecks": {
+      "8": 113,
+      "9": 170
+    },
+    "publicRoutes": 5,
+    "runtimeMutations": 22,
+    "previousSourceRuntimeNegativeControls": 2,
+    "sanitizedCursorChecks": {
+      "8": 31,
+      "9": 31
+    },
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "fixtureCorruptions": 10,
+    "unchangedCachedBufferGeometry": true,
+    "perCallWin32Query": true,
+    "priorFallbackConventionPreserved": true,
+    "implicitOrdinalBoundaryPreserved": true
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_display_mode_reference.json",
+    "sha256": "e53b6b603e1097e9a817c5e43061a2f6233f4f9bd8eefbac50aa8b860d67365a",
+    "schema": 1,
+    "scope": "Single-adapter live public display queries only. Five factory/device/chain routes share Win32 current-mode data; buffer dimensions remain resource descriptors. Preserve existing D3D9 fallback to 1024x768 X8R8G8B8/60 and unknown-refresh normalization to 60. Additional chains are queried through their own objects; device ordinals and GetNumberOfSwapChains cover implicit chains. No new rendering/pixel run; inherit accepted 4H6f4a/4H6c GPU evidence. D3D8 mode integration, full mode normalization, adapter groups, physical device loss, concurrent publication, native HAL and game/FPS remain outside this step.",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+      },
+      {
+        "file": "d3d9-device-tests.c",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+      }
+    ],
+    "documentation": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-getdisplaymode",
+        "fact": "The query returns the adapter display mode, including when the device does not own fullscreen mode."
+      },
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-getnumberofswapchains",
+        "fact": "Only swap chains implicitly created by CreateDevice are counted."
+      }
+    ],
+    "facts": {
+      "sharedWin32Query": true,
+      "cachedBufferGeometryNeverReturnedAsAdapter": true,
+      "currentModeReadPerCall": true,
+      "publicRoutes": 5,
+      "unchangedBufferSize": [
+        128,
+        128
+      ],
+      "liveModeChanges": [
+        [
+          640,
+          480,
+          32
+        ],
+        [
+          800,
+          600,
+          32
+        ],
+        [
+          640,
+          480,
+          16
+        ],
+        [
+          800,
+          600,
+          16
+        ]
+      ],
+      "implicitOrdinalCountWithAdditionalChain": 1
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 133,
+    "batches": 14,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS display query probes \r\n",
+    "logs": {
+      "DSP8.TXT": "DISPLAY QUERY api=8 step=0 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=1 width=640 height=480 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=2 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=3 width=640 height=480 format=23 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=4 width=800 height=600 format=23 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=8 step=5 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY STATUS api=8 lifetimes=4 snapshots=6 unchangedBuffers=6 restored=1\r\nPASS live display queries\r\n",
+      "DSP9.TXT": "DISPLAY QUERY api=9 step=0 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=1 width=640 height=480 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=2 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=3 width=640 height=480 format=23 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=4 width=800 height=600 format=23 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY QUERY api=9 step=5 width=800 height=600 format=22 refresh=60 backWidth=128 backHeight=128\r\nDISPLAY STATUS api=9 lifetimes=4 snapshots=6 unchangedBuffers=6 restored=1\r\nPASS live display queries\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; factory/device/implicit/additional-chain display queries against Win32 across 16/32-bit live mode changes; unchanged backbuffer descriptors",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 3264,
+        "crc32": "e21ac89a"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "snapshots": [
+          {
+            "step": 0,
+            "width": 800,
+            "height": 600,
+            "format": 22,
+            "refresh": 60
+          },
+          {
+            "step": 1,
+            "width": 640,
+            "height": 480,
+            "format": 22,
+            "refresh": 60
+          },
+          {
+            "step": 2,
+            "width": 800,
+            "height": 600,
+            "format": 22,
+            "refresh": 60
+          },
+          {
+            "step": 3,
+            "width": 640,
+            "height": 480,
+            "format": 23,
+            "refresh": 60
+          },
+          {
+            "step": 4,
+            "width": 800,
+            "height": 600,
+            "format": 23,
+            "refresh": 60
+          },
+          {
+            "step": 5,
+            "width": 800,
+            "height": 600,
+            "format": 22,
+            "refresh": 60
+          }
+        ],
+        "devices": [
+          {
+            "handle": 1048577,
+            "format": 22,
+            "window": 327938,
+            "retired": true
+          },
+          {
+            "handle": 1048578,
+            "format": 22,
+            "window": 327938,
+            "retired": true
+          },
+          {
+            "handle": 1048579,
+            "format": 23,
+            "window": 327938,
+            "retired": true
+          },
+          {
+            "handle": 1048580,
+            "format": 22,
+            "window": 327938,
+            "retired": true
+          }
+        ],
+        "textures": [],
+        "chains": [],
+        "active": 0,
+        "hello": 1,
+        "ended": 1
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "snapshots": [
+          {
+            "step": 0,
+            "width": 800,
+            "height": 600,
+            "format": 22,
+            "refresh": 60
+          },
+          {
+            "step": 1,
+            "width": 640,
+            "height": 480,
+            "format": 22,
+            "refresh": 60
+          },
+          {
+            "step": 2,
+            "width": 800,
+            "height": 600,
+            "format": 22,
+            "refresh": 60
+          },
+          {
+            "step": 3,
+            "width": 640,
+            "height": 480,
+            "format": 23,
+            "refresh": 60
+          },
+          {
+            "step": 4,
+            "width": 800,
+            "height": 600,
+            "format": 23,
+            "refresh": 60
+          },
+          {
+            "step": 5,
+            "width": 800,
+            "height": 600,
+            "format": 22,
+            "refresh": 60
+          }
+        ],
+        "devices": [
+          {
+            "handle": 1048577,
+            "format": 22,
+            "window": 852288,
+            "retired": true
+          },
+          {
+            "handle": 1048580,
+            "format": 22,
+            "window": 852288,
+            "retired": true
+          },
+          {
+            "handle": 1048583,
+            "format": 23,
+            "window": 852288,
+            "retired": true
+          },
+          {
+            "handle": 1048586,
+            "format": 22,
+            "window": 852288,
+            "retired": true
+          }
+        ],
+        "textures": [
+          {
+            "handle": 1048578,
+            "device": 1048577,
+            "retired": true
+          },
+          {
+            "handle": 1048581,
+            "device": 1048580,
+            "retired": true
+          },
+          {
+            "handle": 1048584,
+            "device": 1048583,
+            "retired": true
+          },
+          {
+            "handle": 1048587,
+            "device": 1048586,
+            "retired": true
+          }
+        ],
+        "chains": [
+          {
+            "handle": 1048579,
+            "device": 1048577,
+            "retired": true
+          },
+          {
+            "handle": 1048582,
+            "device": 1048580,
+            "retired": true
+          },
+          {
+            "handle": 1048585,
+            "device": 1048583,
+            "retired": true
+          },
+          {
+            "handle": 1048588,
+            "device": 1048586,
+            "retired": true
+          }
+        ],
+        "active": 0,
+        "hello": 1,
+        "ended": 1
+      }
+    ],
+    "graphicsSha256": "91d79e6c688d1baf075a1398fcb41d8fae35fb8112b710cc9acbf4e1df620289"
+  },
+  "fixture": {
+    "metadataSha256": "9efa17d299674f373465f5cf8a2170d068d2262f707ba6aac2d8249d11a65a5b",
+    "compressedTraceSha256": "05d9485425806bbf7bab0ebe24327abdc535e9df2db763715929bf48a4265f34",
+    "captureBuild": {
+      "dllSha256": {
+        "8": "af4b4f55b53990bce89ec766fadacc199d0aa59d71cf7a63a6c0a2efafd751be",
+        "9": "92c6ed71660d99d8b129c3a459cc16b9950ebf071149e54964a2adb675539178"
+      },
+      "exeSha256": {
+        "8": "8a0572e453adbac8bc6c04a0c5ebf26e58c131a8fab89970188959cf7936896c",
+        "9": "621e25b27de34b21b00711ff51f74ecde54c12e8253c5592aafb8cee9f68e26b"
+      }
+    }
+  },
+  "scope": "Single-adapter live public display queries only. Five factory/device/chain routes share Win32 current-mode data; buffer dimensions remain resource descriptors. Preserve existing D3D9 fallback to 1024x768 X8R8G8B8/60 and unknown-refresh normalization to 60. Additional chains are queried through their own objects; device ordinals and GetNumberOfSwapChains cover implicit chains. No new rendering/pixel run; inherit accepted 4H6f4a/4H6c GPU evidence. D3D8 mode integration, full mode normalization, adapter groups, physical device loss, concurrent publication, native HAL and game/FPS remain outside this step. S2-42, D3D8 wrapping and stages 4/5/6 remain incomplete.",
+  "coreSha256": {
+    "tests/glbridge/d3d_display_mode_fixture_test.js": "a254bb6bf3964a93b9dbee282a07186c7b3a3c8ac1db3571ce90c02aa231bbc9",
+    "tests/glbridge/d3d_display_mode_xp.mjs": "b537da1f89cf9a7554a57a1f53988682dcdd1dab7642fb1196f64d88b20ad6a2",
+    "tests/glbridge/fixtures/d3d_display_mode_reference.json": "e53b6b603e1097e9a817c5e43061a2f6233f4f9bd8eefbac50aa8b860d67365a",
+    "tests/glbridge/fixtures/d3d_display_mode_xp.bin.gz": "05d9485425806bbf7bab0ebe24327abdc535e9df2db763715929bf48a4265f34",
+    "tests/glbridge/fixtures/d3d_display_mode_xp.json": "9efa17d299674f373465f5cf8a2170d068d2262f707ba6aac2d8249d11a65a5b",
+    "tests/lib/d3d_display_mode_wire.mjs": "b62c4a2805b28d7e1d054cb55f8ef3bfc06f6f0d0cb4892a6af8276aa93bcc16",
+    "docs/d3d-webgpu-review.md": "5521b2e7b8d58b1143dc13c8aa1ef3c8337f909b8ae3731e0c6bef2a68bb5267"
+  },
+  "siteSha256": {
+    "glbridge/runtime/d9wg_display_mode.h": "273e7e6fa787a7dd07de5d8453ab1a1f4cbd14b4aa3ef36995d6d75f55a854f0",
+    "glbridge/sample/d3d_display_mode_test.c": "932f2409024ba96939d49770d228c48a72be8d2034be197b03d90e245ef1f172",
+    "glbridge/tests/d9wg_display_mode_mutation_test.js": "0939085415b7f82c8954f1899dd517d5c4a2cbb3f959ae754aa550ab6dd5160b",
+    "glbridge/tests/d9wg_display_mode_test.js": "d24e831f3a14119548131bd16d4aa274b6d79d6f46afe58b095699b276cfbc80",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "30ddd74f078dab519a75f3dcecfa77eb114ac4a1f3d2705d1fa1b0d593b0ae60",
+    "glbridge/d3d8proxy/d3d8.dll": "af4b4f55b53990bce89ec766fadacc199d0aa59d71cf7a63a6c0a2efafd751be",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "183e52364b7b094635f7f678677b75de22e523c369880d2bd490f23bd794f00e",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "d44f7ee58792902cd09120bebc323c2902acc581db0d1d5dbf396e9067f3420d",
+    "glbridge/d3d9proxy/d3d9.dll": "92c6ed71660d99d8b129c3a459cc16b9950ebf071149e54964a2adb675539178",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "3ec6690c1081c119fcc588075c6088bf0f870f9b561afcab37850d69ef4b43f5"
+  },
+  "logSha256": {
+    "core": "4b88cc9fe9c60d9fc223bc7601c1d8c922344deb50a3943281ea6f8af5cfc938",
+    "guest": "7db31f6d8a76d322813986f715d87ae5429fad2e2f327bb7054a0630c9c5b518",
+    "xp": "a9746fee7c125bcb6bc5e64a6922352b81054db0993474c652c8554401325e26",
+    "before": "23cc95742cb5eec9af252340cb676b2cecd9c8babbe7e23d88478116d56187cc",
+    "mutations": "3489b67bc7f6b23060c0b0312cf782bc3a6375492d0a4e22248928d0d9a641f0",
+    "sanitize": "f2aa4978d0ec75fa4c23ad9e229d3a374eac9b27c3df77a8061d47995da6a1de",
+    "fixture": "fe3d7ecfb21e600756cf8482a186eba934dee084a6490afd3a28c8ef7abca018",
+    "builds": "708a859916fbf537b7741aeb052b9095b102621e3eb5b9cef9029148d4c1f389",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "82fcbe7cdc25cc007118bcbc43438fb1d9f1444c75372fa7da15e1c57517791f",
+    "integration": "8ce64cf9969e1aafae665eb91967c3c976282d0e9f1f7c915f6a3d46b37824fe"
+  }
+}
