@@ -1,0 +1,122 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "hello": 1,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048580,
+        1048581,
+        1048582
+      ],
+      "created": 3,
+      "destroyed": 3,
+      "resets": 1,
+      "targets": 35,
+      "depths": 35,
+      "clears": 2,
+      "presents": 2,
+      "ended": 1
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "hello": 1,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048580,
+        1048581,
+        1048582
+      ],
+      "created": 3,
+      "destroyed": 3,
+      "resets": 1,
+      "targets": 35,
+      "depths": 35,
+      "clears": 2,
+      "presents": 2,
+      "ended": 1
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "step": 0,
+      "width": 32,
+      "height": 24,
+      "samples": 0,
+      "color": 4289732624
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "step": 1,
+      "width": 32,
+      "height": 24,
+      "samples": 0,
+      "color": 4279255232
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "step": 0,
+      "width": 32,
+      "height": 24,
+      "samples": 0,
+      "color": 4289732624
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "step": 1,
+      "width": 32,
+      "height": 24,
+      "samples": 0,
+      "color": 4279255232
+    }
+  ],
+  "ownerReleases": [
+    1,
+    2
+  ],
+  "logicalDevices": 6,
+  "wireDeviceHandles": 8,
+  "privateObjectsFinalized": 12,
+  "publicZeroRevivals": 128,
+  "resets": 2,
+  "refusedResets": 4,
+  "renderTargetBindings": 70,
+  "depthBindings": 70,
+  "primaryPresents": 4,
+  "traceSha256": "a46f76e6aa2a912f16f449e3a8809c238fa293410b726fb59054611567b0b89c",
+  "referenceSha256": "f5fc6bca5319ef2083b81df14f35ada177fb74ce071f48c1535bb96787ad2772",
+  "sdkLogs": {
+    "IBD8.TXT": "IMPLICIT BIND rounds=32 revivals=64 publicRefs=0 activeDeviceRefs=1 queryDeviceRefs=3 privateRetained=2\r\nIMPLICIT FRAME index=0 color=FFB02010 publicRefs=0 presented=1\r\nIMPLICIT FRAME index=1 color=FF1040C0 publicRefs=0 presented=1\r\nIMPLICIT RESET refused=2 accepted=1 privateRetained=2 cachedIdentity=1 finalPrivateFinalized=2 callbackRefs=1 factoryRefs=1\r\nIMPLICIT FINAL publicRefs=0 privateFinalized=2 callbackRefs=1 factoryRefs=1\r\nIMPLICIT LAST publicRefs=0 privateFinalized=2 callbackRefs=1 factoryRefs=1\r\nIMPLICIT BIND STATUS devices=3 reset=1 refusedReset=2 frames=2 revivals=64 privateFinalized=6 publicBindingRefs=0 factoryRefs=1\r\nPASS implicit private bindings API=8\r\n",
+    "IBD9.TXT": "IMPLICIT BIND rounds=32 revivals=64 publicRefs=0 activeDeviceRefs=1 queryDeviceRefs=3 privateRetained=2\r\nIMPLICIT FRAME index=0 color=FFB02010 publicRefs=0 presented=1\r\nIMPLICIT FRAME index=1 color=FF1040C0 publicRefs=0 presented=1\r\nIMPLICIT RESET refused=2 accepted=1 privateRetained=2 cachedIdentity=1 finalPrivateFinalized=2 callbackRefs=1 factoryRefs=1\r\nIMPLICIT FINAL publicRefs=0 privateFinalized=2 callbackRefs=1 factoryRefs=1\r\nIMPLICIT LAST publicRefs=0 privateFinalized=2 callbackRefs=1 factoryRefs=1\r\nIMPLICIT BIND STATUS devices=3 reset=1 refusedReset=2 frames=2 revivals=64 privateFinalized=6 publicBindingRefs=0 factoryRefs=1\r\nPASS implicit private bindings API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "db9a39b9c4fc269fde83acb4e6b03f3853b2e811b5695d64a619c6c6cf8b6ef3",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "f4851d12a1472d89d46d48f3ee5675411db7a57d3a783d9f3c765eccc079b435",
+    "glbridge/sample/d3d_implicit_binding_test.c": "fcdd58611ff4204c6241708efdb23cdcd3e3f114f807a5588dedd7a1fbff3c98"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "531c73896948ef2f520d32b05fcb9569a127e185db003e05dd993b24269a6edf",
+      "9": "6b6483eaff3bc76e53524f4d2457da942b4eea19ec9ec806767779da57baa021"
+    },
+    "exeSha256": {
+      "8": "7d47afee504c3144b94eb6c17d1a66c563fd580f9b8ed97c0eca9bf63059e3c3",
+      "9": "159b49f070ac5f0ec9085ffe6b18773b1b7cd6d6e823a408ba3ad034e3f18a88"
+    }
+  },
+  "scope": "both APIs exercise implicit public-zero color/depth bindings, cached revival/private storage, public-only Reset refusal and exact protected finalizers; two primary frames per API replayed independently"
+}

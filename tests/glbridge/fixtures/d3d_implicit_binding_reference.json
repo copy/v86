@@ -1,0 +1,70 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "colors": [
+    4289732624,
+    4279255232
+  ],
+  "scope": "D3D8 implicit depth binding helpers retain no public surface reference because the root device owns cached storage. D3D8 primary color binding already uses root-owned storage. D3D9 standalone and implicit primary/auto-depth surfaces use binding_refs, with device-cache ownership preventing physical destruction on last implicit unbind. Additional chain buffers and ordinary texture/cube views retain their current binding model. Reset treats every implicit public reference as external; private binding slot counts are not deducted. Two old sources strictly compile and fail at real binding helper public-count assertions. Native cached helper/getter loops run 128 rounds/256 zero revivals per API, plus existing actual full setter/Reset/private lifetime suites. XP uses complete SDK setters/getters, 32 rounds/64 revivals per API, borrowed rebinds, two public-zero Clear/Present frames, two refused Resets and one accepted Reset per API, existing cached identity/private-data retention across Reset and six protected finalizers per API across post-Reset final device, binding-only final device and last public surface orders. Native implicit private-store Reset semantics remain open; this phase preserves the existing project cache behavior. D3D8 blocked Reset returns DEVICELOST and D3D9 INVALIDCALL, preserving the already validated API-specific contract. No original HAL/game/FPS claim, general device state preservation with external children, arbitrary callback/thread/device-loss graph, additional-chain/other resource public binding counters, full formats/MSAA/fullscreen/multiple buffers/rotation, or review stages 4/5/6 completion. Host/protocol/shader/bundle unchanged.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Supporting public resource/device pins and internal target-view binding context. Cached implicit surfaces have a public zero/nonzero device pin and device-owned physical storage; binding must not manufacture a public COM reference. Not a new original Microsoft HAL run."
+    },
+    {
+      "file": "d3d8-container-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+      "evidence": "Supporting public resource/device pins and internal target-view binding context. Cached implicit surfaces have a public zero/nonzero device pin and device-owned physical storage; binding must not manufacture a public COM reference. Not a new original Microsoft HAL run."
+    },
+    {
+      "file": "d3d8-reset-device.c",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/device.c",
+      "evidence": "Supporting public resource/device pins and internal target-view binding context. Cached implicit surfaces have a public zero/nonzero device pin and device-owned physical storage; binding must not manufacture a public COM reference. Not a new original Microsoft HAL run."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Supporting public resource/device pins and internal target-view binding context. Cached implicit surfaces have a public zero/nonzero device pin and device-owned physical storage; binding must not manufacture a public COM reference. Not a new original Microsoft HAL run."
+    },
+    {
+      "file": "d3d9-reset-device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "Supporting public resource/device pins and internal target-view binding context. Cached implicit surfaces have a public zero/nonzero device pin and device-owned physical storage; binding must not manufacture a public COM reference. Not a new original Microsoft HAL run."
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+      "evidence": "Supporting public resource/device pins and internal target-view binding context. Cached implicit surfaces have a public zero/nonzero device pin and device-owned physical storage; binding must not manufacture a public COM reference. Not a new original Microsoft HAL run."
+    }
+  ],
+  "facts": {
+    "nativeRoundsPerAPI": 128,
+    "nativePublicZeroRevivalsPerAPI": 256,
+    "newMutations": 10,
+    "xpLogicalDevices": 6,
+    "xpWireDeviceHandles": 8,
+    "xpPrivateObjectsFinalized": 12,
+    "xpPublicZeroRevivals": 128,
+    "xpResets": 2,
+    "xpRefusedResets": 4,
+    "xpFrames": 4,
+    "xpRenderTargetBindings": 70,
+    "xpDepthBindings": 70,
+    "pixelSamples": 0,
+    "originalMicrosoftHAL": false
+  }
+}

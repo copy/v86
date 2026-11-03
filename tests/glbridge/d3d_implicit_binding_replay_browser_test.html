@@ -1,0 +1,81 @@
+<!doctype html><meta charset="utf-8"><title>D3D8/9 public-zero implicit binding lifetime</title><canvas id="screen" width="32" height="24"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async () => {
+    /* global TextDecoder */
+    "use strict";
+    const P = D9WGProtocol, C = P.C, comparisons = [], callbacks = {acquired: 0, configured: 0, unconfigured: 0};
+    let gpu, displayTexture, batches = 0, rawPixels = 0, displayPixels = 0, request = 0;
+    function check(value, message) {if (!value) throw Error(message);}
+    async function hash(bytes) {return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), v => v.toString(16).padStart(2, "0")).join("");}
+    async function artifact(data) {await fetch("/__test_file?name=d9wg-implicit-bindings-guest.json", {method: "POST", body: JSON.stringify(data, null, 2)});}
+    function newDisplay(width, height) {return gpu.device.createTexture({size: [width, height], format: gpu.format, usage: 0x1 | 0x2 | 0x4 | 0x10});}
+    async function readDisplay(texture, width, height, wanted, format = gpu.format, displayed = true) {
+        const pitch = Math.ceil(width * 4 / 256) * 256, buffer = gpu.device.createBuffer({size: pitch * height, usage: 0x8 | 0x1}), encoder = gpu.device.createCommandEncoder();
+        encoder.copyTextureToBuffer({texture}, {buffer, bytesPerRow: pitch, rowsPerImage: height}, [width, height]); gpu.device.queue.submit([encoder.finish()]); await buffer.mapAsync(1);
+        const data = new Uint8Array(buffer.getMappedRange()); let error = 0;
+        for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) for (let c = 0; c < 4; c++) {const channel = format.startsWith("bgra") ? c : [2, 1, 0, 3][c]; error = Math.max(error, Math.abs(data[y * pitch + x * 4 + c] - wanted[channel]));}
+        buffer.unmap(); buffer.destroy(); if (displayed) displayPixels += width * height; return error;
+    }
+    async function readRaw(device, texture, width, height, wanted) {
+        const payload = P.encode("ReadbackSurface", {device_handle: device, texture_handle: texture, format: 21, width, height, row_count: height, destination_pitch: width * 4, destination_bytes: width * height * 4, response_offset: C.D9WG_READBACK_REGION_OFFSET, request_id: ++request});
+        let raw;
+        await gpu.onReadbackSurface(payload, new DataView(payload.buffer), 0, payload.length, {writeGuestMemory(at, data) {check(at === 16 * 1024 * 1024 - C.D9WG_RESPONSE_REGION_BYTES + C.D9WG_READBACK_REGION_OFFSET, "Wrong readback address"); raw = data.slice();}});
+        check(raw && raw.length === 16 + width * height * 4 && new DataView(raw.buffer, raw.byteOffset).getUint32(P.F.ReadbackResponse.status, true) === C.D9WG_RESPONSE_OK, "Standalone target raw readback failed: texture=" + texture + " bytes=" + (raw && raw.length) + " status=" + (raw && new DataView(raw.buffer, raw.byteOffset).getUint32(P.F.ReadbackResponse.status, true)));
+        let error = 0; for (let x = 16; x < raw.length; x++) error = Math.max(error, Math.abs(raw[x] - wanted[(x - 16) % 4])); rawPixels += width * height; return error;
+    }
+    try {
+        const prefix = "fixtures/d3d_implicit_binding_", metadata = await (await fetch(prefix + "xp.json")).json(), referenceBytes = new Uint8Array(await (await fetch(prefix + "reference.json")).arrayBuffer());
+        check(await hash(referenceBytes) === metadata.referenceSha256, "Reference hash mismatch"); const reference = JSON.parse(new TextDecoder().decode(referenceBytes));
+        const response = await fetch(prefix + "xp.bin.gz"), bytes = new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()), view = new DataView(bytes.buffer);
+        check(await hash(bytes) === metadata.traceSha256, "Trace hash mismatch");
+        gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), {strict: true, useShaderWorker: false}); await gpu.initialize();
+        displayTexture = newDisplay(32,24);
+        gpu.context = {configure() {callbacks.configured++;}, unconfigure() {callbacks.unconfigured++;}, getCurrentTexture() {callbacks.acquired++; return displayTexture;}};
+        async function observe(owner, present) {
+            const frame = metadata.frames[comparisons.length];
+            check(frame && frame.owner === owner && frame.device === present.device_handle, "Standalone binding frame identity mismatch");
+            check(frame.width === reference.width && frame.height === reference.height && frame.color === reference.colors[frame.step], "Standalone binding reference mismatch");
+            const channels = [frame.color & 255, frame.color >>> 8 & 255, frame.color >>> 16 & 255, frame.color >>> 24];
+            comparisons.push({...frame, rawError: await readRaw(frame.device, 0, frame.width, frame.height, channels), displayError: await readDisplay(displayTexture, frame.width, frame.height, channels)});
+        }
+        for (let at = 0; at < bytes.length;) {
+            const ownerToken = view.getUint32(at, true), flags = view.getUint32(at + 4, true), size = view.getUint32(at + 8, true); at += 12;
+            check(size >= 8 && size <= bytes.length - at && view.getUint16(at, true) === 0xffe1 && view.getUint32(at + 4, true) === size - 8, "Invalid binding carrier");
+            const packet = bytes.subarray(at + 8, at + size), pv = new DataView(packet.buffer, packet.byteOffset, packet.byteLength), presents = [];
+            for (let x = P.STRUCTS.BatchHeader.size; x < packet.length;) {
+                const op = pv.getUint16(x, true), length = pv.getUint32(x + P.F.CommandHeader.size, true); check(length >= P.STRUCTS.CommandHeader.size && x + length <= packet.length, "Invalid binding command");
+                check(op !== P.OP.PRESENT_SWAP_CHAIN, "Unexpected additional-chain Present");
+                if (op === P.OP.PRESENT) presents.push(P.decode("Present", pv, x + P.STRUCTS.CommandHeader.size, length - P.STRUCTS.CommandHeader.size)); x += length;
+            }
+            check(presents.length <= 1, "Multiple primary Presents in batch"); await gpu.submit(packet, {ownerToken, flags, writeGuestMemory() {}});
+            if (presents.length) await observe(ownerToken, presents[0]); at += size; batches++;
+        }
+        check(metadata.ownerReleases.length === 2, "Missing driver owner releases");
+        for (const owner of metadata.ownerReleases) await gpu.endOwnerSessions(owner);
+        await gpu.checkpointIdle(); await gpu.device.queue.onSubmittedWorkDone(); for (let i = 0; i < 4; i++) await new Promise(resolve => setTimeout(resolve, 0));
+        await artifact({traceSha256: metadata.traceSha256, referenceSha256: metadata.referenceSha256, frames: comparisons.length, rawPixels, displayPixels, comparisons, callbacks, batches, stats: gpu.stats, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors});
+        check(comparisons.length === 4 && request === 4 && rawPixels === 3072 && displayPixels === 3072, "Wrong observation totals");
+        check(comparisons.every(c => !c.rawError && !c.displayError), "Standalone bound-target pixel mismatch");
+        check(gpu.stats.readbackRequests === 4 && !gpu.stats.renderTargetReadbackFailures && gpu.stats.presents === 4 && gpu.stats.sessionsEnded === 2 && callbacks.acquired === 4 && !gpu.stats.commandsFailed && !gpu.stats.droppedDraws && !gpu.gpuErrors.errors.length && !gpu.hostErrors.length, "Standalone binding host lifetime mismatch");
+        displayTexture.destroy(); document.querySelector("#result").textContent = "PASS actual XP implicit private bindings: four D3D8/9 frames, 3072 raw and 3072 displayed pixels, 128 public-zero revivals, two Reset, four refused Reset, twelve finalizers, zero error";
+    } catch (error) {
+        await artifact({failed: true, error: String(error.stack), comparisons, callbacks, stats: gpu && gpu.stats, gpuErrors: gpu && gpu.gpuErrors.errors, hostErrors: gpu && gpu.hostErrors}); document.querySelector("#result").textContent = "FAIL " + error.stack;
+    }
+})();
+</script>
