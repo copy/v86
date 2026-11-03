@@ -1,0 +1,119 @@
+{
+  "schema": "d3d-draw-hints-reference-v1",
+  "scope": "Wine implementation/API contract plus independent input geometry; not a measurement of original Microsoft D3D8/9 HAL pixels or invalid-hint ClipStatus. Invalid software hint ranges make this proxy ClipStatus unavailable.",
+  "sources": [
+    {
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+      "facts": "DrawIndexedPrimitive forwards signed base and primitive/index counts; MinVertexIndex/NumVertices are not hard GPU bounds. D3D8 returns success without an IB; D3D9 implementation checks declaration and IB. No Microsoft draw/ClipStatus measurement is asserted."
+    },
+    {
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "facts": "DrawIndexedPrimitive forwards signed base and primitive/index counts; MinVertexIndex/NumVertices are not hard GPU bounds. D3D8 returns success without an IB; D3D9 implementation checks declaration and IB. No Microsoft draw/ClipStatus measurement is asserted."
+    }
+  ],
+  "scenes": [
+    {
+      "name": "ordinary",
+      "baseVertex": 0,
+      "minVertex": 0,
+      "numVertices": 6,
+      "startIndex": 0,
+      "primitiveCount": 2,
+      "leftARGB": 4294901760,
+      "rightARGB": 4278255360,
+      "mode": 0
+    },
+    {
+      "name": "zero-hint",
+      "baseVertex": 0,
+      "minVertex": 0,
+      "numVertices": 0,
+      "startIndex": 0,
+      "primitiveCount": 2,
+      "leftARGB": 4294901760,
+      "rightARGB": 4278255360,
+      "mode": 0
+    },
+    {
+      "name": "overflow-hint",
+      "baseVertex": 0,
+      "minVertex": 4294967295,
+      "numVertices": 2,
+      "startIndex": 0,
+      "primitiveCount": 2,
+      "leftARGB": 4294901760,
+      "rightARGB": 4278255360,
+      "mode": 0
+    },
+    {
+      "name": "unrelated-hint",
+      "baseVertex": 0,
+      "minVertex": 123,
+      "numVertices": 1,
+      "startIndex": 0,
+      "primitiveCount": 2,
+      "leftARGB": 4294901760,
+      "rightARGB": 4278255360,
+      "mode": 0
+    },
+    {
+      "name": "positive-base",
+      "baseVertex": 3,
+      "minVertex": 0,
+      "numVertices": 0,
+      "startIndex": 0,
+      "primitiveCount": 1,
+      "leftARGB": 4279242768,
+      "rightARGB": 4278255360,
+      "mode": 0
+    },
+    {
+      "name": "negative-base",
+      "baseVertex": -3,
+      "minVertex": 4294967295,
+      "numVertices": 0,
+      "startIndex": 3,
+      "primitiveCount": 1,
+      "leftARGB": 4294901760,
+      "rightARGB": 4279242768,
+      "mode": 0
+    },
+    {
+      "name": "negative-base-offset-index",
+      "baseVertex": -1,
+      "minVertex": 0,
+      "numVertices": 0,
+      "startIndex": 1,
+      "primitiveCount": 1,
+      "leftARGB": 4294901760,
+      "rightARGB": 4279242768,
+      "mode": 0
+    },
+    {
+      "name": "zero-primitives",
+      "baseVertex": -2147483648,
+      "minVertex": 4294967295,
+      "numVertices": 0,
+      "startIndex": 4294967295,
+      "primitiveCount": 0,
+      "leftARGB": 4279242768,
+      "rightARGB": 4279242768,
+      "mode": 1
+    },
+    {
+      "name": "nonindexed-start",
+      "baseVertex": 0,
+      "minVertex": 0,
+      "numVertices": 0,
+      "startIndex": 3,
+      "primitiveCount": 1,
+      "leftARGB": 4279242768,
+      "rightARGB": 4278255360,
+      "mode": 2
+    }
+  ]
+}
