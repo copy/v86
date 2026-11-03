@@ -1,0 +1,82 @@
+<!doctype html>
+<title>Test that SB16 DMA does not replay audio after the main thread stalls</title>
+
+<!--
+Build the guest first: nasm -f bin -o build/sb16-ring.bin tests/manual/sb16-ring.asm
+
+The guest plays an auto-init DMA ring whose halves hold increasing sequence
+numbers. After two seconds this page blocks the main thread for 300 ms, then
+checks that the buffers sent to the speaker carried each half exactly once.
+-->
+
+<script src="../../build/libv86.js"></script>
+<script>
+"use strict";
+
+const STALL_MS = 300;
+
+// Record every buffer the speaker sends to the DAC worklet.
+const halves = [];
+const post_message = MessagePort.prototype.postMessage;
+MessagePort.prototype.postMessage = function(message, transfer)
+{
+    if(message && message.type === "queue")
+    {
+        const samples = message.value[0];
+        for(let i = 0; i < samples.length; i++)
+        {
+            const value = Math.round((samples[i] + 1) * 127.5);
+            if(halves[halves.length - 1] !== value) halves.push(value);
+        }
+    }
+    return post_message.call(this, message, transfer);
+};
+
+function report(text)
+{
+    console.log(text);
+    document.getElementById("result").textContent = text;
+}
+
+window.onload = async function()
+{
+    const sector = await (await fetch("../../build/sb16-ring.bin")).arrayBuffer();
+    const fda = new Uint8Array(1474560);
+    fda.set(new Uint8Array(sector));
+
+    const emulator = new V86({
+        wasm_path: "../../build/v86.wasm",
+        memory_size: 32 * 1024 * 1024,
+        screen_container: document.getElementById("screen_container"),
+        bios: { url: "../../bios/seabios.bin" },
+        vga_bios: { url: "../../bios/vgabios.bin" },
+        fda: { buffer: fda.buffer },
+        autostart: true,
+    });
+
+    setTimeout(() => {
+        const start = performance.now();
+        while(performance.now() - start < STALL_MS);
+
+        setTimeout(() => {
+            emulator.destroy();
+            const replayed = [];
+            for(let i = 1; i < halves.length; i++)
+            {
+                if((halves[i] - halves[i - 1] & 0xFF) !== 1) replayed.push(halves[i - 1] + " -> " + halves[i]);
+            }
+            if(halves.length < 20) report("FAIL: only " + halves.length + " halves played (is audio allowed to start?)");
+            else if(replayed.length) report("FAIL: halves out of order: " + replayed.join(", "));
+            else report("PASS: " + halves.length + " halves played once each");
+        }, 1500);
+    }, 2000);
+};
+</script>
+
+<p id="result">Running ...</p>
+
+<!-- A minimal structure for the ScreenAdapter defined in browser/screen.js -->
+<div id="screen_container">
+    <div style="white-space: pre; font: 14px monospace; line-height: 14px"></div>
+    <canvas style="display: none"></canvas>
+</div>
