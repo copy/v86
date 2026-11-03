@@ -1,0 +1,528 @@
+{
+  "stage": "4H6f4d Reset cancellation of active recording and resource lifetime (S1-9 / S2-39 related)",
+  "date": "2026-11-03",
+  "bundle": "a532e70eacef8cba3d10",
+  "coreTargetedSuites": 7,
+  "guestTargetedSuites": 26,
+  "fullSuiteBaseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f4c-validation.json",
+    "sha256": "f2f46a5f8b72ad1918cef1d76679288935e61143da58b3bb7aa1b557082a54ee",
+    "coreSuites": 206,
+    "guestSuites": 207,
+    "reason": "Guest-only Reset recording/resource ownership change; rerun Reset, recording, private-data, implicit identity, parameter entry/mutations and window guard suites plus seven frozen core traces."
+  },
+  "webgpuRuns": 0,
+  "gpuBaselines": [
+    {
+      "file": "docs/fixtures/d3d-review/stage4h6f4c-validation.json",
+      "sha256": "f2f46a5f8b72ad1918cef1d76679288935e61143da58b3bb7aa1b557082a54ee",
+      "webgpuRuns": 2,
+      "reason": "No host/protocol/shader changes or new pixel claim."
+    },
+    {
+      "file": "docs/fixtures/d3d-review/stage4h6c-validation.json",
+      "sha256": "4d7a00aa1081a2840b17c3bcffb5987d2fed26531bd53e419ed07f24f48ef0a0",
+      "webgpuRuns": 58,
+      "reason": "No host/protocol/shader changes or new pixel claim."
+    }
+  ],
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "798646da2924eb3aff80f5e2c7a6dd9a20c0b36216eabd5dc9e87da7ed4212a9"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "eb7ebf5254d5cad2e5ce4092c3142f4fd14a347a6c91ab000952e26c4e39fd7a"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "7a4ec50b4e3adc74b51eca74d2b8a94965df97b8ea784afbd807fb8c076e7e17"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "96150c246bc33c6e8907b454151c675f04eeec88dd345e1f02e4bf726405d502"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "53f2e48045d43f6fe323c7360e240360e60a11f4f4cffd181af0ff1c3a81349e"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "195997795a31419b26a1b1182fac9f0402c87c089bd58b7313b5f87bc3e3a577"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "c8626a7a327a903c34a52558aaf94c60e541528c8b82bb63d2b0c02b8fb9f331"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "3ee202ebc8396097597de99dbde12b4155a85132bab28557ac8c25214fd4fd0d"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "22d14aee027ff432bd8440c8ff6941320dfb9136ef07249c01629f6f390a1352"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "4710bda903f0a6506eb75981d9f9b6a02b313dad9ad8ca8b786e6d71f21af831"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "9dc3cb23a508e80dcdb3c2ec1dcd9a2fef1d54aa0d21890ea698cb47ea6a9f38"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "13f0a1e505abaaf4b1267e7c17f8147406015a522e959f03b1dad465e0267ab6"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "d299159273fc2d4fdea78b7fae06f2d1ff3ee382497c9201d75a9186e0b8e8ca"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "e60c1c8156f0d68399aaf0314ae69a4268a8294cd4b545f4e8c2392d08377e4b"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "5dd75c4062f0d3253e6a7415153100e603fbfe1abdc3e7eb3cdfdc1b0ba213d6"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "be9d5b5a86cdff8bfedc6d3d2aa982ee0fa98643399110d1fd2fb756648736e3"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "7efe3d88788a7f8924bdd68c306d69b37d433b86299efdd3c4f4d90e1d8810ae"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "472c303ca316e9dab06d2ce7491ff3c09c7cef3ed50b86ef9726b4444ecc05fc"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP Reset recording probe DLL",
+      "shippedDllSha256": "5de1f1a47c03f78547071f8048e9113db78ce02fece39349e6aeb4e64ef32283",
+      "diagnosticSha256": "81660b882433b779f8f2d575bd2aa8047fc282ece008916a39d14c76732e5ec0"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "004cf6fd0a0d37212aaf9ea4cfad04b9cd0a14d3b007b8ec3fe89981449608d0"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "c7d69d88a04df3b32f8f7067746864dfce3abb5a435022bf2517529c533e78bc"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "02b37f98d2cc2df77cbdcbe715326f37c4a00cd12c6f7954142795f4af38d9c5"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "0aec3e134125b523b78a973952ade6ce6b2406078ac09485eb4a06e2b8fc313d"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "83d20b716700197ac84885a8a30189cfefa7b6e864c23d054d407d471e7b0de5"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "30e5f023d86cff09b3d91ac68e2f5e5b8638dba6f88b2b46b7421ce1b55e1ea5"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "c49180d26d0383a07686a82518bd617446e101fa0988b69a4f945fc8af40832a"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "8ee442ce166a6e3ff24c7e255ab3985a570723198ea042d350e278fbc30141a1"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "6a9bdef16f97196e09f3c581046f8db1baf95a8105bf5fa93051c09dea76fddb"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "0ea03a5cec6e9619262a67b09bf81dc64ea2b7717c9e961fecd4a629f8d8c157"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "20c582c826dae2c26a69d949ec424c7d4636bcd665a949098c2da457447e8ac4"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "35010cfa69b1be82d9dd260db2a341aafaf8e564a2e5f60694c38aa5a1bf87a8"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "a47e536c9e9bee098d0bf0d5f3a80c2ca4bb3a94b2c1f84bac661eff49184633"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "06b88019a1f9cec86c3d6b82a851341b3e0b3483f191e32418a391271c1d0268"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP Reset recording probe DLL",
+      "shippedDllSha256": "d61f6712c1403a56af4eacc8244bd7a8313148c07f3b66500e0517cb249d903f",
+      "diagnosticSha256": "b47974c2368a50f6b7e37b6b900ce01d66c3d4117f2d48ca07727a481f9d10c5"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "c7c1a7b8290d92deb48cd4d27d7312e93c549cb5e9962ab301f0aa42782c2d89"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "eaf849783f5893ec6b5a5ac8bcd003bd85b7428435fea81c4ca7931d650c8c5e"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "152523b7f3909c152d00fadf47d5e3a5ef4f71c33b6d6b8a5aa7d7403a4ab6a9"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "50b8d2932a93430f5b7f5d1a54310d2d42a90c6cd2cd351119e1d0d30b1b3e0d"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualResetChecksPerAPI": 511,
+    "newRecordingChecksPerAPI": 42,
+    "newRecordingGroupsPerAPI": 6,
+    "statusMutations": 31,
+    "resourceMutations": 37,
+    "previousResetRuntimeNegativeControls": 2,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "fixtureCorruptions": 11,
+    "validationRepair": "Presentation-prefix harness no longer calls resource preflight; removed unused mock after strict compiler failure, then reran final targeted guest set. Rejected log retained separately."
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_reset_recording_reference.json",
+    "sha256": "b39291d8b39f4811b6b865ebb793fe93662348b3c3feee63691ff4574f0efe3b",
+    "schema": 1,
+    "scope": "Active state-block recording cancellation only. Align both proxy implementations with pinned Wine non-Ex Reset: validate presentation input, detach recording, release recorded references, then check resource blockers. Invalid input preserves recording; resource, allocation, transport, replay and mode failures after cancellation do not restore it. Completed blocks, implicit-surface private stores, full Reset normalization, physical loss, native Microsoft HAL and game/FPS remain outside this step. No new GPU pixel run; inherit accepted 4H6f4c and full 4H6c GPU evidence.",
+    "sources": [
+      {
+        "file": "d3d8-reset-device.c",
+        "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+        "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/device.c",
+        "evidence": "Wine implementation (W); not a new original Microsoft Windows HAL observation"
+      },
+      {
+        "file": "d3d9-reset-device.c",
+        "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+        "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+        "evidence": "Wine implementation (W); not a new original Microsoft Windows HAL observation"
+      }
+    ],
+    "facts": {
+      "acceptedResetsPerAPI": 13,
+      "refusedResetsPerAPI": 7,
+      "recordedFamilies": 5,
+      "heldResourcesPerAPI": 5,
+      "soleRecordingResourcesPerAPI": 5,
+      "invalidInputPreservedPerAPI": 2,
+      "privateIUnknownFinalizationsPerAPI": 12,
+      "recordingsPerAPI": 26,
+      "invalidEndsAfterRecoveryPerAPI": 13,
+      "detachedBeforeCallbacks": true
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 121,
+    "batches": 18,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS Reset recording probes \r\n",
+    "logs": {
+      "REC8.TXT": "RECORDING CASE api=8 family=0 held=0 finalized=1\r\nRECORDING CASE api=8 family=0 held=1 finalized=1\r\nRECORDING CASE api=8 family=1 held=0 finalized=1\r\nRECORDING CASE api=8 family=1 held=1 finalized=1\r\nRECORDING CASE api=8 family=2 held=0 finalized=1\r\nRECORDING CASE api=8 family=2 held=1 finalized=1\r\nRECORDING CASE api=8 family=3 held=0 finalized=1\r\nRECORDING CASE api=8 family=3 held=1 finalized=1\r\nRECORDING CASE api=8 family=4 held=0 finalized=1\r\nRECORDING CASE api=8 family=4 held=1 finalized=1\r\nRECORDING INPUT api=8 invalid=0 preserved=1 finalized=1\r\nRECORDING INPUT api=8 invalid=1 preserved=1 finalized=1\r\nRESET RECORDING api=8 accepted=13 refused=7 finalized=12 recordings=26 endInvalid=13 families=5 held=5 sole=5 invalidPreserved=2\r\nPASS reset recording API=8\r\n",
+      "REC9.TXT": "RECORDING CASE api=9 family=0 held=0 finalized=1\r\nRECORDING CASE api=9 family=0 held=1 finalized=1\r\nRECORDING CASE api=9 family=1 held=0 finalized=1\r\nRECORDING CASE api=9 family=1 held=1 finalized=1\r\nRECORDING CASE api=9 family=2 held=0 finalized=1\r\nRECORDING CASE api=9 family=2 held=1 finalized=1\r\nRECORDING CASE api=9 family=3 held=0 finalized=1\r\nRECORDING CASE api=9 family=3 held=1 finalized=1\r\nRECORDING CASE api=9 family=4 held=0 finalized=1\r\nRECORDING CASE api=9 family=4 held=1 finalized=1\r\nRECORDING INPUT api=9 invalid=0 preserved=1 finalized=1\r\nRECORDING INPUT api=9 invalid=1 preserved=1 finalized=1\r\nRESET RECORDING api=9 accepted=13 refused=7 finalized=12 recordings=26 endInvalid=13 families=5 held=5 sole=5 invalidPreserved=2\r\nPASS reset recording API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; Reset recording cancellation, five DEFAULT resource families, private-IUnknown lifetime, failed-resource Reset and invalid-input preservation",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 141424,
+        "crc32": "21b37722"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "device": 0,
+        "handles": [
+          1048577,
+          1048578,
+          1048580,
+          1048583,
+          1048585,
+          1048588,
+          1048590,
+          1048593,
+          1048595,
+          1048598,
+          1048600,
+          1048603,
+          1048605,
+          1048608
+        ],
+        "resources": [
+          {
+            "handle": 1048579,
+            "kind": 1,
+            "born": 1,
+            "retired": 1
+          },
+          {
+            "handle": 1048581,
+            "kind": 1,
+            "born": 2,
+            "retired": 2
+          },
+          {
+            "handle": 1048584,
+            "kind": 2,
+            "born": 3,
+            "retired": 3
+          },
+          {
+            "handle": 1048586,
+            "kind": 2,
+            "born": 4,
+            "retired": 4
+          },
+          {
+            "handle": 1048589,
+            "kind": 3,
+            "born": 5,
+            "retired": 5
+          },
+          {
+            "handle": 1048591,
+            "kind": 3,
+            "born": 6,
+            "retired": 6
+          },
+          {
+            "handle": 1048594,
+            "kind": 4,
+            "born": 7,
+            "retired": 7
+          },
+          {
+            "handle": 1048596,
+            "kind": 4,
+            "born": 8,
+            "retired": 8
+          },
+          {
+            "handle": 1048599,
+            "kind": 5,
+            "born": 9,
+            "retired": 9
+          },
+          {
+            "handle": 1048601,
+            "kind": 5,
+            "born": 10,
+            "retired": 10
+          },
+          {
+            "handle": 1048604,
+            "kind": 3,
+            "born": 11,
+            "retired": 11
+          },
+          {
+            "handle": 1048606,
+            "kind": 3,
+            "born": 12,
+            "retired": 12
+          }
+        ],
+        "resets": 13,
+        "created": 1,
+        "destroyed": 1,
+        "hello": 1,
+        "ended": 1
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "device": 0,
+        "handles": [
+          1048577,
+          1048578,
+          1048580,
+          1048583,
+          1048585,
+          1048588,
+          1048590,
+          1048593,
+          1048595,
+          1048598,
+          1048600,
+          1048603,
+          1048605,
+          1048608
+        ],
+        "resources": [
+          {
+            "handle": 1048579,
+            "kind": 1,
+            "born": 1,
+            "retired": 1
+          },
+          {
+            "handle": 1048581,
+            "kind": 1,
+            "born": 2,
+            "retired": 2
+          },
+          {
+            "handle": 1048584,
+            "kind": 2,
+            "born": 3,
+            "retired": 3
+          },
+          {
+            "handle": 1048586,
+            "kind": 2,
+            "born": 4,
+            "retired": 4
+          },
+          {
+            "handle": 1048589,
+            "kind": 3,
+            "born": 5,
+            "retired": 5
+          },
+          {
+            "handle": 1048591,
+            "kind": 3,
+            "born": 6,
+            "retired": 6
+          },
+          {
+            "handle": 1048594,
+            "kind": 4,
+            "born": 7,
+            "retired": 7
+          },
+          {
+            "handle": 1048596,
+            "kind": 4,
+            "born": 8,
+            "retired": 8
+          },
+          {
+            "handle": 1048599,
+            "kind": 5,
+            "born": 9,
+            "retired": 9
+          },
+          {
+            "handle": 1048601,
+            "kind": 5,
+            "born": 10,
+            "retired": 10
+          },
+          {
+            "handle": 1048604,
+            "kind": 3,
+            "born": 11,
+            "retired": 11
+          },
+          {
+            "handle": 1048606,
+            "kind": 3,
+            "born": 12,
+            "retired": 12
+          }
+        ],
+        "resets": 13,
+        "created": 1,
+        "destroyed": 1,
+        "hello": 1,
+        "ended": 1
+      }
+    ],
+    "graphicsSha256": "63be7c4b1ee4f63982938858e0bd50cc707305af33f8006f176a1f3afa0692c4"
+  },
+  "fixture": {
+    "metadataSha256": "a882ab5f529f5a140b048fc5472e207abc7accaa30e7dd0d5929f2345be70ded",
+    "compressedTraceSha256": "73ca9164137835ab005ed5508b29d871a0774217a229c9ec6c7c6e5b348e11f4",
+    "captureBuild": {
+      "dllSha256": {
+        "8": "5de1f1a47c03f78547071f8048e9113db78ce02fece39349e6aeb4e64ef32283",
+        "9": "d61f6712c1403a56af4eacc8244bd7a8313148c07f3b66500e0517cb249d903f"
+      },
+      "exeSha256": {
+        "8": "aad7d9e83792cdaa0e442793de439333dd3315ed13a04b6503b630da912b012f",
+        "9": "d8fa7ab72cde3252fe06d3306c990558588899718e832c78da72a3cd3786a915"
+      }
+    }
+  },
+  "scope": "Active state-block recording cancellation only. Align both proxy implementations with pinned Wine non-Ex Reset: validate presentation input, detach recording, release recorded references, then check resource blockers. Invalid input preserves recording; resource, allocation, transport, replay and mode failures after cancellation do not restore it. Completed blocks, implicit-surface private stores, full Reset normalization, physical loss, native Microsoft HAL and game/FPS remain outside this step. No new GPU pixel run; inherit accepted 4H6f4c and full 4H6c GPU evidence. Stages 4/5/6 remain incomplete.",
+  "coreSha256": {
+    "tests/glbridge/d3d_reset_recording_fixture_test.js": "faf1a3a658fbd52c0034f547e03f5f8022b5a5f60af289d536d05bcb93dfd17d",
+    "tests/glbridge/d3d_reset_recording_xp.mjs": "29c7b680fd04a07bb963520963499132d094315e73995cb5a2cd17f3ef7af8d3",
+    "tests/glbridge/fixtures/d3d_reset_recording_reference.json": "b39291d8b39f4811b6b865ebb793fe93662348b3c3feee63691ff4574f0efe3b",
+    "tests/glbridge/fixtures/d3d_reset_recording_xp.bin.gz": "73ca9164137835ab005ed5508b29d871a0774217a229c9ec6c7c6e5b348e11f4",
+    "tests/glbridge/fixtures/d3d_reset_recording_xp.json": "a882ab5f529f5a140b048fc5472e207abc7accaa30e7dd0d5929f2345be70ded",
+    "tests/lib/d3d_reset_recording_wire.mjs": "8204ae5329781a59fad84cf842f63db9903a85202fbfd9f1aa31bdc741b3b41b",
+    "docs/d3d-webgpu-review.md": "5024b6b0130d1ab8f538e09aaef9fd0cc81bb5268adb6500b69ee23eb7ab8f8d"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d_reset_recording_test.c": "aa23485165ca8e3fa5bb189b6e7369751c00cbf76b213a553ffa3a751ccfeab7",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "81660b882433b779f8f2d575bd2aa8047fc282ece008916a39d14c76732e5ec0",
+    "glbridge/d3d8proxy/d3d8.dll": "5de1f1a47c03f78547071f8048e9113db78ce02fece39349e6aeb4e64ef32283",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "a4301c96a81779788ba8e4ba13a81801d07000e6f3dab39cada7db164c602953",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "b47974c2368a50f6b7e37b6b900ce01d66c3d4117f2d48ca07727a481f9d10c5",
+    "glbridge/d3d9proxy/d3d9.dll": "d61f6712c1403a56af4eacc8244bd7a8313148c07f3b66500e0517cb249d903f",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "18b615780c563fe719d52e12ff02f06a239ff4cff1e8579808787bbba05aca08",
+    "glbridge/tests/d9wg_present_parameters_entry_test.js": "ebd07b7bcaf455b8e2eaef739214129124493e946a8364f08cac312f74c66a09",
+    "glbridge/tests/d9wg_reset_resources_mutation_test.js": "ca683f6434a034160755df48c9751f2a7ff6feb456e1f50cfd2f1f4c41069117",
+    "glbridge/tests/d9wg_reset_resources_test.js": "7dc6314361cf29c59055b1ebf87b00fe000fc1f331f2fe46ce6c7acdeb44be1a",
+    "glbridge/tests/d9wg_reset_status_mutation_test.js": "63bcd9d4c4acedc8ea995c809c336ad273b1bd53455898ddb3bda847863702df",
+    "glbridge/tests/d9wg_reset_status_test.js": "330566aedd5748ab4938fac9b05ffb4433114b7c7de8a0fe73003f1a8be0e9ad"
+  },
+  "logSha256": {
+    "core": "546056700c6b6b70e0a07267ca5cea0029011d1c1dca115662381bb68b16aee4",
+    "guest": "ac6e66227065c4e13225c51b9691aa7d5ad95271e44fed08c0fe536b8257545b",
+    "xp": "a6fdf37a1647c2c8eae34e373e1c9c2c8dffe71b46e229e2dd21a3b9f29bc05a",
+    "before": "7e6b32d10ad05c2fd796981d2c0d193a97c49b7cfee06c65e05ca1959535b5f4",
+    "mutations": "76ea07d9c3c029558785e27127a28019342a2ac4e8b9a846101819fd33d99840",
+    "sanitize": "51ac669ce1d60b4a3c86da65ae8f4cdab4350c30fe83538059f9b1ce8841f918",
+    "builds": "7dccd38170c9bcfe3c3f20522cb108ac82b42854937267958e3314cbe61b67ad",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "9789e0fd2ec95a559ea68763f1e8cc19fa6262012e8bc74c35a56e43e801d3b1",
+    "integration": "c30d8ef5cb4ceb7b0102bce301809efab5c449bff30b81fd18919e87ca9c5a82",
+    "guest-prefix-stub-failure": "f2bd4977c7e61f40d8db36dbbeb57ac55f3f9395d0edc71e8b6e5d21d842e98f"
+  }
+}

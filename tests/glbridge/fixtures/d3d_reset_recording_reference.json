@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "scope": "Active state-block recording cancellation only. Align both proxy implementations with pinned Wine non-Ex Reset: validate presentation input, detach recording, release recorded references, then check resource blockers. Invalid input preserves recording; resource, allocation, transport, replay and mode failures after cancellation do not restore it. Completed blocks, implicit-surface private stores, full Reset normalization, physical loss, native Microsoft HAL and game/FPS remain outside this step. No new GPU pixel run; inherit accepted 4H6f4c and full 4H6c GPU evidence.",
+  "sources": [
+    {
+      "file": "d3d8-reset-device.c",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/device.c",
+      "evidence": "Wine implementation (W); not a new original Microsoft Windows HAL observation"
+    },
+    {
+      "file": "d3d9-reset-device.c",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "Wine implementation (W); not a new original Microsoft Windows HAL observation"
+    }
+  ],
+  "facts": {
+    "acceptedResetsPerAPI": 13,
+    "refusedResetsPerAPI": 7,
+    "recordedFamilies": 5,
+    "heldResourcesPerAPI": 5,
+    "soleRecordingResourcesPerAPI": 5,
+    "invalidInputPreservedPerAPI": 2,
+    "privateIUnknownFinalizationsPerAPI": 12,
+    "recordingsPerAPI": 26,
+    "invalidEndsAfterRecoveryPerAPI": 13,
+    "detachedBeforeCallbacks": true
+  }
+}

@@ -1,0 +1,231 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048578,
+        1048580,
+        1048583,
+        1048585,
+        1048588,
+        1048590,
+        1048593,
+        1048595,
+        1048598,
+        1048600,
+        1048603,
+        1048605,
+        1048608
+      ],
+      "resources": [
+        {
+          "handle": 1048579,
+          "kind": 1,
+          "born": 1,
+          "retired": 1
+        },
+        {
+          "handle": 1048581,
+          "kind": 1,
+          "born": 2,
+          "retired": 2
+        },
+        {
+          "handle": 1048584,
+          "kind": 2,
+          "born": 3,
+          "retired": 3
+        },
+        {
+          "handle": 1048586,
+          "kind": 2,
+          "born": 4,
+          "retired": 4
+        },
+        {
+          "handle": 1048589,
+          "kind": 3,
+          "born": 5,
+          "retired": 5
+        },
+        {
+          "handle": 1048591,
+          "kind": 3,
+          "born": 6,
+          "retired": 6
+        },
+        {
+          "handle": 1048594,
+          "kind": 4,
+          "born": 7,
+          "retired": 7
+        },
+        {
+          "handle": 1048596,
+          "kind": 4,
+          "born": 8,
+          "retired": 8
+        },
+        {
+          "handle": 1048599,
+          "kind": 5,
+          "born": 9,
+          "retired": 9
+        },
+        {
+          "handle": 1048601,
+          "kind": 5,
+          "born": 10,
+          "retired": 10
+        },
+        {
+          "handle": 1048604,
+          "kind": 3,
+          "born": 11,
+          "retired": 11
+        },
+        {
+          "handle": 1048606,
+          "kind": 3,
+          "born": 12,
+          "retired": 12
+        }
+      ],
+      "resets": 13,
+      "created": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048578,
+        1048580,
+        1048583,
+        1048585,
+        1048588,
+        1048590,
+        1048593,
+        1048595,
+        1048598,
+        1048600,
+        1048603,
+        1048605,
+        1048608
+      ],
+      "resources": [
+        {
+          "handle": 1048579,
+          "kind": 1,
+          "born": 1,
+          "retired": 1
+        },
+        {
+          "handle": 1048581,
+          "kind": 1,
+          "born": 2,
+          "retired": 2
+        },
+        {
+          "handle": 1048584,
+          "kind": 2,
+          "born": 3,
+          "retired": 3
+        },
+        {
+          "handle": 1048586,
+          "kind": 2,
+          "born": 4,
+          "retired": 4
+        },
+        {
+          "handle": 1048589,
+          "kind": 3,
+          "born": 5,
+          "retired": 5
+        },
+        {
+          "handle": 1048591,
+          "kind": 3,
+          "born": 6,
+          "retired": 6
+        },
+        {
+          "handle": 1048594,
+          "kind": 4,
+          "born": 7,
+          "retired": 7
+        },
+        {
+          "handle": 1048596,
+          "kind": 4,
+          "born": 8,
+          "retired": 8
+        },
+        {
+          "handle": 1048599,
+          "kind": 5,
+          "born": 9,
+          "retired": 9
+        },
+        {
+          "handle": 1048601,
+          "kind": 5,
+          "born": 10,
+          "retired": 10
+        },
+        {
+          "handle": 1048604,
+          "kind": 3,
+          "born": 11,
+          "retired": 11
+        },
+        {
+          "handle": 1048606,
+          "kind": 3,
+          "born": 12,
+          "retired": 12
+        }
+      ],
+      "resets": 13,
+      "created": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1
+    }
+  ],
+  "resources": 24,
+  "resets": 26,
+  "renderingCommands": 0,
+  "traceSha256": "63be7c4b1ee4f63982938858e0bd50cc707305af33f8006f176a1f3afa0692c4",
+  "referenceSha256": "b39291d8b39f4811b6b865ebb793fe93662348b3c3feee63691ff4574f0efe3b",
+  "sdkLogs": {
+    "REC8.TXT": "RECORDING CASE api=8 family=0 held=0 finalized=1\r\nRECORDING CASE api=8 family=0 held=1 finalized=1\r\nRECORDING CASE api=8 family=1 held=0 finalized=1\r\nRECORDING CASE api=8 family=1 held=1 finalized=1\r\nRECORDING CASE api=8 family=2 held=0 finalized=1\r\nRECORDING CASE api=8 family=2 held=1 finalized=1\r\nRECORDING CASE api=8 family=3 held=0 finalized=1\r\nRECORDING CASE api=8 family=3 held=1 finalized=1\r\nRECORDING CASE api=8 family=4 held=0 finalized=1\r\nRECORDING CASE api=8 family=4 held=1 finalized=1\r\nRECORDING INPUT api=8 invalid=0 preserved=1 finalized=1\r\nRECORDING INPUT api=8 invalid=1 preserved=1 finalized=1\r\nRESET RECORDING api=8 accepted=13 refused=7 finalized=12 recordings=26 endInvalid=13 families=5 held=5 sole=5 invalidPreserved=2\r\nPASS reset recording API=8\r\n",
+    "REC9.TXT": "RECORDING CASE api=9 family=0 held=0 finalized=1\r\nRECORDING CASE api=9 family=0 held=1 finalized=1\r\nRECORDING CASE api=9 family=1 held=0 finalized=1\r\nRECORDING CASE api=9 family=1 held=1 finalized=1\r\nRECORDING CASE api=9 family=2 held=0 finalized=1\r\nRECORDING CASE api=9 family=2 held=1 finalized=1\r\nRECORDING CASE api=9 family=3 held=0 finalized=1\r\nRECORDING CASE api=9 family=3 held=1 finalized=1\r\nRECORDING CASE api=9 family=4 held=0 finalized=1\r\nRECORDING CASE api=9 family=4 held=1 finalized=1\r\nRECORDING INPUT api=9 invalid=0 preserved=1 finalized=1\r\nRECORDING INPUT api=9 invalid=1 preserved=1 finalized=1\r\nRESET RECORDING api=9 accepted=13 refused=7 finalized=12 recordings=26 endInvalid=13 families=5 held=5 sole=5 invalidPreserved=2\r\nPASS reset recording API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_reset.h": "75178abd77352369f3448eeb773a85480e2a965eb47124d37fcb70ed2ca1e67b",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "a4301c96a81779788ba8e4ba13a81801d07000e6f3dab39cada7db164c602953",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "18b615780c563fe719d52e12ff02f06a239ff4cff1e8579808787bbba05aca08",
+    "glbridge/sample/d3d_reset_recording_test.c": "aa23485165ca8e3fa5bb189b6e7369751c00cbf76b213a553ffa3a751ccfeab7"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "5de1f1a47c03f78547071f8048e9113db78ce02fece39349e6aeb4e64ef32283",
+      "9": "d61f6712c1403a56af4eacc8244bd7a8313148c07f3b66500e0517cb249d903f"
+    },
+    "exeSha256": {
+      "8": "aad7d9e83792cdaa0e442793de439333dd3315ed13a04b6503b630da912b012f",
+      "9": "d8fa7ab72cde3252fe06d3306c990558588899718e832c78da72a3cd3786a915"
+    }
+  },
+  "scope": "not exercised; Reset recording cancellation, five DEFAULT resource families, private-IUnknown lifetime, failed-resource Reset and invalid-input preservation"
+}
