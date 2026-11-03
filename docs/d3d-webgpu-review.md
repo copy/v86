@@ -1659,6 +1659,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 四色/透明度参考暴露原宿主的红蓝互换：A8R8G8B8 展开保留 BGRA 字节，光标却创建为 RGBA8。改用 BGRA8 存储；旧宿主的彩色图案失败，修正后 SwiftShader/Metal 的透明、半透明、热点和裁剪均通过。宿主执行器 176 项、190 组核心、177 组客体、36 个标准 SDK EXE、六份严格 DLL、站点两项集成通过；完整 55 页 SwiftShader 与 Metal 533 项一致性复跑通过。运行包更新为 `a532e70eacef8cba3d10`，发布两 API 本次 XP 所测 DLL。见 [stage4h6c-validation.json](fixtures/d3d-review/stage4h6c-validation.json)。
 > - 本项核对 32×32 应用图片的虚拟硬件光标；物理 HCURSOR 替换、D3D8 自动 GDI 捕获、非 32 尺寸软件光标写入 render target 的原生效果及完整 Reset 仍待继续。私有数据、Present 节流、表面 COM 同一性、附加交换链、包装转换与阶段 4/5/6 未宣称完成。
 
+> **阶段 4H6d1（2026-11-03）：共用私有数据存储与 D3D8/9 顶点/索引缓冲（S2-42 部分）完成。**
+>
+> - 新增无 CRT 的共用 GUID 存储；两 API 的 VB/IB Set/Get/FreePrivateData 接入同一实现。原始字节复制、大小查询、MOREDATA/NOTFOUND、失败覆盖保留旧值，以及 IUNKNOWN 的 Set/Get/替换/销毁引用按固定 Wine Windows 测试和实现核对。已存在条目的 NULL size 安全拒绝；不复制 Windows 的访问异常。
+> - 不可变条目在 Get 期间持有内部引用；分配、释放和 COM 回调均在锁外进行。验证 AddRef 回调删除同一 GUID、旧对象释放时查询新值、Clear 回调重新插入、size/输出重叠与未对齐访问。最终缓冲释放先移出设备资源链，再清理私有接口，保留设备直到回调完成。
+> - 共用实现 14 项、每 API 实际入口/释放路径 14 项、四线程 8,000 次并发 Set/Get/Clear、19/19 语义变异以及 ASan/UBSan/TSan 通过。真实 XP 两 API 验证 VB/IB 字节、查询、引用和最终 Release，两个 owner 退出，140 秒；冻结轨迹及日志可重验，四项损坏均被发现。
+> - 191 组核心、180 组客体、36 个标准 SDK EXE、六份严格 DLL和站点两项集成通过；发布本次 XP 所测两 API 零售 DLL及严格诊断 DLL。仅改变客体 CPU 存储/引用路径，宿主与运行包 `a532e70eacef8cba3d10` 不变，沿用 4H6c GPU 基线。见 [stage4h6d1-validation.json](fixtures/d3d-review/stage4h6d1-validation.json)。
+> - 接着接入纹理、cube/volume 与逻辑子资源存储；S2-42 其余部分、完整 Reset、包装转换及阶段 4/5/6 仍待继续。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -1,0 +1,92 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "buffers": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579
+      ],
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "13": 1,
+        "256": 2,
+        "259": 3,
+        "512": 1,
+        "519": 1,
+        "541": 1
+      }
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "buffers": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579
+      ],
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "11": 1,
+        "13": 1,
+        "256": 2,
+        "259": 3,
+        "541": 1
+      }
+    }
+  ],
+  "traceSha256": "6af2af74395684980183242e4905a19bba3242c1bf6bf08c4880dd6ed3790a6a",
+  "referenceSha256": "c8850ec469dfdc6922159071e45681a1de5e6325ae682eb570ca2ae13a122cf4",
+  "sdkLogs": {
+    "PRIV8.TXT": "CHECK PRIVATE 8 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 8 1 raw=1234ABCD size=4 refs=1 released=0\r\nPASS private API=8\r\n",
+    "PRIV9.TXT": "CHECK PRIVATE 9 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 9 1 raw=1234ABCD size=4 refs=1 released=0\r\nPASS private API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_private_data.c": "51f35158629e2fbe3dc21bcef7b72ad3eca5ae51a0a3477a373357ccb215024c",
+    "glbridge/runtime/d9wg_private_data.h": "6acefe7d3f269243601d131f3e72433e5eb2af435115fb7d2f20e47f48e47720",
+    "glbridge/runtime/d9wg_private_data_bridge.h": "c0d697722a15e8e2542f472f1554ca0e2b76a98d73788b031ba9c8520cdb87c5",
+    "glbridge/runtime/build.sh": "2084ab58ac33dbfcd63ff13b8d5b8af64d0f96c06f218e69d20617d427be1322",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "64fd5e959d442ab4231f21aa03687389545d49185d55e0ab438d099af8de3564",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "3f17f7c827075078adbb97574dd4ad6bcd6fc86eaa491de6aea948d7a648cde5",
+    "glbridge/sample/d3d_private_data_test.c": "2b5a7a75ac8050f554a9596c416d7a10e88d0873a1a266c8d01ff4bc23fb4171"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "0bcfedf7f025939521a398d0b6b3b8917cb1f82cbef60676b44881a0abe6c1c7",
+      "d3d9": "fe9c7f659ba895d176bcd15d6a2867b5cfe2c15b53ad1a5b717873d12c131170"
+    }
+  },
+  "scope": "not exercised; CPU-only private data and COM lifetime"
+}

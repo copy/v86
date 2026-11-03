@@ -1,0 +1,15 @@
+import assert from "node:assert/strict";
+import {createRequire} from "node:module";
+const require=createRequire(import.meta.url),P=require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"),W=require("../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js");
+export function inspect_private_data_wire(bytes,result){
+ assert.equal(result.owners.length,2);const states=new Map(result.owners.map((owner,i)=>[owner,{owner,api:[8,9][i],device:0,created:0,destroyed:0,buffers:[],retired:[],commands:{}}]));
+ for(let at=0;at<bytes.length;){assert(at+20<=bytes.length);const owner=bytes.readUInt32LE(at),size=bytes.readUInt32LE(at+8),s=states.get(owner);assert(s&&size>=8&&at+12+size<=bytes.length);assert.equal(bytes.readUInt16LE(at+12),0xffe1);assert.equal(bytes.readUInt32LE(at+16),size-8);const packet=bytes.subarray(at+20,at+12+size),h=W.readHeader(packet);W.checkStream(h.view,h.end,h.commandCount);
+  for(let x=P.STRUCTS.BatchHeader.size;x<h.end;){const op=h.view.getUint16(x,true),length=h.view.getUint32(x+P.F.CommandHeader.size,true),decode=name=>P.decode(name,h.view,x+P.STRUCTS.CommandHeader.size,length-P.STRUCTS.CommandHeader.size);s.commands[op]=(s.commands[op]||0)+1;
+   if(op===P.OP.CREATE_DEVICE){const q=decode('CreateDevice');assert.equal(++s.created,1);assert.equal(q.width,64);assert.equal(q.height,64);s.device=q.device_handle;}
+   if(op===P.OP.CREATE_BUFFER){const q=decode('CreateBuffer'),i=s.buffers.length;assert(i<2);assert.equal(q.device_handle,s.device);assert.equal(q.resource_kind,i?P.C.D9WG_RESOURCE_BUFFER_INDEX:P.C.D9WG_RESOURCE_BUFFER_VERTEX);assert.equal(q.byte_count,i?32:64);assert.equal(q.pool,1);assert.equal(q.usage,0);s.buffers.push({handle:q.resource_handle,kind:q.resource_kind,bytes:q.byte_count});}
+   if(op===P.OP.DESTROY_RESOURCE){const q=decode('DestroyResource');if(q.resource_kind===0){assert.equal(q.resource_handle,s.device);assert.equal(s.retired.length,2);s.destroyed++;}else{const expected=s.buffers[s.retired.length];assert(expected);assert.equal(q.resource_handle,expected.handle);assert.equal(q.resource_kind,expected.kind);s.retired.push(q.resource_handle);}}
+   assert(![P.OP.PRESENT,P.OP.UPDATE_BUFFER,P.OP.READBACK_SURFACE,P.OP.DRAW_PRIMITIVE_UP].includes(op),'private data must not upload, draw, present or read GPU storage');x+=length;
+  }at+=12+size;
+ }
+ const perAPI=[...states.values()];for(const s of perAPI){assert.equal(s.created,1);assert.equal(s.destroyed,1);assert.equal(s.buffers.length,2);assert.equal(s.retired.length,2);const lines=result.logs['PRIV'+s.api+'.TXT'].trim().split(/\r?\n/);assert.deepEqual(lines,[0,1].map(kind=>`CHECK PRIVATE ${s.api} ${kind} raw=1234ABCD size=4 refs=1 released=0`).concat('PASS private API='+s.api));}return{perAPI};
+}

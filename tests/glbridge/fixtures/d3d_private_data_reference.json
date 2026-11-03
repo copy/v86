@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "scope": "D3D8/9 vertex/index buffer private data; primary Wine Windows test expectations and private-store implementation. XP runs use our replacement DLLs, without native Microsoft HAL measurement. Existing-tag NULL size is defensively INVALIDCALL instead of a Windows access violation. Concurrent calls and reentrant callbacks are memory-safe extension checks.",
+  "facts": {
+    "interfaceFlag": 1,
+    "interfaceSize": "sizeof(IUnknown*)",
+    "interfaceData": "object pointer, not pointer-to-pointer",
+    "queryWithoutOutput": "D3D_OK; reports required size without AddRef, even if supplied capacity is small",
+    "smallOutput": "D3DERR_MOREDATA; size updated, output and refs unchanged",
+    "missing": "D3DERR_NOTFOUND; outputs unchanged, NULL size allowed",
+    "failedReplacement": "previous entry preserved",
+    "successfulGet": "returns copied bytes or retained interface pointer",
+    "replacement": "retain new before releasing old",
+    "destruction": "releases stored interfaces"
+  },
+  "sources": [
+    {
+      "file": "d3d8-private-main.c",
+      "sha256": "01534e4bdf071666c81cd5289641223e835ac88dd885c4d9452113c937b07d3e",
+      "blobSha1": "12905ffbce49bfcce23791b2021881062cac49f0"
+    },
+    {
+      "file": "wined3d-private-header.h",
+      "sha256": "a429662021702e4f97745c871049c121717ae9533fd5ded746efdcd1c8f40996",
+      "blobSha1": "9320ea7c0bddf9774eb540d78d5c4dbfbf1bb7b2"
+    },
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+    }
+  ]
+}
