@@ -1,0 +1,299 @@
+{
+  "reference": "Actual XP D3D8/9 cached gamma queries, exact RGB WORD/flag commands, live recording, full/windowed Reset replay and sixteen known-color presentations. Separate GPU replay checks final scanout and raw back-buffer pixels. Virtual display LUT only; no physical OS calibration or original Microsoft HAL claim.",
+  "referenceSha256": "fdc4dd82a4c71d89fe793f71ff766e70b180747866f0d950eea3c5ece8be10b8",
+  "traceSha256": "675f87598784781d8a2da0cb83ac91da22b5d37a1d76c1bdb7836e0b066b6269",
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "4b931c16973eeb3d9ea1512f0dd8a5cd595e15987b005c5be8433c0172165e28",
+      "d3d9": "b2507aad35b5e096c9af613476436eb03c630a9c2e097248ec3797a9e7ea90ae"
+    },
+    "executableSha256": {
+      "GAMMA8.EXE": "8e9dbb84880109ea2839c229756537f9c514e2d4e6905bcdaa3ee8219f64f5ce",
+      "GAMMA9.EXE": "d5eca99a6ddecc929f05dbab5c2b1231223b6ac5b7ded67bc865dece7c2341b2"
+    }
+  },
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "created": 1,
+      "resets": 2,
+      "destroyed": 1,
+      "ramps": 7,
+      "clears": 8,
+      "presents": 8,
+      "mode": 2,
+      "windowed": 1,
+      "device": 1048579
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "created": 1,
+      "resets": 2,
+      "destroyed": 1,
+      "ramps": 7,
+      "clears": 8,
+      "presents": 8,
+      "mode": 2,
+      "windowed": 1,
+      "device": 1048579
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "scene": 0,
+      "mode": 0,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        160,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "scene": 1,
+      "mode": 1,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        64,
+        80,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "scene": 2,
+      "mode": 1,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        64,
+        80,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "scene": 3,
+      "mode": 1,
+      "windowed": 0,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        64,
+        80,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "scene": 4,
+      "mode": 0,
+      "windowed": 0,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        160,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "scene": 5,
+      "mode": 0,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        160,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "scene": 6,
+      "mode": 2,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        239,
+        48,
+        255
+      ]
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "scene": 7,
+      "mode": 2,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        239,
+        48,
+        255
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "scene": 0,
+      "mode": 0,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        160,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "scene": 1,
+      "mode": 1,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        64,
+        80,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "scene": 2,
+      "mode": 1,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        64,
+        80,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "scene": 3,
+      "mode": 1,
+      "windowed": 0,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        64,
+        80,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "scene": 4,
+      "mode": 0,
+      "windowed": 0,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        160,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "scene": 5,
+      "mode": 0,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        160,
+        192,
+        255
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "scene": 6,
+      "mode": 2,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        239,
+        48,
+        255
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "scene": 7,
+      "mode": 2,
+      "windowed": 1,
+      "rawARGB": 4286619840,
+      "displayRGBA": [
+        128,
+        239,
+        48,
+        255
+      ]
+    }
+  ],
+  "apiByOwner": {
+    "1": 8,
+    "2": 9
+  },
+  "sdkLogs": {
+    "GAMMA8.TXT": "GAMMA 8 0 0 1 FF80A0C0\r\nGAMMA 8 1 1 1 FF80A0C0\r\nGAMMA 8 2 1 1 FF80A0C0\r\nGAMMA 8 3 1 0 FF80A0C0\r\nGAMMA 8 4 0 0 FF80A0C0\r\nGAMMA 8 5 0 1 FF80A0C0\r\nGAMMA 8 6 2 1 FF80A0C0\r\nGAMMA 8 7 2 1 FF80A0C0\r\nCHECK identity, exact RGB, live recording, flags and gamma Reset replay\r\nPASS gamma API=8\r\n",
+    "GAMMA9.TXT": "GAMMA 9 0 0 1 FF80A0C0\r\nGAMMA 9 1 1 1 FF80A0C0\r\nGAMMA 9 2 1 1 FF80A0C0\r\nGAMMA 9 3 1 0 FF80A0C0\r\nGAMMA 9 4 0 0 FF80A0C0\r\nGAMMA 9 5 0 1 FF80A0C0\r\nGAMMA 9 6 2 1 FF80A0C0\r\nGAMMA 9 7 2 1 FF80A0C0\r\nCHECK identity, exact RGB, live recording, flags and gamma Reset replay\r\nPASS gamma API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_gamma_bridge.h": "4c1f2093aa73c1aaf95cc620c6e14f11636fc7956a72835838534132b41d6004",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "b106ce3c26a9f9ecfcc3dfcbc7c4158957fece0d75dee2a63746d32d2ae62732",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "8e41937b80ead42e1c5050783282918ed9482c464168a474fde3320b850fd02f",
+    "glbridge/sample/d3d_gamma_test.c": "29eca63bafc185b270012d7a025839884f823d004825b5bef77baf0a80fb3aaa"
+  }
+}

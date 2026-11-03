@@ -1641,6 +1641,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 186 组核心、173 组客体、36 个标准 SDK EXE、六份严格零售/诊断 DLL 和站点两项集成通过；完整 53 页 SwiftShader 目标与 Metal 533 项一致性通过，新/刷新两页另在 Metal 复跑。运行包更新为 `63c129acb57fb1c7d5b5`，发布两 API 本次 LOD XP 所测的零售 DLL；DDraw DLL 不变。见 [stage4h6a-validation.json](fixtures/d3d-review/stage4h6a-validation.json)。
 > - 本步不代表完整 Reset、光标、gamma、私有数据、Present 节流、表面 COM 同一性、附加交换链、D3D8 包装或阶段 4/5/6 完成。参考：[Wine 共享 LOD 实现](https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/texture.c)、[Wine Windows mip 像素期望](https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/visual.c)。
 
+> **阶段 4H6b（2026-11-03）：共用 gamma 缓存/编码与 Reset 恢复（S2-42 / S1-9d 的 gamma 部分）完成。**
+>
+> - D3D8/9 共用默认线性曲线、复制式 WORD RGB 缓存、查询、flags 保存和 SET_GAMMA_RAMP 编码。D3D8 不再丢弃设置或返回全零，并宣称已验证的虚拟全屏 gamma；D3D9 保留原来的无效交换链查询行为。NULL 调用不改状态，状态块录制期间 gamma 立即生效且不被 Apply 回滚；void 设置在提交失败后保留请求缓存，允许同值重发。
+> - 两 API 的实际 Reset 恢复函数都向新设备句柄重发已提供的曲线及其 flags；发送失败按现有 Reset 错误路径返回失败。修复 D3D9 原注释提到、实际未执行的 gamma 恢复。未设置曲线的默认设备无需多发命令。
+> - 原生编译实际设置/查询/Reset，D3D8 21 项、D3D9 22 项检查覆盖三个完整 16 位色表、输入复制、默认值、flags、NULL/无效交换链、录制边界、失败缓存和 Reset 的成功/失败路径；旧 D3D8 源码在运行时断言失败。17/17 语义变异、ASan/UBSan 与五种捕获破坏检查通过。
+> - 真实 XP 两 API 分别查询完整曲线、录制并应用空块、两次切换全屏/窗口参数后 Reset，合计 16 次 Clear/Present、14 次完整色表更新和四次恢复；两个 owner 正常释放。探针使用精确 64×64 客户区。SwiftShader/Metal 在每个完整 Present 批次结束后读取实际 scanout 和原始 back buffer，各核对 65,536 个显示像素及 65,536 个原始像素；显示采用预期曲线，原始图像保持绘制颜色，恢复线性曲线后也一致。
+> - 188 组核心、175 组客体、36 个标准 SDK EXE、六份严格零售/诊断 DLL 和站点两项集成通过；发布本次 XP 所测两 API 零售 DLL。宿主与 `63c129acb57fb1c7d5b5` 运行包未变，沿用 4H6a 的完整 GPU 基线并新增两后端 gamma 用例（完整目标现为 55 次）。见 [stage4h6b-validation.json](fixtures/d3d-review/stage4h6b-validation.json)。
+> - 本项测量虚拟显示 LUT；物理显示器校准及 calibration flags 的硬件效果不模拟。OS 全屏样式、显示模式/前台恢复与完整 Reset 仍待继续；光标、私有数据、Present 节流、表面 COM 同一性、附加交换链、D3D8 包装及阶段 4/5/6 未宣称完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

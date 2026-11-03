@@ -1,0 +1,53 @@
+<!doctype html><meta charset="utf-8"><title>D3D8/9 XP gamma presentation replay</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+ "use strict";
+ const P=D9WGProtocol,C=P.C,gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false}),comparisons=[];
+ try{
+  const prefix=new URLSearchParams(location.search).get("prefix")||"fixtures/d3d_gamma_xp",metadata=await(await fetch(prefix+".json")).json(),r=await fetch(prefix+".bin.gz");if(!r.ok)throw Error("Missing gamma capture");
+  const bytes=new Uint8Array(await new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()),view=new DataView(bytes.buffer),hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),v=>v.toString(16).padStart(2,"0")).join("");if(hash!==metadata.traceSha256)throw Error("Gamma trace hash mismatch");
+  await gpu.initialize();
+  const display=gpu.device.createTexture({size:[64,64],format:gpu.format,usage:0x1|0x2|0x4|0x10});
+  const context=gpu.context;gpu.context={configure:options=>context.configure(options),unconfigure:()=>context.unconfigure(),getCurrentTexture:()=>display};async function observe(handle,currentOwner){
+    const e=metadata.frames[comparisons.length];if(!e||e.owner!==currentOwner||e.device!==handle)throw Error("Wrong gamma frame identity");
+    const payload=P.encode("ReadbackSurface",{device_handle:handle,texture_handle:0,format:21,width:64,height:64,row_count:64,destination_pitch:256,destination_bytes:16384,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:comparisons.length+1});let raw;
+    await gpu.onReadbackSurface(payload,new DataView(payload.buffer),0,payload.length,{writeGuestMemory(at,data){raw=data.slice();}});
+    if(!raw||raw.length!==16400||new DataView(raw.buffer).getUint32(P.F.ReadbackResponse.status,true)!==C.D9WG_RESPONSE_OK)throw Error("Gamma raw readback failed");
+    const expectedRaw=[e.rawARGB&255,(e.rawARGB>>>8)&255,(e.rawARGB>>>16)&255,255];let rawError=0;for(let b=16;b<raw.length;b++)rawError=Math.max(rawError,Math.abs(raw[b]-expectedRaw[(b-16)%4]));
+    const buffer=gpu.device.createBuffer({size:16384,usage:0x8|0x1}),encoder=gpu.device.createCommandEncoder();encoder.copyTextureToBuffer({texture:display},{buffer,bytesPerRow:256,rowsPerImage:64},[64,64]);gpu.device.queue.submit([encoder.finish()]);await buffer.mapAsync(1);
+    const data=new Uint8Array(buffer.getMappedRange()),expected=gpu.format.startsWith("bgra")?[e.displayRGBA[2],e.displayRGBA[1],e.displayRGBA[0],255]:e.displayRGBA;let displayError=0;for(let b=0;b<data.length;b++)displayError=Math.max(displayError,Math.abs(data[b]-expected[b%4]));buffer.unmap();buffer.destroy();
+    comparisons.push({owner:currentOwner,api:e.api,scene:e.scene,mode:e.mode,windowed:e.windowed,expectedRGBA:e.displayRGBA,pixels:4096,rawMaximumByteError:rawError,displayMaximumByteError:displayError});
+  }
+  let at=0,batches=0;while(at<bytes.length){
+   const ownerToken=view.getUint32(at,true),flags=view.getUint32(at+4,true),size=view.getUint32(at+8,true);at+=12;if(size<8||size>bytes.length-at||view.getUint16(at,true)!==0xffe1||view.getUint32(at+4,true)!==size-8)throw Error("Invalid gamma carrier");
+   const packet=bytes.subarray(at+8,at+size),pv=new DataView(packet.buffer,packet.byteOffset,packet.byteLength),presents=[];
+   for(let x=P.STRUCTS.BatchHeader.size;x<packet.length;){const op=pv.getUint16(x,true),length=pv.getUint32(x+P.F.CommandHeader.size,true);if(op===P.OP.PRESENT)presents.push(P.decode("Present",pv,x+P.STRUCTS.CommandHeader.size,length-P.STRUCTS.CommandHeader.size));x+=length;}
+   // The PRESENT batch flag commits scanout only after all commands dispatch.
+   // Observe after submit resolves, rather than inside the Present dispatcher.
+   await gpu.submit(packet,{ownerToken,flags,writeGuestMemory(){}});
+   if(presents.length){if(presents.length!==1)throw Error("Expected one Present per XP batch");await observe(presents[0].device_handle,ownerToken);}at+=size;batches++;
+  }
+  await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));
+  if(comparisons.length!==16)throw Error("Expected sixteen gamma presentations");
+  const evidence={traceSha256:metadata.traceSha256,captureBuild:metadata.captureBuild,frames:comparisons.length,displayPixels:65536,rawPixels:65536,batches,comparisons,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch("/__test_file?name=d9wg-gamma-guest.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+  if(comparisons.some(c=>c.rawMaximumByteError!==0||c.displayMaximumByteError>1)||gpu.stats.gammaRampUpdates!==14||gpu.stats.gammaPresents!==10||gpu.stats.commandsFailed||gpu.stats.droppedDraws||gpu.gpuErrors.errors.length||gpu.hostErrors.length)throw Error("GPU gamma mismatch "+JSON.stringify(comparisons));
+  display.destroy();document.querySelector("#result").textContent="PASS actual XP gamma: sixteen final scanout images / 65536 pixels and unchanged raw back buffers / 65536 pixels; exact curves, live state, full/windowed Reset replay and identity restoration";
+ }catch(error){document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>
