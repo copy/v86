@@ -1693,6 +1693,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 195 组核心、188 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包未改，沿用 4H6c GPU 基线。见 [stage4h6e1-validation.json](fixtures/d3d-review/stage4h6e1-validation.json)。
 > - 继续呈现参数的零售校验、附加交换链及其标志/节流、COM 表面同一性、完整 Reset，随后继续包装转换及阶段 4/5/6；本项未宣称 S2-42 或阶段 4 完成。
 
+> **阶段 4H6e2（2026-11-03）：共用呈现间隔零售校验与失败原子性（S2-42 部分）完成。**
+>
+> - CreateDevice、Reset、CreateAdditionalSwapChain 的六个 D3D8/9 入口接入同一纯校验实现；能力表与校验共用 ONE/IMMEDIATE 掩码。D3D8 窗口仅接受 DEFAULT；D3D9 窗口接受 DEFAULT/ONE/IMMEDIATE；全屏非默认值须是单一已公布能力。组合位、保留位及未公布的多刷新间隔在分配、窗口修改和 Reset 状态变更前拒绝。
+> - 1,797 项能力子集/版本/窗口组合、两版实际入口前缀各 73 项、18/18 语义变异及 ASan/UBSan 通过；入口前缀对合法参数停在分配前，完整成功路径另由 XP 验证。保留实际独立/隐式表面与附加链私有存储原生测试；上一版 D3D8 的无校验入口在运行时负面对照中失败。
+> - 真实 XP 两 API 共拒绝 116 次无效调用，逐次检查参数/输出及拒绝 Reset 后的自定义视口；六个成功设备生存期、四次合法 Reset、四个附加交换链及六帧继续呈现全部通过，两个 owner 正常退出。冻结轨迹核对成功创建/Reset 数量和资源退出，六项语义损坏被发现；无效调用未产生这些 GPU 命令。
+> - 197 组核心、191 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包不变，沿用 4H6c GPU 基线。见 [stage4h6e2-validation.json](fixtures/d3d-review/stage4h6e2-validation.json)。
+> - 本项仅完成 interval 字段；其余呈现参数、完整 Reset、附加交换链节流/标志和 D3D8 独立像素、表面 COM 同一性继续处理。未宣称原生 Microsoft HAL、完整 S2-42 或阶段 4/5/6 完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

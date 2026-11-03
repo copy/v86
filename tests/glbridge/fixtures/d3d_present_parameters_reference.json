@@ -1,0 +1,49 @@
+{
+  "schema": 1,
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+    },
+    {
+      "file": "dxvk-d3d8-present-util.h",
+      "sha256": "ca5a1772cf614bc06842302281c253cf85fef1ac173d2b5a28c97df47799cf0f",
+      "blobSha1": "4c6247eeeed80dd7d7da0b442791797de0ad57b5"
+    }
+  ],
+  "articles": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent",
+      "facts": "DEFAULT needs no capability bit; ONE and IMMEDIATE are accepted when advertised. TWO/THREE/FOUR require caps and are unavailable windowed."
+    },
+    {
+      "url": "https://learn.microsoft.com/ja-jp/previous-versions/ms886318%28v%3Dmsdn.10%29",
+      "facts": "A D3D8 windowed chain uses the DEFAULT presentation-interval field; explicit intervals belong to fullscreen chains."
+    }
+  ],
+  "scope": "Presentation-interval field validation before allocation, window mutation or Reset state changes in D3D8/9 CreateDevice, Reset and CreateAdditionalSwapChain. Accepted windowed parameters execute the complete guest call path; valid fullscreen intervals are covered by 4H6e1. Other presentation fields, complete Reset semantics, additional-chain rendering/pacing and native Microsoft HAL behavior remain outside this step.",
+  "rules": {
+    "publishedMask": 2147483649,
+    "d3d8Windowed": [
+      0
+    ],
+    "d3d9Windowed": [
+      0,
+      1,
+      2147483648
+    ],
+    "fullscreen": [
+      0,
+      1,
+      2147483648
+    ],
+    "nonDefaultRequiresCaps": true,
+    "combinedAndReservedFlagsRejected": true
+  }
+}

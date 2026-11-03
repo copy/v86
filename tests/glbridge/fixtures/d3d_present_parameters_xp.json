@@ -1,0 +1,186 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "devices": [
+        {
+          "handle": 1048579,
+          "base": true,
+          "destroyed": 1,
+          "clears": 2,
+          "presents": 2
+        },
+        {
+          "handle": 1048578,
+          "base": false,
+          "destroyed": 1,
+          "clears": 0,
+          "presents": 0
+        }
+      ],
+      "textures": [],
+      "chains": [],
+      "frames": [
+        {
+          "api": 8,
+          "index": 0,
+          "color": 4281352272
+        },
+        {
+          "api": 8,
+          "index": 1,
+          "color": 4281352273
+        }
+      ],
+      "resets": 1
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "devices": [
+        {
+          "handle": 1048587,
+          "base": true,
+          "destroyed": 1,
+          "clears": 4,
+          "presents": 4
+        },
+        {
+          "handle": 1048578,
+          "base": false,
+          "destroyed": 1,
+          "clears": 0,
+          "presents": 0
+        },
+        {
+          "handle": 1048582,
+          "base": false,
+          "destroyed": 1,
+          "clears": 0,
+          "presents": 0
+        },
+        {
+          "handle": 1048586,
+          "base": false,
+          "destroyed": 1,
+          "clears": 0,
+          "presents": 0
+        }
+      ],
+      "textures": [
+        {
+          "handle": 1048580,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048584,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048588,
+          "destroyed": 1
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048585,
+          "texture": 1048584,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048589,
+          "texture": 1048588,
+          "destroyed": 1
+        }
+      ],
+      "frames": [
+        {
+          "api": 9,
+          "index": 0,
+          "color": 4281352272
+        },
+        {
+          "api": 9,
+          "index": 1,
+          "color": 4281352273
+        },
+        {
+          "api": 9,
+          "index": 2,
+          "color": 4281352274
+        },
+        {
+          "api": 9,
+          "index": 3,
+          "color": 4281352275
+        }
+      ],
+      "resets": 3
+    }
+  ],
+  "frames": [
+    {
+      "api": 8,
+      "index": 0,
+      "color": 4281352272
+    },
+    {
+      "api": 8,
+      "index": 1,
+      "color": 4281352273
+    },
+    {
+      "api": 9,
+      "index": 0,
+      "color": 4281352272
+    },
+    {
+      "api": 9,
+      "index": 1,
+      "color": 4281352273
+    },
+    {
+      "api": 9,
+      "index": 2,
+      "color": 4281352274
+    },
+    {
+      "api": 9,
+      "index": 3,
+      "color": 4281352275
+    }
+  ],
+  "traceSha256": "c1ee93be3df4b892a73baf8e4302459ebec6e4e4d3d3d267ab1a31285ca09f23",
+  "referenceSha256": "d5bf288ad9c9f68273125eb7475ca7e73648e8c05cb7dc5be18386d990f667f8",
+  "sdkLogs": {
+    "PAR8.TXT": "PARAMETERS 8 invalid=61 creates=1 resets=1 chains=1 caps=80000001 viewport=preserved\r\nPASS parameters API=8\r\n",
+    "PAR9.TXT": "PARAMETERS 9 invalid=55 creates=3 resets=3 chains=3 caps=80000001 viewport=preserved\r\nPASS parameters API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_present_pacing.c": "a1ccc58e3f8543a21a64e25d52f6d4750b825f0890d151da1c5a34c0480bcdd0",
+    "glbridge/runtime/d9wg_present_pacing.h": "df607a19a99c1e0adc628be87c2d3e72862474e8df5d8690940370e85f9ec6f8",
+    "glbridge/runtime/d9wg_present_pacing_bridge.h": "d6167b4ccd681eed57ea23504ca1468efd52bb1edc7a3f0e5f74e23ae2c6f4ae",
+    "glbridge/runtime/build.sh": "5faef442a3889dea33ff857eeba30dd9001e316b997242dce9392979a273cd68",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "bf2f4de9d4ce5842f6f5b155e984b7629e8bb3bbf27c32241615918c2f61919d",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "1d88f5456e6c197f18fd491f6893aaa1cd2fb2dc14aa7fd7170eee4e013fd2e5",
+    "glbridge/sample/d3d_present_parameters_test.c": "137d0527468f6682e4f1027993a03d7f841b4b4e2d1ab43ebde1aa3abdd928a7"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "4c7f64941a31935222030de8d82022fa42f771ef69640d86b651d9b5917af8c7",
+      "d3d9": "c98b051c0778dac6f2aab910a488788f7f8ecb4da657455104b767ecd54ba151"
+    },
+    "exeSha256": {
+      "8": "47999c86d2734f6a543ac0685b8b271aea032830ff622eac3e63c811462dd770",
+      "9": "5a429d95c7cff8fea36f30a98c0bebef26e5b28d26955bdfce5d355e785e9cb9"
+    }
+  },
+  "scope": "not exercised; interval preflight atomic failure and accepted create/reset/chain command sequence; no GPU pixel execution"
+}

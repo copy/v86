@@ -1,0 +1,3 @@
+'use strict';
+const assert=require('node:assert/strict'),r=require('./fixtures/d3d_present_parameters_reference.json');
+assert.deepEqual(r.rules,{publishedMask:0x80000001,d3d8Windowed:[0],d3d9Windowed:[0,1,0x80000000],fullscreen:[0,1,0x80000000],nonDefaultRequiresCaps:true,combinedAndReservedFlagsRejected:true});assert.equal(r.sources.length,3);assert.equal(r.articles.length,2);assert(r.articles.every(s=>s.url.startsWith('https://learn.microsoft.com/')));assert.match(r.scope,/Other presentation fields/);console.log('PASS independent presentation-interval rules: version/window/caps/default and explicit validation scope');
