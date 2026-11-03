@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "scope": "D3D9 Reset mode/style/foreground transitions using the existing fullscreen policy, with scoped ANSI/Unicode WM_SIZE filtering and procedure restoration. Unsupported physical mode and desktop-restore failures keep NOTRESET; the host Reset may already be queued before physical mode failure. D3D8 mode integration, adapter-vs-backbuffer GetDisplayMode query correction, exact focus-window policy, fullscreen refresh/bit-depth normalization, all CreateDevice validation, physical focus/device loss, concurrent subclass changes, native Microsoft HAL and game/FPS acceptance remain outside this step.",
+  "sources": [
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+    },
+    {
+      "file": "d3d9-reset-device.c",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146"
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-changedisplaysettingsa",
+      "fact": "CDS_FULLSCREEN is temporary; NULL with flags zero restores the registry mode; unsupported modes return failure."
+    }
+  ],
+  "facts": {
+    "nativeTest": "d3d9-device-tests.c test_reset_fullscreen, lines 4808 onward: window-to-fullscreen and fullscreen resize, suppress WM_SIZE recursion",
+    "ANSIAndUnicode": true,
+    "oldAndNewWindowStylesRestored": true,
+    "originalProceduresRestored": true,
+    "otherMessagesForwardedDuringReset": true,
+    "modeFailureCooperativeHR": "88760869",
+    "modeFailurePresentHR": "88760868",
+    "queuedResetBeforeModeFailure": true,
+    "backbufferDimensionsViaSurfaceDesc": true
+  },
+  "frames": {
+    "widths": [
+      128,
+      640,
+      640,
+      800,
+      640,
+      128
+    ],
+    "heights": [
+      128,
+      480,
+      480,
+      600,
+      480,
+      128
+    ],
+    "colors": [
+      4279246896,
+      4280303712,
+      4281360528,
+      4282417312,
+      4283474112,
+      4284530912
+    ]
+  }
+}
