@@ -1,0 +1,550 @@
+{
+  "stage": "4H6f1 D3D8 contained texture-view identity and parent-shared COM counts (S2-42 part)",
+  "date": "2026-11-03",
+  "bundle": "a532e70eacef8cba3d10",
+  "coreSuites": 199,
+  "guestSuites": 196,
+  "webgpuRuns": 0,
+  "gpuBaseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6c-validation.json",
+    "sha256": "4d7a00aa1081a2840b17c3bcffb5987d2fed26531bd53e419ed07f24f48ef0a0",
+    "bundle": "a532e70eacef8cba3d10",
+    "webgpuRuns": 58,
+    "reason": "Guest D3D8 contained wrapper cache and COM references only; retained full private-data/surface lifetime regression. Host/protocol/shader/pixel paths unchanged."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "693d2a3948581e6e6eec3fdb8e22594c926e98b464db63373027e95ab7606897"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "f746fbdbc40b5cac09a49dab2e79eebc87c989dfb841fd14503b01533dcfef8c"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "3a95c301774b7c00c04c75b7685dbfd3574072d16a69ccc500c124dc47bd6198"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "6db640d67c7015924a59b84f445974d47c1abad9ef9b1d203209d09e21116b8c"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "c699bd35a28369e209f44fc24bc88d29cab5bf67b89fac378bf304e17eb17464"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "e916442bc79aad3e820a679935258288e054de1eb187cbeabf1a4e0c8bd1116c"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "e6779619f49fd16028c57b0511e9da168c313f63499308656d45450a2dd48aa4"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "4515b33299df18417172809200c69e7f1a5506367b97bd5423cc0416a468c30b"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "a8932f2341cc3f7d9babe1bad5dabc3ed7b51b79fb14f534368e0839f04a5939"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "470b8abc4cdad34abd13200f6b7d292a1cfbc7741248911a495811a5ff3e0ba8"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "b7c6d68cd298fa9f8f3800e1f84bcea5648e54ada4a036cab3319285dddfc795"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "a665af2021dadbde32766142b29cb01d7b253d6bfdfd7ed2558618562708ded6"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "a9ff58440c18d73c6bf64921ad62afba2bb5c9a7d7743fbdf4c2dc63acf987fd"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "264857e9248a5d42b3f3958943c4d4bd585ded657bf2e8760158b3156b47ce17"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "5d99ef37233b230f86c025124ea471a6acf3a717f3d0ee2f58e18f4a1bb63dce"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "067d035a95bab7ea1af0910b67603fabd2e5a1b27046f702ca9672a6373d47d7"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "d64d8cd432aa0c88c33ad457d506137941e6c5ff0cf3e9cf40a32f4aa06cf561"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "b95c60d291b62f00f61f277d1acb8286ad33001bce382760cd2085a9dc292b8b"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP contained-identity and private-data regression DLL",
+      "shippedDllSha256": "314a377f6c440fa6b3e3a88124caf696dd693ba459ec7a188af55109c892de73",
+      "diagnosticSha256": "ce5616b3790e6a056e24c987259323f91c1b6a1d7d5288dcfdc4bd725d0dfd47"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "3bf5009ddfa5bc3290aac685375577fa9612a18a02503525317f1abf916249d4"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "1eda92f912c4e58c0ff186606e3032d7f589685ed088cacf77b2e0a50e50806a"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "bbb9973dd752f949b3dd40db7182ea1b4f334756b4941ef0c34cbe5759a8ed42"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "aaea7fd7b8d9f5d30cb5aaf462d9f5c244f26e36726951eac2e69256d4834291"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "a40eaa359a0113e2c66cece9317d6ccd090bb002b25faa41b66a3813bd301ff1"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "2f4c6d97da95efd4178af29ab2def02f73bc248e653e2a9bfa04b3cd212f6bdc"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "b720f1cec4e7a559e2920886d472000c519a833dd4b69a282a6fb95504e543da"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "9740c000e04d4b60c017f6f6b49dedba49114f0ecea311f980261acabe37149e"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "cc7973cd3ba43bef39658b9f52fdfcad76fb348969215038cc6cc1c77598f357"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "d532fdbdb038accc4148f73422cf0417d4cff8df111980874f2d3e7e5e79d393"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "f1a62bd500a91747f4c851e407aab9d37ac5ba668a52ae665452387f2ebdaf9e"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "dbd94744a5661cf4163cbb01a39a40fc455ff78fe8f582c387b942788e82e8f2"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "67949f074175e5cd41505c82c42ceac370a09e533fc027f8fb5e447181742b67"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "c61afd5337bbef10b010079fc52da62afb84e0c56e38e366260be4a1e21de2ab"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP contained-identity and private-data regression DLL",
+      "shippedDllSha256": "9af82f6737fd4a2a2c6c2d693b95bacec6278ba801e2bb1d609fa0f201f7ca82",
+      "diagnosticSha256": "3bff6d68704afe7b102ebb1191d0ec157810235bb4b761b0d36859737370b3cd"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "d4ab42073a6fb27ba3b40cdd6b67d8f2cdb88060ad062e177f9bad3f34435403"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "4cd10575570778e37b370181674aa4cb395579af7b468c84693874a326c98ded"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "f8ed791b98eb578abcc16f218fb1be7566e6e825f1f777357dda18f6c6c36e61"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "7fb9d07e78d8169c1f2cad9717db624a238621bd7436391e0df45b5e4c7c51da"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualD3D8Cases": 105,
+    "containedViews": 16,
+    "retainedPrivateTextureCases": {
+      "8": 26,
+      "9": 26
+    },
+    "retainedPrivateSurfaceCases": {
+      "8": 10,
+      "9": 7
+    },
+    "mutations": {
+      "killed": 18,
+      "total": 18
+    },
+    "retainedMutations": {
+      "killed": 30,
+      "total": 30
+    },
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "fixtureCorruptions": 6,
+    "parentSharedPublicRefcounts": true,
+    "stableLiveReacquiredIUnknownAndContainerIdentity": true,
+    "allocationFailurePreservesCacheAndParentRefs": true,
+    "lastChildFreesParentAndAllCachedViews": true,
+    "priorD3D8": {
+      "commit": "7508e4f",
+      "sourceSha256": "e5080792a1acf7c1119d0fee39ffc5e9bf1799e5c875aff49d7e2af33446fb91",
+      "runtimeIdentityFailure": true
+    }
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_child_identity_reference.json",
+    "sha256": "5c5dc601066b55d60100bc1f959b17096f3a9d49df234d57dc8d876f085eb1d5",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+      },
+      {
+        "file": "d3d8-private-surface.c",
+        "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+        "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5"
+      },
+      {
+        "file": "d3d8-com-texture.c",
+        "sha256": "dc701d9ce6ad9c7eb0d1a8b6343f7c779b2479d06fbd8d398b3523be0f0dd897",
+        "blobSha1": "56b79b3ad6bcb7fea42b6456fc28f4de2e85f80b"
+      },
+      {
+        "file": "d3d8-com-volume.c",
+        "sha256": "7d43618a2753b8dc23c080c4b345f40319795f9702d4422483cf86c14534e048",
+        "blobSha1": "a2a8b90db7b03d64b6b25f1cecb2dc92cf5b5ebd"
+      }
+    ],
+    "observations": {
+      "parentAndChildShareCount": true,
+      "twoChildQueriesReturnSamePointer": true,
+      "containedViewsRetainParent": true,
+      "wrapperFreedAtParentDestruction": true,
+      "cubeFaces": 6,
+      "levels": 2,
+      "childViewsPerAPI": 16
+    },
+    "pinnedWineCommit": "415a275e3844c252ad385b46023095e9401ca234"
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 113,
+    "batches": 10,
+    "releases": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "owners": [
+      1,
+      2,
+      3,
+      4
+    ],
+    "text": "PASS identity probes \r\n",
+    "logs": {
+      "ID8.TXT": "IDENTITY 8 kind=0 views=2 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nIDENTITY 8 kind=1 views=12 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nIDENTITY 8 kind=2 views=2 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nPASS identity API=8\r\n",
+      "ID9.TXT": "IDENTITY 9 kind=0 views=2 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nIDENTITY 9 kind=1 views=12 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nIDENTITY 9 kind=2 views=2 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nPASS identity API=9\r\n",
+      "PRIV8.TXT": "CHECK PRIVATE 8 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 8 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 0 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 2 refs=1 released=0\r\nCHECK SURFACE OWNERS 8 back=2 depth=2 chain=1 earlyRelease=0 isolated=1\r\nCHECK SURFACE DEVICE 8 back=1 depth=1 released=0\r\nPASS private API=8\r\n",
+      "PRIV9.TXT": "CHECK PRIVATE 9 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 9 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 0 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 2 refs=1 released=0\r\nCHECK SURFACE OWNERS 9 back=2 depth=2 chain=1 earlyRelease=0 isolated=1\r\nCHECK SURFACE DEVICE 9 back=1 depth=1 released=0\r\nPASS private API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; contained child COM identity/shared parent count and cached private data; no GPU pixel execution",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 3520,
+        "crc32": "62f2cd9d"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "device": 1048577,
+        "destroyed": 1,
+        "resources": [
+          {
+            "handle": 1048578,
+            "kind": 3
+          },
+          {
+            "handle": 1048579,
+            "kind": 4
+          },
+          {
+            "handle": 1048580,
+            "kind": 5
+          }
+        ],
+        "retired": [
+          1048578,
+          1048579,
+          1048580
+        ]
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "device": 1048577,
+        "destroyed": 1,
+        "resources": [
+          {
+            "handle": 1048578,
+            "kind": 3
+          },
+          {
+            "handle": 1048579,
+            "kind": 4
+          },
+          {
+            "handle": 1048580,
+            "kind": 5
+          }
+        ],
+        "retired": [
+          1048578,
+          1048579,
+          1048580
+        ]
+      }
+    ],
+    "regression": [
+      {
+        "owner": 3,
+        "api": 8,
+        "device": 1048577,
+        "created": 1,
+        "destroyed": 1,
+        "resources": [
+          {
+            "handle": 1048578,
+            "kind": 1,
+            "bytes": 64
+          },
+          {
+            "handle": 1048579,
+            "kind": 2,
+            "bytes": 32
+          },
+          {
+            "handle": 1048580,
+            "kind": 3,
+            "levels": 2,
+            "format": 21
+          },
+          {
+            "handle": 1048581,
+            "kind": 4,
+            "levels": 2,
+            "format": 21
+          },
+          {
+            "handle": 1048582,
+            "kind": 5,
+            "levels": 2,
+            "format": 21
+          },
+          {
+            "handle": 1048583,
+            "kind": 3,
+            "levels": 1,
+            "format": 21
+          },
+          {
+            "handle": 1048584,
+            "kind": 3,
+            "levels": 1,
+            "format": 75
+          }
+        ],
+        "retired": [
+          1048578,
+          1048579,
+          1048580,
+          1048581,
+          1048582,
+          1048583,
+          1048584
+        ],
+        "chain": 0,
+        "chainsCreated": 0,
+        "chainsDestroyed": 0,
+        "commands": {
+          "1": 1,
+          "2": 1,
+          "13": 1,
+          "256": 2,
+          "259": 8,
+          "272": 3,
+          "273": 1,
+          "274": 1,
+          "512": 1,
+          "519": 1,
+          "541": 1
+        }
+      },
+      {
+        "owner": 4,
+        "api": 9,
+        "device": 1048577,
+        "created": 1,
+        "destroyed": 1,
+        "resources": [
+          {
+            "handle": 1048578,
+            "kind": 1,
+            "bytes": 64
+          },
+          {
+            "handle": 1048579,
+            "kind": 2,
+            "bytes": 32
+          },
+          {
+            "handle": 1048580,
+            "kind": 3,
+            "levels": 2,
+            "format": 21
+          },
+          {
+            "handle": 1048581,
+            "kind": 4,
+            "levels": 2,
+            "format": 21
+          },
+          {
+            "handle": 1048582,
+            "kind": 5,
+            "levels": 2,
+            "format": 21
+          },
+          {
+            "handle": 1048583,
+            "kind": 3,
+            "levels": 1,
+            "format": 21
+          },
+          {
+            "handle": 1048584,
+            "kind": 3,
+            "levels": 1,
+            "format": 75
+          },
+          {
+            "handle": 1048585,
+            "kind": 3,
+            "levels": 1,
+            "format": 22
+          }
+        ],
+        "retired": [
+          1048578,
+          1048579,
+          1048580,
+          1048581,
+          1048582,
+          1048583,
+          1048584,
+          1048585
+        ],
+        "chain": 1048586,
+        "chainsCreated": 1,
+        "chainsDestroyed": 1,
+        "commands": {
+          "1": 1,
+          "2": 1,
+          "11": 1,
+          "13": 1,
+          "256": 2,
+          "259": 9,
+          "272": 4,
+          "273": 1,
+          "274": 1,
+          "541": 1,
+          "548": 1,
+          "549": 1
+        }
+      }
+    ],
+    "graphicsSha256": "80d59502a87d5444630379239ebcfe6b2b96b91757f8c2250d327e6b378a028f"
+  },
+  "fixture": {
+    "metadataSha256": "7dd9692745553f3a73bd43abcd25faaa10fa0b518371ad412c55f6ca02703eed",
+    "compressedTraceSha256": "97f74733d62182e5adbdcad442f89494ae2081f2b8057f5ba971f8528e5f550a",
+    "captureBuild": {
+      "dllSha256": {
+        "d3d8": "314a377f6c440fa6b3e3a88124caf696dd693ba459ec7a188af55109c892de73",
+        "d3d9": "9af82f6737fd4a2a2c6c2d693b95bacec6278ba801e2bb1d609fa0f201f7ca82"
+      },
+      "exeSha256": {
+        "ID8": "8347d1855a8637cddd28f082b35654a1c7acad2995e08350148f9f8a17255e98",
+        "ID9": "18b67e8a9395cf5c08b9a6bc3808cb07f29093852d85907f7b4fe9e5becff26e",
+        "PRIV8": "ae4c952208b14534e324d3f6d1b52b15a846643a0e3cff6c185cb0bb67309373",
+        "PRIV9": "d3679cb81a407da37abee25df35b178d05352699cd925c27fb7e5a8c3440953a"
+      }
+    }
+  },
+  "scope": "D3D8 2D/cube/volume contained-view identity and parent-shared AddRef/Release, using D3D9 as a retained XP control. Cached child wrappers live until their parent texture is destroyed. Covers all cube faces, mip/volume levels, IUnknown/container identity, reacquisition and retained private-data/surface regressions. Native Microsoft HAL, concurrent cache publication, implicit/additional-chain surface identity, full Reset and game/FPS acceptance remain outside this step. S2-42, D3D8 wrapping and stages 4/5/6 remain incomplete.",
+  "coreSha256": {
+    "tests/glbridge/d3d_child_identity_fixture_test.js": "68fa4868d7e4f2d7a78e131e0c66dc11154296a16c4d9f99652cba6a9adaffe1",
+    "tests/glbridge/d3d_child_identity_xp.mjs": "d2171fa904cef766b23da771de5563114de2fd77619b681f1fd314f2ee67898d",
+    "tests/glbridge/fixtures/d3d_child_identity_reference.json": "5c5dc601066b55d60100bc1f959b17096f3a9d49df234d57dc8d876f085eb1d5",
+    "tests/glbridge/fixtures/d3d_child_identity_xp.bin.gz": "97f74733d62182e5adbdcad442f89494ae2081f2b8057f5ba971f8528e5f550a",
+    "tests/glbridge/fixtures/d3d_child_identity_xp.json": "7dd9692745553f3a73bd43abcd25faaa10fa0b518371ad412c55f6ca02703eed",
+    "tests/lib/d3d_child_identity_wire.mjs": "c63cde03bb393f9aa35dc01e8c5e904cfa71b8332c1af95bf19d0b10fd94cc78",
+    "docs/d3d-webgpu-review.md": "f41ba2e9bc0d4117a317611d414b5160dec860987a4e54a8d9b8523ccb7e3064"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d_child_identity_test.c": "f975b23cb3bc0927efa73c2d51edaeff11ed1498ffcb334bf40862ae9a955bb6",
+    "glbridge/tests/d8wg_child_identity_mutation_test.js": "08c91522cd8bbc8befecbb67b050c601e97c77256da607c8751301291309492e",
+    "glbridge/tests/d8wg_child_identity_test.js": "a88092bf343f69f77c0e3cd931b75acb9980fa5c56f486e9411a621f6bbca23f",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "ce5616b3790e6a056e24c987259323f91c1b6a1d7d5288dcfdc4bd725d0dfd47",
+    "glbridge/d3d8proxy/d3d8.dll": "314a377f6c440fa6b3e3a88124caf696dd693ba459ec7a188af55109c892de73",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "d2e1548d836c45250589f2c9af6304624edb1c4058484a6a25fb7aa31640f6d3",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "3bff6d68704afe7b102ebb1191d0ec157810235bb4b761b0d36859737370b3cd",
+    "glbridge/d3d9proxy/d3d9.dll": "9af82f6737fd4a2a2c6c2d693b95bacec6278ba801e2bb1d609fa0f201f7ca82",
+    "glbridge/tests/d9wg_private_texture_test.js": "d6408011aa6d6fa674ae54896100e3045a94432513a1b7ce8a9ab21292a5b37b"
+  },
+  "logSha256": {
+    "core": "17ff906dea77c4eb8cccc8045769a089bc86e5ea6fedb0030343718df760cf89",
+    "guest": "46fcb294ac5bbac998e32e838d01fc7cdc9662a4fdd1c072a96b32d68bc3dae1",
+    "xp": "056b5305b6631e1a51b41ee7093e81bf0fef0291902cbc2e2456112ac2a825fb",
+    "mutations": "8289b609a4fa7661559fab4bcbe9ef9ee87102fff5822086612d68b0af746421",
+    "sanitize": "7d3e7e3682201672d50e8e77f8a43d9e707e7b08304da351e41cfd6fc9f1f492",
+    "before": "4c46656b8e35461ef69ce68344ea9cb6c21ef2373b6df8775017c668feaceeee",
+    "retained-mutations": "a1d520cc34e3bf4117de9e322559d5752d268695f128408be9a3a56aed148c55",
+    "fixture": "9672f3193ed56d150d70d139e3075f3db399bffc74bbbfecfb6d93973735f371",
+    "builds": "dfc2776deda069060e4aae23c44db379e28140ba3b8d531046b3658c9736ab8d",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "integration": "9d2839dd4d79368097c2370d93889e7e960781a4f7b3cd4f0399f31bb763d250"
+  }
+}

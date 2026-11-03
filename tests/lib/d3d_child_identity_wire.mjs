@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {inspect_private_surface_wire} from './d3d_private_surface_wire.mjs';
+const require=createRequire(import.meta.url),P=require('../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js'),W=require('../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js');
+export function inspect_child_identity_wire(bytes,result){
+ assert.equal(result.owners.length,4);assert.equal(new Set(result.owners).size,4);const states=new Map(result.owners.slice(0,2).map((owner,i)=>[owner,{owner,api:[8,9][i],device:0,destroyed:0,resources:[],retired:[]}])),retained=[];
+ for(let at=0;at<bytes.length;){assert(at+20<=bytes.length);const owner=bytes.readUInt32LE(at),size=bytes.readUInt32LE(at+8);assert(result.owners.includes(owner)&&size>=8&&at+12+size<=bytes.length);const s=states.get(owner);if(!s){retained.push(bytes.subarray(at,at+12+size));at+=12+size;continue;}assert.equal(bytes.readUInt16LE(at+12),0xffe1);assert.equal(bytes.readUInt32LE(at+16),size-8);const h=W.readHeader(bytes.subarray(at+20,at+12+size));W.checkStream(h.view,h.end,h.commandCount);
+  for(let x=P.STRUCTS.BatchHeader.size;x<h.end;){const op=h.view.getUint16(x,true),length=h.view.getUint32(x+P.F.CommandHeader.size,true),decode=name=>P.decode(name,h.view,x+P.STRUCTS.CommandHeader.size,length-P.STRUCTS.CommandHeader.size);
+   if(op===P.OP.CREATE_DEVICE){const q=decode('CreateDevice');assert(!s.device);assert.equal(q.width,64);assert.equal(q.height,64);assert.equal(q.enable_auto_depth_stencil,0);s.device=q.device_handle;}
+   const kind=[P.OP.CREATE_TEXTURE_2D,P.OP.CREATE_TEXTURE_CUBE,P.OP.CREATE_TEXTURE_VOLUME].indexOf(op);if(kind>=0){const q=decode(['CreateTexture2D','CreateTextureCube','CreateTextureVolume'][kind]);assert.equal(kind,s.resources.length);assert.equal(s.retired.length,s.resources.length);assert.equal(q.device_handle,s.device);assert.equal(q.level_count,2);assert.equal(q.usage,0);assert.equal(q.pool,1);assert.equal(q.format,21);if(kind===1)assert.equal(q.edge_length,4);else{assert.equal(q.width,4);assert.equal(q.height,4);}if(kind===2)assert.equal(q.depth,4);assert(!s.resources.some(r=>r.handle===q.resource_handle));s.resources.push({handle:q.resource_handle,kind:3+kind});}
+   if(op===P.OP.DESTROY_RESOURCE){const q=decode('DestroyResource');if(q.resource_kind===0){assert.equal(q.resource_handle,s.device);assert.equal(s.retired.length,3);assert.equal(s.destroyed++,0);}else{const r=s.resources.find(r=>r.handle===q.resource_handle);assert(r&&!s.retired.includes(r.handle));assert.equal(q.resource_kind,r.kind);s.retired.push(r.handle);}}
+   assert(![P.OP.CREATE_BUFFER,P.OP.PRESENT,P.OP.CLEAR,P.OP.RESET,P.OP.CREATE_SWAP_CHAIN,P.OP.UPDATE_BUFFER,P.OP.UPDATE_TEXTURE,P.OP.READBACK_SURFACE,P.OP.DRAW_PRIMITIVE_UP].includes(op),'identity calls must not create extra resources or render');x+=length;
+  }at+=12+size;
+ }
+ const perAPI=[...states.values()];for(const s of perAPI){assert.equal(s.resources.length,3);assert.equal(s.retired.length,3);assert.equal(s.destroyed,1);assert.deepEqual(result.logs['ID'+s.api+'.TXT'].trim().replace(/\r/g,'').split('\n'),[0,1,2].map(kind=>'IDENTITY '+s.api+' kind='+kind+' views='+(kind===1?12:2)+' shared=1 live=1 reacquired=1 unknown=1 container=1 final=0').concat('PASS identity API='+s.api));}
+ const regression=inspect_private_surface_wire(Buffer.concat(retained),{owners:result.owners.slice(2),logs:result.logs});return{perAPI,regression:regression.perAPI,childViewsPerAPI:16,resources:21};
+}

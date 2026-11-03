@@ -1710,6 +1710,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 198 组核心、194 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL，宿主/运行包不变，沿用 4H6c GPU 基线。见 [stage4h6e3-validation.json](fixtures/d3d-review/stage4h6e3-validation.json)。
 > - 继续表面 COM 同一性、D3D8 附加链独立 back buffer、其余呈现矩形/标志与完整 Reset，随后继续包装转换和阶段 4/5/6；本项未宣称完整 S2-42 或阶段 4 完成。
 
+> **阶段 4H6f1（2026-11-03）：D3D8 纹理子视图 COM 同一性及共享父引用计数（S2-42 部分）完成。**
+>
+> - 2D/cube/volume 的每个逻辑 level 缓存自己的 surface/volume 视图；重复获取、释放全部公开视图后重新获取、IUnknown 查询均保持同一对象，cube 各面及不同 level 不混用。缓存没有独立父引用，最终父纹理销毁时释放全部包装。
+> - 按固定 Wine Windows 引用测试及 D3D8 surface/volume 实现，所有子视图公开 AddRef/Release 转发父纹理计数；子引用可独立保留父纹理到最后退出。独立表面的原有计数与私有数据所有者保持原路径。
+> - 实际 C 获取、QueryInterface、引用与最终释放路径 105 项覆盖 16 个子资源、分配失败、缓存绕过分配、共享返回值及无缓存泄漏；18/18 新增变异、ASan/UBSan 通过。保留私有纹理测试补充两版缓存对象清理，26 项/API 及 30/30 原有变异继续通过；上一版 D3D8 的重复获取在运行时负面对照失败。
+> - 真实 XP 以 D3D9 为对照，两 API 各遍历 16 个视图（cube 六面各两级），核对活跃/重新获取/IUnknown/container 身份、父子计数、私有数据保持及最后子引用退出。另复跑既有 VB/IB、纹理、独立/隐式表面与交换链私有数据探针；四个 owner 正常退出，113 秒。冻结轨迹核对 21 个资源完整释放，六项轨迹/日志损坏被发现。
+> - 199 组核心、196 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包不变，沿用 4H6c GPU 基线。见 [stage4h6f1-validation.json](fixtures/d3d-review/stage4h6f1-validation.json)。
+> - 本项为客体 COM/存储生命周期验收，未执行 GPU 像素或原生 Microsoft HAL；并发缓存发布、隐式/附加链表面同一性及 Reset 边界继续处理。S2-42、D3D8 包装转换和阶段 4/5/6 未宣称完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

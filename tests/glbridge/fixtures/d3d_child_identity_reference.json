@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "scope": "D3D8 2D/cube/volume contained-view identity and parent-shared AddRef/Release, using D3D9 as a retained XP control. Cached child wrappers live until their parent texture is destroyed. Covers all cube faces, mip/volume levels, IUnknown/container identity, reacquisition and retained private-data/surface regressions. Native Microsoft HAL, concurrent cache publication, implicit/additional-chain surface identity, full Reset and game/FPS acceptance remain outside this step.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "file": "d3d8-private-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5"
+    },
+    {
+      "file": "d3d8-com-texture.c",
+      "sha256": "dc701d9ce6ad9c7eb0d1a8b6343f7c779b2479d06fbd8d398b3523be0f0dd897",
+      "blobSha1": "56b79b3ad6bcb7fea42b6456fc28f4de2e85f80b"
+    },
+    {
+      "file": "d3d8-com-volume.c",
+      "sha256": "7d43618a2753b8dc23c080c4b345f40319795f9702d4422483cf86c14534e048",
+      "blobSha1": "a2a8b90db7b03d64b6b25f1cecb2dc92cf5b5ebd"
+    }
+  ],
+  "pinnedWineCommit": "415a275e3844c252ad385b46023095e9401ca234",
+  "observations": {
+    "parentAndChildShareCount": true,
+    "twoChildQueriesReturnSamePointer": true,
+    "containedViewsRetainParent": true,
+    "wrapperFreedAtParentDestruction": true,
+    "cubeFaces": 6,
+    "levels": 2,
+    "childViewsPerAPI": 16
+  }
+}

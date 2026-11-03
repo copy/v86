@@ -1,0 +1,246 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 3
+        },
+        {
+          "handle": 1048579,
+          "kind": 4
+        },
+        {
+          "handle": 1048580,
+          "kind": 5
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 3
+        },
+        {
+          "handle": 1048579,
+          "kind": 4
+        },
+        {
+          "handle": 1048580,
+          "kind": 5
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580
+      ]
+    }
+  ],
+  "regression": [
+    {
+      "owner": 3,
+      "api": 8,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        },
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048582,
+          "kind": 5,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048583,
+          "kind": 3,
+          "levels": 1,
+          "format": 21
+        },
+        {
+          "handle": 1048584,
+          "kind": 3,
+          "levels": 1,
+          "format": 75
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580,
+        1048581,
+        1048582,
+        1048583,
+        1048584
+      ],
+      "chain": 0,
+      "chainsCreated": 0,
+      "chainsDestroyed": 0,
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "13": 1,
+        "256": 2,
+        "259": 8,
+        "272": 3,
+        "273": 1,
+        "274": 1,
+        "512": 1,
+        "519": 1,
+        "541": 1
+      }
+    },
+    {
+      "owner": 4,
+      "api": 9,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        },
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048582,
+          "kind": 5,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048583,
+          "kind": 3,
+          "levels": 1,
+          "format": 21
+        },
+        {
+          "handle": 1048584,
+          "kind": 3,
+          "levels": 1,
+          "format": 75
+        },
+        {
+          "handle": 1048585,
+          "kind": 3,
+          "levels": 1,
+          "format": 22
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580,
+        1048581,
+        1048582,
+        1048583,
+        1048584,
+        1048585
+      ],
+      "chain": 1048586,
+      "chainsCreated": 1,
+      "chainsDestroyed": 1,
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "11": 1,
+        "13": 1,
+        "256": 2,
+        "259": 9,
+        "272": 4,
+        "273": 1,
+        "274": 1,
+        "541": 1,
+        "548": 1,
+        "549": 1
+      }
+    }
+  ],
+  "childViewsPerAPI": 16,
+  "resources": 21,
+  "traceSha256": "80d59502a87d5444630379239ebcfe6b2b96b91757f8c2250d327e6b378a028f",
+  "referenceSha256": "5c5dc601066b55d60100bc1f959b17096f3a9d49df234d57dc8d876f085eb1d5",
+  "sdkLogs": {
+    "ID8.TXT": "IDENTITY 8 kind=0 views=2 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nIDENTITY 8 kind=1 views=12 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nIDENTITY 8 kind=2 views=2 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nPASS identity API=8\r\n",
+    "ID9.TXT": "IDENTITY 9 kind=0 views=2 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nIDENTITY 9 kind=1 views=12 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nIDENTITY 9 kind=2 views=2 shared=1 live=1 reacquired=1 unknown=1 container=1 final=0\r\nPASS identity API=9\r\n",
+    "PRIV8.TXT": "CHECK PRIVATE 8 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 8 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 0 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 2 refs=1 released=0\r\nCHECK SURFACE OWNERS 8 back=2 depth=2 chain=1 earlyRelease=0 isolated=1\r\nCHECK SURFACE DEVICE 8 back=1 depth=1 released=0\r\nPASS private API=8\r\n",
+    "PRIV9.TXT": "CHECK PRIVATE 9 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 9 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 0 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 2 refs=1 released=0\r\nCHECK SURFACE OWNERS 9 back=2 depth=2 chain=1 earlyRelease=0 isolated=1\r\nCHECK SURFACE DEVICE 9 back=1 depth=1 released=0\r\nPASS private API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_present_pacing.c": "2d4162feeeba458b925ee6fb281ed6a5f4f4cc18564db2458ae053db4a8951fb",
+    "glbridge/runtime/d9wg_present_pacing.h": "4242319df86e7666d625b79b38b33d503bfe8a6b50af02b15ec69b5e0530d851",
+    "glbridge/runtime/d9wg_present_pacing_bridge.h": "e4323c447e55d7e9b8523b978fd996ef8baff532b404f620bc366e8b3d26dbc8",
+    "glbridge/runtime/build.sh": "5faef442a3889dea33ff857eeba30dd9001e316b997242dce9392979a273cd68",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "d2e1548d836c45250589f2c9af6304624edb1c4058484a6a25fb7aa31640f6d3",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "d3d0872ee31c0125ca1b97aecdf298a920feadcec22098c5a8f4df535a9fce64",
+    "glbridge/sample/d3d_child_identity_test.c": "f975b23cb3bc0927efa73c2d51edaeff11ed1498ffcb334bf40862ae9a955bb6",
+    "glbridge/sample/d3d_private_data_test.c": "ecbed0fb8290005a2d3d92c750cf725552ea745fc5c879d37d5d5d2027198bcb"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "314a377f6c440fa6b3e3a88124caf696dd693ba459ec7a188af55109c892de73",
+      "d3d9": "9af82f6737fd4a2a2c6c2d693b95bacec6278ba801e2bb1d609fa0f201f7ca82"
+    },
+    "exeSha256": {
+      "ID8": "8347d1855a8637cddd28f082b35654a1c7acad2995e08350148f9f8a17255e98",
+      "ID9": "18b67e8a9395cf5c08b9a6bc3808cb07f29093852d85907f7b4fe9e5becff26e",
+      "PRIV8": "ae4c952208b14534e324d3f6d1b52b15a846643a0e3cff6c185cb0bb67309373",
+      "PRIV9": "d3679cb81a407da37abee25df35b178d05352699cd925c27fb7e5a8c3440953a"
+    }
+  },
+  "scope": "not exercised; contained child COM identity/shared parent count and cached private data; no GPU pixel execution"
+}
