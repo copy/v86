@@ -422,7 +422,7 @@ game.exe
 | S2-49 | `palette_SetEntries` 不触发呈现 | `GD:3833` | 只改调色板的淡入淡出不可见，要到下一次 Flip | ✅；W（`ddraw/palette.c:160-181` 主表面的调色板立即更新前台）；4I4 |
 | S2-50 | 可见表面写入：丢失或越界 | `GD:2485, 2553, 3036, 3336`、`DO:356` | flip chain 下画在前缓冲的加载画面不可见；窗口模式 `Unlock(NULL)`/`ReleaseDC` 把整个桌面标脏，其他窗口被盖上旧桌面 | ✅；4I5 |
 | S2-51 | 非主表面的 flip chain 错误 | `GD:2675`、`DO:717` | overlay flip chain 被 1:1 贴到交换链上，overlay 显示的是应用正在画的那块缓冲 | ✅；4I6 |
-| S2-52 | 执行缓冲 `D3DPROCESSVERTICES_TRANSFORM` 丢掉 LVERTEX 颜色；传统视口映射被忽略 | `DL:2882, 2896-2897`；`DL:639-656, 780-820` | 预光照几何变白；D3DVIEWPORT 的 `dvScaleX/Y` 和 D3DVIEWPORT2 的 `dvClip*`、MinZ/MaxZ 应经裁剪空间矩阵生效（深度范围固定 0..1；`dvMaxX/Y` Wine 也不用） | W+（`ddraw/executebuffer.c:417-429`、`viewport.c:28-101`；ddraw1 `7732-7741`、ddraw2 `12983-13130`） |
+| S2-52 | 执行缓冲 `D3DPROCESSVERTICES_TRANSFORM` 丢掉 LVERTEX 颜色；传统视口映射被忽略 | `DL:2882, 2896-2897`；`DL:639-656, 780-820` | 预光照几何变白；D3DVIEWPORT 的 `dvScaleX/Y` 和 D3DVIEWPORT2 的 `dvClip*`、MinZ/MaxZ 应经裁剪空间矩阵生效（深度范围固定 0..1；`dvMaxX/Y` Wine 也不用） | ✅；4I7 |
 | S2-53 | 对象生命周期 | `GD:4021, 4338, 4650, 3226, 3298` | 释放 flip chain 前缓冲时，隐式后缓冲及其 GPU 纹理全部泄漏，`flip_next` 悬空；经 IDirectDraw4/7 创建的表面应 AddRef DirectDraw 对象（DD1/DD2 不加），现在不加，v4/v7 应用先释放 DirectDraw 就会 use-after-free；SetPalette/SetClipper 先 Release 旧对象再 AddRef 新对象，设回同一个对象时会 AddRef 已释放的内存 | ☑️；W+（`tests/refcount.c:109-191`、ddraw7 `9024-9027`；`surface.c:574-577, 4766-4777` 先 AddRef 后 Release） |
 | S2-54 | 纹理 `Load` 不完整 | `D7:2573-2604`、`DL:1213-1240` | D3D7 `Load` 只拷第 0 级（没有 mip、没有立方体面），忽略 flags；`IDirect3DTexture2::Load` 不拷调色板和颜色键，mip 数不同时返回 BADSIZE（Wine 加载共同的级） | W+（`ddraw/surface.c:5671-5795`、`device.c:6114-6276`；ddraw7 `test_device_load`、ddraw2 `1622-1629`） |
 | S2-55 | DX3 `D3DLIGHT` 的 `dwFlags`=0 被当成“禁用” | `DL:580` | 传统灯光不起作用 | W+（`ddraw/light.c:174` 小于 D3DLIGHT2 的灯视为 ACTIVE；ddraw1 `7827-7838` 无标志的灯照亮四边形） |
@@ -2047,6 +2047,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - SwiftShader / 本机 GPU 各独立检查 37 帧、28,416 个真实主底图读回像素和 28,416 个实际合成显示像素；底图保持纯背景，overlay 始终在 (8,6)–(24,18)，默认/指定目标和隐藏显示均符合独立颜色/物理存储序列。36 次 overlay 更新、31 次实际合成、零像素/读回/回复写入/GPU/宿主错误。XP 没有 CPU 像素回复，使用既有 32×24 虚拟模式 fallback，不代表原生 HAL/模式接受。
 > - 29 组相关核心、21 组完整 DDraw/D3D1–7 相关客体回归、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；其余客体继承 4I3 的 247 组完整回归。发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL。D3D8/9、宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变。见 [stage4i6-validation.json](fixtures/d3d-review/stage4i6-validation.json)。
 > - S2-53 隐式子表面缺陷仍明确保留：七份纹理、四条显式物理销毁，另三份子存储没有独立客体清理，不据此宣称资源图完整。广泛 Flip caps/lock/DC/format/interval、external 描述指针语义、S2-52/53/54/55/57、完整所有权/包装转换/回调/线程/丢失/Reset、多缓冲全覆盖、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I7（2026-11-04）：执行缓冲预光照颜色与传统视口裁剪空间映射（S2-52）完成。**
+> - `TRANSFORM` 按 LVERTEX 布局保留 diffuse、specular 和 UV，不再依赖无关的照明准备；仅 `TRANSFORMLIGHT` 执行照明。保留并验证 NOCOLOR 的两个颜色字段、COPY、源/目标边界和 UPDATEEXTENTS 的既有项目契约，不将 Wine 尚未完整实现的标志行为当作原生结论。
+> - 旧设备保存应用的逻辑投影，共用 Device7 状态保存 `logicalProjection * legacyClipspace`；Device2/3 Set/Get/Multiply 和 Execute STATETRANSFORM 统一走这条路径。V1 的 dvScaleX/Y、V2 的 dvClip*/MinZ/MaxZ 均在齐次除法前生效，宿主 viewport 深度固定 0..1；重复激活不会累乘。V1 MaxX/Y 与 MinZ/MaxZ 按已钉住的 Wine 行为忽略。
+> - TransformVertices 使用调用所指的视口而不改动当前视口；复制完整 16 字节 payload，CLIPPED HOut 返回视口变换前的齐次坐标，offscreen 返回裁剪标志交集。保留安全的 32 字节 stride/NULL 检查和零 W 策略；拒绝顶点的 XYZW 只沿用 Wine 实现，不宣称原生输出值有定义。
+> - 实际 C **2,281 检查、128 次重复激活、128 次预光照处理**，冻结 Windows/Wine 的六组位置和四组裁剪向量；**16/16** 严格编译后的运行时变异检出，旧实际函数配合新 helper 的运行时负对照及 ASAN/UBSAN 通过。保留状态块的 170+1,052 项观察及传统默认状态回归通过。
+> - 实际 XP CRT-free SDK：**2 个视口 × 3 个投影 × Execute/D3D2/D3D3 = 18 次绘制/读回**，36 个 CPU 顶点、576 字节 payload、12 次逻辑投影查询；109 秒、20 批次、一个真实 owner/release，磁盘只写 RAM overlay。XP 像素回复是传输控制；场景显式 LIGHTING=FALSE，真实颜色由后续 GPU 回放验证。
+> - SwiftShader 与 Metal 各验证 **4,608 个实际像素，零误差**，包括视口范围、投影乘法顺序、深度归一化与执行/直接绘制颜色一致性；39 种冻结指令语义破坏全部拒绝。首次对照对 raw LVERTEX 布局、Clear 仅覆盖当前视口及默认照明的错误假设已修正并保留原工件；生产修复未因此更改。
+> - 本轮完整 DDraw/D3D1–7 **23 suites**、核心相关 **30 suites**，四个标准 EXE、retail/diagnostic DLL 和自定义 SDK 严格构建、站点集成 2 项及两侧零新增 lint 问题通过。继承 4I3 的全客体 247 suites 和 4H6f7d 的完整核心/GPU 基线；准确发布本次通过 XP 的 DDraw DLL 与严格构建 diagnostic，D3D8/9、host/protocol/shader 和 bundle `64aa2cd7f7413ccbe760` 保持原版本。证据：`docs/fixtures/d3d-review/stage4i7-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4I7.json`。
+> - 默认照明下无 normal FVF 的完整行为、混用 Device7/传统接口时的状态块私有元数据、完整 viewport 验证/Execute 裁剪及照明标志、S2-53/54/55/57、所有权/包装转换/格式/Reset/线程/丢失、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
