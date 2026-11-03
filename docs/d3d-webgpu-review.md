@@ -423,7 +423,7 @@ game.exe
 | S2-50 | 可见表面写入：丢失或越界 | `GD:2485, 2553, 3036, 3336`、`DO:356` | flip chain 下画在前缓冲的加载画面不可见；窗口模式 `Unlock(NULL)`/`ReleaseDC` 把整个桌面标脏，其他窗口被盖上旧桌面 | ✅；4I5 |
 | S2-51 | 非主表面的 flip chain 错误 | `GD:2675`、`DO:717` | overlay flip chain 被 1:1 贴到交换链上，overlay 显示的是应用正在画的那块缓冲 | ✅；4I6 |
 | S2-52 | 执行缓冲 `D3DPROCESSVERTICES_TRANSFORM` 丢掉 LVERTEX 颜色；传统视口映射被忽略 | `DL:2882, 2896-2897`；`DL:639-656, 780-820` | 预光照几何变白；D3DVIEWPORT 的 `dvScaleX/Y` 和 D3DVIEWPORT2 的 `dvClip*`、MinZ/MaxZ 应经裁剪空间矩阵生效（深度范围固定 0..1；`dvMaxX/Y` Wine 也不用） | ✅；4I7 |
-| S2-53 | 对象生命周期 | `GD:4021, 4338, 4650, 3226, 3298` | 释放 flip chain 前缓冲时，隐式后缓冲及其 GPU 纹理全部泄漏，`flip_next` 悬空；经 IDirectDraw4/7 创建的表面应 AddRef DirectDraw 对象（DD1/DD2 不加），现在不加，v4/v7 应用先释放 DirectDraw 就会 use-after-free；SetPalette/SetClipper 先 Release 旧对象再 AddRef 新对象，设回同一个对象时会 AddRef 已释放的内存 | ☑️；W+（`tests/refcount.c:109-191`、ddraw7 `9024-9027`；`surface.c:574-577, 4766-4777` 先 AddRef 后 Release） |
+| S2-53 | 对象生命周期 | `GD:4021, 4338, 4650, 3226, 3298` | 释放 flip chain 前缓冲时，隐式后缓冲及其 GPU 纹理全部泄漏，`flip_next` 悬空；经 IDirectDraw4/7 创建的表面应 AddRef DirectDraw 对象（DD1/DD2 不加），现在不加，v4/v7 应用先释放 DirectDraw 就会 use-after-free；SetPalette/SetClipper 先 Release 旧对象再 AddRef 新对象，设回同一个对象时会 AddRef 已释放的内存 | ✅；4I8 |
 | S2-54 | 纹理 `Load` 不完整 | `D7:2573-2604`、`DL:1213-1240` | D3D7 `Load` 只拷第 0 级（没有 mip、没有立方体面），忽略 flags；`IDirect3DTexture2::Load` 不拷调色板和颜色键，mip 数不同时返回 BADSIZE（Wine 加载共同的级） | W+（`ddraw/surface.c:5671-5795`、`device.c:6114-6276`；ddraw7 `test_device_load`、ddraw2 `1622-1629`） |
 | S2-55 | DX3 `D3DLIGHT` 的 `dwFlags`=0 被当成“禁用” | `DL:580` | 传统灯光不起作用 | W+（`ddraw/light.c:174` 小于 D3DLIGHT2 的灯视为 ACTIVE；ddraw1 `7827-7838` 无标志的灯照亮四边形） |
 | S2-57 | 无源 BLACKNESS/WHITENESS 被拒；P8 表面没有调色板时 GetDC 的颜色表全黑 | `GD:2354, 2405-2415`；`GD:2959-2969` | 用 ROP 清屏的程序得到 `DDERR_INVALIDPARAMS`（WHITENESS 得 `NORASTEROPHW`）；GDI 文字不可见 | W+（ddraw7 `12363-12378`；`surface.c:2531-2542` 回退到主表面调色板，ddraw7 `10360-10372`） |
@@ -2057,6 +2057,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - SwiftShader 与 Metal 各验证 **4,608 个实际像素，零误差**，包括视口范围、投影乘法顺序、深度归一化与执行/直接绘制颜色一致性；39 种冻结指令语义破坏全部拒绝。首次对照对 raw LVERTEX 布局、Clear 仅覆盖当前视口及默认照明的错误假设已修正并保留原工件；生产修复未因此更改。
 > - 本轮完整 DDraw/D3D1–7 **23 suites**、核心相关 **30 suites**，四个标准 EXE、retail/diagnostic DLL 和自定义 SDK 严格构建、站点集成 2 项及两侧零新增 lint 问题通过。继承 4I3 的全客体 247 suites 和 4H6f7d 的完整核心/GPU 基线；准确发布本次通过 XP 的 DDraw DLL 与严格构建 diagnostic，D3D8/9、host/protocol/shader 和 bundle `64aa2cd7f7413ccbe760` 保持原版本。证据：`docs/fixtures/d3d-review/stage4i7-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4I7.json`。
 > - 默认照明下无 normal FVF 的完整行为、混用 Device7/传统接口时的状态块私有元数据、完整 viewport 验证/Execute 裁剪及照明标志、S2-53/54/55/57、所有权/包装转换/格式/Reset/线程/丢失、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I8（2026-11-04）：DirectDraw 创建引用、父存储保活与复杂表面清理（S2-53）完成。**
+> - DirectDraw 公开引用与物理存活计数分开：DD4/7 创建的显式表面和调色板各增加一个公开父引用，DD1/2 及项目 DD3 不增加；表面/调色板/裁剪器的分配各持有一个内部存活引用。这样既符合已钉住的公开计数增量，也允许 DD1/2 在最后一个公开父引用释放后继续使用子对象。最后一个公开/内部引用统一触发父对象回收。
+> - 复杂 flip 根拥有整条链，销毁时清理全部隐式成员及其 GPU storage/CPU memory；隐式成员公开计数到零时保留至根销毁。mip/cube 隐式子成员采用同样的根清理规则，显式软附件则正常 Release。拒绝移除隐式复杂边，创建后缓冲失败时回滚整条部分链。父公开/内部引用均在子对象解除列表、完成宿主和内存清理后释放。
+> - SetPalette/SetClipper 先 AddRef 替换对象，再 Release 旧对象，避免仅由表面持有的同一对象被提前释放。分版本创建包装传递创建版本；DuplicateSurface 继续共享 storage/memory，并采用项目创建版本配置；Wine DuplicateSurface 仍是 partial stub，这一重复表面配置不宣称完整原生接口计数结论。
+> - 实际 C **98,967 检查、160 创建配置、每种绑定 10,240 次同指针替换、32 复杂图、32 软附件、4 个分配失败回滚**；实际运行时/工厂函数配合构造及宿主发送 stub，确定性 tombstone 检出提前释放，ASAN/UBSAN 最终实际释放所有分配。**18/18** 严格编译后的运行时变异检出，旧实际所有权函数配合新 helper 运行时负对照通过；保留颜色键 1,870 检查和 16 变异。
+> - 实际 XP 完整分配器/构造器：DD1/2/3/4/7 五配置，公开父引用增量、每类 80 次仅由表面持有的同指针绑定、全部公开父引用释放后的上传和别名 GPU 复制；五个复杂根清理十个仍有公开引用的隐式成员。**30 个表面对象共享 25 份物理纹理、5 个调色板、5 个裁剪器、5 次读回**；139 秒、11 批次、一个真实 owner/release，磁盘仅 RAM overlay。
+> - SwiftShader/Metal 各验证 **320 个实际复制像素，零误差**；25 份纹理均收到显式销毁，五个 DeviceDestroy 前分别已清空对应纹理；处理真实 owner 释放之前，实际宿主设备表/资源表已为空。五个设备共用一个 owner session；修正测试最初按五个设备计五次 session end 的假设，生产及 XP 捕获没有改动。36 种冻结语义破坏全部拒绝。旧阶段工件中记录的隐式泄漏作为历史证据保留。
+> - 本轮 DDraw/D3D1–7 **25 suites**、核心相关 **31 suites**，四个标准 EXE、retail/diagnostic DLL、自定义 CRT-free SDK、内存检查、站点集成 2 项和两侧零新增 lint 问题通过。继承 4I3 全客体 247 suites 和 4H6f7d 完整核心/GPU 基线，准确发布通过 XP 的 DDraw DLL 与严格 diagnostic；D3D8/9、host/protocol/shader/bundle `64aa2cd7f7413ccbe760` 保持原版本。证据：`docs/fixtures/d3d-review/stage4i8-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4I8.json`。
+> - 逐接口独立公开计数、隐式初始公开计数、任意回调/重入图及循环、软 detach/caps 完整规则、完整线程/丢失/Reset/格式/包装转换、S2-54/55/57、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
