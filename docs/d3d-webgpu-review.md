@@ -1829,6 +1829,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 六组相关核心、十三组相关客体、36 个标准 SDK EXE、六份严格 DLL、另两份附加参数 SDK EXE及站点两项集成通过，其余检查继承 4H6f6a 的 210/213 组完整基线。发布本次 XP 所测两版零售 DLL和严格诊断 DLL；本项无绘制/呈现和新 GPU 像素运行，继承 4H6f6a/4H6c。见 [stage4h6f6b-validation.json](fixtures/d3d-review/stage4h6f6b-validation.json)。
 > - UNKNOWN 格式选择、D3D8 附加链独立 GPU 缓冲/身份/容器、多缓冲、完整 Reset、包装转换和阶段 4/5/6 尚未完成。
 
+> **阶段 4H6f6c（2026-11-03）：D3D9 窗口 UNKNOWN 使用当前桌面格式（S2-26 / Reset 相关）完成。**
+>
+> - CreateDevice、Reset 和附加链共用当前适配器格式选择；UNKNOWN 不再固定为 X8R8G8B8 或沿用旧 back buffer 格式。显式格式保持原值且不读取 Win32 模式。构造与 Reset 在分配/提交/模式变更前拒绝全屏 UNKNOWN；Reset 失败保持 NOTRESET，成功恢复后才 ready。D3D8 的 UNKNOWN 语义未改，共用查询继续沿用既有 16 位映射与查询失败回退。
+> - 实际共用查询检查 D3D8 149 项、D3D9 206 项；D3D9 构造器 1,149 项/165 组合，附加链 133 项/27 组合，Reset 559 项/14 类失败。新增显式/当前桌面与旧缓冲格式不同的组合、显式值零 Win32 查询、全屏拒绝与恢复；D3D8 保留 1,140/123/545 项对应回归。14/14 新变异、三个上一源文件入口的运行时负面对照及 ASan/UBSan 通过。补充 Reset 模拟测试的表面对象延长到恢复检查结束，修正 ASan 发现的测试作用域错误后重跑。
+> - XP 单进程覆盖 32 位 UNKNOWN 构造、A8R8G8B8 显式设备、UNKNOWN 附加链与 Reset、640×480 16 位桌面下的 UNKNOWN 附加链/Reset/构造、16 位下显式 A8R8G8B8 保持，以及恢复原桌面后 UNKNOWN Reset。全屏 UNKNOWN 构造/Reset 各拒绝一次，后者仅经 Reset 恢复；原桌面尺寸/色深恢复，120 秒正常退出。
+> - 独立冻结解码确认三个设备生存期，构造格式 22/21/23、Reset 格式 22/23/22、附加 texture 格式 22/23/21，三链/三 texture 全部退役；拒绝路径没有额外宿主构造/Reset，十二项语义损坏被发现。五组相关核心、十四组相关客体、36 个标准 SDK EXE、六份严格 DLL、另一个默认格式 SDK EXE及站点两项集成通过，继承 4H6f6a 的 210/213 完整基线。
+> - 只更新本次 XP 所测 D3D9 零售 DLL 和严格诊断 DLL，D3D8/DDraw 保留验收文件。宿主/协议/着色器不变，本项无绘制与新 GPU 像素运行，继承 4H6f6a/4H6c。见 [stage4h6f6c-validation.json](fixtures/d3d-review/stage4h6f6c-validation.json)。原生 Microsoft HAL、完整刷新率/MSAA/全屏参数、物理丢失、D3D8 附加独立缓冲/身份/容器、多缓冲、包装转换和阶段 4/5/6 尚未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "scope": "D3D9 windowed UNKNOWN format selection only: live current adapter format on CreateDevice, Reset and additional-chain creation; explicit formats bypass Win32 querying and preserve their value. Fullscreen UNKNOWN is rejected before allocation/queue/physical mode work; failed Reset remains NOTRESET until recovery. D3D8 UNKNOWN behavior remains unchanged. Existing 16-bit Win32 mode mapping/fallback from 4H6f4b is reused; no new native Microsoft HAL or GPU pixel claim. Full mode/refresh/MSAA validation, physical device loss, multiple buffers, wrapping and stages 4/5/6 remain incomplete.",
+  "sources": [
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Windows CreateDevice/Reset UNKNOWN cases return a concrete effective backbuffer format; adapter mode remains independently queryable."
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+      "fact": "Windowed UNKNOWN selects the current display mode format. Explicit valid backbuffer formats may differ from desktop format."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-reset",
+      "fact": "Windowed CreateDevice/Reset/CreateAdditionalSwapChain allow UNKNOWN; fullscreen requires an explicit format. Caller field behavior follows the pinned Wine Windows expectations documented in 4H6f6a."
+    }
+  ],
+  "facts": {
+    "actualDisplayChecks": {
+      "8": 149,
+      "9": 206
+    },
+    "actualConstructorChecks": {
+      "8": 1140,
+      "9": 1149
+    },
+    "actualAdditionalChecks": {
+      "8": 123,
+      "9": 133
+    },
+    "actualResetChecks": {
+      "8": 545,
+      "9": 559
+    },
+    "newResetFormatChecks": 14,
+    "explicitFormatsNeverQueryDesktop": true,
+    "constructorFormats": [
+      22,
+      21,
+      23
+    ],
+    "resetFormats": [
+      22,
+      23,
+      22
+    ],
+    "additionalFormats": [
+      22,
+      23,
+      21
+    ],
+    "fullscreenRefusals": 2,
+    "originalDesktopRestored": true
+  }
+}

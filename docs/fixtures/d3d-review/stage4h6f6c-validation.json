@@ -1,0 +1,473 @@
+{
+  "stage": "4H6f6c D3D9 live desktop UNKNOWN format on constructor/Reset/additional routes (S2-26 / Reset related)",
+  "date": "2026-11-03",
+  "bundle": "a532e70eacef8cba3d10",
+  "coreTargetedSuites": 5,
+  "guestTargetedSuites": 14,
+  "fullSuiteBaseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f6a-validation.json",
+    "sha256": "32ae7973114b8837c32104f4e194d190c4848c39d9d47d09651f17d83b0b5bc8",
+    "coreSuites": 210,
+    "guestSuites": 213,
+    "reason": "Guest-only D3D9 format selection and shared live provider changed; rerun actual provider, constructor, additional, parameter, Reset status/resources checks and mutations plus five frozen traces."
+  },
+  "webgpuRuns": 0,
+  "gpuBaselines": [
+    {
+      "file": "docs/fixtures/d3d-review/stage4h6f6a-validation.json",
+      "sha256": "32ae7973114b8837c32104f4e194d190c4848c39d9d47d09651f17d83b0b5bc8",
+      "webgpuRuns": 2,
+      "reason": "No host/protocol/shader changes or new pixel claim."
+    },
+    {
+      "file": "docs/fixtures/d3d-review/stage4h6c-validation.json",
+      "sha256": "4d7a00aa1081a2840b17c3bcffb5987d2fed26531bd53e419ed07f24f48ef0a0",
+      "webgpuRuns": 58,
+      "reason": "No host/protocol/shader changes or new pixel claim."
+    }
+  ],
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "e5a95ed449a8fb8a188ef829e203444ab6d34d19bd53008c2edbdd8f8609c698"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "21645a463c73f555f3f2aed4368bbcbff0cdded63beaa0d7cff70e99420a39ea"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "d20c8976d2f2467078b404d81713c442e5ced646a80327bc525445eb78dd994f"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "8ad34de063b16dc71c3e5e8e54f51d554e88b0cc7876f71cf86c77a0d17c502c"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "45fe3d6fb806f385c5098074ea41258147c1af09f93fa8142350c878fb540825"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "de7a27ccbecaaf5b7c92e176eb574f7daaa24b3d908d77d220f169468b8ef84a"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "903ac7a198ba2b9e907058814d797ac451e1efa4a97e0a22dd4784150aaa9499"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "0d65c915ccfb93b01bf127ec83fc1f25090f405b150b038eca09bfe39c0c1561"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "66e6068a0d21d031d6591b6bd15218c58c5f08fe6f8b0a6cc9f45b835500088b"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "cfca328a8fcb39e14ec8ca5625d8f41e39394b22d5cafed603c20fddef800a71"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "660dfa470009d985bec11d2f3d332ada9255898b4ffd9eb294bb80e49f637e47"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "47bab0856aa27e15fc0aea19874ed7cc7a78518a0542527bc521e2291bdf43e6"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "566c51f77d59498bd161a99546bccbf6b17c6ad75fdcfac2e89a05e9cfda3235"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "0243fa15833f1c6f72fcafa43856d31ba49d40499fd985929845983ee0f452f6"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "38ac06f61522d643121537d015d659353f4e4d55f445a739fc6ee0caba86c33b"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "3d926aae0b94835f0ae7c1fb702e3baf741980001caafa6bccded70848ace182"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "ed6e29741a0fddf1128a54798cb22ed46992fcc5292cc13af8bfb2efe5a5abbf"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "cabdfa7d8262d4aaf2ffaafc887a0b8aa7381d62513afe2e0ef24fe8497a4d32"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "fd8c60d4d32e5755b190a0de4de7a05c5842a14d9cacf131967a5259881ea3c8",
+      "diagnosticSha256": "e2edde6e7c602c18b481d7ddbdac34e9787c9e32bdbb0b4f7d4f9eb448ccb2fc"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "00f72a884379bc9efb642b31eba69f26d3d4fbc77cca0e2772f730027e340b84"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "789c5553c505ba1ebf12e68c8167c59f4c3e551481dc14105c03469e9f394916"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "93a8c3f995ec7e73b0242759b3c73e7865d187ef8edf444088370a006b6957d0"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "bf05cfe9918f97b17dbe810af27ac6655b9f87c54547c53792c75893291a7906"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "c2d19842432bbac4c3f9a56d881b119962cf5ebfd7a25844476cd60d745832b9"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "dd1b0fdd9b719840c6356db253280dd2f27bd8ced48fecba904ce7325562fa60"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "efee767617025fb8c6abb252ec5a0ae8906b837a31a8a40b2d50cdece070784b"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "3881c943053144d2ce38fc9e1f13101a1e18546c13cf38d2152e1693454d08a0"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "e0e06fe2707c068ef743bda9f50604d797733ddfc756239102102a6e85a29087"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "fb893025b8b63d93da66e8e4ded1353c873c9bfd004dcc3d02f28465f4cd0c99"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "d0f51ecb5f8f0c6820e9e2a8d1318ff07d6ac45aa59d64b376c9ca988433ed62"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "a8406ee1cb75e3760440949c6d076b4e8d57c56015b73503ba6ccbaabf215cf3"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "6db0820d23fe2f60b32c423764495b37c8a3d73a3606bbe60487b61335d2e9cb"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "37ef731270e8124aee1eccfd759972f7b3fe05dbc412004c40b6c1a0f05752bc"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP live default-format probe DLL",
+      "shippedDllSha256": "03fa95403ed1b114dfc5573a89b24747d63a5644d3e6d36435d53d00fc1fe9d4",
+      "diagnosticSha256": "d62fb78b6f4008d6b70b8b822d97e64003bfde19d0ba769c46579536a9c3a261"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "8941d089bd9b8e28eb347e6ff3867932add1d807e8de2cf679f3226e5ffbb925"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "8623928e5dfb3ff8afacc199f43d8623f893e442cc4ed43236e52b86ee219097"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "cba6651aa2c791e019fbcf0ae778c8edf0c0df9a2c317eeef7fd15c4966912e8"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "85ec517569a7977cfecf77fbf8f8cd8e1543b58dc0b1444f5cbe100222c76c00"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualDisplayChecks": {
+      "8": 149,
+      "9": 206
+    },
+    "actualConstructorChecks": {
+      "8": 1140,
+      "9": 1149
+    },
+    "constructorCases": {
+      "8": 162,
+      "9": 165
+    },
+    "actualAdditionalChecks": {
+      "8": 123,
+      "9": 133
+    },
+    "additionalCases": {
+      "8": 24,
+      "9": 27
+    },
+    "actualResetStatusChecks": {
+      "8": 545,
+      "9": 559
+    },
+    "newResetFormatChecks": 14,
+    "defaultFormatMutations": 14,
+    "retainedDisplayMutations": 22,
+    "retainedGeometryMutations": 20,
+    "retainedAdditionalMutations": 10,
+    "retainedStatusMutations": 31,
+    "retainedResourceMutations": 37,
+    "previousRuntimeNegativeControls": 3,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "fixtureCorruptions": 12,
+    "validationRepair": "ASan caught a stack cache object in the new Reset test being used after its loop scope during recovery; extended the mock surface lifetime and reran affected suites. Guest production code unchanged by this repair."
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_default_format_reference.json",
+    "sha256": "959845a37dad511c3a44a6acda92d0877a0afcd5783e5abd6274d3cfd38f257a",
+    "schema": 1,
+    "scope": "D3D9 windowed UNKNOWN format selection only: live current adapter format on CreateDevice, Reset and additional-chain creation; explicit formats bypass Win32 querying and preserve their value. Fullscreen UNKNOWN is rejected before allocation/queue/physical mode work; failed Reset remains NOTRESET until recovery. D3D8 UNKNOWN behavior remains unchanged. Existing 16-bit Win32 mode mapping/fallback from 4H6f4b is reused; no new native Microsoft HAL or GPU pixel claim. Full mode/refresh/MSAA validation, physical device loss, multiple buffers, wrapping and stages 4/5/6 remain incomplete.",
+    "sources": [
+      {
+        "file": "d3d9-device-tests.c",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "evidence": "Windows CreateDevice/Reset UNKNOWN cases return a concrete effective backbuffer format; adapter mode remains independently queryable."
+      }
+    ],
+    "documentation": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+        "fact": "Windowed UNKNOWN selects the current display mode format. Explicit valid backbuffer formats may differ from desktop format."
+      },
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-reset",
+        "fact": "Windowed CreateDevice/Reset/CreateAdditionalSwapChain allow UNKNOWN; fullscreen requires an explicit format. Caller field behavior follows the pinned Wine Windows expectations documented in 4H6f6a."
+      }
+    ],
+    "facts": {
+      "actualDisplayChecks": {
+        "8": 149,
+        "9": 206
+      },
+      "actualConstructorChecks": {
+        "8": 1140,
+        "9": 1149
+      },
+      "actualAdditionalChecks": {
+        "8": 123,
+        "9": 133
+      },
+      "actualResetChecks": {
+        "8": 545,
+        "9": 559
+      },
+      "newResetFormatChecks": 14,
+      "explicitFormatsNeverQueryDesktop": true,
+      "constructorFormats": [
+        22,
+        21,
+        23
+      ],
+      "resetFormats": [
+        22,
+        23,
+        22
+      ],
+      "additionalFormats": [
+        22,
+        23,
+        21
+      ],
+      "fullscreenRefusals": 2,
+      "originalDesktopRestored": true
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 120,
+    "batches": 4,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "text": "PASS default format probe \r\n",
+    "logs": {
+      "FMT9.TXT": "DEFAULT FORMAT label=constructorUnknown32 format=22 desktop=22\r\nDEFAULT FORMAT label=explicitBase format=21 desktop=22\r\nDEFAULT FORMAT label=additionalUnknown32 format=22 desktop=22\r\nDEFAULT FORMAT label=resetUnknown32 format=22 desktop=22\r\nDEFAULT FORMAT label=additionalUnknown16 format=23 desktop=23\r\nDEFAULT FORMAT label=resetUnknown16 format=23 desktop=23\r\nDEFAULT FORMAT label=additionalExplicit16 format=21 desktop=23\r\nDEFAULT FORMAT label=resetUnknownRestored format=22 desktop=22\r\nDEFAULT FORMAT label=constructorUnknown16 format=23 desktop=23\r\nDEFAULT FORMAT STATUS lifetimes=3 resets=3 additional=3 invalidFullscreenConstructor=1 invalidFullscreenReset=1 originalRestored=1\r\nPASS default format\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; D3D9 windowed UNKNOWN on current 16/32-bit desktops, explicit buffer formats, all three public routes, fullscreen UNKNOWN refusal and original mode restoration",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 27216,
+        "crc32": "b5ea43be"
+      }
+    },
+    "perOwner": {
+      "owner": 1,
+      "active": 0,
+      "devices": [
+        {
+          "initial": 1048577,
+          "current": 1048577,
+          "formats": [
+            22
+          ],
+          "retired": true
+        },
+        {
+          "initial": 1048578,
+          "current": 1048587,
+          "formats": [
+            21,
+            22,
+            23,
+            22
+          ],
+          "retired": true
+        },
+        {
+          "initial": 1048588,
+          "current": 1048588,
+          "formats": [
+            23
+          ],
+          "retired": true
+        }
+      ],
+      "handles": [
+        1048577,
+        1048578,
+        1048581,
+        1048584,
+        1048587,
+        1048588
+      ],
+      "resets": [
+        {
+          "old": 1048578,
+          "next": 1048581,
+          "format": 22
+        },
+        {
+          "old": 1048581,
+          "next": 1048584,
+          "format": 23
+        },
+        {
+          "old": 1048584,
+          "next": 1048587,
+          "format": 22
+        }
+      ],
+      "textures": [
+        {
+          "handle": 1048579,
+          "device": 1048578,
+          "format": 22,
+          "retired": true
+        },
+        {
+          "handle": 1048582,
+          "device": 1048581,
+          "format": 23,
+          "retired": true
+        },
+        {
+          "handle": 1048585,
+          "device": 1048584,
+          "format": 21,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048580,
+          "device": 1048578,
+          "texture": 1048579,
+          "retired": true
+        },
+        {
+          "handle": 1048583,
+          "device": 1048581,
+          "texture": 1048582,
+          "retired": true
+        },
+        {
+          "handle": 1048586,
+          "device": 1048584,
+          "texture": 1048585,
+          "retired": true
+        }
+      ],
+      "hello": 1,
+      "ended": 1
+    },
+    "graphicsSha256": "5074effc1940eecca32ae1ade876813421c811f38e8bc681abf395330c4236e9"
+  },
+  "fixture": {
+    "metadataSha256": "cec07f71b7fd586c87396cf53eaf79ee943c50aa82fb2a66926bac136565a03a",
+    "compressedTraceSha256": "19ade31203a327228177ac80c9230b314d2c21227f157a8a7a9e8b0b321fcbd6",
+    "captureBuild": {
+      "dllSha256": {
+        "9": "03fa95403ed1b114dfc5573a89b24747d63a5644d3e6d36435d53d00fc1fe9d4"
+      },
+      "exeSha256": {
+        "9": "1859fb4f288de70bf78dfd2dcf8d88ae7dbbbe890cd29223bce0a25950291999"
+      }
+    }
+  },
+  "scope": "D3D9 windowed UNKNOWN format selection only: live current adapter format on CreateDevice, Reset and additional-chain creation; explicit formats bypass Win32 querying and preserve their value. Fullscreen UNKNOWN is rejected before allocation/queue/physical mode work; failed Reset remains NOTRESET until recovery. D3D8 UNKNOWN behavior remains unchanged. Existing 16-bit Win32 mode mapping/fallback from 4H6f4b is reused; no new native Microsoft HAL or GPU pixel claim. Full mode/refresh/MSAA validation, physical device loss, multiple buffers, wrapping and stages 4/5/6 remain incomplete. Stages 4/5/6 remain incomplete.",
+  "coreSha256": {
+    "tests/glbridge/d3d_default_format_fixture_test.js": "be429de3230f32adf8c3a18e38ebe315bbfa09c43951eb7b33db5500b9fcdf52",
+    "tests/glbridge/d3d_default_format_xp.mjs": "c4518cf941263c66f709ce071fe2a7c04b14d981a530f70fe0808951d9e3bd48",
+    "tests/glbridge/fixtures/d3d_default_format_reference.json": "959845a37dad511c3a44a6acda92d0877a0afcd5783e5abd6274d3cfd38f257a",
+    "tests/glbridge/fixtures/d3d_default_format_xp.bin.gz": "19ade31203a327228177ac80c9230b314d2c21227f157a8a7a9e8b0b321fcbd6",
+    "tests/glbridge/fixtures/d3d_default_format_xp.json": "cec07f71b7fd586c87396cf53eaf79ee943c50aa82fb2a66926bac136565a03a",
+    "tests/lib/d3d_default_format_wire.mjs": "c7cbaee80affbf7341fb05617797b7e337cb2193c1a57a2de3e4829d85470a5a",
+    "docs/d3d-webgpu-review.md": "587deb79ede2c5d3cfbcbacb71daf1a045c195ea0af6b18cfefd4044c20f5b96"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d9_default_format_test.c": "b8f514da8911fab9de836aae09efb8b1e653a60527513793701175d20705427c",
+    "glbridge/tests/d9wg_default_format_mutation_test.js": "57a3d2ba3f505d8aca185b8cc575d9d58189596d520ed94854b9089465c5c9b1",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "d62fb78b6f4008d6b70b8b822d97e64003bfde19d0ba769c46579536a9c3a261",
+    "glbridge/d3d9proxy/d3d9.dll": "03fa95403ed1b114dfc5573a89b24747d63a5644d3e6d36435d53d00fc1fe9d4",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "35d562cca37bb9fdaf6e4909a2d661681b6dbbec7edf6ab85c0ab3c2965aa7a2",
+    "glbridge/runtime/d9wg_display_mode.h": "d6abc7d1c99e77117674445740958b708487158ae7e9ecec6fb984a5a41ff042",
+    "glbridge/tests/d9wg_additional_parameters_entry_test.js": "60e8826422e40322c398d8b750c24f83ff6415af046e5a9327de05fe825acf29",
+    "glbridge/tests/d9wg_display_mode_test.js": "9a7824a5f58d73b03bc171eb564f5bdb8be924297fbd87784bb666d704df4c1e",
+    "glbridge/tests/d9wg_present_geometry_entry_test.js": "0a84c7f3f5aac4c85fe3b1213f5a21231f18894bd400860e9ef7d1b3f2f9c60f",
+    "glbridge/tests/d9wg_present_parameters_entry_test.js": "c86a538c0b0fdcbea426ad3f6141870b9092625608ad979038bab3ee1c3fce05",
+    "glbridge/tests/d9wg_reset_status_test.js": "4b67aaf50ddd272d2ed3362c285aa16100a21462c12454f04014ea127b06c322"
+  },
+  "logSha256": {
+    "core": "2cf27cb9a00763d6cb5dcf995d7119b9e2276f67705902d7315b87104d62b951",
+    "guest": "1a667d8a7d2d84b3e89a12251a3e1bd2eae2d6be09b0fd9dc4259f118bc4cd52",
+    "xp": "b4f5bd64cea7fe20ac604c6677f31def1f39694cd9bd3eaa927afdf9a24e2191",
+    "before": "d71695784d21862d773be10c6f9012759b634e8437dc0731b0c777aba1cd6031",
+    "sanitize": "31d90ebee75a17d65e6fcfec1f1d33087a4982ffd8dbcffe68e93e3f330da861",
+    "builds": "52e7ff10af5650f28c85de661df18e68a007bef4ffbe2d6b0e286f19c95f1f18",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "708b766e2e21b2dd77fb7798ac774b5ffe7ec933aa411b26c594169901c56af7",
+    "integration": "ba9c08a35a54e5510bcb6b53cd0561a8a4585cec9935ede3319edb028c47f872",
+    "sanitize-harness-scope-failure": "8eae4f0c53d7b7a172298fd0f8e621956a6283da21222d5794ab9d7b76ebb249"
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "perOwner": {
+    "owner": 1,
+    "active": 0,
+    "devices": [
+      {
+        "initial": 1048577,
+        "current": 1048577,
+        "formats": [
+          22
+        ],
+        "retired": true
+      },
+      {
+        "initial": 1048578,
+        "current": 1048587,
+        "formats": [
+          21,
+          22,
+          23,
+          22
+        ],
+        "retired": true
+      },
+      {
+        "initial": 1048588,
+        "current": 1048588,
+        "formats": [
+          23
+        ],
+        "retired": true
+      }
+    ],
+    "handles": [
+      1048577,
+      1048578,
+      1048581,
+      1048584,
+      1048587,
+      1048588
+    ],
+    "resets": [
+      {
+        "old": 1048578,
+        "next": 1048581,
+        "format": 22
+      },
+      {
+        "old": 1048581,
+        "next": 1048584,
+        "format": 23
+      },
+      {
+        "old": 1048584,
+        "next": 1048587,
+        "format": 22
+      }
+    ],
+    "textures": [
+      {
+        "handle": 1048579,
+        "device": 1048578,
+        "format": 22,
+        "retired": true
+      },
+      {
+        "handle": 1048582,
+        "device": 1048581,
+        "format": 23,
+        "retired": true
+      },
+      {
+        "handle": 1048585,
+        "device": 1048584,
+        "format": 21,
+        "retired": true
+      }
+    ],
+    "chains": [
+      {
+        "handle": 1048580,
+        "device": 1048578,
+        "texture": 1048579,
+        "retired": true
+      },
+      {
+        "handle": 1048583,
+        "device": 1048581,
+        "texture": 1048582,
+        "retired": true
+      },
+      {
+        "handle": 1048586,
+        "device": 1048584,
+        "texture": 1048585,
+        "retired": true
+      }
+    ],
+    "hello": 1,
+    "ended": 1
+  },
+  "deviceLifetimes": 3,
+  "resets": 3,
+  "additionalChains": 3,
+  "backingTextures": 3,
+  "fullscreenRefusals": 2,
+  "renderingCommands": 0,
+  "traceSha256": "5074effc1940eecca32ae1ade876813421c811f38e8bc681abf395330c4236e9",
+  "referenceSha256": "959845a37dad511c3a44a6acda92d0877a0afcd5783e5abd6274d3cfd38f257a",
+  "sdkLogs": {
+    "FMT9.TXT": "DEFAULT FORMAT label=constructorUnknown32 format=22 desktop=22\r\nDEFAULT FORMAT label=explicitBase format=21 desktop=22\r\nDEFAULT FORMAT label=additionalUnknown32 format=22 desktop=22\r\nDEFAULT FORMAT label=resetUnknown32 format=22 desktop=22\r\nDEFAULT FORMAT label=additionalUnknown16 format=23 desktop=23\r\nDEFAULT FORMAT label=resetUnknown16 format=23 desktop=23\r\nDEFAULT FORMAT label=additionalExplicit16 format=21 desktop=23\r\nDEFAULT FORMAT label=resetUnknownRestored format=22 desktop=22\r\nDEFAULT FORMAT label=constructorUnknown16 format=23 desktop=23\r\nDEFAULT FORMAT STATUS lifetimes=3 resets=3 additional=3 invalidFullscreenConstructor=1 invalidFullscreenReset=1 originalRestored=1\r\nPASS default format\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_display_mode.h": "d6abc7d1c99e77117674445740958b708487158ae7e9ecec6fb984a5a41ff042",
+    "glbridge/runtime/d9wg_present_parameters.h": "8b4f8fdae0d40457a6f47db9abea356819615b8adbc689cdd01ac278093d5861",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "35d562cca37bb9fdaf6e4909a2d661681b6dbbec7edf6ab85c0ab3c2965aa7a2",
+    "glbridge/sample/d3d9_default_format_test.c": "b8f514da8911fab9de836aae09efb8b1e653a60527513793701175d20705427c"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "9": "03fa95403ed1b114dfc5573a89b24747d63a5644d3e6d36435d53d00fc1fe9d4"
+    },
+    "exeSha256": {
+      "9": "1859fb4f288de70bf78dfd2dcf8d88ae7dbbbe890cd29223bce0a25950291999"
+    }
+  },
+  "scope": "not exercised; D3D9 windowed UNKNOWN on current 16/32-bit desktops, explicit buffer formats, all three public routes, fullscreen UNKNOWN refusal and original mode restoration"
+}
