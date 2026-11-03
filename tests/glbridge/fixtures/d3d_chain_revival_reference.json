@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "colors": [
+    4289732624,
+    4279255232
+  ],
+  "scope": "D3D8 physical additional-chain storage remains alive while a public backbuffer or render-target binding holds its texture. Public chain zero drops its device/storage pins and Reset blocker; valid raw AddRef from zero restores all three while the physical storage survives. Final texture cleanup retires the physical chain exactly once. Publish the accepted Reset device handle before releasing bindings, so late chain retirement names the live host device. A shared SDK probe checks 32 revivals per API, exact public/device counters and cached identity/private data, then presents the same buffer before and after revivals and resets binding-only storage. D3D8 uses 4x MSAA. Independent captured-wire replay checks both raw GPU storage and displayed pixels on SwiftShader and Metal. Multiple backbuffer storage/rotation, ordinary standalone target counters, full SwapEffect/MSAA/Reset validation, thread/physical-device-loss handling, original Microsoft HAL, game/FPS acceptance and review stages 4/5/6 remain incomplete. No host/protocol/shader changes in this phase; inherit the prior complete host baseline.",
+  "sources": [
+    {
+      "file": "d3d8-com-swapchain.c",
+      "blobSha1": "433da09d04b830ee37fdb591cfce7aa207f95033",
+      "sha256": "ec08bb0c41b251d542086be03d1d0d445dc3ba73eda4d51c4f585e55f6ab6d90",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/swapchain.c",
+      "evidence": "Pinned implementation AddRef from public zero acquires a parent device and physical swap-chain storage reference; Release to zero drops these references. Public surface references retain the same physical chain. This is implementation evidence for valid zero-count revival while storage survives, not a claim that repeated zero-count D3D8 chain Release is a native API guarantee."
+    },
+    {
+      "file": "d3d8-container-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+      "evidence": "Surface AddRef/Release maintain their own resource.refcount for non-texture public surfaces; device and underlying texture/swapchain references change only on public zero/nonzero edges. Release storage before the parent device, since storage destruction can free the surface."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Pinned Windows additional-chain test_refcount: backbuffer container is its IDirect3DSwapChain9; surface public count starts at one and has an independent device pin. Pinned swapchain implementation pins its parent only at public zero/nonzero edges."
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+      "evidence": "Non-texture surface AddRef/Release retain the device and swapchain/texture storage on public zero/nonzero edges; a held surface keeps its container alive."
+    },
+    {
+      "file": "d3d9-com-swapchain.c",
+      "sha256": "4e4d530b24fb6ebe2c27be8c173d6d2df9d230de71e3779ba2a8af11ffc231d9",
+      "blobSha1": "e87b8627ba3e511f84ef2074cc02b963c01c9daf",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/swapchain.c",
+      "evidence": "Public chain AddRef from zero reacquires one parent reference; repeated zero Release returns zero while physical backing storage survives."
+    }
+  ],
+  "facts": {
+    "actualD3D8LifetimeChecks": 1701,
+    "retainedD3D9LifetimeChecks": 1305,
+    "portableD3D8SurfaceRevivals": 128,
+    "portableD3D8ChainRevivals": 128,
+    "semanticMutations": 10,
+    "xpRevivalsPerAPI": 32,
+    "xpFrames": 4,
+    "xpResets": 2,
+    "xpPrivateObjectsFinalized": 2,
+    "rawPixelsPerBackend": 3072,
+    "displayPixelsPerBackend": 3072
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048580
+      ],
+      "texture": 1048578,
+      "chain": 1048579,
+      "target": 1048578,
+      "chainRetired": true,
+      "textureRetired": true,
+      "hello": 1,
+      "ended": 1,
+      "bindings": 1,
+      "clears": 2,
+      "presents": 2,
+      "resets": 1,
+      "destroyed": 1,
+      "hwnd": 65840,
+      "x": 200,
+      "y": 40
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048580
+      ],
+      "texture": 1048578,
+      "chain": 1048579,
+      "target": 1048578,
+      "chainRetired": true,
+      "textureRetired": true,
+      "hello": 1,
+      "ended": 1,
+      "bindings": 1,
+      "clears": 2,
+      "presents": 2,
+      "resets": 1,
+      "destroyed": 1,
+      "hwnd": 131376,
+      "x": 200,
+      "y": 40
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 0,
+      "device": 1048577,
+      "texture": 1048578,
+      "chain": 1048579,
+      "width": 32,
+      "height": 24,
+      "color": 4289732624
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "chain": 1048579,
+      "width": 32,
+      "height": 24,
+      "color": 4279255232
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 0,
+      "device": 1048577,
+      "texture": 1048578,
+      "chain": 1048579,
+      "width": 32,
+      "height": 24,
+      "color": 4289732624
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "chain": 1048579,
+      "width": 32,
+      "height": 24,
+      "color": 4279255232
+    }
+  ],
+  "ownerReleases": [
+    1,
+    2
+  ],
+  "deviceLifetimes": 2,
+  "resets": 2,
+  "chains": 2,
+  "textures": 2,
+  "chainPresents": 4,
+  "revivalCycles": 64,
+  "privateObjectsFinalized": 2,
+  "traceSha256": "2d2f55c9a9516e4d844d1132504f1c455749d9c164e7944ae59167cf7a1398e0",
+  "referenceSha256": "cc5967437999a78f6c868a07560ff618052d6fa196b5cde4247f0ac266fb6aac",
+  "sdkLogs": {
+    "IMG8.TXT": "REVIVAL BUFFER api=8 width=32 height=24 samples=4\r\nREVIVAL FRAME api=8 step=0 color=FFB02010\r\nREVIVAL COUNTERS api=8 cycles=32 independent=1 cached=1 privateRetained=1\r\nREVIVAL FRAME api=8 step=1 color=FF1040C0\r\nREVIVAL CLEANUP api=8 bindingRetained=1 reset=1 privateFinalized=1 deviceRefs=1\r\nPASS chain revival API=8\r\n",
+    "IMG9.TXT": "REVIVAL BUFFER api=9 width=32 height=24 samples=0\r\nREVIVAL FRAME api=9 step=0 color=FFB02010\r\nREVIVAL COUNTERS api=9 cycles=32 independent=1 cached=1 privateRetained=1\r\nREVIVAL FRAME api=9 step=1 color=FF1040C0\r\nREVIVAL CLEANUP api=9 bindingRetained=1 reset=1 privateFinalized=1 deviceRefs=1\r\nPASS chain revival API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "b3c7a156549e43d60001638d918a3610fc417fd2fad11b2550d037d92e7d25ba",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "89c90da74faa02c18747a1b6857af21de8b6119d3d567cfedccc2e83d9b1ce13",
+    "glbridge/sample/d3d_chain_revival_test.c": "b950a2a601e558927a89395089801b3e6aa8e1e902cc7d1323536d9b854c8ef6"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "36fba80126d95a4ddfae7d5066d994ca8c143b451bd7256c7abd94b9a5352157",
+      "9": "f10e32825dc9079bd4e56a2d40c14dfd609e8eee96b6f591014c5795707568b5"
+    },
+    "exeSha256": {
+      "8": "9b33553ab702c5a8dcc758f841dca145d0704da3bb690bfb109230f2c015bf72",
+      "9": "60d737f6bf47f7d88736d2204eeae3c793b35070298775243d2b2a68448b89ad"
+    }
+  },
+  "scope": "not exercised in XP; capture two chain frames per API before/after 32 physical-chain public-zero revivals, D3D8 4x MSAA, independent device/surface counts, retained private store, binding-only Reset and exact finalization; replay raw/display pixels independently"
+}

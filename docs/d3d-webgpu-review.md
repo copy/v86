@@ -1873,6 +1873,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 重建并同步 bundle；216/222 组完整核心/客体回归、56 页 SwiftShader、Metal 533 项一致性及两个生命周期/独立缓冲页面，共 59 次新 GPU 运行通过。36 个标准 SDK EXE、六份严格 DLL、另一个 D3D9 公共生命周期 SDK EXE和站点两项集成通过。只发布最终 XP 所测 D3D9 零售 DLL和严格诊断 DLL，D3D8/DDraw 保持已验收文件。见 [stage4h6f7d-validation.json](fixtures/d3d-review/stage4h6f7d-validation.json)。
 > - D3D8 公共链归零后的物理生存期、多 back buffer、独立 render/depth 表面计数/设备引用、完整 MSAA/呈现/Reset、原生 Microsoft HAL、游戏/FPS、包装转换和阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f7e（2026-11-03）：D3D8 零公共计数链的物理生存期及两版真实 GPU 恢复画面（S2-42 相关）完成。**
+>
+> - D3D8 附加缓冲的内部纹理记录所属交换链；链公共计数归零时只归还当前设备/存储引用，不提前释放物理链。表面公共引用或设备 RT 绑定仍持有存储时，原链指针 AddRef 可从零恢复，精确重新取得一个设备引用、一个存储引用及 Reset 阻塞计数。最终纹理清理才发送链销毁、释放物理链；外层最后归还设备引用。Reset 接受后先切换新设备 handle，再清理绑定，延迟的链销毁使用新 handle。
+> - 固定 Wine 链/表面源码及原 Windows 引用测试作为依据；新增实际入口检查增至 D3D8 1,701 项，包含各 128 轮表面及原链零计数恢复、四种最终所有者顺序及仅剩绑定时的链恢复/清理；保留 D3D9 1,305 项。新增 10/10 物理链语义变异，既有计数、容器、隐式、私有数据、Reset、呈现间隔/时钟变异和七族 ASan/UBSan 通过；旧 D3D8 源在实际构造入口被运行时断言拒绝。D3D8 链重复零 Release 的防御行为不作为原生 Windows 保证。
+> - 共享 SDK 程序在 XP 分别运行 D3D8/9，各 32 次链归零/恢复并检查独立公共计数、设备引用、IUnknown/缓存表面身份和私有数据。两次 Clear/Present 之间不重建链和缓冲，D3D8 使用四倍 MSAA；最后仅剩绑定时 Reset 成功，两份私有 IUnknown 各析构一次，111 秒正常退出，两个驱动 owner 完整归还。冻结轨迹确认两链/两纹理、四次附加链呈现、两次 Reset 后再按新设备 handle 销毁，二十项语义损坏全部被发现。
+> - 独立回放页面在 SwiftShader 与 Metal 各检查四帧、3,072 个原始 GPU 像素及 3,072 个显示像素，全部零误差；只创建两个链上下文，呈现获取四次，Reset 恰好各关闭一次，没有主窗口呈现、读取失败或 GPU/宿主错误。显式链销毁发生在 Reset 退休之后，因此宿主显式销毁计数为零，实际关闭次数由上下文回调核验。
+> - 十组相关核心、28 组相关客体、36 个标准 SDK EXE、六份严格 DLL、两份新增 SDK EXE及站点两项集成通过。宿主/协议/着色器及 bundle `64aa2cd7f7413ccbe760` 未变，继承 4H6f7d 的 216/222 完整回归及 59 次 GPU 基线，另有本次两个新 GPU 运行。只发布最终 XP 所测 D3D8 零售 DLL和严格诊断 DLL。见 [stage4h6f7e-validation.json](fixtures/d3d-review/stage4h6f7e-validation.json)。
+> - 多 back buffer 的真实存储/轮转、独立 render/depth 表面计数/设备引用、完整 SwapEffect/MSAA/呈现/Reset、线程/物理丢失设备、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
