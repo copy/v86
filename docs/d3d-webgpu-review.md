@@ -421,7 +421,7 @@ game.exe
 | S2-48 | 对 GPU 写过的表面做 `DDLOCK_WRITEONLY` 锁定会擦掉内容 | `GD:3177, 3333-3335` | 软件光标或 HUD 叠在 D3D 帧上时，把整帧替换掉 | ✅；W（`ddraw/utils.c:570-571` WRITEONLY 只去掉读权限，内容保留；无 Windows 测试）；4I3 |
 | S2-49 | `palette_SetEntries` 不触发呈现 | `GD:3833` | 只改调色板的淡入淡出不可见，要到下一次 Flip | ✅；W（`ddraw/palette.c:160-181` 主表面的调色板立即更新前台）；4I4 |
 | S2-50 | 可见表面写入：丢失或越界 | `GD:2485, 2553, 3036, 3336`、`DO:356` | flip chain 下画在前缓冲的加载画面不可见；窗口模式 `Unlock(NULL)`/`ReleaseDC` 把整个桌面标脏，其他窗口被盖上旧桌面 | ✅；4I5 |
-| S2-51 | 非主表面的 flip chain 错误 | `GD:2675`、`DO:717` | overlay flip chain 被 1:1 贴到交换链上，overlay 显示的是应用正在画的那块缓冲 | ☑️ |
+| S2-51 | 非主表面的 flip chain 错误 | `GD:2675`、`DO:717` | overlay flip chain 被 1:1 贴到交换链上，overlay 显示的是应用正在画的那块缓冲 | ✅；4I6 |
 | S2-52 | 执行缓冲 `D3DPROCESSVERTICES_TRANSFORM` 丢掉 LVERTEX 颜色；传统视口映射被忽略 | `DL:2882, 2896-2897`；`DL:639-656, 780-820` | 预光照几何变白；D3DVIEWPORT 的 `dvScaleX/Y` 和 D3DVIEWPORT2 的 `dvClip*`、MinZ/MaxZ 应经裁剪空间矩阵生效（深度范围固定 0..1；`dvMaxX/Y` Wine 也不用） | W+（`ddraw/executebuffer.c:417-429`、`viewport.c:28-101`；ddraw1 `7732-7741`、ddraw2 `12983-13130`） |
 | S2-53 | 对象生命周期 | `GD:4021, 4338, 4650, 3226, 3298` | 释放 flip chain 前缓冲时，隐式后缓冲及其 GPU 纹理全部泄漏，`flip_next` 悬空；经 IDirectDraw4/7 创建的表面应 AddRef DirectDraw 对象（DD1/DD2 不加），现在不加，v4/v7 应用先释放 DirectDraw 就会 use-after-free；SetPalette/SetClipper 先 Release 旧对象再 AddRef 新对象，设回同一个对象时会 AddRef 已释放的内存 | ☑️；W+（`tests/refcount.c:109-191`、ddraw7 `9024-9027`；`surface.c:574-577, 4766-4777` 先 AddRef 后 Release） |
 | S2-54 | 纹理 `Load` 不完整 | `D7:2573-2604`、`DL:1213-1240` | D3D7 `Load` 只拷第 0 级（没有 mip、没有立方体面），忽略 flags；`IDirect3DTexture2::Load` 不拷调色板和颜色键，mip 数不同时返回 BADSIZE（Wine 加载共同的级） | W+（`ddraw/surface.c:5671-5795`、`device.c:6114-6276`；ddraw7 `test_device_load`、ddraw2 `1622-1629`） |
@@ -2038,6 +2038,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 写前 CPU 读回回复填零，只用于随后完整覆盖的内存，不作像素验收。SwiftShader / 本机 GPU 各验证十个真实客体读回成功回复、40 个独立画面读回及实际显示区域，每后端 30,720 个读回和 30,720 个显示像素全部零误差；窗口模式实际呈现的桌面遮罩固定为客户区 (30,40)–(62,64)，没有扩大到全桌面，虚拟全屏不使用桌面遮罩。没有新增原生模式切换或 HAL 声明。
 > - 28 组相关核心（含执行器、页面合成和网络路由）、19 组完整 DDraw/D3D1–7 相关客体回归、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；其余客体继承 4I3 的 247 组完整回归。发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL；D3D8/9、宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变。见 [stage4i5-validation.json](fixtures/d3d-review/stage4i5-validation.json)。
 > - **S2-53 的隐式后缓冲 CPU/存储清理缺陷仍保留在记录中：** 五份实际纹理、四条显式表面销毁命令，另一个隐式子表面随宿主设备结束处理，其客体分配未单独清理；本阶段不宣称完成客体资源图。S2-51 overlay Flip、S2-52/53/54/55/57、GetDC 失败策略、复杂窗口/遮挡/线程/丢失、完整所有权与包装转换/格式/Reset、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I6（2026-11-04）：overlay Flip 的存储、显示绑定与主底图保持（S2-51）完成。**
+>
+> - 非主表面 Flip 不再把源图 1:1 复制到主底图。默认 Flip 轮转各缓冲的 handle/storage/memory/shadow/external/upload-pending；指定后缓冲只交换前缓冲和指定成员，其他成员不变。公共表面、调色板/颜色键和 overlay id 保持身份；轮转后重新发布受影响的可见 overlay 源/目标句柄，只为主表面或可见 overlay 变化呈现，隐藏/无关离屏链保持静默。self/非成员/foreign 指定目标先拒绝，呈现故障保留已接受的存储前缀。
+> - Wine Flip 实现核验到 Git blob 字节哈希：默认轮转、指定成员交换、拒绝 self/非成员，只有主表面更新 frontbuffer。native 编译实际 Flip 和 helpers，2,830 项断言、512 次双/三缓冲默认/指定 Flip，覆盖耦合字段、稳定 id、源/目标重绑、主底图、隐藏/离屏、拒绝及故障前缀。13 项变异严格编译后以运行断言检出，ASan/UBSan 通过；旧实际 Flip 配当前 helper 定义严格编译后在错误的 screen/overlay/Present 行为断言失败。
+> - XP 经五种表面 Flip 接口，15 次可见、五次隐藏、十次 self/无关目标拒绝、一次静默离屏 Flip，执行 46 次 CPU 影子颜色检查。37 帧含 36 条稳定 overlay 更新、22 次上传、276 次键重放及 22 个背景对照，122 秒、41 批命令，真实 owner 归还。SHOW/HIDE 仍沿用排队策略；SDK 只在这些观察点显式写背景以呈现，Flip 观察帧没有背景写入，不宣称修改 SHOW/HIDE 的即时呈现策略。首轮控制帧标签与实际 Present 不符的记录保留在 ignored build 目录，最终使用重新录制的捕获。
+> - SwiftShader / 本机 GPU 各独立检查 37 帧、28,416 个真实主底图读回像素和 28,416 个实际合成显示像素；底图保持纯背景，overlay 始终在 (8,6)–(24,18)，默认/指定目标和隐藏显示均符合独立颜色/物理存储序列。36 次 overlay 更新、31 次实际合成、零像素/读回/回复写入/GPU/宿主错误。XP 没有 CPU 像素回复，使用既有 32×24 虚拟模式 fallback，不代表原生 HAL/模式接受。
+> - 29 组相关核心、21 组完整 DDraw/D3D1–7 相关客体回归、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；其余客体继承 4I3 的 247 组完整回归。发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL。D3D8/9、宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变。见 [stage4i6-validation.json](fixtures/d3d-review/stage4i6-validation.json)。
+> - S2-53 隐式子表面缺陷仍明确保留：七份纹理、四条显式物理销毁，另三份子存储没有独立客体清理，不据此宣称资源图完整。广泛 Flip caps/lock/DC/format/interval、external 描述指针语义、S2-52/53/54/55/57、完整所有权/包装转换/回调/线程/丢失/Reset、多缓冲全覆盖、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**

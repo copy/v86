@@ -1,0 +1,579 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "frames": [
+    {
+      "api": 0,
+      "step": 0,
+      "color": 0,
+      "visible": false,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 0,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 0,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 1,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 1,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": false,
+      "index": 2,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 2,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": true,
+      "index": 3,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 3,
+      "color": 4291866656,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": false,
+      "index": 4,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 4,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": false,
+      "index": 5,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 5,
+      "color": 0,
+      "visible": false,
+      "background": 4279246896,
+      "storage": 1,
+      "control": true,
+      "index": 6,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 6,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 7,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 0,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 8,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 1,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": false,
+      "index": 9,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 2,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": true,
+      "index": 10,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 3,
+      "color": 4291866656,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": false,
+      "index": 11,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 4,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": false,
+      "index": 12,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 5,
+      "color": 0,
+      "visible": false,
+      "background": 4279246896,
+      "storage": 2,
+      "control": true,
+      "index": 13,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 6,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 14,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 0,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 15,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 1,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": false,
+      "index": 16,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 2,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": true,
+      "index": 17,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 3,
+      "color": 4291866656,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": false,
+      "index": 18,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 4,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": false,
+      "index": 19,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 5,
+      "color": 0,
+      "visible": false,
+      "background": 4279246896,
+      "storage": 1,
+      "control": true,
+      "index": 20,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 6,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 21,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 0,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 22,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 1,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": false,
+      "index": 23,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 2,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": true,
+      "index": 24,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 3,
+      "color": 4291866656,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": false,
+      "index": 25,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 4,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": false,
+      "index": 26,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 5,
+      "color": 0,
+      "visible": false,
+      "background": 4279246896,
+      "storage": 2,
+      "control": true,
+      "index": 27,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 6,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 28,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 0,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 29,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 1,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": false,
+      "index": 30,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 2,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": true,
+      "index": 31,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 3,
+      "color": 4291866656,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 2,
+      "control": false,
+      "index": 32,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 4,
+      "color": 4279255232,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 1,
+      "control": false,
+      "index": 33,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 5,
+      "color": 0,
+      "visible": false,
+      "background": 4279246896,
+      "storage": 1,
+      "control": true,
+      "index": 34,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 6,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4279246896,
+      "storage": 0,
+      "control": true,
+      "index": 35,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 0,
+      "step": 1,
+      "color": 4289732624,
+      "visible": true,
+      "background": 4280299584,
+      "storage": 0,
+      "control": true,
+      "index": 36,
+      "width": 32,
+      "height": 24
+    }
+  ],
+  "uploads": [
+    {
+      "index": 1,
+      "color": 4289732624
+    },
+    {
+      "index": 2,
+      "color": 4279255232
+    },
+    {
+      "index": 3,
+      "color": 4280328256
+    },
+    {
+      "index": 3,
+      "color": 4291866656
+    },
+    {
+      "index": 1,
+      "color": 4289732624
+    },
+    {
+      "index": 3,
+      "color": 4279255232
+    },
+    {
+      "index": 2,
+      "color": 4280328256
+    },
+    {
+      "index": 2,
+      "color": 4291866656
+    },
+    {
+      "index": 1,
+      "color": 4289732624
+    },
+    {
+      "index": 2,
+      "color": 4279255232
+    },
+    {
+      "index": 3,
+      "color": 4280328256
+    },
+    {
+      "index": 3,
+      "color": 4291866656
+    },
+    {
+      "index": 1,
+      "color": 4289732624
+    },
+    {
+      "index": 3,
+      "color": 4279255232
+    },
+    {
+      "index": 2,
+      "color": 4280328256
+    },
+    {
+      "index": 2,
+      "color": 4291866656
+    },
+    {
+      "index": 1,
+      "color": 4289732624
+    },
+    {
+      "index": 2,
+      "color": 4279255232
+    },
+    {
+      "index": 3,
+      "color": 4280328256
+    },
+    {
+      "index": 3,
+      "color": 4291866656
+    },
+    {
+      "index": 5,
+      "color": 4289732624
+    },
+    {
+      "index": 6,
+      "color": 4280328256
+    }
+  ],
+  "sources": [
+    {
+      "file": "ddraw-colorkey-surface.c",
+      "blobSha1": "b9300a98cf801690399d5f08f6977685123357b5",
+      "sha256": "d24845b55037dac48f5dd5ce84cbed4d35cd0fc06e3ba419413dabdd484e8dd9",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/surface.c",
+      "evidence": "surface1_Flip: validate named member/self, rotate unnamed storage, exchange front/named storage without rotating intermediate members, update primary frontbuffer only for a primary. Implementation evidence; no fresh original HAL execution."
+    }
+  ],
+  "scope": "S2-51: nonprimary Flip never copies its source 1:1 into the primary retained base. Default ring rotation and named front/target exchange move handle/storage/memory/shadow/external/upload-debt together while preserving public identity, keys, palette and overlay id. Rebind affected visible overlay source/destination handles after rotation; present only a primary or a change affecting a visible overlay. Hidden/unrelated offscreen flips do not present. Self/unrelated/foreign named targets are refused before mutation; accepted storage prefixes are retained on transport presentation failure. Actual native C: 2830 checks, 512 two/three-buffer default/named flips, coupled fields, destination rebinding, stable overlay identity, primary base and invalid-target isolation; thirteen runtime mutations, sanitizer and old actual Flip with current helper definitions runtime control. XP five surface Flip interfaces on one three-buffer overlay: fifteen visible and five hidden successful flips, ten refused self/unrelated calls, one silent offscreen flip and 46 CPU shadow checks. Thirty-seven observed frames use twenty-two explicit primary background controls after queued SHOW/HIDE (these API calls are not asserted to present immediately); actual Flip frames contain no base write. Thirty-six overlay records, twenty-two uploads, 276 key restatements. Independent GPU replay verifies all 28416 retained-base pixels and all 28416 displayed-composite pixels per backend, distinguishing a stable primary base from the 16x12 overlay at (8,6). No CPU pixel reply is used. Existing 32x24 virtual mode fallback, not native mode/HAL acceptance. Seven textures, four explicit physical destructions; three known implicit guest child/storage leaks remain S2-53 and are preserved in the graph. Broad flip caps/lock/DC/format/interval policy, external descriptor-pointer semantics, arbitrary callback/thread/device-loss/ownership conversion, S2-52/53/54/55/57, games/FPS and review stages 4/5/6 remain open. D3D8/9 and host/protocol/shader/bundle unchanged.",
+  "facts": {
+    "nativeChecks": 2830,
+    "nativeFlips": 512,
+    "newMutations": 13,
+    "apiVersions": [
+      1,
+      2,
+      3,
+      4,
+      7
+    ],
+    "presents": 37,
+    "visibleFlips": 15,
+    "hiddenFlips": 5,
+    "refused": 10,
+    "offscreenFlips": 1,
+    "cpuShadowChecks": 46,
+    "overlayUpdates": 36,
+    "overlayComposites": 31,
+    "uploads": 22,
+    "baseControls": 22,
+    "colorKeyWrites": 276,
+    "textures": 7,
+    "knownImplicitGuestLeaks": 3,
+    "rawPixels": 28416,
+    "displayPixels": 28416,
+    "originalMicrosoftHAL": false
+  }
+}
