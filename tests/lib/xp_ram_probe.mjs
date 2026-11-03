@@ -33,7 +33,9 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                     captured.push(header, Buffer.from(message.bytes));
                 }
             }
-            if(observe_batch) observe_batch(message, name => read_fat16(tools.bytes, name));
+            if(observe_batch) observe_batch(message, name => read_fat16(tools.bytes, name), (offset, bytes) => {
+                channel.host.post({type: "write", generation: message.generation, offset, bytes});
+            });
             if(caps_protocol) {
                 const bytes = caps_protocol.encode("HostCapabilities", {feature_bits: simulated_host_features, version: 1, magic: 0x50414348});
                 channel.host.post({type: "write", generation: message.generation, offset: (16 << 20) - 12, bytes});

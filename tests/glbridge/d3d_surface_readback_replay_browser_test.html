@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><title>D9WG XP shared surface readback replay</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+ "use strict";
+ const P=D9WGProtocol,gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false}),replies=new Map();
+ try{
+  const prefix=new URLSearchParams(location.search).get("prefix")||"fixtures/d3d_surface_readback_xp",metadata=await(await fetch(prefix+".json")).json(),response=await fetch(prefix+".bin.gz");if(!response.ok)throw Error("Missing surface readback capture");
+  const bytes=new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()),view=new DataView(bytes.buffer),digest=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),v=>v.toString(16).padStart(2,"0")).join("");if(digest!==metadata.traceSha256)throw Error("Surface readback trace hash mismatch");
+  await gpu.initialize();let at=0,batches=0;
+  while(at<bytes.length){const ownerToken=view.getUint32(at,true),flags=view.getUint32(at+4,true),size=view.getUint32(at+8,true);at+=12;if(size<8||size>bytes.length-at||view.getUint16(at,true)!==0xffe1||view.getUint32(at+4,true)!==size-8)throw Error("Invalid readback carrier");await gpu.submit(bytes.subarray(at+8,at+size),{ownerToken,flags,writeGuestMemory(offset,data){
+    if(offset!==(16<<20)-P.C.D9WG_RESPONSE_REGION_BYTES+P.C.D9WG_READBACK_REGION_OFFSET)return;
+    const v=new DataView(data.buffer,data.byteOffset,data.byteLength),id=v.getUint32(P.F.ReadbackResponse.request_id,true),q=metadata.requests.find(q=>q.request_id===id);if(!q||replies.has(id)||v.getUint32(P.F.ReadbackResponse.status,true)!==P.C.D9WG_RESPONSE_OK||v.getUint32(P.F.ReadbackResponse.byte_count,true)!==q.destination_bytes||data.length!==q.destination_bytes+16)throw Error("Invalid real GPU readback reply "+id);
+    const color=metadata.expectedARGB,wanted=[color&255,(color>>>8)&255,(color>>>16)&255,(color>>>24)&255];let maximumByteError=0;for(let b=16;b<data.length;b++)maximumByteError=Math.max(maximumByteError,Math.abs(data[b]-wanted[(b-16)&3]));replies.set(id,{requestId:id,firstRow:q.first_row,rows:q.row_count,pixels:q.destination_bytes/4,maximumByteError});
+   }});at+=size;batches++;}
+  await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));
+  const comparisons=[...replies.values()].sort((a,b)=>a.requestId-b.requestId),pixels=metadata.requests.reduce((n,q)=>n+q.destination_bytes/4,0);if(comparisons.length!==7||pixels!==5227520)throw Error("Expected seven chunk replies / 5227520 pixels");
+  const evidence={traceSha256:metadata.traceSha256,captureBuild:metadata.captureBuild,requests:comparisons.length,pixels,batches,comparisons,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch("/__test_file?name=d9wg-surface-readback-guest.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+  if(comparisons.some(c=>c.maximumByteError>1)||gpu.stats.commandsFailed||gpu.stats.droppedDraws||gpu.gpuErrors.errors.length||gpu.hostErrors.length)throw Error("Real GPU chunk readback mismatch "+JSON.stringify(comparisons));
+  document.querySelector("#result").textContent="PASS actual XP readback requests: seven real GPU replies, 5227520 pixels and two-chunk 1024x1024 surface ranges; simulated guest reply faults checked separately";
+ }catch(error){document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>
