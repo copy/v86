@@ -1,0 +1,128 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 9,
+      "hello": 1,
+      "ended": 1,
+      "devices": [
+        {
+          "index": 0,
+          "handle": 1048577,
+          "retired": true
+        },
+        {
+          "index": 1,
+          "handle": 1048578,
+          "retired": true
+        }
+      ],
+      "resources": [
+        {
+          "handle": 1048579,
+          "device": 1048578,
+          "kind": 3,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "device": 1048578,
+          "kind": 3,
+          "retired": true
+        },
+        {
+          "handle": 1048581,
+          "device": 1048578,
+          "kind": 4,
+          "retired": true
+        },
+        {
+          "handle": 1048582,
+          "device": 1048578,
+          "kind": 3,
+          "retired": true
+        },
+        {
+          "handle": 1048584,
+          "device": 1048578,
+          "kind": 3,
+          "retired": true
+        },
+        {
+          "handle": 1048585,
+          "device": 1048577,
+          "kind": 3,
+          "retired": true
+        },
+        {
+          "handle": 1048586,
+          "device": 1048577,
+          "kind": 4,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048583,
+          "retired": true
+        }
+      ],
+      "bindings": [
+        {
+          "slot": 0,
+          "resource": 1048585,
+          "face": 0
+        },
+        {
+          "slot": 0,
+          "resource": 1048585,
+          "face": 0
+        },
+        {
+          "slot": 0,
+          "resource": 0,
+          "face": 0
+        },
+        {
+          "slot": 3,
+          "resource": 1048586,
+          "face": 5
+        },
+        {
+          "slot": 3,
+          "resource": 0,
+          "face": 0
+        }
+      ]
+    }
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "deviceLifetimes": 2,
+  "foreignProfiles": 8,
+  "refusedForeignBindings": 256,
+  "localBindings": 5,
+  "textureObjects": 7,
+  "additionalChains": 1,
+  "drawOrPresentOrResetCommands": 0,
+  "traceSha256": "112bebf8459b59c9b2939847c58e4b8c292d6bf91d534c0d701e92157ca3abc8",
+  "referenceSha256": "092c2edb768eac9ec8a8262c7de7b6ff35bba705fc75c3b22ecf4b19ace6d079",
+  "sdkLogs": {
+    "OWN9.TXT": "OWNER FOREIGN kind=0 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=1 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=2 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=3 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=4 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=5 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=6 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=7 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER STATUS foreignProfiles=8 refused=256 rounds=8 slots=4 localBindings=5 viewportScissorControls=1 allResourcesReleased=1\r\nPASS target owners API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d9proxy/d3d9_proxy.c": "74087802e48837a58f7b8b24d12d739c52b1ba0cc8c2cfaf6ec692061cf8647b",
+    "glbridge/sample/d3d9_target_owner_test.c": "074cac73ca472ba54808b7319f725ddef6e2f77039fa67c944061c7048f98bfd"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "9": "ffa42fcb07a22d44128b9c2b48aa070701f8f2e519178d8159ee977c33d1f4c1"
+    },
+    "exeSha256": {
+      "9": "a8b457cbb46fac277f819e7dc4eef035add7463ca1a6ecc70bcd14efae26650c"
+    }
+  },
+  "scope": "not exercised; two real D3D9 devices, eight foreign surface shapes with eight rounds over all four RT slots, exact reference/target/depth/viewport/scissor preservation, local RT/cube bind and same-object controls; no draw/Present/Reset"
+}

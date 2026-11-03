@@ -1,0 +1,415 @@
+{
+  "stage": "4H6f8g D3D9 render-target owner validation before references, bindings and host state (S2-26 / S2-42 related)",
+  "date": "2026-11-03",
+  "bundle": "64aa2cd7f7413ccbe760",
+  "targetedCoreSuites": 15,
+  "guestSuites": 236,
+  "webgpuRuns": 0,
+  "baseline": {
+    "fullCoreGPU": {
+      "file": "docs/fixtures/d3d-review/stage4h6f7d-validation.json",
+      "sha256": "3007b57fe847cd52fcd3920b19d191843f1600baca3fdd89496b98feffadd536",
+      "coreSuites": 216,
+      "webgpuRuns": 59
+    },
+    "additionalGPUFixture": {
+      "file": "docs/fixtures/d3d-review/stage4h6f8c-validation.json",
+      "sha256": "c6c04a09f8d7f1b5d99878321d6c7168cba755ec6aebf60493a11fce19b99834",
+      "webgpuRuns": 2
+    },
+    "unmodifiedFrontends": {
+      "file": "docs/fixtures/d3d-review/stage4h6f8f-validation.json",
+      "sha256": "bf7996fe065c7d0cd9b76732eda741eab90eadcb7279f14ab6aa89d150edf8a3",
+      "strictStandardExecutables": 36,
+      "strictDLLs": 6
+    },
+    "reason": "Guest-only RT owner/frontend guard. Fresh full guest regression and two-device XP capture; no host/protocol/shader/pixel change."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "inheritedFrom": "docs/fixtures/d3d-review/stage4h6f8f-validation.json",
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "dc5fe59dae854ae90d4f0252d9a4ab60b6e59aa07c683d725c3a72ea22c15ad2"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "1643a5ef49a4dbd767f2a24c120d6aecf1e86444258ce1cdfe62c7801f8d3b30"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "4d8a78f96211d4d6e05668edc6322c94335573d5e9db0e974960d06b58c9e7a7"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "c9be577dbdbfe20c076436703f54aadc29a6d5338a460e9c279b10dea8662f4c"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "478e0d7d74a64fc8f172affb93b66d70dd4afdb3eb9ebb0d7909fa92b36b5ec2"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "6d516ef272469c59aa50980945828da7b56767b1add2530f1d14fe58faf9c0bb"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "5c21b4123c2257c937fa38e1a32c7ea94707e8f3bb11ec0420be0fdc290b9e23"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "41dbc9547550e7c651cd70dcee6555c3d6cf646f5880e6b9f684c707a5e1bc3d"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "5dd1904f970cb1a6dd4b9d800e176f0415bcd7ccdf6f9ea2e32c45ab68d1d254"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "53511bc75fa37d41f464c7bfe8fc8b350a393c927ff00f705f8da398946dd6d5"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "8f0e18dddaa5c8e1cf2a64426331e92a1fd94684704e05520b531937055f7c2d"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "fe85cb494a46cb0018ed8422642cba30561218354cc69f0cffbf0715e9e4a9ff"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "209165445780f32a5b8d91d524b78c8b1dee82fbaab48b5de0a0d373b886cd66"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "997813c044513ddc41d05aa1f619b95630b7d610b9a6ef60bf357cbf23e1dccf"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "9482523e5b410504c34a4b11d962d3e1f363aa64fb1935b8d909aa8564f79f24"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "09642243284328f7bbfc15dfb9bdbeb1a48489db21666cbb76043efa5888bac6"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "a2b649d1d8bd84eef0448852d9de1ebc568c7517fec62f700cd9ad555ff7b115"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "eb509bfb337d95e6d675545332edd94a3d1eacb89eaa897b46f6e7bc5ee4a499"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 0,
+      "publication": "unchanged prior accepted DLLs; source unchanged",
+      "shippedDllSha256": "f095e16f8f97521f9b52e4588ceaa7b57a1913d665e1b8b25410e0ebc1d99bd0",
+      "diagnosticSha256": "5ef4cc5b3e91c566320732adc67f7959a40344bf982fe1b99cc00e08bf70686d"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "ee0eab15f0e544a92c054b1e94836ab32d898e248e9b689d04896574bd10e2d5"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "e16b3008bd5ab4cad1f2a9b64c96acdbfbcdb5b75469f3ede94cdee1b6ec6d58"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "a039e90e812f9e085d756a62a35b136793e6c142360358c1cc737c6b1cb39461"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "3a113e99003d953a908ae69460fcb7766395eb8bc0fd923b744591e92671503c"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "7d26c6fd33eee96c4b5b7ec988647b2b26a969f307e6dd15e34bcbd145308137"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "881b680283a27efbeda61b66c49807146b425311981be1db47eabc4e2292b543"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "a58ee05327bab6d5bc21000b6ba9b8f2c88245cf7056c8978a7866e532c58ca4"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "484a1b0f543a625001fca312c90717f0cbf332daeeb208ec1fdd12ace4c580f5"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "10bec6fd6617b4226458e85cb9f10a4feb5c8f28df45ff0b7798547c999aff45"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "bc14114bd093f4304770e3ba087901eba8df54c7e84a39547f739ede1c44bc01"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "94bbefb203ca612cca56805a33cfa725e27ec1de0c15e4512ad839186b5a5cf6"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "24e923f83b3fba57ad199b979f0f0ebe90a332d59a5da609427db6b90136f015"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "1716a8551923c03ce2750b8408c3dc2ee96fe512704b4a8b49636d40f815552c"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "15db0717d1b210d909ea042d19a163a102fe12f7f719be6afcf4c54d1af2df0c"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final accepted XP two-device target-ownership DLL",
+      "shippedDllSha256": "ffa42fcb07a22d44128b9c2b48aa070701f8f2e519178d8159ee977c33d1f4c1",
+      "diagnosticSha256": "c8381d28d10bd5b4ae64ba9f69b441e5496e89d37a49ac730db3b77519357d2d"
+    },
+    "ddraw": {
+      "inheritedFrom": "docs/fixtures/d3d-review/stage4h6f8f-validation.json",
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "17b437ad78800577c188a42cc1d6a46ab0b1747f9d2c423fe2564149eacbc44e"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "919f0a847fdc46377e0548a7e9a59292693faf3634d63c256c643606c4af0688"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "97f5fa021094ecd177d8618acb6dbf97234b9896d5225c86032ae7e8f9ef1182"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "4bb05ea1ba161354004f6afa696b0e71e56efc00743f0b2578a9aa91bd48210e"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 0,
+      "publication": "unchanged prior accepted DLLs; source unchanged",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "nativeChecks": 3547,
+    "nativeCases": 1174,
+    "nativeForeignOrInvalidShapes": 9,
+    "newMutations": 8,
+    "previousSourceRuntimeNegativeControls": 1,
+    "fixtureCorruptions": 22,
+    "sanitizerFamilies": 5,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d9_target_owner_reference.json",
+    "sha256": "092c2edb768eac9ec8a8262c7de7b6ff35bba705fc75c3b22ecf4b19ace6d079",
+    "schema": 1,
+    "scope": "D3D9 SetRenderTarget rejects interfaces outside this frontend and surfaces owned by another device before resolving host handles, retaining/releasing references, replacing slots, emitting commands or changing viewport/scissor. Preserve same-device target/cube/backbuffer behavior and same-object rebinding. This ownership check is a prerequisite for the pending separation of public and internal binding references. D3D8 already checks frontend/owner and is retained as a regression control. Depth binding ownership, native public binding counters/device pins, unsupported color/depth combinations, complete Reset/multiple buffers/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain open. Foreign-interface rejection is this proxy policy, not a claim about arbitrary COM wrappers on native D3D9. Host/protocol/shaders unchanged; no draw/Present/Reset or GPU pixel run.",
+    "sources": [
+      {
+        "file": "d3d9-reset-device.c",
+        "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+        "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+        "evidence": "Pinned d3d9_device_SetRenderTarget rejects a surface whose creating device differs before acquiring a render-target view or changing state. Accepted targets update the viewport only for slot zero. This is a source implementation reference; no original Microsoft HAL cross-device run is claimed."
+      }
+    ],
+    "documentation": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-setrendertarget",
+        "evidence": "Invalid render targets return INVALIDCALL. Successful slot-zero target changes set the full-target viewport."
+      }
+    ],
+    "facts": {
+      "nativeChecks": 3547,
+      "nativeCases": 1174,
+      "foreignAndInvalidNativeShapes": 9,
+      "rtSlots": 4,
+      "newMutations": 8,
+      "xpDevices": 2,
+      "xpForeignProfiles": 8,
+      "xpRefusedForeignBindings": 256,
+      "xpLocalBindings": 5,
+      "xpTextureObjects": 7,
+      "xpAdditionalChains": 1,
+      "publicBindingCountersUnchanged": true,
+      "originalMicrosoftHAL": false
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 128,
+    "batches": 3,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "text": "PASS target owner probes \r\n",
+    "logs": {
+      "OWN9.TXT": "OWNER FOREIGN kind=0 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=1 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=2 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=3 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=4 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=5 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=6 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER FOREIGN kind=7 rounds=8 slots=4 refused=32 referencesUnchanged=1 stateUnchanged=1 sourceDeviceRefs=1\r\nOWNER STATUS foreignProfiles=8 refused=256 rounds=8 slots=4 localBindings=5 viewportScissorControls=1 allResourcesReleased=1\r\nPASS target owners API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; two real D3D9 devices, eight foreign surface shapes with eight rounds over all four RT slots, exact reference/target/depth/viewport/scissor preservation, local RT/cube bind and same-object controls; no draw/Present/Reset",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 1804,
+        "crc32": "6f47ce72"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 9,
+        "hello": 1,
+        "ended": 1,
+        "devices": [
+          {
+            "index": 0,
+            "handle": 1048577,
+            "retired": true
+          },
+          {
+            "index": 1,
+            "handle": 1048578,
+            "retired": true
+          }
+        ],
+        "resources": [
+          {
+            "handle": 1048579,
+            "device": 1048578,
+            "kind": 3,
+            "retired": true
+          },
+          {
+            "handle": 1048580,
+            "device": 1048578,
+            "kind": 3,
+            "retired": true
+          },
+          {
+            "handle": 1048581,
+            "device": 1048578,
+            "kind": 4,
+            "retired": true
+          },
+          {
+            "handle": 1048582,
+            "device": 1048578,
+            "kind": 3,
+            "retired": true
+          },
+          {
+            "handle": 1048584,
+            "device": 1048578,
+            "kind": 3,
+            "retired": true
+          },
+          {
+            "handle": 1048585,
+            "device": 1048577,
+            "kind": 3,
+            "retired": true
+          },
+          {
+            "handle": 1048586,
+            "device": 1048577,
+            "kind": 4,
+            "retired": true
+          }
+        ],
+        "chains": [
+          {
+            "handle": 1048583,
+            "retired": true
+          }
+        ],
+        "bindings": [
+          {
+            "slot": 0,
+            "resource": 1048585,
+            "face": 0
+          },
+          {
+            "slot": 0,
+            "resource": 1048585,
+            "face": 0
+          },
+          {
+            "slot": 0,
+            "resource": 0,
+            "face": 0
+          },
+          {
+            "slot": 3,
+            "resource": 1048586,
+            "face": 5
+          },
+          {
+            "slot": 3,
+            "resource": 0,
+            "face": 0
+          }
+        ]
+      }
+    ],
+    "graphicsSha256": "112bebf8459b59c9b2939847c58e4b8c292d6bf91d534c0d701e92157ca3abc8"
+  },
+  "fixture": {
+    "metadataSha256": "85ef1d7266cc4e60df3bdc63ae6011592b74fc89bd45fe15471476c7810f0470",
+    "compressedTraceSha256": "0e0768b93e8890a1bdba128ea43329d5f440b3170cce2daa0fdd5d742f251dbf",
+    "captureBuild": {
+      "dllSha256": {
+        "9": "ffa42fcb07a22d44128b9c2b48aa070701f8f2e519178d8159ee977c33d1f4c1"
+      },
+      "exeSha256": {
+        "9": "a8b457cbb46fac277f819e7dc4eef035add7463ca1a6ecc70bcd14efae26650c"
+      }
+    }
+  },
+  "scope": "D3D9 SetRenderTarget rejects interfaces outside this frontend and surfaces owned by another device before resolving host handles, retaining/releasing references, replacing slots, emitting commands or changing viewport/scissor. Preserve same-device target/cube/backbuffer behavior and same-object rebinding. This ownership check is a prerequisite for the pending separation of public and internal binding references. D3D8 already checks frontend/owner and is retained as a regression control. Depth binding ownership, native public binding counters/device pins, unsupported color/depth combinations, complete Reset/multiple buffers/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain open. Foreign-interface rejection is this proxy policy, not a claim about arbitrary COM wrappers on native D3D9. Host/protocol/shaders unchanged; no draw/Present/Reset or GPU pixel run.",
+  "coreSha256": {
+    "tests/glbridge/d3d9_target_owner_fixture_test.js": "c5bb91af0a59d8014af287bc5e31efd31d6d470e8744f0a0591208e337a08ba2",
+    "tests/glbridge/d3d9_target_owner_xp.mjs": "016bb35ffacfcc584f128f52eaabf3954cbc7f2269a04811a49baf4d9ce900cf",
+    "tests/glbridge/fixtures/d3d9_target_owner_reference.json": "092c2edb768eac9ec8a8262c7de7b6ff35bba705fc75c3b22ecf4b19ace6d079",
+    "tests/glbridge/fixtures/d3d9_target_owner_xp.bin.gz": "0e0768b93e8890a1bdba128ea43329d5f440b3170cce2daa0fdd5d742f251dbf",
+    "tests/glbridge/fixtures/d3d9_target_owner_xp.json": "85ef1d7266cc4e60df3bdc63ae6011592b74fc89bd45fe15471476c7810f0470",
+    "tests/lib/d3d9_target_owner_wire.mjs": "6093494a642684e0a9e1375eff865583963b13f7f73f7c30d0ee6c7fc534c51c",
+    "docs/d3d-webgpu-review.md": "a587925111f0e9d7ce7ad4c2a9be136ea13b78df16d900f810da6eb0edf9f5b4"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d9_target_owner_test.c": "074cac73ca472ba54808b7319f725ddef6e2f77039fa67c944061c7048f98bfd",
+    "glbridge/tests/d9wg_target_owner_mutation_test.js": "5396f8e96495fa3c21fbcd033d1392d47fadfaac1cf95960fba73a721b28c2b8",
+    "glbridge/tests/d9wg_target_owner_test.js": "92a97036c9ae03aeb365818101bec5de28c3892dd686533d719f4deec12c7181",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "c8381d28d10bd5b4ae64ba9f69b441e5496e89d37a49ac730db3b77519357d2d",
+    "glbridge/d3d9proxy/d3d9.dll": "ffa42fcb07a22d44128b9c2b48aa070701f8f2e519178d8159ee977c33d1f4c1",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "74087802e48837a58f7b8b24d12d739c52b1ba0cc8c2cfaf6ec692061cf8647b"
+  },
+  "logSha256": {
+    "core": "8d8d422342d77106b5cf5348c0529fa69c89d245ffd3f28c17465c45012056d5",
+    "full-guest": "a63b9f124caf99553b1744b74d2b2cdf18b869d35d3d38abd9645b1bb204a5f0",
+    "xp": "500ef3887583caafa45a4fa304c2573f168477cace8d34e2aee148a17dadfa6e",
+    "before": "c3b624f7c2d773013d3fdd43151b8fea9effb7c77ab86d8e2344d2572eb3013b",
+    "sanitize": "27cfbd898e16ea7b417b7cc877dfb047c503306097dfa04df6add4b9d2b837a6",
+    "fixture": "d08ea64f51b5c6c9ba41e394fbf00075ba1291f5a2f880a53e2b264590bbcab3",
+    "builds": "24a1f946ce1d5ed360b73c4fee0d4b3653bfcd61771a49fef759fc7a01bf5aab",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "82fcbe7cdc25cc007118bcbc43438fb1d9f1444c75372fa7da15e1c57517791f",
+    "integration": "b7d8bdf8f1bb2d30b3a971462e170878028c87fc6b44c68f79122280967bafa6",
+    "mutations": "c3d691c3182a45f1cda7c3b0ad5e28381f9c99552151ca613b67b3958dff25a4",
+    "native": "753ed04aa810e6a37676b600c2e53d4f924efe7a5b14d8b21244bee791d4c96a"
+  }
+}

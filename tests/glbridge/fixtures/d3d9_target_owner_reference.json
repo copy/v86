@@ -1,0 +1,34 @@
+{
+  "schema": 1,
+  "scope": "D3D9 SetRenderTarget rejects interfaces outside this frontend and surfaces owned by another device before resolving host handles, retaining/releasing references, replacing slots, emitting commands or changing viewport/scissor. Preserve same-device target/cube/backbuffer behavior and same-object rebinding. This ownership check is a prerequisite for the pending separation of public and internal binding references. D3D8 already checks frontend/owner and is retained as a regression control. Depth binding ownership, native public binding counters/device pins, unsupported color/depth combinations, complete Reset/multiple buffers/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain open. Foreign-interface rejection is this proxy policy, not a claim about arbitrary COM wrappers on native D3D9. Host/protocol/shaders unchanged; no draw/Present/Reset or GPU pixel run.",
+  "sources": [
+    {
+      "file": "d3d9-reset-device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "Pinned d3d9_device_SetRenderTarget rejects a surface whose creating device differs before acquiring a render-target view or changing state. Accepted targets update the viewport only for slot zero. This is a source implementation reference; no original Microsoft HAL cross-device run is claimed."
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-setrendertarget",
+      "evidence": "Invalid render targets return INVALIDCALL. Successful slot-zero target changes set the full-target viewport."
+    }
+  ],
+  "facts": {
+    "nativeChecks": 3547,
+    "nativeCases": 1174,
+    "foreignAndInvalidNativeShapes": 9,
+    "rtSlots": 4,
+    "newMutations": 8,
+    "xpDevices": 2,
+    "xpForeignProfiles": 8,
+    "xpRefusedForeignBindings": 256,
+    "xpLocalBindings": 5,
+    "xpTextureObjects": 7,
+    "xpAdditionalChains": 1,
+    "publicBindingCountersUnchanged": true,
+    "originalMicrosoftHAL": false
+  }
+}

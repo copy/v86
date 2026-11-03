@@ -1935,6 +1935,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 十四组相关核心、18 组相关客体、36 个标准 SDK EXE、六份严格 DLL、新容器 SDK EXE和站点两项集成通过。只发布最终 XP 所测 D3D8 零售 DLL及严格诊断 DLL；宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变，无新 GPU 像素运行，继承 8e 的 232 组完整客体及 7d/e、8c 核心/GPU 基线。见 [stage4h6f8f-validation.json](fixtures/d3d-review/stage4h6f8f-validation.json)。
 > - 绑定对象的原生公共计数/设备引用、完整格式/MSAA/刷新率/全屏参数、多缓冲存储/轮转、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f8g（2026-11-03）：D3D9 RT 绑定拒绝外设备表面并保持失败原子性（S2-26 / S2-42 相关）完成。**
+>
+> - SetRenderTarget 在解析宿主 handle、取得/归还引用、替换绑定及改变视口之前验证前端接口与创建设备；其他设备的纹理级、立方体面、独立 RT、主/附加缓冲和自动深度等表面不能进入本设备的 RT 命令。D3D8 已有接口/设备校验，保留原入口回归；本项不更改两版公共计数模型或 D3D9 深度绑定的归属策略。
+> - 固定 Wine D3D9 SetRenderTarget 的明确设备检查作为实现依据；不同前端接口拒绝为本项目策略，不宣称覆盖原生任意 COM 包装接口。本项是在分离绑定内部/公共引用之前补齐归属前提，原生绑定计数及完整设备所有权仍待后续阶段。
+> - 新实际入口 3,547 项、1,174 组：九种外设备/无效接口形态、全部四个 RT 槽、失败后整个设备/表面/旧目标及命令/视口/裁剪不变；本设备 2D/cube/主缓冲、同目标重绑、NULL 和槽边界保持。仅含接口头的对象通过 ASan/UBSan，八项新变异全部发现；旧源在第一组外设备 HRESULT 断言失败，五族 ASan/UBSan 通过。
+> - XP 同一进程创建两个设备，以八类真实外设备表面各八轮遍历四槽，256 次拒绝后目标/深度/视口/裁剪及双方引用保持。另有本设备 RT 重绑、主缓冲恢复和 cube 第三槽绑定/解绑五次成功；128 秒退出，全部资源、两个设备与工厂归零。冻结轨迹只含五条本设备合法 RT 命令，外设备拒绝不发绑定，七份 texture/cube 和一条附加链完整退役；22 项语义损坏全部检出，无绘制/呈现/Reset。
+> - 十五组相关核心、236 组完整客体、14 个 D3D9 标准 SDK EXE、两份严格 D3D9 DLL、新双设备 SDK EXE和站点两项集成通过；未改的 D3D8/DDraw 继承紧邻 8f 的 36 EXE/六 DLL 验收及原发布文件。只发布最终 XP 所测 D3D9 零售 DLL及严格诊断 DLL。宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 未改，无新 GPU 像素运行，继承 7d/e、8c 核心/GPU 基线。见 [stage4h6f8g-validation.json](fixtures/d3d-review/stage4h6f8g-validation.json)。
+> - 绑定对象的原生公共计数/设备引用、其他跨设备资源入口、完整格式/MSAA/刷新率/全屏参数、多缓冲存储/轮转、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
