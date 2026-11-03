@@ -1,0 +1,1173 @@
+{
+  "stage": "4H5a D3D8 cube target binding, NULL color/depth semantics and live viewport side effects (S2-37/S2-56)",
+  "date": "2026-11-03",
+  "bundle": "8cc48a9a2b75d0296e91",
+  "coreSuites": 182,
+  "guestSuites": 169,
+  "webgpuRuns": 2,
+  "siteIntegrationTests": 2,
+  "fullGPUTarget": {
+    "swiftPageRuns": 51,
+    "metalConformanceRuns": 1,
+    "total": 52
+  },
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "ba66e76c2f28a11edcf34b9a64729022771b51f594814144870be2f3ae31e33d"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "711f0aa69e580b03de25622e1e0ce69112dc363dd3a4ef77b379efb8e6cf12bb"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "367fd72e22b8a6b0ce672ac98fd183b99fd9e9d67fd54b26fc96d5e5ca99ca5e"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "13782d5c599e1ddc6237481611efc8e74a859b2606f97b18cad9eb8cd681e384"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "6adfebb30f24a830f5c3f76898405dc6dcf4221cb225bab9315fc03413af961f"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "914159591d1f64f5c6194bea0a142037795dea22f7ca5be01be7a0ea0d5e48d7"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "77243ac5ad6c16eed15b36bb19ce06dec4c039934552b78ae2648160ad1d74d0"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "128d740d60a5cb90d26c4e7a990e30a5f9fb892e41424dad49ad2d873fddba19"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "47a9722171738c4608d92e57416addacaf84502898a7303694a3bd3cd5dbbe24"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "4f3248c206bc04f20195fbbffa3f74ba0e802e561898f1cb4ec1fdef3e56b2a0"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "a234734c1b2aee2c3278dcd76ad94212818d54be0b50627e1809c26293b7f34c"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "8e07200051cfedb1fcd18097c0269c74a442359e4c9bc7a9609a4f839cb7f80d"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "c85e4d83acbae19adc055f89178833195b67d9069408689e2414290c1f1237df"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "4f2f9fc9ec6131aeaa41d591066f06e82b6c0e79cc8cd49b7c33ee4a8a4450f9"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "52745ee396020a9bc1a7d4d869917c0e6e61d9e62517d5bb59a02a5a80006013"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "6d569ee788da9cb359c903746a573a49282b7fbc06ab4080ce0c6dcc6714072d"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "f130b3a0220936eb9e9110ec48553ddaf5b4cfb9a12b072e61ade979b02cbd5c"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "2496a870777e6439969a35ed334970e7df04ff7e347eecf5f4583edeb73526f7"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact accepted final XP cube-target probe binary",
+      "shippedDllSha256": "66f3c6e0acab7a0946d7792466b7032d86aa878f6bfd28e7d14b1256eee3ccf3",
+      "diagnosticSha256": "1991a74299e7aadc3ca7cc50a5487a549e03c9b062ae2e832cd992e3b560448c"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "ef5e5a022e3c5ee5c2fa953dcb853bf1b96a7179f1ba5fc79510ee67e2a78252"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "8953efcea23232f87974a63a0930c688c7cda527e3e4eefc8414670d3813afda"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "cdd1ca2ceacfdcdb89425ea425f0f5ec2a4c64cd9d04416d28c1808690ccfa9e"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "bc8a40ba80da2a6ee548a9747c2e0536269cef46db59cfd9f85898b6db939f31"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "af49e5c2aaf8d30cb9e8b2619fb93413dd2ed27b2e46e8143bf3af13822e1d33"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "dfc17e7953d74e36adb2103ebb24ee6094acfdf47d8dece37083fcf28ee5fce4"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "da160e5b25331fa0fde512ca33159f654c3462d62d95303a4bef93a6133e84f7"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "7781c308b37ed6ae024bc142e89a222f5f30c2a0de5dc716405721839a952486"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "93cad8ad2ba829b7800b1446cba2b979a5b6fe6560a4d140c66f08c394f396c5"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "2143fdfe31a8a41e5f36322a4bc16064ec20d31238ef9c3fc496f21a47ec846b"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "54a16a8e2bd6801a50d767e4b485db04316c663a2b88037fd7f501df64fb709f"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "878537c6b034486cfed4641d4f33c703d109e9b196d7ca3bb231406822814e01"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "b2da3478d691a24507e5c694c04b9185f91142bad9a34e84f480b805a7a74f28"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "2d55bf2f2368ee569b37a5ddb77cd0fbacf150046fba62dfe39231acfd375edc"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted binaries",
+      "shippedDllSha256": "8759e297a5e3b4581815625a2d4f7cf9dfd1267dcae4cb12d1758fa3aa86dfc7",
+      "diagnosticSha256": "733cae19dfe86a3d007b41f71de69242395a01abe6035996dbfc6da7ce0569a3"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "76063540e7c1ba15d45db866e157ffc0ff7b02cbc727e8a28c821c7f2e4fc4d2"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "ee84e14c6857937b55ffa03e1e9b891c3b6c8346745bffe2fde38beec78f8230"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "a1af33b904ff48f16831bd13ef3b97bfbd2970d169a5650250063fb5151e9947"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "0f069e645c33d7df598f620bf812f35b91dd08ab1869f99ec6f29e74c5e493e4"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted binaries",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "unchangedHost": {
+    "reference": "stage4h4b-validation.json",
+    "referenceSha256": "0ebc705b5bfc777ccfe7bb530c2aca0d946ace57b465d26223ad349dab804df4",
+    "files": {
+      "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+      "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+      "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+      "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+      "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+      "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+      "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+      "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+    },
+    "priorFullTarget": {
+      "swiftPageRuns": 50,
+      "metalConformanceRuns": 1,
+      "total": 51
+    },
+    "bundle": "8cc48a9a2b75d0296e91"
+  },
+  "portable": {
+    "actualRenderTargetCases": 31,
+    "mutations": {
+      "killed": 24,
+      "total": 24
+    },
+    "retainedRecordingMutations": {
+      "killed": 10,
+      "total": 10
+    },
+    "fixtureCorruptions": 4,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "cubeFaces": 6,
+    "cubeLevels": 2,
+    "exactTargetAndDepthIdentity": true,
+    "NULLColorPreservesViewportAndColor": true,
+    "missingDepthReturnsNotFoundAndNULL": true,
+    "liveViewportResetBypassesRecording": true,
+    "explicitViewportRecordingRemainsDeferred": true,
+    "validationHasNoEffects": true,
+    "ownedCubeRefReleasedOnRebindAndCleanup": true,
+    "acquireBeforeRelease": true,
+    "transportFailureKeepsAcceptedPrefixPolicy": true
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d8_render_target_reference.json",
+    "sha256": "6e3090d84792c0b703c5333f7ee8ac4ba3e108c0fcb01b79ee9905343066cea3",
+    "sources": [
+      {
+        "file": "d3d8-map-device.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+        "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+        "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593"
+      },
+      {
+        "file": "d3d8-device-tests.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/device.c",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2"
+      }
+    ]
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 107,
+    "batches": 16,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "text": "PASS D3D8 target probe \r\n",
+    "logs": {
+      "TARGET.TXT": "FACE 0 0 64 FFFF0000\r\nFACE 0 1 32 FF0000FF\r\nFACE 1 0 64 FF00FF00\r\nFACE 1 1 32 FFFFFF00\r\nFACE 2 0 64 FF0000FF\r\nFACE 2 1 32 FFFF00FF\r\nFACE 3 0 64 FFFFFF00\r\nFACE 3 1 32 FF00FFFF\r\nFACE 4 0 64 FFFF00FF\r\nFACE 4 1 32 FFFF0000\r\nFACE 5 0 64 FF00FFFF\r\nFACE 5 1 32 FF00FF00\r\nCHECK cube lifetime, depth-only/recorded viewport and unchanged back buffer\r\nPASS D3D8 targets API=8\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "Explicit simulated host replies for guest readback/fault recovery only; actual GPU color validation is separate replay",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 11664,
+        "crc32": "3c58eefe"
+      }
+    },
+    "wire": {
+      "created": 4,
+      "destroyed": 4,
+      "deviceDestroyed": 1,
+      "colorBinds": 25,
+      "depthBinds": 62,
+      "viewports": 60,
+      "clears": 13,
+      "draws": 12,
+      "requests": [
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 0,
+          "format": 22,
+          "width": 64,
+          "height": 64,
+          "first_row": 0,
+          "row_count": 64,
+          "destination_pitch": 256,
+          "destination_bytes": 16384,
+          "response_offset": 16384,
+          "request_id": 1,
+          "face": 0,
+          "tag": "cube",
+          "expectedARGB": 4294901760,
+          "expectedOffset": 0,
+          "expectedBytes": 16384,
+          "expectedSha256": "c34fb4331b2d031d7c644860b54a678424c66ef12352fc165a91dc09840d98fd"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 1,
+          "format": 22,
+          "width": 32,
+          "height": 32,
+          "first_row": 0,
+          "row_count": 32,
+          "destination_pitch": 128,
+          "destination_bytes": 4096,
+          "response_offset": 16384,
+          "request_id": 2,
+          "face": 0,
+          "tag": "cube",
+          "expectedARGB": 4278190335,
+          "expectedOffset": 16384,
+          "expectedBytes": 4096,
+          "expectedSha256": "4ab589b8423c13f8f33994356d5b696d9b3b56d968e1939f2088c53b5149e6cf"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 0,
+          "format": 22,
+          "width": 64,
+          "height": 64,
+          "first_row": 0,
+          "row_count": 64,
+          "destination_pitch": 256,
+          "destination_bytes": 16384,
+          "response_offset": 16384,
+          "request_id": 3,
+          "face": 1,
+          "tag": "cube",
+          "expectedARGB": 4278255360,
+          "expectedOffset": 20480,
+          "expectedBytes": 16384,
+          "expectedSha256": "3d558540e8c59a9e6915aaa700c8d714c8927167920bf0bcf84c4ece2589f368"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 1,
+          "format": 22,
+          "width": 32,
+          "height": 32,
+          "first_row": 0,
+          "row_count": 32,
+          "destination_pitch": 128,
+          "destination_bytes": 4096,
+          "response_offset": 16384,
+          "request_id": 4,
+          "face": 1,
+          "tag": "cube",
+          "expectedARGB": 4294967040,
+          "expectedOffset": 36864,
+          "expectedBytes": 4096,
+          "expectedSha256": "f8189aede8290aa3c48aa45e4b7946b77aec52fe17e53e67a7166894c7ed9fde"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 0,
+          "format": 22,
+          "width": 64,
+          "height": 64,
+          "first_row": 0,
+          "row_count": 64,
+          "destination_pitch": 256,
+          "destination_bytes": 16384,
+          "response_offset": 16384,
+          "request_id": 5,
+          "face": 2,
+          "tag": "cube",
+          "expectedARGB": 4278190335,
+          "expectedOffset": 40960,
+          "expectedBytes": 16384,
+          "expectedSha256": "0bcc07de1631aa0395013f35790f719bd754f61e4bb2847a86fdc2365d3d8d63"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 1,
+          "format": 22,
+          "width": 32,
+          "height": 32,
+          "first_row": 0,
+          "row_count": 32,
+          "destination_pitch": 128,
+          "destination_bytes": 4096,
+          "response_offset": 16384,
+          "request_id": 6,
+          "face": 2,
+          "tag": "cube",
+          "expectedARGB": 4294902015,
+          "expectedOffset": 57344,
+          "expectedBytes": 4096,
+          "expectedSha256": "f9d747758d7de51321560d5bdcfe64af0dbd8f16304ba69b7141643c9491469b"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 0,
+          "format": 22,
+          "width": 64,
+          "height": 64,
+          "first_row": 0,
+          "row_count": 64,
+          "destination_pitch": 256,
+          "destination_bytes": 16384,
+          "response_offset": 16384,
+          "request_id": 7,
+          "face": 3,
+          "tag": "cube",
+          "expectedARGB": 4294967040,
+          "expectedOffset": 61440,
+          "expectedBytes": 16384,
+          "expectedSha256": "85d8b62ded901c24b4abd09d1a5a46cb79f1ff0dfd1008f85310f0c3c685d683"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 1,
+          "format": 22,
+          "width": 32,
+          "height": 32,
+          "first_row": 0,
+          "row_count": 32,
+          "destination_pitch": 128,
+          "destination_bytes": 4096,
+          "response_offset": 16384,
+          "request_id": 8,
+          "face": 3,
+          "tag": "cube",
+          "expectedARGB": 4278255615,
+          "expectedOffset": 77824,
+          "expectedBytes": 4096,
+          "expectedSha256": "d3acb2d6254845de93635d149671037961b10baac63a4e9e8b62c213bcd2802e"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 0,
+          "format": 22,
+          "width": 64,
+          "height": 64,
+          "first_row": 0,
+          "row_count": 64,
+          "destination_pitch": 256,
+          "destination_bytes": 16384,
+          "response_offset": 16384,
+          "request_id": 9,
+          "face": 4,
+          "tag": "cube",
+          "expectedARGB": 4294902015,
+          "expectedOffset": 81920,
+          "expectedBytes": 16384,
+          "expectedSha256": "da97c4547c0000c0e3b6afba6bbed63c835a948d33bcd05b99e221089046d8da"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 1,
+          "format": 22,
+          "width": 32,
+          "height": 32,
+          "first_row": 0,
+          "row_count": 32,
+          "destination_pitch": 128,
+          "destination_bytes": 4096,
+          "response_offset": 16384,
+          "request_id": 10,
+          "face": 4,
+          "tag": "cube",
+          "expectedARGB": 4294901760,
+          "expectedOffset": 98304,
+          "expectedBytes": 4096,
+          "expectedSha256": "590d140f13d7c4fac61d0745e2ece4e5afc4ce50af80f4a8470f5fcf00495101"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 0,
+          "format": 22,
+          "width": 64,
+          "height": 64,
+          "first_row": 0,
+          "row_count": 64,
+          "destination_pitch": 256,
+          "destination_bytes": 16384,
+          "response_offset": 16384,
+          "request_id": 11,
+          "face": 5,
+          "tag": "cube",
+          "expectedARGB": 4278255615,
+          "expectedOffset": 102400,
+          "expectedBytes": 16384,
+          "expectedSha256": "dde6bc7b9ee85fef4bd15c4e7c3e65565faad0829d32c2b7ceffe953840ec9f1"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048581,
+          "level": 1,
+          "format": 22,
+          "width": 32,
+          "height": 32,
+          "first_row": 0,
+          "row_count": 32,
+          "destination_pitch": 128,
+          "destination_bytes": 4096,
+          "response_offset": 16384,
+          "request_id": 12,
+          "face": 5,
+          "tag": "cube",
+          "expectedARGB": 4278255360,
+          "expectedOffset": 118784,
+          "expectedBytes": 4096,
+          "expectedSha256": "56419a079049271b37eea3515c12bbafb46578e6ac4db012c61395ef8b2e5a68"
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 0,
+          "level": 0,
+          "format": 21,
+          "width": 64,
+          "height": 64,
+          "first_row": 0,
+          "row_count": 64,
+          "destination_pitch": 256,
+          "destination_bytes": 16384,
+          "response_offset": 16384,
+          "request_id": 13,
+          "face": 0,
+          "tag": "back",
+          "expectedARGB": 4280303712,
+          "expectedOffset": 122880,
+          "expectedBytes": 16384,
+          "expectedSha256": "e9e7250590922bac9b9748d7d3e4a1f96bed287387a8aa5513bb65206240966d"
+        }
+      ],
+      "pixels": 34816,
+      "expectedBytes": 139264
+    },
+    "graphicsSha256": "a179a7a3507820ae461c8450154fa37673a54fc70fae86102458e9a809cd92f4"
+  },
+  "fixture": {
+    "metadataSha256": "6fc3dd3af49277e2fcd5c477b1416e5dfac66a93b434ae7eb3143d5bdefce6d7",
+    "compressedTraceSha256": "1d9533e54a9048a03e2eb1afe75763067aed54c0c08c890d6a66a13a9fd332bd",
+    "compressedExpectedPixelsSha256": "d0f0ff88e414a6bfdfa36130e82972a970dccd1a1ab09b6ececffd8a3409129c",
+    "captureBuild": {
+      "dllSha256": {
+        "d3d8": "66f3c6e0acab7a0946d7792466b7032d86aa878f6bfd28e7d14b1256eee3ccf3"
+      },
+      "executableSha256": {
+        "TARGET.EXE": "3023839a9f774ab14b0039dc30e7e71879d992c95b2b6d1bb6e466a8e1027152"
+      }
+    }
+  },
+  "gpu": {
+    "swift": {
+      "traceSha256": "a179a7a3507820ae461c8450154fa37673a54fc70fae86102458e9a809cd92f4",
+      "expectedPixelsSha256": "036a9bc0c7a36e9ac33b3636955ee6d6727eb42e0efdfd92089719587ce9f2ae",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "66f3c6e0acab7a0946d7792466b7032d86aa878f6bfd28e7d14b1256eee3ccf3"
+        },
+        "executableSha256": {
+          "TARGET.EXE": "3023839a9f774ab14b0039dc30e7e71879d992c95b2b6d1bb6e466a8e1027152"
+        }
+      },
+      "requests": 13,
+      "pixels": 34816,
+      "batches": 16,
+      "comparisons": [
+        {
+          "requestId": 1,
+          "tag": "cube",
+          "level": 0,
+          "face": 0,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 2,
+          "tag": "cube",
+          "level": 1,
+          "face": 0,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 3,
+          "tag": "cube",
+          "level": 0,
+          "face": 1,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 4,
+          "tag": "cube",
+          "level": 1,
+          "face": 1,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 5,
+          "tag": "cube",
+          "level": 0,
+          "face": 2,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 6,
+          "tag": "cube",
+          "level": 1,
+          "face": 2,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 7,
+          "tag": "cube",
+          "level": 0,
+          "face": 3,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 8,
+          "tag": "cube",
+          "level": 1,
+          "face": 3,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 9,
+          "tag": "cube",
+          "level": 0,
+          "face": 4,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 10,
+          "tag": "cube",
+          "level": 1,
+          "face": 4,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 11,
+          "tag": "cube",
+          "level": 0,
+          "face": 5,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 12,
+          "tag": "cube",
+          "level": 1,
+          "face": 5,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 13,
+          "tag": "back",
+          "level": 0,
+          "face": 0,
+          "pixels": 4096,
+          "maximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 16,
+        "commands": 232,
+        "presents": 0,
+        "queueSubmits": 25,
+        "drawCalls": 12,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 12,
+        "pipelineCreations": 1,
+        "pipelineHits": 11,
+        "pipelinesRejected": 0,
+        "programBuilds": 12,
+        "programCacheHits": 0,
+        "bindGroupCreations": 1,
+        "bindGroupHits": 11,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 1,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 1,
+        "backBufferPresents": 0,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 12,
+        "readbackRequests": 13,
+        "frameFlushes": 12,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 4,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 1,
+        "sessionChanges": 0,
+        "sessionsEnded": 1,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 1,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 1,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 25,
+        "renderPasses": 13,
+        "depthTargetSizeMismatches": 24,
+        "depthTargetSubstitutions": 24,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 20,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 12,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 3072,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 13,
+        "renderTargetReadbackBytes": 139264,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "1733612ae5dd897bf3f8eb2f85c82cbca130d2dc094b71bcdc3a7dd5452a8fd5"
+    },
+    "metal": {
+      "traceSha256": "a179a7a3507820ae461c8450154fa37673a54fc70fae86102458e9a809cd92f4",
+      "expectedPixelsSha256": "036a9bc0c7a36e9ac33b3636955ee6d6727eb42e0efdfd92089719587ce9f2ae",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "66f3c6e0acab7a0946d7792466b7032d86aa878f6bfd28e7d14b1256eee3ccf3"
+        },
+        "executableSha256": {
+          "TARGET.EXE": "3023839a9f774ab14b0039dc30e7e71879d992c95b2b6d1bb6e466a8e1027152"
+        }
+      },
+      "requests": 13,
+      "pixels": 34816,
+      "batches": 16,
+      "comparisons": [
+        {
+          "requestId": 1,
+          "tag": "cube",
+          "level": 0,
+          "face": 0,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 2,
+          "tag": "cube",
+          "level": 1,
+          "face": 0,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 3,
+          "tag": "cube",
+          "level": 0,
+          "face": 1,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 4,
+          "tag": "cube",
+          "level": 1,
+          "face": 1,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 5,
+          "tag": "cube",
+          "level": 0,
+          "face": 2,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 6,
+          "tag": "cube",
+          "level": 1,
+          "face": 2,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 7,
+          "tag": "cube",
+          "level": 0,
+          "face": 3,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 8,
+          "tag": "cube",
+          "level": 1,
+          "face": 3,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 9,
+          "tag": "cube",
+          "level": 0,
+          "face": 4,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 10,
+          "tag": "cube",
+          "level": 1,
+          "face": 4,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 11,
+          "tag": "cube",
+          "level": 0,
+          "face": 5,
+          "pixels": 4096,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 12,
+          "tag": "cube",
+          "level": 1,
+          "face": 5,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "requestId": 13,
+          "tag": "back",
+          "level": 0,
+          "face": 0,
+          "pixels": 4096,
+          "maximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 16,
+        "commands": 232,
+        "presents": 0,
+        "queueSubmits": 25,
+        "drawCalls": 12,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 12,
+        "pipelineCreations": 1,
+        "pipelineHits": 11,
+        "pipelinesRejected": 0,
+        "programBuilds": 12,
+        "programCacheHits": 0,
+        "bindGroupCreations": 1,
+        "bindGroupHits": 11,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 1,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 1,
+        "backBufferPresents": 0,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 12,
+        "readbackRequests": 13,
+        "frameFlushes": 12,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 4,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 1,
+        "sessionChanges": 0,
+        "sessionsEnded": 1,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 1,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 1,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 25,
+        "renderPasses": 13,
+        "depthTargetSizeMismatches": 24,
+        "depthTargetSubstitutions": 24,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 20,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 12,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 3072,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 13,
+        "renderTargetReadbackBytes": 139264,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "1733612ae5dd897bf3f8eb2f85c82cbca130d2dc094b71bcdc3a7dd5452a8fd5"
+    }
+  },
+  "scope": "D3D8 resolves 2D/cube/back-buffer resource, mip and face identity through its common surface locator. Bound cube parent refs are retained across caller release and released during rebind/reset/device-owned cleanup; current target size and CPU Clear mirror select the actual cube level. GetRenderTarget returns the matching cube parent/face/mip view. NULL color changes only depth and preserves the current color identity and viewport; missing depth queries return NOTFOUND and NULL. Larger depth extents are accepted and smaller ones refused against the current target even on depth-only calls. Explicit target changes reset the live viewport through an emitter shared with ordinary SetViewport, bypassing state-block recording for the target side effect; explicit SetViewport remains deferred. Validation precedes binding effects, while transport failures retain the existing accepted-prefix state policy. Native production functions cover all six faces/two levels, queries, sizes, validation, reference ordering, cleanup and recording boundaries. Real XP runs twelve colored cube passes through queried target views, depth-only switches, empty recorded blocks and an app-released held parent; the back buffer remains unchanged. Guest CPU replies are explicit simulations; separate actual GPU replay checks thirteen requests and 34816 pixels on both backends. Every oversized-depth pass clears depth first, so this does not validate preservation of prior depth data across target sizes. Source COM surface pointer identity, complete Reset resource boundaries, MSAA/depth type validation, duplicate MSAA creation (S2-43), wrapper conversion and stages 4/5/6 remain. No original Microsoft HAL or complete Wine/game/FPS result is claimed.",
+  "coreSha256": {
+    "tests/glbridge/d3d8_render_target_fixture_test.js": "9f0284b35c4828e5a296a0373ff35ccc353f63861d90d71dafde2c1302500a5e",
+    "tests/glbridge/d3d8_render_target_reference_test.js": "2391723a27ca09f3948238f3b67b46a82c0e5236995bf5876fe401ffa8010e9a",
+    "tests/glbridge/d3d8_render_target_replay_browser_test.html": "51ec33dfcf0eb5d1b059c3d88454d8e5d67f885d1736dfa403b58196e4a9dfbc",
+    "tests/glbridge/d3d8_render_target_xp.mjs": "6168b216688e1f0571ae2a01fb0bcdf8c5622699443666a7a3ab4259938e8a49",
+    "tests/glbridge/fixtures/d3d8_render_target_reference.json": "6e3090d84792c0b703c5333f7ee8ac4ba3e108c0fcb01b79ee9905343066cea3",
+    "tests/glbridge/fixtures/d3d8_render_target_xp.bin.gz": "1d9533e54a9048a03e2eb1afe75763067aed54c0c08c890d6a66a13a9fd332bd",
+    "tests/glbridge/fixtures/d3d8_render_target_xp.json": "6fc3dd3af49277e2fcd5c477b1416e5dfac66a93b434ae7eb3143d5bdefce6d7",
+    "tests/glbridge/fixtures/d3d8_render_target_xp_expected.bin.gz": "d0f0ff88e414a6bfdfa36130e82972a970dccd1a1ab09b6ececffd8a3409129c",
+    "tests/lib/d3d8_render_target_wire.mjs": "eb8b6d0f930e3d1f793229c7e860d7deebf8b3042cbfbadce95314229f7ccb4e",
+    "Makefile": "42e21512b784bda3c05a33094588bae50b6307f53db72f59303d3421553505fe",
+    "docs/d3d-webgpu-review.md": "ea6056ba9a162415f17de0305133bfb221751c8172f9485a5107d42a10379316"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d8_render_target_test.c": "a651ab981dc64558f8f198346826e0bfbafe24e8a118be1ce84199b4747160cb",
+    "glbridge/tests/d8wg_render_target_mutation_test.js": "14dfdc9dbdc428be45bf804ea7f0a5534e8097590449b4e6180554d749ef5926",
+    "glbridge/tests/d8wg_render_target_test.js": "7a9dbba9e50c574d454629a489bfa34e737e8b1e9dca5139aebf48561ce8c579",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "1991a74299e7aadc3ca7cc50a5487a549e03c9b062ae2e832cd992e3b560448c",
+    "glbridge/d3d8proxy/d3d8.dll": "66f3c6e0acab7a0946d7792466b7032d86aa878f6bfd28e7d14b1256eee3ccf3",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "c5ed9a79aed7395dfa45acfde78ea1e276c53aa3c270c99d979218082eacf335",
+    "glbridge/tests/d3d8_protocol_consistency_test.js": "0f36713d6ecbe87117b60d256759e16d02d8f468de5db93a2e307fdf1d173b2b",
+    "glbridge/tests/d8wg_recording_test.js": "4b2c19c1c474ad6d66ab479b8ec092ba429837ee3fbcc440252380b5cc17af65"
+  },
+  "logSha256": {
+    "core": "82e7f5ff1ca872dd0fa9f63bb429c86ba221e91dc4a7b8203c4775e5b7dfd5ff",
+    "guest": "8b9066e0d09aa1cf707f74a4b171096767168692400d6f8ef4acb73d0a3bec8e",
+    "target-xp": "47d910638663467060e88eb63f6946817e3175e62985b5261fc63db24b4181b4",
+    "target-swift": "9e64764abb7418b2697929ed5f2464bea3951d6f974e7f7c79eefe669e160816",
+    "target-metal": "9e64764abb7418b2697929ed5f2464bea3951d6f974e7f7c79eefe669e160816",
+    "target-mutations": "3a0dcd244dd77eb9809b9b4c7b0c1fb9fea4e16d877aedb17c5e14850b484f1f",
+    "recording-mutations": "a7af0601c99b8e8609b26772c9c8cd4717ec37ca6ab0158216954ec18089157a",
+    "sanitize": "16bf17306cef4d081e10609a1ace7842e73d2696d626be278a6aadb816be9e8a",
+    "fixture-unit": "670892ba4fddab7ec60ef54819b4bdeae447072d36cef69d73f84d8704a8c987",
+    "builds": "a200ab85fc75353485511c7d356cf48c5c4115137b97f83184efac93e443a9c0",
+    "lint": "9789e0fd2ec95a559ea68763f1e8cc19fa6262012e8bc74c35a56e43e801d3b1",
+    "site-lint": "e959fc3cc32615f04dc04fbabc5397bc650c0fbab74eedcc786c2172b97d87c4",
+    "integration": "3ad4e2386a47f7a85549a2b979796ce51a4181ecb027ee21ed59af8314357763"
+  }
+}

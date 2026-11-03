@@ -1614,6 +1614,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 180 组核心、167 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL和两项集成通过。D3D8 发布最终 XP 验收原 DLL 字节；D3D9/DDraw 保持既有已验收字节。宿主源码/运行包 `8cc48a9a2b75d0296e91` 未变，沿用先前完整 GPU/533 场景基线并新增两次最终回放，完整 GPU 目标现含 51 次运行。见 [stage4h4b-validation.json](fixtures/d3d-review/stage4h4b-validation.json)。
 > - GetFrontBuffer 仍采用代理输出面的坐标/尺寸契约，未宣称完整桌面、窗口偏移或原生 front/back 呈现时序。Clear 的 CPU 填充、附加交换链/COM 同一性、可锁 back buffer、完整 MSAA 边界和立方体 RT 绑定（S2-37）继续；本步的立方体验收针对复制与 CPU 镜像，不等同于渲染到立方体。接着目标绑定/创建及共用包装，阶段 4/5/6 继续。
 
+> **阶段 4H5a（2026-11-03）：D3D8 立方体目标、NULL 颜色目标与实时视口（S2-37 / S2-56）完成。**
+>
+> - SetRenderTarget 使用共用表面定位器解析 2D、立方体和 back buffer，发送正确资源、face 与 mip。设备保留立方体父对象引用，重绑/清理先获取新引用并清空旧绑定再释放；当前尺寸、Clear 镜像和 GetRenderTarget 都选择实际立方体层，避免落到 back buffer 或零尺寸。
+> - NULL 颜色参数仅更改深度，保留颜色资源/face/mip 与视口；深度尺寸按当前目标验证，较大允许、较小拒绝。解绑后的 GetDepthStencilSurface 返回 NOTFOUND 和 NULL。切换颜色目标通过与普通 SetViewport 共用的实时发射器恢复完整视口；这个绑定副作用不进入状态块录制，显式 SetViewport 仍按原规则延迟录制。
+> - 实际 C 的 31 组检查、24/24 新变异、10/10 既有录制变异及 ASan/UBSan 通过。覆盖六面/两层的目标、深度、尺寸、查询、引用和清理，NULL 保留、有效较大深度、验证无副作用、录制/实时视口边界及传输错误前缀策略。
+> - XP 公开 COM 完成 12 个立方体渲染场景，通过查询得到的目标回读；验证深度独立切换、录制期间视口重置、空录制块 Apply 不捕获该副作用、调用者释放后的父对象存活和 back buffer 保持。原始流逐项核对 25 次颜色绑定、62 次深度绑定、60 次视口更新、13 次 Clear、12 次 Draw、四个资源及设备销毁。SwiftShader/Metal 各通过 13 次回读、34,816 个真实 GPU 像素；所有较大深度目标都先清深度，未把跨尺寸历史深度内容纳入本次结论。
+> - 182 组核心、169 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL和两项集成通过。D3D8 发布最终 XP 验收原 DLL，D3D9/DDraw 保持既有已验收字节。宿主源码/运行包 `8cc48a9a2b75d0296e91` 未变，沿用先前完整 GPU/533 场景基线并新增两次最终回放；完整 GPU 目标现含 52 次运行。见 [stage4h5a-validation.json](fixtures/d3d-review/stage4h5a-validation.json)。
+> - NULL 行为及深度错误依据固定 Wine Windows 测试；颜色查询已保持资源/face/mip 身份，COM 表面指针同一性仍留给 S2-42。客体 CPU 回复是显式模拟，GPU 像素单独验收，不宣称原生 Microsoft HAL、完整 Reset/MSAA 或游戏/FPS 验收。接着修复 MSAA 目标重复创建（S2-43）和相关元数据，随后继续共用包装及阶段 4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
