@@ -1,0 +1,347 @@
+{
+  "stage": "4H6f7b D3D8 additional-backbuffer device container (S2-42 related)",
+  "date": "2026-11-03",
+  "bundle": "53aef54a6a8491c26cd2",
+  "targetedCoreSuites": 7,
+  "targetedGuestSuites": 21,
+  "webgpuRuns": 0,
+  "baseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f7a-validation.json",
+    "sha256": "1296a7bb401a5a8c8083d2f8b716a8693e60acc674b8d346af01e0b825bd6276",
+    "coreSuites": 213,
+    "guestSuites": 218,
+    "webgpuRuns": 58,
+    "bundle": "53aef54a6a8491c26cd2",
+    "reason": "Guest-only container classification and dispatch; no host/protocol/shader change. Inherit 7a full suites and complete rebuilt-host GPU baseline."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "3a69da98701b91cf6d8834d784cdddf3aeb8d9aa9c6dc8d1d36afb6c420008c3"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "30c631b2e309ca213310d7eaef8e9cab6a16fd32d806de89a2463b3d2b30f9d8"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "02df3acb3cfa374cff1f6b7fcee74b6e45d8fcdaf06797b38850b11dddfabe6a"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "f5827300a06cc598d9da5e2a6e3edf52b04eb0e69d2c4ff366f57de02f3b91ed"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "012541b154e8b19af3cd60690eaee293a78f6f7c05298a4915d34d493d44fa16"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "efd30b3c403364a38dc05e465504f087ac8786e47793c36bd7984489681af153"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "3266913a528a9ea5e214e7316256a40f3bf34005ef381a58b07aad1475220cdd"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "810e696cbab1c4a14185e5c3ccc3de1c3bfde8dd985748576c6844f4bd5a74bc"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "d49ab02a424873759e199e43aa97658c0cfdd86d4246f282735b286f27b07e9c"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "e16fdc42430c22cecb6d456c13bca25aba899b2510ac513902933f9c8f4c262e"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "f6083a8d4f13c39df52f25bc479eff08d695b4fa6b0b58babec58314a696c962"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "ddbdf8acdb728c68de1bf0bb3e6167008ff97829c630fc0b49174f5e28f37573"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "dcf39bbff4e7596f987ff53abadc201fc94994a79bf23720aa86450d9bdecc52"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "ede2a7d1cdccfd515f7571e4aea97f344c6f284df3b4bcd24b8311caa097174e"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "8604e71816ea5b4a375b77cb6e0b52890f6274625cff85e197853ebc7bc20d0e"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "9d8db2b1a0941ce6194dad2e0a22edf12b47fab963f8b063c4c0e9df2df67277"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "4633d3f67f46a9cd36c6511b84effa44dadd80fcd202752c71716a83afc1ce0e"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "88dc7d95c22d6a2bcb7dfa9c679487af37fe36c7a72d9ad2498f6d03b815e5ef"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final accepted XP container probe DLL",
+      "shippedDllSha256": "52f48c860097840faafdf9b112ce59eebe8f64615acd4a513e55c9204ad28dbd",
+      "diagnosticSha256": "cf6853e08697b8900da44f7d289eb582c29cee0d9b0405b4f4b2fc409291ccfd"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "9e4ae80bb5324d28bf7c17a8d18ecad43ba2101aa3440d5c32f5bc5a60660d19"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "4608c03dffce19832912a1ee06cfdfd903ea4a50bed7b2a6e0598a41a2181d60"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "7ec800e272e1bb8b5d656de37564dd90ef2057cd179baa2a5eb946244b179eac"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "0eaf92f7c2dc063a1259c724eeb92b15f0d8640e69851f79658dc87a7d2448f8"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "967aa6b10f117dc2597f674e3a20932b66ff4c39bb997d354609d158fabc18e6"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "bc6479ab2b1fb6d108014b58d1ba8b4dccef0ffe237b1102c8959d564e9f2445"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "171ddecefb1b773f0ca7ee1582b97e87da028fa3122009ce1a298a885ea8fa69"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "2f3b81084b366f21b3dd04df708f93a791ad09f8f4c89f74b93d90c6b56b28e3"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "c49ab168ae123b7e32c066cc63274b9d2d943eeb4c291eb46eda8b9555c72565"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "8f7e11f1f6c504a84da79679af86d2fda6b9676d42d184e2e57eb3b759b3435d"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "6bafd86b2a99408fd3a0bdd99240d61c0d5338a1e8e8d4650d3eae3aef7ad6e9"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "c1e400b6fba76815f0d7247f54b59c8e07ebafff729115c71f177946516b78ab"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "fff60a114cb7ea5d3217872d3edf9110363ca32395a81f518fe94745ccb43bdd"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "cb6078d2a01ebce735f0d4ce50d19732fc0a7b8a2db67d26a993697b2eff3742"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "03fa95403ed1b114dfc5573a89b24747d63a5644d3e6d36435d53d00fc1fe9d4",
+      "diagnosticSha256": "d62fb78b6f4008d6b70b8b822d97e64003bfde19d0ba769c46579536a9c3a261"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "417a415c214f190147aec2f7d102b5def2efb790267f5c4f6fefa0c6142b7028"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "17ab43302dcf7314159680bff44bb2710339b9e26afeab6eb7bfa631d4b6d9b7"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "04849c5a93220a0f61e385b41ba4f06cba2016f2954dd23f167c2f03bf8891cf"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "34cb1b3922a783d5e553a9cbd16b957b74f21c230252ff2027f0ad5c7b98ffff"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualContainerChecks": 121,
+    "mutations": 7,
+    "previousSourceRuntimeNegativeControls": 1,
+    "fixtureCorruptions": 11,
+    "actualAdditionalParameterChecks": {
+      "8": 124,
+      "9": 133
+    },
+    "constructorClassificationChecked": true,
+    "privateSurfaceGroups": {
+      "8": 12,
+      "9": 7
+    },
+    "retainedChildIdentityChecks": 105,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d8_additional_container_reference.json",
+    "sha256": "7583c696e5199d4d7b73603fe2b48617d5bfd7a9d10fadd5f28a6c974dca4f28",
+    "schema": 1,
+    "scope": "D3D8 single-buffer additional swap-chain backbuffers expose their device through GetContainer(IUnknown/IDirect3DDevice8), without revealing the private render-target texture. GetContainer adds exactly one relative device reference and remains valid while a surface is held after chain Release. Preserve ordinary 2D/cube texture and implicit device containers, rejected-IID output clearing and NULL-output status. Public backbuffer COM counters, independent zero-count revival/device pin counts, D3D9 chain containers, standalone render/depth containers, multiple buffers, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. Host/protocol/shaders unchanged; no new GPU pixel run in this phase.",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+        "evidence": "Pinned Windows test_refcount at additional swap-chain backbuffer: GetContainer(IID_IDirect3DDevice8) must return the device. D3D8 uses a device container here; the D3D9 test expects its swap chain instead."
+      },
+      {
+        "file": "d3d8-container-surface.c",
+        "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+        "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+        "evidence": "GetContainer delegates QueryInterface to the retained surface container; backing storage alone does not define the public container."
+      }
+    ],
+    "facts": {
+      "actualContainerChecks": 121,
+      "semanticMutations": 7,
+      "deviceContainerQueriesXP": 6,
+      "refusedContainerIIDsXP": 21,
+      "nullContainerOutputsXP": 3,
+      "ordinaryTextureContainerQueriesXP": 2,
+      "cachedIdentity": true,
+      "queryAfterChainRelease": true,
+      "privateMarkerRetained": true,
+      "relativeDeviceAddRefExactlyOnce": true
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 118,
+    "batches": 3,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "text": "PASS additional container probe \r\n",
+    "logs": {
+      "CNT8.TXT": "CONTAINER8 phase=0 device=2 refused=7 null=1 exactRef=1\r\nCONTAINER8 phase=1 device=2 refused=7 null=1 exactRef=1\r\nCONTAINER8 phase=2 device=2 refused=7 null=1 exactRef=1\r\nCONTAINER8 TEXTURE kinds=2 valid=2 rejectedDevice=2 exactRef=1\r\nCONTAINER8 LIFETIME cached=1 chainReleasedFirst=1 privateRetained=1 deviceRefs=0 factoryRefs=0\r\nPASS additional container API=8\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; D3D8 additional backbuffer Device/IUnknown containers, exact relative device references, rejected texture IIDs, cached surface/private marker survival after chain Release, ordinary 2D/cube texture and implicit device containers",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 788,
+        "crc32": "ea437696"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "device": 0,
+        "created": 1,
+        "destroyed": 1,
+        "hello": 1,
+        "ended": 1,
+        "textures": [
+          {
+            "handle": 1048578,
+            "kind": 3,
+            "retired": true
+          },
+          {
+            "handle": 1048580,
+            "kind": 3,
+            "retired": true
+          },
+          {
+            "handle": 1048581,
+            "kind": 4,
+            "retired": true
+          }
+        ],
+        "chains": [
+          {
+            "handle": 1048579,
+            "retired": true
+          }
+        ]
+      }
+    ],
+    "graphicsSha256": "3423c49e512fe4df8d617538ed3e2eb85cd23d4c577a381da1718d46692231c5"
+  },
+  "fixture": {
+    "metadataSha256": "bcffa990674fbc53f412c48d158d5d2fa16e3874b42d07a0f815008098bca184",
+    "compressedTraceSha256": "d9bf2548a853d644d54cbbaa801033ab1845cb6da5a4aaed3989b20eceb347c3",
+    "captureBuild": {
+      "dllSha256": {
+        "8": "52f48c860097840faafdf9b112ce59eebe8f64615acd4a513e55c9204ad28dbd"
+      },
+      "exeSha256": {
+        "8": "f114c973d8a7cbef9446d85dc18b3424d54419d201f01b54b3bf59d247a78536"
+      }
+    }
+  },
+  "validationRepairs": [
+    "Constructor-classification mutant uses numeric zero because the isolated constructor harness defines TRUE only; the accepted mutant compiles and fails at its runtime assertion."
+  ],
+  "scope": "D3D8 single-buffer additional swap-chain backbuffers expose their device through GetContainer(IUnknown/IDirect3DDevice8), without revealing the private render-target texture. GetContainer adds exactly one relative device reference and remains valid while a surface is held after chain Release. Preserve ordinary 2D/cube texture and implicit device containers, rejected-IID output clearing and NULL-output status. Public backbuffer COM counters, independent zero-count revival/device pin counts, D3D9 chain containers, standalone render/depth containers, multiple buffers, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. Host/protocol/shaders unchanged; no new GPU pixel run in this phase.",
+  "coreSha256": {
+    "tests/glbridge/d3d8_additional_container_fixture_test.js": "39efcbaa5484bdf55b56dd2c4867bbe2719c8decb275a3ada0eabb3d8c866a18",
+    "tests/glbridge/d3d8_additional_container_xp.mjs": "b0c9848a6982fb65484c5c0ef86c62104714e7fd025924906762f20d12dfc64c",
+    "tests/glbridge/fixtures/d3d8_additional_container_reference.json": "7583c696e5199d4d7b73603fe2b48617d5bfd7a9d10fadd5f28a6c974dca4f28",
+    "tests/glbridge/fixtures/d3d8_additional_container_xp.bin.gz": "d9bf2548a853d644d54cbbaa801033ab1845cb6da5a4aaed3989b20eceb347c3",
+    "tests/glbridge/fixtures/d3d8_additional_container_xp.json": "bcffa990674fbc53f412c48d158d5d2fa16e3874b42d07a0f815008098bca184",
+    "tests/lib/d3d8_additional_container_wire.mjs": "c40fc85bdf748655d89b264307babe895ef0fafbf24413c1d99a88fc1ca4899c",
+    "docs/d3d-webgpu-review.md": "23f76e0d02bede376ebac9fc2f6cf6d1d81ca83c7fc0665bd5592dade9317bc7"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d8_additional_container_test.c": "fadf55221c08861997ecfad9b1a50481ba19dc43b22a44bb16e314f5b730855c",
+    "glbridge/tests/d8wg_additional_container_mutation_test.js": "86e0616d83684d3a043b0737704a50d8509f3b71cef4bbf4c0b4ed5a02e96246",
+    "glbridge/tests/d8wg_additional_container_test.js": "6ad78e1cacd71ca2df04473579b65b1c9a909eb66862c170d703f98cb696d991",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "cf6853e08697b8900da44f7d289eb582c29cee0d9b0405b4f4b2fc409291ccfd",
+    "glbridge/d3d8proxy/d3d8.dll": "52f48c860097840faafdf9b112ce59eebe8f64615acd4a513e55c9204ad28dbd",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "33a355475bb60d46e2c558ae37477793fe619e173794b71bbca505b99c77cb84",
+    "glbridge/tests/d9wg_additional_parameters_entry_test.js": "45d3e6f7448fddbf5c119a5a160048e8afbc06a480d7251e008a9f24c77f4331",
+    "glbridge/tests/d9wg_private_surface_test.js": "f51f7902f9fcd35be233947a6295b2573cdd619d1db6e5e0e11491a6ccda6ec3"
+  },
+  "logSha256": {
+    "core": "650061e5e469b2ce766208960cb7a82647401cfb1621b27e83040b6965553cf1",
+    "guest": "972250ee2f7647c0b89a598d4bcb529d1a68ce1aa4dc6f0fd8f96c7bf734f354",
+    "xp": "2375836b984540475d9cf78536d0161c1f54203c189e5acebb60af8b822e785c",
+    "before": "d784d9943c0f2786dea3130e4b11585e093aa4a55c1fecec5ae5d0c4424518fb",
+    "sanitize": "e9772959b07c38cc4d633d150abc71a8857b597bbcb12ea587dc569d55e018bc",
+    "fixture": "2d1b900b794825ea0a07872c3803cc1bde976c8b6bbfe3c6cd1fde50fc6cede2",
+    "builds": "d7981119734bf5903a9b996de0691056fc2a55004f0f1e0c31116b4a2922e472",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "e959fc3cc32615f04dc04fbabc5397bc650c0fbab74eedcc786c2172b97d87c4",
+    "integration": "8a832f5a444f880b0b761fd97fe1a87a585123a38392877411cfd4ca9ddab62e"
+  }
+}

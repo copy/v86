@@ -1,0 +1,63 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "created": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1,
+      "textures": [
+        {
+          "handle": 1048578,
+          "kind": 3,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "retired": true
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048579,
+          "retired": true
+        }
+      ]
+    }
+  ],
+  "deviceLifetimes": 1,
+  "hostChains": 1,
+  "textureObjects": 3,
+  "deviceContainerQueries": 6,
+  "refusedContainerIIDs": 21,
+  "nullContainerOutputs": 3,
+  "ordinaryTextureContainerQueries": 2,
+  "renderingCommands": 0,
+  "traceSha256": "3423c49e512fe4df8d617538ed3e2eb85cd23d4c577a381da1718d46692231c5",
+  "referenceSha256": "7583c696e5199d4d7b73603fe2b48617d5bfd7a9d10fadd5f28a6c974dca4f28",
+  "sdkLogs": {
+    "CNT8.TXT": "CONTAINER8 phase=0 device=2 refused=7 null=1 exactRef=1\r\nCONTAINER8 phase=1 device=2 refused=7 null=1 exactRef=1\r\nCONTAINER8 phase=2 device=2 refused=7 null=1 exactRef=1\r\nCONTAINER8 TEXTURE kinds=2 valid=2 rejectedDevice=2 exactRef=1\r\nCONTAINER8 LIFETIME cached=1 chainReleasedFirst=1 privateRetained=1 deviceRefs=0 factoryRefs=0\r\nPASS additional container API=8\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "33a355475bb60d46e2c558ae37477793fe619e173794b71bbca505b99c77cb84",
+    "glbridge/sample/d3d8_additional_container_test.c": "fadf55221c08861997ecfad9b1a50481ba19dc43b22a44bb16e314f5b730855c"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "52f48c860097840faafdf9b112ce59eebe8f64615acd4a513e55c9204ad28dbd"
+    },
+    "exeSha256": {
+      "8": "f114c973d8a7cbef9446d85dc18b3424d54419d201f01b54b3bf59d247a78536"
+    }
+  },
+  "scope": "not exercised; D3D8 additional backbuffer Device/IUnknown containers, exact relative device references, rejected texture IIDs, cached surface/private marker survival after chain Release, ordinary 2D/cube texture and implicit device containers"
+}

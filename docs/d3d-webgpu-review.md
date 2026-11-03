@@ -1846,6 +1846,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - SwiftShader 与 Metal 各验证 14 帧、40 份原始缓冲快照（410,624 像素）和 42 份显示快照（422,912 像素），包括尚未 Present 的窗口与已退役链显示，全部零误差。重建并同步宿主 bundle；完整 GPU 基线、核心/客体回归、36 个标准 SDK EXE、六份严格 DLL、另两份独立链 SDK EXE和站点两项集成通过。发布最终 XP 所测 D3D8 零售 DLL及严格诊断 DLL，D3D9/DDraw 保留此前验收文件。详见 [stage4h6f7a-validation.json](fixtures/d3d-review/stage4h6f7a-validation.json)。
 > - 本项仅验收单 back buffer 的独立存储与显示；附加表面的公共 COM 计数/容器仍沿用 backing texture 表示。下一步处理 D3D8 的设备容器与 D3D9 的链容器、公共计数归零与恢复。多 back buffer 存储/轮换、完整 SwapEffect/MSAA/刷新率/全屏参数、原生 Microsoft HAL、游戏/FPS、D3D8 包装及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f7b（2026-11-03）：D3D8 附加 back buffer 的设备容器（S2-42 相关）完成。**
+>
+> - 附加链的缓存表面标记为公共 back buffer；GetContainer 对 IUnknown / IDirect3DDevice8 返回其设备并精确取得一次引用，不再暴露内部 render-target texture。沿用已有无效 IID 清空输出、NULL 输出 E_POINTER 的约定；普通二维/立方纹理 level/face 仍返回原纹理，隐式缓冲仍返回设备。本项依据固定 Wine Windows 引用测试，未推断独立 render/depth surface 的容器语义。
+> - 实际 GetContainer 入口 121 项，覆盖成功身份/引用、七类错误、失败输出、重复查询和普通纹理隔离；实际附加构造器的 24 组合验证分类标记确实发布。7/7 新变异、上一版本运行时负面对照、ASan/UBSan 通过，保留 124/133 项附加参数、12/7 组私有表面、105 项子视图身份及 Reset/选择器/时钟/传输回归。
+> - XP 在链存活、链已释放但表面仍持有、隐式缓冲三阶段各完成两次设备容器查询、七次 IID 拒绝和一次 NULL 输出拒绝；逐次检查设备引用恰好增加一次并归还。额外验证普通二维/立方纹理容器各一次及拒绝设备 IID，链先释放后的私有标记保留；最终设备及工厂归零，单 owner 118 秒退出。冻结解码确认一设备、一链和三份 texture 全部退役，无绘制/Present/Reset；十一项语义损坏被发现。
+> - 七组相关核心、21 组相关客体、36 个标准 SDK EXE、六份严格 DLL、另一个容器 SDK EXE和站点两项集成通过。其余检查继承 4H6f7a 的 213/218 完整回归与 58 次 GPU 运行；宿主/协议/着色器及 bundle 未变，本项无新增 GPU 像素运行。只发布本次 XP 所测 D3D8 零售 DLL和严格诊断 DLL。见 [stage4h6f7b-validation.json](fixtures/d3d-review/stage4h6f7b-validation.json)。
+> - 继续附加缓冲公共 COM 计数的归零/恢复和设备生命周期、D3D9 的链容器及链公共引用为零时的物理存活。多缓冲、完整呈现/Reset、原生 Microsoft HAL、游戏/FPS、包装转换和阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

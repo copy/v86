@@ -1,0 +1,32 @@
+{
+  "schema": 1,
+  "scope": "D3D8 single-buffer additional swap-chain backbuffers expose their device through GetContainer(IUnknown/IDirect3DDevice8), without revealing the private render-target texture. GetContainer adds exactly one relative device reference and remains valid while a surface is held after chain Release. Preserve ordinary 2D/cube texture and implicit device containers, rejected-IID output clearing and NULL-output status. Public backbuffer COM counters, independent zero-count revival/device pin counts, D3D9 chain containers, standalone render/depth containers, multiple buffers, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. Host/protocol/shaders unchanged; no new GPU pixel run in this phase.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Pinned Windows test_refcount at additional swap-chain backbuffer: GetContainer(IID_IDirect3DDevice8) must return the device. D3D8 uses a device container here; the D3D9 test expects its swap chain instead."
+    },
+    {
+      "file": "d3d8-container-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+      "evidence": "GetContainer delegates QueryInterface to the retained surface container; backing storage alone does not define the public container."
+    }
+  ],
+  "facts": {
+    "actualContainerChecks": 121,
+    "semanticMutations": 7,
+    "deviceContainerQueriesXP": 6,
+    "refusedContainerIIDsXP": 21,
+    "nullContainerOutputsXP": 3,
+    "ordinaryTextureContainerQueriesXP": 2,
+    "cachedIdentity": true,
+    "queryAfterChainRelease": true,
+    "privateMarkerRetained": true,
+    "relativeDeviceAddRefExactlyOnce": true
+  }
+}
