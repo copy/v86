@@ -1,0 +1,944 @@
+{
+  "stage": "4H6f8c D3D9 additional 4x MSAA storage/resolve and both-API true multisample attachment pixels (S2-42 related)",
+  "date": "2026-11-03",
+  "bundle": "64aa2cd7f7413ccbe760",
+  "targetedCoreSuites": 13,
+  "targetedGuestSuites": 27,
+  "webgpuRuns": 2,
+  "baseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f8a-validation.json",
+    "sha256": "938092f9c0a48b672f9678a47d4d4d388d7612c85264b27d80ae3b93e1f0cb6a",
+    "guestSuites": 225,
+    "fullCoreGPU": {
+      "file": "docs/fixtures/d3d-review/stage4h6f7d-validation.json",
+      "sha256": "3007b57fe847cd52fcd3920b19d191843f1600baca3fdd89496b98feffadd536",
+      "coreSuites": 216,
+      "webgpuRuns": 59
+    },
+    "additionalGPUFixture": {
+      "file": "docs/fixtures/d3d-review/stage4h6f7e-validation.json",
+      "sha256": "a371d604628c61c81b7297d37f3ab98a6cc5c8627c0c6f779bb50719127fe537",
+      "webgpuRuns": 2
+    },
+    "bundle": "64aa2cd7f7413ccbe760",
+    "reason": "Guest-only additional-chain storage parameter forwarding through the existing shared resolve path. Fresh targeted actual-entry/native/sanitizer/frozen-fixture checks and both GPU backends; inherit unchanged-host full core/GPU and prior full guest baselines."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "beb294e0570a59556a554622ce99b86b60602e4f36451fa482b64a0070654686"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "6130960b7ba333398a38798c3726c5f7ba9d044a2af0235c62fd9be26c40fe3a"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "c868d0779c9ec027fd4d7da3764023ac85b327a4752515a8077689bc91d7201f"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "b63367791e26c5c663308ba9afd8a3056e42573c6a7153bef3cd7eca244e49d2"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "0d6e92b6e47e82c2ee6d76f1cfe8c3775f6f0f3c92ad3dbc2655d20f41eb457c"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "3da56b65379db4a5c1fe1c11d744605efc93218f2e4a19000bc301e3b23b4640"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "dd9a706090e345a3092fa7ea8ba7f03f45473c3f47f36cf8c3f5ac7550996438"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "fdab7deae52a9bc7532ac474f88591003ac0073fb2c2c0798ef39980da038b01"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "bf01ebc2af2fea46e08d1c36d2b2d7a32eb0390840e05506007b585afb4d7ab0"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "c0afd76dd93d9771439b18ee0e677530bfa34968d96823151a92c2b27f1581f3"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "b592e0be2ca472c86e6c0f46f058bd89e167da555a7b7d29a6042d0e0027296b"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "f39d2e503b5b5f5dbf82c8eb26238f097b984ddc93205975ec8f74ca8506ade2"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "2a831e39470f598b0750011c841c2c89e81c1eb584c9a5ed563ef8061b77164a"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "9a251812e934a5a28cc7d834eb6ab4fd86be40e053c0591d5d3f5ac7643c47cc"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "f5493bb60b69d8ef8281d59c8098d54be9a34c246a6b7745cc212d1b51831624"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "55b4aa436623fb8d7fd94e2e0cf255315e46b14d50143bea4bd1eee800187e54"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "472044e85868a95366daf673383beba47c9fa8136b7846546bf3cf906de2af3b"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "b8bbce271126f96bec208ae96dc1f8c9f3507591ce5355f09b30f60f30670678"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "d197680b0c2adeebef8b040caa4d5877ab9399270a2daea871f78703aa580e0e",
+      "diagnosticSha256": "64f92d2fc4580359d37e5dd372684176413ab3358a280e5dc99ac6bf724e5abd"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "04842a63f0254c5b8d2440e10fdfefe87e0c5e150ff320af47379c52c78fe69e"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "c2863c95d13d4947266ab69479a36d9d1a5cd98faaeef1cd68ae960800bee68f"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "a2c579b5aa1f94a74102edb5084ae1ce948ce9e9e0dcf9dc67dec907641ce019"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "bdf6ffc82078bd27d631e7d3c987db1c3f50920057b445f3e7bd88295cd4027c"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "8f58e23bd69bcc8cd9c81f2b2f9d2d6ef4412607bb371f9e389d73852f170e9d"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "8aac40eccde8030ecb827ad5bc715a5b36051c4a2e3e9bd258f5aab0d1b3669a"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "0cd220207e9943e84a61968192a2b36dc63402f1e9553f46c8f7cd31be4b06e4"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "91d7f818e9092d52f0e757651a2870864f348f60adfa26b693e9360a204378e5"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "269302720fc88f67dddf8d92750bef3e36fd55f369e81a0d82f908ba5545eb9c"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "283ed37c06e56c1a36bfaa4bbc920c147d430502f3777ef2c6198c40bef9a4bf"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "5d7a550094d318e33b150468403058d66161e15f2512470208cd572b2de3e1bb"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "1d676526098ade9b6a3d31c04a2f26d2d0443062d8419b1622f83a94da1b41b6"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "af6bdffa166fd692b1bf94722c993c5ac580b1a42ed6fc195f7e11c6dac869f1"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "ae0e0f8458138260dfcdf989c435908ccaaeb1ed95cfe538782ccb91c7db40e1"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final accepted XP true-MSAA additional-chain DLL",
+      "shippedDllSha256": "d42ac133837a8a50095d657623e7af9129577cf124340c69803e4fe904f7ab49",
+      "diagnosticSha256": "49bfe3ea03780ed1b9bc8a6d8450f6642516d4de580e7a0f9b7fcc3b20818bdc"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "82a9bbdbddfe590c954b4ef67b665b7d984a555fccbb32613d53dd3c31701975"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "11d77de76323ebbf58951eb438457a9dc9be68ffbc85a1e3ec43dfb7de2bc915"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "d7196fe89b03644400035cf84e5ed8ee9da9dcce1eb2bc17ed439412caa8060c"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "0453a48d1fa97fabb34edf1973204fecb7a583d140e40ab91adb8c94242e7a4a"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "priorSDK": {
+    "sourceSha256": "b09da8cdc175cf5a871aa1de716684285932d33c6eb8d260f9c6b2ebf881b650",
+    "compileOnly": true,
+    "contract": "The former explicit D3D9 additional-MSAA refusal in the manual SDK now requires supported creation/metadata/cleanup. Historical 8b capture remains immutable; the new MSC9 XP test and real-GPU replay exercise the same supported contract, with 32 revivals and exact pixels.",
+    "executables": [
+      {
+        "file": "MSP8.EXE",
+        "sha256": "d3806f713ed4669fbd8b8a2a9b9afe8f0fc0565b55a97e4b4db15434d5a417d5"
+      },
+      {
+        "file": "MSP9.EXE",
+        "sha256": "ebd263b2565244dbab433650cdc752bc9540d26971b006973b42c2880c472bf2"
+      }
+    ]
+  },
+  "portable": {
+    "actualAdditionalParameterChecks": {
+      "8": 128,
+      "9": 141
+    },
+    "actualAdditionalConstructors": {
+      "8": 25,
+      "9": 28
+    },
+    "unsupportedModeRefusalsBeforeAllocation": 4,
+    "newMutations": 5,
+    "previousSourceRuntimeNegativeControls": 1,
+    "retainedMSAAMutations": 24,
+    "retainedSwapEffectMutations": 20,
+    "retainedD3D8PhysicalChainMutations": 10,
+    "retainedD3D8LifetimeMutations": 12,
+    "retainedD3D9LifetimeMutations": 14,
+    "retainedImplicitMutations": 23,
+    "fixtureCorruptions": 20,
+    "sanitizerFamilies": 7,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_multisample_chain_reference.json",
+    "sha256": "97957d413670791431b2e0ae28b94db0591fe668ff6cd468bbe2f050875b901e",
+    "schema": 1,
+    "width": 32,
+    "height": 24,
+    "colors": [
+      4289732624,
+      4279255232
+    ],
+    "scope": "D3D9 additional swap chains now use the existing supported render-target multisampling/resolve path, forwarding the requested sample type and validated quality to storage instead of refusing every nonzero type or silently creating NONE. Unsupported sample modes still fail before allocation/emission; cached parameters/Surface.GetDesc and capability quality-level metadata agree. Shared D3D8/9 SDK probes both construct 4x additional buffers, retain them through 32 public-zero chain revivals per API and present two exact colors, then perform binding-only Reset/private-object cleanup. Independent replay validates actual four-sample GPU attachment pixels through a separate explicit resolve, the host resolved texture and displayed scanout. Structural MSAA/flag/quality guards from 8b remain unchanged. Update the older manual MSAA SDK to expect the newly supported D3D9 additional case; the immutable 8b fixture preserves historical unsupported behavior. Full MSAA/format/depth compatibility, refresh/fullscreen validation, multiple-buffer storage/rotation, standalone target counts, complete Reset/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. No host/protocol/shader/bundle change.",
+    "sources": [
+      {
+        "file": "d3d8-com-swapchain.c",
+        "blobSha1": "433da09d04b830ee37fdb591cfce7aa207f95033",
+        "sha256": "ec08bb0c41b251d542086be03d1d0d445dc3ba73eda4d51c4f585e55f6ab6d90",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/swapchain.c",
+        "evidence": "Pinned implementation AddRef from public zero acquires a parent device and physical swap-chain storage reference; Release to zero drops these references. Public surface references retain the same physical chain. This is implementation evidence for valid zero-count revival while storage survives, not a claim that repeated zero-count D3D8 chain Release is a native API guarantee."
+      },
+      {
+        "file": "d3d8-container-surface.c",
+        "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+        "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+        "evidence": "Surface AddRef/Release maintain their own resource.refcount for non-texture public surfaces; device and underlying texture/swapchain references change only on public zero/nonzero edges. Release storage before the parent device, since storage destruction can free the surface."
+      },
+      {
+        "file": "d3d9-device-tests.c",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "evidence": "Pinned Windows additional-chain test_refcount: backbuffer container is its IDirect3DSwapChain9; surface public count starts at one and has an independent device pin. Pinned swapchain implementation pins its parent only at public zero/nonzero edges."
+      },
+      {
+        "file": "d3d9-private-surface.c",
+        "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+        "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+        "evidence": "Non-texture surface AddRef/Release retain the device and swapchain/texture storage on public zero/nonzero edges; a held surface keeps its container alive."
+      },
+      {
+        "file": "d3d9-com-swapchain.c",
+        "sha256": "4e4d530b24fb6ebe2c27be8c173d6d2df9d230de71e3779ba2a8af11ffc231d9",
+        "blobSha1": "e87b8627ba3e511f84ef2074cc02b963c01c9daf",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/swapchain.c",
+        "evidence": "Public chain AddRef from zero reacquires one parent reference; repeated zero Release returns zero while physical backing storage survives."
+      }
+    ],
+    "documentation": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+        "evidence": "Additional chains use the presentation multisample type and a quality index within advertised bounds; multisampling requires DISCARD."
+      }
+    ],
+    "facts": {
+      "actualAdditionalParameterChecks": {
+        "8": 128,
+        "9": 141
+      },
+      "actualAdditionalConstructors": {
+        "8": 25,
+        "9": 28
+      },
+      "newSemanticMutations": 5,
+      "xpFrames": 4,
+      "xpRevivalsPerAPI": 32,
+      "xpSamplesPerAPI": 4,
+      "xpQualityLevels9": 1,
+      "xpPrivateObjectsFinalized": 2,
+      "attachmentPixelsPerBackend": 3072,
+      "resolvedPixelsPerBackend": 3072,
+      "displayPixelsPerBackend": 3072
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 133,
+    "batches": 14,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS multisample chain probes \r\n",
+    "logs": {
+      "MSC8.TXT": "MSCHAIN CAPS api=8 samples=4 available=1\r\nMSCHAIN BUFFER api=8 width=32 height=24 samples=4\r\nMSCHAIN FRAME api=8 step=0 color=FFB02010\r\nMSCHAIN COUNTERS api=8 cycles=32 independent=1 cached=1 privateRetained=1\r\nMSCHAIN FRAME api=8 step=1 color=FF1040C0\r\nMSCHAIN CLEANUP api=8 bindingRetained=1 reset=1 privateFinalized=1 deviceRefs=1\r\nPASS multisample chains API=8\r\n",
+      "MSC9.TXT": "MSCHAIN CAPS api=9 samples=4 available=1 levels=1\r\nMSCHAIN BUFFER api=9 width=32 height=24 samples=4\r\nMSCHAIN FRAME api=9 step=0 color=FFB02010\r\nMSCHAIN COUNTERS api=9 cycles=32 independent=1 cached=1 privateRetained=1\r\nMSCHAIN FRAME api=9 step=1 color=FF1040C0\r\nMSCHAIN CLEANUP api=9 bindingRetained=1 reset=1 privateFinalized=1 deviceRefs=1\r\nPASS multisample chains API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised in XP; both APIs advertise and construct four-sample additional buffers with exact cached sample/quality metadata; two chain frames per API before/after 32 zero-public-count revivals, retained storage/private data, binding-only Reset and exact finalization; true MSAA attachment, resolved and displayed pixels replayed independently",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 13176,
+        "crc32": "478c8ba0"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "device": 0,
+        "handles": [
+          1048577,
+          1048580
+        ],
+        "texture": 1048578,
+        "chain": 1048579,
+        "target": 1048578,
+        "chainRetired": true,
+        "textureRetired": true,
+        "hello": 1,
+        "ended": 1,
+        "bindings": 1,
+        "clears": 2,
+        "presents": 2,
+        "resets": 1,
+        "destroyed": 1,
+        "hwnd": 65862,
+        "x": 200,
+        "y": 40
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "device": 0,
+        "handles": [
+          1048577,
+          1048580
+        ],
+        "texture": 1048578,
+        "chain": 1048579,
+        "target": 1048578,
+        "chainRetired": true,
+        "textureRetired": true,
+        "hello": 1,
+        "ended": 1,
+        "bindings": 1,
+        "clears": 2,
+        "presents": 2,
+        "resets": 1,
+        "destroyed": 1,
+        "hwnd": 131398,
+        "x": 200,
+        "y": 40
+      }
+    ],
+    "graphicsSha256": "cd15580f56fd458d2df320ea0f80a77da50a2f572d24ae7c44b0a407fbc7f84d",
+    "revivalCycles": 64,
+    "samplesPerAPI": 4,
+    "qualityLevels9": 1
+  },
+  "fixture": {
+    "metadataSha256": "3faab627e887adcff186e2489d5486ae31956f68a36ece60e18963857cbe09f9",
+    "compressedTraceSha256": "0da718555b825c6dbe55c6734b3e0962a5ddc267f40008b68854a67c0f5962a3",
+    "captureBuild": {
+      "dllSha256": {
+        "8": "b8dd67573a9af2b97565abc672e5d9f7a1e22ca65ced1039278554a44df0ca1c",
+        "9": "d42ac133837a8a50095d657623e7af9129577cf124340c69803e4fe904f7ab49"
+      },
+      "exeSha256": {
+        "8": "2124d7a6b9a0bd00735c8cd08e56aed8eea815724a4f690fbcae8234af8b55f0",
+        "9": "1d659ed873f827712f98ddbf0efa9a130ad70f6f488b63ad663ad99bd95f1cef"
+      }
+    }
+  },
+  "gpu": {
+    "swift": {
+      "traceSha256": "cd15580f56fd458d2df320ea0f80a77da50a2f572d24ae7c44b0a407fbc7f84d",
+      "referenceSha256": "97957d413670791431b2e0ae28b94db0591fe668ff6cd468bbe2f050875b901e",
+      "frames": 4,
+      "rawPixels": 3072,
+      "displayPixels": 3072,
+      "attachmentPixels": 3072,
+      "comparisons": [
+        {
+          "owner": 1,
+          "api": 8,
+          "step": 0,
+          "device": 1048577,
+          "texture": 1048578,
+          "chain": 1048579,
+          "width": 32,
+          "height": 24,
+          "color": 4289732624,
+          "sampleCount": 4,
+          "attachmentSamples": 4,
+          "resolvedSamples": 1,
+          "attachmentError": 0,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "step": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "chain": 1048579,
+          "width": 32,
+          "height": 24,
+          "color": 4279255232,
+          "sampleCount": 4,
+          "attachmentSamples": 4,
+          "resolvedSamples": 1,
+          "attachmentError": 0,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "step": 0,
+          "device": 1048577,
+          "texture": 1048578,
+          "chain": 1048579,
+          "width": 32,
+          "height": 24,
+          "color": 4289732624,
+          "sampleCount": 4,
+          "attachmentSamples": 4,
+          "resolvedSamples": 1,
+          "attachmentError": 0,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "step": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "chain": 1048579,
+          "width": 32,
+          "height": 24,
+          "color": 4279255232,
+          "sampleCount": 4,
+          "attachmentSamples": 4,
+          "resolvedSamples": 1,
+          "attachmentError": 0,
+          "rawError": 0,
+          "displayError": 0
+        }
+      ],
+      "callbacks": {
+        "created": 2,
+        "destroyed": 2,
+        "acquired": 4
+      },
+      "batches": 14,
+      "stats": {
+        "batches": 14,
+        "commands": 54,
+        "presents": 0,
+        "queueSubmits": 8,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 0,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 4,
+        "readbackRequests": 4,
+        "frameFlushes": 4,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 2,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 4,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 2,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 1,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 8,
+        "windowNotForegroundReports": 4,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 2,
+        "renderTargetBinds": 2,
+        "renderPasses": 8,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 1024,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 4,
+        "renderTargetReadbackBytes": 12288,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "7bdefb1aa38141c7de7d1ba6b676978ec9fb70c3772877937becacd8e395ef4f"
+    },
+    "metal": {
+      "traceSha256": "cd15580f56fd458d2df320ea0f80a77da50a2f572d24ae7c44b0a407fbc7f84d",
+      "referenceSha256": "97957d413670791431b2e0ae28b94db0591fe668ff6cd468bbe2f050875b901e",
+      "frames": 4,
+      "rawPixels": 3072,
+      "displayPixels": 3072,
+      "attachmentPixels": 3072,
+      "comparisons": [
+        {
+          "owner": 1,
+          "api": 8,
+          "step": 0,
+          "device": 1048577,
+          "texture": 1048578,
+          "chain": 1048579,
+          "width": 32,
+          "height": 24,
+          "color": 4289732624,
+          "sampleCount": 4,
+          "attachmentSamples": 4,
+          "resolvedSamples": 1,
+          "attachmentError": 0,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "step": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "chain": 1048579,
+          "width": 32,
+          "height": 24,
+          "color": 4279255232,
+          "sampleCount": 4,
+          "attachmentSamples": 4,
+          "resolvedSamples": 1,
+          "attachmentError": 0,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "step": 0,
+          "device": 1048577,
+          "texture": 1048578,
+          "chain": 1048579,
+          "width": 32,
+          "height": 24,
+          "color": 4289732624,
+          "sampleCount": 4,
+          "attachmentSamples": 4,
+          "resolvedSamples": 1,
+          "attachmentError": 0,
+          "rawError": 0,
+          "displayError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "step": 1,
+          "device": 1048577,
+          "texture": 1048578,
+          "chain": 1048579,
+          "width": 32,
+          "height": 24,
+          "color": 4279255232,
+          "sampleCount": 4,
+          "attachmentSamples": 4,
+          "resolvedSamples": 1,
+          "attachmentError": 0,
+          "rawError": 0,
+          "displayError": 0
+        }
+      ],
+      "callbacks": {
+        "created": 2,
+        "destroyed": 2,
+        "acquired": 4
+      },
+      "batches": 14,
+      "stats": {
+        "batches": 14,
+        "commands": 54,
+        "presents": 0,
+        "queueSubmits": 8,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 0,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 4,
+        "readbackRequests": 4,
+        "frameFlushes": 4,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 2,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 4,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 2,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 1,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 8,
+        "windowNotForegroundReports": 4,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 2,
+        "renderTargetBinds": 2,
+        "renderPasses": 8,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 1024,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 4,
+        "renderTargetReadbackBytes": 12288,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "7bdefb1aa38141c7de7d1ba6b676978ec9fb70c3772877937becacd8e395ef4f"
+    }
+  },
+  "validationRepairs": [
+    "Updated the manual actual-constructor fake to represent both supported sample modes and retain the requested sample count; added a positive 4x constructor and four pre-allocation unsupported-type failures.",
+    "Updated the older manual MSP9 SDK expectation for the newly supported mode and strictly compiled both variants; historical frozen evidence is unchanged and current semantics are exercised by the new accepted MSC9 capture.",
+    "Build stdout for the six strict DLL/standard-SDK builds was captured from the running tool session into the build log; the second loop strictly compiled the two refreshed manual SDK variants. All build commands exited successfully."
+  ],
+  "scope": "D3D9 additional swap chains now use the existing supported render-target multisampling/resolve path, forwarding the requested sample type and validated quality to storage instead of refusing every nonzero type or silently creating NONE. Unsupported sample modes still fail before allocation/emission; cached parameters/Surface.GetDesc and capability quality-level metadata agree. Shared D3D8/9 SDK probes both construct 4x additional buffers, retain them through 32 public-zero chain revivals per API and present two exact colors, then perform binding-only Reset/private-object cleanup. Independent replay validates actual four-sample GPU attachment pixels through a separate explicit resolve, the host resolved texture and displayed scanout. Structural MSAA/flag/quality guards from 8b remain unchanged. Update the older manual MSAA SDK to expect the newly supported D3D9 additional case; the immutable 8b fixture preserves historical unsupported behavior. Full MSAA/format/depth compatibility, refresh/fullscreen validation, multiple-buffer storage/rotation, standalone target counts, complete Reset/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. No host/protocol/shader/bundle change.",
+  "coreSha256": {
+    "tests/glbridge/d3d_multisample_chain_fixture_test.js": "51fa436582aea5d6e548ede32241c728537db35dfeeb8ceeb0a303b7f9d3e717",
+    "tests/glbridge/d3d_multisample_chain_replay_browser_test.html": "98d4c9d47b44fe34ff422f16a33466519e895b79ff69fa7cd01dfb7657d5c5da",
+    "tests/glbridge/d3d_multisample_chain_xp.mjs": "3bf6591d95b566f7eec9853997e49e57c1133618a114f583132204740e84a5c0",
+    "tests/glbridge/fixtures/d3d_multisample_chain_reference.json": "97957d413670791431b2e0ae28b94db0591fe668ff6cd468bbe2f050875b901e",
+    "tests/glbridge/fixtures/d3d_multisample_chain_xp.bin.gz": "0da718555b825c6dbe55c6734b3e0962a5ddc267f40008b68854a67c0f5962a3",
+    "tests/glbridge/fixtures/d3d_multisample_chain_xp.json": "3faab627e887adcff186e2489d5486ae31956f68a36ece60e18963857cbe09f9",
+    "tests/lib/d3d_multisample_chain_wire.mjs": "ebd6a29bcf8485c6a1b4f49be6a3e559255ac7e241617d13d381e2ba73fa51fb",
+    "docs/d3d-webgpu-review.md": "6dc67322542a3fbf219bf63cfc71c35480aae77f1acd6d019f3cb5bcfd1c4023"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d_multisample_chain_test.c": "a355652a873501ff628add55d6a358235b70979c5fd1f28b87fc5147188686b4",
+    "glbridge/tests/d9wg_additional_multisample_mutation_test.js": "5b01fddb22d9f993e06c78616c8e7be0984b7625cca28080ed2f0a60cbdb6616",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "49bfe3ea03780ed1b9bc8a6d8450f6642516d4de580e7a0f9b7fcc3b20818bdc",
+    "glbridge/d3d9proxy/d3d9.dll": "d42ac133837a8a50095d657623e7af9129577cf124340c69803e4fe904f7ab49",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "757dd1505ebaa0ce72bb6931aeda9f3b2b5ac67c3d0c71629a0a6cd0e5906bb7",
+    "glbridge/sample/d3d_present_multisample_test.c": "b09da8cdc175cf5a871aa1de716684285932d33c6eb8d260f9c6b2ebf881b650",
+    "glbridge/tests/d9wg_additional_parameters_entry_test.js": "c83f0eaf0d6bfb311e89bf4992687e7922d15ec38aeceff4ce43d70e1f0a7e7c"
+  },
+  "logSha256": {
+    "core": "8e59fd0a97ec82725d6ec853ef192eb84368d19aa60b7126a55f1ed13eb20f03",
+    "guest": "068492b1ee281ad6984695f5f74a579631887dc630137180f88e5f18af99293d",
+    "xp": "70fac5991da1293ea41e49166387a9cbfa7bdead607319e99881c644578757f4",
+    "before": "1d0f9ebcd8c0cd6f61cc33ae089389b0c0ab81a2b501e615a7232e0767eed7e7",
+    "sanitize": "90b320702adb6dc5c841b6fa2007718e50023995bc3523cbbf97934a53b0b178",
+    "fixture": "ed636fe3935fd414120082d6011a35ceb4de90cde0a6101fd0ff43b606b586bd",
+    "builds": "f689b172e546893d96a30286699f31c367d59748aabf4dd4e9611d060230c6e3",
+    "lint": "e959fc3cc32615f04dc04fbabc5397bc650c0fbab74eedcc786c2172b97d87c4",
+    "site-lint": "82fcbe7cdc25cc007118bcbc43438fb1d9f1444c75372fa7da15e1c57517791f",
+    "integration": "34160b9d54aee105861f6237be26955b1e570456e6ef338c3741fcf979016e69",
+    "swift": "44365b7111710966c947ea970864314cf67356722089b987dcdb91f6a73f6254",
+    "metal": "44365b7111710966c947ea970864314cf67356722089b987dcdb91f6a73f6254"
+  }
+}

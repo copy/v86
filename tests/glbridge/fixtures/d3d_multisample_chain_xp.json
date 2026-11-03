@@ -1,0 +1,132 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048580
+      ],
+      "texture": 1048578,
+      "chain": 1048579,
+      "target": 1048578,
+      "chainRetired": true,
+      "textureRetired": true,
+      "hello": 1,
+      "ended": 1,
+      "bindings": 1,
+      "clears": 2,
+      "presents": 2,
+      "resets": 1,
+      "destroyed": 1,
+      "hwnd": 65862,
+      "x": 200,
+      "y": 40
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048580
+      ],
+      "texture": 1048578,
+      "chain": 1048579,
+      "target": 1048578,
+      "chainRetired": true,
+      "textureRetired": true,
+      "hello": 1,
+      "ended": 1,
+      "bindings": 1,
+      "clears": 2,
+      "presents": 2,
+      "resets": 1,
+      "destroyed": 1,
+      "hwnd": 131398,
+      "x": 200,
+      "y": 40
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 0,
+      "device": 1048577,
+      "texture": 1048578,
+      "chain": 1048579,
+      "width": 32,
+      "height": 24,
+      "color": 4289732624
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "chain": 1048579,
+      "width": 32,
+      "height": 24,
+      "color": 4279255232
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 0,
+      "device": 1048577,
+      "texture": 1048578,
+      "chain": 1048579,
+      "width": 32,
+      "height": 24,
+      "color": 4289732624
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "chain": 1048579,
+      "width": 32,
+      "height": 24,
+      "color": 4279255232
+    }
+  ],
+  "ownerReleases": [
+    1,
+    2
+  ],
+  "deviceLifetimes": 2,
+  "resets": 2,
+  "chains": 2,
+  "textures": 2,
+  "chainPresents": 4,
+  "revivalCycles": 64,
+  "privateObjectsFinalized": 2,
+  "traceSha256": "cd15580f56fd458d2df320ea0f80a77da50a2f572d24ae7c44b0a407fbc7f84d",
+  "referenceSha256": "97957d413670791431b2e0ae28b94db0591fe668ff6cd468bbe2f050875b901e",
+  "sdkLogs": {
+    "MSC8.TXT": "MSCHAIN CAPS api=8 samples=4 available=1\r\nMSCHAIN BUFFER api=8 width=32 height=24 samples=4\r\nMSCHAIN FRAME api=8 step=0 color=FFB02010\r\nMSCHAIN COUNTERS api=8 cycles=32 independent=1 cached=1 privateRetained=1\r\nMSCHAIN FRAME api=8 step=1 color=FF1040C0\r\nMSCHAIN CLEANUP api=8 bindingRetained=1 reset=1 privateFinalized=1 deviceRefs=1\r\nPASS multisample chains API=8\r\n",
+    "MSC9.TXT": "MSCHAIN CAPS api=9 samples=4 available=1 levels=1\r\nMSCHAIN BUFFER api=9 width=32 height=24 samples=4\r\nMSCHAIN FRAME api=9 step=0 color=FFB02010\r\nMSCHAIN COUNTERS api=9 cycles=32 independent=1 cached=1 privateRetained=1\r\nMSCHAIN FRAME api=9 step=1 color=FF1040C0\r\nMSCHAIN CLEANUP api=9 bindingRetained=1 reset=1 privateFinalized=1 deviceRefs=1\r\nPASS multisample chains API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "46c949325f984bc6c8a16731fd1656710c9a9d7003094c6826cf2678bfa6fedf",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "757dd1505ebaa0ce72bb6931aeda9f3b2b5ac67c3d0c71629a0a6cd0e5906bb7",
+    "glbridge/sample/d3d_multisample_chain_test.c": "a355652a873501ff628add55d6a358235b70979c5fd1f28b87fc5147188686b4"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "b8dd67573a9af2b97565abc672e5d9f7a1e22ca65ced1039278554a44df0ca1c",
+      "9": "d42ac133837a8a50095d657623e7af9129577cf124340c69803e4fe904f7ab49"
+    },
+    "exeSha256": {
+      "8": "2124d7a6b9a0bd00735c8cd08e56aed8eea815724a4f690fbcae8234af8b55f0",
+      "9": "1d659ed873f827712f98ddbf0efa9a130ad70f6f488b63ad663ad99bd95f1cef"
+    }
+  },
+  "scope": "not exercised in XP; both APIs advertise and construct four-sample additional buffers with exact cached sample/quality metadata; two chain frames per API before/after 32 zero-public-count revivals, retained storage/private data, binding-only Reset and exact finalization; true MSAA attachment, resolved and displayed pixels replayed independently"
+}

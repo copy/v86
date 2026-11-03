@@ -1899,6 +1899,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 十二组相关核心、26 组相关客体、36 个标准 SDK EXE、六份严格 DLL、两份新增 SDK EXE及站点两项集成通过。发布最终 XP 所测两版零售 DLL及严格诊断 DLL，DDraw 保持验收文件。宿主/协议/着色器及 bundle `64aa2cd7f7413ccbe760` 不变，无新 GPU 像素运行；继承紧邻 4H6f8a 的 225 完整客体回归和 4H6f7d/e 的核心/GPU 基线。见 [stage4h6f8b-validation.json](fixtures/d3d-review/stage4h6f8b-validation.json)。
 > - D3D9 附加四倍 MSAA 仍明确拒绝并在本次 SDK 检查，本项不将其算作实现；下一步接通独立缓冲的采样/resolve 与实际 GPU 验收。完整刷新率/全屏参数、多缓冲存储/轮转、独立 render/depth 表面引用、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f8c（2026-11-03）：D3D9 附加四倍 MSAA 存储/resolve 及两版真实采样附件像素（S2-42 相关）完成。**
+>
+> - D3D9 附加链接入已有共用多采样 render-target 路径，校验格式/采样支持后，将请求的 MultiSampleType 与已验证质量值传给内部纹理，不再拒绝所有非 NONE 模式或创建单采样缓冲。保留 4H6f8b 的 DISCARD、质量和 D3D9 可锁定标志约束；未支持的采样类型在分配/发命令前拒绝。链缓存参数与实际 Surface.GetDesc 保持四倍/质量零。
+> - 实际附加构造 D3D9 增至 141 项、28 个正例构造，含四倍存储传参/缓存、精确设备引用及四种未支持类型失败原子性；D3D8 128 项保持。新增 5/5 语义变异覆盖采样/质量传递、支持判断和缓存参数，旧 D3D9 源在四倍正例运行时失败，七族 ASan/UBSan 通过。原手动 MSP9 SDK 同步改为要求四倍附加链创建成功；历史 8b 冻结轨迹保留当时的拒绝事实，新行为由本阶段独立验收。
+> - 新共享 SDK 在 XP 检查两版四倍能力，D3D9 返回一个质量级别；实际缓冲/缓存参数为四倍和质量零。两版各在 32 次链公共计数归零/恢复前后呈现两帧，缓存身份、私有数据、设备引用不变；最后仅剩绑定时 Reset 清理，两份私有 IUnknown 各析构一次，133 秒退出，两个 driver owner 归还。冻结轨迹确认两条四倍链、两纹理、四次附加呈现及两次晚清理 Reset，二十项语义损坏全部发现。
+> - 新 GPU 回放除读取宿主解析纹理和显示画面，还直接读取真实四采样附件：验证 GPUTexture.sampleCount=4，并用独立 WebGPU resolve 读出其像素，解析纹理 sampleCount=1。SwiftShader/Metal 各检查四帧、3,072 个实际多采样附件像素、3,072 个解析像素及 3,072 个显示像素，全部零误差；两个上下文创建/关闭各一次、四次显示获取，没有主窗口呈现、读取失败或 GPU/宿主错误。
+> - 十三组相关核心、27 组相关客体、36 个标准 SDK EXE、六份严格 DLL、两份新增 SDK EXE、两份更新后的手动 MSAA SDK 编译及站点两项集成通过。只发布最终 XP 所测 D3D9 零售 DLL与严格诊断 DLL，D3D8/DDraw 保持 8b 已验收文件。宿主/协议/着色器和 bundle `64aa2cd7f7413ccbe760` 未改，继承 8a 的 225 完整客体、7d 的完整核心/GPU 基线及 7e 双后端像素，新增本次两个 GPU 页面运行。见 [stage4h6f8c-validation.json](fixtures/d3d-review/stage4h6f8c-validation.json)。
+> - 完整格式/深度/MSAA 匹配、刷新率/全屏参数、多缓冲存储/轮转、独立 render/depth 表面引用、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

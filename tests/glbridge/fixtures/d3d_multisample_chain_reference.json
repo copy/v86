@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "colors": [
+    4289732624,
+    4279255232
+  ],
+  "scope": "D3D9 additional swap chains now use the existing supported render-target multisampling/resolve path, forwarding the requested sample type and validated quality to storage instead of refusing every nonzero type or silently creating NONE. Unsupported sample modes still fail before allocation/emission; cached parameters/Surface.GetDesc and capability quality-level metadata agree. Shared D3D8/9 SDK probes both construct 4x additional buffers, retain them through 32 public-zero chain revivals per API and present two exact colors, then perform binding-only Reset/private-object cleanup. Independent replay validates actual four-sample GPU attachment pixels through a separate explicit resolve, the host resolved texture and displayed scanout. Structural MSAA/flag/quality guards from 8b remain unchanged. Update the older manual MSAA SDK to expect the newly supported D3D9 additional case; the immutable 8b fixture preserves historical unsupported behavior. Full MSAA/format/depth compatibility, refresh/fullscreen validation, multiple-buffer storage/rotation, standalone target counts, complete Reset/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. No host/protocol/shader/bundle change.",
+  "sources": [
+    {
+      "file": "d3d8-com-swapchain.c",
+      "blobSha1": "433da09d04b830ee37fdb591cfce7aa207f95033",
+      "sha256": "ec08bb0c41b251d542086be03d1d0d445dc3ba73eda4d51c4f585e55f6ab6d90",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/swapchain.c",
+      "evidence": "Pinned implementation AddRef from public zero acquires a parent device and physical swap-chain storage reference; Release to zero drops these references. Public surface references retain the same physical chain. This is implementation evidence for valid zero-count revival while storage survives, not a claim that repeated zero-count D3D8 chain Release is a native API guarantee."
+    },
+    {
+      "file": "d3d8-container-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+      "evidence": "Surface AddRef/Release maintain their own resource.refcount for non-texture public surfaces; device and underlying texture/swapchain references change only on public zero/nonzero edges. Release storage before the parent device, since storage destruction can free the surface."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Pinned Windows additional-chain test_refcount: backbuffer container is its IDirect3DSwapChain9; surface public count starts at one and has an independent device pin. Pinned swapchain implementation pins its parent only at public zero/nonzero edges."
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+      "evidence": "Non-texture surface AddRef/Release retain the device and swapchain/texture storage on public zero/nonzero edges; a held surface keeps its container alive."
+    },
+    {
+      "file": "d3d9-com-swapchain.c",
+      "sha256": "4e4d530b24fb6ebe2c27be8c173d6d2df9d230de71e3779ba2a8af11ffc231d9",
+      "blobSha1": "e87b8627ba3e511f84ef2074cc02b963c01c9daf",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/swapchain.c",
+      "evidence": "Public chain AddRef from zero reacquires one parent reference; repeated zero Release returns zero while physical backing storage survives."
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+      "evidence": "Additional chains use the presentation multisample type and a quality index within advertised bounds; multisampling requires DISCARD."
+    }
+  ],
+  "facts": {
+    "actualAdditionalParameterChecks": {
+      "8": 128,
+      "9": 141
+    },
+    "actualAdditionalConstructors": {
+      "8": 25,
+      "9": 28
+    },
+    "newSemanticMutations": 5,
+    "xpFrames": 4,
+    "xpRevivalsPerAPI": 32,
+    "xpSamplesPerAPI": 4,
+    "xpQualityLevels9": 1,
+    "xpPrivateObjectsFinalized": 2,
+    "attachmentPixelsPerBackend": 3072,
+    "resolvedPixelsPerBackend": 3072,
+    "displayPixelsPerBackend": 3072
+  }
+}
