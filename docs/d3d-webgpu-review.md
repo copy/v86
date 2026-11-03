@@ -1926,6 +1926,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 十三组相关核心、232 组完整客体、36 个标准 SDK EXE、六份严格 DLL、另一个生命周期 SDK EXE及站点两项集成通过。只发布最终 XP 所测 D3D9 零售 DLL与严格诊断 DLL，D3D8/DDraw 保持验收文件。宿主/协议/着色器及 bundle `64aa2cd7f7413ccbe760` 未改，无新增 GPU 像素运行，继承 7d/e、8c 的完整核心/GPU 基线。见 [stage4h6f8e-validation.json](fixtures/d3d-review/stage4h6f8e-validation.json)。
 > - D3D8 独立目标容器、绑定对象的原生公共计数/设备引用、完整格式/MSAA/刷新率/全屏参数、多缓冲存储/轮转、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f8f（2026-11-03）：D3D8 独立 GPU 表面的设备容器及普通 RT 纹理隔离（S2-42 相关）完成。**
+>
+> - 独立 CreateRenderTarget / CreateDepthStencilSurface 成功取得表面后设置独立的设备容器标志，GetContainer 不再暴露内部存储纹理。标志与附加缓冲的公共计数/物理生存期标志分开；失败构造不写空输出。CPU image 表面已有设备容器；应用创建的普通及 RENDERTARGET 用途 texture/cube 级表面仍返回真实纹理，不按用途误分类。
+> - 本项采用固定 blob 的 DXVK D3D8 GetContainer 实现作为桥接契约，D3D9 Microsoft 文档仅作跨版本背景；固定 Wine 的独立 NULL container 行为与此不同，明确保留分歧。原 Windows 测试可支持创建时一个设备引用及普通纹理/隐式/附加缓冲身份，未据此宣称验证过独立 D3D8 GetContainer 的原生 HAL 行为。
+> - 实际容器与两种构造入口 8,674 项、2,880 次查询，包含普通/四倍 RT 与 depth、CPU/隐式/附加缓冲及普通 2D/cube 控制；十项新变异、既有七项附加容器变异和七族 ASan/UBSan 通过。旧源在实际构造的设备容器标志断言中失败；真实纹理分配/失败清理仍由已有 81 组 MSAA 入口回归覆盖。
+> - XP 五类真实独立表面各八轮查询，80 次设备查询、280 次拒绝与十组 NULL 保护全部平衡；四种普通/渲染用途的 texture/cube 控制保持父身份与共享计数。每类独立表面仅持有一个设备创建引用；115 秒退出，设备/工厂归零。冻结轨迹核对六份 2D、两份 cube 存储全部先于设备退役及完整 owner 归还，十八项语义损坏全部发现；无绘制/呈现/Reset。
+> - 十四组相关核心、18 组相关客体、36 个标准 SDK EXE、六份严格 DLL、新容器 SDK EXE和站点两项集成通过。只发布最终 XP 所测 D3D8 零售 DLL及严格诊断 DLL；宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变，无新 GPU 像素运行，继承 8e 的 232 组完整客体及 7d/e、8c 核心/GPU 基线。见 [stage4h6f8f-validation.json](fixtures/d3d-review/stage4h6f8f-validation.json)。
+> - 绑定对象的原生公共计数/设备引用、完整格式/MSAA/刷新率/全屏参数、多缓冲存储/轮转、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

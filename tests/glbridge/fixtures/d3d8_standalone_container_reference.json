@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "scope": "D3D8 standalone targets distinguish public device containers from private backing textures through an independent surface classifier. Set only after successful CreateRenderTarget/CreateDepthStencilSurface view acquisition; creation and view failures retain existing cleanup. CPU image surfaces already return devices. Preserve ordinary managed and render-target 2D/cube containers, shared parent counts, additional-buffer lifetime classification and existing NULL-output policy. The D3D8 implementation reference is DXVK, not an original Microsoft runtime; pinned Wine standalone NULL containers disagree, and direct original D3D8 HAL verification remains open. D3D9 Microsoft documentation is supporting cross-version context, not claimed as a D3D8 Windows measurement. No changes to public counts, storage lifetime, protocol, host or shader. This phase does not fix binding public-reference semantics, multiple buffers/rotation, full format/MSAA/Reset/thread/device loss, game/FPS acceptance or complete review stages 4/5/6.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Pinned Windows tests establish one creation-device pin for independent RT/depth/image surfaces and ordinary texture-level container identity; additional and implicit buffers return the device. These tests do not establish standalone GetContainer behavior."
+    },
+    {
+      "file": "d3d8-container-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+      "evidence": "Pinned Wine standalone construction supplies a NULL container; GetContainer returns E_NOINTERFACE for it. Record this disagreement with the DXVK device-container implementation rather than calling it a native Windows oracle."
+    },
+    {
+      "file": "dxvk8-container-subresource.h",
+      "blobSha1": "06fddec3fca080ac18c91e36477af9e03eff2f4c",
+      "sha256": "dbdd3307093dca709004742e89a726c5df4e241e5ae98f643331549760a21295",
+      "url": "https://api.github.com/repos/doitsujin/dxvk/git/blobs/06fddec3fca080ac18c91e36477af9e03eff2f4c",
+      "readPath": "https://github.com/doitsujin/dxvk/blob/master/src/d3d8/d3d8_subresource.h",
+      "evidence": "D3D8Subresource::GetContainer returns the actual base texture when present, otherwise QueryInterface on its device. Use this D3D8 implementation as the bridge contract, aligned with the documented standalone D3D9 contract, while preserving ordinary texture identity."
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3dsurface9-getcontainer",
+      "evidence": "Cross-version context only: explicit D3D9 standalone device-container documentation; no claim this is an original D3D8 reference test."
+    }
+  ],
+  "facts": {
+    "nativeChecks": 8674,
+    "nativeQueries": 2880,
+    "nativeShapes": 10,
+    "newMutations": 10,
+    "retainedAdditionalContainerMutations": 7,
+    "xpStandaloneProfiles": 5,
+    "xpAcceptedDeviceQueries": 80,
+    "xpRefusedStandaloneQueries": 280,
+    "xpNullGuards": 10,
+    "xpTextureCubeControls": 4,
+    "xpBackingTextures2D": 6,
+    "xpBackingTexturesCube": 2,
+    "creationDevicePinsPerStandaloneSurface": 1,
+    "referenceImplementationDisagreementRecorded": true,
+    "originalMicrosoftD3D8HAL": false
+  }
+}
