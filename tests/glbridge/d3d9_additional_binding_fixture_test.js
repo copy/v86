@@ -1,0 +1,24 @@
+"use strict";
+const assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path"), crypto = require("node:crypto"), {gunzipSync} = require("node:zlib");
+const P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
+(async () => {
+    const {inspect_additional_binding_wire: inspect} = await import("../lib/d3d9_additional_binding_wire.mjs"), m = require("./fixtures/d3d9_additional_binding_xp.json");
+    const b = gunzipSync(fs.readFileSync(path.join(__dirname, "fixtures/d3d9_additional_binding_xp.bin.gz"))), hash = bytes => crypto.createHash("sha256").update(bytes).digest("hex"), result = {owners: m.perAPI.map(s => s.owner), logs: m.sdkLogs, releases: m.ownerReleases};
+    assert.equal(hash(b), m.traceSha256); assert.equal(hash(fs.readFileSync(path.join(__dirname, "fixtures/d3d9_additional_binding_reference.json"))), m.referenceSha256);
+    assert.deepEqual(inspect(b, result), {perAPI: m.perAPI, frames: m.frames, ownerReleases: m.ownerReleases, logicalDevices: 3, wireDeviceHandles: 4, backingTextures: 3, chains: 3, privateObjectsFinalized: 3, loopPublicZeroRevivals: 64, frameChainRevivals: 2, blockerPublicRevivals: 2, resets: 1, refusedResets: 2, renderTargetBindings: 36, depthBindings: 36, chainPresents: 2});
+    const fields = [["deviceWidth", "CreateDevice", "width", "CREATE_DEVICE"], ["device", "CreateDevice", "device_handle", "CREATE_DEVICE"], ["autoDepth", "CreateDevice", "enable_auto_depth_stencil", "CREATE_DEVICE"], ["textureDevice", "CreateTexture2D", "device_handle", "CREATE_TEXTURE_2D"], ["texture", "CreateTexture2D", "resource_handle", "CREATE_TEXTURE_2D"], ["format", "CreateTexture2D", "format", "CREATE_TEXTURE_2D"], ["pool", "CreateTexture2D", "pool", "CREATE_TEXTURE_2D"], ["samples", "CreateTexture2D", "multisample_type", "CREATE_TEXTURE_2D"], ["textureWidth", "CreateTexture2D", "width", "CREATE_TEXTURE_2D"], ["chain", "CreateSwapChain", "swap_chain_handle", "CREATE_SWAP_CHAIN"], ["backing", "CreateSwapChain", "back_buffer_handle", "CREATE_SWAP_CHAIN"], ["chainWidth", "CreateSwapChain", "width", "CREATE_SWAP_CHAIN"], ["chainDevice", "CreateSwapChain", "device_handle", "CREATE_SWAP_CHAIN"], ["targetDevice", "SetRenderTarget", "device_handle", "SET_RENDER_TARGET"], ["target", "SetRenderTarget", "color_texture_handle", "SET_RENDER_TARGET"], ["targetIndex", "SetRenderTarget", "target_index", "SET_RENDER_TARGET"], ["color", "Clear", "color", "CLEAR"], ["presentChain", "PresentSwapChain", "swap_chain_handle", "PRESENT_SWAP_CHAIN"], ["presentDevice", "PresentSwapChain", "device_handle", "PRESENT_SWAP_CHAIN"], ["presentWidth", "PresentSwapChain", "width", "PRESENT_SWAP_CHAIN"], ["resetOld", "ResetDevice", "old_device_handle", "RESET"], ["resetNew", "ResetDevice", "new_device_handle", "RESET"], ["destroyChain", "DestroySwapChain", "swap_chain_handle", "DESTROY_SWAP_CHAIN"], ["destroyResource", "DestroyResource", "resource_handle", "DESTROY_RESOURCE"], ["depth", "SetDepthStencilSurfaceLevel", "depth_texture_handle", "SET_DEPTH_STENCIL_SURFACE_LEVEL"], ["depthWidth", "SetDepthStencilSurfaceLevel", "width", "SET_DEPTH_STENCIL_SURFACE_LEVEL"], ["quality", "CreateTexture2D", "multisample_quality", "CREATE_TEXTURE_2D"], ["reserved", "PresentSwapChain", "reserved", "PRESENT_SWAP_CHAIN"]], targets = Object.create(null);
+    for (let at = 0; at < b.length;) {
+        const size = b.readUInt32LE(at + 8), start = at + 20, end = at + 12 + size;
+        for (let x = start + P.STRUCTS.BatchHeader.size; x < end;) {
+            const op = b.readUInt16LE(x), length = b.readUInt32LE(x + P.F.CommandHeader.size), p = x + P.STRUCTS.CommandHeader.size;
+            for (const [name, kind, field, opcode] of fields) if (op === P.OP[opcode] && !targets[name]) targets[name] = p + P.F[kind][field];
+            x += length;
+        }
+        at = end;
+    }
+    assert.equal(Object.keys(targets).length, 28);
+    for (const [name, at] of Object.entries(targets)) {const bad = Buffer.from(b); bad.writeUInt32LE((bad.readUInt32LE(at) ^ 1) >>> 0, at); assert.throws(() => inspect(bad, result), undefined, name);}
+    for (const [from, to] of [["surfaceRevivals=32", "surfaceRevivals=0"], ["containerRevivals=32", "containerRevivals=0"], ["publicRefs=0", "publicRefs=1"], ["deviceRefs=1", "deviceRefs=2"], ["refused=2", "refused=0"], ["privateFinalized=1", "privateFinalized=2"]]) assert.throws(() => inspect(b, {...result, logs: {...result.logs, "CBN9.TXT": result.logs["CBN9.TXT"].replace(from, to)}}));
+    assert.throws(() => inspect(b, {...result, releases: []})); assert.throws(() => inspect(b.subarray(0, b.length - 1), result));
+    console.log("PASS frozen XP additional private bindings: three devices/chains, 64 loop revivals, true-four-sample frames, public-only Reset blockers and three finalizers; thirty-six semantic corruptions");
+})().catch(e => {console.error(e); process.exitCode = 1;});

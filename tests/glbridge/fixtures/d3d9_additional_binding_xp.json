@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 9,
+      "hello": 1,
+      "device": 0,
+      "devices": [
+        {
+          "index": 0,
+          "handle": 1048582,
+          "handles": [
+            1048577,
+            1048582
+          ],
+          "retired": true,
+          "target": 1048578
+        },
+        {
+          "index": 1,
+          "handle": 1048583,
+          "handles": [
+            1048583
+          ],
+          "retired": true,
+          "target": 1048584
+        },
+        {
+          "index": 2,
+          "handle": 1048586,
+          "handles": [
+            1048586
+          ],
+          "retired": true,
+          "target": 0
+        }
+      ],
+      "textures": [
+        {
+          "handle": 1048578,
+          "deviceIndex": 0,
+          "samples": 4,
+          "retired": true
+        },
+        {
+          "handle": 1048584,
+          "deviceIndex": 1,
+          "samples": 0,
+          "retired": true
+        },
+        {
+          "handle": 1048587,
+          "deviceIndex": 2,
+          "samples": 0,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048579,
+          "texture": 1048578,
+          "deviceIndex": 0,
+          "hwnd": 65854,
+          "x": 200,
+          "y": 40,
+          "retired": true
+        },
+        {
+          "handle": 1048585,
+          "texture": 1048584,
+          "deviceIndex": 1,
+          "hwnd": 65854,
+          "x": 200,
+          "y": 40,
+          "retired": true
+        },
+        {
+          "handle": 1048588,
+          "texture": 1048587,
+          "deviceIndex": 2,
+          "hwnd": 65854,
+          "x": 200,
+          "y": 40,
+          "retired": true
+        }
+      ],
+      "targets": 36,
+      "depths": 36,
+      "clears": 2,
+      "presents": 2,
+      "resets": 1,
+      "ended": 1
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 9,
+      "device": 1048577,
+      "chain": 1048579,
+      "texture": 1048578,
+      "step": 0,
+      "width": 32,
+      "height": 24,
+      "samples": 4,
+      "color": 4289732624
+    },
+    {
+      "owner": 1,
+      "api": 9,
+      "device": 1048577,
+      "chain": 1048579,
+      "texture": 1048578,
+      "step": 1,
+      "width": 32,
+      "height": 24,
+      "samples": 4,
+      "color": 4279255232
+    }
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "logicalDevices": 3,
+  "wireDeviceHandles": 4,
+  "backingTextures": 3,
+  "chains": 3,
+  "privateObjectsFinalized": 3,
+  "loopPublicZeroRevivals": 64,
+  "frameChainRevivals": 2,
+  "blockerPublicRevivals": 2,
+  "resets": 1,
+  "refusedResets": 2,
+  "renderTargetBindings": 36,
+  "depthBindings": 36,
+  "chainPresents": 2,
+  "traceSha256": "4fb738a1be4683bcff80f306f10bf4716cab2beddda5e69441bbb016c62f7a90",
+  "referenceSha256": "92b99579d61b6547398103b46f3ffde83e731cce8c20f75463150cc25efc0418",
+  "sdkLogs": {
+    "CBN9.TXT": "CHAIN BIND BUFFER samples=4 width=32 height=24 surfacePublicRefs=0 chainPublicRefs=0 deviceRefs=1\r\nCHAIN BIND FRAME api=9 step=0 color=FFB02010 surfacePublicRefs=0 chainPublicRefs=1\r\nCHAIN BIND COUNTERS rounds=32 surfaceRevivals=32 containerRevivals=32 publicRefs=0 deviceRefs=1 privateRetained=1\r\nCHAIN BIND FRAME api=9 step=1 color=FF1040C0 surfacePublicRefs=0 chainPublicRefs=1\r\nCHAIN BIND RESET refused=2 accepted=1 privateFinalized=1 callbackDeviceRefs=1 factoryRefs=1\r\nCHAIN BIND FINAL samples=0 privateFinalized=1 callbackDeviceRefs=1 factoryRefs=1\r\nCHAIN BIND UNBIND samples=0 privateFinalized=1 callbackDeviceRefs=1 factoryRefs=1\r\nCHAIN BIND STATUS devices=3 reset=1 refusedReset=2 frames=2 loopRevivals=64 privateFinalized=3 publicBindingRefs=0 factoryRefs=1\r\nPASS additional private bindings API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d9proxy/d3d9_proxy.c": "26787738bd5f4b2e815ae16fa834a68ec4a89cdebe253a6c6ccaeeb40d4d4a36",
+    "glbridge/sample/d3d9_additional_binding_test.c": "97e4c9c589dc406cedf136c4309422cabf941cfe1973577c46fe5b7d86b809f4"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "9": "01f4f4ca1407ecc67d382ddbd31152741096a8f5d01253796e7723aa7b5f5466"
+    },
+    "exeSha256": {
+      "9": "1aebd3f4bf0bb5df3ec06e6a9d1fd551eb02845c2c922f1bc307a8b99d2aacbc"
+    }
+  },
+  "scope": "D3D9 additional chain private bindings, public-zero cached surface and chain-container recovery, separate public Reset blockers, binding-only physical cleanup and two true-four-sample chain frames replayed independently"
+}

@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "colors": [
+    4289732624,
+    4279255232
+  ],
+  "scope": "D3D9 additional buffer binding references join standalone/implicit private binding_refs. Physical chain/backing/view storage remains until chain public, surface public and binding counts are all zero. Surface/chain public counts each hold exactly one parent pin on positive-count edges; internal bindings own no public parent pins. Last internal unbind can retire an unreferenced additional chain, while a public chain or surface keeps storage alive. Physical chain destruction unlinks first, emits DestroySwapChain, detaches association and calls the storage destructor directly; remove the obsolete device_pin_transferred flag and synthetic public surface Release. Reset does not deduct private slots from public counts; public chains or views block, binding-only chains allow Reset. Native actual public/storage/device/private methods add 2603 checks, 640 explicit surface/chain revivals across two internal slots and five final-owner orders; old source strictly compiles and fails public-counter assertion. SDK XP uses full setters/getters/GetContainer/QueryInterface, 32 surface and 32 container loop revivals plus two frame-chain revivals and two public Reset-blocker revivals; two true-four-sample Clear/chain-Present frames, binding-only Reset, no-public final device and last-unbind paths. Three protected private finalizers query device count one. XP is proxy execution; pixel replay separately verifies real four-sample attachment, raw resolved and displayed buffers. No native Microsoft HAL/game/FPS claims, other texture/cube/buffer/shader/state-block binding public counts, general root-device state preservation with external children, arbitrary reentrant/thread/device-loss graphs, full Reset/private-cache boundaries, formats/MSAA/fullscreen/multiple-buffer rotation or review stages 4/5/6 completion. D3D8/DDraw, host/protocol/shader/bundle unchanged.",
+  "sources": [
+    {
+      "file": "d3d9-device-tests.c",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Supporting standalone/public device-pin edges, internal target-view binding and public getters. The bridge extends internal binding storage to additional buffers; public zero chain/surface recovery and finalizer safety are implementation invariants exercised here, not a new original Microsoft HAL run."
+    },
+    {
+      "file": "d3d9-reset-device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "Supporting standalone/public device-pin edges, internal target-view binding and public getters. The bridge extends internal binding storage to additional buffers; public zero chain/surface recovery and finalizer safety are implementation invariants exercised here, not a new original Microsoft HAL run."
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+      "evidence": "Supporting standalone/public device-pin edges, internal target-view binding and public getters. The bridge extends internal binding storage to additional buffers; public zero chain/surface recovery and finalizer safety are implementation invariants exercised here, not a new original Microsoft HAL run."
+    }
+  ],
+  "facts": {
+    "nativeAdditionalBindingChecks": 2603,
+    "nativeExplicitPublicZeroRevivals": 640,
+    "nativeFinalOwnerOrders": 5,
+    "nativeInternalSlots": 2,
+    "newMutations": 12,
+    "retainedAdditionalMutations": 14,
+    "xpLogicalDevices": 3,
+    "xpWireDeviceHandles": 4,
+    "xpTextures": 3,
+    "xpChains": 3,
+    "xpPrivateFinalizers": 3,
+    "xpLoopPublicZeroRevivals": 64,
+    "xpFrameChainRevivals": 2,
+    "xpBlockerPublicRevivals": 2,
+    "xpResets": 1,
+    "xpRefusedResets": 2,
+    "xpFrames": 2,
+    "xpRenderTargetBindings": 36,
+    "xpDepthBindings": 36,
+    "pixelSamples": 4,
+    "nonPixelFinalizationSamples": 0,
+    "originalMicrosoftHAL": false
+  }
+}
