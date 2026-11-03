@@ -418,7 +418,7 @@ game.exe
 | S2-45 | 窗口剪裁器用客户区坐标裁剪 | `GD:2256-2266, 2417+`（`GetClientRect`，不做 `ClientToScreen`） | 主表面是屏幕坐标 → 不在 (0,0) 的窗口被裁错或完全不画 | ✅；W+（ddraw7 `tests/ddraw7.c:1360-1384`：剪裁列表是映射到屏幕坐标的可见区域） |
 | S2-46 | 表面颜色键没有 `DDCKEY_COLORSPACE` 时仍用 high 值；带 COLORSPACE 的范围键应返回 `DDERR_NOCOLORKEYHW` | `GD:3256, 4435-4446, 2839`、`DO:240-245` | Windows 在缺这个标志时令 high=low，应用常把 high 留 0 或垃圾值 → 精灵不透明或出现空洞。Blt 的覆盖键（DDBLTFX）仍是范围，保持现状 | ✅；W+（`ddraw/surface.c:5243-5257`；ddraw7 `test_range_colorkey`）；4I1 |
 | S2-47 | stage 0 的 alpha 默认值被 TEXTUREMAPBLEND 回放覆盖；没有按版本区分的默认状态 | `D7:1058, 2410, 1820-1829, 1125`、`ddraw_protocol.h:760-764` | 所有版本共用一套初始化，D3D7 也从 `SELECTARG2(DIFFUSE)` 开始 → alpha 纹理几何画成不透明；传统 MODULATE 应在纹理有 alpha 或未绑纹理时取 `SELECTARG1(TEXTURE)`，否则 `SELECTARG2(CURRENT)`，并在 SetTexture 时重算；D3D7 上 TEXTUREMAPBLEND 应返回 `DDERR_INVALIDPARAMS`；按版本的默认值缺失（v1 COLORKEYENABLE=TRUE，v2 SPECULARENABLE=TRUE，v1–3 NORMALIZENORMALS=TRUE 等） | ✅；W+（`ddraw/device.c:2697-2722` `fixup_texture_alpha_op`、`6943-6953`；ddraw4 `11171-11273`、ddraw7 `16094-16101`、ddraw1 `2165-2170` 等）；4I2 |
-| S2-48 | 对 GPU 写过的表面做 `DDLOCK_WRITEONLY` 锁定会擦掉内容 | `GD:3177, 3333-3335` | 软件光标或 HUD 叠在 D3D 帧上时，把整帧替换掉 | ☑️；W（`ddraw/utils.c:570-571` WRITEONLY 只去掉读权限，内容保留；无 Windows 测试） |
+| S2-48 | 对 GPU 写过的表面做 `DDLOCK_WRITEONLY` 锁定会擦掉内容 | `GD:3177, 3333-3335` | 软件光标或 HUD 叠在 D3D 帧上时，把整帧替换掉 | ✅；W（`ddraw/utils.c:570-571` WRITEONLY 只去掉读权限，内容保留；无 Windows 测试）；4I3 |
 | S2-49 | `palette_SetEntries` 不触发呈现 | `GD:3833` | 只改调色板的淡入淡出不可见，要到下一次 Flip | ☑️；W（`ddraw/palette.c:160-181` 主表面的调色板立即更新前台） |
 | S2-50 | 可见表面写入：丢失或越界 | `GD:2485, 2553, 3036, 3336`、`DO:356` | flip chain 下画在前缓冲的加载画面不可见；窗口模式 `Unlock(NULL)`/`ReleaseDC` 把整个桌面标脏，其他窗口被盖上旧桌面 | ☑️ |
 | S2-51 | 非主表面的 flip chain 错误 | `GD:2675`、`DO:717` | overlay flip chain 被 1:1 贴到交换链上，overlay 显示的是应用正在画的那块缓冲 | ☑️ |
@@ -2011,6 +2011,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - SwiftShader / 本机 GPU 各独立核对 16 次实际 GPU 读回、1,024 个 ARGB 目标 RGBA 像素：纹理 alpha=128、顶点 alpha=64、现代 RGB 纹理 alpha=255，以及显式模式退出/恢复，均零误差、零读回/回复写入/GPU/宿主错误；没有主表面 Present。
 > - 22 组相关核心、245 组完整客体、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；发布最终 XP 所测 DDraw 零售 DLL及严格诊断 DLL。D3D8/9、宿主/协议 ABI/着色器与 bundle `64aa2cd7f7413ccbe760` 不变，继承 7d/4I1 基线并增加本次双后端 alpha 场景。见 [stage4i2-validation.json](fixtures/d3d-review/stage4i2-validation.json)。
 > - 混合新旧接口下状态块的传统模式元数据、S2-53 所有权及其他未完成项、其余资源公共绑定计数及包装转换、完整格式/Reset/线程/丢失、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I3（2026-11-03）：DirectDraw WRITEONLY 锁定保留 GPU 内容及读回失败隔离（S2-48）完成。**
+>
+> - Lock 先校验矩形和压缩块边界，再同步 GPU 已写入的共享影子；WRITEONLY 仅限制应用读取，不能把完整上传矩形中未修改的像素视为丢弃。读回失败返回 GENERIC，不发布输出指针、不改变锁计数/标志/矩形，保留脏标记以便重试；READONLY 解锁继续不上传。
+> - Wine map-flags helper 固定到 Git blob 字节哈希，作为实现证据；没有原生 Microsoft HAL 的 WRITEONLY Windows 对照。native 严格编译实际完整 Lock/Unlock，7,648 项断言、768 次整面/局部 read/write、READONLY、WRITEONLY 锁，覆盖共享 alias、15 个未改像素、压缩指针/边界、无效调用及读回失败重试。旧源严格编译后在 WRITEONLY 未读回的运行断言失败；10 项变异全部以运行断言检出，ASan/UBSan 通过。
+> - XP 实际五种表面接口执行十次整面/局部 WRITEONLY 修改，以及错误请求编号、失败状态、短回复三种拒绝及重试；12 个表面完整退休，127 秒、31 批命令，真实 owner 归还。13 次上传的每个字节和 26 次 fill/copy 均与独立意图数据核对；冻结记录 28 项语义损坏全部检出。
+> - **XP 的 CPU 回复是显式模拟意图数据。** SwiftShader / 本机 GPU 另行验证全部 29 个实际成功 GPU 回复、464 个 RGBA 像素，包括三种 CPU 拒绝前的原图及 13 份修改后的图像，每份仍有 15 个原像素。CPU 注入错误不会修改 GPU 命令，GPU 回放中的对应请求仍应成功；两后端全部零像素/读回/回复写入/GPU/宿主错误，没有主表面 Present。
+> - 23 组相关核心、247 组完整客体、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL。D3D8/9、D3D1–7 状态实现、宿主/协议/着色器和 bundle `64aa2cd7f7413ccbe760` 不变；继承 7d/4I2 基线，新增本次双后端锁定场景。见 [stage4i3-validation.json](fixtures/d3d-review/stage4i3-validation.json)。
+> - native 压缩用例只覆盖指针及边界，不是新增 BC GPU 像素验收。GetDC 失败策略、嵌套锁重新设计、S2-49 至 S2-55/S2-57、所有权及包装转换、完整格式/Reset/线程/丢失、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
