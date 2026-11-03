@@ -55,6 +55,12 @@ const TCP_HEADER_SIZE     = 20;
 const TCP_PAYLOAD_OFFSET  = IPV4_PAYLOAD_OFFSET + TCP_HEADER_SIZE;
 const ICMP_HEADER_SIZE    = 4;
 
+// Data sent to the guest is resent from the oldest unacknowledged byte after this many duplicate
+// ACKs (RFC 5681, 3.2) or this long without an ACK (RFC 6298, 2.4: at least one second). Segments
+// are lost when the guest NIC's receive ring is full.
+const TCP_DUPLICATE_ACK_THRESHOLD = 3;
+const TCP_RETRANSMIT_TIMEOUT_MS   = 1000;
+
 const DEFAULT_DOH_SERVER = "cloudflare-dns.com";
 
 function a2ethaddr(bytes) {
@@ -119,23 +125,25 @@ class GrowableRingbuffer
     }
 
     /**
+     * Copies up to dst_array.length bytes, starting `offset` (at most this.length) bytes past the tail, without removing them.
      * @param {Uint8Array} dst_array
+     * @param {number=} offset
      */
-    peek(dst_array)
+    peek(dst_array, offset = 0)
     {
-        const length = Math.min(this.length, dst_array.length);
+        const length = Math.min(this.length - offset, dst_array.length);
         if(length) {
             const buffer = this.buffer;
             const capacity = buffer.length;
-            const new_tail = this.tail + length;
-            if(new_tail > capacity) {
-                const buf_len_left = new_tail % capacity;
-                const buf_len_right = capacity - this.tail;
-                dst_array.set(buffer.subarray(this.tail));
-                dst_array.set(buffer.subarray(0, buf_len_left), buf_len_right);
+            const start = (this.tail + offset) % capacity;
+            const end = start + length;
+            if(end > capacity) {
+                const buf_len_right = capacity - start;
+                dst_array.set(buffer.subarray(start));
+                dst_array.set(buffer.subarray(0, length - buf_len_right), buf_len_right);
             }
             else {
-                dst_array.set(buffer.subarray(this.tail, new_tail));
+                dst_array.set(buffer.subarray(start, end));
             }
         }
         return length;
@@ -1068,6 +1076,12 @@ export function TCPConnection(adapter)
     this.net = adapter; // The adapter is stored here
     this.send_buffer = new GrowableRingbuffer(2048, 0);
     this.send_chunk_buf = new Uint8Array(TCP_PAYLOAD_SIZE);
+    // Bytes at the start of send_buffer sent to the guest and not yet acknowledged
+    this.in_flight = 0;
+    // The receive window the guest last advertised
+    this.peer_window = 0;
+    this.duplicate_acks = 0;
+    this.retransmit_timer = undefined;
     this.in_active_close = false;
     this.delayed_send_fin = false;
     this.delayed_state = undefined;
@@ -1097,7 +1111,7 @@ TCPConnection.prototype.ipv4_reply = function() {
         dport: this.dport,
         winsize: this.winsize,
         ackn: this.ack,
-        seq: this.seq,
+        seq: this.seq + this.in_flight,
         ack: true
     };
     return reply;
@@ -1109,7 +1123,7 @@ TCPConnection.prototype.packet_reply = function(packet, tcp_options) {
         dport: packet.tcp.sport,
         winsize: packet.tcp.winsize,
         ackn: this.ack,
-        seq: this.seq
+        seq: this.seq + this.in_flight
     };
     if(tcp_options) {
         for(const opt in tcp_options) {
@@ -1153,6 +1167,7 @@ TCPConnection.prototype.accept = function(packet=undefined) {
     this.ack = packet.tcp.seq + 1;
     this.start_seq = packet.tcp.seq;
     this.winsize = packet.tcp.winsize;
+    this.peer_window = packet.tcp.winsize;
 
     let reply = this.ipv4_reply();
     reply.tcp = {
@@ -1196,6 +1211,7 @@ TCPConnection.prototype.process = function(packet) {
             this.ack = packet.tcp.seq + 1;
             this.start_seq = packet.tcp.seq;
             this.last_received_ackn = packet.tcp.ackn;
+            this.peer_window = packet.tcp.winsize;
 
             const reply = this.ipv4_reply();
             this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
@@ -1236,6 +1252,11 @@ TCPConnection.prototype.process = function(packet) {
         }
     }
 
+    const window_changed = packet.tcp.ack && packet.tcp.winsize !== this.peer_window;
+    if(packet.tcp.ack) {
+        this.peer_window = packet.tcp.winsize;
+    }
+
     if(this.last_received_ackn === undefined) {
         this.last_received_ackn = packet.tcp.ackn;
     }
@@ -1246,7 +1267,10 @@ TCPConnection.prototype.process = function(packet) {
             this.last_received_ackn = packet.tcp.ackn;
             this.send_buffer.remove(n_ack);
             this.seq += n_ack;
-            this.pending = false;
+            // n_ack also counts our FIN, which takes no room in send_buffer
+            this.in_flight -= Math.min(n_ack, this.in_flight);
+            this.duplicate_acks = 0;
+            this.restart_retransmit_timer();
 
             if(this.delayed_send_fin && !this.send_buffer.length) {
                 // dbg_log(`TCP[${this.tuple}]: sending delayed FIN from active close in state "${this.state}", next "${this.delayed_state}"`, LOG_FETCH);
@@ -1256,6 +1280,12 @@ TCPConnection.prototype.process = function(packet) {
                 reply.tcp.fin = true;
                 this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
                 return;
+            }
+        }
+        else if(n_ack === 0 && this.in_flight && packet.tcp.ack && !packet.tcp_data.length && !packet.tcp.fin && !window_changed) {
+            // A duplicate ACK (RFC 5681, 2): the guest received a segment past one that was lost
+            if(++this.duplicate_acks === TCP_DUPLICATE_ACK_THRESHOLD) {
+                this.retransmit();
             }
         }
         else if(n_ack < 0) {    // TODO: could this just be a 32-bit sequence number overflow?
@@ -1369,7 +1399,7 @@ TCPConnection.prototype.close = function() {
             return;
         }
 
-        if(this.send_buffer.length || this.pending) {
+        if(this.send_buffer.length) {
             // dbg_log(`TCP[${this.tuple}]: active close, delaying FIN in state "${this.state}", delayed next "${next_state}"`, LOG_FETCH);
             this.delayed_send_fin = true;
             this.delayed_state = next_state;
@@ -1396,6 +1426,8 @@ TCPConnection.prototype.on_close = function() {
 };
 
 TCPConnection.prototype.release = function() {
+    clearTimeout(this.retransmit_timer);
+    this.retransmit_timer = undefined;
     if(this.net.tcp_conn[this.tuple]) {
         // dbg_log(`TCP[${this.tuple}]: connection closed in state "${this.state}"`, LOG_FETCH);
         this.state = TCP_STATE_CLOSED;
@@ -1403,16 +1435,43 @@ TCPConnection.prototype.release = function() {
     }
 };
 
+/**
+ * Sends the unsent part of send_buffer, as far as the guest's receive window allows. A segment
+ * smaller than both a full one and the data left waits while others are unacknowledged, so a
+ * nearly full window is not filled with small segments (RFC 1122, 4.2.3.4).
+ */
 TCPConnection.prototype.pump = function() {
-    if(this.send_buffer.length && !this.pending) {
-        const data = this.send_chunk_buf;
-        const n_ready = this.send_buffer.peek(data);
+    const was_in_flight = this.in_flight;
+    while(this.in_flight < this.send_buffer.length) {
+        const unsent = this.send_buffer.length - this.in_flight;
+        const size = Math.min(this.send_chunk_buf.length, unsent, this.peer_window - this.in_flight);
+        if(size <= 0 || (size < Math.min(this.send_chunk_buf.length, unsent) && this.in_flight)) {
+            break;
+        }
+        const data = this.send_chunk_buf.subarray(0, size);
+        this.send_buffer.peek(data, this.in_flight);
         const reply = this.ipv4_reply();
         reply.tcp.psh = true;
-        reply.tcp_data = data.subarray(0, n_ready);
+        reply.tcp_data = data;
         this.net.receive(make_packet(this.net.eth_encoder_buf, reply));
-        this.pending = true;
+        this.in_flight += size;
     }
+    if(!was_in_flight && this.in_flight) {
+        this.restart_retransmit_timer();
+    }
+};
+
+/** Runs the retransmission timer while data is unacknowledged. */
+TCPConnection.prototype.restart_retransmit_timer = function() {
+    clearTimeout(this.retransmit_timer);
+    this.retransmit_timer = this.in_flight ? setTimeout(() => this.retransmit(), TCP_RETRANSMIT_TIMEOUT_MS) : undefined;
+};
+
+/** Sends everything unacknowledged again, from the oldest byte (go-back-N). */
+TCPConnection.prototype.retransmit = function() {
+    this.in_flight = 0;
+    this.duplicate_acks = 0;
+    this.pump();
 };
 
 
