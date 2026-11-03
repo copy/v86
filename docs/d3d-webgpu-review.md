@@ -1837,6 +1837,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 独立冻结解码确认三个设备生存期，构造格式 22/21/23、Reset 格式 22/23/22、附加 texture 格式 22/23/21，三链/三 texture 全部退役；拒绝路径没有额外宿主构造/Reset，十二项语义损坏被发现。五组相关核心、十四组相关客体、36 个标准 SDK EXE、六份严格 DLL、另一个默认格式 SDK EXE及站点两项集成通过，继承 4H6f6a 的 210/213 完整基线。
 > - 只更新本次 XP 所测 D3D9 零售 DLL 和严格诊断 DLL，D3D8/DDraw 保留验收文件。宿主/协议/着色器不变，本项无绘制与新 GPU 像素运行，继承 4H6f6a/4H6c。见 [stage4h6f6c-validation.json](fixtures/d3d-review/stage4h6f6c-validation.json)。原生 Microsoft HAL、完整刷新率/MSAA/全屏参数、物理丢失、D3D8 附加独立缓冲/身份/容器、多缓冲、包装转换和阶段 4/5/6 尚未完成。
 
+> **阶段 4H6f7a（2026-11-03）：D3D8 附加链独立 GPU 缓冲与两版呈现隔离（S2-42 相关）完成。**
+>
+> - D3D8 附加链复用现有 render-target texture 与缓存 level surface，创建、呈现和销毁均使用既有 D9WG 交换链命令。反复 GetBackBuffer 返回同一表面，两个链及主设备各有独立内容；私有数据复用逻辑 level store，移除另建的私有 owner。链先释放时，应用表面和渲染目标绑定继续保留缓冲与私有 IUnknown，最后解除绑定才清理；资源/链创建失败完整回收。
+> - 14 帧真实 XP 轨迹暴露共用提交边界错误：附加链 Present 标志还会复制主缓冲区，主窗口在自己的 Present 前就被更新。宿主现在区分该批中的主链与附加链命令，附加链单独呈现不获取主 canvas；混合命令两种顺序及既有仅标志的主呈现兼容行为均有回归。旧宿主四个显示快照失败而全部原始缓冲通过，保留失败证据。
+> - 实际 D3D8 命令发射器 23 项及 10/10 变异，覆盖链标识、窗口覆盖、负坐标/空区域、保留字段归零、提交失败和锁释放。附加参数 124/133 项、选择器 36/75 项、私有表面 12/7 组、子视图身份 105 项和链时钟 24/60 项通过；更新测试以验证缓存与 texture-level store 生命周期，ASan/UBSan、16 项私有表面、8 项选择器、10 项参数、19 项时钟、30 项 texture 私有数据及 18 项子身份变异保留。
+> - XP 两版各完成七帧：交错红/蓝附加链与绿色主缓冲，修改 A 不影响 B/主缓冲，随后先释放 A 链、保留表面并绑定/清除，再解除绑定令私有 IUnknown 恰好析构一次。D3D8 B 使用 4× MSAA；两版各在资源清理后成功 Reset，两个 owner 正常退出。独立冻结解码确认四链/四 texture、八次附加及六次主呈现、两次清理 Reset，十六项语义损坏被发现。
+> - SwiftShader 与 Metal 各验证 14 帧、40 份原始缓冲快照（410,624 像素）和 42 份显示快照（422,912 像素），包括尚未 Present 的窗口与已退役链显示，全部零误差。重建并同步宿主 bundle；完整 GPU 基线、核心/客体回归、36 个标准 SDK EXE、六份严格 DLL、另两份独立链 SDK EXE和站点两项集成通过。发布最终 XP 所测 D3D8 零售 DLL及严格诊断 DLL，D3D9/DDraw 保留此前验收文件。详见 [stage4h6f7a-validation.json](fixtures/d3d-review/stage4h6f7a-validation.json)。
+> - 本项仅验收单 back buffer 的独立存储与显示；附加表面的公共 COM 计数/容器仍沿用 backing texture 表示。下一步处理 D3D8 的设备容器与 D3D9 的链容器、公共计数归零与恢复。多 back buffer 存储/轮换、完整 SwapEffect/MSAA/刷新率/全屏参数、原生 Microsoft HAL、游戏/FPS、D3D8 包装及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

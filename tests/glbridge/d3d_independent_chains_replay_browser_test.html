@@ -1,0 +1,99 @@
+<!doctype html><meta charset="utf-8"><title>Independent D3D8/9 swap-chain replay</title><canvas id="screen" width="128" height="128"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async () => {
+    /* global TextDecoder */
+    "use strict";
+    const P = D9WGProtocol, C = P.C, displays = new Map(), comparisons = [], callbacks = {created: 0, destroyed: 0, acquired: 0};
+    let activeOwner = 0, gpu, batches = 0, rawPixels = 0, displayPixels = 0, request = 0;
+    const key = (owner, chain) => owner + ":" + chain;
+    function check(value, message) {if (!value) throw Error(message);}
+    async function hash(bytes) {return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), v => v.toString(16).padStart(2, "0")).join("");}
+    async function artifact(data) {await fetch("/__test_file?name=d9wg-independent-chains-guest.json", {method: "POST", body: JSON.stringify(data, null, 2)});}
+    function newDisplay(width, height) {return gpu.device.createTexture({size: [width, height], format: gpu.format, usage: 0x1 | 0x2 | 0x4 | 0x10});}
+    function chainCanvas(surface) {
+        const id = key(activeOwner, surface.swapChain); check(!displays.has(id), "Duplicate chain context");
+        const record = {texture: null, closed: false, width: surface.width, height: surface.height}; displays.set(id, record); callbacks.created++;
+        const context = {
+            configure() {check(!record.texture && !record.closed, "Duplicate chain configure"); record.texture = newDisplay(record.width, record.height);},
+            getCurrentTexture() {check(record.texture && !record.closed, "Chain acquisition after retirement"); callbacks.acquired++; return record.texture;},
+            unconfigure() {check(!record.closed, "Duplicate chain retirement"); record.closed = true; callbacks.destroyed++;},
+        };
+        return {width: surface.width, height: surface.height, getContext(type) {check(type === "webgpu", "Unexpected chain context type"); return context;}};
+    }
+    async function readDisplay(texture, width, height, wanted) {
+        const pitch = Math.ceil(width * 4 / 256) * 256, buffer = gpu.device.createBuffer({size: pitch * height, usage: 0x8 | 0x1}), encoder = gpu.device.createCommandEncoder();
+        encoder.copyTextureToBuffer({texture}, {buffer, bytesPerRow: pitch, rowsPerImage: height}, [width, height]); gpu.device.queue.submit([encoder.finish()]); await buffer.mapAsync(1);
+        const data = new Uint8Array(buffer.getMappedRange()); let error = 0;
+        for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) for (let c = 0; c < 4; c++) {const channel = gpu.format.startsWith("bgra") ? c : [2, 1, 0, 3][c]; error = Math.max(error, Math.abs(data[y * pitch + x * 4 + c] - wanted[channel]));}
+        buffer.unmap(); buffer.destroy(); displayPixels += width * height; return error;
+    }
+    async function readRaw(device, texture, width, height, wanted) {
+        const payload = P.encode("ReadbackSurface", {device_handle: device, texture_handle: texture, format: 21, width, height, row_count: height, destination_pitch: width * 4, destination_bytes: width * height * 4, response_offset: C.D9WG_READBACK_REGION_OFFSET, request_id: ++request});
+        let raw;
+        await gpu.onReadbackSurface(payload, new DataView(payload.buffer), 0, payload.length, {writeGuestMemory(at, data) {check(at === 16 * 1024 * 1024 - C.D9WG_RESPONSE_REGION_BYTES + C.D9WG_READBACK_REGION_OFFSET, "Wrong readback address"); raw = data.slice();}});
+        check(raw && raw.length === 16 + width * height * 4 && new DataView(raw.buffer, raw.byteOffset).getUint32(P.F.ReadbackResponse.status, true) === C.D9WG_RESPONSE_OK, "Independent-chain raw readback failed: texture=" + texture + " bytes=" + (raw && raw.length) + " status=" + (raw && new DataView(raw.buffer, raw.byteOffset).getUint32(P.F.ReadbackResponse.status, true)));
+        let error = 0; for (let x = 16; x < raw.length; x++) error = Math.max(error, Math.abs(raw[x] - wanted[(x - 16) % 4])); rawPixels += width * height; return error;
+    }
+    try {
+        const prefix = "fixtures/d3d_independent_chains_", metadata = await (await fetch(prefix + "xp.json")).json(), referenceBytes = new Uint8Array(await (await fetch(prefix + "reference.json")).arrayBuffer());
+        check(await hash(referenceBytes) === metadata.referenceSha256, "Reference hash mismatch"); const reference = JSON.parse(new TextDecoder().decode(referenceBytes));
+        const response = await fetch(prefix + "xp.bin.gz"), bytes = new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()), view = new DataView(bytes.buffer);
+        check(await hash(bytes) === metadata.traceSha256, "Trace hash mismatch");
+        gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), {strict: true, useShaderWorker: false, createSwapChainCanvas: chainCanvas}); await gpu.initialize();
+        const context = gpu.context;
+        gpu.context = {configure: options => context.configure(options), unconfigure: () => context.unconfigure(), getCurrentTexture() {const record = displays.get(key(activeOwner, 0)); check(record, "Missing primary display"); return record.texture;}};
+        async function observe(owner, present, chainPresent) {
+            const frame = metadata.frames[comparisons.length]; check(frame && frame.owner === owner && frame.device === present.device_handle && frame.chain === (chainPresent ? present.swap_chain_handle : 0), "Independent-chain frame identity mismatch");
+            const state = metadata.perAPI.find(s => s.owner === owner), {step} = frame, rawErrors = [], displayErrors = [];
+            check(reference.frames.targets[step] === frame.target && reference.frames.colors[step] === frame.color, "Independent frame reference mismatch");
+            for (let target = 0; target < 3; target++) {
+                const width = reference.frames.widths[target], height = reference.frames.heights[target], chain = target ? state.chains[target - 1].handle : 0;
+                const rawColor = target === 0 ? 0xff208040 : target === 2 ? 0xff1030c0 : step < 3 ? 0xffc02010 : 0xffe06020;
+                const displayColor = target === 0 ? step < 2 ? 0 : 0xff208040 : target === 2 ? step === 0 ? 0 : 0xff1030c0 : step < 3 ? 0xffc02010 : 0xffe06020;
+                const channels = color => [color & 255, color >>> 8 & 255, color >>> 16 & 255, color >>> 24];
+                if (target !== 1 || step < 6) rawErrors.push({target, error: await readRaw(frame.device, target ? state.textures[target - 1].handle : 0, width, height, channels(rawColor))});
+                const display = displays.get(key(owner, chain)); check(display && display.texture, "Missing display target " + target);
+                displayErrors.push({target, error: await readDisplay(display.texture, width, height, channels(displayColor))});
+                if (target) check(display.closed === (target === 1 && step === 6), "Wrong chain context lifetime");
+            }
+            comparisons.push({...frame, rawErrors, displayErrors});
+        }
+        for (let at = 0; at < bytes.length;) {
+            const ownerToken = view.getUint32(at, true), flags = view.getUint32(at + 4, true), size = view.getUint32(at + 8, true); at += 12; activeOwner = ownerToken;
+            check(size >= 8 && size <= bytes.length - at && view.getUint16(at, true) === 0xffe1 && view.getUint32(at + 4, true) === size - 8, "Invalid chain carrier");
+            if (!displays.has(key(ownerToken, 0))) displays.set(key(ownerToken, 0), {texture: newDisplay(128, 128)});
+            const packet = bytes.subarray(at + 8, at + size), pv = new DataView(packet.buffer, packet.byteOffset, packet.byteLength), presents = [];
+            for (let x = P.STRUCTS.BatchHeader.size; x < packet.length;) {
+                const op = pv.getUint16(x, true), length = pv.getUint32(x + P.F.CommandHeader.size, true); check(length >= P.STRUCTS.CommandHeader.size && x + length <= packet.length, "Invalid chain command");
+                if (op === P.OP.PRESENT || op === P.OP.PRESENT_SWAP_CHAIN) presents.push({chain: op === P.OP.PRESENT_SWAP_CHAIN, data: P.decode(op === P.OP.PRESENT ? "Present" : "PresentSwapChain", pv, x + P.STRUCTS.CommandHeader.size, length - P.STRUCTS.CommandHeader.size)}); x += length;
+            }
+            check(presents.length <= 1, "Multiple chain Presents in batch"); await gpu.submit(packet, {ownerToken, flags, writeGuestMemory() {}});
+            if (presents.length) await observe(ownerToken, presents[0].data, presents[0].chain); at += size; batches++;
+        }
+        await gpu.checkpointIdle(); await gpu.device.queue.onSubmittedWorkDone(); for (let i = 0; i < 4; i++) await new Promise(resolve => setTimeout(resolve, 0));
+        await artifact({traceSha256: metadata.traceSha256, referenceSha256: metadata.referenceSha256, frames: comparisons.length, rawPixels, displayPixels, comparisons, callbacks, batches, stats: gpu.stats, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors});
+        check(comparisons.length === 14 && request === 40 && rawPixels === 410624 && displayPixels === 422912, "Wrong observation totals");
+        check(comparisons.every(c => c.rawErrors.every(v => !v.error) && c.displayErrors.every(v => !v.error)), "Independent-chain pixel mismatch");
+        check(callbacks.created === 4 && callbacks.destroyed === 4 && callbacks.acquired === 8 && gpu.stats.swapChainsCreated === 4 && gpu.stats.swapChainsDestroyed === 4 && gpu.stats.swapChainPresents === 8 && gpu.stats.sessionsEnded === 2 && !gpu.stats.swapChainPresentsDropped && !gpu.stats.commandsFailed && !gpu.stats.droppedDraws && !gpu.gpuErrors.errors.length && !gpu.hostErrors.length, "Independent-chain host/context mismatch");
+        for (const record of displays.values()) record.texture.destroy(); document.querySelector("#result").textContent = "PASS actual XP independent chains: 14 frames, 40 raw and 42 displayed snapshots, D3D8 4x MSAA, zero error";
+    } catch (error) {
+        await artifact({failed: true, error: String(error.stack), comparisons, callbacks, stats: gpu && gpu.stats, gpuErrors: gpu && gpu.gpuErrors.errors, hostErrors: gpu && gpu.hostErrors}); document.querySelector("#result").textContent = "FAIL " + error.stack;
+    }
+})();
+</script>

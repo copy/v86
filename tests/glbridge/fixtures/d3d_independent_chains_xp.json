@@ -1,0 +1,314 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048582
+      ],
+      "textures": [
+        {
+          "handle": 1048578,
+          "width": 96,
+          "height": 64,
+          "samples": 0,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "width": 80,
+          "height": 96,
+          "samples": 4,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048579,
+          "texture": 1048578,
+          "hwnd": 65854,
+          "x": 200,
+          "y": 40,
+          "retired": true
+        },
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "hwnd": 65856,
+          "x": 320,
+          "y": 40,
+          "retired": true
+        }
+      ],
+      "target": 0,
+      "clearColors": [
+        4280320064,
+        4291874848,
+        4279251136
+      ],
+      "clears": 5,
+      "presents": 7,
+      "resets": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048582
+      ],
+      "textures": [
+        {
+          "handle": 1048578,
+          "width": 96,
+          "height": 64,
+          "samples": 0,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "width": 80,
+          "height": 96,
+          "samples": 0,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048579,
+          "texture": 1048578,
+          "hwnd": 131390,
+          "x": 200,
+          "y": 40,
+          "retired": true
+        },
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "hwnd": 65858,
+          "x": 320,
+          "y": 40,
+          "retired": true
+        }
+      ],
+      "target": 0,
+      "clearColors": [
+        4280320064,
+        4291874848,
+        4279251136
+      ],
+      "clears": 5,
+      "presents": 7,
+      "resets": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 0,
+      "target": 1,
+      "device": 1048577,
+      "chain": 1048579,
+      "texture": 1048578,
+      "width": 96,
+      "height": 64,
+      "color": 4290781200
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 1,
+      "target": 2,
+      "device": 1048577,
+      "chain": 1048581,
+      "texture": 1048580,
+      "width": 80,
+      "height": 96,
+      "color": 4279251136
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 2,
+      "target": 0,
+      "device": 1048577,
+      "chain": 0,
+      "texture": 0,
+      "width": 128,
+      "height": 128,
+      "color": 4280320064
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 3,
+      "target": 1,
+      "device": 1048577,
+      "chain": 1048579,
+      "texture": 1048578,
+      "width": 96,
+      "height": 64,
+      "color": 4292894752
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 4,
+      "target": 2,
+      "device": 1048577,
+      "chain": 1048581,
+      "texture": 1048580,
+      "width": 80,
+      "height": 96,
+      "color": 4279251136
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 5,
+      "target": 0,
+      "device": 1048577,
+      "chain": 0,
+      "texture": 0,
+      "width": 128,
+      "height": 128,
+      "color": 4280320064
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "step": 6,
+      "target": 0,
+      "device": 1048577,
+      "chain": 0,
+      "texture": 0,
+      "width": 128,
+      "height": 128,
+      "color": 4280320064
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 0,
+      "target": 1,
+      "device": 1048577,
+      "chain": 1048579,
+      "texture": 1048578,
+      "width": 96,
+      "height": 64,
+      "color": 4290781200
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 1,
+      "target": 2,
+      "device": 1048577,
+      "chain": 1048581,
+      "texture": 1048580,
+      "width": 80,
+      "height": 96,
+      "color": 4279251136
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 2,
+      "target": 0,
+      "device": 1048577,
+      "chain": 0,
+      "texture": 0,
+      "width": 128,
+      "height": 128,
+      "color": 4280320064
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 3,
+      "target": 1,
+      "device": 1048577,
+      "chain": 1048579,
+      "texture": 1048578,
+      "width": 96,
+      "height": 64,
+      "color": 4292894752
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 4,
+      "target": 2,
+      "device": 1048577,
+      "chain": 1048581,
+      "texture": 1048580,
+      "width": 80,
+      "height": 96,
+      "color": 4279251136
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 5,
+      "target": 0,
+      "device": 1048577,
+      "chain": 0,
+      "texture": 0,
+      "width": 128,
+      "height": 128,
+      "color": 4280320064
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "step": 6,
+      "target": 0,
+      "device": 1048577,
+      "chain": 0,
+      "texture": 0,
+      "width": 128,
+      "height": 128,
+      "color": 4280320064
+    }
+  ],
+  "deviceLifetimes": 2,
+  "resets": 2,
+  "textures": 4,
+  "chains": 4,
+  "chainPresents": 8,
+  "primaryPresents": 6,
+  "traceSha256": "00667881a55c9cd90d307bc3640468be35494885775846f1837c14c394211c54",
+  "referenceSha256": "e9851e3e7ac982dfc4439636e44b47c473d76b69b572c4d2e1bcfea51b844048",
+  "sdkLogs": {
+    "IND8.TXT": "CHAIN BUFFER api=8 index=0 width=96 height=64 samples=0 cached=1\r\nCHAIN BUFFER api=8 index=1 width=80 height=96 samples=4 cached=1\r\nCHAIN FRAME api=8 step=0 target=1 color=FFC02010\r\nCHAIN FRAME api=8 step=1 target=2 color=FF1030C0\r\nCHAIN FRAME api=8 step=2 target=0 color=FF208040\r\nCHAIN FRAME api=8 step=3 target=1 color=FFE06020\r\nCHAIN FRAME api=8 step=4 target=2 color=FF1030C0\r\nCHAIN FRAME api=8 step=5 target=0 color=FF208040\r\nCHAIN FRAME api=8 step=6 target=0 color=FF208040\r\nCHAIN LIFETIME api=8 cached=1 isolatedPrivate=1 chainReleasedFirst=1 bindingRetained=1 privateFinalized=1 resetRecovered=1\r\nPASS independent chains API=8\r\n",
+    "IND9.TXT": "CHAIN BUFFER api=9 index=0 width=96 height=64 samples=0 cached=1\r\nCHAIN BUFFER api=9 index=1 width=80 height=96 samples=0 cached=1\r\nCHAIN FRAME api=9 step=0 target=1 color=FFC02010\r\nCHAIN FRAME api=9 step=1 target=2 color=FF1030C0\r\nCHAIN FRAME api=9 step=2 target=0 color=FF208040\r\nCHAIN FRAME api=9 step=3 target=1 color=FFE06020\r\nCHAIN FRAME api=9 step=4 target=2 color=FF1030C0\r\nCHAIN FRAME api=9 step=5 target=0 color=FF208040\r\nCHAIN FRAME api=9 step=6 target=0 color=FF208040\r\nCHAIN LIFETIME api=9 cached=1 isolatedPrivate=1 chainReleasedFirst=1 bindingRetained=1 privateFinalized=1 resetRecovered=1\r\nPASS independent chains API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_present_parameters.h": "8b4f8fdae0d40457a6f47db9abea356819615b8adbc689cdd01ac278093d5861",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "83b8a9f6bf4cd5ab22fb95592a50870d89474921c5f20ffa7d762afdcdc818b6",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "35d562cca37bb9fdaf6e4909a2d661681b6dbbec7edf6ab85c0ab3c2965aa7a2",
+    "glbridge/sample/d3d_independent_chains_test.c": "5a1ab29e629f3937460c0378d8bdbbeabdcd8a3c9636fedbc9030294f0853b38"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "628d39b22a869a0bc0848942312904c5bc802527d1611098d7cd50fddfcbf763",
+      "9": "5c5c54a528901acceb98e3c9bf1f215fe5769ab38384c5eae7e393a8dbe59564"
+    },
+    "exeSha256": {
+      "8": "f77b110888cded07d69bdc63a1a4ebc2c24a34082b2bd0da16aef583b91eaaeb",
+      "9": "e6596e42ce4b3c97e1086cd7eecfe7f0120ed6beb8c5a5c9c816f774269ef006"
+    }
+  },
+  "scope": "not exercised; captured independent primary/A/B targets and seven frames per API, D3D8 4x MSAA chain, cached views, private-store lifetime after chain release and final cleanup Reset; raw/display pixels validated separately on WebGPU replay"
+}

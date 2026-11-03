@@ -1651,6 +1651,8 @@ await test("presenting an additional chain blits its back buffer to its canvas",
     assert.deepEqual([surface.x, surface.y, surface.width, surface.height], [40, 50, 256, 128]);
     assert.equal(find("swapchain-getCurrentTexture").length, 1,
         "the chain's canvas is acquired inside the submitting task");
+    assert.equal(find("getCurrentTexture").length, 0,
+        "an additional-chain Present must not acquire or overwrite the primary canvas");
     // A blit, not a copy: the back buffer is an ordinary D3D texture whose
     // format need not match the canvas format, and a copy requires a match.
     const blitPipelines = find("createRenderPipeline")
@@ -1678,6 +1680,38 @@ await test("an additional swap chain with no canvas hook is counted, not silent"
     assert.equal(executor.stats.swapChainsRefused, 1);
     assert.equal(executor.stats.swapChainPresentsDropped, 1,
         "the frame is dropped and counted rather than rendered nowhere");
+});
+
+await test("primary and additional presentation remain independent across mixed batches", async () => {
+    const {executor, find, calls} = makeExecutor({createSwapChainCanvas: () => makeSwapChainCanvas(calls)});
+    const chainPresent = command(OP_PRESENT_SWAP_CHAIN, encodePayload("PresentSwapChain", {device_handle: DEVICE, swap_chain_handle: 0x77, width: 256, height: 128}));
+    const primaryPresent = command(OP.PRESENT, encodePayload("Present", {device_handle: DEVICE, width: 640, height: 480}));
+    await executor.submit(buildBatch([
+        command(OP.CREATE_DEVICE, createDevicePayload(640, 480)),
+        command(OP.CREATE_TEXTURE_2D, encodePayload("CreateTexture2D", {device_handle: DEVICE, resource_handle: 0x901, width: 256, height: 128, level_count: 1, format: 21, usage: D3DUSAGE_RENDERTARGET_BIT, pool: 0})),
+        command(OP_CREATE_SWAP_CHAIN, encodePayload("CreateSwapChain", {device_handle: DEVICE, swap_chain_handle: 0x77, back_buffer_handle: 0x901, width: 256, height: 128})), chainPresent,
+    ], {present: true}));
+    await executor.idle();
+    assert.equal(find("getCurrentTexture").length, 0);
+    assert.equal(find("swapchain-getCurrentTexture").length, 1);
+    assert.equal(executor.stats.presents, 0);
+    await executor.submit(buildBatch([primaryPresent], {present: true}));
+    await executor.idle();
+    assert.equal(find("getCurrentTexture").length, 1);
+    assert.equal(find("swapchain-getCurrentTexture").length, 1);
+    for (const commands of [[primaryPresent, chainPresent], [chainPresent, primaryPresent]]) await executor.submit(buildBatch(commands, {present: true}));
+    await executor.idle();
+    assert.equal(find("getCurrentTexture").length, 3);
+    assert.equal(find("swapchain-getCurrentTexture").length, 3);
+    assert.equal(executor.stats.presents, 3);
+    assert.equal(executor.stats.swapChainPresents, 3);
+    await executor.submit(buildBatch([], {present: true}));
+    await executor.idle();
+    assert.equal(find("getCurrentTexture").length, 4, "legacy flag-only batches retain primary presentation");
+    await executor.submit(buildBatch([command(OP_PRESENT_SWAP_CHAIN, encodePayload("PresentSwapChain", {device_handle: DEVICE, swap_chain_handle: 0xbad}))], {present: true}));
+    await executor.idle();
+    assert.equal(find("getCurrentTexture").length, 4, "a refused additional Present must not become a primary Present");
+    assert.equal(executor.stats.swapChainPresentsDropped, 1);
 });
 
 await test("destroying an additional swap chain unconfigures and reports it",

@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "scope": "D3D8 additional swap chains use independent GPU render targets and the existing D9WG create/present/destroy path. Validate two chains and the primary independently, cached backbuffer identity, D3D8 4x MSAA resolve, private stores and bound-buffer survival after early chain release, and successful final Reset. This does not establish original Microsoft HAL acceptance. Additional backbuffer GetContainer/public COM counts still follow private backing textures; multiple backbuffer storage/rotation, present rectangles, broader swap-effect validation, games/FPS and review stages 4/5/6 remain incomplete.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Windows create/reset tests: client dimensions when requested zero, count zero becomes one, D3D8 caller dimensions unchanged, D3D9 returned/cached effective dimensions and resolved window."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Windows create/reset tests: client dimensions when requested zero, count zero becomes one, D3D8 caller dimensions unchanged, D3D9 returned/cached effective dimensions and resolved window."
+    }
+  ],
+  "frames": {
+    "widths": [
+      128,
+      96,
+      80
+    ],
+    "heights": [
+      128,
+      64,
+      96
+    ],
+    "targets": [
+      1,
+      2,
+      0,
+      1,
+      2,
+      0,
+      0
+    ],
+    "colors": [
+      4290781200,
+      4279251136,
+      4280320064,
+      4292894752,
+      4279251136,
+      4280320064,
+      4280320064
+    ]
+  },
+  "facts": {
+    "chainsPerAPI": 2,
+    "D3D8SecondChainSamples": 4,
+    "stableCachedView": true,
+    "privateStoresIsolated": true,
+    "chainReleasedBeforeSurface": true,
+    "boundSurfaceRetainsStore": true,
+    "privateUnknownFinalizedOnce": true,
+    "cleanupResetPerAPI": 1
+  }
+}

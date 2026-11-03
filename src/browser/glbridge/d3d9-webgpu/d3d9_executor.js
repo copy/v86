@@ -1650,8 +1650,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
 
             this.checkStream(view, end, commandCount);
             let offset = D9WG_BATCH_HEADER_BYTES;
+            let primaryPresent = false, additionalPresent = false;
             while (offset < end) {
                 const opcode = view.getUint16(offset + D9WG.F.CommandHeader.opcode, true);
+                if (opcode === OP_PRESENT) primaryPresent = true;
+                if (opcode === OP_PRESENT_SWAP_CHAIN) additionalPresent = true;
                 const size = view.getUint32(offset + D9WG.F.CommandHeader.size, true);
                 const payloadOffset = offset + D9WG_COMMAND_HEADER_BYTES;
                 const payloadBytes = size - D9WG_COMMAND_HEADER_BYTES;
@@ -1705,7 +1708,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 if (this.frame && this.frame.ops.length >= this.flushThreshold)
                     this.finishFrame(false);
             }
-            if (packet.present) this.finishFrame(true);
+            // The batch flag closes either kind of frame. A chain-only Present
+            // already records its own canvas blit and must leave primary scanout
+            // untouched. Preserve primary presentation for legacy flag-only batches.
+            if (packet.present) this.finishFrame(primaryPresent || !additionalPresent);
             else if (this.flushRequested) this.finishFrame(false);
             this.flushRequested = false;
             this.beat(metadata);
