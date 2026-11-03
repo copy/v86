@@ -1917,6 +1917,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 十二组相关核心、22 组相关客体、36 个标准 SDK EXE、六份严格 DLL、另一个容器 SDK EXE及站点两项集成通过。只发布最终 XP 所测 D3D9 零售 DLL和严格诊断 DLL，D3D8/DDraw 保持已验收文件。宿主/协议/着色器及 bundle `64aa2cd7f7413ccbe760` 未改，无新增 GPU 像素运行，继承 8a 完整客体和 7d/e、8c 核心/GPU 基线。见 [stage4h6f8d-validation.json](fixtures/d3d-review/stage4h6f8d-validation.json)。
 > - 独立目标创建设备引用、完整格式/MSAA/刷新率/全屏参数、多缓冲存储/轮转、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f8e（2026-11-03）：D3D9 独立表面只持有一个创建设备引用（S2-42 相关）完成。**
+>
+> - create_target_texture 的内部纹理不再额外持有一个公共设备引用；独立表面持有唯一创建引用，内部存储在构造时标记为私有，析构跳过不存在的设备引用。既有 private_back_buffer 标志现涵盖私有 surface/backbuffer 存储，未改公开对象布局。附加链接过同一个表面引用，不再归还已消失的“第二份纹理引用”；普通公开 texture/cube/volume 的归属不变。8d 的设备容器继续隔离内部纹理。
+> - 实际构造、纹理/表面和设备清理入口新增 2,000 项、361 组生存期/失败路径：五个 RT/depth/offscreen 采样配置，各 64 轮引用/销毁，构造返回表面 1、未绑表面仅增加一个设备引用；完整覆盖每处分配/发命令失败、设备先释放、抽象设备所持引用清理及纹理先于设备退役。12/12 新变异通过，保留附加生命周期 14 项的两处所有权变异随责任移动到真实存储构造；旧源运行时拒绝，八族 ASan/UBSan 通过。
+> - XP 七类 GPU/CPU 表面均为表面计数 1、设备总计 2（一个应用引用加一个表面引用），GetDevice/设备容器查询临时到 3 后归还；112 轮额外 AddRef/私有数据查询不增加设备引用。六设备生存期包含三次应用先释放设备后由最后表面销毁、两次真正 RT/depth 绑定后仅剩绑定的清理。十二份私有 IUnknown 恰好析构一次，回调期间设备仍由待归还引用保护；122 秒退出，设备/工厂归零。
+> - 冻结独立轨迹确认十份 GPU 存储、六设备、各一次 RT/depth 绑定、存储先于对应设备退役及完整 owner 归还，无绘制/呈现/Reset；二十一项语义损坏全部检出。绑定仍沿用本项目原有公共表面引用保留模型，本项校正创建引用并核验清理安全，不宣称已完成绑定后的原生公共计数/设备计数语义；回调中的设备计数也是本项目安全不变量，不作为原生 HAL 销毁期间计数证明。
+> - 十三组相关核心、232 组完整客体、36 个标准 SDK EXE、六份严格 DLL、另一个生命周期 SDK EXE及站点两项集成通过。只发布最终 XP 所测 D3D9 零售 DLL与严格诊断 DLL，D3D8/DDraw 保持验收文件。宿主/协议/着色器及 bundle `64aa2cd7f7413ccbe760` 未改，无新增 GPU 像素运行，继承 7d/e、8c 的完整核心/GPU 基线。见 [stage4h6f8e-validation.json](fixtures/d3d-review/stage4h6f8e-validation.json)。
+> - D3D8 独立目标容器、绑定对象的原生公共计数/设备引用、完整格式/MSAA/刷新率/全屏参数、多缓冲存储/轮转、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

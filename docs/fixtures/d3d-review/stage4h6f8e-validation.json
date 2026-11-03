@@ -1,0 +1,459 @@
+{
+  "stage": "4H6f8e D3D9 standalone surface creation owns one device pin and private storage owns none (S2-42 related)",
+  "date": "2026-11-03",
+  "bundle": "64aa2cd7f7413ccbe760",
+  "targetedCoreSuites": 13,
+  "guestSuites": 232,
+  "webgpuRuns": 0,
+  "baseline": {
+    "fullCoreGPU": {
+      "file": "docs/fixtures/d3d-review/stage4h6f7d-validation.json",
+      "sha256": "3007b57fe847cd52fcd3920b19d191843f1600baca3fdd89496b98feffadd536",
+      "coreSuites": 216,
+      "webgpuRuns": 59
+    },
+    "additionalGPUFixture": {
+      "file": "docs/fixtures/d3d-review/stage4h6f8c-validation.json",
+      "sha256": "c6c04a09f8d7f1b5d99878321d6c7168cba755ec6aebf60493a11fce19b99834",
+      "webgpuRuns": 2
+    },
+    "bundle": "64aa2cd7f7413ccbe760",
+    "reason": "Private target storage/device-pin ownership changes only. Fresh full guest regression, actual constructor/destructor/device native entry tests, sanitizers and six-lifetime XP fixture; no host/protocol/shader or pixel-rendering changes."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "4ff47146929fa8dd9dc30678e6d84a9986978635c4f67a6d97cd53fe9ea7f52b"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "2bbbbcb2335feff0e32fe92018d62b6a084c8cbf0f7f30952f8cf64440d403db"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "ba00f0b3d0ec10d20224b1b25bb7d829ee85cf97499a077fa482cd8a3f8c010a"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "f042f52be879b730d6533a4f784df8a749537aaea4dde8be86963b6e26cecd93"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "ecb2b2b7d53c4f273754c9f5772bb143bb0757c63155810aed4c995eade4f91a"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "4a1e4904ee02900eeff0dacbc299b1e95e543d0b537cab336ca2f0256aafa576"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "2099ff5f8c4fdab626c2cb6a4f41022dec0a8ce8013bba224642624b3d51d091"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "31170eaae6aa6242794e7d1e54be794fc48857faa73741b56587c99e9f7a29c2"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "31a0dfdcf4577cd47616defc8a7b8b2747074e8908846e42d3c665c7554c5736"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "19a9ff2084c8988a1a33eeb792562da60388ba93103eff1139f5d9df1848ec2e"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "7194e826f9fcf0f16a5c8aae2db361caac94d8c3e5a072785c6b941c6de48bad"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "3178313555d2a8847e95f7b4ec44a746206fe8cd071cdd38c3e512bae3b86f45"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "4ed115dbeba8d195b7367b11ccb994d49adbb775afb0427303fd82c212185a11"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "8866c032c2e4024958571ae2ed513adcd418ec3f4294cf19f194723c517253d3"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "4f264f7abe036d51e0b6596dbd8eca9bd7df5876fef0155bedbeeb9df2908bd9"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "bfcd9855769194fc8ae11a71ad2a0ed1848dae0725e63e4151f4584cefa3e0e5"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "9254fade37a7cea2fab98f5b98413ca7ef32f88dd7bc6525633d40a32a4571e9"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "371f2573f157151ab51e230d83b02901c60d0c70eb32fd3383e33f060778391b"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "d197680b0c2adeebef8b040caa4d5877ab9399270a2daea871f78703aa580e0e",
+      "diagnosticSha256": "64f92d2fc4580359d37e5dd372684176413ab3358a280e5dc99ac6bf724e5abd"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "d11dc027819d2e982464e70323fbaecfac26d28501c2d4f4c2ee18b58673cb08"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "3230edfdcb3338ebdf664a51d03870387441d111ce544f7098f7a7f7477671bc"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "a78db8a95d3c8fcb25f034377a28f8388f8ce1428ee618100c46f1b70d60c9c1"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "f2aa6c941f722c4c673bda1c3012f9287ba47bb58d83b41f50fc0ba27ab22fcb"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "678dee0a16d4f3a270cf26cc737540e17baa5dbbeb876e39115b09feb4a9fe56"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "53ef5b7f6f3d7214ebb993c062e730e243da28bca89a80f98f6f567d4673301c"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "189149d1ed269894682c6b857767101e046cf99933cedff36cd58dd95ef624f2"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "a3ed409e5a690c32440452dd4a673562e8ccf4dfaa60e909567ea2a0a673f1df"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "177fedc1ddb4e60c45b95784fe8da8ea3aec2bee9eea7d7d79db6ab0a743f4dc"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "e1792f31f6c71c2afe9d1a6a23d2b2adfe4011290b1ccce330ae190598fe6662"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "6dbebe7bc6f8faa1dfb8308d053f9fe445f23cc3d9f0b194eb2092e9aa81af15"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "fa9994b06e9e180b6da73b10f1f8d92f0c70fb7760a2e0710553ed10762322de"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "344392a07377a870022b5eb2be9131572e16ee0f283db75cdad02228078bd902"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "b6192c3ffc85f50cfa423faa08d89da222d3f670e25f327d07421e54b0af4d7e"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final accepted XP one-parent-pin target-lifetime DLL",
+      "shippedDllSha256": "f49a108875a98e365340279b5e0b8d167208e3657988c0f53323f98e27f6cbab",
+      "diagnosticSha256": "25f3e5bc0df4c0bd446025df7cabd98b13a0b7641f1224666fffc984a1157b17"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "36c88c921e3761c05df490ae476d9f33b344d4f89ac95237dda2d8d1fa470c7a"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "e25cacfe670e946515d54456639dc66d7a8c3c07e55e9345fd57156ddf772b57"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "4307a755dd2efdbc00a54bf4257f762ff68677e20baf02f17ce6f0e222708c4f"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "26e6f67c9a73c46babf7021faf5ec91f6185d12d83ff02b972fec827d17f0a94"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualTargetLifetimeChecks": 2000,
+    "lifetimeFailureGroups": 361,
+    "portableTargetProfiles": 5,
+    "newMutations": 12,
+    "retainedAdditionalLifetimeMutations": 14,
+    "retainedStandaloneContainerMutations": 7,
+    "retainedImplicitMutations": 23,
+    "retainedD3D8PhysicalChainMutations": 10,
+    "retainedD3D8LifetimeChecks": 1701,
+    "retainedD3D9AdditionalLifetimeChecks": 1305,
+    "previousSourceRuntimeNegativeControls": 1,
+    "fixtureCorruptions": 21,
+    "sanitizerFamilies": 8,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d9_target_lifetime_reference.json",
+    "sha256": "12ad2f7f0bbe6a4e404ad9b9c4d22e4ca2a2f4abb386ef83f4d1f7eddf1ac702",
+    "schema": 1,
+    "scope": "All D3D9 create_target_texture private storage is owned through a public standalone surface or additional chain and no longer adds a second COM device pin. Mark storage private at construction; its destructor skips a nonexistent parent pin. The public standalone surface owns exactly one creation pin. Additional chains transfer that same surface pin to the chain and no longer subtract an obsolete extra texture pin. Leave ordinary public textures/cube/volume ownership unchanged. The existing private_back_buffer field now identifies all internal surface/backbuffer storage; no public layout changes. Preserve standalone device containers from 8d so the private texture cannot escape through GetContainer. Real constructor/texture/surface/device entry tests cover one pin, exact public counts, allocation/emission failure cleanup, final-device ordering and abstract owned-surface cleanup; concrete binding APIs are checked by the XP RT/depth scenarios. Seven GPU/CPU profiles and 112 AddRef/private-data cycles in XP preserve device refs=2 with one app root and one surface pin. Twelve private-IUnknown callbacks observe the device while its pending final pin remains valid; three app-device-first and two actual binding-only lifetimes retire storage before devices. Internal bindings retain the existing proxy public-surface reference model; exact native public counter/pin semantics for bound resources remain deferred. Callback device counts validate the proxy pending-pin safety invariant, not original HAL counts during device destruction. Native tests reference pinned Windows expectations; XP runs the proxy, not an original Microsoft HAL. Multiple backbuffers/rotation, full format/MSAA/refresh/fullscreen/Reset/thread/device-loss validation, original HAL, games/FPS and review stages 4/5/6 remain incomplete. Host/protocol/shader/bundle unchanged; no draw/Present/Reset or new GPU pixel run.",
+    "sources": [
+      {
+        "file": "d3d9-device-tests.c",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "evidence": "Pinned Windows test_refcount: CreateDepthStencilSurface/CreateOffscreenPlainSurface/CreateRenderTarget each increase device references once and return a surface with public count one."
+      },
+      {
+        "file": "d3d9-reset-device.c",
+        "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+        "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+        "evidence": "Standalone creation makes private wined3d texture storage, creates one public surface and assigns its parent_device; the physical storage is separate from the public device reference."
+      },
+      {
+        "file": "d3d9-private-surface.c",
+        "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+        "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+        "evidence": "A non-texture surface maintains its own public reference count and holds one parent-device reference while live; physical storage cleanup precedes the final parent release."
+      }
+    ],
+    "facts": {
+      "actualTargetLifetimeChecks": 2000,
+      "lifetimeFailureGroups": 361,
+      "portableTargetProfiles": 5,
+      "newSemanticMutations": 12,
+      "retainedAdditionalLifetimeMutations": 14,
+      "xpSurfaceProfiles": 7,
+      "xpDeviceLifetimes": 6,
+      "xpBackingTextures": 10,
+      "xpPublicReferenceCycles": 112,
+      "xpPrivateObjectsFinalized": 12,
+      "xpAppDeviceFirstLifetimes": 3,
+      "xpBindingOnlyLifetimes": 2,
+      "xpRenderTargetBindings": 1,
+      "xpDepthBindings": 1,
+      "pendingDeviceRefsInNormalCallback": 2,
+      "pendingDeviceRefsInLastOwnerCallback": 1,
+      "ordinaryPublicTextureOwnershipUnchanged": true
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 122,
+    "batches": 7,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "text": "PASS target lifetime probes \r\n",
+    "logs": {
+      "TGT9.TXT": "TARGET PROFILE kind=0 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=1 samples=4 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=2 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=3 samples=4 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=4 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=5 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=6 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET LASTVIEW kind=1 applicationDeviceRefs=1 queryRefs=2 callbackRefs=1 privateFinalized=1 factoryRefs=1\r\nTARGET LASTVIEW kind=2 applicationDeviceRefs=1 queryRefs=2 callbackRefs=1 privateFinalized=1 factoryRefs=1\r\nTARGET LASTVIEW kind=4 applicationDeviceRefs=1 queryRefs=2 callbackRefs=1 privateFinalized=1 factoryRefs=1\r\nTARGET BOUND kind=1 callbackRefs=1 privateFinalized=1 deviceRefs=0 factoryRefs=1\r\nTARGET BOUND kind=2 callbackRefs=1 privateFinalized=1 deviceRefs=0 factoryRefs=1\r\nTARGET STATUS profiles=7 devices=6 privateFinalized=12 oneParentPin=1 deviceFirst=3 bindingOnly=2 factoryRefs=1\r\nPASS target lifetime API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; seven standalone GPU/CPU profiles own exactly one device pin, sixteen AddRef/private-data cycles each, balanced GetDevice/container queries, six device lifetimes, twelve private-IUnknown finalizations with a live pending device pin, application-device-first and binding-only RT/depth teardown; no draw/Present/Reset",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 2420,
+        "crc32": "7b3db97d"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 9,
+        "device": 0,
+        "hello": 1,
+        "ended": 1,
+        "devices": [
+          {
+            "index": 0,
+            "handle": 1048577,
+            "textures": [
+              {
+                "handle": 1048578,
+                "usage": 1,
+                "samples": 0,
+                "retired": true
+              },
+              {
+                "handle": 1048579,
+                "usage": 1,
+                "samples": 4,
+                "retired": true
+              },
+              {
+                "handle": 1048580,
+                "usage": 2,
+                "samples": 0,
+                "retired": true
+              },
+              {
+                "handle": 1048581,
+                "usage": 2,
+                "samples": 4,
+                "retired": true
+              },
+              {
+                "handle": 1048582,
+                "usage": 0,
+                "samples": 0,
+                "retired": true
+              }
+            ],
+            "bindings": 0,
+            "retired": true
+          },
+          {
+            "index": 1,
+            "handle": 1048583,
+            "textures": [
+              {
+                "handle": 1048584,
+                "usage": 1,
+                "samples": 4,
+                "retired": true
+              }
+            ],
+            "bindings": 0,
+            "retired": true
+          },
+          {
+            "index": 2,
+            "handle": 1048585,
+            "textures": [
+              {
+                "handle": 1048586,
+                "usage": 2,
+                "samples": 0,
+                "retired": true
+              }
+            ],
+            "bindings": 0,
+            "retired": true
+          },
+          {
+            "index": 3,
+            "handle": 1048587,
+            "textures": [
+              {
+                "handle": 1048588,
+                "usage": 0,
+                "samples": 0,
+                "retired": true
+              }
+            ],
+            "bindings": 0,
+            "retired": true
+          },
+          {
+            "index": 4,
+            "handle": 1048589,
+            "textures": [
+              {
+                "handle": 1048590,
+                "usage": 1,
+                "samples": 4,
+                "retired": true
+              }
+            ],
+            "bindings": 1,
+            "retired": true
+          },
+          {
+            "index": 5,
+            "handle": 1048591,
+            "textures": [
+              {
+                "handle": 1048592,
+                "usage": 2,
+                "samples": 0,
+                "retired": true
+              }
+            ],
+            "bindings": 1,
+            "retired": true
+          }
+        ]
+      }
+    ],
+    "graphicsSha256": "eb460ce550a0e1d6a12802ac20f98cd1018aa00604edb39f83f35f91570a0aa2",
+    "deviceLifetimes": 6,
+    "publicReferenceCycles": 112,
+    "privateObjectsFinalized": 12,
+    "deviceFirstLifetimes": 3,
+    "bindingOnlyLifetimes": 2
+  },
+  "fixture": {
+    "metadataSha256": "df25abeb01773578293653c1b45d492ef4a4360841280bf183aeba1fdb8869b8",
+    "compressedTraceSha256": "99fcfa078982e99cfba642bbaaaf50d74ede38108540820e7ce2cc1cd179b2b4",
+    "captureBuild": {
+      "dllSha256": {
+        "9": "f49a108875a98e365340279b5e0b8d167208e3657988c0f53323f98e27f6cbab"
+      },
+      "exeSha256": {
+        "9": "806a4c2515dfbefb9875e5c1afda8fd344190d74b126520cbb4aa1080d52334a"
+      }
+    }
+  },
+  "validationRepairs": [
+    "The new full-entry native harness declares the cube-texture alias needed by the unexecuted ordinary surface-release branch; after strict compilation succeeds, the accepted old-source control fails on the real one-pin predicate at runtime.",
+    "Additional-constructor fakes now receive already-private target storage with one surface pin; remove the obsolete second fake device pin to match the real common constructor.",
+    "Two retained additional-lifetime ownership mutants move from chain construction to the actual shared target constructor, where private storage ownership now resides. All fourteen retained failures remain strict-compiling runtime semantic failures.",
+    "Keep the existing internal binding public-reference model explicit. This phase fixes creation pins and tests concrete teardown/callback safety; exact native counters for bound resources remain incomplete."
+  ],
+  "scope": "All D3D9 create_target_texture private storage is owned through a public standalone surface or additional chain and no longer adds a second COM device pin. Mark storage private at construction; its destructor skips a nonexistent parent pin. The public standalone surface owns exactly one creation pin. Additional chains transfer that same surface pin to the chain and no longer subtract an obsolete extra texture pin. Leave ordinary public textures/cube/volume ownership unchanged. The existing private_back_buffer field now identifies all internal surface/backbuffer storage; no public layout changes. Preserve standalone device containers from 8d so the private texture cannot escape through GetContainer. Real constructor/texture/surface/device entry tests cover one pin, exact public counts, allocation/emission failure cleanup, final-device ordering and abstract owned-surface cleanup; concrete binding APIs are checked by the XP RT/depth scenarios. Seven GPU/CPU profiles and 112 AddRef/private-data cycles in XP preserve device refs=2 with one app root and one surface pin. Twelve private-IUnknown callbacks observe the device while its pending final pin remains valid; three app-device-first and two actual binding-only lifetimes retire storage before devices. Internal bindings retain the existing proxy public-surface reference model; exact native public counter/pin semantics for bound resources remain deferred. Callback device counts validate the proxy pending-pin safety invariant, not original HAL counts during device destruction. Native tests reference pinned Windows expectations; XP runs the proxy, not an original Microsoft HAL. Multiple backbuffers/rotation, full format/MSAA/refresh/fullscreen/Reset/thread/device-loss validation, original HAL, games/FPS and review stages 4/5/6 remain incomplete. Host/protocol/shader/bundle unchanged; no draw/Present/Reset or new GPU pixel run.",
+  "coreSha256": {
+    "tests/glbridge/d3d9_target_lifetime_fixture_test.js": "dd8d2a822526717f76646700026e06f4fd7d1b41d4a3dcb21fecbdbf9257388f",
+    "tests/glbridge/d3d9_target_lifetime_xp.mjs": "b577c6971cf88acd0ac93756773e976a77488014c56d4d99fbe8ec49805f86a8",
+    "tests/glbridge/fixtures/d3d9_target_lifetime_reference.json": "12ad2f7f0bbe6a4e404ad9b9c4d22e4ca2a2f4abb386ef83f4d1f7eddf1ac702",
+    "tests/glbridge/fixtures/d3d9_target_lifetime_xp.bin.gz": "99fcfa078982e99cfba642bbaaaf50d74ede38108540820e7ce2cc1cd179b2b4",
+    "tests/glbridge/fixtures/d3d9_target_lifetime_xp.json": "df25abeb01773578293653c1b45d492ef4a4360841280bf183aeba1fdb8869b8",
+    "tests/lib/d3d9_target_lifetime_wire.mjs": "ceb2661916d62355d5dad019263374698aaee9ae4d20fd9f519b8c1b08927ca6",
+    "docs/d3d-webgpu-review.md": "38253cdc409bcfe2eb7e3d9fd71e50c8ab2e71319871e2b328c9704ba3a9604b"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d9_target_lifetime_test.c": "22fac4e452a8663a74ee66a3366a8708cb277e2ae4c5490e956c58d4076f3f90",
+    "glbridge/tests/d9wg_target_lifetime_mutation_test.js": "73174259e3c2ed0fa3120d67af0845612c492687b74a1b9243c0ec7cfaae4c81",
+    "glbridge/tests/d9wg_target_lifetime_test.js": "f23483f577784b95d3b6f7f06943eedf650c5f347312d32915bc2665c76f2e5a",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "25f3e5bc0df4c0bd446025df7cabd98b13a0b7641f1224666fffc984a1157b17",
+    "glbridge/d3d9proxy/d3d9.dll": "f49a108875a98e365340279b5e0b8d167208e3657988c0f53323f98e27f6cbab",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "e8b9d08b9e82d3323c914ddcbcb7d935e8af589e2321204edee761484bfb4dd9",
+    "glbridge/tests/d9wg_additional_lifetime_mutation_test.js": "8a4fb06756e48e8fb3644ebd21c183ba518e503f11b27fe4280c29ab3cfb61c6",
+    "glbridge/tests/d9wg_additional_parameters_entry_test.js": "a9c5a47a3aa418a64be12ad9409056aee597eec9446ddfc95761f092abd68ba5"
+  },
+  "logSha256": {
+    "core": "674328e71618b89e81767b1bdb955898d7573165716aa63a361fe84ce085b90a",
+    "full-guest": "356e032ef511401025351cc5c95124f88e144c14609b6646a750dcdbb54a3211",
+    "xp": "361fabb850e69c9d088ab79a78a17452b30e7b5be228e54d14363ada9aa14c40",
+    "before": "a685a52a2a29d35f05fa46ec5cde01993b068d236476f76213b5f03292dd9469",
+    "sanitize": "53198932d88149e406696471e87d3dd273f9391a8b9c42e03911c3eaeef23f07",
+    "fixture": "490f6faba9072fd47cfb0679323b40d7b56b68de73173292627ae1833c112890",
+    "builds": "6e698858410913ce2fd9593539b20d588f98629a39e2e147be1656651e9e2d9a",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "e959fc3cc32615f04dc04fbabc5397bc650c0fbab74eedcc786c2172b97d87c4",
+    "integration": "69022fc38008023725e7735125d1ada22ff08e31d2b44ec003f80503f41ed460"
+  }
+}

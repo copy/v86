@@ -1,0 +1,153 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 9,
+      "device": 0,
+      "hello": 1,
+      "ended": 1,
+      "devices": [
+        {
+          "index": 0,
+          "handle": 1048577,
+          "textures": [
+            {
+              "handle": 1048578,
+              "usage": 1,
+              "samples": 0,
+              "retired": true
+            },
+            {
+              "handle": 1048579,
+              "usage": 1,
+              "samples": 4,
+              "retired": true
+            },
+            {
+              "handle": 1048580,
+              "usage": 2,
+              "samples": 0,
+              "retired": true
+            },
+            {
+              "handle": 1048581,
+              "usage": 2,
+              "samples": 4,
+              "retired": true
+            },
+            {
+              "handle": 1048582,
+              "usage": 0,
+              "samples": 0,
+              "retired": true
+            }
+          ],
+          "bindings": 0,
+          "retired": true
+        },
+        {
+          "index": 1,
+          "handle": 1048583,
+          "textures": [
+            {
+              "handle": 1048584,
+              "usage": 1,
+              "samples": 4,
+              "retired": true
+            }
+          ],
+          "bindings": 0,
+          "retired": true
+        },
+        {
+          "index": 2,
+          "handle": 1048585,
+          "textures": [
+            {
+              "handle": 1048586,
+              "usage": 2,
+              "samples": 0,
+              "retired": true
+            }
+          ],
+          "bindings": 0,
+          "retired": true
+        },
+        {
+          "index": 3,
+          "handle": 1048587,
+          "textures": [
+            {
+              "handle": 1048588,
+              "usage": 0,
+              "samples": 0,
+              "retired": true
+            }
+          ],
+          "bindings": 0,
+          "retired": true
+        },
+        {
+          "index": 4,
+          "handle": 1048589,
+          "textures": [
+            {
+              "handle": 1048590,
+              "usage": 1,
+              "samples": 4,
+              "retired": true
+            }
+          ],
+          "bindings": 1,
+          "retired": true
+        },
+        {
+          "index": 5,
+          "handle": 1048591,
+          "textures": [
+            {
+              "handle": 1048592,
+              "usage": 2,
+              "samples": 0,
+              "retired": true
+            }
+          ],
+          "bindings": 1,
+          "retired": true
+        }
+      ]
+    }
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "deviceLifetimes": 6,
+  "surfaceProfiles": 7,
+  "backingTextures": 10,
+  "publicReferenceCycles": 112,
+  "privateObjectsFinalized": 12,
+  "deviceFirstLifetimes": 3,
+  "bindingOnlyLifetimes": 2,
+  "renderTargetBindings": 1,
+  "depthBindings": 1,
+  "drawOrPresentOrResetCommands": 0,
+  "traceSha256": "eb460ce550a0e1d6a12802ac20f98cd1018aa00604edb39f83f35f91570a0aa2",
+  "referenceSha256": "12ad2f7f0bbe6a4e404ad9b9c4d22e4ca2a2f4abb386ef83f4d1f7eddf1ac702",
+  "sdkLogs": {
+    "TGT9.TXT": "TARGET PROFILE kind=0 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=1 samples=4 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=2 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=3 samples=4 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=4 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=5 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET PROFILE kind=6 samples=0 cycles=16 deviceRefs=2 surfaceRefs=1 queryRefs=3 privateFinalized=1 callbackRefs=2 remainingDeviceRefs=1\r\nTARGET LASTVIEW kind=1 applicationDeviceRefs=1 queryRefs=2 callbackRefs=1 privateFinalized=1 factoryRefs=1\r\nTARGET LASTVIEW kind=2 applicationDeviceRefs=1 queryRefs=2 callbackRefs=1 privateFinalized=1 factoryRefs=1\r\nTARGET LASTVIEW kind=4 applicationDeviceRefs=1 queryRefs=2 callbackRefs=1 privateFinalized=1 factoryRefs=1\r\nTARGET BOUND kind=1 callbackRefs=1 privateFinalized=1 deviceRefs=0 factoryRefs=1\r\nTARGET BOUND kind=2 callbackRefs=1 privateFinalized=1 deviceRefs=0 factoryRefs=1\r\nTARGET STATUS profiles=7 devices=6 privateFinalized=12 oneParentPin=1 deviceFirst=3 bindingOnly=2 factoryRefs=1\r\nPASS target lifetime API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d9proxy/d3d9_proxy.c": "e8b9d08b9e82d3323c914ddcbcb7d935e8af589e2321204edee761484bfb4dd9",
+    "glbridge/sample/d3d9_target_lifetime_test.c": "22fac4e452a8663a74ee66a3366a8708cb277e2ae4c5490e956c58d4076f3f90"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "9": "f49a108875a98e365340279b5e0b8d167208e3657988c0f53323f98e27f6cbab"
+    },
+    "exeSha256": {
+      "9": "806a4c2515dfbefb9875e5c1afda8fd344190d74b126520cbb4aa1080d52334a"
+    }
+  },
+  "scope": "not exercised; seven standalone GPU/CPU profiles own exactly one device pin, sixteen AddRef/private-data cycles each, balanced GetDevice/container queries, six device lifetimes, twelve private-IUnknown finalizations with a live pending device pin, application-device-first and binding-only RT/depth teardown; no draw/Present/Reset"
+}

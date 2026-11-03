@@ -1,0 +1,46 @@
+{
+  "schema": 1,
+  "scope": "All D3D9 create_target_texture private storage is owned through a public standalone surface or additional chain and no longer adds a second COM device pin. Mark storage private at construction; its destructor skips a nonexistent parent pin. The public standalone surface owns exactly one creation pin. Additional chains transfer that same surface pin to the chain and no longer subtract an obsolete extra texture pin. Leave ordinary public textures/cube/volume ownership unchanged. The existing private_back_buffer field now identifies all internal surface/backbuffer storage; no public layout changes. Preserve standalone device containers from 8d so the private texture cannot escape through GetContainer. Real constructor/texture/surface/device entry tests cover one pin, exact public counts, allocation/emission failure cleanup, final-device ordering and abstract owned-surface cleanup; concrete binding APIs are checked by the XP RT/depth scenarios. Seven GPU/CPU profiles and 112 AddRef/private-data cycles in XP preserve device refs=2 with one app root and one surface pin. Twelve private-IUnknown callbacks observe the device while its pending final pin remains valid; three app-device-first and two actual binding-only lifetimes retire storage before devices. Internal bindings retain the existing proxy public-surface reference model; exact native public counter/pin semantics for bound resources remain deferred. Callback device counts validate the proxy pending-pin safety invariant, not original HAL counts during device destruction. Native tests reference pinned Windows expectations; XP runs the proxy, not an original Microsoft HAL. Multiple backbuffers/rotation, full format/MSAA/refresh/fullscreen/Reset/thread/device-loss validation, original HAL, games/FPS and review stages 4/5/6 remain incomplete. Host/protocol/shader/bundle unchanged; no draw/Present/Reset or new GPU pixel run.",
+  "sources": [
+    {
+      "file": "d3d9-device-tests.c",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Pinned Windows test_refcount: CreateDepthStencilSurface/CreateOffscreenPlainSurface/CreateRenderTarget each increase device references once and return a surface with public count one."
+    },
+    {
+      "file": "d3d9-reset-device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "Standalone creation makes private wined3d texture storage, creates one public surface and assigns its parent_device; the physical storage is separate from the public device reference."
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+      "evidence": "A non-texture surface maintains its own public reference count and holds one parent-device reference while live; physical storage cleanup precedes the final parent release."
+    }
+  ],
+  "facts": {
+    "actualTargetLifetimeChecks": 2000,
+    "lifetimeFailureGroups": 361,
+    "portableTargetProfiles": 5,
+    "newSemanticMutations": 12,
+    "retainedAdditionalLifetimeMutations": 14,
+    "xpSurfaceProfiles": 7,
+    "xpDeviceLifetimes": 6,
+    "xpBackingTextures": 10,
+    "xpPublicReferenceCycles": 112,
+    "xpPrivateObjectsFinalized": 12,
+    "xpAppDeviceFirstLifetimes": 3,
+    "xpBindingOnlyLifetimes": 2,
+    "xpRenderTargetBindings": 1,
+    "xpDepthBindings": 1,
+    "pendingDeviceRefsInNormalCallback": 2,
+    "pendingDeviceRefsInLastOwnerCallback": 1,
+    "ordinaryPublicTextureOwnershipUnchanged": true
+  }
+}
