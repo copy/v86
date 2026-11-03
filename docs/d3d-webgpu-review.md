@@ -1890,6 +1890,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 十一组相关核心、225 组完整客体、36 个标准 SDK EXE、六份严格 DLL、两份新增 SDK EXE及站点两项集成通过。只发布最终 XP 所测两版零售 DLL及严格诊断 DLL，DDraw 保持已验收文件。宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 未变；本项没有绘制或成功 Present，无新增 GPU 像素运行，继承 4H6f7d 的完整核心/GPU 基线及 4H6f7e 双后端恢复画面验收。见 [stage4h6f8a-validation.json](fixtures/d3d-review/stage4h6f8a-validation.json)。
 > - MSAA 与 SwapEffect/Flags/Quality 组合、刷新率及全屏完整参数、多缓冲存储/轮转、独立 render/depth 表面引用、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f8b（2026-11-03）：两版共用呈现 MSAA 组合、质量/锁定标志及 D3D8 缓冲锁定（S2-26 / S2-42 相关）完成。**
+>
+> - 六个创建/Reset/附加入口共用 MSAA 结构校验：多采样仅配 DISCARD；D3D9 在当前唯一质量级别下，非零质量索引返回 INVALIDCALL，含 NONE 模式。D3D8 允许 MSAA 与 LOCKABLE_BACKBUFFER 标志组合，D3D9 拒绝；两版差异依据固定 Wine 的 Windows 多采样测试及其参数转换代码。结构接受用例只证明通过前置校验，不等同于后端已支持每种组合。
+> - D3D8 多采样纹理 LockRect 在读取、分配或改变锁定状态前拒绝，保留输出和缓存；实际表面/复制/读取入口增至 61 项，其中新增十组多采样/只读及写锁拒绝，旧源会错误发起一次读取。XP 另暴露附加链复用独立 render-target 构造时误传可锁定 MSAA：现保持调用方/缓存 Flags，内部多采样存储不标记可锁定，避免合法呈现参数被独立目标入口拒绝；实际附加构造增至 D3D8 128 项、25 个用例。
+> - 每版 343 项、95 组实际入口前置检查，覆盖 DISCARD、COPY/FLIP、质量、标志和失败原子性/Reset 状态。24/24 新语义变异覆盖共用策略、六入口、D3D8 提前拒绝锁定及内部标志转换；保留呈现/几何/Reset/缓存身份/链存储变异，八族 ASan/UBSan 通过。三份旧源运行时对照分别拒绝两版旧参数策略和 D3D8 锁定读取。
+> - 最终 XP 122 秒正常退出，四设备生存期、参数矩阵六次有效/27 次拒绝、九次失败 Reset 和失败 Present 后恢复，共十一有效 Reset；八次锁定失败保持输出、设备引用归还。两链/两纹理及两个驱动 owner 完整退役。冻结独立轨迹核对 MSAA 构造/Reset、D3D8 四倍附加缓冲及 D3D9 普通附加缓冲，并确认没有绘制、读取或成功呈现命令；十九项语义损坏全部发现。
+> - 十二组相关核心、26 组相关客体、36 个标准 SDK EXE、六份严格 DLL、两份新增 SDK EXE及站点两项集成通过。发布最终 XP 所测两版零售 DLL及严格诊断 DLL，DDraw 保持验收文件。宿主/协议/着色器及 bundle `64aa2cd7f7413ccbe760` 不变，无新 GPU 像素运行；继承紧邻 4H6f8a 的 225 完整客体回归和 4H6f7d/e 的核心/GPU 基线。见 [stage4h6f8b-validation.json](fixtures/d3d-review/stage4h6f8b-validation.json)。
+> - D3D9 附加四倍 MSAA 仍明确拒绝并在本次 SDK 检查，本项不将其算作实现；下一步接通独立缓冲的采样/resolve 与实际 GPU 验收。完整刷新率/全屏参数、多缓冲存储/轮转、独立 render/depth 表面引用、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "temporary": 0,
+      "devices": [
+        {
+          "handles": [
+            1048577,
+            1048579,
+            1048582,
+            1048583,
+            1048584
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048578
+          ],
+          "retired": true
+        }
+      ],
+      "hello": 1,
+      "ended": 1,
+      "resets": 4,
+      "textures": [
+        {
+          "handle": 1048580,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "retired": true
+        }
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "temporary": 0,
+      "devices": [
+        {
+          "handles": [
+            1048577,
+            1048579,
+            1048582,
+            1048583,
+            1048584,
+            1048585,
+            1048586,
+            1048587
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048578
+          ],
+          "retired": true
+        }
+      ],
+      "hello": 1,
+      "ended": 1,
+      "resets": 7,
+      "textures": [
+        {
+          "handle": 1048580,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "retired": true
+        }
+      ]
+    }
+  ],
+  "ownerReleases": [
+    1,
+    2
+  ],
+  "deviceLifetimes": 4,
+  "successfulResets": 11,
+  "chains": 2,
+  "textures": 2,
+  "acceptedMatrixCalls": 6,
+  "refusedMatrixCalls": 27,
+  "refusedResets": 9,
+  "failedPresentsWithoutCommands": 9,
+  "lockRefusals": 8,
+  "retainedUnsupportedAdditionalMSAA": 1,
+  "drawReadbackOrPresentCommands": 0,
+  "traceSha256": "060167929592106bedac09b53cf8ced3bb43aa4d7917c94a05ac4bc254814961",
+  "referenceSha256": "9054da38c257875af85c04b0fef3cdbacc7860c342249db48aeb414985b2659f",
+  "sdkLogs": {
+    "MSP8.TXT": "MSAA ACCEPT api=8 constructorSamples=4 resetSamples=4 additionalSamples=4 flags=1 locksRefused=4\r\nMSAA REFUSE api=8 effect=2 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=8 effect=3 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=8 effect=4 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA STATUS api=8 acceptedMatrixCalls=3 refusedMatrixCalls=9 successfulResets=4 extraUnsupported=0 locksRefused=4 deviceRefs=1\r\nPASS MSAA validation API=8\r\n",
+    "MSP9.TXT": "MSAA ACCEPT api=9 constructorSamples=4 resetSamples=4 additionalSamples=0 flags=0 locksRefused=4\r\nMSAA ADDITIONAL api=9 samples=4 unsupported=1 unchanged=1 refs=1\r\nMSAA REFUSE api=9 effect=2 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=3 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=1 samples=4 quality=1 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=1 samples=0 quality=1 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=1 samples=4 quality=0 flags=1 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=1 samples=4 quality=0 flags=3 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA STATUS api=9 acceptedMatrixCalls=3 refusedMatrixCalls=18 successfulResets=7 extraUnsupported=1 locksRefused=4 deviceRefs=1\r\nPASS MSAA validation API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "46c949325f984bc6c8a16731fd1656710c9a9d7003094c6826cf2678bfa6fedf",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "141171cfae4e6520ff6c433eb02ac60e5536578d67f49bbd51220af7ec1d003e",
+    "glbridge/runtime/d9wg_present_parameters.h": "f1c9510b2e6fddea2b6e616208154eed0b50d608deba07d66732e450c8167a98",
+    "glbridge/runtime/d9wg_present_multisample.h": "9ed7105c383ead5b8dccfa4df967e1cc9a46de4c1a415afc6c612b50741eca57",
+    "glbridge/sample/d3d_present_multisample_test.c": "3653897877b9cf3d0fe3dd129b022eb56efe960f221b2b4550b94a6f442a7957"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "d197680b0c2adeebef8b040caa4d5877ab9399270a2daea871f78703aa580e0e",
+      "9": "9cea154569a15c5214bc5465e41095355f86624bb0e4759bf13b0e4be5b366ac"
+    },
+    "exeSha256": {
+      "8": "3b437f36b9802161cfce2a6f54110d382156eb6c8dbc76a450caf6254325f280",
+      "9": "b865be91eb3685a1bc057c171d16bfe180f05f9123b6bc964b4835bf0ac1aa45"
+    }
+  },
+  "scope": "not exercised; structural MSAA SwapEffect/quality/lockable-flag refusal across all three entry points, D3D8 accepted lockable multisample buffers with unchanged LockRect refusals, D3D9 quality INVALIDCALL, successful Reset recovery and retained unsupported D3D9 additional MSAA boundary"
+}

@@ -1,0 +1,485 @@
+{
+  "stage": "4H6f8b shared presentation MSAA combinations/quality/lockable flags and D3D8 multisample lock/storage semantics (S2-26 / S2-42 related)",
+  "date": "2026-11-03",
+  "bundle": "64aa2cd7f7413ccbe760",
+  "targetedCoreSuites": 12,
+  "targetedGuestSuites": 26,
+  "webgpuRuns": 0,
+  "baseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f8a-validation.json",
+    "sha256": "938092f9c0a48b672f9678a47d4d4d388d7612c85264b27d80ae3b93e1f0cb6a",
+    "guestSuites": 225,
+    "fullCoreGPU": {
+      "file": "docs/fixtures/d3d-review/stage4h6f7d-validation.json",
+      "sha256": "3007b57fe847cd52fcd3920b19d191843f1600baca3fdd89496b98feffadd536",
+      "coreSuites": 216,
+      "webgpuRuns": 59
+    },
+    "additionalGPUFixture": {
+      "file": "docs/fixtures/d3d-review/stage4h6f7e-validation.json",
+      "sha256": "a371d604628c61c81b7297d37f3ab98a6cc5c8627c0c6f779bb50719127fe537",
+      "webgpuRuns": 2
+    },
+    "bundle": "64aa2cd7f7413ccbe760",
+    "reason": "Guest-only presentation guards and early multisampled texture-lock refusal/storage classification. Fresh targeted actual-entry/native/sanitizer/frozen-fixture checks; inherit immediately prior full guest 225 and earlier complete unchanged-host core/GPU baselines. No draw/readback/successful Present in this phase."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "c33f4fce5e941b12d37f9019917819976c391448e0ab4cff791eeac0374b6372"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "7b6b3cbdeaacf6647cde41dd73d304e5714e51cdd20cce897c8c4b5bb17cd384"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "9e0998b740d7ec4fe53ef5ea263b0c5a0dc5a560728fcc00639e592989671aba"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "fe5a9e36243beb9a320cd47c69f0acdd17814e7053e21c9ae93bba7dcb635baf"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "727d746ded13c2f852cddf6d73665f9f84dad83c9a1b4d8561e8d70d38a4cb4d"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "3e04dbbe51f352ccdda4113762fba6ce10509f1bffb161efdd121b8b43a088db"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "710abf15513730c559636a2dc699c1b881f5c46010f51c9aae7e37ca6b9cf896"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "8859e0716cbe2a96aec6b9a5533163f75d68da075cb737d0c02821046ea45e3d"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "8e76c34bc73078a6271bc54bcc40f6db3206a2e3e861699338c27aabd67f8b90"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "26f36339cb7cdf6317c9915eb6bee8d5de85c847e948f3e162313869e94073f0"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "73956aa57779aa9dad7ade146de55d776e584ce93f6eb77508db830b0f0742c1"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "b670c135abc78ba7b295fa2afb41e8443b1cfa6ceaeacf5859362130781825fc"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "8f8dda42402f2e07c0f6645e64f43206e7118d19431c209bafc31d354b541793"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "8deb0587e4d3c72e5ac4064dcf764519f5df2097bd301ed9a711d0bb5cafdc44"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "89b181cdd1855d3099c9ebf54ad6e20d998760cd584e8dacd90efe58442ba7fc"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "e30b2c71bd60410ff528dc629b3036b77647c1922fef68cac4f5b316e6b30295"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "8ddbb3f4ef18914d679160a36730eb23dabe29ea326d7d073b6bda8e1b4c2539"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "3c1f51ea3cedb575018fe402443e26e582f3fc42f3c1e6a1d5c33ac4b16dadb1"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final accepted XP presentation-MSAA DLL",
+      "shippedDllSha256": "d197680b0c2adeebef8b040caa4d5877ab9399270a2daea871f78703aa580e0e",
+      "diagnosticSha256": "64f92d2fc4580359d37e5dd372684176413ab3358a280e5dc99ac6bf724e5abd"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "92cab4308fa3fecbe313c2f6a8159c5d4dec940929f7943f08eb3906c80678f5"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "5f14963ec03bdc554d3c172eeeec14aec7ade94c9b2adcef783204c7c15b128e"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "a07f726f7eb1713f8d93d18f075448930ddf9562310c825a231ab0cbc80f1c20"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "a04eebba3747670dbf07b666b37b19c7cfb90c5f01b01e8a7ea8ae8ed14c84ef"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "dc05c0f9838e5f6b44698fa35b64ec2538cca67f197ad88e36af441820706672"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "6352f063aca07f1575b5cf549cf84f10423d707f7db90f466c6b1b68b650ca8d"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "084836be9a3076224c70dbae5e5952d1c677df865fc8c094ba4ab638938eee29"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "01b11935edec4668c091e91f9902b6454dc1e90245d251a016aa4f7e7590c748"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "7792fb9ea548d652667dd3bf25ed7c6076d1cd1ecc8443bcc9a8688eb3a37c87"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "2786b1d2d3b44d39e10157ad1877251a455e3c14456f1db3fdba2d6cff8e83b6"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "0e6d31a88e3a0615850108b078d51055b461c52287e4b95f9acd0993d1db669c"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "2d0f2acc83a08ae34c076691fb0a8646e5f78230ffb39c419e5a356bc82646bb"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "f8f772f057390974dfe06b26b5b2fd9ee8fda8395363380944a8b39f007d046e"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "b8e37926d3120ecc02f344fdc5e665a4c1c571de41cdbf8c583e70a92ebf4f0a"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final accepted XP presentation-MSAA DLL",
+      "shippedDllSha256": "9cea154569a15c5214bc5465e41095355f86624bb0e4759bf13b0e4be5b366ac",
+      "diagnosticSha256": "7fa9f3d0e278876bfdd044d36e20bb19f184aac514b5c85598f9197d13c7d965"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "4efb8f1cb41f38e21e365c15fe08e1f4e49214f43cf47f4048935815c9a7b398"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "1929cd475d529022c0fb73c1aa339594000f81382fde6ad133b08ce5442c5a3f"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "46e3b133427bf4ed308b6ea1f49c4e47b85f6efa49d713078c26be0b61a71142"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "ba7d8d8b00bb793e5513fe6f22fd9cb313db4b5af3132b5059128c431694af07"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualChecksPerAPI": 343,
+    "actualCasesPerAPI": 95,
+    "entryPoints": 6,
+    "actualD3D8SurfaceChecks": 61,
+    "newMultisampleLockCases": 10,
+    "newMutations": 24,
+    "previousSourceRuntimeNegativeControls": 3,
+    "retainedSwapEffectMutations": 20,
+    "retainedIntervalMutations": 18,
+    "retainedGeometryMutations": 20,
+    "retainedResetStatusMutations": 31,
+    "retainedResetResourceMutations": 37,
+    "retainedD3D8PhysicalChainMutations": 10,
+    "retainedD3D8LifetimeMutations": 12,
+    "retainedD3D9LifetimeMutations": 14,
+    "retainedImplicitMutations": 23,
+    "actualConstructorGeometryChecks": {
+      "8": 1140,
+      "9": 1149
+    },
+    "actualAdditionalParameterChecks": {
+      "8": 128,
+      "9": 133
+    },
+    "actualResetStatusChecks": {
+      "8": 545,
+      "9": 559
+    },
+    "fixtureCorruptions": 19,
+    "sanitizerFamilies": 8,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_present_multisample_reference.json",
+    "sha256": "9054da38c257875af85c04b0fef3cdbacc7860c342249db48aeb414985b2659f",
+    "schema": 1,
+    "scope": "Shared scalar validation requires DISCARD for nonzero multisampling and enforces the versioned lockable flag exception: D3D8 accepts the flag but refuses multisampled buffer locks; D3D9 rejects it. D3D9 quality indices outside the sole advertised level zero return INVALIDCALL at constructor/Reset/additional entry, including when multisampling is NONE. Reject before allocation/emission or caller-output changes; failed Reset retains the graph, reports DEVICENOTRESET and suppresses lost Presents until valid recovery. D3D8 texture_lock_level now refuses every nonzero multisample type before lock/readback state changes, including lockable targets. Native structural prefix tests stop before backend capability checks and do not claim D3D9 additional 4x MSAA support; that existing unsupported boundary is explicitly retained and checked in XP. The XP probe validates constructor/Reset 4x modes, D3D8 additional 4x and the versioned flags, eight lock refusals, invalid combinations/quality, exact cleanup and Reset recovery. No draw/readback/successful Present is captured and no new GPU pixel acceptance is claimed. Full refresh/window/fullscreen/MSAA validation, D3D9 additional MSAA, multiple-buffer storage/rotation, complete Reset/thread/device loss, original Microsoft HAL, game/FPS acceptance and review stages 4/5/6 remain incomplete. Host/protocol/shader/bundle unchanged; inherit the prior accepted GPU baselines.",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+        "evidence": "Pinned Windows test_multisample: D3D8 Reset permits LOCKABLE_BACKBUFFER with multisampling, but LockRect on the resulting buffer returns INVALIDCALL."
+      },
+      {
+        "file": "d3d9-device-tests.c",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "evidence": "Pinned Windows test_multisample: D3D9 Reset rejects LOCKABLE_BACKBUFFER with multisampling and publishes DEVICENOTRESET."
+      },
+      {
+        "file": "d3d8-reset-device.c",
+        "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+        "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/device.c",
+        "evidence": "Parameter conversion explicitly enables WINED3D_SWAPCHAIN_ALLOW_MS_LOCKABLE_BACKBUFFER for D3D8."
+      },
+      {
+        "file": "d3d9-reset-device.c",
+        "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+        "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+        "evidence": "D3D9 parameter conversion does not enable the D3D8 multisample lockable-backbuffer exception."
+      }
+    ],
+    "documentation": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+        "evidence": "Nonzero MultiSampleType requires DISCARD; quality is below the level count returned by CheckDeviceMultiSampleType, otherwise INVALIDCALL. This backend advertises one level."
+      }
+    ],
+    "facts": {
+      "actualChecksPerAPI": 343,
+      "actualCasesPerAPI": 95,
+      "entryPoints": 6,
+      "actualD3D8SurfaceChecks": 61,
+      "multisampleLockCases": 10,
+      "semanticMutations": 24,
+      "previousSourceRuntimeControls": 3,
+      "xpDeviceLifetimes": 4,
+      "xpAcceptedMatrixCalls": 6,
+      "xpRefusedMatrixCalls": 27,
+      "xpSuccessfulResets": 11,
+      "xpFailedResets": 9,
+      "xpSuppressedLostPresents": 9,
+      "xpLockRefusals": 8,
+      "xpChains": 2,
+      "xpTextures": 2,
+      "retainedUnsupportedD3D9AdditionalMSAA": 1,
+      "renderingOrReadbackCommands": 0,
+      "fixtureSemanticCorruptions": 19
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 122,
+    "batches": 12,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS presentation MSAA probes \r\n",
+    "logs": {
+      "MSP8.TXT": "MSAA ACCEPT api=8 constructorSamples=4 resetSamples=4 additionalSamples=4 flags=1 locksRefused=4\r\nMSAA REFUSE api=8 effect=2 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=8 effect=3 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=8 effect=4 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA STATUS api=8 acceptedMatrixCalls=3 refusedMatrixCalls=9 successfulResets=4 extraUnsupported=0 locksRefused=4 deviceRefs=1\r\nPASS MSAA validation API=8\r\n",
+      "MSP9.TXT": "MSAA ACCEPT api=9 constructorSamples=4 resetSamples=4 additionalSamples=0 flags=0 locksRefused=4\r\nMSAA ADDITIONAL api=9 samples=4 unsupported=1 unchanged=1 refs=1\r\nMSAA REFUSE api=9 effect=2 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=3 samples=4 quality=0 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=1 samples=4 quality=1 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=1 samples=0 quality=1 flags=0 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=1 samples=4 quality=0 flags=1 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA REFUSE api=9 effect=1 samples=4 quality=0 flags=3 routes=3 unchanged=1 resetLost=1 recovered=1\r\nMSAA STATUS api=9 acceptedMatrixCalls=3 refusedMatrixCalls=18 successfulResets=7 extraUnsupported=1 locksRefused=4 deviceRefs=1\r\nPASS MSAA validation API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; structural MSAA SwapEffect/quality/lockable-flag refusal across all three entry points, D3D8 accepted lockable multisample buffers with unchanged LockRect refusals, D3D9 quality INVALIDCALL, successful Reset recovery and retained unsupported D3D9 additional MSAA boundary",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 70512,
+        "crc32": "0331f75f"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "device": 0,
+        "temporary": 0,
+        "devices": [
+          {
+            "handles": [
+              1048577,
+              1048579,
+              1048582,
+              1048583,
+              1048584
+            ],
+            "retired": true
+          },
+          {
+            "handles": [
+              1048578
+            ],
+            "retired": true
+          }
+        ],
+        "hello": 1,
+        "ended": 1,
+        "resets": 4,
+        "textures": [
+          {
+            "handle": 1048580,
+            "retired": true
+          }
+        ],
+        "chains": [
+          {
+            "handle": 1048581,
+            "texture": 1048580,
+            "retired": true
+          }
+        ]
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "device": 0,
+        "temporary": 0,
+        "devices": [
+          {
+            "handles": [
+              1048577,
+              1048579,
+              1048582,
+              1048583,
+              1048584,
+              1048585,
+              1048586,
+              1048587
+            ],
+            "retired": true
+          },
+          {
+            "handles": [
+              1048578
+            ],
+            "retired": true
+          }
+        ],
+        "hello": 1,
+        "ended": 1,
+        "resets": 7,
+        "textures": [
+          {
+            "handle": 1048580,
+            "retired": true
+          }
+        ],
+        "chains": [
+          {
+            "handle": 1048581,
+            "texture": 1048580,
+            "retired": true
+          }
+        ]
+      }
+    ],
+    "graphicsSha256": "060167929592106bedac09b53cf8ced3bb43aa4d7917c94a05ac4bc254814961",
+    "acceptedMatrixCalls": 6,
+    "refusedMatrixCalls": 27,
+    "successfulResets": 11,
+    "refusedResets": 9,
+    "lockRefusals": 8,
+    "retainedUnsupportedAdditionalMSAA": 1,
+    "explicitSessionEndCommands": [
+      1,
+      1
+    ],
+    "observedOwnerReleaseEvents": [
+      1,
+      2
+    ]
+  },
+  "fixture": {
+    "metadataSha256": "f12c0eff49daaee4f863d3226d60eb2967ade9d8e3b3b1e3b9a98d9760e690da",
+    "compressedTraceSha256": "d30150dbb44a7eb9d000014660b07ddfc1d21519b4c4068ee730f0e1a4423239",
+    "captureBuild": {
+      "dllSha256": {
+        "8": "d197680b0c2adeebef8b040caa4d5877ab9399270a2daea871f78703aa580e0e",
+        "9": "9cea154569a15c5214bc5465e41095355f86624bb0e4759bf13b0e4be5b366ac"
+      },
+      "exeSha256": {
+        "8": "3b437f36b9802161cfce2a6f54110d382156eb6c8dbc76a450caf6254325f280",
+        "9": "b865be91eb3685a1bc057c171d16bfe180f05f9123b6bc964b4835bf0ac1aa45"
+      }
+    }
+  },
+  "validationRepairs": [
+    "Manual prefix/Reset/texture-lock harnesses now declare the actual quality/flag/multisample fields and SDK NONE constant; the Reset quality failure expectation follows the advertised one-level INVALIDCALL contract.",
+    "The initial XP run exposed that D3D8 additional-chain construction forwarded the legal presentation LOCKABLE_BACKBUFFER flag to an ordinary render-target constructor which rejects lockable MSAA storage. Translate only that storage property to false for MSAA, preserve caller/cached flags, add four actual-constructor checks and a runtime semantic mutant, then repeat the final capture/builds/targeted/sanitizer checks.",
+    "Frozen wire validation requires both actual driver owner-release events and records optional SESSION_END commands; it inserts no synthetic commands.",
+    "Structural accepted prefixes stop before capability/backend checks. D3D9 additional MSAA remains explicitly unsupported and its unchanged refusal is verified separately in the SDK and wire oracle."
+  ],
+  "scope": "Shared scalar validation requires DISCARD for nonzero multisampling and enforces the versioned lockable flag exception: D3D8 accepts the flag but refuses multisampled buffer locks; D3D9 rejects it. D3D9 quality indices outside the sole advertised level zero return INVALIDCALL at constructor/Reset/additional entry, including when multisampling is NONE. Reject before allocation/emission or caller-output changes; failed Reset retains the graph, reports DEVICENOTRESET and suppresses lost Presents until valid recovery. D3D8 texture_lock_level now refuses every nonzero multisample type before lock/readback state changes, including lockable targets. Native structural prefix tests stop before backend capability checks and do not claim D3D9 additional 4x MSAA support; that existing unsupported boundary is explicitly retained and checked in XP. The XP probe validates constructor/Reset 4x modes, D3D8 additional 4x and the versioned flags, eight lock refusals, invalid combinations/quality, exact cleanup and Reset recovery. No draw/readback/successful Present is captured and no new GPU pixel acceptance is claimed. Full refresh/window/fullscreen/MSAA validation, D3D9 additional MSAA, multiple-buffer storage/rotation, complete Reset/thread/device loss, original Microsoft HAL, game/FPS acceptance and review stages 4/5/6 remain incomplete. Host/protocol/shader/bundle unchanged; inherit the prior accepted GPU baselines.",
+  "coreSha256": {
+    "tests/glbridge/d3d_present_multisample_fixture_test.js": "019e323843d57882888a8effa8624db0005e5912d5542f3a2c63b6b9a60a13bb",
+    "tests/glbridge/d3d_present_multisample_xp.mjs": "d1883e50ce412ff51c8898d9466043b18fc59708710c2311db53462ed3454555",
+    "tests/glbridge/fixtures/d3d_present_multisample_reference.json": "9054da38c257875af85c04b0fef3cdbacc7860c342249db48aeb414985b2659f",
+    "tests/glbridge/fixtures/d3d_present_multisample_xp.bin.gz": "d30150dbb44a7eb9d000014660b07ddfc1d21519b4c4068ee730f0e1a4423239",
+    "tests/glbridge/fixtures/d3d_present_multisample_xp.json": "f12c0eff49daaee4f863d3226d60eb2967ade9d8e3b3b1e3b9a98d9760e690da",
+    "tests/lib/d3d_present_multisample_wire.mjs": "2d34a18d7b9d9f166f3d52f3195d7dd733013221aa97e8dd790af30652894598",
+    "docs/d3d-webgpu-review.md": "6ae2cfc483d93459fc22dd1221bf3d1b47e7be83d4b2ddaeaf35630204580546"
+  },
+  "siteSha256": {
+    "glbridge/runtime/d9wg_present_multisample.h": "9ed7105c383ead5b8dccfa4df967e1cc9a46de4c1a415afc6c612b50741eca57",
+    "glbridge/sample/d3d_present_multisample_test.c": "3653897877b9cf3d0fe3dd129b022eb56efe960f221b2b4550b94a6f442a7957",
+    "glbridge/tests/d9wg_present_multisample_entry_test.js": "156adad68601ad09a59b6be159f2674d827f2aa4e545c8b3505923abfff68755",
+    "glbridge/tests/d9wg_present_multisample_mutation_test.js": "6a90cdb930772f8b508ab6767671ac6a26b3ae9ad46e77848d3ed162fc471717",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "64f92d2fc4580359d37e5dd372684176413ab3358a280e5dc99ac6bf724e5abd",
+    "glbridge/d3d8proxy/d3d8.dll": "d197680b0c2adeebef8b040caa4d5877ab9399270a2daea871f78703aa580e0e",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "46c949325f984bc6c8a16731fd1656710c9a9d7003094c6826cf2678bfa6fedf",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "7fa9f3d0e278876bfdd044d36e20bb19f184aac514b5c85598f9197d13c7d965",
+    "glbridge/d3d9proxy/d3d9.dll": "9cea154569a15c5214bc5465e41095355f86624bb0e4759bf13b0e4be5b366ac",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "141171cfae4e6520ff6c433eb02ac60e5536578d67f49bbd51220af7ec1d003e",
+    "glbridge/runtime/d9wg_present_parameters.h": "f1c9510b2e6fddea2b6e616208154eed0b50d608deba07d66732e450c8167a98",
+    "glbridge/tests/d8wg_surface_copy_test.js": "17908a05848874a398c428dd3db688739ccee75063be5a7ff11fbc9048d368a4",
+    "glbridge/tests/d9wg_additional_parameters_entry_test.js": "3e7dc2ff9c62042d1d38f16de264778a575034bc7605763f7cca038cccf1f986",
+    "glbridge/tests/d9wg_present_parameters_entry_test.js": "2bba7736d857f2708d4baf2e9161604f4664d130ef25b3aa85f97fd3d902cdfe",
+    "glbridge/tests/d9wg_private_surface_test.js": "ed36949c9cac40d1aa536a7726abadc8e994b3b21f6cb485af7d3de6da685177",
+    "glbridge/tests/d9wg_reset_status_test.js": "1f2df671bd77c56e0b336a44e88678534c1b344343a5afa9abfb4c04c5c33f88",
+    "glbridge/tests/d9wg_swap_effect_entry_test.js": "fc24aa4dda7f82c1880f979a64858b3a7f67cc64bef67feb6a0755db4ecdbb5f"
+  },
+  "logSha256": {
+    "core": "2b39ba2e31685a9337962a0a39776a2f07f18fcec37de2ec20c4a0afac1668a0",
+    "guest": "889c16ae0c303bce59bf04e59cc535fb179de724cf2c229ad54d5de26fd725ba",
+    "xp": "9da727383ffaadc6000db39bc156bf6238e2f8f81218fc03d8600e1eab878055",
+    "before8": "a3ee482239d1b8a24d4a1dbfef7bab148340653fb384ac27d16f17a9a6600d74",
+    "before9": "3773a7faf8b311e263109ee33faa23534b94055a75dde66bfe18b0152d410c2d",
+    "before-lock": "8017e494c293e1f78fab7cb58095cf585b9ff0904e631affa12bb009f1a84d9d",
+    "sanitize": "0d6a9951f6f4a0b1c0eb5c7917497a7cf4e1259fb3d01635625d8ca68f795806",
+    "fixture": "8a5597b443249f0de889d436c01f401e8a92aa00082c0b1c54d98332c100a3f6",
+    "builds": "ce1425372e7630a3b21c5fbcb14ab5014949d8eac1d2e7fae608d5fda0e073c9",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "708aa7ae8bcc80385fecc1fc1bbfef215f90c54f21e46c4bec33dd544c4abf15",
+    "integration": "df38925f4102cfe8a598fe30941a417bcc78f062271b41f43cdcb0d4f3ea9782"
+  }
+}

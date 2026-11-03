@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "scope": "Shared scalar validation requires DISCARD for nonzero multisampling and enforces the versioned lockable flag exception: D3D8 accepts the flag but refuses multisampled buffer locks; D3D9 rejects it. D3D9 quality indices outside the sole advertised level zero return INVALIDCALL at constructor/Reset/additional entry, including when multisampling is NONE. Reject before allocation/emission or caller-output changes; failed Reset retains the graph, reports DEVICENOTRESET and suppresses lost Presents until valid recovery. D3D8 texture_lock_level now refuses every nonzero multisample type before lock/readback state changes, including lockable targets. Native structural prefix tests stop before backend capability checks and do not claim D3D9 additional 4x MSAA support; that existing unsupported boundary is explicitly retained and checked in XP. The XP probe validates constructor/Reset 4x modes, D3D8 additional 4x and the versioned flags, eight lock refusals, invalid combinations/quality, exact cleanup and Reset recovery. No draw/readback/successful Present is captured and no new GPU pixel acceptance is claimed. Full refresh/window/fullscreen/MSAA validation, D3D9 additional MSAA, multiple-buffer storage/rotation, complete Reset/thread/device loss, original Microsoft HAL, game/FPS acceptance and review stages 4/5/6 remain incomplete. Host/protocol/shader/bundle unchanged; inherit the prior accepted GPU baselines.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Pinned Windows test_multisample: D3D8 Reset permits LOCKABLE_BACKBUFFER with multisampling, but LockRect on the resulting buffer returns INVALIDCALL."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Pinned Windows test_multisample: D3D9 Reset rejects LOCKABLE_BACKBUFFER with multisampling and publishes DEVICENOTRESET."
+    },
+    {
+      "file": "d3d8-reset-device.c",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/device.c",
+      "evidence": "Parameter conversion explicitly enables WINED3D_SWAPCHAIN_ALLOW_MS_LOCKABLE_BACKBUFFER for D3D8."
+    },
+    {
+      "file": "d3d9-reset-device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "D3D9 parameter conversion does not enable the D3D8 multisample lockable-backbuffer exception."
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+      "evidence": "Nonzero MultiSampleType requires DISCARD; quality is below the level count returned by CheckDeviceMultiSampleType, otherwise INVALIDCALL. This backend advertises one level."
+    }
+  ],
+  "facts": {
+    "actualChecksPerAPI": 343,
+    "actualCasesPerAPI": 95,
+    "entryPoints": 6,
+    "actualD3D8SurfaceChecks": 61,
+    "multisampleLockCases": 10,
+    "semanticMutations": 24,
+    "previousSourceRuntimeControls": 3,
+    "xpDeviceLifetimes": 4,
+    "xpAcceptedMatrixCalls": 6,
+    "xpRefusedMatrixCalls": 27,
+    "xpSuccessfulResets": 11,
+    "xpFailedResets": 9,
+    "xpSuppressedLostPresents": 9,
+    "xpLockRefusals": 8,
+    "xpChains": 2,
+    "xpTextures": 2,
+    "retainedUnsupportedD3D9AdditionalMSAA": 1,
+    "renderingOrReadbackCommands": 0,
+    "fixtureSemanticCorruptions": 19
+  }
+}
