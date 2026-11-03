@@ -14,7 +14,8 @@ mod ext {
 
 use crate::cpu::apic;
 use crate::cpu::cpu::{
-    handle_irqs, reg128, APIC_MEM_ADDRESS, APIC_MEM_SIZE, IOAPIC_MEM_ADDRESS, IOAPIC_MEM_SIZE,
+    full_clear_tlb, handle_irqs, reg128, APIC_MEM_ADDRESS, APIC_MEM_SIZE, IOAPIC_MEM_ADDRESS,
+    IOAPIC_MEM_SIZE,
 };
 use crate::cpu::global_pointers::memory_size;
 use crate::cpu::ioapic;
@@ -74,6 +75,30 @@ pub fn svga_allocate_memory(size: u32) -> u32 {
 #[no_mangle]
 pub fn in_mapped_range(addr: u32) -> bool {
     return addr >= 0xA0000 && addr < 0xC0000 || addr >= unsafe { *memory_size };
+}
+
+/// Bit n set: writes to the 16K block at 0xC0000 + n * 0x4000 are discarded. Set from the i440FX
+/// PAM registers (pci.js); reads always come from RAM, which holds the shadowed ROM contents.
+#[allow(non_upper_case_globals)]
+static mut rom_write_protect: u32 = 0;
+
+pub const ROM_SHADOW_START: u32 = 0xC0000;
+pub const ROM_SHADOW_BLOCK_SHIFT: u32 = 14;
+
+#[no_mangle]
+pub unsafe fn set_rom_write_protect(mask: u32) {
+    dbg_assert!(mask <= 0xFFFF);
+    if rom_write_protect != mask {
+        rom_write_protect = mask;
+        // tlb entries of now write-protected pages may be writable on the fast path
+        full_clear_tlb();
+    }
+}
+
+#[inline(always)]
+pub fn in_write_protected_rom(addr: u32) -> bool {
+    let block = addr.wrapping_sub(ROM_SHADOW_START) >> ROM_SHADOW_BLOCK_SHIFT;
+    block < 16 && unsafe { rom_write_protect } >> block & 1 != 0
 }
 
 pub const VGA_LFB_ADDRESS: u32 = 0xE0000000;
@@ -190,6 +215,9 @@ pub unsafe fn write8(addr: u32, value: i32) {
     if in_mapped_range(addr) {
         mmap_write8(addr, value & 0xFF);
     }
+    else if in_write_protected_rom(addr) {
+        // discarded
+    }
     else {
         jit::jit_dirty_page(Page::page_of(addr));
         write8_no_mmap_or_dirty_check(addr, value);
@@ -205,6 +233,9 @@ pub unsafe fn write16(addr: u32, value: i32) {
     if in_mapped_range(addr) {
         mmap_write16(addr, value & 0xFFFF);
     }
+    else if in_write_protected_rom(addr) {
+        // discarded
+    }
     else {
         jit::jit_dirty_cache_small(addr, addr + 2);
         write16_no_mmap_or_dirty_check(addr, value);
@@ -218,6 +249,9 @@ pub unsafe fn write16_no_mmap_or_dirty_check(addr: u32, value: i32) {
 pub unsafe fn write32(addr: u32, value: i32) {
     if in_mapped_range(addr) {
         mmap_write32(addr, value);
+    }
+    else if in_write_protected_rom(addr) {
+        // discarded
     }
     else {
         jit::jit_dirty_cache_small(addr, addr + 4);

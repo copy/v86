@@ -10,6 +10,12 @@ import { CPU } from "./cpu.js";
 export const PCI_CONFIG_ADDRESS = 0xCF8;
 export const PCI_CONFIG_DATA = 0xCFC;
 
+// i440FX PAM0-PAM6 (programmable attribute map) registers of the host bridge. Each nibble controls
+// a segment of the shadow ram at 0xC0000-0xFFFFF: bit 0 enables reads, bit 1 enables writes.
+// PAM0 bits 4-7 cover 0xF0000-0xFFFFF, PAM1-PAM6 cover 0xC0000-0xEFFFF in 16K segments.
+const PAM_FIRST = 0x59;
+const PAM_LAST = 0x5F;
+
 /**
  * @constructor
  * @param {CPU} cpu
@@ -162,7 +168,7 @@ export function PCI(cpu)
     // See [make_bios_writable_intel] in src/fw/shadow.c in seabios for details
     const PAM0 = 0x10;
 
-    var host_bridge = {
+    var host_bridge = this.host_bridge = {
         pci_id: 0,
         pci_space: [
             // 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
@@ -176,7 +182,8 @@ export function PCI(cpu)
         pci_bars: [],
         name: "82441FX PMC",
     };
-    this.register_device(host_bridge);
+    this.host_bridge_space8 = new Uint8Array(this.register_device(host_bridge).buffer);
+    this.update_rom_write_protect();
 
     this.isa_bridge = {
         pci_id: 1 << 3,
@@ -265,6 +272,53 @@ PCI.prototype.set_state = function(state)
     this.pci_value.set(state[257]);
     this.pci_response.set(state[258]);
     this.pci_status.set(state[259]);
+
+    this.update_rom_write_protect();
+};
+
+/**
+ * Restore the power-on PAM settings (the chipset is reset with the cpu)
+ */
+PCI.prototype.reset = function()
+{
+    this.host_bridge_space8.set(this.host_bridge.pci_space.slice(PAM_FIRST, PAM_LAST + 1), PAM_FIRST);
+    this.update_rom_write_protect();
+};
+
+PCI.prototype.update_rom_write_protect = function()
+{
+    // The bios and option roms live in ram, so disabled reads are not emulated (they would hit the
+    // rom, which has the same contents). Disabled writes are discarded.
+    const pam = this.host_bridge_space8;
+    let mask = 0;
+
+    if(!(pam[PAM_FIRST] & 0x20))
+    {
+        mask |= 0xF000;
+    }
+
+    for(let i = 0; i < PAM_LAST - PAM_FIRST; i++)
+    {
+        const value = pam[PAM_FIRST + 1 + i];
+        if(!(value & 0x02)) mask |= 1 << 2 * i;
+        if(!(value & 0x20)) mask |= 1 << 2 * i + 1;
+    }
+
+    dbg_log("PAM write protect mask=" + h(mask, 4), LOG_PCI);
+    this.cpu.set_rom_write_protect(mask);
+};
+
+/**
+ * @param {number} bdf
+ * @param {number} addr
+ */
+PCI.prototype.after_config_write = function(bdf, addr)
+{
+    // PAM0-PAM6 are within the 8-byte aligned block at 0x58
+    if(bdf === 0 && addr >> 3 === PAM_FIRST >> 3)
+    {
+        this.update_rom_write_protect();
+    }
 };
 
 PCI.prototype.pci_query = function()
@@ -341,6 +395,7 @@ PCI.prototype.pci_write8 = function(address, written)
             " value=" + h(written, 2), LOG_PCI);
 
     space[addr] = written;
+    this.after_config_write(bdf, addr);
 };
 
 PCI.prototype.pci_write16 = function(address, written)
@@ -372,6 +427,7 @@ PCI.prototype.pci_write16 = function(address, written)
             " value=" + h(written, 4), LOG_PCI);
 
     space[addr >>> 1] = written;
+    this.after_config_write(bdf, addr);
 };
 
 PCI.prototype.pci_write32 = function(address, written)
@@ -482,6 +538,7 @@ PCI.prototype.pci_write32 = function(address, written)
         dbg_log("PCI write dev=" + h(bdf >> 3, 2) + " (" + device.name + ") addr=" + h(addr, 4) +
                 " value=" + h(written >>> 0, 8), LOG_PCI);
         space[addr >>> 2] = written;
+        this.after_config_write(bdf, addr);
     }
 };
 
