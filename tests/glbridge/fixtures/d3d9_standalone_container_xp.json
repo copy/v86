@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 9,
+      "device": 0,
+      "hello": 1,
+      "ended": 1,
+      "created": 1,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 3,
+          "format": 22,
+          "pool": 0,
+          "retired": true
+        },
+        {
+          "handle": 1048579,
+          "kind": 3,
+          "format": 75,
+          "pool": 0,
+          "retired": true
+        },
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "format": 22,
+          "pool": 0,
+          "retired": true
+        },
+        {
+          "handle": 1048581,
+          "kind": 3,
+          "format": 22,
+          "pool": 1,
+          "retired": true
+        },
+        {
+          "handle": 1048582,
+          "kind": 4,
+          "format": 22,
+          "pool": 1,
+          "retired": true
+        }
+      ]
+    }
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "deviceLifetimes": 1,
+  "standaloneProfiles": 5,
+  "acceptedDeviceQueries": 80,
+  "refusedStandaloneQueries": 280,
+  "nullGuards": 10,
+  "retainedTextureCubeControls": 2,
+  "backingTextures2D": 4,
+  "backingTexturesCube": 1,
+  "drawOrPresentOrResetCommands": 0,
+  "traceSha256": "adf280c36b2ce1c83378e5a2bd4ad81db200e78f7a565026ac0b19279ab16424",
+  "referenceSha256": "5d83b493d8da5a3142fb3a7e09f00a41d16681b1718c2451ce8c9a13ebaafeba",
+  "sdkLogs": {
+    "SCN8.TXT": "",
+    "SCN9.TXT": "SURFACE CONTAINER kind=0 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTAINER kind=1 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTAINER kind=2 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTAINER kind=3 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTAINER kind=4 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTROL kind=texture accepted=4 refused=5 shared=1 deviceRefs=1\r\nSURFACE CONTROL kind=cube accepted=4 refused=5 shared=1 deviceRefs=1\r\nSURFACE STATUS profiles=5 deviceQueries=80 refused=280 nullGuards=10 controls=2 hiddenTextureExposed=0 deviceRefs=1\r\nPASS standalone containers API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d9proxy/d3d9_proxy.c": "5c12f0a53d564de7b975ade8a4365c8ad1abd80a87035ccb3683a16729f2a00d",
+    "glbridge/sample/d3d9_standalone_container_test.c": "e814c158c7de4a774b3346fc8be63f4d54617c68ea455239796207449279bc7c"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "9": "15b9367b379eab874632ae3c4ad214ea210a6802bc0f0eeaef851f583f9a2e77"
+    },
+    "exeSha256": {
+      "9": "b0a31063d373dfa147e9aa77a1cf59e396b3c5f12e942d9e9cdf5893ae9dae0b"
+    }
+  },
+  "scope": "not exercised; five real standalone GPU/CPU surface storage kinds expose the documented D3D9 device container, eight rounds of identity/refusal/reference queries, NULL guards, preserved ordinary texture/cube parent containers and complete cleanup; no draw/Present/Reset"
+}

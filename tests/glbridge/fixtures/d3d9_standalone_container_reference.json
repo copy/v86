@@ -1,0 +1,42 @@
+{
+  "schema": 1,
+  "scope": "Use the documented D3D9 standalone surface container contract: CreateRenderTarget/CreateDepthStencilSurface/CreateOffscreenPlainSurface surfaces return the creating device for IUnknown/IDirect3DDevice9. The proxy must not expose its private backing texture. GPU-backed targets and CPU-only system/scratch surfaces use the same device branch as auto depth; ordinary texture/cube levels and swap-chain backbuffers preserve their parent identity. Queries retain one reference to the actual returned device and balance on Release; refused IIDs clear the output according to the existing proxy failure policy. Microsoft documentation says standalone containers are devices, while the pinned Wine implementation creates them with NULL containers and returns E_NOINTERFACE. Follow the explicit Microsoft contract, record the discrepancy and do not claim an original Microsoft HAL run. This phase does not correct the extra device references currently owned by hidden standalone target storage; queries check relative balance and final cleanup, and creation-count correction follows separately. Full buffers/rotation, standalone parent-pin counts, complete MSAA/Reset/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. No host/protocol/shader/bundle change and no draw/Present/Reset or new GPU pixel run.",
+  "sources": [
+    {
+      "file": "d3d9-reset-device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "Pinned Wine standalone surface construction passes a NULL container and stores parent_device separately; this differs from the Microsoft documented GetContainer device contract."
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+      "evidence": "Pinned Wine GetContainer returns E_NOINTERFACE for a NULL container. Record this implementation/documentation disagreement; do not present Wine standalone behavior as a Windows conformance oracle."
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3dsurface9-getcontainer",
+      "evidence": "Standalone render targets, offscreen plain surfaces and depth/stencil surfaces return their creating Direct3D device. Successful container queries add one reference."
+    }
+  ],
+  "facts": {
+    "actualContainerChecks": 7792,
+    "actualContainerQueries": 2592,
+    "nativeStorageAndControlKinds": 9,
+    "newSemanticMutations": 7,
+    "retainedImplicitMutations": 23,
+    "xpStandaloneProfiles": 5,
+    "xpAcceptedDeviceQueries": 80,
+    "xpRefusedStandaloneQueries": 280,
+    "xpNullGuards": 10,
+    "xpTextureCubeControls": 2,
+    "xpBackingTextures2D": 4,
+    "xpBackingTexturesCube": 1,
+    "extraCreationDevicePinsNotFixed": true,
+    "documentationWineDisagreementRecorded": true
+  }
+}

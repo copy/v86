@@ -1,0 +1,385 @@
+{
+  "stage": "4H6f8d documented D3D9 standalone GPU/CPU surface device containers (S2-42 related)",
+  "date": "2026-11-03",
+  "bundle": "64aa2cd7f7413ccbe760",
+  "targetedCoreSuites": 12,
+  "targetedGuestSuites": 22,
+  "webgpuRuns": 0,
+  "baseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f8a-validation.json",
+    "sha256": "938092f9c0a48b672f9678a47d4d4d388d7612c85264b27d80ae3b93e1f0cb6a",
+    "guestSuites": 225,
+    "fullCoreGPU": {
+      "file": "docs/fixtures/d3d-review/stage4h6f7d-validation.json",
+      "sha256": "3007b57fe847cd52fcd3920b19d191843f1600baca3fdd89496b98feffadd536",
+      "coreSuites": 216,
+      "webgpuRuns": 59
+    },
+    "additionalGPUFixture": {
+      "file": "docs/fixtures/d3d-review/stage4h6f8c-validation.json",
+      "sha256": "c6c04a09f8d7f1b5d99878321d6c7168cba755ec6aebf60493a11fce19b99834",
+      "webgpuRuns": 2
+    },
+    "bundle": "64aa2cd7f7413ccbe760",
+    "reason": "Guest-only container identity/reference policy; no host/protocol/shader changes or rendering in this capture. Fresh targeted actual-entry/native/sanitizer/frozen-fixture checks; inherit full guest/core/GPU plus immediately prior true-MSAA GPU pixels."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "bcbaa29ba0e83d5b36c6d8620c579b2441a2e2a046d204e2e0593011727baa4b"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "97122974c3069a735adb9c0da75d8c34721aee985da48529f78b960e0f157faf"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "0c554f74066f4c8289b4a46491a37f11b6c3670f4e2f3b204a080c96ea07eba1"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "1881ef477d65986603abdb16c80d4fc5182afd413d1fc49131ad83d96fcc5b29"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "edb390a3fd7c41d49cd728db6027c30f25dabdaef9727e09433ae210cd202180"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "98d0b2120d5dc2390713f6dad98d7b43d7e5febe994d318fbd1eb6fdf42221a8"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "b78c7f485e92a6112d65be5bb798ddc7301600f1e65fdaf36d28823b7e741941"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "116ed0d189b4c209aef090d33e736f05a697efcbb469b816191eae7d3bfc05f8"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "13bdbaf2643e48912c96dfc8696d70f8a921592216dd91e16c7c490bcfe6551d"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "7db0ea9faa6b535111ec4e9da81afe4541521bf62ec0f3d05c49122e14dd3de5"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "3f5652fe7253e6206902ca900b271719fbeec0cd868af822bf1dc557bc9a13b7"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "1452610dbc0028e3126e62974fb7a19a8c9fa6a6417400242f440246952bd20a"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "8fff233ae7c509645e0bfa16e16b33e1115305f512fa76591be59c53b87fe121"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "3ee7be79787c7c5a35bd05ef5391118b699045f5481485497312d9e2e43359b9"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "0ba9f0c93d63afc7382945579d1b712912006e1a3624fa8224d4037a88b07443"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "3478e99171405b4a62bf89db6525b265986289b73f0da87b67571dbce4830d16"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "ab767bebcbaff14513c528fe1430b7adb9cead82338f5eec9c79c4b5e550d0e9"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "7c5edaa5aa053bfad5ab5878529de8da9c3737cbaa0ae28f7e31fbcf8d91f9fa"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "d197680b0c2adeebef8b040caa4d5877ab9399270a2daea871f78703aa580e0e",
+      "diagnosticSha256": "64f92d2fc4580359d37e5dd372684176413ab3358a280e5dc99ac6bf724e5abd"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "21348734d1308786fd5e254dc76e6372c1c3c26a4da542d87614456ff521688e"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "b81f24da9032287689329c72317b6cd9865c9b94f1d02151c4d59dca307b97d2"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "2bf1c9c319a4986a66f669fbd40b2b6cb5e5e9b87387c87ad6d6d1f149ee20ba"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "3be072600bc06ca14ef78f866adb49a4fa4892fcbdfc8503bd695bda2887e98a"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "78d84399d949330c2ff2d4223a878a375c3c26d13a65b7c2014e9f7fd2464b53"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "a648be3a2b89f882410d4537a8c29a0f352ad670ee8c7dcf6ed6cfdb2a93987b"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "f471dbfd0ee10e8e758a08a9d8e95e252192b516ada43e6ddcc2309c84fd1218"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "b32ed9235009b25579e20bae3c84ade1ee1cd1cec9f67a002faa3caf94f7590f"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "34f111d53fac52283a30bd67aa3475213c1efc7b5917544b48ba582548390d54"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "abde0c84496c367f1c8352b8a9db2d47d01af449c4dccaad31ecb71fc2692895"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "75d37ab054890f086145aa75ef9bff1c3a9725762b9ba759ed898adcd14b9120"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "8d765e79eb04ca6d3dc4ada85d71f4da158dedb8516aa34542b65fcda4670966"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "30fd9b7c593a149274b14d0af12ac74e6e79e80f0fb707f7828f67de5fcfcd90"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "0e4e5d1ac5f0b9986ac79bb7142788668b545b8e211f7635a62c188532857ea3"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final accepted XP standalone-container DLL",
+      "shippedDllSha256": "15b9367b379eab874632ae3c4ad214ea210a6802bc0f0eeaef851f583f9a2e77",
+      "diagnosticSha256": "05bb016315d4bfa320f4e231a480883eed2dca2dc17f7efaaaf00dc41d9c7d9e"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "6f6ff0314d033312584e7506fc5e97da66cc54165546c235d769fcae384f1e60"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "34ce7ffe9db114b720c013c50a1a04b143b08833550b13b84f8b4f5763af4b40"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "c369b7cfbccc4c9e22cee8b1e6a396b13fbce8dfd7292591017e928b92e2e971"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "f1f577504daa13a9604b53cc88614317c0b6db3a386a6bd0d4a277a69790e673"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualContainerChecks": 7792,
+    "actualContainerQueries": 2592,
+    "storageAndControlKinds": 9,
+    "newMutations": 7,
+    "retainedImplicitMutations": 23,
+    "retainedD3D8PhysicalChainMutations": 10,
+    "retainedD3D8LifetimeMutations": 12,
+    "retainedD3D9LifetimeMutations": 14,
+    "previousSourceRuntimeNegativeControls": 1,
+    "fixtureCorruptions": 18,
+    "sanitizerFamilies": 6,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d9_standalone_container_reference.json",
+    "sha256": "5d83b493d8da5a3142fb3a7e09f00a41d16681b1718c2451ce8c9a13ebaafeba",
+    "schema": 1,
+    "scope": "Use the documented D3D9 standalone surface container contract: CreateRenderTarget/CreateDepthStencilSurface/CreateOffscreenPlainSurface surfaces return the creating device for IUnknown/IDirect3DDevice9. The proxy must not expose its private backing texture. GPU-backed targets and CPU-only system/scratch surfaces use the same device branch as auto depth; ordinary texture/cube levels and swap-chain backbuffers preserve their parent identity. Queries retain one reference to the actual returned device and balance on Release; refused IIDs clear the output according to the existing proxy failure policy. Microsoft documentation says standalone containers are devices, while the pinned Wine implementation creates them with NULL containers and returns E_NOINTERFACE. Follow the explicit Microsoft contract, record the discrepancy and do not claim an original Microsoft HAL run. This phase does not correct the extra device references currently owned by hidden standalone target storage; queries check relative balance and final cleanup, and creation-count correction follows separately. Full buffers/rotation, standalone parent-pin counts, complete MSAA/Reset/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. No host/protocol/shader/bundle change and no draw/Present/Reset or new GPU pixel run.",
+    "sources": [
+      {
+        "file": "d3d9-reset-device.c",
+        "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+        "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+        "evidence": "Pinned Wine standalone surface construction passes a NULL container and stores parent_device separately; this differs from the Microsoft documented GetContainer device contract."
+      },
+      {
+        "file": "d3d9-private-surface.c",
+        "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+        "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+        "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+        "evidence": "Pinned Wine GetContainer returns E_NOINTERFACE for a NULL container. Record this implementation/documentation disagreement; do not present Wine standalone behavior as a Windows conformance oracle."
+      }
+    ],
+    "documentation": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3dsurface9-getcontainer",
+        "evidence": "Standalone render targets, offscreen plain surfaces and depth/stencil surfaces return their creating Direct3D device. Successful container queries add one reference."
+      }
+    ],
+    "facts": {
+      "actualContainerChecks": 7792,
+      "actualContainerQueries": 2592,
+      "nativeStorageAndControlKinds": 9,
+      "newSemanticMutations": 7,
+      "retainedImplicitMutations": 23,
+      "xpStandaloneProfiles": 5,
+      "xpAcceptedDeviceQueries": 80,
+      "xpRefusedStandaloneQueries": 280,
+      "xpNullGuards": 10,
+      "xpTextureCubeControls": 2,
+      "xpBackingTextures2D": 4,
+      "xpBackingTexturesCube": 1,
+      "extraCreationDevicePinsNotFixed": true,
+      "documentationWineDisagreementRecorded": true
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 118,
+    "batches": 2,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "text": "PASS standalone container probes \r\n",
+    "logs": {
+      "SCN8.TXT": "",
+      "SCN9.TXT": "SURFACE CONTAINER kind=0 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTAINER kind=1 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTAINER kind=2 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTAINER kind=3 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTAINER kind=4 rounds=8 deviceQueries=16 refused=56 nullGuards=2 balanced=1 deviceRefs=1\r\nSURFACE CONTROL kind=texture accepted=4 refused=5 shared=1 deviceRefs=1\r\nSURFACE CONTROL kind=cube accepted=4 refused=5 shared=1 deviceRefs=1\r\nSURFACE STATUS profiles=5 deviceQueries=80 refused=280 nullGuards=10 controls=2 hiddenTextureExposed=0 deviceRefs=1\r\nPASS standalone containers API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; five real standalone GPU/CPU surface storage kinds expose the documented D3D9 device container, eight rounds of identity/refusal/reference queries, NULL guards, preserved ordinary texture/cube parent containers and complete cleanup; no draw/Present/Reset",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 824,
+        "crc32": "10a54065"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 9,
+        "device": 0,
+        "hello": 1,
+        "ended": 1,
+        "created": 1,
+        "destroyed": 1,
+        "resources": [
+          {
+            "handle": 1048578,
+            "kind": 3,
+            "format": 22,
+            "pool": 0,
+            "retired": true
+          },
+          {
+            "handle": 1048579,
+            "kind": 3,
+            "format": 75,
+            "pool": 0,
+            "retired": true
+          },
+          {
+            "handle": 1048580,
+            "kind": 3,
+            "format": 22,
+            "pool": 0,
+            "retired": true
+          },
+          {
+            "handle": 1048581,
+            "kind": 3,
+            "format": 22,
+            "pool": 1,
+            "retired": true
+          },
+          {
+            "handle": 1048582,
+            "kind": 4,
+            "format": 22,
+            "pool": 1,
+            "retired": true
+          }
+        ]
+      }
+    ],
+    "graphicsSha256": "adf280c36b2ce1c83378e5a2bd4ad81db200e78f7a565026ac0b19279ab16424",
+    "acceptedDeviceQueries": 80,
+    "refusedStandaloneQueries": 280,
+    "nullGuards": 10,
+    "retainedTextureCubeControls": 2
+  },
+  "fixture": {
+    "metadataSha256": "27204afef9d4b31317881333f29806622e8268ac24af88ee4b190cf9db75473a",
+    "compressedTraceSha256": "825bd43432655c8dfbddef2005372563b24d463d7dd840bd4a3456e41ee0d9f2",
+    "captureBuild": {
+      "dllSha256": {
+        "9": "15b9367b379eab874632ae3c4ad214ea210a6802bc0f0eeaef851f583f9a2e77"
+      },
+      "exeSha256": {
+        "9": "b0a31063d373dfa147e9aa77a1cf59e396b3c5f12e942d9e9cdf5893ae9dae0b"
+      }
+    }
+  },
+  "validationRepairs": [
+    "The retained auto-depth omission mutant explicitly excludes auto depth from the expanded device branch so its historical assertion still tests implicit depth; all 23 accepted mutation failures remain runtime failures.",
+    "Move the standalone NULL-IID checks after valid IID queries in the native test so the old-source control fails on actual documented container identity rather than only an invalid-IID edge. Final strict/sanitizer unit runs pass.",
+    "The new single-API runner initially listed an unused SCN8 log; it executed only SCN9 and captured an empty extra log key. Removed that unused filename from the runner, retaining the real capture/logs unchanged; the exact one owner and SCN9 checks pass.",
+    "The Microsoft documented standalone device container differs from the pinned Wine NULL-container implementation. Record this distinction explicitly and keep original HAL acceptance pending; do not infer native behavior from a proxy-only XP run."
+  ],
+  "scope": "Use the documented D3D9 standalone surface container contract: CreateRenderTarget/CreateDepthStencilSurface/CreateOffscreenPlainSurface surfaces return the creating device for IUnknown/IDirect3DDevice9. The proxy must not expose its private backing texture. GPU-backed targets and CPU-only system/scratch surfaces use the same device branch as auto depth; ordinary texture/cube levels and swap-chain backbuffers preserve their parent identity. Queries retain one reference to the actual returned device and balance on Release; refused IIDs clear the output according to the existing proxy failure policy. Microsoft documentation says standalone containers are devices, while the pinned Wine implementation creates them with NULL containers and returns E_NOINTERFACE. Follow the explicit Microsoft contract, record the discrepancy and do not claim an original Microsoft HAL run. This phase does not correct the extra device references currently owned by hidden standalone target storage; queries check relative balance and final cleanup, and creation-count correction follows separately. Full buffers/rotation, standalone parent-pin counts, complete MSAA/Reset/thread/device loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. No host/protocol/shader/bundle change and no draw/Present/Reset or new GPU pixel run.",
+  "coreSha256": {
+    "tests/glbridge/d3d9_standalone_container_fixture_test.js": "bce5093399953e0e6ed09ebb5ff82a6bc88e2fdc9b729cefadcf3d90deb634dc",
+    "tests/glbridge/d3d9_standalone_container_xp.mjs": "beac3874b910aeda1841dad70bc66f3ff75aed15c0353713b35e0a5d84f200da",
+    "tests/glbridge/fixtures/d3d9_standalone_container_reference.json": "5d83b493d8da5a3142fb3a7e09f00a41d16681b1718c2451ce8c9a13ebaafeba",
+    "tests/glbridge/fixtures/d3d9_standalone_container_xp.bin.gz": "825bd43432655c8dfbddef2005372563b24d463d7dd840bd4a3456e41ee0d9f2",
+    "tests/glbridge/fixtures/d3d9_standalone_container_xp.json": "27204afef9d4b31317881333f29806622e8268ac24af88ee4b190cf9db75473a",
+    "tests/lib/d3d9_standalone_container_wire.mjs": "c1e549721a572a6e7eb0d6d89cefcb9c1e4eac9d9e2a8f7eda427701fc914bd4",
+    "docs/d3d-webgpu-review.md": "a1c9373451c8320d6748268927a05aa57627f6ff1086ef8d52a0ccfd997088db"
+  },
+  "siteSha256": {
+    "glbridge/sample/d3d9_standalone_container_test.c": "e814c158c7de4a774b3346fc8be63f4d54617c68ea455239796207449279bc7c",
+    "glbridge/tests/d9wg_standalone_container_mutation_test.js": "7c080080064c3da4a73fe88c5bd185e2d0078ff5925731365e3e6849c6ecc4f0",
+    "glbridge/tests/d9wg_standalone_container_test.js": "187ff18c937d4b0140b9a5f7fcb95e47bba7caaf2bcba248e13e9b69ec3d8261",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "05bb016315d4bfa320f4e231a480883eed2dca2dc17f7efaaaf00dc41d9c7d9e",
+    "glbridge/d3d9proxy/d3d9.dll": "15b9367b379eab874632ae3c4ad214ea210a6802bc0f0eeaef851f583f9a2e77",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "5c12f0a53d564de7b975ade8a4365c8ad1abd80a87035ccb3683a16729f2a00d",
+    "glbridge/tests/d9wg_implicit_identity_mutation_test.js": "c70f52d8194abc8cbce06b1eb2121523b5415efcd520f55545cb66a17ae1978f"
+  },
+  "logSha256": {
+    "core": "8676a4f67424c6d7169d001a6fa2952e6397ec87101ada7305cc3ea3099ea316",
+    "guest": "f14adecc8735534a3f0178765a288b48b0d50f303eea4aa9a5e9d1c5142bc39c",
+    "xp": "1cc5a272850eb576ed916cde9800dcae775f91b11f0f1e5d055a1e8fd05940bf",
+    "before": "88ab4ca105e2d4abe5a67a80fa7d6d61e81cd2da8c384cf0efc09177892c51fe",
+    "sanitize": "90f7aa84dca07dcbee831122bfb95ade378c422c9bd0152acc1d489e5460b152",
+    "container-sanitize": "f2febe20737b0fd7e65e2306d3be7698873545bf6f3a836a4a8652dad152f540",
+    "fixture": "a9519c37a09bec9ee487dfc2f61b8d46a32b5380f7abaccf67b3bc51ac585725",
+    "builds": "b7ddce6d770018cda3dab7fe39923d50fadc8dffd129d8060b331caec22e3b0a",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "integration": "880e931e7563680a604a4d450f6384383c5e5fb002d638c2680a80638f76f646"
+  }
+}
