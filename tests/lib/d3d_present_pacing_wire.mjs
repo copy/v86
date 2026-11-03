@@ -1,0 +1,22 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import {createRequire} from "node:module";
+const require=createRequire(import.meta.url),P=require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"),W=require("../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"),reference=JSON.parse(fs.readFileSync(new URL('../glbridge/fixtures/d3d_present_pacing_reference.json',import.meta.url)));
+export function pacing_measurements(api,text){
+ const lines=text.trim().split(/\r?\n/);assert.equal(lines.pop(),'PASS pacing API='+api);assert.equal(lines.length,5);
+ return lines.map((line,i)=>{const m=/^PACE (8|9) (\d+) frames=(\d+) elapsed=(\d+) qpc=(\d+) hz=(\d+) requested=([A-F0-9]{8}) effective=([A-F0-9]{8}) windowed=(\d+) swap=(\d+)$/.exec(line);assert(m,line);const r={api:Number(m[1]),mode:Number(m[2]),frames:Number(m[3]),elapsedMilliseconds:Number(m[4]),qpc:Number(m[5]),hz:Number(m[6]),requested:parseInt(m[7],16),effective:parseInt(m[8],16),windowed:Number(m[9]),swap:Number(m[10])},e=reference.modes[i];assert.equal(r.api,api);assert.equal(r.mode,e.mode);assert.equal(r.frames,reference.framesPerMode);assert.equal(r.requested,e['requested'+api]);assert.equal(r.effective,e['effective'+api]);assert.equal(r.windowed,e.windowed);assert.equal(r.swap,e['swap'+api]);assert(r.hz>=1000&&r.hz<=0xffffffff&&r.qpc<=0xffffffff);r.paced=r.effective!==0x80000000;if(r.paced)assert(r.qpc*60+Math.floor(r.hz/200)*60>=r.hz*(r.frames-1),'presentation interval completed too early');return r;});
+}
+export function inspect_present_pacing_wire(bytes,result){
+ assert.equal(result.owners.length,2);const states=new Map(result.owners.map((owner,i)=>[owner,{owner,api:[8,9][i],devices:[],frames:[],commands:{}}]));
+ const forbidden=new Set(Object.entries(P.OP).filter(([name])=>/^DRAW_|^CREATE_TEXTURE_|^UPDATE_(BUFFER|TEXTURE)$|^(READBACK_SURFACE|CREATE_BUFFER|RESET)$/.test(name)).map(([,op])=>op));
+ for(let at=0;at<bytes.length;){assert(at+20<=bytes.length);const owner=bytes.readUInt32LE(at),size=bytes.readUInt32LE(at+8),s=states.get(owner);assert(s&&size>=8&&at+12+size<=bytes.length);assert.equal(bytes.readUInt16LE(at+12),0xffe1);assert.equal(bytes.readUInt32LE(at+16),size-8);const packet=bytes.subarray(at+20,at+12+size),h=W.readHeader(packet);W.checkStream(h.view,h.end,h.commandCount);
+  for(let x=P.STRUCTS.BatchHeader.size;x<h.end;){const op=h.view.getUint16(x,true),length=h.view.getUint32(x+P.F.CommandHeader.size,true),decode=name=>P.decode(name,h.view,x+P.STRUCTS.CommandHeader.size,length-P.STRUCTS.CommandHeader.size);assert(!forbidden.has(op),'pacing probe uses only device creation, clear and presentation');s.commands[op]=(s.commands[op]||0)+1;
+   if(op===P.OP.CREATE_DEVICE){const q=decode('CreateDevice'),mode=s.devices.length,e=reference.modes[mode];assert(e);assert(s.devices.every(d=>d.destroyed));assert.equal(q.width,e.width);assert.equal(q.height,e.height);assert.equal(q.windowed,e.windowed);assert.equal(q.backbuffer_format,22);assert.equal(q.enable_auto_depth_stencil,0);assert.equal(q.multisample_type,0);s.devices.push({handle:q.device_handle,mode,clears:0,presents:0,destroyed:0});}
+   if(op===P.OP.CLEAR){const q=decode('Clear'),d=s.devices.find(d=>d.handle===q.device_handle&&!d.destroyed);assert(d);assert.equal(d.clears,d.presents);assert(d.presents<reference.framesPerMode);const expected=(0xff204060+d.mode*0x00201008+d.presents*0x00000301)>>>0;assert.equal(q.color,expected);assert.equal(q.clear_flags,1);d.clears++;}
+   if(op===P.OP.PRESENT){const q=decode('Present'),d=s.devices.find(d=>d.handle===q.device_handle&&!d.destroyed);assert(d);assert.equal(d.clears,d.presents+1);assert(q.width>0&&q.height>0);s.frames.push({owner,api:s.api,device:d.handle,mode:d.mode,frame:d.presents,color:(0xff204060+d.mode*0x00201008+d.presents*0x00000301)>>>0});d.presents++;}
+   if(op===P.OP.DESTROY_RESOURCE){const q=decode('DestroyResource'),d=s.devices.find(d=>d.handle===q.resource_handle&&!d.destroyed);assert(d);assert.equal(q.resource_kind,0);assert.equal(d.clears,reference.framesPerMode);assert.equal(d.presents,reference.framesPerMode);d.destroyed++;}
+   x+=length;
+  }at+=12+size;
+ }
+ const perAPI=[...states.values()].map(s=>{assert.equal(s.devices.length,5);assert(s.devices.every(d=>d.destroyed===1&&d.presents===12&&d.clears===12));assert.equal(s.frames.length,60);return{...s,measurements:pacing_measurements(s.api,result.logs['PACE'+s.api+'.TXT'])};});return{perAPI,frames:perAPI.flatMap(s=>s.frames)};
+}

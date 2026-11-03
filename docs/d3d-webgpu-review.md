@@ -1684,6 +1684,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 193 组核心、185 组客体、36 个标准 SDK EXE、六份严格 DLL和站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包未改，沿用 4H6c GPU 基线。见 [stage4h6d3-validation.json](fixtures/d3d-review/stage4h6d3-validation.json)。
 > - 私有数据的常规资源/子资源/表面路径已接入；完整 Reset 存储边界、COM 表面指针同一性、D3D8 附加交换链像素独立性仍待相关步骤验收。继续 Present 节流及其余 S2-42，随后继续包装转换和阶段 4/5/6。
 
+> **阶段 4H6e1（2026-11-03）：共用设备 Present 节流、D3D8 间隔转换与可靠计时（S2-42 部分）完成。**
+>
+> - 新增无 CRT 的共用 deadline/时钟实现，接入 D3D8/9 Device.Present；D3D9 隐式交换链继续转发此入口。按固定 DXVK 参数转换保留 D3D8 差异：普通窗口立即呈现，COPY_VSYNC 窗口等待一次刷新，全屏 COPY_VSYNC 的 IMMEDIATE 同样转为 ONE。附加交换链的独立节流/标志留给相关步骤。
+> - 计数器与频率在 QPC 失败/停滞时一起切换到毫秒回退，修正原 D3D9 回退后仍沿用旧频率的问题；保留分数 tick 和不足一毫秒欠账。Windows Sleep 可能提前醒，按剩余时间重验、增加停滞短等待，限定重试次数；时钟跳变/长延迟重新建立节奏。只有 emitter 返回成功时推进节奏，等待发生在传输锁外；IMMEDIATE 和既有环境开关均跳过节流。
+> - 独立解析式覆盖 241 项、1,461,000 帧及 10 ms 提前/延迟唤醒；两个实际公开入口分别通过 64/36 项，覆盖关闭节流、极端计数频率/位移、QPC 失败/冻结、窗口交换效果、已报告失败的呈现及锁外等待。27/27 语义变异和 ASan/UBSan 通过；上一版 D3D8 全屏入口在可控时钟验收中运行失败，单次 Sleep 原型也被提前唤醒模型发现。
+> - 真实 XP 每 API 五种合法参数组合各运行 12 帧，共 120 组 Clear/Present、十个设备生存期、两个 owner 退出，145 秒。独立 QPC 测量验证七组同步间隔，普通 D3D8 窗口和两版全屏 IMMEDIATE 保留立即语义；冻结轨迹/日志的六项损坏被发现。测量虚拟 deadline 和命令序列，未执行物理 GPU/vblank、原生 HAL 或游戏/FPS 验收。
+> - 195 组核心、188 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包未改，沿用 4H6c GPU 基线。见 [stage4h6e1-validation.json](fixtures/d3d-review/stage4h6e1-validation.json)。
+> - 继续呈现参数的零售校验、附加交换链及其标志/节流、COM 表面同一性、完整 Reset，随后继续包装转换及阶段 4/5/6；本项未宣称 S2-42 或阶段 4 完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

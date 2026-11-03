@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "scope": "Virtual device Present deadline pacing with D3D8 window/swap-effect translation and D3D9 interval policy. QueryPerformanceCounter and millisecond fallback are guest clocks; no physical vblank, native Microsoft HAL, render-ahead queue, timer-resolution change, additional-chain pacing/flags, complete presentation-parameter validation, Reset boundary or game/FPS acceptance is claimed.",
+  "framesPerMode": 12,
+  "targetHz": 60,
+  "measurementToleranceMilliseconds": 5,
+  "modes": [
+    {
+      "mode": 0,
+      "windowed": 1,
+      "requested8": 0,
+      "requested9": 0,
+      "swap8": 1,
+      "swap9": 1,
+      "effective8": 2147483648,
+      "effective9": 0,
+      "width": 64,
+      "height": 64
+    },
+    {
+      "mode": 1,
+      "windowed": 0,
+      "requested8": 0,
+      "requested9": 0,
+      "swap8": 1,
+      "swap9": 1,
+      "effective8": 0,
+      "effective9": 0,
+      "width": 640,
+      "height": 480
+    },
+    {
+      "mode": 2,
+      "windowed": 0,
+      "requested8": 1,
+      "requested9": 1,
+      "swap8": 1,
+      "swap9": 1,
+      "effective8": 1,
+      "effective9": 1,
+      "width": 640,
+      "height": 480
+    },
+    {
+      "mode": 3,
+      "windowed": 0,
+      "requested8": 2147483648,
+      "requested9": 2147483648,
+      "swap8": 1,
+      "swap9": 1,
+      "effective8": 2147483648,
+      "effective9": 2147483648,
+      "width": 640,
+      "height": 480
+    },
+    {
+      "mode": 4,
+      "windowed": 1,
+      "requested8": 0,
+      "requested9": 1,
+      "swap8": 4,
+      "swap9": 3,
+      "effective8": 1,
+      "effective9": 1,
+      "width": 64,
+      "height": 64
+    }
+  ],
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+    },
+    {
+      "file": "dxvk-d3d8-present-util.h",
+      "sha256": "ca5a1772cf614bc06842302281c253cf85fef1ac173d2b5a28c97df47799cf0f",
+      "blobSha1": "4c6247eeeed80dd7d7da0b442791797de0ad57b5"
+    }
+  ],
+  "articles": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent",
+      "facts": "DEFAULT and ONE attempt vertical synchronization; IMMEDIATE allows unbounded presentation; TWO/THREE/FOUR depend on caps."
+    },
+    {
+      "url": "https://learn.microsoft.com/ja-jp/previous-versions/ms886318%28v%3Dmsdn.10%29",
+      "facts": "A D3D8 windowed chain uses the DEFAULT presentation-interval field; explicit intervals belong to fullscreen chains."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/desktop/api/synchapi/nf-synchapi-sleep",
+      "facts": "Sleep may finish earlier than requested because its wait depends on the system clock tick; resampling is required."
+    }
+  ]
+}

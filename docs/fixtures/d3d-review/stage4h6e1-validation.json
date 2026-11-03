@@ -1,0 +1,1542 @@
+{
+  "stage": "4H6e1 shared device Present virtual pacing, D3D8 policy and correct timer/fallback handling (S2-42 part)",
+  "date": "2026-11-03",
+  "bundle": "a532e70eacef8cba3d10",
+  "coreSuites": 195,
+  "guestSuites": 188,
+  "webgpuRuns": 0,
+  "gpuBaseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6c-validation.json",
+    "sha256": "4d7a00aa1081a2840b17c3bcffb5987d2fed26531bd53e419ed07f24f48ef0a0",
+    "bundle": "a532e70eacef8cba3d10",
+    "webgpuRuns": 58,
+    "reason": "Only guest device Present timing and D3D8 interval translation change; no host/protocol/shader/pixel path change."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "40fd9cfcc1609f8d03830246467943cd83a3fa42343baa20521fa23243617b08"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "948b36d065f2f4a19b99ce288606f7bd70d554aa743eb9b361504568c4be3add"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "83c8cf0af2973edea391f17f11a8f6f52f60b1dac252688d31cafaa202ec122f"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "c7e037b756cc3ddbf786e6ad70a083414f902e2fe986a952064e55e6edb93594"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "9b85f5ddd2d4b812ac3ca0381b3a5d977a73fbd785da6a5d3b76a576535ea280"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "adad9a9f5645628be1c4d5df581e03effe324ee227a96b540430033669c28d61"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "8882678b6ba281d9ef2f1dddff083753630ccd40207b2abc78adeaf67936a395"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "a1be9c061ac02fdcfdcaa841bc7e694e2e119c17fe651bc154f239ede50a9540"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "f904e4f82dba7b1933f59f03749b5502873ce5cc6de1ec53cbff06a19587ee9d"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "037f1ccb811805f540e947faa2f9deda9874908e2620757b33a4b6375e2cee54"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "0e5ff1063ce0bc82b72e339cdd9aee2fc100dec3374b906a298debbd0c74aeeb"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "62a3c9f280178aa21d115dcf9f359fa0589665874dc2b2be0d595f947e15ec20"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "3dc83b515e167f2b6c113ed377f37c1e01743a08cb5d481b709a792983989f06"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "e648c9c9b4979f0508466cc4bd5067870c2ab64ffe156051cc878343ac1c5bdd"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "de2bfa710f7065fd3df46d95246d44d1302be2a769dcac2f97ccc6b9e85a9376"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "15425fb50f554619d6a66c0fbb3a88da925959dc3af9eb87965880a15048858f"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "ac24b88bcf6efefb8dad3b89c93145543777a6968271ede440a9c727f6412867"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "4046322b7d4483df304a2f3fbbc619bd96df387b8c2ccc9b3debf4e73d995b39"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP Present pacing probe DLL",
+      "shippedDllSha256": "8a470b5493c36a2533d29a5271632de88060979de58df77ca160784634de7426",
+      "diagnosticSha256": "5616e0768a0d56c577b89b77491385db64723b8d004c16eb93ff676e2164321b"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "ad4edb37f5b5af9f2e3273124f74fa5ff0b3e22854b43096fae3a95a55ce7cf4"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "eba1cd93190e7035b34b3aad214ac08fd7a494e84edb16e65a9428d9aa7e97a7"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "f4d38519da9e4d8e6c8c01fbf50f6075f3e8682a652e03c6b029035512daa15c"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "a4936ae9a4be1730c7abf368da835bc93196aade855c04bcf1288825da6972ed"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "b9dfba01d5416857f484a0fc989e601ecbcb0ec975f78d0b70318abceb40e23e"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "080332cde958d4282c6f556dedd1d8fe94f05f3f0be5d59161fc844dbfe8efa9"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "e4132517419010c8ef5dc42ebf844c3bbb00151471cbc116e8d2dfc5dea3c5c8"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "3c68311d1c4afb65cf38ed7d4feabcb871e4bfb7fc0f9d4b5b7a703845c4293f"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "6301c93a9e7fb5e7b0593ca32b23b3addfd2ab0696073edef484393a2d261dfa"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "3ca16419bf421aaa01a7f211a728d1c2cf1894095c4d254ecb1e4deace656479"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "ae9f48b58b3f0ebdd9fb00ebd0a0d9c3059123ac705be529002fbbde5995ab96"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "5c711c3b46967b6e0b1c77e7468b141331796c09b0806b08d6c6e4f2783cb710"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "aec8fc7d522d2a5ad655dc0c92167be3450028e3f84c1a91b65efdc4a6c949e5"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "5eec8209dafe480db305553dd37e3c81599eeac40f144a90050528eddcdd2c38"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP Present pacing probe DLL",
+      "shippedDllSha256": "09ce5ac11ecf2be0ed692a07e9a7b1290b87e558274afe1f9d167235ff76054b",
+      "diagnosticSha256": "16f7a98cb95b078681391b72286da72c370615f1daaace25b2313b83a5558fb0"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "1dde13a81ab55d37d4a5a1dac95436cd9aebdd6165df951b101d5dc2271ea467"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "48db9f06bab08798aab1310a34ca5975d36200d21c1e57696914175b2aa0ded1"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "4f4dc58df6a18bd2860825e4aab7a942c0cf729737d5853a3646fef3e9f9809a"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "a97b7659643217dc6e5075dce72bffe50d89cf3f9557689780cdca1f2861fc2e"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "analyticCases": 241,
+    "analyticFrames": 1461000,
+    "actualEntryCases": {
+      "8": 64,
+      "9": 36
+    },
+    "mutations": {
+      "killed": 27,
+      "total": 27
+    },
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "fixtureCorruptions": 6,
+    "D3D8WindowedImmediateAndCopyVsync": true,
+    "rationalTickCarry": true,
+    "subMillisecondDebt": true,
+    "earlyWakesResampled": true,
+    "boundedStalledWaitEscalation": true,
+    "QPCFailureAndStallChangeCounterAndUnits": true,
+    "reportedEmitFailurePreservesPacing": true,
+    "noSleepUnderTransportLock": true,
+    "priorD3D8": {
+      "commit": "1697f61",
+      "sourceSha256": "835c0fe76d086b1c1788c1b16cc2647d57d530cda4ef3f08eb71f6179547ffa5",
+      "nativeCadenceFailure": true
+    },
+    "shortSleepRegression": {
+      "sourceSha256": "54121dcf1af63acf7359e26272bc0433be2d7835203ed46e761bc1180399889d",
+      "controlledEarlyWakeModelFails": true
+    }
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_present_pacing_reference.json",
+    "sha256": "658144d83dafd984342cce80b46b797b363f7e5db8f6d0d8bb38e31530a7facb",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+      },
+      {
+        "file": "d3d9-device-tests.c",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+      },
+      {
+        "file": "dxvk-d3d8-present-util.h",
+        "sha256": "ca5a1772cf614bc06842302281c253cf85fef1ac173d2b5a28c97df47799cf0f",
+        "blobSha1": "4c6247eeeed80dd7d7da0b442791797de0ad57b5"
+      }
+    ],
+    "articles": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent",
+        "facts": "DEFAULT and ONE attempt vertical synchronization; IMMEDIATE allows unbounded presentation; TWO/THREE/FOUR depend on caps."
+      },
+      {
+        "url": "https://learn.microsoft.com/ja-jp/previous-versions/ms886318%28v%3Dmsdn.10%29",
+        "facts": "A D3D8 windowed chain uses the DEFAULT presentation-interval field; explicit intervals belong to fullscreen chains."
+      },
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/desktop/api/synchapi/nf-synchapi-sleep",
+        "facts": "Sleep may finish earlier than requested because its wait depends on the system clock tick; resampling is required."
+      }
+    ]
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 145,
+    "batches": 139,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS pacing probes \r\n",
+    "logs": {
+      "PACE8.TXT": "PACE 8 0 frames=12 elapsed=30 qpc=31229 hz=1193182 requested=00000000 effective=80000000 windowed=1 swap=1\r\nPACE 8 1 frames=12 elapsed=210 qpc=244163 hz=1193182 requested=00000000 effective=00000000 windowed=0 swap=1\r\nPACE 8 2 frames=12 elapsed=201 qpc=233365 hz=1193182 requested=00000001 effective=00000001 windowed=0 swap=1\r\nPACE 8 3 frames=12 elapsed=90 qpc=106562 hz=1193182 requested=80000000 effective=80000000 windowed=0 swap=1\r\nPACE 8 4 frames=12 elapsed=190 qpc=220839 hz=1193182 requested=00000000 effective=00000001 windowed=1 swap=4\r\nPASS pacing API=8\r\n",
+      "PACE9.TXT": "PACE 9 0 frames=12 elapsed=191 qpc=224358 hz=1193182 requested=00000000 effective=00000000 windowed=1 swap=1\r\nPACE 9 1 frames=12 elapsed=190 qpc=222220 hz=1193182 requested=00000000 effective=00000000 windowed=0 swap=1\r\nPACE 9 2 frames=12 elapsed=191 qpc=220785 hz=1193182 requested=00000001 effective=00000001 windowed=0 swap=1\r\nPACE 9 3 frames=12 elapsed=0 qpc=3914 hz=1193182 requested=80000000 effective=80000000 windowed=0 swap=1\r\nPACE 9 4 frames=12 elapsed=190 qpc=225215 hz=1193182 requested=00000001 effective=00000001 windowed=1 swap=3\r\nPASS pacing API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; guest virtual pacing and command sequence, no physical retrace measurement",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 19444,
+        "crc32": "23012f49"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "devices": [
+          {
+            "handle": 1048577,
+            "mode": 0,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          },
+          {
+            "handle": 1048578,
+            "mode": 1,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          },
+          {
+            "handle": 1048579,
+            "mode": 2,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          },
+          {
+            "handle": 1048580,
+            "mode": 3,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          },
+          {
+            "handle": 1048581,
+            "mode": 4,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          }
+        ],
+        "frames": [
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 0,
+            "color": 4280303712
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 1,
+            "color": 4280304481
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 2,
+            "color": 4280305250
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 3,
+            "color": 4280306019
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 4,
+            "color": 4280306788
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 5,
+            "color": 4280307557
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 6,
+            "color": 4280308326
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 7,
+            "color": 4280309095
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 8,
+            "color": 4280309864
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 9,
+            "color": 4280310633
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 10,
+            "color": 4280311402
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 11,
+            "color": 4280312171
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 0,
+            "color": 4282404968
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 1,
+            "color": 4282405737
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 2,
+            "color": 4282406506
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 3,
+            "color": 4282407275
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 4,
+            "color": 4282408044
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 5,
+            "color": 4282408813
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 6,
+            "color": 4282409582
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 7,
+            "color": 4282410351
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 8,
+            "color": 4282411120
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 9,
+            "color": 4282411889
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 10,
+            "color": 4282412658
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 11,
+            "color": 4282413427
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 0,
+            "color": 4284506224
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 1,
+            "color": 4284506993
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 2,
+            "color": 4284507762
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 3,
+            "color": 4284508531
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 4,
+            "color": 4284509300
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 5,
+            "color": 4284510069
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 6,
+            "color": 4284510838
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 7,
+            "color": 4284511607
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 8,
+            "color": 4284512376
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 9,
+            "color": 4284513145
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 10,
+            "color": 4284513914
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 11,
+            "color": 4284514683
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 0,
+            "color": 4286607480
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 1,
+            "color": 4286608249
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 2,
+            "color": 4286609018
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 3,
+            "color": 4286609787
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 4,
+            "color": 4286610556
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 5,
+            "color": 4286611325
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 6,
+            "color": 4286612094
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 7,
+            "color": 4286612863
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 8,
+            "color": 4286613632
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 9,
+            "color": 4286614401
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 10,
+            "color": 4286615170
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 11,
+            "color": 4286615939
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 0,
+            "color": 4288708736
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 1,
+            "color": 4288709505
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 2,
+            "color": 4288710274
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 3,
+            "color": 4288711043
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 4,
+            "color": 4288711812
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 5,
+            "color": 4288712581
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 6,
+            "color": 4288713350
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 7,
+            "color": 4288714119
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 8,
+            "color": 4288714888
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 9,
+            "color": 4288715657
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 10,
+            "color": 4288716426
+          },
+          {
+            "owner": 1,
+            "api": 8,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 11,
+            "color": 4288717195
+          }
+        ],
+        "commands": {
+          "1": 1,
+          "2": 5,
+          "4": 60,
+          "5": 60,
+          "13": 1,
+          "259": 5,
+          "512": 5,
+          "519": 5,
+          "541": 5
+        },
+        "measurements": [
+          {
+            "api": 8,
+            "mode": 0,
+            "frames": 12,
+            "elapsedMilliseconds": 30,
+            "qpc": 31229,
+            "hz": 1193182,
+            "requested": 0,
+            "effective": 2147483648,
+            "windowed": 1,
+            "swap": 1,
+            "paced": false
+          },
+          {
+            "api": 8,
+            "mode": 1,
+            "frames": 12,
+            "elapsedMilliseconds": 210,
+            "qpc": 244163,
+            "hz": 1193182,
+            "requested": 0,
+            "effective": 0,
+            "windowed": 0,
+            "swap": 1,
+            "paced": true
+          },
+          {
+            "api": 8,
+            "mode": 2,
+            "frames": 12,
+            "elapsedMilliseconds": 201,
+            "qpc": 233365,
+            "hz": 1193182,
+            "requested": 1,
+            "effective": 1,
+            "windowed": 0,
+            "swap": 1,
+            "paced": true
+          },
+          {
+            "api": 8,
+            "mode": 3,
+            "frames": 12,
+            "elapsedMilliseconds": 90,
+            "qpc": 106562,
+            "hz": 1193182,
+            "requested": 2147483648,
+            "effective": 2147483648,
+            "windowed": 0,
+            "swap": 1,
+            "paced": false
+          },
+          {
+            "api": 8,
+            "mode": 4,
+            "frames": 12,
+            "elapsedMilliseconds": 190,
+            "qpc": 220839,
+            "hz": 1193182,
+            "requested": 0,
+            "effective": 1,
+            "windowed": 1,
+            "swap": 4,
+            "paced": true
+          }
+        ]
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "devices": [
+          {
+            "handle": 1048577,
+            "mode": 0,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          },
+          {
+            "handle": 1048578,
+            "mode": 1,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          },
+          {
+            "handle": 1048579,
+            "mode": 2,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          },
+          {
+            "handle": 1048580,
+            "mode": 3,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          },
+          {
+            "handle": 1048581,
+            "mode": 4,
+            "clears": 12,
+            "presents": 12,
+            "destroyed": 1
+          }
+        ],
+        "frames": [
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 0,
+            "color": 4280303712
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 1,
+            "color": 4280304481
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 2,
+            "color": 4280305250
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 3,
+            "color": 4280306019
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 4,
+            "color": 4280306788
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 5,
+            "color": 4280307557
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 6,
+            "color": 4280308326
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 7,
+            "color": 4280309095
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 8,
+            "color": 4280309864
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 9,
+            "color": 4280310633
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 10,
+            "color": 4280311402
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048577,
+            "mode": 0,
+            "frame": 11,
+            "color": 4280312171
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 0,
+            "color": 4282404968
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 1,
+            "color": 4282405737
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 2,
+            "color": 4282406506
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 3,
+            "color": 4282407275
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 4,
+            "color": 4282408044
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 5,
+            "color": 4282408813
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 6,
+            "color": 4282409582
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 7,
+            "color": 4282410351
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 8,
+            "color": 4282411120
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 9,
+            "color": 4282411889
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 10,
+            "color": 4282412658
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048578,
+            "mode": 1,
+            "frame": 11,
+            "color": 4282413427
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 0,
+            "color": 4284506224
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 1,
+            "color": 4284506993
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 2,
+            "color": 4284507762
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 3,
+            "color": 4284508531
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 4,
+            "color": 4284509300
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 5,
+            "color": 4284510069
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 6,
+            "color": 4284510838
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 7,
+            "color": 4284511607
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 8,
+            "color": 4284512376
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 9,
+            "color": 4284513145
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 10,
+            "color": 4284513914
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048579,
+            "mode": 2,
+            "frame": 11,
+            "color": 4284514683
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 0,
+            "color": 4286607480
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 1,
+            "color": 4286608249
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 2,
+            "color": 4286609018
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 3,
+            "color": 4286609787
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 4,
+            "color": 4286610556
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 5,
+            "color": 4286611325
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 6,
+            "color": 4286612094
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 7,
+            "color": 4286612863
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 8,
+            "color": 4286613632
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 9,
+            "color": 4286614401
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 10,
+            "color": 4286615170
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048580,
+            "mode": 3,
+            "frame": 11,
+            "color": 4286615939
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 0,
+            "color": 4288708736
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 1,
+            "color": 4288709505
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 2,
+            "color": 4288710274
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 3,
+            "color": 4288711043
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 4,
+            "color": 4288711812
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 5,
+            "color": 4288712581
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 6,
+            "color": 4288713350
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 7,
+            "color": 4288714119
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 8,
+            "color": 4288714888
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 9,
+            "color": 4288715657
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 10,
+            "color": 4288716426
+          },
+          {
+            "owner": 2,
+            "api": 9,
+            "device": 1048581,
+            "mode": 4,
+            "frame": 11,
+            "color": 4288717195
+          }
+        ],
+        "commands": {
+          "1": 1,
+          "2": 5,
+          "4": 60,
+          "5": 60,
+          "11": 1,
+          "13": 1,
+          "259": 5,
+          "541": 7
+        },
+        "measurements": [
+          {
+            "api": 9,
+            "mode": 0,
+            "frames": 12,
+            "elapsedMilliseconds": 191,
+            "qpc": 224358,
+            "hz": 1193182,
+            "requested": 0,
+            "effective": 0,
+            "windowed": 1,
+            "swap": 1,
+            "paced": true
+          },
+          {
+            "api": 9,
+            "mode": 1,
+            "frames": 12,
+            "elapsedMilliseconds": 190,
+            "qpc": 222220,
+            "hz": 1193182,
+            "requested": 0,
+            "effective": 0,
+            "windowed": 0,
+            "swap": 1,
+            "paced": true
+          },
+          {
+            "api": 9,
+            "mode": 2,
+            "frames": 12,
+            "elapsedMilliseconds": 191,
+            "qpc": 220785,
+            "hz": 1193182,
+            "requested": 1,
+            "effective": 1,
+            "windowed": 0,
+            "swap": 1,
+            "paced": true
+          },
+          {
+            "api": 9,
+            "mode": 3,
+            "frames": 12,
+            "elapsedMilliseconds": 0,
+            "qpc": 3914,
+            "hz": 1193182,
+            "requested": 2147483648,
+            "effective": 2147483648,
+            "windowed": 0,
+            "swap": 1,
+            "paced": false
+          },
+          {
+            "api": 9,
+            "mode": 4,
+            "frames": 12,
+            "elapsedMilliseconds": 190,
+            "qpc": 225215,
+            "hz": 1193182,
+            "requested": 1,
+            "effective": 1,
+            "windowed": 1,
+            "swap": 3,
+            "paced": true
+          }
+        ]
+      }
+    ],
+    "graphicsSha256": "fd33fbc60f496ad888e4aba7b39f5f29c30630d66470ab7e83c3322206f1049b"
+  },
+  "fixture": {
+    "metadataSha256": "0bf4d3e3bf874ba4283785b9308c132052efd7d3bfb94dea6bfeae35b00f9eb1",
+    "compressedTraceSha256": "dbf37d8c0ae6154736ea7b6d7984eae5fdb1e03b84ee2599ead412ee0a7a8f7b",
+    "captureBuild": {
+      "dllSha256": {
+        "d3d8": "8a470b5493c36a2533d29a5271632de88060979de58df77ca160784634de7426",
+        "d3d9": "09ce5ac11ecf2be0ed692a07e9a7b1290b87e558274afe1f9d167235ff76054b"
+      },
+      "exeSha256": {
+        "8": "bc0c77599ea613e72a4002babbea258ac41e42b1ca9f39720c8c10746bb5eefa",
+        "9": "93da790adee001d4536bbc225cbac379ff202c3e262e3b6df514fd50d8351261"
+      }
+    }
+  },
+  "scope": "Virtual device Present deadline pacing with D3D8 window/swap-effect translation and D3D9 interval policy. QueryPerformanceCounter and millisecond fallback are guest clocks; no physical vblank, native Microsoft HAL, render-ahead queue, timer-resolution change, additional-chain pacing/flags, complete presentation-parameter validation, Reset boundary or game/FPS acceptance is claimed. S2-42, D3D8 wrapping and stages 4/5/6 remain incomplete.",
+  "coreSha256": {
+    "tests/glbridge/d3d_present_pacing_fixture_test.js": "46835c761d214fc55fe462cd1d1b14a603e600018f7a4d6fd72c8e7c69f68468",
+    "tests/glbridge/d3d_present_pacing_reference_test.js": "d8b5231257d14651580f723067c08cd9cbcc7e719319a13c2d5aa2c39de9561d",
+    "tests/glbridge/d3d_present_pacing_xp.mjs": "74dcabdbd6db74806442bea748e142937c392a5ee629ecd6bcb325077cf8c00f",
+    "tests/glbridge/fixtures/d3d_present_pacing_reference.json": "658144d83dafd984342cce80b46b797b363f7e5db8f6d0d8bb38e31530a7facb",
+    "tests/glbridge/fixtures/d3d_present_pacing_xp.bin.gz": "dbf37d8c0ae6154736ea7b6d7984eae5fdb1e03b84ee2599ead412ee0a7a8f7b",
+    "tests/glbridge/fixtures/d3d_present_pacing_xp.json": "0bf4d3e3bf874ba4283785b9308c132052efd7d3bfb94dea6bfeae35b00f9eb1",
+    "tests/lib/d3d_present_pacing_wire.mjs": "b27e20238fa0f24be319aa40e72912137c8ce9eaa984f9f7e082d7eb1f65dc19",
+    "docs/d3d-webgpu-review.md": "eac00fba2c565737a50c3abbeab12981120dec14b4ca74b582d761754f824752"
+  },
+  "siteSha256": {
+    "glbridge/runtime/d9wg_present_pacing.c": "7fffcedf73328b950bd889320bacff22616d4f32a97075493e980065100a690f",
+    "glbridge/runtime/d9wg_present_pacing.h": "7dfd0e9f5b0bee1415d7effe1e8c5e8f41ec5c9e940f2c7f3ca6775ce3994b5d",
+    "glbridge/runtime/d9wg_present_pacing_bridge.h": "d6167b4ccd681eed57ea23504ca1468efd52bb1edc7a3f0e5f74e23ae2c6f4ae",
+    "glbridge/sample/d3d_present_pacing_test.c": "e5ec2b02d4fad0d543f4b492d345aab7427e455d7a461f33babc2521af752e8d",
+    "glbridge/tests/d9wg_present_pacing_entry_test.js": "5de4f181b1f5bc3f5a76bec12c031faf6e224599e41235092279900ec8b0e3bb",
+    "glbridge/tests/d9wg_present_pacing_mutation_test.js": "1cdfcb37e3463e5547eb1daeab678e5766b92b1f49b7203a502bd204d3559878",
+    "glbridge/tests/d9wg_present_pacing_test.js": "850c1b16bff4e02a4849b564416426d698841df90717aefd37f3eb8487ee3dd0",
+    "glbridge/d3d8proxy/README.md": "9b63824086896d10b7bc28265c3bae3af2f292e090b0ee500090c3dbfe3ca939",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "5616e0768a0d56c577b89b77491385db64723b8d004c16eb93ff676e2164321b",
+    "glbridge/d3d8proxy/d3d8.dll": "8a470b5493c36a2533d29a5271632de88060979de58df77ca160784634de7426",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "db13d5cdd293b695ef2075c098fdf77e35cb4b4a3d4b9313de41cfcdf29f7081",
+    "glbridge/d3d9proxy/README.md": "d7ca5651abd88432e982e5babd4521cacadeab33857ea3c0b0919c15476d82cf",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "16f7a98cb95b078681391b72286da72c370615f1daaace25b2313b83a5558fb0",
+    "glbridge/d3d9proxy/d3d9.dll": "09ce5ac11ecf2be0ed692a07e9a7b1290b87e558274afe1f9d167235ff76054b",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "7718187ed9efa9cd325845379743fec29dfce482ec31bf65681f4bf91e2bbf66",
+    "glbridge/runtime/build.sh": "5faef442a3889dea33ff857eeba30dd9001e316b997242dce9392979a273cd68"
+  },
+  "logSha256": {
+    "core": "4cf91f7d462e67d05077d16eda81e3eb445589be96162870a59572dde9a76975",
+    "guest": "2da7c3e8bd92aa92f4592109c86607b697107627807f455b088192e4700b8bdb",
+    "xp": "c836f0776f447c3d7adc07fafaf2d5d97f8dcab89e74ec0c09ce844446c00f8c",
+    "mutations": "dc67c7fe208e00985c498dadec77ef052845bcc0a202c7482327966ea8fcad89",
+    "sanitize": "ff337bdb6adc7bb64432b1a1fde92a2c4c7c70484c59b04891ea340b8cf4fbd7",
+    "before": "dc2da67ad06bbb9ef8f3d857cd88248ae8d060327ba2cccda3cf7c4d3cf73231",
+    "short-sleep-before": "04a0d76431f91a67bf335da1e1b9daf59fe0c5b4e984daf5d09d463ee90302aa",
+    "fixture": "a7a46d48050df73495ee41f09d131b185d74272cf95d7b2075a14907c8be992a",
+    "builds": "ebcc7d06bf331c066f20ce82a3038ed192320654e3633da8d707dfd5557a1b6f",
+    "lint": "e959fc3cc32615f04dc04fbabc5397bc650c0fbab74eedcc786c2172b97d87c4",
+    "site-lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "integration": "9e57c0561544e2756fa05b731ea222c974004ac812d9a34a57cf152db4d01090"
+  }
+}

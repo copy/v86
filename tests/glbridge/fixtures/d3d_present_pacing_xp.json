@@ -1,0 +1,2194 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "devices": [
+        {
+          "handle": 1048577,
+          "mode": 0,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048578,
+          "mode": 1,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048579,
+          "mode": 2,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048580,
+          "mode": 3,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048581,
+          "mode": 4,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        }
+      ],
+      "frames": [
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 0,
+          "color": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 1,
+          "color": 4280304481
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 2,
+          "color": 4280305250
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 3,
+          "color": 4280306019
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 4,
+          "color": 4280306788
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 5,
+          "color": 4280307557
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 6,
+          "color": 4280308326
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 7,
+          "color": 4280309095
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 8,
+          "color": 4280309864
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 9,
+          "color": 4280310633
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 10,
+          "color": 4280311402
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 11,
+          "color": 4280312171
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 0,
+          "color": 4282404968
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 1,
+          "color": 4282405737
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 2,
+          "color": 4282406506
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 3,
+          "color": 4282407275
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 4,
+          "color": 4282408044
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 5,
+          "color": 4282408813
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 6,
+          "color": 4282409582
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 7,
+          "color": 4282410351
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 8,
+          "color": 4282411120
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 9,
+          "color": 4282411889
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 10,
+          "color": 4282412658
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 11,
+          "color": 4282413427
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 0,
+          "color": 4284506224
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 1,
+          "color": 4284506993
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 2,
+          "color": 4284507762
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 3,
+          "color": 4284508531
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 4,
+          "color": 4284509300
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 5,
+          "color": 4284510069
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 6,
+          "color": 4284510838
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 7,
+          "color": 4284511607
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 8,
+          "color": 4284512376
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 9,
+          "color": 4284513145
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 10,
+          "color": 4284513914
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 11,
+          "color": 4284514683
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 0,
+          "color": 4286607480
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 1,
+          "color": 4286608249
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 2,
+          "color": 4286609018
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 3,
+          "color": 4286609787
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 4,
+          "color": 4286610556
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 5,
+          "color": 4286611325
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 6,
+          "color": 4286612094
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 7,
+          "color": 4286612863
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 8,
+          "color": 4286613632
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 9,
+          "color": 4286614401
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 10,
+          "color": 4286615170
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 11,
+          "color": 4286615939
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 0,
+          "color": 4288708736
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 1,
+          "color": 4288709505
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 2,
+          "color": 4288710274
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 3,
+          "color": 4288711043
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 4,
+          "color": 4288711812
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 5,
+          "color": 4288712581
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 6,
+          "color": 4288713350
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 7,
+          "color": 4288714119
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 8,
+          "color": 4288714888
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 9,
+          "color": 4288715657
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 10,
+          "color": 4288716426
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 11,
+          "color": 4288717195
+        }
+      ],
+      "commands": {
+        "1": 1,
+        "2": 5,
+        "4": 60,
+        "5": 60,
+        "13": 1,
+        "259": 5,
+        "512": 5,
+        "519": 5,
+        "541": 5
+      },
+      "measurements": [
+        {
+          "api": 8,
+          "mode": 0,
+          "frames": 12,
+          "elapsedMilliseconds": 30,
+          "qpc": 31229,
+          "hz": 1193182,
+          "requested": 0,
+          "effective": 2147483648,
+          "windowed": 1,
+          "swap": 1,
+          "paced": false
+        },
+        {
+          "api": 8,
+          "mode": 1,
+          "frames": 12,
+          "elapsedMilliseconds": 210,
+          "qpc": 244163,
+          "hz": 1193182,
+          "requested": 0,
+          "effective": 0,
+          "windowed": 0,
+          "swap": 1,
+          "paced": true
+        },
+        {
+          "api": 8,
+          "mode": 2,
+          "frames": 12,
+          "elapsedMilliseconds": 201,
+          "qpc": 233365,
+          "hz": 1193182,
+          "requested": 1,
+          "effective": 1,
+          "windowed": 0,
+          "swap": 1,
+          "paced": true
+        },
+        {
+          "api": 8,
+          "mode": 3,
+          "frames": 12,
+          "elapsedMilliseconds": 90,
+          "qpc": 106562,
+          "hz": 1193182,
+          "requested": 2147483648,
+          "effective": 2147483648,
+          "windowed": 0,
+          "swap": 1,
+          "paced": false
+        },
+        {
+          "api": 8,
+          "mode": 4,
+          "frames": 12,
+          "elapsedMilliseconds": 190,
+          "qpc": 220839,
+          "hz": 1193182,
+          "requested": 0,
+          "effective": 1,
+          "windowed": 1,
+          "swap": 4,
+          "paced": true
+        }
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "devices": [
+        {
+          "handle": 1048577,
+          "mode": 0,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048578,
+          "mode": 1,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048579,
+          "mode": 2,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048580,
+          "mode": 3,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048581,
+          "mode": 4,
+          "clears": 12,
+          "presents": 12,
+          "destroyed": 1
+        }
+      ],
+      "frames": [
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 0,
+          "color": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 1,
+          "color": 4280304481
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 2,
+          "color": 4280305250
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 3,
+          "color": 4280306019
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 4,
+          "color": 4280306788
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 5,
+          "color": 4280307557
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 6,
+          "color": 4280308326
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 7,
+          "color": 4280309095
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 8,
+          "color": 4280309864
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 9,
+          "color": 4280310633
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 10,
+          "color": 4280311402
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "mode": 0,
+          "frame": 11,
+          "color": 4280312171
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 0,
+          "color": 4282404968
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 1,
+          "color": 4282405737
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 2,
+          "color": 4282406506
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 3,
+          "color": 4282407275
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 4,
+          "color": 4282408044
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 5,
+          "color": 4282408813
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 6,
+          "color": 4282409582
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 7,
+          "color": 4282410351
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 8,
+          "color": 4282411120
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 9,
+          "color": 4282411889
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 10,
+          "color": 4282412658
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048578,
+          "mode": 1,
+          "frame": 11,
+          "color": 4282413427
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 0,
+          "color": 4284506224
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 1,
+          "color": 4284506993
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 2,
+          "color": 4284507762
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 3,
+          "color": 4284508531
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 4,
+          "color": 4284509300
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 5,
+          "color": 4284510069
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 6,
+          "color": 4284510838
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 7,
+          "color": 4284511607
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 8,
+          "color": 4284512376
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 9,
+          "color": 4284513145
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 10,
+          "color": 4284513914
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048579,
+          "mode": 2,
+          "frame": 11,
+          "color": 4284514683
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 0,
+          "color": 4286607480
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 1,
+          "color": 4286608249
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 2,
+          "color": 4286609018
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 3,
+          "color": 4286609787
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 4,
+          "color": 4286610556
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 5,
+          "color": 4286611325
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 6,
+          "color": 4286612094
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 7,
+          "color": 4286612863
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 8,
+          "color": 4286613632
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 9,
+          "color": 4286614401
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 10,
+          "color": 4286615170
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048580,
+          "mode": 3,
+          "frame": 11,
+          "color": 4286615939
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 0,
+          "color": 4288708736
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 1,
+          "color": 4288709505
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 2,
+          "color": 4288710274
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 3,
+          "color": 4288711043
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 4,
+          "color": 4288711812
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 5,
+          "color": 4288712581
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 6,
+          "color": 4288713350
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 7,
+          "color": 4288714119
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 8,
+          "color": 4288714888
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 9,
+          "color": 4288715657
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 10,
+          "color": 4288716426
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048581,
+          "mode": 4,
+          "frame": 11,
+          "color": 4288717195
+        }
+      ],
+      "commands": {
+        "1": 1,
+        "2": 5,
+        "4": 60,
+        "5": 60,
+        "11": 1,
+        "13": 1,
+        "259": 5,
+        "541": 7
+      },
+      "measurements": [
+        {
+          "api": 9,
+          "mode": 0,
+          "frames": 12,
+          "elapsedMilliseconds": 191,
+          "qpc": 224358,
+          "hz": 1193182,
+          "requested": 0,
+          "effective": 0,
+          "windowed": 1,
+          "swap": 1,
+          "paced": true
+        },
+        {
+          "api": 9,
+          "mode": 1,
+          "frames": 12,
+          "elapsedMilliseconds": 190,
+          "qpc": 222220,
+          "hz": 1193182,
+          "requested": 0,
+          "effective": 0,
+          "windowed": 0,
+          "swap": 1,
+          "paced": true
+        },
+        {
+          "api": 9,
+          "mode": 2,
+          "frames": 12,
+          "elapsedMilliseconds": 191,
+          "qpc": 220785,
+          "hz": 1193182,
+          "requested": 1,
+          "effective": 1,
+          "windowed": 0,
+          "swap": 1,
+          "paced": true
+        },
+        {
+          "api": 9,
+          "mode": 3,
+          "frames": 12,
+          "elapsedMilliseconds": 0,
+          "qpc": 3914,
+          "hz": 1193182,
+          "requested": 2147483648,
+          "effective": 2147483648,
+          "windowed": 0,
+          "swap": 1,
+          "paced": false
+        },
+        {
+          "api": 9,
+          "mode": 4,
+          "frames": 12,
+          "elapsedMilliseconds": 190,
+          "qpc": 225215,
+          "hz": 1193182,
+          "requested": 1,
+          "effective": 1,
+          "windowed": 1,
+          "swap": 3,
+          "paced": true
+        }
+      ]
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 0,
+      "color": 4280303712
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 1,
+      "color": 4280304481
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 2,
+      "color": 4280305250
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 3,
+      "color": 4280306019
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 4,
+      "color": 4280306788
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 5,
+      "color": 4280307557
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 6,
+      "color": 4280308326
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 7,
+      "color": 4280309095
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 8,
+      "color": 4280309864
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 9,
+      "color": 4280310633
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 10,
+      "color": 4280311402
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 11,
+      "color": 4280312171
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 0,
+      "color": 4282404968
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 1,
+      "color": 4282405737
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 2,
+      "color": 4282406506
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 3,
+      "color": 4282407275
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 4,
+      "color": 4282408044
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 5,
+      "color": 4282408813
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 6,
+      "color": 4282409582
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 7,
+      "color": 4282410351
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 8,
+      "color": 4282411120
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 9,
+      "color": 4282411889
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 10,
+      "color": 4282412658
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 11,
+      "color": 4282413427
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 0,
+      "color": 4284506224
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 1,
+      "color": 4284506993
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 2,
+      "color": 4284507762
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 3,
+      "color": 4284508531
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 4,
+      "color": 4284509300
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 5,
+      "color": 4284510069
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 6,
+      "color": 4284510838
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 7,
+      "color": 4284511607
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 8,
+      "color": 4284512376
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 9,
+      "color": 4284513145
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 10,
+      "color": 4284513914
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 11,
+      "color": 4284514683
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 0,
+      "color": 4286607480
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 1,
+      "color": 4286608249
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 2,
+      "color": 4286609018
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 3,
+      "color": 4286609787
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 4,
+      "color": 4286610556
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 5,
+      "color": 4286611325
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 6,
+      "color": 4286612094
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 7,
+      "color": 4286612863
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 8,
+      "color": 4286613632
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 9,
+      "color": 4286614401
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 10,
+      "color": 4286615170
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 11,
+      "color": 4286615939
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 0,
+      "color": 4288708736
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 1,
+      "color": 4288709505
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 2,
+      "color": 4288710274
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 3,
+      "color": 4288711043
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 4,
+      "color": 4288711812
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 5,
+      "color": 4288712581
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 6,
+      "color": 4288713350
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 7,
+      "color": 4288714119
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 8,
+      "color": 4288714888
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 9,
+      "color": 4288715657
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 10,
+      "color": 4288716426
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 11,
+      "color": 4288717195
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 0,
+      "color": 4280303712
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 1,
+      "color": 4280304481
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 2,
+      "color": 4280305250
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 3,
+      "color": 4280306019
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 4,
+      "color": 4280306788
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 5,
+      "color": 4280307557
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 6,
+      "color": 4280308326
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 7,
+      "color": 4280309095
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 8,
+      "color": 4280309864
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 9,
+      "color": 4280310633
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 10,
+      "color": 4280311402
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "mode": 0,
+      "frame": 11,
+      "color": 4280312171
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 0,
+      "color": 4282404968
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 1,
+      "color": 4282405737
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 2,
+      "color": 4282406506
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 3,
+      "color": 4282407275
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 4,
+      "color": 4282408044
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 5,
+      "color": 4282408813
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 6,
+      "color": 4282409582
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 7,
+      "color": 4282410351
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 8,
+      "color": 4282411120
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 9,
+      "color": 4282411889
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 10,
+      "color": 4282412658
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "mode": 1,
+      "frame": 11,
+      "color": 4282413427
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 0,
+      "color": 4284506224
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 1,
+      "color": 4284506993
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 2,
+      "color": 4284507762
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 3,
+      "color": 4284508531
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 4,
+      "color": 4284509300
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 5,
+      "color": 4284510069
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 6,
+      "color": 4284510838
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 7,
+      "color": 4284511607
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 8,
+      "color": 4284512376
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 9,
+      "color": 4284513145
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 10,
+      "color": 4284513914
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048579,
+      "mode": 2,
+      "frame": 11,
+      "color": 4284514683
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 0,
+      "color": 4286607480
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 1,
+      "color": 4286608249
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 2,
+      "color": 4286609018
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 3,
+      "color": 4286609787
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 4,
+      "color": 4286610556
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 5,
+      "color": 4286611325
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 6,
+      "color": 4286612094
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 7,
+      "color": 4286612863
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 8,
+      "color": 4286613632
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 9,
+      "color": 4286614401
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 10,
+      "color": 4286615170
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048580,
+      "mode": 3,
+      "frame": 11,
+      "color": 4286615939
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 0,
+      "color": 4288708736
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 1,
+      "color": 4288709505
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 2,
+      "color": 4288710274
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 3,
+      "color": 4288711043
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 4,
+      "color": 4288711812
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 5,
+      "color": 4288712581
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 6,
+      "color": 4288713350
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 7,
+      "color": 4288714119
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 8,
+      "color": 4288714888
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 9,
+      "color": 4288715657
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 10,
+      "color": 4288716426
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048581,
+      "mode": 4,
+      "frame": 11,
+      "color": 4288717195
+    }
+  ],
+  "traceSha256": "fd33fbc60f496ad888e4aba7b39f5f29c30630d66470ab7e83c3322206f1049b",
+  "referenceSha256": "658144d83dafd984342cce80b46b797b363f7e5db8f6d0d8bb38e31530a7facb",
+  "sdkLogs": {
+    "PACE8.TXT": "PACE 8 0 frames=12 elapsed=30 qpc=31229 hz=1193182 requested=00000000 effective=80000000 windowed=1 swap=1\r\nPACE 8 1 frames=12 elapsed=210 qpc=244163 hz=1193182 requested=00000000 effective=00000000 windowed=0 swap=1\r\nPACE 8 2 frames=12 elapsed=201 qpc=233365 hz=1193182 requested=00000001 effective=00000001 windowed=0 swap=1\r\nPACE 8 3 frames=12 elapsed=90 qpc=106562 hz=1193182 requested=80000000 effective=80000000 windowed=0 swap=1\r\nPACE 8 4 frames=12 elapsed=190 qpc=220839 hz=1193182 requested=00000000 effective=00000001 windowed=1 swap=4\r\nPASS pacing API=8\r\n",
+    "PACE9.TXT": "PACE 9 0 frames=12 elapsed=191 qpc=224358 hz=1193182 requested=00000000 effective=00000000 windowed=1 swap=1\r\nPACE 9 1 frames=12 elapsed=190 qpc=222220 hz=1193182 requested=00000000 effective=00000000 windowed=0 swap=1\r\nPACE 9 2 frames=12 elapsed=191 qpc=220785 hz=1193182 requested=00000001 effective=00000001 windowed=0 swap=1\r\nPACE 9 3 frames=12 elapsed=0 qpc=3914 hz=1193182 requested=80000000 effective=80000000 windowed=0 swap=1\r\nPACE 9 4 frames=12 elapsed=190 qpc=225215 hz=1193182 requested=00000001 effective=00000001 windowed=1 swap=3\r\nPASS pacing API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_present_pacing.c": "7fffcedf73328b950bd889320bacff22616d4f32a97075493e980065100a690f",
+    "glbridge/runtime/d9wg_present_pacing.h": "7dfd0e9f5b0bee1415d7effe1e8c5e8f41ec5c9e940f2c7f3ca6775ce3994b5d",
+    "glbridge/runtime/d9wg_present_pacing_bridge.h": "d6167b4ccd681eed57ea23504ca1468efd52bb1edc7a3f0e5f74e23ae2c6f4ae",
+    "glbridge/runtime/build.sh": "5faef442a3889dea33ff857eeba30dd9001e316b997242dce9392979a273cd68",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "db13d5cdd293b695ef2075c098fdf77e35cb4b4a3d4b9313de41cfcdf29f7081",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "7718187ed9efa9cd325845379743fec29dfce482ec31bf65681f4bf91e2bbf66",
+    "glbridge/sample/d3d_present_pacing_test.c": "e5ec2b02d4fad0d543f4b492d345aab7427e455d7a461f33babc2521af752e8d"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "8a470b5493c36a2533d29a5271632de88060979de58df77ca160784634de7426",
+      "d3d9": "09ce5ac11ecf2be0ed692a07e9a7b1290b87e558274afe1f9d167235ff76054b"
+    },
+    "exeSha256": {
+      "8": "bc0c77599ea613e72a4002babbea258ac41e42b1ca9f39720c8c10746bb5eefa",
+      "9": "93da790adee001d4536bbc225cbac379ff202c3e262e3b6df514fd50d8351261"
+    }
+  },
+  "scope": "not exercised; guest virtual pacing and command sequence, no physical retrace measurement"
+}
