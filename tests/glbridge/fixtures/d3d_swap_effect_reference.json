@@ -1,0 +1,60 @@
+{
+  "schema": 1,
+  "scope": "Shared version-aware scalar validation enforces valid SwapEffect enums and one normalized buffer for COPY, plus COPY_VSYNC for D3D8, at CreateDevice/Reset/CreateAdditionalSwapChain. Invalid calls fail before allocation or emission, initialize object outputs to NULL and leave caller parameters unchanged; failed Reset preserves the live graph but publishes the required lost/reset status, and valid Reset recovers. D3D8 effect 4 remains valid; effect 4/5 is invalid for the non-Ex D3D9 implementation. Existing DISCARD/FLIP count 2/3 acceptance is preserved, while actual multiple-buffer storage/rotation remains unimplemented. Native guards cover windowed/fullscreen parameter validation without invoking window work; XP covers windowed behavior only. Full MSAA/quality/flags/refresh constraints, multiple buffers, complete Reset/thread/device loss, original Microsoft HAL, game/FPS acceptance and review stages 4/5/6 remain incomplete. This phase has no draw or successful Present command and no new GPU pixel run; host/protocol/shader/bundle unchanged, inherit the accepted GPU baselines.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "test_swap_effect table and actual CreateDevice/Reset assertions: effects 1..4 for D3D8, zero/out-of-range invalid, COPY and COPY_VSYNC only accept normalized one buffer."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "test_swap_effect table and actual CreateDevice/Reset assertions: effects 1..3 for non-Ex D3D9, OVERLAY/FLIPEX invalid, COPY only accepts normalized one buffer."
+    },
+    {
+      "file": "d3d8-reset-device.c",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/device.c",
+      "evidence": "Shared Wine parameter conversion applies enum bounds and COPY/COPY_VSYNC single-buffer constraints."
+    },
+    {
+      "file": "d3d9-reset-device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "Shared Wine parameter conversion selects non-Ex enum bounds and validates COPY single-buffer constraints."
+    }
+  ],
+  "documentation": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent-parameters",
+      "evidence": "Count zero normalizes to one; COPY requires one buffer."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dswapeffect",
+      "evidence": "Non-Ex D3D9 supports DISCARD/FLIP/COPY; OVERLAY/FLIPEX require Ex."
+    }
+  ],
+  "facts": {
+    "actualChecksPerAPI": 397,
+    "actualCasesPerAPI": 110,
+    "entryPoints": 6,
+    "semanticMutations": 20,
+    "previousSourceRuntimeControls": 2,
+    "xpDeviceLifetimes": 9,
+    "xpAcceptedMatrixCalls": 21,
+    "xpRefusedMatrixCalls": 39,
+    "xpSuccessfulResets": 20,
+    "xpFailedResets": 13,
+    "xpSuppressedLostPresents": 13,
+    "xpChains": 7,
+    "xpTextures": 7,
+    "renderingCommands": 0
+  }
+}

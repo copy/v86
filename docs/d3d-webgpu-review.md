@@ -1882,6 +1882,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 十组相关核心、28 组相关客体、36 个标准 SDK EXE、六份严格 DLL、两份新增 SDK EXE及站点两项集成通过。宿主/协议/着色器及 bundle `64aa2cd7f7413ccbe760` 未变，继承 4H6f7d 的 216/222 完整回归及 59 次 GPU 基线，另有本次两个新 GPU 运行。只发布最终 XP 所测 D3D8 零售 DLL和严格诊断 DLL。见 [stage4h6f7e-validation.json](fixtures/d3d-review/stage4h6f7e-validation.json)。
 > - 多 back buffer 的真实存储/轮转、独立 render/depth 表面计数/设备引用、完整 SwapEffect/MSAA/呈现/Reset、线程/物理丢失设备、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f8a（2026-11-03）：两版共用 SwapEffect 枚举与 COPY 单缓冲校验（S2-26 / S2-42 相关）完成。**
+>
+> - 新共用标量校验用于两版 CreateDevice、Reset 和 CreateAdditionalSwapChain，共六个入口：拒绝零/越界枚举；D3D8 保留 DISCARD / FLIP / COPY / COPY_VSYNC，普通 D3D9 只允许前三种；COPY 及 D3D8 COPY_VSYNC 只接受零计数归一为一个或显式一个缓冲。沿用既有 DISCARD / FLIP 的 2/3 计数接受行为，本项不代表多缓冲存储已实现。固定 Wine 的 Windows 参数表及实际构造/Reset 断言核对版本差异，共用实现与 Microsoft 参数/枚举文档交叉核对。
+> - 每版实际入口各 397 项、110 组构造/Reset/附加调用，覆盖窗口/全屏参数前置路径、正常枚举、COPY_VSYNC 版本差异、COPY 零/单/多及大计数、对象输出清零、输入参数/设备状态保持和 Reset 状态发布。20/20 新语义变异覆盖共用策略和全部六个实际入口；两份旧前端均在运行时断言失败，六族 ASan/UBSan 通过。既有几何、间隔、默认格式、Reset、链计数/存储/私有数据回归保留。
+> - 共享 SDK 程序在 XP 执行九个设备生存期：参数矩阵 21 次有效调用、39 次拒绝，七条附加链及其缓存缓冲；每版十次有效 Reset，十三次无效 Reset 发布 DEVICENOTRESET、随后 Present 返回 DEVICELOST 而不发送呈现命令，再有效 Reset 恢复。拒绝路径对象输出为 NULL、参数不改、设备/工厂引用平衡，140 秒正常退出。冻结轨迹独立确认九设备、二十 Reset、七链/七纹理及完整退役；十八项语义损坏全部发现。本轨迹 D3D8 无 SESSION_END 命令、D3D9 有一次，另要求两个实际驱动 owner 释放事件，不补造命令。
+> - 十一组相关核心、225 组完整客体、36 个标准 SDK EXE、六份严格 DLL、两份新增 SDK EXE及站点两项集成通过。只发布最终 XP 所测两版零售 DLL及严格诊断 DLL，DDraw 保持已验收文件。宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 未变；本项没有绘制或成功 Present，无新增 GPU 像素运行，继承 4H6f7d 的完整核心/GPU 基线及 4H6f7e 双后端恢复画面验收。见 [stage4h6f8a-validation.json](fixtures/d3d-review/stage4h6f8a-validation.json)。
+> - MSAA 与 SwapEffect/Flags/Quality 组合、刷新率及全屏完整参数、多缓冲存储/轮转、独立 render/depth 表面引用、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

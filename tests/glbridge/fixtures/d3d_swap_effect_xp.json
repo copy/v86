@@ -1,0 +1,209 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "temporary": 0,
+      "devices": [
+        {
+          "handles": [
+            1048577,
+            1048579,
+            1048583,
+            1048587,
+            1048591,
+            1048594,
+            1048595,
+            1048596,
+            1048597,
+            1048598,
+            1048599
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048578
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048582
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048586
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048590
+          ],
+          "retired": true
+        }
+      ],
+      "hello": 1,
+      "ended": 0,
+      "resets": 10,
+      "textures": [
+        {
+          "handle": 1048580,
+          "retired": true
+        },
+        {
+          "handle": 1048584,
+          "retired": true
+        },
+        {
+          "handle": 1048588,
+          "retired": true
+        },
+        {
+          "handle": 1048592,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "retired": true
+        },
+        {
+          "handle": 1048585,
+          "texture": 1048584,
+          "retired": true
+        },
+        {
+          "handle": 1048589,
+          "texture": 1048588,
+          "retired": true
+        },
+        {
+          "handle": 1048593,
+          "texture": 1048592,
+          "retired": true
+        }
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "temporary": 0,
+      "devices": [
+        {
+          "handles": [
+            1048577,
+            1048579,
+            1048583,
+            1048587,
+            1048590,
+            1048591,
+            1048592,
+            1048593,
+            1048594,
+            1048595,
+            1048596
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048578
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048582
+          ],
+          "retired": true
+        },
+        {
+          "handles": [
+            1048586
+          ],
+          "retired": true
+        }
+      ],
+      "hello": 1,
+      "ended": 1,
+      "resets": 10,
+      "textures": [
+        {
+          "handle": 1048580,
+          "retired": true
+        },
+        {
+          "handle": 1048584,
+          "retired": true
+        },
+        {
+          "handle": 1048588,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "retired": true
+        },
+        {
+          "handle": 1048585,
+          "texture": 1048584,
+          "retired": true
+        },
+        {
+          "handle": 1048589,
+          "texture": 1048588,
+          "retired": true
+        }
+      ]
+    }
+  ],
+  "ownerReleases": [
+    1,
+    2
+  ],
+  "deviceLifetimes": 9,
+  "successfulResets": 20,
+  "chains": 7,
+  "textures": 7,
+  "acceptedMatrixCalls": 21,
+  "refusedMatrixCalls": 39,
+  "refusedResets": 13,
+  "failedPresentsWithoutCommands": 13,
+  "drawOrPresentCommands": 0,
+  "traceSha256": "74053d1dddc4f33b207ac629c144f719f90862cf539248902e0e6278ef6d61a9",
+  "referenceSha256": "0e01f926c0cd059c173550310f25eeabffce43d87cb1d76e68b4653cd0127f4a",
+  "sdkLogs": {
+    "SFX8.TXT": "SWAP ACCEPT api=8 effect=1 count=1 constructor=1 reset=1 additional=1 cached=1\r\nSWAP ACCEPT api=8 effect=2 count=1 constructor=1 reset=1 additional=1 cached=1\r\nSWAP ACCEPT api=8 effect=3 count=1 constructor=1 reset=1 additional=1 cached=1\r\nSWAP ACCEPT api=8 effect=4 count=1 constructor=1 reset=1 additional=1 cached=1\r\nSWAP REFUSE api=8 effect=0 count=1 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=8 effect=5 count=1 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=8 effect=4294967295 count=1 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=8 effect=3 count=2 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=8 effect=3 count=3 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=8 effect=4 count=2 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP STATUS api=8 accepted=12 refused=18 successfulResets=10 cached=1 deviceRefs=1 factoryRefs=2\r\nPASS swap-effect validation API=8\r\n",
+    "SFX9.TXT": "SWAP ACCEPT api=9 effect=1 count=1 constructor=1 reset=1 additional=1 cached=1\r\nSWAP ACCEPT api=9 effect=2 count=1 constructor=1 reset=1 additional=1 cached=1\r\nSWAP ACCEPT api=9 effect=3 count=1 constructor=1 reset=1 additional=1 cached=1\r\nSWAP REFUSE api=9 effect=0 count=1 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=9 effect=5 count=1 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=9 effect=4294967295 count=1 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=9 effect=3 count=2 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=9 effect=3 count=3 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=9 effect=4 count=2 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP REFUSE api=9 effect=4 count=1 routes=3 unchanged=1 nullOutputs=1 resetLost=1 recovered=1\r\nSWAP STATUS api=9 accepted=9 refused=21 successfulResets=10 cached=1 deviceRefs=1 factoryRefs=2\r\nPASS swap-effect validation API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "8a442e0b1f1ed4ca0698becc5ca254ef347f294f5b7a7b60388a470701810892",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "0d0ead958d1034a2767d16bbd7356ffa6c4378ba67b03679de082232c0c8204f",
+    "glbridge/runtime/d9wg_present_parameters.h": "6051f59c50517a82698fe7fe503af754bc2ade2c0dd49354832157f0f33e0b33",
+    "glbridge/runtime/d9wg_swap_effect.h": "ab8f4dabcd7e7f8a6f0b118dc595c149e896334ceba4fcaef54db04c46049a9a",
+    "glbridge/sample/d3d_swap_effect_test.c": "d6fa398924a59adf8e717abb35012362666e4e2873db44439b7056b809d1c80e"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "1bcb08627488c94bfe1f288996c583b2c0f51106b4b5d9606460d252d48a8e44",
+      "9": "051ee71dd56abf6ef674167b99208bc48dc51d1bc7d7161d736c6878eb97ef69"
+    },
+    "exeSha256": {
+      "8": "213588f5218a02e3e55d7fa9c2f7a5943f2d495465303776e4bae006f6d86c85",
+      "9": "6125f468f47917891bfcffcade8ffe8af8b2fc44dea81a6fe7cadb6484363fbd"
+    }
+  },
+  "scope": "not exercised; all three D3D8/9 swap-effect entry points, COPY/COPY_VSYNC single-buffer constraints, accepted cached buffers, invalid enum/count failure atomicity, failed Reset lost state/no Present emission and successful recovery"
+}
