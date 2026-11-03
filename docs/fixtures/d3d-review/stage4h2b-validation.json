@@ -1,0 +1,7054 @@
+{
+  "stage": "4H2b shared held-map VB/IB draw uploads, retained locks and partial DISCARD receipts (S2-34)",
+  "date": "2026-11-03",
+  "bundle": "8cc48a9a2b75d0296e91",
+  "coreSuites": 175,
+  "guestSuites": 159,
+  "webgpuRuns": 2,
+  "siteIntegrationTests": 2,
+  "fullGPUTarget": {
+    "swiftPageRuns": 47,
+    "metalConformanceRuns": 1,
+    "total": 48
+  },
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "fd65c8179ba843918f8493e2fa5f143099edad942f0975976280e3e7c986c6fe"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "30a11731e8cea1b29342fdb33470576c24bbe2190f409886468cff276fcbfd74"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "fcc2c10578f3de380329af2098148767ba47d9664c8840185c47eaf0e5f6f40c"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "fda37bb5d59c7f1d4f32265e5ce704d96be1c3b9d500e5e7fc71c27ed5078f8b"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "b39cedff3a7ee65fd5b0c47583b50b184ea817f731ec35bbfaf48bfe516754f5"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "af25642d86dbba6da9411faf680bcf163d643477f2b56d5fb2c8fdadd2ee036c"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "1a4cfac47cbec2e091ded145335f490903adbb507793590c492150f08d62e9d3"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "b27416420d7f12553ace9b6b79937fe8d4772f663c4fd095fa0f0cab6cc54233"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "e38d3d9f7250909a37bfb64cd3577df63f8c8e8245cd606cd5f84d99375ae77b"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "efffdbe6df56a264833f81e6bc98f2afe091eef535efd772a74db343962b1d2f"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "59ca53b7093085f6a36d223d2a6fbf2c4d9afa536bfaa763f5198c8c441e0f37"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "820dc8627e4223563bf492294cb783304149c81fb4121da71c5ab1c08cbb0ad4"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "f21a7e169b9de7c47a9516eb9b819e88048e433e7c37089c8f2b27e79c38683b"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "ab42ad7097a92f23704e76cf2bd7392b62b3bd2891e6bea43c0b1d003e7fdf14"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "b7d991ffcdfefefc85a586654a99bd184343c46957d513c5f86a27bb840ee14f"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "e9460cf146b0add4559d3f958dc692eb91e5befa5c3fbb81b738b988ec173f74"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "9c7bf4d462243def3f15c6d1244d3b6b027987055177c900911970884e7c5fd6"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "83802e722088cd57346b344a70f84819fb6788d4de683c7e509c831a899fa6e7"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact accepted final mapped-draw XP probe binaries",
+      "shippedDllSha256": "05193c503d4fc57ce06592cc48d015613d70ce098207e3e12ba407887b62381b",
+      "diagnosticSha256": "2bc7f694986d5028d60b31b4502effd118d6d67fe7c3781d53fcb63fe93065c1"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "13986f0d2dc5816ee63c3fb64a599ac0fa35b232ed308094bea1b63f674ea316"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "020909dfe88a127b1b6cbb6976d021ab22bc203524bce1d92583d6a2a14ef91e"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "be1e6a6e7e85b85340e4489fedfbda92837299112a13dff902d4b62f20e9d6d8"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "dab0b793e2a4b9818f46fba11a4327112ea6ac6fe5799a36ce4e73d2e9be37b7"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "448fc64e4aefce7cb138e300d917e21eafa2cfb3ed1f846271094b23287d74d5"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "c0b352106bfc8ca6bc85e1117a7772104d9aa08e189341d9b6fdb76c6b32ab7c"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "1f9e3aa77f9e33d4a8344f2803dbb4d721876eb9c19eeed5c22cac6167d328c6"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "ecc7606bca96bac6ee57f559d793aa5d563dd8680fd3a30f2071a9ec3b8f653a"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "ca453d4169b9b36ad1f39a6957be93b3a76af8dbe3ade63cd3d8790586eb1406"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "55072a3861352420361f03c2572f97bc0694c9b322f4cb69682ec23476e78850"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "9a6fd7acd66d92c12276cab83adfd614107f39efcc56263db038bc119219d992"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "f61cb83c4d1feccaa4cb492e8c1584da27232ecedce8eedddb6ec2dceb600835"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "4cbb36b0d90d799001cd40af212aea846c76bccc9986ab21a838d30778c412a1"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "7ce87da6750bb1a4fe9bb27ceeddef800948bf580f3216bddf079be4f5bb0304"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact accepted final mapped-draw XP probe binaries",
+      "shippedDllSha256": "7725b29fc5cab1d306dfff9376e2ed2c30f6004e7fe945f41bf847ea22f2517e",
+      "diagnosticSha256": "c79fef6319ac31d0d3df2571b7b8b93ff6867cc3e3756d6a757de11e8faaf54b"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "2d86dc1babd0f4fc360cd87f0356296fcccd7c82ba3488f9b640a042c0733938"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "99b28d0e7c769b9c5bce33babab19a35eeed5261cdd957839c9e4663a39eb285"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "ad5d54f31ccf24ce3ca46b748ffca26788a453b86abd92b06333368d5eb482c1"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "5f400a5d258495657988ca3dfbf4cec6263ec3a83b53a7933a814ab02c2eee8d"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged accepted 4G3 binaries",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "unchangedHost": {
+    "reference": "stage4h2a-validation.json",
+    "referenceSha256": "00e2694acb947056d854fde272a16e0df96776731fc3216acd9eb0731a6786ea",
+    "fullBaseline": {
+      "reference": "stage4h1-validation.json",
+      "referenceSha256": "2c6a9ab510dcc16777a0417b139384f12fe0f56a19b56704c5073e92ec951468",
+      "fullBaseline": {
+        "reference": "stage4g3-validation.json",
+        "referenceSha256": "ae5f39f61fb2467e734e34bea17fd012e18492b43889e01acbe286309f32c369",
+        "fullBaseline": {
+          "reference": "stage4g2-validation.json",
+          "referenceSha256": "633c98cec2ecfb337f1b710cf8943e5454259f3baa99612b5d1de9c644a9833a",
+          "fullWebgpuRuns": 44,
+          "metalPixelCases": 533,
+          "files": {
+            "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+            "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+            "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+            "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+            "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+            "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+            "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+            "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+          },
+          "coreHostReferenceCommit": "74d38f86cf12e60ef3186ff07c08e0a3c1377c89"
+        },
+        "addedWindowFixture": {
+          "traceSha256": "cf3ffc6a9152ab1ba32212b163df0a6d1a0487165e207b7ed6fc7c33ed9b7c74",
+          "windowReports": 136,
+          "comparisonsPerBackend": 22,
+          "backends": [
+            "swift",
+            "metal"
+          ]
+        },
+        "files": {
+          "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+          "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+          "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+          "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+          "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+          "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+          "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+          "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+        },
+        "coreHostReferenceCommit": "bc7ddba8ff3e4711e9f4cfb51ccf5d231161914f"
+      },
+      "addedBufferLockFixture": {
+        "traceSha256": "3a1513a2cb4793831b197bb772d52a9be490e8a8811386340250a5cc484c116e",
+        "frames": 8,
+        "probesPerBackend": 24,
+        "backends": [
+          "swift",
+          "metal"
+        ]
+      },
+      "files": {
+        "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+        "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+        "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+        "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+        "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+        "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+        "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+        "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+      }
+    },
+    "addedDrawHintFixture": {
+      "traceSha256": "a482da690884297f94be1309d1677b3063ff3c0c1a8d4db4dfd772738890e0ae",
+      "frames": 18,
+      "probesPerBackend": 54,
+      "backends": [
+        "swift",
+        "metal"
+      ]
+    },
+    "files": {
+      "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+      "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+      "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+      "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+      "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+      "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+      "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+      "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+    }
+  },
+  "portable": {
+    "maximumMappedBuffers": 17,
+    "apis": [
+      8,
+      9
+    ],
+    "mutations": {
+      "killed": 25,
+      "total": 25
+    },
+    "fixtureCorruptions": 4,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "distinctVBAndIBFieldLayouts": true,
+    "actualLockUnlockFunctions": true,
+    "retainedProcessVerticesSourceLockValidation": true,
+    "acceptedPrefixReceipts": true,
+    "actualDrawOrderingAndStatusAtomicity": true,
+    "regressionBefore": [
+      {
+        "api": 8,
+        "sourceSha256": "096105f8d87b3b2c44b801c71b9378ab62a662436b5a893f868750541b601e8d",
+        "failure": "locked secondary stream rejects DrawPrimitive"
+      },
+      {
+        "api": 9,
+        "sourceSha256": "eaa4f32f654decc10b5abcaf572c29307171f13f026275a8df3bb9cb438e49b2",
+        "failure": "locked IB rejects zero-count DrawIndexedPrimitive"
+      }
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_mapped_draw_reference.json",
+    "sha256": "16814e9bb1f214a35fa7f38f3b36845e0dc5eee4f61a3a15911d389407d929a4",
+    "lockPolicyReferenceSha256": "064e05cf4e85e2229b44e8c3a8bdd3036d4fccb50e7aedaab51e598996a60841",
+    "sources": [
+      {
+        "file": "d3d9-map-device.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/device.c",
+        "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+        "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58"
+      },
+      {
+        "file": "wined3d-map-device.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/device.c",
+        "blobSha1": "63aec972659adc08e48a11790e2f937c259701ed",
+        "sha256": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406"
+      },
+      {
+        "file": "wined3d-buffer-lock.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/buffer.c",
+        "blobSha1": "5e1f0dedee0f3513c26ff184673bf74664484828",
+        "sha256": "2b5fc42b3fa5078632533889cd2d9f94459687d556594abd19e3728656d6bdb6"
+      }
+    ]
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 158,
+    "batches": 47,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS mapped draw probes \r\n",
+    "logs": {
+      "MAP8.TXT": "FRAME 8 0 0 FFFF0000 FF00FF00\r\nFRAME 8 0 1 FF101010 FFFFFF00\r\nFRAME 8 0 2 FF101010 FFFFFF00\r\nFRAME 8 1 0 FFFF00FF FF00FFFF\r\nFRAME 8 1 1 FFFFFFFF FFFF8000\r\nFRAME 8 1 2 FFFFFFFF FFFF8000\r\nFRAME 8 2 0 FFFF0000 FF00FF00\r\nFRAME 8 2 1 FFFF0000 FF101010\r\nFRAME 8 2 2 FFFF0000 FF101010\r\nFRAME 8 3 0 FFFF0000 FF00FF00\r\nFRAME 8 3 1 FFFF0000 FF00FF00\r\nFRAME 8 3 2 FFFF0000 FF00FF00\r\nFRAME 8 4 0 FFFFFFFF FFFF00FF\r\nFRAME 8 4 1 FF00FFFF FF0000FF\r\nFRAME 8 4 2 FF00FFFF FF0000FF\r\nFRAME 8 5 0 FFFF0000 FF00FFFF\r\nFRAME 8 5 1 FFFF0000 FF00FFFF\r\nFRAME 8 5 2 FFFF0000 FF00FFFF\r\nFRAME 8 6 0 FFFF0000 FF00FF00\r\nFRAME 8 6 1 FF0000FF FFFFFF00\r\nFRAME 8 6 2 FF101010 FFFFFF00\r\nPASS mapped draws API=8\r\n",
+      "MAP9.TXT": "FRAME 9 0 0 FFFF0000 FF00FF00\r\nFRAME 9 0 1 FF101010 FFFFFF00\r\nFRAME 9 0 2 FF101010 FFFFFF00\r\nFRAME 9 1 0 FFFF00FF FF00FFFF\r\nFRAME 9 1 1 FFFFFFFF FFFF8000\r\nFRAME 9 1 2 FFFFFFFF FFFF8000\r\nFRAME 9 2 0 FFFF0000 FF00FF00\r\nFRAME 9 2 1 FFFF0000 FF101010\r\nFRAME 9 2 2 FFFF0000 FF101010\r\nFRAME 9 3 0 FFFF0000 FF00FF00\r\nFRAME 9 3 1 FFFF0000 FF00FF00\r\nFRAME 9 3 2 FFFF0000 FF00FF00\r\nFRAME 9 4 0 FFFFFFFF FFFF00FF\r\nFRAME 9 4 1 FF00FFFF FF0000FF\r\nFRAME 9 4 2 FF00FFFF FF0000FF\r\nFRAME 9 5 0 FFFF0000 FF00FFFF\r\nFRAME 9 5 1 FFFF0000 FF00FFFF\r\nFRAME 9 5 2 FFFF0000 FF00FFFF\r\nFRAME 9 6 0 FFFF0000 FF00FF00\r\nFRAME 9 6 1 FF0000FF FFFFFF00\r\nFRAME 9 6 2 FF101010 FFFFFF00\r\nPASS mapped draws API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "captured proxy draw commands only; pixel validation is separate GPU replay",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 29500,
+        "crc32": "2960131d"
+      }
+    },
+    "wire": {
+      "perAPI": [
+        {
+          "owner": 1,
+          "api": 8,
+          "frames": 21,
+          "indexed": 19,
+          "nonindexed": 2,
+          "buffers": 14,
+          "releasedBuffers": 14,
+          "updates": 49,
+          "vertexBytes": 2640,
+          "indexBytes": 282,
+          "discardUploads": 4,
+          "noOverwriteUploads": 6
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "frames": 21,
+          "indexed": 19,
+          "nonindexed": 2,
+          "buffers": 14,
+          "releasedBuffers": 14,
+          "updates": 49,
+          "vertexBytes": 2640,
+          "indexBytes": 282,
+          "discardUploads": 4,
+          "noOverwriteUploads": 6
+        }
+      ],
+      "frames": [
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "phase": 0,
+          "name": "writable",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "phase": 1,
+          "name": "writable",
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "phase": 2,
+          "name": "writable",
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "phase": 0,
+          "name": "dynamic-discard",
+          "leftARGB": 4294902015,
+          "rightARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "phase": 1,
+          "name": "dynamic-discard",
+          "leftARGB": 4294967295,
+          "rightARGB": 4294934528
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "phase": 2,
+          "name": "dynamic-discard",
+          "leftARGB": 4294967295,
+          "rightARGB": 4294934528
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 0,
+          "name": "static-combined-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 1,
+          "name": "static-combined-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4279242768
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 2,
+          "name": "static-combined-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4279242768
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 0,
+          "name": "readonly",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 1,
+          "name": "readonly",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 2,
+          "name": "readonly",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "phase": 0,
+          "name": "writeonly-readonly-hint",
+          "leftARGB": 4294967295,
+          "rightARGB": 4294902015
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "phase": 1,
+          "name": "writeonly-readonly-hint",
+          "leftARGB": 4278255615,
+          "rightARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "phase": 2,
+          "name": "writeonly-readonly-hint",
+          "leftARGB": 4278255615,
+          "rightARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "phase": 0,
+          "name": "nooverwrite-index32-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "phase": 1,
+          "name": "nooverwrite-index32-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "phase": 2,
+          "name": "nooverwrite-index32-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 6,
+          "phase": 0,
+          "name": "nonindexed-defers-index",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 6,
+          "phase": 1,
+          "name": "nonindexed-defers-index",
+          "leftARGB": 4278190335,
+          "rightARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 6,
+          "phase": 2,
+          "name": "nonindexed-defers-index",
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "phase": 0,
+          "name": "writable",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "phase": 1,
+          "name": "writable",
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "phase": 2,
+          "name": "writable",
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "phase": 0,
+          "name": "dynamic-discard",
+          "leftARGB": 4294902015,
+          "rightARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "phase": 1,
+          "name": "dynamic-discard",
+          "leftARGB": 4294967295,
+          "rightARGB": 4294934528
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "phase": 2,
+          "name": "dynamic-discard",
+          "leftARGB": 4294967295,
+          "rightARGB": 4294934528
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 0,
+          "name": "static-combined-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 1,
+          "name": "static-combined-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4279242768
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 2,
+          "name": "static-combined-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4279242768
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 0,
+          "name": "readonly",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 1,
+          "name": "readonly",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 2,
+          "name": "readonly",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "phase": 0,
+          "name": "writeonly-readonly-hint",
+          "leftARGB": 4294967295,
+          "rightARGB": 4294902015
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "phase": 1,
+          "name": "writeonly-readonly-hint",
+          "leftARGB": 4278255615,
+          "rightARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "phase": 2,
+          "name": "writeonly-readonly-hint",
+          "leftARGB": 4278255615,
+          "rightARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "phase": 0,
+          "name": "nooverwrite-index32-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "phase": 1,
+          "name": "nooverwrite-index32-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "phase": 2,
+          "name": "nooverwrite-index32-partial",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 6,
+          "phase": 0,
+          "name": "nonindexed-defers-index",
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 6,
+          "phase": 1,
+          "name": "nonindexed-defers-index",
+          "leftARGB": 4278190335,
+          "rightARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 6,
+          "phase": 2,
+          "name": "nonindexed-defers-index",
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        }
+      ]
+    },
+    "graphicsSha256": "d085ae5fc3f283e5da0f6cb6affbab7f95126cfaef69de81f2345a27cc935d3a"
+  },
+  "fixture": {
+    "metadataSha256": "97685a91647af3baae806cd7308f9c02635053c2216cbe2dd9de8202465ae220",
+    "compressedTraceSha256": "fbeca001e107eecff6dae29a0aba0ba56fc34928e025b32cebde738f6ff40e0a",
+    "captureBuild": {
+      "dllSha256": {
+        "d3d8": "05193c503d4fc57ce06592cc48d015613d70ce098207e3e12ba407887b62381b",
+        "d3d9": "7725b29fc5cab1d306dfff9376e2ed2c30f6004e7fe945f41bf847ea22f2517e"
+      },
+      "executableSha256": {
+        "MAP8.EXE": "7c114081223634b87c1e023cd56729bd9401c69aab7ed05df7697aacbe8af47d",
+        "MAP9.EXE": "fc1b6938b820b347eb5c656ecd3ec108d95cf777ec7a701313802d4366f38a16"
+      }
+    }
+  },
+  "gpu": {
+    "swift": {
+      "traceSha256": "d085ae5fc3f283e5da0f6cb6affbab7f95126cfaef69de81f2345a27cc935d3a",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "05193c503d4fc57ce06592cc48d015613d70ce098207e3e12ba407887b62381b",
+          "d3d9": "7725b29fc5cab1d306dfff9376e2ed2c30f6004e7fe945f41bf847ea22f2517e"
+        },
+        "executableSha256": {
+          "MAP8.EXE": "7c114081223634b87c1e023cd56729bd9401c69aab7ed05df7697aacbe8af47d",
+          "MAP9.EXE": "fc1b6938b820b347eb5c656ecd3ec108d95cf777ec7a701313802d4366f38a16"
+        }
+      },
+      "frames": 42,
+      "batches": 47,
+      "comparisons": [
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 47,
+        "commands": 469,
+        "presents": 42,
+        "queueSubmits": 126,
+        "drawCalls": 4,
+        "indexedDrawCalls": 38,
+        "upDrawCalls": 0,
+        "pipelineCreations": 1,
+        "pipelineHits": 41,
+        "pipelinesRejected": 0,
+        "programBuilds": 42,
+        "programCacheHits": 0,
+        "bindGroupCreations": 2,
+        "bindGroupHits": 40,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 42,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 63,
+        "readbackRequests": 42,
+        "frameFlushes": 42,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 0,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 42,
+        "uploadChunksAllocated": 2,
+        "uploadStagingUploads": 38,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 2,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 2,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 1,
+        "cursorDraws": 21,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 0,
+        "renderPasses": 68,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 42,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 16128,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 42,
+        "renderTargetReadbackBytes": 688128,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "e2b3c4d227a637e9595450bc3785dac890f0ed6e65f7adbea7443fad6a6c929f"
+    },
+    "metal": {
+      "traceSha256": "d085ae5fc3f283e5da0f6cb6affbab7f95126cfaef69de81f2345a27cc935d3a",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "05193c503d4fc57ce06592cc48d015613d70ce098207e3e12ba407887b62381b",
+          "d3d9": "7725b29fc5cab1d306dfff9376e2ed2c30f6004e7fe945f41bf847ea22f2517e"
+        },
+        "executableSha256": {
+          "MAP8.EXE": "7c114081223634b87c1e023cd56729bd9401c69aab7ed05df7697aacbe8af47d",
+          "MAP9.EXE": "fc1b6938b820b347eb5c656ecd3ec108d95cf777ec7a701313802d4366f38a16"
+        }
+      },
+      "frames": 42,
+      "batches": 47,
+      "comparisons": [
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 0,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 1,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 2,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 3,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 4,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 5,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 8,
+          "scene": 6,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 0,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            128,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 1,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 2,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 3,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 4,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 5,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 0,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            0,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 0,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 0,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 1,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "actual": [
+            255,
+            0,
+            0,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 1,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 1,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 2,
+          "name": "left",
+          "x": 8,
+          "y": 8,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 2,
+          "name": "right",
+          "x": 56,
+          "y": 8,
+          "expected": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "actual": [
+            0,
+            255,
+            255,
+            255
+          ],
+          "maximumByteError": 0
+        },
+        {
+          "api": 9,
+          "scene": 6,
+          "phase": 2,
+          "name": "background",
+          "x": 32,
+          "y": 48,
+          "expected": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "actual": [
+            16,
+            16,
+            16,
+            255
+          ],
+          "maximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 47,
+        "commands": 469,
+        "presents": 42,
+        "queueSubmits": 126,
+        "drawCalls": 4,
+        "indexedDrawCalls": 38,
+        "upDrawCalls": 0,
+        "pipelineCreations": 1,
+        "pipelineHits": 41,
+        "pipelinesRejected": 0,
+        "programBuilds": 42,
+        "programCacheHits": 0,
+        "bindGroupCreations": 2,
+        "bindGroupHits": 40,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 42,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 63,
+        "readbackRequests": 42,
+        "frameFlushes": 42,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 0,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 42,
+        "uploadChunksAllocated": 2,
+        "uploadStagingUploads": 38,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 2,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 2,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 1,
+        "cursorDraws": 21,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 0,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 0,
+        "renderPasses": 68,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 42,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 16128,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 42,
+        "renderTargetReadbackBytes": 688128,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "e2b3c4d227a637e9595450bc3785dac890f0ed6e65f7adbea7443fad6a6c929f"
+    }
+  },
+  "tnl": {
+    "status": "PASS",
+    "seconds": 169,
+    "batches": 21,
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "text": "READY real XP TNL probes \r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nREADY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\nPASS all real XP TNL probes \r\n",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 637980,
+        "crc32": "c5fee5c6"
+      }
+    },
+    "lifetime": {
+      "shaders": 12,
+      "vertexShaders": 6,
+      "pixelShaders": 6,
+      "vertexDeclarationsDestroyed": 13,
+      "declarationOnlyDeclarations": 7,
+      "resources": [
+        {
+          "handle": 1073741825,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1419,
+          "binds": [
+            1423,
+            1427
+          ],
+          "destroyed": 1526
+        },
+        {
+          "handle": 1073741827,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1421,
+          "binds": [
+            1425
+          ],
+          "destroyed": 1528
+        },
+        {
+          "handle": 1073741829,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1531,
+          "binds": [
+            1533
+          ],
+          "destroyed": 1536
+        },
+        {
+          "handle": 1073741831,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1539,
+          "binds": [
+            1543
+          ],
+          "destroyed": 1546
+        },
+        {
+          "handle": 1073741833,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1541,
+          "binds": [
+            1545
+          ],
+          "destroyed": 1550
+        },
+        {
+          "handle": 1073741835,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1553,
+          "binds": [
+            1555
+          ],
+          "destroyed": 1558
+        },
+        {
+          "handle": 1073741837,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1560,
+          "binds": [
+            1562,
+            1564
+          ],
+          "destroyed": 1574
+        },
+        {
+          "handle": 1073741839,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1561,
+          "binds": [
+            1563
+          ],
+          "destroyed": 1575
+        },
+        {
+          "handle": 1073741841,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1576,
+          "binds": [
+            1577
+          ],
+          "destroyed": 1579
+        },
+        {
+          "handle": 1073741843,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1580,
+          "binds": [
+            1582
+          ],
+          "destroyed": 1584
+        },
+        {
+          "handle": 1073741845,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1581,
+          "binds": [
+            1583
+          ],
+          "destroyed": 1586
+        },
+        {
+          "handle": 1073741847,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1587,
+          "binds": [
+            1588
+          ],
+          "destroyed": 1590
+        },
+        {
+          "handle": 1048583,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1418,
+          "binds": [
+            1422,
+            1426
+          ],
+          "destroyed": 1527,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048584,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1420,
+          "binds": [
+            1424
+          ],
+          "destroyed": 1529,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048585,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1530,
+          "binds": [
+            1532
+          ],
+          "destroyed": 1537,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048586,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1538,
+          "binds": [
+            1542
+          ],
+          "destroyed": 1547,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048587,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1540,
+          "binds": [
+            1544
+          ],
+          "destroyed": 1551,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048588,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1552,
+          "binds": [
+            1554
+          ],
+          "destroyed": 1559,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048589,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1704,
+          "binds": [
+            1706
+          ],
+          "destroyed": 1710,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 0,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048590,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1705,
+          "binds": [
+            1708
+          ],
+          "destroyed": 1713,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 0,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048591,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1714,
+          "binds": [
+            1715
+          ],
+          "destroyed": 1720,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048601,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4644,
+          "binds": [
+            4656,
+            4687
+          ],
+          "destroyed": 4854,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048602,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4645,
+          "binds": [
+            4722
+          ],
+          "destroyed": 4855,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048603,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4646,
+          "binds": [
+            4683
+          ],
+          "destroyed": 4856,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048604,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4647,
+          "binds": [
+            4679
+          ],
+          "destroyed": 4857,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        }
+      ]
+    },
+    "graphicsSha256": "91a4d650d274440a769be93f01c8a62d0658a00574b3434516d7122e9a19c4da"
+  },
+  "multiStreamXP": {
+    "status": "PASS",
+    "seconds": 169,
+    "batches": 1,
+    "releases": [
+      1
+    ],
+    "owners": [
+      1
+    ],
+    "text": "READY D3D8/9 processed clipping COM probe\r\nPASS real XP floating color precision, specular source, fog, half/integer colors and copy flags\r\nPASS real XP multi-stream: nonzero position stream, offsets, packed normal, floating constant color, copy flags, clip records, all-constant huge index, multiple destination aliases and atomic refusals\r\nPASS real XP multi-stream draws: absent/unused stream zero, full declared indexed range, negative base, world planes, final attribute bounds, constant position, instancing bounds and atomic status failures\r\nPASS real XP typed input: half positions, DEC3N normals, normalized coordinates, half size, stream/destination offsets, retained components, copy flags, clip status and atomic refusals\r\n",
+    "logs": {
+      "CLIP.TXT": "READY D3D8/9 processed clipping COM probe\r\nPASS real XP floating color precision, specular source, fog, half/integer colors and copy flags\r\nPASS real XP multi-stream: nonzero position stream, offsets, packed normal, floating constant color, copy flags, clip records, all-constant huge index, multiple destination aliases and atomic refusals\r\nPASS real XP multi-stream draws: absent/unused stream zero, full declared indexed range, negative base, world planes, final attribute bounds, constant position, instancing bounds and atomic status failures\r\nPASS real XP typed input: half positions, DEC3N normals, normalized coordinates, half size, stream/destination offsets, retained components, copy flags, clip status and atomic refusals\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised"
+  },
+  "scope": "A shared pure C map kernel and typed SDK bridge upload currently locked bound VBs before normal draws and VBs plus IB before indexed draws. All metadata is validated before the first upload, repeated bindings upload once, genuine readonly maps upload nothing, and nonindexed draws leave the mapped IB pending. Every draw observes the current mapped bytes while Lock offsets/sizes/state remain intact; only an accepted unique upload consumes DISCARD. Accepted prefix receipts are committed even if a later buffer fails; no Draw or ClipStatus/mirror commit follows that failure. Upload callbacks may themselves have accepted transport chunks before reporting failure; retrying their complete mapped range safely starts a new discard when required. Software Draw input explicitly permits mapped sources, while public ProcessVertices input stays strict. Zero-primitive draws do not flush maps. Actual production Draw functions validate upload-before-Draw ordering, duplicate bindings, held software source classification and failure/status atomicity. Actual SDK Lock/Unlock plus distinct VB/IB native layouts cover seventeen maps, exact data/ranges, repeated writes, readonly/static/conflicting hints, zero-size maps, prefixes and retained locks. Real XP produces 42 frames over two owners with 98 exact updates; tests preserve first-triangle bytes across partial writes, skip genuine readonly uploads, retain NOOVERWRITE flags without rewriting in-flight data, exercise 32-bit indices and defer IB discard/upload across nonindexed draws. SwiftShader/Metal each pass 126 color probes. Existing three-API TNL/state-block/lifetime and D3D9 typed/color/multi-stream/ProcessVertices lock boundaries pass in XP. Published D3D8/9 DLLs are the exact accepted mapped probe bytes. This addresses the four originally listed S2-34 hint/base/zero/locked-draw cases across 4H2a/b without claiming original Microsoft mapped-buffer pixel observations or a complete Draw/UP/missing-binding API audit. Remaining retail copy semantics, guest wrappers, programmable CPU processing and stages 4/5/6 continue.",
+  "coreSha256": {
+    "tests/glbridge/d3d_mapped_draw_fixture_test.js": "227311e3b8973fb95e574f96c031a3ab79bb076338e8e3f54c9db7fa8ecc7432",
+    "tests/glbridge/d3d_mapped_draw_reference_test.js": "2a91266f76e760acda982c71691be48865115ef7eb87f31b50ef02dd02cbe4c6",
+    "tests/glbridge/d3d_mapped_draw_replay_browser_test.html": "2cb96a59a05936ed3f36e8a01f381ef5e3339325f75c1333f12ecfc0e8450cdd",
+    "tests/glbridge/d3d_mapped_draw_xp.mjs": "37ae5754e8db79dd924ddb332a4f21a611f4b4304ddbd70fa80c8d3c6b44a55e",
+    "tests/glbridge/fixtures/d3d_mapped_draw_reference.json": "16814e9bb1f214a35fa7f38f3b36845e0dc5eee4f61a3a15911d389407d929a4",
+    "tests/glbridge/fixtures/d3d_mapped_draw_xp.bin.gz": "fbeca001e107eecff6dae29a0aba0ba56fc34928e025b32cebde738f6ff40e0a",
+    "tests/glbridge/fixtures/d3d_mapped_draw_xp.json": "97685a91647af3baae806cd7308f9c02635053c2216cbe2dd9de8202465ae220",
+    "tests/lib/d3d_mapped_draw_wire.mjs": "9d104b580675312a46a4f8c5105daa4ab0b89c603db6c0a966a0e37b52fed621",
+    "tools/gen_d3d_mapped_draw_reference.mjs": "7a5f412ce665df1104068c65f2c6b26148ca88580d1c67bcd18bf30020e28eb0",
+    "Makefile": "5ca03a0cfecec6e1795030eeb017e0ef69a6e839b79d056887f2ebb68599a57d",
+    "docs/d3d-webgpu-review.md": "1d0bbeee8db8c88b8b660a8addc19bf0ed231cd2bdcd44ae30cb365bd23a4d9e"
+  },
+  "siteSha256": {
+    "glbridge/runtime/d9wg_mapped_draw_bridge.h": "85770e7be2f9aff41bfecb8647613cc3aaeb98b39b153d91a7a4ac67ccfa4494",
+    "glbridge/sample/d3d_mapped_draw_test.c": "bab58bbf01439279dd11da73357b7248e5cdd3524fff8be02a382241dc3c77d1",
+    "glbridge/tests/d9wg_mapped_draw_mutation_test.js": "37e21060a7c18c94c0eb95046443f97ec45c172b83683770fb92ce7c8e2ead2c",
+    "glbridge/tests/d9wg_mapped_draw_test.js": "b35ac75b982294cce7096557736aeb268c5b4c391b9ef90b88f54ca95524fd16",
+    "glbridge/tests/native/d3d_mapped_draw_reference.h": "c1be52a3c41a185deb47ac0a93ced7f5944d7d79543660bc512f70f2cbbc1c67",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "2bc7f694986d5028d60b31b4502effd118d6d67fe7c3781d53fcb63fe93065c1",
+    "glbridge/d3d8proxy/d3d8.dll": "05193c503d4fc57ce06592cc48d015613d70ce098207e3e12ba407887b62381b",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "fe65628cafe1a39bc627f6ece5a6047b5c69b3b9caeaa7e046e9818611e6ab6c",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "c79fef6319ac31d0d3df2571b7b8b93ff6867cc3e3756d6a757de11e8faaf54b",
+    "glbridge/d3d9proxy/d3d9.dll": "7725b29fc5cab1d306dfff9376e2ed2c30f6004e7fe945f41bf847ea22f2517e",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "03bbab915639b81597ca9c5785c6f8ca7510c48fd7cb49088d06481aeeaec696",
+    "glbridge/runtime/d9wg_buffer_lock.c": "7fddcc6432c082ea3e8e3630571421cdef0a13eacb3334ec1fd7cf6987334f43",
+    "glbridge/runtime/d9wg_buffer_lock.h": "8669a7a40cdf064b86c1b466111dce232b02343a693a449e88ecbcb550c6dbf6",
+    "glbridge/sample/d3d8_tween_cases.h": "fa4a1b7a460679f752d8f58c67bb9630ac7d084dfa50c2e8d27402195943ea3c",
+    "glbridge/sample/d3d9_vertex_stream_draw_cases.h": "8375c59fc8140024a0aea0551e310f2a180874b15c869fd25bf9f61fad40fe8a",
+    "glbridge/tests/d8wg_draw_input_mutation_test.js": "7cdba30d2912cca03903a75deb2716b831709d7521260e19a5adae78c65a0609",
+    "glbridge/tests/d8wg_draw_input_test.js": "894d79fb2974ec1c2e0c11bee03c40d90fd1854a48344f74aab2c8f2ef5649bb",
+    "glbridge/tests/d8wg_process_input_mutation_test.js": "75d37af4b467f4becb2e2f926dfd4c394f744e3ff650ad1499c4ae50c9c22ddd",
+    "glbridge/tests/d8wg_process_input_test.js": "398a7d4a7d0cc962691f988bc6bdfc47dd7257a99a496bfc833bad61bc396bfc",
+    "glbridge/tests/d9wg_bound_draw_test.js": "306948b10139546a7bf86372e9f2da332dcc9bb738050aabcb2b10f68e8d99ba",
+    "glbridge/tests/native/d9wg_bound_draw_cases.h": "8a5555bcc43864054fd39822f42e1e0f3d2b08811f78502c0738897d3413ddc2"
+  },
+  "logSha256": {
+    "core": "2dd1a8c9eee6d797807ab2c9e0a5b93ce44fa9ea594d16227221e073aca9cc02",
+    "guest": "c2b72da0eb3c1bbb09838ff49130bd54d3c61678cb9de90cc2093b51ec251b99",
+    "mapped-xp": "527d492411deefc064ea9491202559425aa71f88bee0858e8666ae602b5d43a7",
+    "mapped-swift": "7fced77b0611798f39db13523fdef169001fca0bce1c67b7145248350f8a6604",
+    "mapped-metal": "7fced77b0611798f39db13523fdef169001fca0bce1c67b7145248350f8a6604",
+    "mapped-mutations": "7b085831694fc06d418280074255ee499ee4da0ae9ddce5c0218f00025c239c2",
+    "stream-xp": "cfb8cc78a28b4f6f25632a879225f8d7ed4acf80a26d5dfb2f3498d3b5450a68",
+    "tnl": "3559e071e7b019e9154e89bf31209a2ddbcd1769686596b810282fbc1356a725",
+    "sanitize": "63e0e521aa4374b3610c4948840cfec3c6e1afc6643959731143f024e725e235",
+    "before-8": "4cb6aafede490bca3ca87b0d17780a629b9c17e665943e1a7c27ffab654a2a63",
+    "before-9": "ba4e8eb2d68a80effef59c041dfbfe179f883591a2b3e04678425fc570f5b850",
+    "fixture-unit": "04457c863053d506fb6b9adc88aa08ec12afda3c359207f11e632f28ea03843b",
+    "builds": "1ca73245eae5eb95a5e798c011090e2f4e0b3266cbdb2a37c48993cc17eb5841",
+    "lint": "708b766e2e21b2dd77fb7798ac774b5ffe7ec933aa411b26c594169901c56af7",
+    "site-lint": "18e36275f5bc588331e481457f964e914122eed7e53f04e541c4658720d82375",
+    "integration": "e6f85229e17a1ac528687d8dfa3287901bec47ff1946c5594811a4cc9645ec5b"
+  }
+}

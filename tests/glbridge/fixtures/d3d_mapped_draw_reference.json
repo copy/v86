@@ -1,0 +1,229 @@
+{
+  "schema": "d3d-mapped-draw-reference-v1",
+  "scope": "Independent mapped-write inputs and known geometry. Wine D3D9 flushes mapped VB/IB before drawing; the proxy applies one shared ordered upload path to D3D8/9. No original Microsoft D3D8/9 HAL or mapped-buffer pixel measurement claim. NOOVERWRITE and genuine READONLY cases are not rewritten after the first draw.",
+  "sources": [
+    {
+      "file": "d3d9-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58"
+    },
+    {
+      "file": "wined3d-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/device.c",
+      "blobSha1": "63aec972659adc08e48a11790e2f937c259701ed",
+      "sha256": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406"
+    },
+    {
+      "file": "wined3d-buffer-lock.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/buffer.c",
+      "blobSha1": "5e1f0dedee0f3513c26ff184673bf74664484828",
+      "sha256": "2b5fc42b3fa5078632533889cd2d9f94459687d556594abd19e3728656d6bdb6"
+    }
+  ],
+  "scenes": [
+    {
+      "name": "writable",
+      "usage": 0,
+      "flags": 0,
+      "partial": 0,
+      "index32": 0,
+      "mixed": 0,
+      "readonly": 0,
+      "rewrite": 1,
+      "indexMode": 1,
+      "initialLeft": 4294901760,
+      "initialRight": 4278255360,
+      "nextLeft": 4278190335,
+      "nextRight": 4294967040,
+      "frames": [
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        },
+        {
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        }
+      ]
+    },
+    {
+      "name": "dynamic-discard",
+      "usage": 520,
+      "flags": 8192,
+      "partial": 0,
+      "index32": 0,
+      "mixed": 0,
+      "readonly": 0,
+      "rewrite": 1,
+      "indexMode": 0,
+      "initialLeft": 4294902015,
+      "initialRight": 4278255615,
+      "nextLeft": 4294967295,
+      "nextRight": 4294934528,
+      "frames": [
+        {
+          "leftARGB": 4294902015,
+          "rightARGB": 4278255615
+        },
+        {
+          "leftARGB": 4294967295,
+          "rightARGB": 4294934528
+        },
+        {
+          "leftARGB": 4294967295,
+          "rightARGB": 4294934528
+        }
+      ]
+    },
+    {
+      "name": "static-combined-partial",
+      "usage": 0,
+      "flags": 12288,
+      "partial": 1,
+      "index32": 0,
+      "mixed": 0,
+      "readonly": 0,
+      "rewrite": 1,
+      "indexMode": 2,
+      "initialLeft": 4294901760,
+      "initialRight": 4278255360,
+      "nextLeft": 4294901760,
+      "nextRight": 4278190335,
+      "frames": [
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4279242768
+        },
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4279242768
+        }
+      ]
+    },
+    {
+      "name": "readonly",
+      "usage": 0,
+      "flags": 16,
+      "partial": 0,
+      "index32": 0,
+      "mixed": 0,
+      "readonly": 1,
+      "rewrite": 0,
+      "indexMode": 0,
+      "initialLeft": 4294901760,
+      "initialRight": 4278255360,
+      "nextLeft": 4294901760,
+      "nextRight": 4278255360,
+      "frames": [
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        }
+      ]
+    },
+    {
+      "name": "writeonly-readonly-hint",
+      "usage": 8,
+      "flags": 16,
+      "partial": 0,
+      "index32": 0,
+      "mixed": 0,
+      "readonly": 0,
+      "rewrite": 1,
+      "indexMode": 0,
+      "initialLeft": 4294967295,
+      "initialRight": 4294902015,
+      "nextLeft": 4278255615,
+      "nextRight": 4278190335,
+      "frames": [
+        {
+          "leftARGB": 4294967295,
+          "rightARGB": 4294902015
+        },
+        {
+          "leftARGB": 4278255615,
+          "rightARGB": 4278190335
+        },
+        {
+          "leftARGB": 4278255615,
+          "rightARGB": 4278190335
+        }
+      ]
+    },
+    {
+      "name": "nooverwrite-index32-partial",
+      "usage": 520,
+      "flags": 4096,
+      "partial": 1,
+      "index32": 1,
+      "mixed": 0,
+      "readonly": 0,
+      "rewrite": 0,
+      "indexMode": 0,
+      "initialLeft": 4294901760,
+      "initialRight": 4278255615,
+      "nextLeft": 4294901760,
+      "nextRight": 4278255615,
+      "frames": [
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        },
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        },
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255615
+        }
+      ]
+    },
+    {
+      "name": "nonindexed-defers-index",
+      "usage": 520,
+      "flags": 8192,
+      "partial": 0,
+      "index32": 0,
+      "mixed": 1,
+      "readonly": 0,
+      "rewrite": 1,
+      "indexMode": 1,
+      "initialLeft": 4294901760,
+      "initialRight": 4278255360,
+      "nextLeft": 4278190335,
+      "nextRight": 4294967040,
+      "frames": [
+        {
+          "leftARGB": 4294901760,
+          "rightARGB": 4278255360
+        },
+        {
+          "leftARGB": 4278190335,
+          "rightARGB": 4294967040
+        },
+        {
+          "leftARGB": 4279242768,
+          "rightARGB": 4294967040
+        }
+      ]
+    }
+  ]
+}

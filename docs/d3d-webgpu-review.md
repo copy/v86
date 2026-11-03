@@ -1578,6 +1578,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 173 组核心、157 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL、两项集成通过。D3D8/9 发布最终绘制 XP 验收的原字节，DDraw 保持已验收字节；宿主源码和运行包 `8cc48a9a2b75d0296e91` 未变，沿用既有完整 GPU/533 场景基线，本轮新增两次正向回放，完整 GPU 目标现含 47 次运行。见 [stage4h2a-validation.json](fixtures/d3d-review/stage4h2a-validation.json)。
 > - 接着处理仍锁定的 VB/IB 在绘制前的上传可见性；UP、缺失绑定和原生 HAL 边界契约也未在本步宣称完成。S2-34、包装层和阶段 4/5/6 继续。
 
+> **阶段 4H2b（2026-11-03）：共用持锁 VB/IB 绘制上传与锁状态保持（S2-34）完成。**
+>
+> - D3D8/9 共用纯 C 映射上传核和 SDK 类型适配：普通 Draw 上传当前绑定的持锁 VB，索引 Draw 再上传 IB；先校验所有描述，再上传唯一缓冲。重复绑定只上传一次，真正 READONLY 不上传，非索引 Draw 不提前上传持锁 IB。
+> - 每次绘制读取当时的映射内容，保留锁状态、范围和 NOOVERWRITE；已接受的上传只消耗一次 DISCARD。后续上传失败仍保存已接受前缀的结果，不发送 Draw、不提交 ClipStatus 或镜像更新。传输自身可接受部分分块；失败的完整映射范围仍可重传。
+> - 软件 Draw 输入显式允许持锁来源，ProcessVertices 保留原有拒绝规则；零图元不上传映射。实际两个前端函数验证了上传顺序、软件多流分类、失败原子性与锁状态；实际 Lock/Unlock 和不同布局的 VB/IB 测试覆盖 17 个映射、重复写入、只读/冲突/静态提示、零大小、重复绑定和部分失败。25/25 变异、四个录制语义破坏与 ASan/UBSan 通过；两个旧前端均在定向运行中失败。
+> - XP 两 API 各七场景/三阶段，共 42 帧、98 次精确上传；验证 Unlock 前的两次绘制和改写、部分范围保留、32 位索引、只读省略及非索引绘制后延迟上传 IB。NOOVERWRITE/READONLY 场景不在首次绘制后改写。SwiftShader/Metal 各通过 126 个颜色探针，零宿主/GPU 错误；三 API T&L/状态块/生命周期与 D3D9 类型、颜色、多流及 ProcessVertices 锁定边界的 XP 回归通过。
+> - 175 组核心、159 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL及两项集成通过；发布 D3D8/9 最终 XP 验收原字节，DDraw 保持既有验收字节。宿主源码/运行包 `8cc48a9a2b75d0296e91` 未变，沿用既有完整 GPU/533 场景基线，本轮增加两次正向回放，完整目标现含 48 次运行。见 [stage4h2b-validation.json](fixtures/d3d-review/stage4h2b-validation.json)。
+> - 4H2a/b 已覆盖 S2-34 原列出的提示/基址、零顶点、零图元和持锁绘制四类；依据为 Wine 实现与已知几何输入，未宣称原始 Microsoft 持锁像素或全部 Draw/UP/缺失绑定边界验收。接着零售复制语义、共用客体包装与阶段 4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
