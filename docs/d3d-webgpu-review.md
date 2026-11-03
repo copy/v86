@@ -2105,6 +2105,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新跑 **完整客体 265 suites**、核心相关 **35 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题。完整核心 238 suites/六次 GPU 基线继承 4I9。引用拆分后旧 harness 加入共用销毁提取/新类型，并把变异定位改到真实新函数，避免编译失败冒充语义检出；初次 263 组的 7 项适配问题和中间工件均保留。发布准确 XP D3D9 DLL 与严格 diagnostic，D3D8/DDraw、宿主/协议/着色器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j1-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J1.json`。
 > - S2-56 的表格状态同步至已完成的 4H5a 证据。D3D8、cube/volume/缓冲/着色器/状态块绑定计数、外部子资源存活时设备根状态保持、任意重入/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J2（2026-11-04）：D3D9 cube sampler/面目标的公开计数与六面存储（S2-42 / Reset 后续）完成。**
+> - cube 采用二维已验证的公开/私有引用分离：sampler 和 cube 面目标只持有 binding_refs，公开 0→1 保留一个设备 pin，1→0 最后归还；归零后 GetTexture、面/目标/容器查询恢复同一共享父计数。共用物理销毁先摘除资源链，再清理父/六面 private data、所有缓存视图/像素，清理设备/Reset 使用私有引用，DEFAULT 公开计数不再扣除 cube 绑定槽。
+> - **纠正 4J1 的 cube 分类回归：** 实际 GetCubeMapSurface 同时设 texture_child 和 cube_texture，而二维 parent 为 NULL。绑定分支现先识别 cube_texture。新 native suite 通过实际构造函数取得全部六面；在新引用模型上单独换回 4J1 分类分支，ASAN/UBSAN 准确复现空二维 parent 访问。该反例单独保留，不计入 13 项运行时断言变异，也不改写 4J1 历史捕获。
+> - 新实际 C **104,192 检查、1,024 pool/销毁顺序、8,192 次公开归零恢复**，覆盖四 sampler、两面目标、实际六面缓存、设备 pin、共享计数、Reset 锁/公开引用、非法 stage/外设备及四种最终拥有者顺序；保留二维 **86,784** 检查和独立目标 suite。**13/13** 严格编译后运行时断言变异、旧实际 cube 方法配新 helpers 的计数负对照、分类 sanitizer 反例及修复后 ASAN/UBSAN 通过。
+> - XP 构造一个 DEFAULT RT cube，初始化六个 8×8 面，经三个 sampler 保留；**128 次** cube/面公开恢复及 **256 次** private data 查询。依次采样六色，再把公开为零的面 4 改橙色并验证面 5 保留；目标/容器共享计数、外部 cube 引用阻止 Reset、仅绑定允许 Reset、Reset 后读回均通过。**136 秒、11 批次、一个 owner/release、9 读回**，只写 RAM overlay，XP 模拟像素仍只作传输。
+> - 冻结流核对六面初始目标、面 4 编辑与两次回 back buffer、三个 sampler、8 次绘制、8 次清屏、9 次读回及 Reset 后准确 cube 销毁。**35 项语义破坏**均拒绝；初始 reader 的销毁种类沿用二维值 3，现按 cube=4 冻结，生产/SDK/捕获不变。SwiftShader/Metal 各核对 **9 图像、576 实际像素，零误差/零 GPU 或宿主错误**；真实 owner 释放前设备/资源表为空。
+> - 新跑 **完整客体 267 suites**、核心相关 **36 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU。发布准确 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/着色器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j2-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J2.json`。
+> - D3D8、volume/缓冲/着色器/状态块的绑定计数、外部子资源存活时设备根状态保持、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
