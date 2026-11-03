@@ -1,0 +1,54 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "colors": [
+    4289732624,
+    4279255232
+  ],
+  "scope": "D3D8 standalone RT/depth construction promotes the cached level view to an independent public count of one and transfers the original private texture device pin to that surface without adding a second pin. The existing private_back_buffer flag also marks standalone private storage. Public references beyond the first do not retain more storage or device pins. Public zero returns one storage/device pin, leaving color binding texture references and private depth-binding storage references alive. Cached GetSurfaceLevel/GetRenderTarget/GetDepthStencilSurface recovers the same view and exactly one public device pin. Additional chains transfer the promoted surface pin/storage reference as their existing chain base; ordinary texture/cube/implicit/chain models remain intact. Final device cleanup has a temporary self pin for bound-only storage callbacks. Native tests execute real public/storage/device/private-data methods with abstract color/depth storage holds; retained 39-case render-target entry tests and real XP exercise the full setter/getter path. XP renders two single-sample public-zero Clear/CopyRects/Present frames, plus verifies a four-sample RT/depth pair only for binding counters and finalization. This phase does not claim new four-sample standalone pixel coverage. Five finalizers validate proxy safety counts, not native HAL destruction counts. General root-device state preservation with external resources, complete reentrant ownership graphs, other resource public/internal counts, formats/MSAA/refresh/fullscreen/multiple buffers/Reset/thread/device-loss, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. No host/protocol/shader/bundle change.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Pinned Windows resource tests show standalone surfaces start at one public reference and retain one device reference; texture levels share parent counts. This is supporting creation/containment context, not a new original-HAL binding run."
+    },
+    {
+      "file": "d3d8-container-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+      "evidence": "Standalone public AddRef/Release uses its own resource count, retains internal texture/view storage and changes the parent device pin only on zero/nonzero edges; ordinary texture-level surfaces forward to their parent."
+    },
+    {
+      "file": "d3d8-reset-device.c",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/device.c",
+      "evidence": "Standalone target construction assigns a separate parent_device. SetRenderTarget acquires internal views/storage without taking public surface references; getters return public surface references."
+    }
+  ],
+  "facts": {
+    "nativeStandaloneLifetimeChecks": 2638,
+    "nativePublicZeroRevivals": 512,
+    "actualConstructorContainerChecks": 8674,
+    "actualMSAAConstructorCases": 81,
+    "retainedRenderTargetCases": 39,
+    "retainedD3D8AdditionalChecks": 1701,
+    "retainedD3D9AdditionalChecks": 1305,
+    "newMutations": 16,
+    "xpLogicalDevices": 3,
+    "xpReset": 1,
+    "xpPublicZeroRevivals": 64,
+    "xpPrivateObjectsFinalized": 5,
+    "xpRenderTargetBindings": 40,
+    "xpDepthBindings": 40,
+    "xpFrames": 2,
+    "xpPixelSamples": 0,
+    "xpSeparateFinalizationPairSamples": 4,
+    "xpBackingTextures": 5,
+    "generalDeviceCycleBreakStillApproximate": true
+  }
+}

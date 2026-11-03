@@ -1,0 +1,142 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "hello": 1,
+      "ended": 0,
+      "devices": [
+        {
+          "index": 0,
+          "handle": 1048580,
+          "handles": [
+            1048577,
+            1048580
+          ],
+          "target": 0,
+          "depth": 0,
+          "retired": true
+        },
+        {
+          "index": 1,
+          "handle": 1048581,
+          "handles": [
+            1048581
+          ],
+          "target": 1048582,
+          "depth": 1048583,
+          "retired": true
+        },
+        {
+          "index": 2,
+          "handle": 1048584,
+          "handles": [
+            1048584
+          ],
+          "target": 0,
+          "depth": 0,
+          "retired": true
+        }
+      ],
+      "textures": [
+        {
+          "handle": 1048578,
+          "deviceIndex": 0,
+          "samples": 0,
+          "usage": 1,
+          "retired": true
+        },
+        {
+          "handle": 1048579,
+          "deviceIndex": 0,
+          "samples": 0,
+          "usage": 2,
+          "retired": true
+        },
+        {
+          "handle": 1048582,
+          "deviceIndex": 1,
+          "samples": 4,
+          "usage": 1,
+          "retired": true
+        },
+        {
+          "handle": 1048583,
+          "deviceIndex": 1,
+          "samples": 4,
+          "usage": 2,
+          "retired": true
+        },
+        {
+          "handle": 1048585,
+          "deviceIndex": 2,
+          "samples": 0,
+          "usage": 1,
+          "retired": true
+        }
+      ],
+      "rtBindings": 40,
+      "depthBindings": 40,
+      "resets": 1,
+      "clears": 2,
+      "copies": 2
+    }
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "texture": 1048578,
+      "depth": 1048579,
+      "width": 32,
+      "height": 24,
+      "samples": 0,
+      "step": 0,
+      "color": 4289732624
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "texture": 1048578,
+      "depth": 1048579,
+      "width": 32,
+      "height": 24,
+      "samples": 0,
+      "step": 1,
+      "color": 4279255232
+    }
+  ],
+  "logicalDevices": 3,
+  "wireDeviceHandles": 4,
+  "backingTextures": 5,
+  "resets": 1,
+  "publicZeroRevivals": 64,
+  "privateObjectsFinalized": 5,
+  "renderTargetBindings": 40,
+  "depthBindings": 40,
+  "draws": 0,
+  "traceSha256": "2c9fd70e8ef180b8eb775f6e2c40afcd3537f89ddf013b19efb7bfcc2d118287",
+  "referenceSha256": "89cfce462ab3dee1ef99fedf07ab0a1cfc3a358fab0579c67f38138dfb1af9fd",
+  "sdkLogs": {
+    "BND8.TXT": "BIND REVIVAL rounds=32 surfaces=2 publicRefs=0 activeDeviceRefs=2 queriedDeviceRefs=4 containerDeviceRefs=5 privateRetained=2\r\nBIND FRAME index=0 color=FFB02010 samples=0 clearPublicRefs=0 copiedToPrimary=1 presented=1 queryRefs=1\r\nBIND FRAME index=1 color=FF1040C0 samples=0 clearPublicRefs=0 copiedToPrimary=1 presented=1 queryRefs=1\r\nBIND RESET publicRefs=0 deviceRefsBefore=1 accepted=1 privateFinalized=2 callbackRefs=1 factoryRefs=1\r\nBIND FINAL publicRefs=0 applicationDeviceRefs=1 returnedDeviceRefs=0 privateFinalized=2 callbackRefs=1 factoryRefs=1\r\nBIND UNBIND publicRefs=0 privateFinalized=1 callbackRefs=2 factoryRefs=1\r\nBIND STATUS logicalDevices=3 reset=1 frames=2 revivals=64 privateFinalized=5 publicBindingRefs=0 factoryRefs=1\r\nPASS target bindings API=8\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "cb792ec5852500af7f1473bbcc0d90760e1517ba9beb599cc73cb7d61150d626",
+    "glbridge/sample/d3d8_target_binding_test.c": "628ef49e66e6fb3765c4054dc61c0ca146ec8f60bc4d76dd02d2fb6d5147c18f"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "b2e9ab5575d2741270f1e4d7c6283fd17d2aae199a9dc8e345a1b071df0a8cbc"
+    },
+    "exeSha256": {
+      "8": "6812df01aa44987b8552b5810365078b361516049cb250c5b03d19539c3448ca"
+    }
+  },
+  "scope": "two real D3D8 Clear/GPU-CopyRects/Present frames from a public-zero single-sample RT/depth pair, plus a four-sample binding-only device-finalization pair; 32 dual-surface public-zero revivals and borrowed same-target rebindings, private-data retention, bound-only Reset and device-last/unbind cleanup with five exact protected finalizers; proxy runtime, not original Microsoft HAL"
+}
