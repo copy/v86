@@ -417,7 +417,7 @@ game.exe
 | S2-44 | COLORFILL 颜色的格式，三处说法互相矛盾 | `GD:2331` 原样发送 `dwFillColor`；`PH:1049` 说是“目标格式的值”；`DO:416-431` 按 A8R8G8B8 解码，并注释“客体已转换” | 565 的白色 0xFFFF 变成青色；用颜色键预填的表面不再匹配键；32 位 X8 填充 alpha 为 0。只有索引色填充有测试 | ✅；W+（ddraw7 `test_color_fill`；Wine 用目标格式的掩码解码，`ddraw/utils.c:593-645`） |
 | S2-45 | 窗口剪裁器用客户区坐标裁剪 | `GD:2256-2266, 2417+`（`GetClientRect`，不做 `ClientToScreen`） | 主表面是屏幕坐标 → 不在 (0,0) 的窗口被裁错或完全不画 | ✅；W+（ddraw7 `tests/ddraw7.c:1360-1384`：剪裁列表是映射到屏幕坐标的可见区域） |
 | S2-46 | 表面颜色键没有 `DDCKEY_COLORSPACE` 时仍用 high 值；带 COLORSPACE 的范围键应返回 `DDERR_NOCOLORKEYHW` | `GD:3256, 4435-4446, 2839`、`DO:240-245` | Windows 在缺这个标志时令 high=low，应用常把 high 留 0 或垃圾值 → 精灵不透明或出现空洞。Blt 的覆盖键（DDBLTFX）仍是范围，保持现状 | ✅；W+（`ddraw/surface.c:5243-5257`；ddraw7 `test_range_colorkey`）；4I1 |
-| S2-47 | stage 0 的 alpha 默认值被 TEXTUREMAPBLEND 回放覆盖；没有按版本区分的默认状态 | `D7:1058, 2410, 1820-1829, 1125`、`ddraw_protocol.h:760-764` | 所有版本共用一套初始化，D3D7 也从 `SELECTARG2(DIFFUSE)` 开始 → alpha 纹理几何画成不透明；传统 MODULATE 应在纹理有 alpha 或未绑纹理时取 `SELECTARG1(TEXTURE)`，否则 `SELECTARG2(CURRENT)`，并在 SetTexture 时重算；D3D7 上 TEXTUREMAPBLEND 应返回 `DDERR_INVALIDPARAMS`；按版本的默认值缺失（v1 COLORKEYENABLE=TRUE，v2 SPECULARENABLE=TRUE，v1–3 NORMALIZENORMALS=TRUE 等） | W+（`ddraw/device.c:2697-2722` `fixup_texture_alpha_op`、`6943-6953`；ddraw4 `11171-11273`、ddraw7 `16094-16101`、ddraw1 `2165-2170` 等） |
+| S2-47 | stage 0 的 alpha 默认值被 TEXTUREMAPBLEND 回放覆盖；没有按版本区分的默认状态 | `D7:1058, 2410, 1820-1829, 1125`、`ddraw_protocol.h:760-764` | 所有版本共用一套初始化，D3D7 也从 `SELECTARG2(DIFFUSE)` 开始 → alpha 纹理几何画成不透明；传统 MODULATE 应在纹理有 alpha 或未绑纹理时取 `SELECTARG1(TEXTURE)`，否则 `SELECTARG2(CURRENT)`，并在 SetTexture 时重算；D3D7 上 TEXTUREMAPBLEND 应返回 `DDERR_INVALIDPARAMS`；按版本的默认值缺失（v1 COLORKEYENABLE=TRUE，v2 SPECULARENABLE=TRUE，v1–3 NORMALIZENORMALS=TRUE 等） | ✅；W+（`ddraw/device.c:2697-2722` `fixup_texture_alpha_op`、`6943-6953`；ddraw4 `11171-11273`、ddraw7 `16094-16101`、ddraw1 `2165-2170` 等）；4I2 |
 | S2-48 | 对 GPU 写过的表面做 `DDLOCK_WRITEONLY` 锁定会擦掉内容 | `GD:3177, 3333-3335` | 软件光标或 HUD 叠在 D3D 帧上时，把整帧替换掉 | ☑️；W（`ddraw/utils.c:570-571` WRITEONLY 只去掉读权限，内容保留；无 Windows 测试） |
 | S2-49 | `palette_SetEntries` 不触发呈现 | `GD:3833` | 只改调色板的淡入淡出不可见，要到下一次 Flip | ☑️；W（`ddraw/palette.c:160-181` 主表面的调色板立即更新前台） |
 | S2-50 | 可见表面写入：丢失或越界 | `GD:2485, 2553, 3036, 3336`、`DO:356` | flip chain 下画在前缓冲的加载画面不可见；窗口模式 `Unlock(NULL)`/`ReleaseDC` 把整个桌面标脏，其他窗口被盖上旧桌面 | ☑️ |
@@ -2001,6 +2001,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **XP 的 CPU 读回回复是模拟值，不作像素验收。** SwiftShader / 本机 GPU 独立重放实际命令，各检查六次实际 GPU 读回、24 个 X8R8G8B8 像素，覆盖单值键、两个端点都保留的覆盖范围及缓存恢复；全部零误差、零读回/回复写入/GPU/宿主错误。重放区分能力/心跳与像素回复，并等待异步读回；没有主表面呈现或新的其他格式像素声明。
 > - 21 组相关核心、244 组完整客体、四个标准 DirectDraw SDK EXE、两份严格 DirectDraw DLL、新 SDK EXE及站点两项集成通过；发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL。D3D8/9、宿主/协议/着色器和 bundle `64aa2cd7f7413ccbe760` 不变；继承 7d、8l 基线，新增本次双 GPU 颜色键场景。见 [stage4i1-validation.json](fixtures/d3d-review/stage4i1-validation.json)。
 > - S2-47 分版本默认状态/传统 alpha 修正、S2-53 所有权、其余资源公共绑定计数及包装转换、完整格式/Reset/线程/丢失、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I2（2026-11-03）：D3D1/2/3/7 分版本默认状态与传统 MODULATE alpha（S2-47）完成。**
+>
+> - 创建版本在初始化前传入公共实现：v1 开启 COLORKEYENABLE、v2 开启 SPECULARENABLE，v1–3 开启 NORMALIZENORMALS；D3D7 保持三者关闭。初始同步只使用有效 Device7 状态，清除复用宿主设备上的零默认值，不再重放旧 TEXTUREMAPBLEND 覆盖 stage 0 的 SELECTARG1(TEXTURE)/CURRENT。
+> - 传统 MODULATE 在 ARGB/未绑定纹理时选择纹理 alpha，在 RGB 时选择 CURRENT alpha，绑定变化重新计算；未改变的传统 stage/map 值不切换模式，改变 stage 退出传统模式，改变 map 重新启用。传统 LIGHTING/LOCALVIEWER/NORMALIZENORMALS 查询返回 FFFFFFFF、写入忽略，Device7 视图仍查询实际默认状态；既有 Device7 旧状态拒绝及重复调用缓存行为保留。
+> - 固定 Wine device、ddraw1/2/4/7 Windows 测试均核验 Git blob 字节哈希。native 编译实际初始化、同步、render emitter 和状态/绑定函数；非相关矩阵/material/clip 与宿主发送使用 stub。128 轮 RGB/ARGB/NULL 绑定、引用归还、现代显式模式、同值保护、绑定失败回滚及已接受纹理前缀后的 alpha 失败重试通过；保留 170+1,052 项原生状态观察。20 项变异全部严格编译后以运行断言检出，ASan/UBSan 通过。旧前端配当前共享 cascade 头严格编译后在版本默认值断言失败，未宣称整套旧 bundle 对照。
+> - XP 经 v1 表面 QI、v2/v3/v7 CreateDevice 四条实际入口创建，并以 Device3/7 视图执行状态和纹理调用。四个逻辑设备共用一个宿主设备，12 个表面完整退休，203 秒、18 批命令，真实 owner 归还；16 次四边形绘制与实际读回命令、28 项冻结记录语义损坏检查通过。**XP 的 CPU 像素回复是模拟值，不作像素验收。**
+> - SwiftShader / 本机 GPU 各独立核对 16 次实际 GPU 读回、1,024 个 ARGB 目标 RGBA 像素：纹理 alpha=128、顶点 alpha=64、现代 RGB 纹理 alpha=255，以及显式模式退出/恢复，均零误差、零读回/回复写入/GPU/宿主错误；没有主表面 Present。
+> - 22 组相关核心、245 组完整客体、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；发布最终 XP 所测 DDraw 零售 DLL及严格诊断 DLL。D3D8/9、宿主/协议 ABI/着色器与 bundle `64aa2cd7f7413ccbe760` 不变，继承 7d/4I1 基线并增加本次双后端 alpha 场景。见 [stage4i2-validation.json](fixtures/d3d-review/stage4i2-validation.json)。
+> - 混合新旧接口下状态块的传统模式元数据、S2-53 所有权及其他未完成项、其余资源公共绑定计数及包装转换、完整格式/Reset/线程/丢失、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
