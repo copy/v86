@@ -1,0 +1,239 @@
+{
+  "schema": 1,
+  "owners": [
+    1
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 0,
+      "step": 0,
+      "slot": 0,
+      "zero": 4280295440,
+      "one": 4280320016,
+      "index": 0,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 1,
+      "step": 0,
+      "slot": 1,
+      "zero": 4281344016,
+      "one": 4281368592,
+      "index": 1,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 1,
+      "step": 1,
+      "slot": 1,
+      "zero": 4281344016,
+      "one": 4281892944,
+      "index": 2,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 1,
+      "step": 2,
+      "slot": 1,
+      "zero": 4281344016,
+      "one": 4281892944,
+      "index": 3,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 2,
+      "step": 0,
+      "slot": 3,
+      "zero": 4282392592,
+      "one": 4282417168,
+      "index": 4,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 2,
+      "step": 1,
+      "slot": 3,
+      "zero": 4282392592,
+      "one": 4282941520,
+      "index": 5,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 2,
+      "step": 2,
+      "slot": 3,
+      "zero": 4282392592,
+      "one": 4282941520,
+      "index": 6,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 3,
+      "step": 0,
+      "slot": 5,
+      "zero": 4283441168,
+      "one": 4283465744,
+      "index": 7,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 3,
+      "step": 1,
+      "slot": 5,
+      "zero": 4283441168,
+      "one": 4283990096,
+      "index": 8,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 3,
+      "step": 2,
+      "slot": 5,
+      "zero": 4283441168,
+      "one": 4283990096,
+      "index": 9,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 4,
+      "step": 0,
+      "slot": 7,
+      "zero": 4284489744,
+      "one": 4284514320,
+      "index": 10,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 4,
+      "step": 1,
+      "slot": 7,
+      "zero": 4284489744,
+      "one": 4285038672,
+      "index": 11,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 4,
+      "step": 2,
+      "slot": 7,
+      "zero": 4284489744,
+      "one": 4285038672,
+      "index": 12,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 7,
+      "step": 0,
+      "slot": 9,
+      "zero": 4287635472,
+      "one": 4287660048,
+      "index": 13,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 7,
+      "step": 1,
+      "slot": 9,
+      "zero": 4287635472,
+      "one": 4288184400,
+      "index": 14,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "owner": 1,
+      "device": 1048577,
+      "texture": 1048578,
+      "api": 7,
+      "step": 2,
+      "slot": 9,
+      "zero": 4287635472,
+      "one": 4288184400,
+      "index": 15,
+      "width": 32,
+      "height": 24
+    }
+  ],
+  "paletteTables": 37,
+  "bindings": 6,
+  "uploads": 1,
+  "palettes": 11,
+  "refusals": 10,
+  "unboundUpdates": 5,
+  "traceSha256": "1787ba7434393c028676fc7da8eda5df4632be8339bef70faa574f2b7c2f33e2",
+  "referenceSha256": "abdc89ba405446a9a941e8e2c7836fe53706472c690dd7d7ca89a2621d6b9fff",
+  "sdkLogs": {
+    "PALT.TXT": "PALETTE FRAME api=0 step=0 zero=FF202010 one=FF208010 drawAfter=0\r\nPALETTE FRAME api=1 step=0 zero=FF302010 one=FF308010 drawAfter=0\r\nPALETTE FRAME api=1 step=1 zero=FF302010 one=FF388050 drawAfter=0\r\nPALETTE FRAME api=1 step=2 zero=FF302010 one=FF388050 drawAfter=0\r\nPALETTE API api=1 visibleUpdates=3 unboundUpdates=1 refusals=2 textureUploads=0\r\nPALETTE FRAME api=2 step=0 zero=FF402010 one=FF408010 drawAfter=0\r\nPALETTE FRAME api=2 step=1 zero=FF402010 one=FF488050 drawAfter=0\r\nPALETTE FRAME api=2 step=2 zero=FF402010 one=FF488050 drawAfter=0\r\nPALETTE API api=2 visibleUpdates=3 unboundUpdates=1 refusals=2 textureUploads=0\r\nPALETTE FRAME api=3 step=0 zero=FF502010 one=FF508010 drawAfter=0\r\nPALETTE FRAME api=3 step=1 zero=FF502010 one=FF588050 drawAfter=0\r\nPALETTE FRAME api=3 step=2 zero=FF502010 one=FF588050 drawAfter=0\r\nPALETTE API api=3 visibleUpdates=3 unboundUpdates=1 refusals=2 textureUploads=0\r\nPALETTE FRAME api=4 step=0 zero=FF602010 one=FF608010 drawAfter=0\r\nPALETTE FRAME api=4 step=1 zero=FF602010 one=FF688050 drawAfter=0\r\nPALETTE FRAME api=4 step=2 zero=FF602010 one=FF688050 drawAfter=0\r\nPALETTE API api=4 visibleUpdates=3 unboundUpdates=1 refusals=2 textureUploads=0\r\nPALETTE FRAME api=7 step=0 zero=FF902010 one=FF908010 drawAfter=0\r\nPALETTE FRAME api=7 step=1 zero=FF902010 one=FF988050 drawAfter=0\r\nPALETTE FRAME api=7 step=2 zero=FF902010 one=FF988050 drawAfter=0\r\nPALETTE API api=7 visibleUpdates=3 unboundUpdates=1 refusals=2 textureUploads=0\r\nPALETTE STATUS versions=5 palettes=11 frames=16 indexUploads=1 surfaceRefs=0 factoryRefs=0\r\nPASS DirectDraw palette presentation\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/ddrawproxy/ddraw_proxy.c": "711726777c8b03d025a1f951aa5bc41eae980f0d89a8b37c1ac3e78af9b93d02",
+    "glbridge/sample/ddraw_palette_presentation_test.c": "d6175eea8af4880cb479b9b2850150ebc9a72aa64c006a4204c2078705689f35"
+  },
+  "captureBuild": {
+    "dllSha256": "350521ca38d3426ccfe90e78a012fec881b2ad4f57e5fd0245562c6f9d2e5a05",
+    "exeSha256": "ca9b63a39c9aa45e20c618294101c7b848e177c49ddbac3ad11deb9ce765a17a"
+  },
+  "scope": "Actual five factory palette APIs and P8 primary: sixteen initial/palette-only presentations, one index upload, unrelated palette and invalid-call isolation. Bridge virtual 32x24x8 fullscreen mode uses Win32 mode-switch fallback; not native mode/HAL validation. Independent GPU replay checks resolved and displayed checkerboard colors"
+}

@@ -419,7 +419,7 @@ game.exe
 | S2-46 | 表面颜色键没有 `DDCKEY_COLORSPACE` 时仍用 high 值；带 COLORSPACE 的范围键应返回 `DDERR_NOCOLORKEYHW` | `GD:3256, 4435-4446, 2839`、`DO:240-245` | Windows 在缺这个标志时令 high=low，应用常把 high 留 0 或垃圾值 → 精灵不透明或出现空洞。Blt 的覆盖键（DDBLTFX）仍是范围，保持现状 | ✅；W+（`ddraw/surface.c:5243-5257`；ddraw7 `test_range_colorkey`）；4I1 |
 | S2-47 | stage 0 的 alpha 默认值被 TEXTUREMAPBLEND 回放覆盖；没有按版本区分的默认状态 | `D7:1058, 2410, 1820-1829, 1125`、`ddraw_protocol.h:760-764` | 所有版本共用一套初始化，D3D7 也从 `SELECTARG2(DIFFUSE)` 开始 → alpha 纹理几何画成不透明；传统 MODULATE 应在纹理有 alpha 或未绑纹理时取 `SELECTARG1(TEXTURE)`，否则 `SELECTARG2(CURRENT)`，并在 SetTexture 时重算；D3D7 上 TEXTUREMAPBLEND 应返回 `DDERR_INVALIDPARAMS`；按版本的默认值缺失（v1 COLORKEYENABLE=TRUE，v2 SPECULARENABLE=TRUE，v1–3 NORMALIZENORMALS=TRUE 等） | ✅；W+（`ddraw/device.c:2697-2722` `fixup_texture_alpha_op`、`6943-6953`；ddraw4 `11171-11273`、ddraw7 `16094-16101`、ddraw1 `2165-2170` 等）；4I2 |
 | S2-48 | 对 GPU 写过的表面做 `DDLOCK_WRITEONLY` 锁定会擦掉内容 | `GD:3177, 3333-3335` | 软件光标或 HUD 叠在 D3D 帧上时，把整帧替换掉 | ✅；W（`ddraw/utils.c:570-571` WRITEONLY 只去掉读权限，内容保留；无 Windows 测试）；4I3 |
-| S2-49 | `palette_SetEntries` 不触发呈现 | `GD:3833` | 只改调色板的淡入淡出不可见，要到下一次 Flip | ☑️；W（`ddraw/palette.c:160-181` 主表面的调色板立即更新前台） |
+| S2-49 | `palette_SetEntries` 不触发呈现 | `GD:3833` | 只改调色板的淡入淡出不可见，要到下一次 Flip | ✅；W（`ddraw/palette.c:160-181` 主表面的调色板立即更新前台）；4I4 |
 | S2-50 | 可见表面写入：丢失或越界 | `GD:2485, 2553, 3036, 3336`、`DO:356` | flip chain 下画在前缓冲的加载画面不可见；窗口模式 `Unlock(NULL)`/`ReleaseDC` 把整个桌面标脏，其他窗口被盖上旧桌面 | ☑️ |
 | S2-51 | 非主表面的 flip chain 错误 | `GD:2675`、`DO:717` | overlay flip chain 被 1:1 贴到交换链上，overlay 显示的是应用正在画的那块缓冲 | ☑️ |
 | S2-52 | 执行缓冲 `D3DPROCESSVERTICES_TRANSFORM` 丢掉 LVERTEX 颜色；传统视口映射被忽略 | `DL:2882, 2896-2897`；`DL:639-656, 780-820` | 预光照几何变白；D3DVIEWPORT 的 `dvScaleX/Y` 和 D3DVIEWPORT2 的 `dvClip*`、MinZ/MaxZ 应经裁剪空间矩阵生效（深度范围固定 0..1；`dvMaxX/Y` Wine 也不用） | W+（`ddraw/executebuffer.c:417-429`、`viewport.c:28-101`；ddraw1 `7732-7741`、ddraw2 `12983-13130`） |
@@ -2020,6 +2020,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **XP 的 CPU 回复是显式模拟意图数据。** SwiftShader / 本机 GPU 另行验证全部 29 个实际成功 GPU 回复、464 个 RGBA 像素，包括三种 CPU 拒绝前的原图及 13 份修改后的图像，每份仍有 15 个原像素。CPU 注入错误不会修改 GPU 命令，GPU 回放中的对应请求仍应成功；两后端全部零像素/读回/回复写入/GPU/宿主错误，没有主表面 Present。
 > - 23 组相关核心、247 组完整客体、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL。D3D8/9、D3D1–7 状态实现、宿主/协议/着色器和 bundle `64aa2cd7f7413ccbe760` 不变；继承 7d/4I2 基线，新增本次双后端锁定场景。见 [stage4i3-validation.json](fixtures/d3d-review/stage4i3-validation.json)。
 > - native 压缩用例只覆盖指针及边界，不是新增 BC GPU 像素验收。GetDC 失败策略、嵌套锁重新设计、S2-49 至 S2-55/S2-57、所有权及包装转换、完整格式/Reset/线程/丢失、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I4（2026-11-03）：DirectDraw 索引色主表面调色板即时呈现（S2-49）完成。**
+>
+> - SetEntries 成功后，只有该调色板正绑定当前 P8 主表面时才立即解析到交换图像并 Present；未绑定/无关调色板、没有主表面和非索引色表面不额外呈现。合法空范围沿用成功调用行为；无效输入不修改缓存或发送命令。解析/Present 失败返回 GENERIC，保留已接受的调色板前缀，同值调用可重试。
+> - Wine palette SetEntries 的主表面更新路径核验到 Git blob 字节哈希，仍属实现证据，没有新增原生 Microsoft HAL Windows 对照。native 编译实际完整 Set/GetEntries，375,706 项断言、1,445 组范围/绑定状态，检查 table → resolve → Present 顺序、部分更新、未触及项、输入不变及失败重试。10 项变异严格编译后全部以运行断言检出，ASan/UBSan 通过；旧源严格编译后在实际缺失呈现的计数断言失败。
+> - XP 经 DD1/2/3/4/7 五条调色板工厂入口，创建 11 个调色板及一个 P8 主表面。一次索引棋盘上传后，十五次仅 SetEntries 的调用立即呈现，加上初始帧共 16 帧；37 份完整调色板、六次绑定、五次未绑定更新及十次拒绝调用逐项核对，31 项冻结语义损坏全部检出。118 秒、20 批命令，所有公开引用及真实 owner 归还。
+> - 测试使用既有 32×24×8 虚拟全屏模式，Win32 模式切换失败后的桥接 fallback；不代表原生模式接受或真实桌面切换。XP 没有像素读回回复。SwiftShader / 本机 GPU 各独立验证 16 帧、12,288 个真实解析主表面读回像素及 12,288 个实际显示像素，所有棋盘颜色、alpha 和呈现时序均零误差、零 GPU/宿主/读回错误。
+> - 25 组相关核心（包含既有 DDraw 执行器）、17 组完整 DDraw/D3D1–7 相关客体回归、四个标准 DirectDraw SDK EXE、两份严格 DLL、新 SDK EXE及两项站点集成通过；其余客体继承紧邻 4I3 的 247 组完整回归。只发布最终 XP 所测 DDraw 零售 DLL 和严格诊断 DLL，D3D8/9、宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 不变。见 [stage4i4-validation.json](fixtures/d3d-review/stage4i4-validation.json)。
+> - S2-50/51 前缓冲/窗口脏区/非主表面 Flip、S2-52/53/54/55/57、GetDC 调色板 fallback、完整所有权/包装转换/格式/Reset/线程/丢失、多缓冲轮转、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**

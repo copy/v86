@@ -1,0 +1,39 @@
+<!doctype html><meta charset="utf-8"><title>DirectDraw palette-only presentation</title><canvas id="screen" width="32" height="24"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+ /* global TextDecoder */
+ "use strict";
+ const P=D9WGProtocol,C=P.C,comparisons=[],callbacks={acquired:0,configured:0,unconfigured:0};let gpu,display,batches=0,rawPixels=0,displayPixels=0,request=0;
+ function check(v,m){if(!v)throw Error(m);}
+ async function hash(b){return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",b)),v=>v.toString(16).padStart(2,"0")).join("");}
+ async function artifact(v){await fetch("/__test_file?name=ddraw-palette-presentation-guest.json",{method:"POST",body:JSON.stringify(v,null,2)});}
+ function byte(color,channel){return color>>>(channel*8)&255;}
+ function checkPixels(data,pitch,offset,format,f){let error=0;for(let y=0;y<24;y++)for(let x=0;x<32;x++){const color=(x+y)&1?f.one:f.zero;for(let c=0;c<4;c++)error=Math.max(error,Math.abs(data[offset+y*pitch+x*4+c]-byte(color,format.startsWith("bgra")?c:[2,1,0,3][c])));}return error;}
+ async function readRaw(f){const payload=P.encode("ReadbackSurface",{device_handle:f.device,texture_handle:0,format:22,width:32,height:24,row_count:24,destination_pitch:128,destination_bytes:3072,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:++request});let raw;await gpu.onReadbackSurface(payload,new DataView(payload.buffer),0,payload.length,{writeGuestMemory(at,b){check(at===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET,"raw address");raw=b.slice();}});check(raw&&raw.length===3088&&new DataView(raw.buffer,raw.byteOffset).getUint32(P.F.ReadbackResponse.status,true)===C.D9WG_RESPONSE_OK,"actual resolved primary readback");rawPixels+=768;return checkPixels(raw,128,16,"bgra8unorm",f);}
+ async function readDisplay(f){const buffer=gpu.device.createBuffer({size:256*24,usage:0x9}),encoder=gpu.device.createCommandEncoder();encoder.copyTextureToBuffer({texture:display},{buffer,bytesPerRow:256,rowsPerImage:24},[32,24]);gpu.device.queue.submit([encoder.finish()]);await buffer.mapAsync(1);const error=checkPixels(new Uint8Array(buffer.getMappedRange()),256,0,gpu.format,f);buffer.unmap();buffer.destroy();displayPixels+=768;return error;}
+ try{
+  const prefix="fixtures/ddraw_palette_presentation_",m=await(await fetch(prefix+"xp.json")).json(),refBytes=new Uint8Array(await(await fetch(prefix+"reference.json")).arrayBuffer());check(await hash(refBytes)===m.referenceSha256,"reference hash");const reference=JSON.parse(new TextDecoder().decode(refBytes));const response=await fetch(prefix+"xp.bin.gz"),bytes=new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()),view=new DataView(bytes.buffer);check(await hash(bytes)===m.traceSha256,"trace hash");
+  gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false});await gpu.initialize();display=gpu.device.createTexture({size:[32,24],format:gpu.format,usage:0x17});gpu.context={configure(){callbacks.configured++;},unconfigure(){callbacks.unconfigured++;},getCurrentTexture(){callbacks.acquired++;return display;}};
+  for(let at=0;at<bytes.length;){const ownerToken=view.getUint32(at,true),flags=view.getUint32(at+4,true),size=view.getUint32(at+8,true);at+=12;check(size>=8&&size<=bytes.length-at&&view.getUint16(at,true)===0xffe1&&view.getUint32(at+4,true)===size-8,"carrier");const packet=bytes.subarray(at+8,at+size),pv=new DataView(packet.buffer,packet.byteOffset,packet.byteLength),presents=[];for(let x=P.STRUCTS.BatchHeader.size;x<packet.length;){const op=pv.getUint16(x,true),length=pv.getUint32(x+P.F.CommandHeader.size,true);check(length>=16&&x+length<=packet.length,"command");check(op!==P.OP.READBACK_SURFACE&&op!==P.OP.PRESENT_SWAP_CHAIN,"unexpected guest rendering");if(op===P.OP.PRESENT)presents.push(P.decode("Present",pv,x+16,length-16));x+=length;}check(presents.length<=1,"guest batching");await gpu.submit(packet,{ownerToken,flags,writeGuestMemory(){}});if(presents.length){const f=m.frames[comparisons.length],wanted=reference.frames[comparisons.length];check(f&&wanted&&f.owner===ownerToken&&f.device===presents[0].device_handle&&f.zero===wanted.zero&&f.one===wanted.one&&f.api===wanted.api&&f.step===wanted.step,"independent frame");comparisons.push({...f,rawError:await readRaw(f),displayError:await readDisplay(f)});}at+=size;batches++;}
+  check(m.ownerReleases.length===1,"real owner release");for(const owner of m.ownerReleases)await gpu.endOwnerSessions(owner);await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
+  await artifact({traceSha256:m.traceSha256,referenceSha256:m.referenceSha256,frames:comparisons.length,rawPixels,displayPixels,comparisons,callbacks,batches,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors});
+  check(comparisons.length===16&&rawPixels===12288&&displayPixels===12288&&comparisons.every(c=>!c.rawError&&!c.displayError),"palette checkerboard mismatch");check(gpu.stats.presents===16&&gpu.stats.readbackRequests===16&&gpu.stats.sessionsEnded===1&&!gpu.stats.commandsFailed&&!gpu.stats.renderTargetReadbackFailures&&!gpu.stats.responseWriteFailures&&!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&callbacks.acquired===16,"palette host lifetime");display.destroy();document.querySelector("#result").textContent="PASS actual XP palette-only presentation: sixteen P8 checkerboards, one index upload, five factory APIs, 12288 raw and 12288 displayed pixels, zero error";
+ }catch(error){await artifact({failed:true,error:String(error.stack),comparisons,stats:gpu&&gpu.stats,gpuErrors:gpu&&gpu.gpuErrors.errors,hostErrors:gpu&&gpu.hostErrors});document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>

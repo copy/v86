@@ -1,0 +1,201 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "frames": [
+    {
+      "api": 0,
+      "step": 0,
+      "slot": 0,
+      "zero": 4280295440,
+      "one": 4280320016,
+      "index": 0,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 0,
+      "slot": 1,
+      "zero": 4281344016,
+      "one": 4281368592,
+      "index": 1,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 1,
+      "slot": 1,
+      "zero": 4281344016,
+      "one": 4281892944,
+      "index": 2,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 1,
+      "step": 2,
+      "slot": 1,
+      "zero": 4281344016,
+      "one": 4281892944,
+      "index": 3,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 0,
+      "slot": 3,
+      "zero": 4282392592,
+      "one": 4282417168,
+      "index": 4,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 1,
+      "slot": 3,
+      "zero": 4282392592,
+      "one": 4282941520,
+      "index": 5,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 2,
+      "step": 2,
+      "slot": 3,
+      "zero": 4282392592,
+      "one": 4282941520,
+      "index": 6,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 0,
+      "slot": 5,
+      "zero": 4283441168,
+      "one": 4283465744,
+      "index": 7,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 1,
+      "slot": 5,
+      "zero": 4283441168,
+      "one": 4283990096,
+      "index": 8,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 3,
+      "step": 2,
+      "slot": 5,
+      "zero": 4283441168,
+      "one": 4283990096,
+      "index": 9,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 0,
+      "slot": 7,
+      "zero": 4284489744,
+      "one": 4284514320,
+      "index": 10,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 1,
+      "slot": 7,
+      "zero": 4284489744,
+      "one": 4285038672,
+      "index": 11,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 4,
+      "step": 2,
+      "slot": 7,
+      "zero": 4284489744,
+      "one": 4285038672,
+      "index": 12,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 0,
+      "slot": 9,
+      "zero": 4287635472,
+      "one": 4287660048,
+      "index": 13,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 1,
+      "slot": 9,
+      "zero": 4287635472,
+      "one": 4288184400,
+      "index": 14,
+      "width": 32,
+      "height": 24
+    },
+    {
+      "api": 7,
+      "step": 2,
+      "slot": 9,
+      "zero": 4287635472,
+      "one": 4288184400,
+      "index": 15,
+      "width": 32,
+      "height": 24
+    }
+  ],
+  "sources": [
+    {
+      "file": "ddraw-palette-presentation.c",
+      "blobSha1": "e656a7b407dbefb728adaae4b5706c3356c22024",
+      "sha256": "347374d2b1bd42adc573f8b698998d3f88ad47523bffbbaf2ac36320ec36d684",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/palette.c",
+      "evidence": "Successful SetEntries on a palette marked PRIMARYSURFACE immediately calls ddraw_surface_update_frontbuffer. Wine implementation evidence, not a frozen Microsoft HAL observation."
+    }
+  ],
+  "scope": "S2-49: successful palette SetEntries immediately resolves and presents the current P8 primary when that exact palette is bound. Unbound/unrelated palettes, no primary and nonindexed surfaces do not present. Empty valid ranges still follow successful-update presentation. Invalid arguments preserve table/output/emission behavior. Screen-resolve/Present failures return GENERIC, keep the accepted table prefix and retry with unchanged input. Actual native Set/GetEntries: 375706 checks, 1445 range/profile cases, exact table-resolve-Present order and input/unused-entry preservation; ten runtime mutations, old-source strictly compiled runtime control and ASan/UBSan. XP exercises palette creation through DD1/2/3/4/7, one P8 primary and eleven palettes: sixteen presentations, fifteen caused solely by SetEntries, one checkerboard index upload, 37 exact palette tables, six bindings, ten invalid calls and five unbound updates with no extra presentation. Uses existing bridge 32x24x8 virtual fullscreen mode and unsuccessful Win32 mode-switch fallback, not native HAL or native mode acceptance. Independent GPU replay checks every pixel of sixteen resolved primary textures and sixteen actual displayed textures: 12288 raw plus 12288 displayed per backend. No CPU pixel reply is used. Fresh targeted DDraw/D3D1-7 regression inherits full 247-suite guest baseline from 4I3; D3D8/9 and host/protocol/shader/bundle unchanged. S2-50/51 visible/front/overlay flip updates, S2-52/53/54/55/57, GetDC palette fallback, broader ownership/resource conversion, all formats/Reset/threads/device loss, gameplay/FPS, native HAL and review stages 4/5/6 remain open.",
+  "facts": {
+    "nativeChecks": 375706,
+    "nativeRangeProfiles": 1445,
+    "newMutations": 10,
+    "apiVersions": [
+      1,
+      2,
+      3,
+      4,
+      7
+    ],
+    "palettes": 11,
+    "presents": 16,
+    "paletteOnlyPresents": 15,
+    "uploads": 1,
+    "paletteTables": 37,
+    "bindings": 6,
+    "refusals": 10,
+    "unboundUpdates": 5,
+    "rawPixels": 12288,
+    "displayPixels": 12288,
+    "format": 41,
+    "originalMicrosoftHAL": false
+  }
+}
