@@ -1,0 +1,117 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048578,
+        1048579
+      ],
+      "created": 1,
+      "destroyed": 1,
+      "resets": 2,
+      "clears": 3,
+      "presents": 3,
+      "viewports": 0,
+      "hello": 1,
+      "ended": 1
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "handles": [
+        1048577,
+        1048578,
+        1048579
+      ],
+      "created": 1,
+      "destroyed": 1,
+      "resets": 2,
+      "clears": 3,
+      "presents": 3,
+      "viewports": 3,
+      "hello": 1,
+      "ended": 1
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "phase": 0,
+      "device": 1048577,
+      "width": 128,
+      "height": 96
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "phase": 1,
+      "device": 1048578,
+      "width": 160,
+      "height": 112
+    },
+    {
+      "owner": 1,
+      "api": 8,
+      "phase": 2,
+      "device": 1048579,
+      "width": 96,
+      "height": 80
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "phase": 0,
+      "device": 1048577,
+      "width": 128,
+      "height": 96
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "phase": 1,
+      "device": 1048578,
+      "width": 160,
+      "height": 112
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "phase": 2,
+      "device": 1048579,
+      "width": 96,
+      "height": 80
+    }
+  ],
+  "deviceLifetimes": 2,
+  "resets": 4,
+  "viewportCommands": 3,
+  "traceSha256": "478058358b250ac948e89a763c081df637b84e8a126b8c80fa9112f955775744",
+  "referenceSha256": "d82d3890396333d86202b0881e57f1524adc1faf15ab7bc57c647e282f25b5dc",
+  "sdkLogs": {
+    "GEO8.TXT": "PRESENT GEOMETRY api=8 step=0 width=128 height=96 callerWidth=0 callerHeight=0 count=1 hWindowNull=1\r\nPRESENT GEOMETRY api=8 step=1 width=160 height=112 callerWidth=0 callerHeight=0 count=1 hWindowNull=1\r\nPRESENT GEOMETRY api=8 step=2 width=96 height=80 callerWidth=96 callerHeight=0 count=1 hWindowNull=1\r\nPRESENT GEOMETRY STATUS frames=3 resets=2 viewport=3 color=3 depth=3 count=1\r\nPASS present geometry API=8\r\n",
+    "GEO9.TXT": "PRESENT GEOMETRY api=9 step=0 width=128 height=96 callerWidth=128 callerHeight=96 count=1 hWindowNull=1\r\nPRESENT GEOMETRY api=9 step=1 width=160 height=112 callerWidth=160 callerHeight=112 count=1 hWindowNull=1\r\nPRESENT GEOMETRY api=9 step=2 width=96 height=80 callerWidth=96 callerHeight=80 count=1 hWindowNull=1\r\nPRESENT GEOMETRY STATUS frames=3 resets=2 viewport=3 color=3 depth=3 count=1\r\nPASS present geometry API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_present_parameters.h": "8b4f8fdae0d40457a6f47db9abea356819615b8adbc689cdd01ac278093d5861",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "6197718e6bba648fbdae8198b3dc5be2af56bc19d785ed225e686882f7e6da76",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "a0cb3fe47fd6aad74ece1f44bb33bbaaf9d7bf8cee1806dea78a131c2145c38d",
+    "glbridge/sample/d3d_present_geometry_test.c": "54d76e0db73162e4f0ff0535f37228576fe7502a76f7be39691e6a33a904af8a"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "5c313dbd45f43d1317974372eee78663f2527f303e8d4361175a74304979c65a",
+      "9": "bc402af7dd33c53de3bc2f4b41fe3088da8c69739e8a28ca5549a29a2fcbb781"
+    },
+    "exeSha256": {
+      "8": "4cb4e5e6492a4eecefab519144565927d5b6ad4574a1df426d1e0590a405fac2",
+      "9": "32584a0eddc8218fa5640e4d17b39e77a365ccf7dec6508b6825b4c3a53fd0d1"
+    }
+  },
+  "scope": "not exercised; captured six uniform-color frames across zero/partial presentation dimensions, 128x96 creation, 160x112 and 96x80 Reset; raw/display pixels validated separately on actual WebGPU replay"
+}

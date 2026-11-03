@@ -1810,6 +1810,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 四组相关核心、十组相关客体、36 个标准 SDK EXE、六份严格 DLL、另两份选择器 SDK EXE及站点两项集成通过；其余检查继承 4H6f4c 完整基线。发布本次 XP 所测两版零售 DLL 和严格诊断 DLL，DDraw 保持上一验收文件。宿主/协议/着色器不变，无新 GPU 像素运行，继承 4H6f4c/4H6c。见 [stage4h6f5b-validation.json](fixtures/d3d-review/stage4h6f5b-validation.json)。
 > - 继续呈现参数归一化、附加链独立缓冲/身份/容器及多缓冲边界；完整 Reset、包装转换和阶段 4/5/6 尚未完成。
 
+> **阶段 4H6f6a（2026-11-03）：D3D8/9 窗口设备的实际缓冲尺寸与参数回写（S2-26 / S1-9 相关）完成。**
+>
+> - 两版 CreateDevice 在分配尺寸相关的客体存储前解析窗口客户区，零尺寸不再让宿主缓冲与客体默认视口/表面分别使用客户区和 640×480。D3D8 front shadow、D3D9 默认 scissor、缓存呈现参数与宿主 CreateDevice 使用同一尺寸；Reset 共用同一尺寸选择与参数策略，缓存窗口保存实际窗口，调用方 NULL 窗口保持不变。
+> - 内部参数保存实际宽高/格式及归一化计数。按固定版本 Wine Windows 测试，两版成功后都把零 BackBufferCount 回写为 1；D3D8 保留调用方宽高，D3D9 回写实际宽高/格式。仅完整成功后回写，资源/分配/提交/重放/模式失败不提前修改调用方参数。共享头在各自 SDK 布局下编译，无跨版本布局转换。
+> - 当前 Microsoft Reset 文档的返回字段描述与上述 Windows 测试期望不同；本项明确采用固定测试中的兼容行为，不把它称为新的原生 HAL 测量。空客户区的既有回退与 UNKNOWN 格式的既有回退保持原策略，附加链回写及完整全屏/格式归一化另行处理。
+> - 实际构造器 D3D8 1,140 项、D3D9 1,139 项，各 162 组合，覆盖零/指定/客户区尺寸、独立维度、窗口 fallback、缓冲计数、客体存储和视口/宿主一致性、调用方字段与失败清理。实际 Reset 各 545 项，新增 34 项零/部分尺寸、缓存颜色/深度表面、版本回写与重放/模式失败原子性。20/20 新语义变异、两版上一构造器运行时负面对照、保留回归和 ASan/UBSan 通过。
+> - XP 两版各完成 128×96 零尺寸创建、160×112 零尺寸 Reset、96×80 部分零尺寸 Reset，验证默认视口、完整客户区 SetViewport、颜色/深度描述、D3D9 scissor/隐式链参数与输出版本差异；两个 owner 正常退出，144 秒。冻结轨迹确认四次 Reset 与六帧，十二项语义损坏被发现。D3D8 相同视口设置按既有规则省略命令，D3D9 发出三条视口命令。
+> - SwiftShader、Metal 各重放六帧，每后端原始/显示各 75,776 像素全图零误差，无 GPU/宿主错误。210 组核心、213 组客体完整回归、36 个标准 SDK EXE、六份严格 DLL、另两份几何 SDK EXE及站点两项集成通过。发布本次 XP 所测两版零售 DLL 和严格诊断 DLL，DDraw 保留验收文件。宿主/运行包不变，另保留 4H6c 全量 GPU 基线。见 [stage4h6f6a-validation.json](fixtures/d3d-review/stage4h6f6a-validation.json)。
+> - 继续附加链参数/独立缓冲/身份/容器、多缓冲、UNKNOWN 格式与完整 Reset 边界；包装转换和阶段 4/5/6 尚未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
