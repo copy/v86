@@ -2816,6 +2816,7 @@ await test("the D3D9 hardware cursor is uploaded and composited over the frame",
     const { executor, fake, find } = makeExecutor();
     const size = 8;
     const bitmap = Buffer.alloc(size * size * 4, 0x80);
+    bitmap.set([0x99,0x66,0x33,0x80],0);
     const cursorProps = encodePayload("SetCursorProperties", { device_handle: DEVICE, hotspot_x: 2, hotspot_y: 3, width: size, height: size, data_bytes: bitmap.length });
     await executor.submit(buildBatch([
         command(OP.CREATE_DEVICE, createDevicePayload(640, 480)),
@@ -2829,6 +2830,10 @@ await test("the D3D9 hardware cursor is uploaded and composited over the frame",
 
     assert.equal(executor.stats.cursorUploads, 1);
     assert.equal(executor.stats.cursorDraws, 1);
+    const texture=find("createTexture").find(call=>call[1].label==="D3D9 hardware cursor")[1];
+    assert.equal(texture.format,"bgra8unorm");
+    const upload=find("writeTexture").find(call=>call[1].texture===executor.cursor.texture);
+    assert.deepEqual([...upload[2].subarray(0,4)],[0x99,0x66,0x33,0x80]);
     // The cursor gets its own final pass, loading the frame underneath.
     const passes = fake.calls.filter(c => c[0] === "beginRenderPass");
     const cursorPass = passes[passes.length - 1];

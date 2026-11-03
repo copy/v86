@@ -1650,6 +1650,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 188 组核心、175 组客体、36 个标准 SDK EXE、六份严格零售/诊断 DLL 和站点两项集成通过；发布本次 XP 所测两 API 零售 DLL。宿主与 `63c129acb57fb1c7d5b5` 运行包未变，沿用 4H6a 的完整 GPU 基线并新增两后端 gamma 用例（完整目标现为 55 次）。见 [stage4h6b-validation.json](fixtures/d3d-review/stage4h6b-validation.json)。
 > - 本项测量虚拟显示 LUT；物理显示器校准及 calibration flags 的硬件效果不模拟。OS 全屏样式、显示模式/前台恢复与完整 Reset 仍待继续；光标、私有数据、Present 节流、表面 COM 同一性、附加交换链、D3D8 包装及阶段 4/5/6 未宣称完成。
 
+> **阶段 4H6c（2026-11-03）：共用应用光标 API、GPU 图片源与正确 BGRA 显示（S2-42 的硬件光标部分）完成。**
+>
+> - D3D8/9 共用光标状态、A8R8G8B8/二次幂/适配器尺寸/锁状态校验、逐行图片复制与可选严格 GPU 回读。图片不保留来源 COM 引用；GPU 来源保持源设备、资源、mip 和 cube face，临时分配在失败与成功路径都释放。D3D8 宣称已验证的彩色虚拟光标能力。
+> - 按 Wine Windows 测试修正 ShowCursor：设置图片前重复 TRUE 均返回 FALSE；首次设置图片保持隐藏，之后返回前一次可见状态。D3D9 的应用状态与 GDI 回退状态分开。公用坐标处理保留 D3D8 UINT 的有符号位模式，转换屏幕/客户区坐标并支持 focus-window 回退；32×32 路径同步 OS 位置，其他尺寸保留软件位置策略。
+> - 原生编译两个实际入口及共用实现，各 31 项检查覆盖紧/填充/最大尺寸行、格式与边界、源引用、立方体 GPU 回读身份、分配/回读/提交失败清理、Show、坐标、warp/回退和接受前缀；32/32 语义变异与 ASan/UBSan 通过。既有回读变异测试改为选中函数定义，避免新增前置声明扩大抽取范围；原 31/31 回读变异和三 API 窗口/Present 检查继续通过。
+> - 真实 XP 两 API 共运行 16 帧，验证 CPU 图片释放返回 0 后仍显示、前次 BOOL、仅 OS 移动时的跟随、负客户区坐标/热点、隐藏/显示及 cube face 4/mip 1 的 GPU 图片源。GPU 源客体回复明确模拟；独立 GPU 重放另检查实际两个 cube 回复的 2,048 个像素，并逐像素核对 65,536 个最终显示像素及 65,536 个原始 back-buffer 像素，原始图像保持绘制内容。
+> - 四色/透明度参考暴露原宿主的红蓝互换：A8R8G8B8 展开保留 BGRA 字节，光标却创建为 RGBA8。改用 BGRA8 存储；旧宿主的彩色图案失败，修正后 SwiftShader/Metal 的透明、半透明、热点和裁剪均通过。宿主执行器 176 项、190 组核心、177 组客体、36 个标准 SDK EXE、六份严格 DLL、站点两项集成通过；完整 55 页 SwiftShader 与 Metal 533 项一致性复跑通过。运行包更新为 `a532e70eacef8cba3d10`，发布两 API 本次 XP 所测 DLL。见 [stage4h6c-validation.json](fixtures/d3d-review/stage4h6c-validation.json)。
+> - 本项核对 32×32 应用图片的虚拟硬件光标；物理 HCURSOR 替换、D3D8 自动 GDI 捕获、非 32 尺寸软件光标写入 render target 的原生效果及完整 Reset 仍待继续。私有数据、Present 节流、表面 COM 同一性、附加交换链、包装转换与阶段 4/5/6 未宣称完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

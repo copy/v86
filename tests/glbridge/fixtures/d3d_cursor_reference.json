@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "scope": "32x32 app-provided virtual hardware cursor. Pinned Windows/Wine API size/format/BOOL/source lifetime semantics; real XP COM calls and separately checked GPU scanout/raw pixels. Physical HCURSOR replacement, automatic D3D8 GDI fallback, non32 software cursor render-target composition and complete Reset behavior remain outside this stage; no native Microsoft HAL measurement claim.",
+  "extent": 64,
+  "cursorSize": 32,
+  "backgroundARGB": 4280303712,
+  "cpuQuadrantsARGB": [
+    4294901760,
+    2147548928,
+    255,
+    4294967295
+  ],
+  "gpuARGB": 4294902015,
+  "gpuCube": {
+    "edge": 64,
+    "levels": 2,
+    "face": 4,
+    "level": 1
+  },
+  "frames": [
+    {
+      "scene": 0,
+      "visible": 0,
+      "kind": -1,
+      "x": 0,
+      "y": 0,
+      "hotspotX": 0,
+      "hotspotY": 0
+    },
+    {
+      "scene": 1,
+      "visible": 1,
+      "kind": 0,
+      "x": 24,
+      "y": 24,
+      "hotspotX": 3,
+      "hotspotY": 5
+    },
+    {
+      "scene": 2,
+      "visible": 1,
+      "kind": 0,
+      "x": 40,
+      "y": 30,
+      "hotspotX": 3,
+      "hotspotY": 5
+    },
+    {
+      "scene": 3,
+      "visible": 0,
+      "kind": 0,
+      "x": 20,
+      "y": 20,
+      "hotspotX": 3,
+      "hotspotY": 5
+    },
+    {
+      "scene": 4,
+      "visible": 1,
+      "kind": 0,
+      "x": -3,
+      "y": 4,
+      "hotspotX": 3,
+      "hotspotY": 5
+    },
+    {
+      "scene": 5,
+      "visible": 1,
+      "kind": 1,
+      "x": 5,
+      "y": 42,
+      "hotspotX": 1,
+      "hotspotY": 2
+    },
+    {
+      "scene": 6,
+      "visible": 1,
+      "kind": 1,
+      "x": 45,
+      "y": 45,
+      "hotspotX": 1,
+      "hotspotY": 2
+    },
+    {
+      "scene": 7,
+      "visible": 0,
+      "kind": 1,
+      "x": 45,
+      "y": 45,
+      "hotspotX": 1,
+      "hotspotY": 2
+    }
+  ],
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+    },
+    {
+      "file": "wined3d-map-device.c",
+      "sha256": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406",
+      "blobSha1": "63aec972659adc08e48a11790e2f937c259701ed"
+    },
+    {
+      "file": "wined3d-cursor-cs.c",
+      "sha256": "6671f4a9886c0ede4e63054460f35fe80cd88e1ea92133af4023c5b3f100a303",
+      "blobSha1": "b9ce2ec08e30c2be8f0c09a3a59dff6898d6e1ae"
+    }
+  ]
+}

@@ -471,7 +471,7 @@
                     this.cursor.texture = this.device.createTexture({
                         label: "D3D9 hardware cursor",
                         size: { width, height, depthOrArrayLayers: 1 },
-                        format: "rgba8unorm",
+                        format: "bgra8unorm",
                         usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_TEXTURE_BINDING,
                     });
                     this.cursor.view = this.cursor.texture.createView();
@@ -479,15 +479,16 @@
                     this.cursor.height = height;
                 }
                 // The guest sends A8R8G8B8 at a tight width*4 stride; the same
-                // BGRA-to-RGBA reorder every other texture upload does.
+                // BGRA storage used by every A8R8G8B8 texture. The expander
+                // preserves that byte order, so the cursor texture must match.
                 const source = new Uint8Array(bytes.buffer,
                     bytes.byteOffset + dataOffset, dataBytes);
-                const rgba = new Uint8Array(width * height * 4);
+                const bgra = new Uint8Array(width * height * 4);
                 for (let row = 0; row < height; ++row)
                     expandRowToGPU(D3DFMT_A8R8G8B8, source, row * width * 4,
-                        width, rgba, row * width * 4);
+                        width, bgra, row * width * 4);
                 this.device.queue.writeTexture({ texture: this.cursor.texture },
-                    rgba, { bytesPerRow: width * 4, rowsPerImage: height },
+                    bgra, { bytesPerRow: width * 4, rowsPerImage: height },
                     { width, height, depthOrArrayLayers: 1 });
                 ++this.stats.cursorUploads;
             },

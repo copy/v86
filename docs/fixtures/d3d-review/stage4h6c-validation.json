@@ -1,0 +1,1655 @@
+{
+  "stage": "4H6c shared app cursor image/state/position and correct BGRA scanout (S2-42 hardware-cursor part)",
+  "date": "2026-11-03",
+  "bundle": "a532e70eacef8cba3d10",
+  "coreSuites": 190,
+  "guestSuites": 177,
+  "webgpuRuns": 58,
+  "adapterPreflightRuns": 1,
+  "siteIntegrationTests": 2,
+  "fullGPUTarget": {
+    "swiftPageRuns": 55,
+    "metalConformanceRuns": 1,
+    "total": 56,
+    "conformanceCasesPerFullRun": 533
+  },
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "3f60ef144ff8451d5ad09b6f397fe5ea28010df023db4ace777931ffcd651cd9"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "0430a76fbe1c927fb10fa969f28a3fe7493b012e8a5569d5b0e505c1a617dc95"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "3ecf494e5f3f1a865b32b4485080d2a726475e5cc97eda653cf49f85e2b63621"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "1f706fcf05d33bb026bfbf521c31515b36bcfffba9d548ca2bb1aba38a774338"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "731c5066d093f436f3eb5f1e20caf21ea2c6f5706c2f87c0bb761665f5ba604f"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "4d4df36e9fddd300d04869694f23dae4c994f8b772ac772f94b898b9cc3fc1c6"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "76311589d9c5936ad69f61c8e9a700e9ced9bba5c5beaa4e7e49734a125ce0e3"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "0ea209efb2a1e96f5a47e49d2d29048d3f9777804944c715b268b7db16807099"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "97ab1afd503407893ffa8e0f741adc7be43d45b45c9a9c45a740619b19477919"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "cc27a9465f823c51063c9d09f525007be795fd6015e4ffca4504f048f6436481"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "6e07870f254f65777a695e3d750c372cf8f0cd4defd2a0f0a97944ce803a4136"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "a9669b2b2f09a2216210a79d75d5762bbe45d9afa9510e66c7dd790d0e28a1c4"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "e8b73adfdfc48768343fea8c25331e37892ea23b54fd3b45aa0549ba1182fa19"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "12257bb420b830a0b52f6b63897151d04727e2a705f261d5e5befcdbff2b912d"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "020dba27f16287c890dee964a5dd76b70a66a65309a1450e753a8a1bb31fc37d"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "ba869c7417e9f9a1c1666f585863c44405a1d2c8203b3b15b347118bf445512f"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "c6a16b6809d8336fa6b931deef260f701e17f9a90eefef099b6402f4286852ef"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "7131c48e5e9822b33dfe29322c077a4d4235aa3eefff8c76ebef826b252cdc66"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP cursor probe DLL",
+      "shippedDllSha256": "d11484c5465dfca23382e8422fa2152ce66865782c8707d818e827520cbec7de",
+      "diagnosticSha256": "67599e6c4da3441823177afd3a857646dc685045b2535b92044ce4c0d652291b"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "7e44839d8235483b6fe1965f01944298e757438f74d8be4fdb5455084c963423"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "b3c18b4d20da240cadf81916b4d692356c7721cf8a886884dd91931bb6fbaa4c"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "492387dbfbfa2afe57d0458f96257fb0a917d309d1299bd3dea42e1489ee5a71"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "10bbf3a3f01131df34ef60f1554b10c65db0c34e946c3fd6e7193e403a946aa9"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "4055b27fa74839cff71e0df72154b024e62f9b8e53fff2a57f0c0ffc0c3bcfaa"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "4b1b615a4a8fc21a89b4b1dd210c50e1d3c724921e1cb3fa10d03dca787abdda"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "5d35124c266fd94a010c9d5db312e108dc6a10b1ef519ffefe9d2e92348e8e23"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "82f57f446880dbd5a2cd3acdc96febd0cd965a32ea78a1c673292bd5ac8d5067"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "7afe0b0cb1cef439b777ef519a83082fe531eeb7c0a84c8ddf95dcc59f4ae804"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "3832021da9a68df07171b3ccad0d5835c9bdb6503db12b5902aeaaa62179dc94"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "a46443fa829d3994292f939ed406ac7f0946df96745b30330fa31d2ccea922bc"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "fd4e780d58946634c96946cdcab80b23e91c56b3f5e935275b2fff7ca71ce425"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "56b0ff4f9e0b6fae9f4389601a412614fdc45d1249b6d8876e329ca63232d3bc"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "204a1e530c7517cd31bea62f8243b1291958534fe52be89d92e75737cc69d1b2"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP cursor probe DLL",
+      "shippedDllSha256": "2b913bb97ab9b6c47399dd0f970114db7116482a07d1cdb4235eed130185e19b",
+      "diagnosticSha256": "3590cb169b01357bc8e720920f7bda56df5b316669e58d3ba5a8bbc690380334"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "1fb68645111f551804876adb68395be9942b620dbfc5e94da3f02c6cc497db3d"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "b280adc91ac3cf12e6866921b23e6134ac653eb63c97317b4ee510d3b3bc6048"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "cecfdf2532aeeb25b3e75fb8e762f7c762f5734e12ac187f350acba1f48a60a4"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "981a696318da38f96b352f70963db0d38a8f37aa54cd87a3caeb9645da3764f0"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualEntryAndStateCases": {
+      "8": 31,
+      "9": 31
+    },
+    "mutations": {
+      "killed": 32,
+      "total": 32
+    },
+    "retainedReadbackMutations": {
+      "killed": 31,
+      "total": 31
+    },
+    "retainedWindowPresentAPIs": [
+      7,
+      8,
+      9
+    ],
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "fixtureCorruptions": 5,
+    "formatShapeAdapterAndLockValidation": true,
+    "paddedAndMaximumSizedImages": true,
+    "noSourceCOMRetention": true,
+    "CPUAndActualGPUImageSources": true,
+    "sourceDeviceMipFacePreserved": true,
+    "readbackAllocationAndSubmitFailureCleanup": true,
+    "hiddenUntilImageProvided": true,
+    "previousShowBOOL": true,
+    "signedScreenToClientAndFocusWindowFallback": true,
+    "hardwareOSWarpAndLiveMovement": true,
+    "softwarePositionRetention": true,
+    "acceptedPrefixOnPostImageVisibilityFailure": true,
+    "hostExecutorTests": 176
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_cursor_reference.json",
+    "sha256": "7289465afe39db358532bf97cd28809c39ad0ed895f20083e722d2a372241c50",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+      },
+      {
+        "file": "d3d9-device-tests.c",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+      },
+      {
+        "file": "wined3d-map-device.c",
+        "sha256": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406",
+        "blobSha1": "63aec972659adc08e48a11790e2f937c259701ed"
+      },
+      {
+        "file": "wined3d-cursor-cs.c",
+        "sha256": "6671f4a9886c0ede4e63054460f35fe80cd88e1ea92133af4023c5b3f100a303",
+        "blobSha1": "b9ce2ec08e30c2be8f0c09a3a59dff6898d6e1ae"
+      }
+    ]
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 135,
+    "batches": 23,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS cursor probes \r\n",
+    "logs": {
+      "CUR8.TXT": "CURSOR 8 0\r\nCURSOR 8 1\r\nCURSOR 8 2\r\nCURSOR 8 3\r\nCURSOR 8 4\r\nCURSOR 8 5\r\nCURSOR 8 6\r\nCURSOR 8 7\r\nCHECK hidden-before-image, previous BOOL, source release, hardware OS motion, clipping and actual cube readback\r\nPASS cursor API=8\r\n",
+      "CUR9.TXT": "CURSOR 9 0\r\nCURSOR 9 1\r\nCURSOR 9 2\r\nCURSOR 9 3\r\nCURSOR 9 4\r\nCURSOR 9 5\r\nCURSOR 9 6\r\nCURSOR 9 7\r\nCHECK hidden-before-image, previous BOOL, source release, hardware OS motion, clipping and actual cube readback\r\nPASS cursor API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "Explicit simulated GPU cube readback for guest cursor packing; actual source, cursor scanout and raw pixels are separate GPU replay",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 21628,
+        "crc32": "1a073c7f"
+      }
+    },
+    "wire": {
+      "perAPI": [
+        {
+          "owner": 1,
+          "api": 8,
+          "created": 1,
+          "destroyed": 1,
+          "cube": 1048578,
+          "cubeDestroyed": 1,
+          "images": 2,
+          "shows": 7,
+          "positions": 11,
+          "clears": 9,
+          "presents": 8,
+          "readbacks": [
+            {
+              "device_handle": 1048577,
+              "texture_handle": 1048578,
+              "level": 1,
+              "format": 21,
+              "width": 32,
+              "height": 32,
+              "first_row": 0,
+              "row_count": 32,
+              "destination_pitch": 128,
+              "destination_bytes": 4096,
+              "response_offset": 16384,
+              "request_id": 1,
+              "face": 4,
+              "owner": 1,
+              "api": 8,
+              "expectedARGB": 4294902015
+            }
+          ],
+          "frames": [
+            {
+              "owner": 1,
+              "api": 8,
+              "device": 1048577,
+              "scene": 0,
+              "visible": 0,
+              "kind": -1,
+              "x": 0,
+              "y": 0,
+              "hotspotX": 0,
+              "hotspotY": 0
+            },
+            {
+              "owner": 1,
+              "api": 8,
+              "device": 1048577,
+              "scene": 1,
+              "visible": 1,
+              "kind": 0,
+              "x": 24,
+              "y": 24,
+              "hotspotX": 3,
+              "hotspotY": 5
+            },
+            {
+              "owner": 1,
+              "api": 8,
+              "device": 1048577,
+              "scene": 2,
+              "visible": 1,
+              "kind": 0,
+              "x": 40,
+              "y": 30,
+              "hotspotX": 3,
+              "hotspotY": 5
+            },
+            {
+              "owner": 1,
+              "api": 8,
+              "device": 1048577,
+              "scene": 3,
+              "visible": 0,
+              "kind": 0,
+              "x": 20,
+              "y": 20,
+              "hotspotX": 3,
+              "hotspotY": 5
+            },
+            {
+              "owner": 1,
+              "api": 8,
+              "device": 1048577,
+              "scene": 4,
+              "visible": 1,
+              "kind": 0,
+              "x": -3,
+              "y": 4,
+              "hotspotX": 3,
+              "hotspotY": 5
+            },
+            {
+              "owner": 1,
+              "api": 8,
+              "device": 1048577,
+              "scene": 5,
+              "visible": 1,
+              "kind": 1,
+              "x": 5,
+              "y": 42,
+              "hotspotX": 1,
+              "hotspotY": 2
+            },
+            {
+              "owner": 1,
+              "api": 8,
+              "device": 1048577,
+              "scene": 6,
+              "visible": 1,
+              "kind": 1,
+              "x": 45,
+              "y": 45,
+              "hotspotX": 1,
+              "hotspotY": 2
+            },
+            {
+              "owner": 1,
+              "api": 8,
+              "device": 1048577,
+              "scene": 7,
+              "visible": 0,
+              "kind": 1,
+              "x": 45,
+              "y": 45,
+              "hotspotX": 1,
+              "hotspotY": 2
+            }
+          ]
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "created": 1,
+          "destroyed": 1,
+          "cube": 1048578,
+          "cubeDestroyed": 1,
+          "images": 2,
+          "shows": 7,
+          "positions": 11,
+          "clears": 9,
+          "presents": 8,
+          "readbacks": [
+            {
+              "device_handle": 1048577,
+              "texture_handle": 1048578,
+              "level": 1,
+              "format": 21,
+              "width": 32,
+              "height": 32,
+              "first_row": 0,
+              "row_count": 32,
+              "destination_pitch": 128,
+              "destination_bytes": 4096,
+              "response_offset": 16384,
+              "request_id": 1,
+              "face": 4,
+              "owner": 2,
+              "api": 9,
+              "expectedARGB": 4294902015
+            }
+          ],
+          "frames": [
+            {
+              "owner": 2,
+              "api": 9,
+              "device": 1048577,
+              "scene": 0,
+              "visible": 0,
+              "kind": -1,
+              "x": 0,
+              "y": 0,
+              "hotspotX": 0,
+              "hotspotY": 0
+            },
+            {
+              "owner": 2,
+              "api": 9,
+              "device": 1048577,
+              "scene": 1,
+              "visible": 1,
+              "kind": 0,
+              "x": 24,
+              "y": 24,
+              "hotspotX": 3,
+              "hotspotY": 5
+            },
+            {
+              "owner": 2,
+              "api": 9,
+              "device": 1048577,
+              "scene": 2,
+              "visible": 1,
+              "kind": 0,
+              "x": 40,
+              "y": 30,
+              "hotspotX": 3,
+              "hotspotY": 5
+            },
+            {
+              "owner": 2,
+              "api": 9,
+              "device": 1048577,
+              "scene": 3,
+              "visible": 0,
+              "kind": 0,
+              "x": 20,
+              "y": 20,
+              "hotspotX": 3,
+              "hotspotY": 5
+            },
+            {
+              "owner": 2,
+              "api": 9,
+              "device": 1048577,
+              "scene": 4,
+              "visible": 1,
+              "kind": 0,
+              "x": -3,
+              "y": 4,
+              "hotspotX": 3,
+              "hotspotY": 5
+            },
+            {
+              "owner": 2,
+              "api": 9,
+              "device": 1048577,
+              "scene": 5,
+              "visible": 1,
+              "kind": 1,
+              "x": 5,
+              "y": 42,
+              "hotspotX": 1,
+              "hotspotY": 2
+            },
+            {
+              "owner": 2,
+              "api": 9,
+              "device": 1048577,
+              "scene": 6,
+              "visible": 1,
+              "kind": 1,
+              "x": 45,
+              "y": 45,
+              "hotspotX": 1,
+              "hotspotY": 2
+            },
+            {
+              "owner": 2,
+              "api": 9,
+              "device": 1048577,
+              "scene": 7,
+              "visible": 0,
+              "kind": 1,
+              "x": 45,
+              "y": 45,
+              "hotspotX": 1,
+              "hotspotY": 2
+            }
+          ]
+        }
+      ],
+      "frames": [
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "scene": 0,
+          "visible": 0,
+          "kind": -1,
+          "x": 0,
+          "y": 0,
+          "hotspotX": 0,
+          "hotspotY": 0,
+          "expectedOffset": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "scene": 1,
+          "visible": 1,
+          "kind": 0,
+          "x": 24,
+          "y": 24,
+          "hotspotX": 3,
+          "hotspotY": 5,
+          "expectedOffset": 16384
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "scene": 2,
+          "visible": 1,
+          "kind": 0,
+          "x": 40,
+          "y": 30,
+          "hotspotX": 3,
+          "hotspotY": 5,
+          "expectedOffset": 32768
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "scene": 3,
+          "visible": 0,
+          "kind": 0,
+          "x": 20,
+          "y": 20,
+          "hotspotX": 3,
+          "hotspotY": 5,
+          "expectedOffset": 49152
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "scene": 4,
+          "visible": 1,
+          "kind": 0,
+          "x": -3,
+          "y": 4,
+          "hotspotX": 3,
+          "hotspotY": 5,
+          "expectedOffset": 65536
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "scene": 5,
+          "visible": 1,
+          "kind": 1,
+          "x": 5,
+          "y": 42,
+          "hotspotX": 1,
+          "hotspotY": 2,
+          "expectedOffset": 81920
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "scene": 6,
+          "visible": 1,
+          "kind": 1,
+          "x": 45,
+          "y": 45,
+          "hotspotX": 1,
+          "hotspotY": 2,
+          "expectedOffset": 98304
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048577,
+          "scene": 7,
+          "visible": 0,
+          "kind": 1,
+          "x": 45,
+          "y": 45,
+          "hotspotX": 1,
+          "hotspotY": 2,
+          "expectedOffset": 114688
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "scene": 0,
+          "visible": 0,
+          "kind": -1,
+          "x": 0,
+          "y": 0,
+          "hotspotX": 0,
+          "hotspotY": 0,
+          "expectedOffset": 131072
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "scene": 1,
+          "visible": 1,
+          "kind": 0,
+          "x": 24,
+          "y": 24,
+          "hotspotX": 3,
+          "hotspotY": 5,
+          "expectedOffset": 147456
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "scene": 2,
+          "visible": 1,
+          "kind": 0,
+          "x": 40,
+          "y": 30,
+          "hotspotX": 3,
+          "hotspotY": 5,
+          "expectedOffset": 163840
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "scene": 3,
+          "visible": 0,
+          "kind": 0,
+          "x": 20,
+          "y": 20,
+          "hotspotX": 3,
+          "hotspotY": 5,
+          "expectedOffset": 180224
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "scene": 4,
+          "visible": 1,
+          "kind": 0,
+          "x": -3,
+          "y": 4,
+          "hotspotX": 3,
+          "hotspotY": 5,
+          "expectedOffset": 196608
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "scene": 5,
+          "visible": 1,
+          "kind": 1,
+          "x": 5,
+          "y": 42,
+          "hotspotX": 1,
+          "hotspotY": 2,
+          "expectedOffset": 212992
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "scene": 6,
+          "visible": 1,
+          "kind": 1,
+          "x": 45,
+          "y": 45,
+          "hotspotX": 1,
+          "hotspotY": 2,
+          "expectedOffset": 229376
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048577,
+          "scene": 7,
+          "visible": 0,
+          "kind": 1,
+          "x": 45,
+          "y": 45,
+          "hotspotX": 1,
+          "hotspotY": 2,
+          "expectedOffset": 245760
+        }
+      ],
+      "readbacks": [
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048578,
+          "level": 1,
+          "format": 21,
+          "width": 32,
+          "height": 32,
+          "first_row": 0,
+          "row_count": 32,
+          "destination_pitch": 128,
+          "destination_bytes": 4096,
+          "response_offset": 16384,
+          "request_id": 1,
+          "face": 4,
+          "owner": 1,
+          "api": 8,
+          "expectedARGB": 4294902015
+        },
+        {
+          "device_handle": 1048577,
+          "texture_handle": 1048578,
+          "level": 1,
+          "format": 21,
+          "width": 32,
+          "height": 32,
+          "first_row": 0,
+          "row_count": 32,
+          "destination_pitch": 128,
+          "destination_bytes": 4096,
+          "response_offset": 16384,
+          "request_id": 1,
+          "face": 4,
+          "owner": 2,
+          "api": 9,
+          "expectedARGB": 4294902015
+        }
+      ]
+    },
+    "graphicsSha256": "db6209e50264012fb13ef58d894408540044a3692a85ad286c2fadffeedb3b12"
+  },
+  "fixture": {
+    "metadataSha256": "c047ac93a0a04e6d4515fb4112fe754f1f375f244c68bf2ca250c1fd5e8a690c",
+    "compressedTraceSha256": "c343a13855d721faeb12dd1c154935beb00f1703919216e65e3983f44d534b40",
+    "compressedExpectedPixelsSha256": "5b280783e888d04bf89dc8fca11283e9dd30b151b2fbb0d4d9c70989a7ba1df3",
+    "captureBuild": {
+      "dllSha256": {
+        "d3d8": "d11484c5465dfca23382e8422fa2152ce66865782c8707d818e827520cbec7de",
+        "d3d9": "2b913bb97ab9b6c47399dd0f970114db7116482a07d1cdb4235eed130185e19b"
+      },
+      "executableSha256": {
+        "CUR8.EXE": "cd06f58994606076c78077bb439bde7350b48f3d11dbaa7c19e601edf98a70ae",
+        "CUR9.EXE": "687572beb08ab4d250e0d1e2d1876adec833b9672ef228fee7dcd73cd64c6587"
+      }
+    }
+  },
+  "gpu": {
+    "swift": {
+      "traceSha256": "db6209e50264012fb13ef58d894408540044a3692a85ad286c2fadffeedb3b12",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "d11484c5465dfca23382e8422fa2152ce66865782c8707d818e827520cbec7de",
+          "d3d9": "2b913bb97ab9b6c47399dd0f970114db7116482a07d1cdb4235eed130185e19b"
+        },
+        "executableSha256": {
+          "CUR8.EXE": "cd06f58994606076c78077bb439bde7350b48f3d11dbaa7c19e601edf98a70ae",
+          "CUR9.EXE": "687572beb08ab4d250e0d1e2d1876adec833b9672ef228fee7dcd73cd64c6587"
+        }
+      },
+      "expectedPixelsSha256": "1e22c3f4eca53d846bdad0206af8d6e468cba03bbcebeab0e51ddef904580315",
+      "frames": 16,
+      "displayPixels": 65536,
+      "rawPixels": 65536,
+      "batches": 23,
+      "comparisons": [
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "kind": -1,
+          "visible": 0,
+          "x": 0,
+          "y": 0,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "kind": 0,
+          "visible": 1,
+          "x": 24,
+          "y": 24,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "kind": 0,
+          "visible": 1,
+          "x": 40,
+          "y": 30,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "kind": 0,
+          "visible": 0,
+          "x": 20,
+          "y": 20,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "kind": 0,
+          "visible": 1,
+          "x": -3,
+          "y": 4,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "kind": 1,
+          "visible": 1,
+          "x": 5,
+          "y": 42,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 6,
+          "kind": 1,
+          "visible": 1,
+          "x": 45,
+          "y": 45,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 7,
+          "kind": 1,
+          "visible": 0,
+          "x": 45,
+          "y": 45,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "kind": -1,
+          "visible": 0,
+          "x": 0,
+          "y": 0,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "kind": 0,
+          "visible": 1,
+          "x": 24,
+          "y": 24,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "kind": 0,
+          "visible": 1,
+          "x": 40,
+          "y": 30,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "kind": 0,
+          "visible": 0,
+          "x": 20,
+          "y": 20,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "kind": 0,
+          "visible": 1,
+          "x": -3,
+          "y": 4,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "kind": 1,
+          "visible": 1,
+          "x": 5,
+          "y": 42,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 6,
+          "kind": 1,
+          "visible": 1,
+          "x": 45,
+          "y": 45,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 7,
+          "kind": 1,
+          "visible": 0,
+          "x": 45,
+          "y": 45,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        }
+      ],
+      "sourceComparisons": [
+        {
+          "owner": 1,
+          "requestId": 1,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "requestId": 1,
+          "pixels": 1024,
+          "maximumByteError": 0
+        }
+      ],
+      "sourcePixels": 2048,
+      "stats": {
+        "batches": 23,
+        "commands": 105,
+        "presents": 16,
+        "queueSubmits": 36,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 16,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 10,
+        "readbackRequests": 18,
+        "frameFlushes": 2,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 2,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 0,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 2,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 4,
+        "cursorDraws": 10,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 2,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 4,
+        "renderPasses": 18,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 2,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 2560,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 18,
+        "renderTargetReadbackBytes": 270336,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "fc4ef0f9ecdc9fae29fbe22e27770a4683d090eaa7cbacd273506d4322b4eaf3"
+    },
+    "metal": {
+      "traceSha256": "db6209e50264012fb13ef58d894408540044a3692a85ad286c2fadffeedb3b12",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "d11484c5465dfca23382e8422fa2152ce66865782c8707d818e827520cbec7de",
+          "d3d9": "2b913bb97ab9b6c47399dd0f970114db7116482a07d1cdb4235eed130185e19b"
+        },
+        "executableSha256": {
+          "CUR8.EXE": "cd06f58994606076c78077bb439bde7350b48f3d11dbaa7c19e601edf98a70ae",
+          "CUR9.EXE": "687572beb08ab4d250e0d1e2d1876adec833b9672ef228fee7dcd73cd64c6587"
+        }
+      },
+      "expectedPixelsSha256": "1e22c3f4eca53d846bdad0206af8d6e468cba03bbcebeab0e51ddef904580315",
+      "frames": 16,
+      "displayPixels": 65536,
+      "rawPixels": 65536,
+      "batches": 23,
+      "comparisons": [
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "kind": -1,
+          "visible": 0,
+          "x": 0,
+          "y": 0,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "kind": 0,
+          "visible": 1,
+          "x": 24,
+          "y": 24,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "kind": 0,
+          "visible": 1,
+          "x": 40,
+          "y": 30,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "kind": 0,
+          "visible": 0,
+          "x": 20,
+          "y": 20,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "kind": 0,
+          "visible": 1,
+          "x": -3,
+          "y": 4,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "kind": 1,
+          "visible": 1,
+          "x": 5,
+          "y": 42,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 6,
+          "kind": 1,
+          "visible": 1,
+          "x": 45,
+          "y": 45,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 7,
+          "kind": 1,
+          "visible": 0,
+          "x": 45,
+          "y": 45,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "kind": -1,
+          "visible": 0,
+          "x": 0,
+          "y": 0,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "kind": 0,
+          "visible": 1,
+          "x": 24,
+          "y": 24,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "kind": 0,
+          "visible": 1,
+          "x": 40,
+          "y": 30,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "kind": 0,
+          "visible": 0,
+          "x": 20,
+          "y": 20,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "kind": 0,
+          "visible": 1,
+          "x": -3,
+          "y": 4,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "kind": 1,
+          "visible": 1,
+          "x": 5,
+          "y": 42,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 6,
+          "kind": 1,
+          "visible": 1,
+          "x": 45,
+          "y": 45,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 7,
+          "kind": 1,
+          "visible": 0,
+          "x": 45,
+          "y": 45,
+          "pixels": 4096,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        }
+      ],
+      "sourceComparisons": [
+        {
+          "owner": 1,
+          "requestId": 1,
+          "pixels": 1024,
+          "maximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "requestId": 1,
+          "pixels": 1024,
+          "maximumByteError": 0
+        }
+      ],
+      "sourcePixels": 2048,
+      "stats": {
+        "batches": 23,
+        "commands": 105,
+        "presents": 16,
+        "queueSubmits": 36,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 16,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 10,
+        "readbackRequests": 18,
+        "frameFlushes": 2,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 2,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 0,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 0,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 2,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 4,
+        "cursorDraws": 10,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 2,
+        "volumeTexturesCreated": 0,
+        "renderTargetsCreated": 0,
+        "renderTargetBinds": 4,
+        "renderPasses": 18,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 2,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 2560,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 18,
+        "renderTargetReadbackBytes": 270336,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "fc4ef0f9ecdc9fae29fbe22e27770a4683d090eaa7cbacd273506d4322b4eaf3"
+    }
+  },
+  "previousHost": {
+    "artifactSha256": "6f44a6f094543c3d549f879cd496d76c32c1b5abba4141010cdaaa00e549846f",
+    "patternImagesFail": true,
+    "rawImagesPass": true
+  },
+  "scope": "D3D8/9 share app cursor validation, image packing, optional strict GPU readback, image-ready/visibility state, signed screen/client positioning, initial Show position, 32x32 hardware OS warps and follow-on Present synchronization. Non32 logical positions follow the pinned Wine software-position policy; native non32 render-target composition is not measured here. Only A8R8G8B8 power-of-two images within the reported adapter extent are accepted; locked images and invalid CPU storage are refused. Images are copied without retaining source COM objects. GPU images retain source device/handle/mip/cube face identity, use the shared mandatory readback path and free all temporary storage on success/failure. Public app visibility is separate from D3D9 GDI fallback state, so repeated Show before properties remains FALSE and the first app image starts hidden. Existing readback mutation extraction now explicitly selects a definition instead of the new forward declaration. Real XP verifies source Release returns zero, previous BOOL, OS-only movement, negative client positions/hotspots, clipping and a cleared GPU cube face/mip image, with simulated source replies during guest execution. Independent GPU replay validates those actual two cube replies (2048 pixels), sixteen final scanout images (65536 pixels) and sixteen raw images (65536 pixels) per backend. The colored alpha-quadrant reference exposed a prior red/blue swap; A8R8G8B8 expansion preserves BGRA, so cursor texture storage is corrected from RGBA8 to BGRA8. Previous host pixels fail while raw buffers pass; corrected backends pass. The full 55-page SwiftShader target and Metal 533-case conformance are rerun on the rebuilt bundle, plus fresh cursor pages on both backends. Physical Windows HCURSOR replacement, D3D8 automatic GDI capture, non32 software cursor composition, complete Reset/native HAL/Wine/game/FPS contracts, private data/pacing/surface identity/additional swapchains, D3D8 wrapping and completed stages 4/5/6 are not claimed.",
+  "coreSha256": {
+    "tests/glbridge/d3d_cursor_fixture_test.js": "2b1372a5ca85f1edc80292db4caa37e00611b760c25b1732bb2ac620baf5c16e",
+    "tests/glbridge/d3d_cursor_reference_test.js": "3cdf9a8a219b827c00a3a5fb2eceb279f13d41032634647ef4cc6bf4162c1bca",
+    "tests/glbridge/d3d_cursor_replay_browser_test.html": "8bc5a93b35c643ffe892d9e220f2612ae27b7491b14f99f3d162b2e470ebd703",
+    "tests/glbridge/d3d_cursor_xp.mjs": "37562a96dcb5d142f77e4ad5302a51b45d14f8a27159a6a8ad02bf1d3623927f",
+    "tests/glbridge/fixtures/d3d_cursor_reference.json": "7289465afe39db358532bf97cd28809c39ad0ed895f20083e722d2a372241c50",
+    "tests/glbridge/fixtures/d3d_cursor_xp.bin.gz": "c343a13855d721faeb12dd1c154935beb00f1703919216e65e3983f44d534b40",
+    "tests/glbridge/fixtures/d3d_cursor_xp.json": "c047ac93a0a04e6d4515fb4112fe754f1f375f244c68bf2ca250c1fd5e8a690c",
+    "tests/glbridge/fixtures/d3d_cursor_xp_expected.bin.gz": "5b280783e888d04bf89dc8fca11283e9dd30b151b2fbb0d4d9c70989a7ba1df3",
+    "tests/lib/d3d_cursor_wire.mjs": "187d3672ec3cb794ac46f8aafd85dba84c0097faa6e161a28ef5692f801fcd4a",
+    "Makefile": "d9b09321c19f3b107b020485a4a262926146607697e055eac45c1ee451a09eb1",
+    "docs/d3d-webgpu-review.md": "9b5a6128e11f32812645d998be92316571b49dd05aa0fd51501e74ff69cd1c7c",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+    "tests/glbridge/d3d9_webgpu_executor_test.js": "e756b2663b72139d1909267cea5dd13d791276777407e32502f95fe6230c9bbc"
+  },
+  "siteSha256": {
+    "glbridge/runtime/d9wg_cursor.h": "49e1903e11f433331eda66dd01ecaa542c610039f4ed6c6a558b06ba831e45fd",
+    "glbridge/runtime/d9wg_cursor_bridge.h": "e5181eb4c59284987f26391c645d530709ba72e7a3a1b6239a16f9dbf4ca3b35",
+    "glbridge/sample/d3d_cursor_test.c": "e5d9d360a3c5662e6bf8ce7850e4e5369c33d56d187eccebada29795e2b1ba4a",
+    "glbridge/tests/d9wg_cursor_mutation_test.js": "d161313434de83efd103b40781c4c519922c34e5ed30ebac68f64a37ce19b53c",
+    "glbridge/tests/d9wg_cursor_test.js": "90d4479b7b569e92987a553f5a2e7432e8af80d2fa07acfbd0c637a2417cff7b",
+    "game.html": "e70033930d54e4a88243f21632e5659dba9ce8681f3b4ff138176d78f2a6dfa5",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "67599e6c4da3441823177afd3a857646dc685045b2535b92044ce4c0d652291b",
+    "glbridge/d3d8proxy/d3d8.dll": "d11484c5465dfca23382e8422fa2152ce66865782c8707d818e827520cbec7de",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "5fefd9c926bd4808714d2abb1b1d0bbc68a76e075705e9011b8ac5ca32f4ebce",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "3590cb169b01357bc8e720920f7bda56df5b316669e58d3ba5a8bbc690380334",
+    "glbridge/d3d9proxy/d3d9.dll": "2b913bb97ab9b6c47399dd0f970114db7116482a07d1cdb4235eed130185e19b",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "c5fa17b556a068c0aaca0a556154600d34c89302b645158ee054f34d38354857",
+    "glbridge/tests/d9wg_surface_readback_mutation_test.js": "157b891aa874ab7484d247ba15852ffc3975968540dadf58e454464178f541db",
+    "glbridge/tests/d9wg_window_present_test.js": "0721df391322504b98acef76b3fa9fee9f877dd24822e96030ee9ae70379ba06",
+    "vendor/v86/glbridge/d3d9_shader_pipeline.js": "5c10aceddc8a725bb1f252a6732c9683d2296a725f248e7d2a2eceb2dd59795f",
+    "vendor/v86/glbridge/d3d9_shader_worker.js": "ce74f713dde2c94e39dcb7bf6927966990fb410b0a5d5e4443f9fb5ba82bf30e",
+    "vendor/v86/glbridge/d9wg_diagnostics.js": "f9521c1d7c6c3ae2a9c277018bbd4eb80109ac5660378bd3bf03eaf059342c8e",
+    "vendor/v86/glbridge/graphics_journal_worker.js": "40c454039927c43a4459777baed6694e1895b8994159c64de9d6c11e18b703e7",
+    "vendor/v86/glbridge/libv86-webgpu.js": "c0ee20fe4c3fdcd38193d02c661ae526139cd0540bbe19d048b0c5b268592b69",
+    "vendor/v86/glbridge/manifest.json": "596f088d636d2cedaf308b9f97fefd9123458e157e55f55b228662d37edc1051",
+    "vendor/v86/glbridge/v86gl-device.js": "180b6a23f72467a06926d6c83687df07bf706fd2e71156da040564b8a7f7b495"
+  },
+  "logSha256": {
+    "core": "d09651d025b88a4f007c19e630ff7c58e51427b0ebba21f3c32b82c572e314b8",
+    "guest": "4e0d4524eeed1197d89deb8b4669a8a25f7702ee53578440412e7856480d6c44",
+    "cursor-xp": "b8d234ee3d9edbbe83abdf27acdad761b7e53ab018f96b7bb6c8c460cf4b79a0",
+    "cursor-swift": "9b42e7c2be8218c3c2f318aa2b075f38c508fd40692ab64c7c355d99c1a629ac",
+    "cursor-metal": "9b42e7c2be8218c3c2f318aa2b075f38c508fd40692ab64c7c355d99c1a629ac",
+    "cursor-mutations": "d7d846df4780bbe8925ff0c860f9b71ea2e5a54022657a5291a4619e0eb1faa6",
+    "sanitize": "722fa54ecc33e9df2043747a22ddced5c9278173c8eb5556f7c39368cbe7e5c6",
+    "readback-mutations": "370c7a996ffb5443cd26b761a271c0deb9e14899da80579725174950a4715694",
+    "window-present": "0c7b2ea636ae5b87eb6fd6ec118e7fa2b7ac938a0c7ac72953acd062f2a5c996",
+    "host-unit": "ed517237d0016e9e71504de413006984b77b75048208607bb2008aafc996009f",
+    "bundle": "b5a65bdfe3395eb2db3b60df120f8dad9f35a9601d79e77ba62d37ca766cd9cc",
+    "full-gpu": "bb172ea2b930b2ee11c2f0f9c4b0ae83fbdf6e6ccd6e1fdd432b0bdbc9442858",
+    "metal-conformance": "b7d1ad98331b78e363724e70875739326048296b63ea79d4e5a07e1c08dc1725",
+    "fixture-unit": "9cf6671b6357edd5ddb6b8b9793224320dbdc4d6707d58686c6f5f777509ab5c",
+    "builds": "5bbb524e25b2369b91a47a01b6e1e426cada41a56f639d3cb07c1b37a381b101",
+    "lint": "18e36275f5bc588331e481457f964e914122eed7e53f04e541c4658720d82375",
+    "site-lint": "9789e0fd2ec95a559ea68763f1e8cc19fa6262012e8bc74c35a56e43e801d3b1",
+    "integration": "c79079661549c32fde4e4961f111a2dc42b1f666782cc2444bfbf81afec75585"
+  }
+}
