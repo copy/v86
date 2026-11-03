@@ -1,0 +1,191 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        },
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048582,
+          "kind": 5,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048583,
+          "kind": 3,
+          "levels": 1,
+          "format": 21
+        },
+        {
+          "handle": 1048584,
+          "kind": 3,
+          "levels": 1,
+          "format": 75
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580,
+        1048581,
+        1048582,
+        1048583,
+        1048584
+      ],
+      "chain": 0,
+      "chainsCreated": 0,
+      "chainsDestroyed": 0,
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "13": 1,
+        "256": 2,
+        "259": 8,
+        "272": 3,
+        "273": 1,
+        "274": 1,
+        "512": 1,
+        "519": 1,
+        "541": 1
+      }
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        },
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048582,
+          "kind": 5,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048583,
+          "kind": 3,
+          "levels": 1,
+          "format": 21
+        },
+        {
+          "handle": 1048584,
+          "kind": 3,
+          "levels": 1,
+          "format": 75
+        },
+        {
+          "handle": 1048585,
+          "kind": 3,
+          "levels": 1,
+          "format": 22
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580,
+        1048581,
+        1048582,
+        1048583,
+        1048584,
+        1048585
+      ],
+      "chain": 1048586,
+      "chainsCreated": 1,
+      "chainsDestroyed": 1,
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "11": 1,
+        "13": 1,
+        "256": 2,
+        "259": 9,
+        "272": 4,
+        "273": 1,
+        "274": 1,
+        "541": 1,
+        "548": 1,
+        "549": 1
+      }
+    }
+  ],
+  "traceSha256": "1a13b9b6eab21a6040000446a1c88fbae2bc32d1f420730216cd8d99e7a0e00b",
+  "referenceSha256": "ba35f1d481dd1fb7a95e0fe55591d33eca46c89c0c992c5dcc264732554c0b0a",
+  "sdkLogs": {
+    "PRIV8.TXT": "CHECK PRIVATE 8 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 8 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 0 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 2 refs=1 released=0\r\nCHECK SURFACE OWNERS 8 back=2 depth=2 chain=1 earlyRelease=0 isolated=1\r\nCHECK SURFACE DEVICE 8 back=1 depth=1 released=0\r\nPASS private API=8\r\n",
+    "PRIV9.TXT": "CHECK PRIVATE 9 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 9 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 0 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 2 refs=1 released=0\r\nCHECK SURFACE OWNERS 9 back=2 depth=2 chain=1 earlyRelease=0 isolated=1\r\nCHECK SURFACE DEVICE 9 back=1 depth=1 released=0\r\nPASS private API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_private_data.c": "51f35158629e2fbe3dc21bcef7b72ad3eca5ae51a0a3477a373357ccb215024c",
+    "glbridge/runtime/d9wg_private_data.h": "6acefe7d3f269243601d131f3e72433e5eb2af435115fb7d2f20e47f48e47720",
+    "glbridge/runtime/d9wg_private_data_bridge.h": "c0d697722a15e8e2542f472f1554ca0e2b76a98d73788b031ba9c8520cdb87c5",
+    "glbridge/runtime/build.sh": "2084ab58ac33dbfcd63ff13b8d5b8af64d0f96c06f218e69d20617d427be1322",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "835c0fe76d086b1c1788c1b16cc2647d57d530cda4ef3f08eb71f6179547ffa5",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "9575ee99c06237ad90e554a34bfa12f50fc94d3973af1a097e92533c8e9cfbac",
+    "glbridge/sample/d3d_private_data_test.c": "ecbed0fb8290005a2d3d92c750cf725552ea745fc5c879d37d5d5d2027198bcb"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "6a92bbc061a7fb07dc5cbb66c679e37f534af7f991634033567640fc8f99500a",
+      "d3d9": "6b0438432dc470f5d6f0c5377956a78cf1b945de0e3fa4fc40921a506685e48d"
+    },
+    "exeSha256": {
+      "8": "a0f9788d4b4f1e642776c973dd8e4022dd74fe703167f006b65ac944ac13f309",
+      "9": "1e92136b8e7c275b79d80ccc9e564709e5a23bbbcf4b1cfb121439591df21b7f"
+    },
+    "probeDefines": [
+      "D9WG_PRIVATE_TEXTURES=1",
+      "D9WG_PRIVATE_SURFACES=1"
+    ]
+  },
+  "scope": "not exercised; CPU-only private data and COM lifetime"
+}

@@ -1675,6 +1675,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 192 组核心、183 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主及运行包不变，继续沿用 4H6c 的 GPU 基线。见 [stage4h6d2-validation.json](fixtures/d3d-review/stage4h6d2-validation.json)。
 > - 接着完成独立/隐式表面私有数据；S2-42 的 Present 节流、表面 COM 同一性、D3D8 附加交换链，完整 Reset、包装转换及阶段 4/5/6 仍待继续。
 
+> **阶段 4H6d3（2026-11-03）：独立/隐式表面与交换链 back-buffer 私有数据（S2-42 部分）完成。**
+>
+> - 两 API 的独立 image/offscreen、render-target、depth 表面接入共用存储及实际销毁清理。D3D9 隐式 back/depth 存储随缓存表面保留，到设备销毁时清理；D3D8 的隐式 back/depth 包装尚未缓存，改由设备分别持有逻辑存储，跨 Release/Get 保留数据。
+> - D3D8 附加交换链的私有存储单独分配并计数，交换链和各表面包装各持一份内部引用，不改变公开 COM 引用计数。交换链释放返回 0 后已有表面仍可查询，最后一份表面退出时才清理；与设备隐式 back buffer 隔离。覆盖链对象/存储分配失败及表面创建失败的清理。
+> - 实际 C 表面/设备/链释放路径分别通过 D3D8 10 项、D3D9 7 项，19/19 私有存储语义变异及 ASan/UBSan 通过。原 MSAA 原生夹具补充隐式存储指针检查，81 项及扩展后的 19/19 变异通过，包含两条隐式 back/depth 路由的退化检测。
+> - 真实 XP 两 API 分别验证三个独立表面、隐式 back/depth 的重新获取、父设备退出、交换链先退出及两份表面引用的最后清理。两个 owner 正常退出，120 秒；冻结轨迹核对 15 个缓冲/纹理资源及 D3D9 附加交换链完整销毁，六项轨迹/日志损坏均被发现。
+> - 193 组核心、185 组客体、36 个标准 SDK EXE、六份严格 DLL和站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包未改，沿用 4H6c GPU 基线。见 [stage4h6d3-validation.json](fixtures/d3d-review/stage4h6d3-validation.json)。
+> - 私有数据的常规资源/子资源/表面路径已接入；完整 Reset 存储边界、COM 表面指针同一性、D3D8 附加交换链像素独立性仍待相关步骤验收。继续 Present 节流及其余 S2-42，随后继续包装转换和阶段 4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
