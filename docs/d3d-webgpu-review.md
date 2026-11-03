@@ -408,7 +408,7 @@ game.exe
 | S2-41 | ps_1_4 的 `cnd` 被客体拒绝 | `G8:933-935` | 合法着色器在 CreatePixelShader 失败；宿主其实能正确翻译它 | ☑️；W+（d3d8 `visual.c` `cnd_test`） |
 | S2-42 | 一批 API 静默无效或返回错误，而 `G9` 早已用现成的 D9WG op 实现 | `G8:5578-5584, 5685-5689, 4955-4963, 4332` | 硬件光标不可见；gamma 无效且 Get 返回全 0；SetLOD 不发送；SetPrivateData 总返回 INVALIDCALL；没有 Present 节流（`G9:5950-6050` 有）；GetBackBuffer 等每次调用都分配新 COM 对象（同一性破坏，每个副本还都算 Reset 阻塞）；附加交换链没有自己的 back buffer | ☑️ |
 | S2-43 | CreateRenderTarget 开 4x MSAA 时对同一句柄发两次 CREATE_TEXTURE_2D | `G8:5704-5717`、`E:6491` | 每次调用泄漏一张 GPU 纹理 | ☑️ |
-| S2-56 | `SetRenderTarget(NULL, ds)` 被拒（只换深度、或 `(NULL, NULL)` 解绑深度） | `G8:5817` | D3D8 规定 NULL 颜色目标表示保留当前目标 → 只换深度缓冲的游戏失败 | W+（d3d8 `device.c:3965-3983, 2664-2670`；`d3d8/device.c:1531-1605`） |
+| S2-56 | `SetRenderTarget(NULL, ds)` 被拒（只换深度、或 `(NULL, NULL)` 解绑深度） | `G8:5817` | D3D8 规定 NULL 颜色目标表示保留当前目标 → 只换深度缓冲的游戏失败 | ✅；4H5a |
 
 #### DDraw / D3D1–7 客体与 `ddraw_ops.js`
 
@@ -2095,6 +2095,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 冻结流检查准确的 **55 份表、55 次绑定、20 个索引上传、10 填充/20 复制**，**37 项语义破坏**均拒绝。最初 reader 把公开 DDSCL_NORMAL=8 当作线上的 cooperative_flags，已改用既有映射值 1；生产、SDK 和捕获不变。SwiftShader/Metal 各核对 **30 图像、1,920 实际像素，零误差/零 GPU 或宿主错误**；11 纹理显式销毁，真实 owner 释放之前实际资源/设备表为空。XP 模拟回复只作传输控制。
 > - 新跑核心相关 **34 suites**、DDraw/D3D1–7 **31 suites**、四个标准 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU 和 4I3 完整客体 247 suites。发布准确 XP DDraw DLL 与严格 diagnostic；图形包 `9335ee9a77fb7cc808d2`、D3D8/9 和宿主/协议/着色器保持一致。证据：`docs/fixtures/d3d-review/stage4i11-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4I11.json`。
 > - 原生无调色板时的系统 palette、打开 DC 后实时 palette、GetDC 读回失败策略、完整格式/深度/压缩 ROP 矩阵、任意 ROP 真值表、回调/线程/丢失/Reset/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4J1（2026-11-04）：D3D9 二维纹理 sampler/目标的公开计数与内部存储分离（S2-42 / Reset 后续）完成。**
+> - 二维纹理新增内部 binding_refs；实时 SetTexture 和纹理层目标只保留内部存储，不增加共享父纹理/层表面的公开 COM 计数。公开 0→1 只添加一个设备 pin，1→0 先处理存储再最后释放设备；GetTexture、GetRenderTarget、GetSurfaceLevel/GetContainer 可从公开零计数恢复同一对象。独立目标的私有 backing texture 继续沿用原有设备引用转移。
+> - 共用存储销毁在公开/私有计数均零时执行，先从资源链摘除，再清理 private data、缓存层视图和像素。实时替换先发布新绑定，再释放旧对象；清理设备绑定采用私有二维引用。Reset 只按外部共享公开计数/锁判断二维 DEFAULT 资源，不再把 sampler/纹理层目标私有引用作为公开计数折扣。录制/已完成状态块的公开引用保留原策略，留待后续收敛。
+> - 新实际 C **86,784 检查、1,024 组 pool/销毁顺序、8,192 次公开归零恢复**，含四 sampler 与两目标同时持有、层视图共享计数、查询设备 pin、同对象重绑、非法 stage/外设备、锁/池 Reset、设备先释放/最后公开引用/显式解绑。**13/13** 严格编译后运行时变异、旧实际方法配新 helper 的运行时负对照及 ASAN/UBSAN 通过，既有独立 RT/depth 生命周期检查继续保留。
+> - CRT-free XP 使用两个 DEFAULT 二维纹理、三个 sampler 绑定、**128 次**纹理及层视图恢复；公开归零后画出红色，公开归零 RT 写蓝色并查询容器，再解绑目标后采样蓝色。有外部 DEFAULT 纹理引用的 Reset 被拒，释放后仅绑定允许 Reset；新设备 sampler 全空，绿色清屏读回通过。**126 秒、5 批次、一个 owner/release、3 次读回**，只写 RAM overlay；模拟 XP 像素只验证传输。
+> - 冻结流核对一个 2×2 上传、四 sampler 设置、两纹理目标切换、两次完整顶点绘制、Reset 和两份准确资源销毁；**39 项语义破坏**均拒绝。SwiftShader/Metal 各核对 **3 图像、192 实际像素，零误差/零 GPU 或宿主错误**。实际顺序为排入 Reset 后、后续渲染前销毁绑定纹理；最初 reader 的“销毁在 Reset 前”假设已修正，生产/SDK/捕获不变。真实 owner 释放前设备/资源表为空。
+> - 新跑 **完整客体 265 suites**、核心相关 **35 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题。完整核心 238 suites/六次 GPU 基线继承 4I9。引用拆分后旧 harness 加入共用销毁提取/新类型，并把变异定位改到真实新函数，避免编译失败冒充语义检出；初次 263 组的 7 项适配问题和中间工件均保留。发布准确 XP D3D9 DLL 与严格 diagnostic，D3D8/DDraw、宿主/协议/着色器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j1-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J1.json`。
+> - S2-56 的表格状态同步至已完成的 4H5a 证据。D3D8、cube/volume/缓冲/着色器/状态块绑定计数、外部子资源存活时设备根状态保持、任意重入/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
