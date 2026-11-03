@@ -1773,6 +1773,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 冻结轨迹确认查询不产生 Reset/绘图/呈现命令，资源全部释放，十项日志/轨迹语义损坏被发现。205 组核心、13 组相关客体回归及变异、36 个标准 SDK EXE、六份严格 DLL、另两份查询 SDK EXE及站点两项集成通过；其余客体检查继承 4H6f4a 的 205 组完整基线。发布本次 XP 所测两版零售 DLL和严格诊断 DLL，DDraw 保持原验收文件。见 [stage4h6f4b-validation.json](fixtures/d3d-review/stage4h6f4b-validation.json)。
 > - 本项没有新增 GPU 像素运行，宿主/协议/着色器未改，继承 4H6f4a 模式像素与 4H6c 全量 GPU 基线。继续 D3D8 模式切换、完整 Reset/交换链、包装转换和阶段 4/5/6；不宣称完整刷新率/色深归一化、适配器组、物理设备丢失或原生 HAL/游戏/FPS 验收完成。
 
+> **阶段 4H6f4c（2026-11-03）：D3D8/9 共用模式切换及受保护的全屏构造（S1-9d / S2-42 部分）完成。**
+>
+> - 全屏进入、桌面/样式恢复、窗口替换、前台与输入队列处理、三窗口 WM_SIZE 保护均移入同一份 runtime 策略。前端只提供类型明确的 HWND/LONG/BOOL/DWORD 字段绑定，保持私有布局；D3D8 的 CreateDevice、Reset 和最终设备释放接入该策略，D3D9 移除对应重复实现。
+> - 两版 CreateDevice 同样保护模式变更消息；模式设置失败返回 INVALIDCALL、输出保持 NULL，清理已排队的宿主设备及客体引用。D3D8 Reset 在模式成功后更新跟踪窗口并发布最终窗口报告，物理模式失败保持 NOTRESET。输入队列仅在需要时连接，成功连接后必定断开，连接失败仍按既有前台策略尝试激活。
+> - 实际模式入口各 29 组、Reset/Scene/协作状态各 469 项及 13 类失败，覆盖 ANSI/Unicode、前台线程差异/连接失败、模式/样式/窗口替换和完整撤销；40/40 语义变异、保留状态/资源/COM/私有数据回归及 ASan/UBSan 通过。上一版 D3D8 缺少模式处理和最终报告，在运行时负面对照失败。
+> - XP 四个进程覆盖 API8/API9 × ANSI/Unicode，每个各完成五次成功 Reset、一次无效模式 Reset、一次成功全屏构造和一次无效全屏构造；窗口和全屏七帧、原过程/样式与桌面恢复均通过，模式变更期间零 WM_SIZE，其他消息继续转发。四个 owner 正常退出，144 秒；十二个设备生存期包含四个拒绝构造，冻结轨迹确认全部退出、二十四次已排队 Reset 与二十八帧，十四项语义损坏被发现。
+> - SwiftShader、Metal 各重放一次新轨迹，每后端原始/显示各 6,966,272 个像素全图零误差，无 GPU/宿主错误。206 组核心、207 组客体、36 个标准 SDK EXE、六份严格 DLL、另四份模式 SDK EXE及站点两项集成通过；发布本次 XP 所测两版零售 DLL和严格诊断 DLL，DDraw 保留已验收文件。宿主/运行包不变，另保留 4H6c 全量 GPU 基线。见 [stage4h6f4c-validation.json](fixtures/d3d-review/stage4h6f4c-validation.json)。
+> - 继续完整 Reset 的状态块/私有数据及呈现参数边界、附加交换链与包装转换。精确焦点窗口策略、完整刷新率/色深归一化、并发子类化、物理设备丢失、线程约束、原生 HAL/游戏/FPS 和阶段 4/5/6 均未宣称完成；物理模式失败仍可能发生在宿主命令已排队之后。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

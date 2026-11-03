@@ -24,11 +24,12 @@
     async function hash(bytes) { return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), v => v.toString(16).padStart(2, "0")).join(""); }
     async function artifact(data) { await fetch("/__test_file?name=d9wg-reset-mode-guest.json", {method: "POST", body: JSON.stringify(data, null, 2)}); }
     try {
-        const metadata = await (await fetch("fixtures/d3d_reset_mode_xp.json")).json();
-        const referenceBytes = new Uint8Array(await (await fetch("fixtures/d3d_reset_mode_reference.json")).arrayBuffer());
+        const params = new URLSearchParams(location.search), prefix = params.get("prefix") || "fixtures/d3d_reset_mode_xp", referenceName = params.get("reference") || "fixtures/d3d_reset_mode_reference.json";
+        const metadata = await (await fetch(prefix + ".json")).json();
+        const referenceBytes = new Uint8Array(await (await fetch(referenceName)).arrayBuffer());
         if (await hash(referenceBytes) !== metadata.referenceSha256) throw Error("Mode reference hash mismatch");
         const reference = JSON.parse(new TextDecoder().decode(referenceBytes));
-        const response = await fetch("fixtures/d3d_reset_mode_xp.bin.gz");
+        const response = await fetch(prefix + ".bin.gz");
         const bytes = new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()), view = new DataView(bytes.buffer);
         if (await hash(bytes) !== metadata.traceSha256) throw Error("Mode trace hash mismatch");
         await gpu.initialize();
@@ -73,8 +74,8 @@
         await gpu.checkpointIdle(); await gpu.device.queue.onSubmittedWorkDone(); for (let i = 0; i < 4; i++) await new Promise(resolve => setTimeout(resolve, 0));
         const pixels = comparisons.reduce((n, c) => n + c.pixels, 0);
         await artifact({traceSha256: metadata.traceSha256, referenceSha256: metadata.referenceSha256, frames: comparisons.length, rawPixels: pixels, displayPixels: pixels, comparisons, batches, stats: gpu.stats, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors});
-        if (comparisons.length !== 12 || comparisons.some(c => c.rawMaximumByteError || c.displayMaximumByteError) || gpu.stats.commandsFailed || gpu.stats.droppedDraws || gpu.gpuErrors.errors.length || gpu.hostErrors.length) throw Error("Mode pixel/host mismatch");
-        display.destroy(); document.querySelector("#result").textContent = "PASS actual XP Reset mode: twelve ANSI/Unicode window/fullscreen/recovery frames, " + pixels + " raw and displayed pixels, zero error";
+        if (comparisons.length !== metadata.frames.length || comparisons.some(c => c.rawMaximumByteError || c.displayMaximumByteError) || gpu.stats.commandsFailed || gpu.stats.droppedDraws || gpu.gpuErrors.errors.length || gpu.hostErrors.length) throw Error("Mode pixel/host mismatch");
+        display.destroy(); document.querySelector("#result").textContent = "PASS actual XP Reset mode: " + comparisons.length + " window/fullscreen/constructor/recovery frames, " + pixels + " raw and displayed pixels, zero error";
     } catch (error) {
         await artifact({failed: true, error: String(error.stack), comparisons, stats: gpu.stats, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors}); document.querySelector("#result").textContent = "FAIL " + error.stack;
     }
