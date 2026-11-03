@@ -1604,6 +1604,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - XP 公开 GetRenderTargetData 使用明确的模拟宿主应答，验证两次完整 1024×1024 CPU 图像、1019/5 行分块，以及请求编号、失败状态和短长度三类首块错误后的保留值与恢复。真实 GPU 则独立回放已知整屏几何和全部七个回读请求：SwiftShader/Metal 各核对 5,227,520 个像素，零宿主/GPU 错误。模拟回复不作为 GPU 像素或原生 Microsoft HAL 证据。
 > - 发布最终 XP 所测 D3D9 DLL 原字节；D3D8/DDraw 保持前期验收字节。宿主源码及运行包 `8cc48a9a2b75d0296e91` 未变，沿用先前完整 GPU/533 场景基线，新增两次最终回放；完整 GPU 目标现含 50 次运行。见 [stage4h4a-validation.json](fixtures/d3d-review/stage4h4a-validation.json)。接着将共用机制接入 D3D8 CopyRects/GetFrontBuffer/可锁 RT；S2-36 和阶段 4/5/6 继续。
 
+> **阶段 4H4b（2026-11-03）：D3D8 表面复制、回读和锁定镜像（S2-36 像素来源与复制方向）完成。**
+>
+> - 不同 DEFAULT GPU 子资源通过现有 StretchRect 直接复制，包含 back buffer、普通纹理、立方体面与 mip；不经 CPU 回读。GPU 写入使目标 CPU 镜像失效，下一次 CPU 读取先刷新；RT 锁定始终读取 GPU。SYSTEMMEM/MANAGED/SCRATCH 保持 CPU 数据权威，即使此前镜像上传失败也不从旧 GPU 内容覆盖 CPU 数据。
+> - 只读 Unlock 不上传；局部可写 RT 锁在修改前回读整层，保留渲染后的周围像素。上传失败保留镜像失效状态，部分上传不会把未知的周围像素标为有效；UpdateTexture 的上传结果也更新该标记。失败 Lock 撤销内部锁并保持调用者输出不变。
+> - CPU 表面重叠复制使用快照；CPU image→back buffer 只为复制区域创建临时纹理、上传、blit、销毁。CopyRects 按 Wine 的相同格式、可省略目标点和零计数规则校验；目标范围以有界减法检查，避免 POINT 加法溢出。保留逐矩形的已接受前缀。GetFrontBuffer 读取实际代理输出面，保留更大 CPU 目标的外部区域，并将 ARGB 设为不透明。
+> - 实际 D3D8 C 的 51 组检查、29/29 表面变异、既有 25/25 mip 变异与 ASan/UBSan 通过。覆盖 12 种 GPU 表面方向、立方体面步长、脏镜像、RT 局部锁、暂存生命周期、重叠/内存不足、越界/锁定/外国对象，以及回读与上传失败后的恢复。锁定 mip 的拒绝另有 Wine Windows 测试依据；其余未宣称完整原生 API 契约。
+> - XP 公开 COM 验证红/绿渲染、蓝色局部 RT 改写、独立渐变快照、GPU/CPU 各方向、前台有效区域、立方体面/mip、锁定子资源拒绝和一次明确模拟的回读失败后的重试。逐条核对两次 Draw、四次上传、五次 GPU blit、六个纹理完整释放及设备销毁；11 次回读在 SwiftShader/Metal 各通过 38,912 个真实 GPU 像素。客体 CPU 的宿主回复是显式模拟，GPU 像素验收单独进行。
+> - 180 组核心、167 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL和两项集成通过。D3D8 发布最终 XP 验收原 DLL 字节；D3D9/DDraw 保持既有已验收字节。宿主源码/运行包 `8cc48a9a2b75d0296e91` 未变，沿用先前完整 GPU/533 场景基线并新增两次最终回放，完整 GPU 目标现含 51 次运行。见 [stage4h4b-validation.json](fixtures/d3d-review/stage4h4b-validation.json)。
+> - GetFrontBuffer 仍采用代理输出面的坐标/尺寸契约，未宣称完整桌面、窗口偏移或原生 front/back 呈现时序。Clear 的 CPU 填充、附加交换链/COM 同一性、可锁 back buffer、完整 MSAA 边界和立方体 RT 绑定（S2-37）继续；本步的立方体验收针对复制与 CPU 镜像，不等同于渲染到立方体。接着目标绑定/创建及共用包装，阶段 4/5/6 继续。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

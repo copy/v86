@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>D3D8 XP surface copy replay</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+ "use strict";
+ const P=D9WGProtocol,gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false}),replies=new Map();
+ try{
+  const prefix=new URLSearchParams(location.search).get("prefix")||"fixtures/d3d8_surface_copy_xp",metadata=await(await fetch(prefix+".json")).json();
+  async function unpack(name){const r=await fetch(name);if(!r.ok)throw Error("Missing surface fixture "+name);return new Uint8Array(await new Response(r.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer());}
+  async function hash(bytes){return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",bytes)),v=>v.toString(16).padStart(2,"0")).join("");}
+  const bytes=await unpack(prefix+".bin.gz"),expected=await unpack(prefix+"_expected.bin.gz"),view=new DataView(bytes.buffer);if(await hash(bytes)!==metadata.traceSha256||await hash(expected)!==metadata.expectedPixelsSha256)throw Error("Surface copy fixture hash mismatch");
+  await gpu.initialize();let at=0,batches=0;
+  while(at<bytes.length){const ownerToken=view.getUint32(at,true),flags=view.getUint32(at+4,true),size=view.getUint32(at+8,true);at+=12;if(size<8||size>bytes.length-at||view.getUint16(at,true)!==0xffe1||view.getUint32(at+4,true)!==size-8)throw Error("Invalid surface carrier");await gpu.submit(bytes.subarray(at+8,at+size),{ownerToken,flags,writeGuestMemory(offset,data){
+    if(offset!==(16<<20)-P.C.D9WG_RESPONSE_REGION_BYTES+P.C.D9WG_READBACK_REGION_OFFSET)return;
+    const v=new DataView(data.buffer,data.byteOffset,data.byteLength),id=v.getUint32(P.F.ReadbackResponse.request_id,true),q=metadata.requests.find(q=>q.request_id===id);if(!q||replies.has(id)||v.getUint32(P.F.ReadbackResponse.status,true)!==P.C.D9WG_RESPONSE_OK||v.getUint32(P.F.ReadbackResponse.byte_count,true)!==q.destination_bytes||data.length!==q.destination_bytes+16)throw Error("Invalid GPU surface reply "+id);
+    let maximumByteError=0;for(let b=16;b<data.length;b++)maximumByteError=Math.max(maximumByteError,Math.abs(data[b]-expected[q.expectedOffset+b-16]));replies.set(id,{requestId:id,tag:q.tag,level:q.level,face:q.face,pixels:q.destination_bytes/4,maximumByteError});
+   }});at+=size;batches++;}
+  await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;i++)await new Promise(resolve=>setTimeout(resolve,0));
+  const comparisons=[...replies.values()].sort((a,b)=>a.requestId-b.requestId),pixels=comparisons.reduce((n,c)=>n+c.pixels,0);if(comparisons.length!==11||pixels!==38912)throw Error("Expected eleven replies / 38912 pixels");
+  const evidence={traceSha256:metadata.traceSha256,expectedPixelsSha256:metadata.expectedPixelsSha256,captureBuild:metadata.captureBuild,requests:comparisons.length,pixels,batches,comparisons,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch("/__test_file?name=d8wg-surface-copy-guest.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+  if(comparisons.some(c=>c.maximumByteError>1)||gpu.stats.commandsFailed||gpu.stats.droppedDraws||gpu.stats.blitsSkipped||gpu.gpuErrors.errors.length||gpu.hostErrors.length)throw Error("GPU D3D8 surface mismatch "+JSON.stringify(comparisons));
+  document.querySelector("#result").textContent="PASS actual XP D3D8 surface paths: eleven real GPU replies and 38912 pixels; CopyRects, RT partial writes, CPU snapshot/staging, cube faces/mips and front content; simulated failed-lock response checked separately";
+ }catch(error){document.querySelector("#result").textContent="FAIL "+error.stack;}
+})();
+</script>

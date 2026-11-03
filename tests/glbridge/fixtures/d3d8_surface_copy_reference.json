@@ -1,0 +1,90 @@
+{
+  "schema": "d3d8-surface-copy-reference-v1",
+  "scope": "Known quad/gradient inputs and pinned Wine implementation/API tests define this probe. Guest CPU pixels use explicit simulated host replies; independent real GPU replay validates every captured readback. No original Microsoft HAL pixels or complete windowed desktop front-buffer semantics are claimed.",
+  "width": 64,
+  "height": 64,
+  "format": 22,
+  "leftARGB": 4294901760,
+  "rightARGB": 4278255360,
+  "patch": {
+    "x": 8,
+    "y": 8,
+    "width": 8,
+    "height": 8,
+    "color": 4278190335
+  },
+  "sentinelARGB": 4280303712,
+  "tile": {
+    "width": 32,
+    "height": 32,
+    "source": {
+      "x": 0,
+      "y": 0,
+      "width": 24,
+      "height": 24
+    },
+    "overlapDestination": {
+      "x": 4,
+      "y": 4
+    },
+    "backDestination": {
+      "x": 16,
+      "y": 16
+    }
+  },
+  "cube": {
+    "face": 4,
+    "level": 1,
+    "width": 32,
+    "height": 32
+  },
+  "systemMipARGB": 4294967040,
+  "failedReplyIndex": 9,
+  "readbackRoles": [
+    "rt",
+    "tex64",
+    "rt",
+    "rt",
+    "rt",
+    "back",
+    "back",
+    "cube",
+    "tex32",
+    "rt",
+    "rt"
+  ],
+  "checkpoints": [
+    "RT readonly sees rendered bytes",
+    "GPU copy invalidates texture mirror",
+    "RT to CPU copy",
+    "partial RT write preserves rendered exterior",
+    "front opaque content and retained exterior",
+    "overlapping CPU source snapshot",
+    "front opaque content and retained exterior",
+    "GPU cube face and mip mirror",
+    "cube source face and mip GPU copy",
+    "valid cube mirror CPU copy",
+    "locked subresource refusal then recovery",
+    "failed RT readback lock rollback and retry"
+  ],
+  "sources": [
+    {
+      "file": "d3d8-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593"
+    },
+    {
+      "file": "d3d8-device-tests.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/device.c",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2"
+    },
+    {
+      "file": "wined3d-swapchain-front.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/swapchain.c",
+      "blobSha1": "4f106d4e451dac6aae0cc066a8a95902d2379088",
+      "sha256": "1ca62a404712227c3d0550951f0addaa25a3d6e2363e0be9480012f802e8a3c6"
+    }
+  ]
+}
