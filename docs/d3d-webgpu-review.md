@@ -1791,6 +1791,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 七组相关核心及 26 组相关客体回归、36 个标准 SDK EXE、六份严格 DLL、另两份录制 SDK EXE、站点两项集成通过，其余检查继承 4H6f4c 的 206/207 组完整基线。发布本次 XP 所测零售 DLL 和严格诊断 DLL。宿主/协议/着色器不变，本项没有新 GPU 像素运行，继承 4H6f4c 和 4H6c GPU 基线。见 [stage4h6f4d-validation.json](fixtures/d3d-review/stage4h6f4d-validation.json)。
 > - 继续完整 Reset 呈现参数、已完成状态块/私有数据边界及交换链引用/独立缓冲，包装转换与阶段 4/5/6 尚未完成。
 
+> **阶段 4H6f5a（2026-11-03）：D3D9 隐式/附加交换链引用与最终设备释放（S2-42 相关）完成。**
+>
+> - 隐式链仅在公共引用 0→1 时取得一个设备子引用，在 1→0 时归还；重复 GetSwapChain、AddRef、QueryInterface 不再逐次增加设备引用。公共计数为零时重复 Release 返回零，设备仍存活期间可重新取得同一链。附加链沿用构造时的生命周期引用，后续 AddRef 仅增加链自身计数，修复最终 Release 后设备引用泄漏。
+> - 沿用既有资源清理顺序：附加链先从设备链表移除、发送销毁、释放 backing surface 并释放链内存，最后归还设备引用。隐式链最终归还引用后不再访问可能已释放的设备或嵌入对象。依据固定版本 Wine 交换链实现与 Windows refcount 测试；backing texture/surface 内部表示及其设备引用数量保持现有约定，不宣称全部 COM 计数已原生一致。
+> - 实际 C 入口 1,958 项，含 128 轮隐式链归零/恢复、公开身份和 GetDevice、三条附加链交错释放与最后子对象销毁设备；14/14 语义变异、上一版本运行时负面对照、ASan/UBSan 通过，相关 Reset/资源/隐式表面/私有数据/呈现时钟回归保留。
+> - XP 单进程覆盖 32 轮隐式恢复、64 次重复零 Release、四条附加链和三个设备生存期；链 AddRef 的设备引用增量为零，应用先释放设备的两种最终 owner 路径均释放设备及工厂引用，108 秒正常退出。独立冻结解码确认三设备、四链和四个 backing texture 全部退役、没有绘制/Reset/Present，九项语义损坏被发现。
+> - 五组相关核心、十二组相关客体、36 个标准 SDK EXE、六份严格 DLL、另一个链生命周期 SDK EXE与站点两项集成通过；其余检查继承 4H6f4c 完整基线。只更新本次 XP 所测 D3D9 零售 DLL及严格诊断 DLL，D3D8/DDraw 保持上一验收文件。宿主/协议/着色器不变，无新 GPU 像素运行，继承 4H6f4c 和 4H6c。见 [stage4h6f5a-validation.json](fixtures/d3d-review/stage4h6f5a-validation.json)。
+> - 继续交换链 back buffer 的选择器、身份、独立缓冲/容器及多缓冲边界，完整 Reset、包装转换和阶段 4/5/6 仍未完成。
+
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

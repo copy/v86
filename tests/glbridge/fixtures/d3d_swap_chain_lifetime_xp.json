@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "perOwner": {
+    "owner": 1,
+    "active": 0,
+    "devices": [
+      {
+        "handle": 1048577,
+        "retired": true
+      },
+      {
+        "handle": 1048584,
+        "retired": true
+      },
+      {
+        "handle": 1048585,
+        "retired": true
+      }
+    ],
+    "textures": [
+      {
+        "handle": 1048578,
+        "device": 1048577,
+        "retired": true
+      },
+      {
+        "handle": 1048580,
+        "device": 1048577,
+        "retired": true
+      },
+      {
+        "handle": 1048582,
+        "device": 1048577,
+        "retired": true
+      },
+      {
+        "handle": 1048586,
+        "device": 1048585,
+        "retired": true
+      }
+    ],
+    "chains": [
+      {
+        "handle": 1048579,
+        "device": 1048577,
+        "texture": 1048578,
+        "retired": true
+      },
+      {
+        "handle": 1048581,
+        "device": 1048577,
+        "texture": 1048580,
+        "retired": true
+      },
+      {
+        "handle": 1048583,
+        "device": 1048577,
+        "texture": 1048582,
+        "retired": true
+      },
+      {
+        "handle": 1048587,
+        "device": 1048585,
+        "texture": 1048586,
+        "retired": true
+      }
+    ],
+    "hello": 1,
+    "ended": 1
+  },
+  "deviceLifetimes": 3,
+  "additionalChains": 4,
+  "backingTextures": 4,
+  "renderingCommands": 0,
+  "traceSha256": "66b4d81be6b716bdd4f3d1abb928aca0e607929d361100795f4b76ca98e8a9f0",
+  "referenceSha256": "da4ca0162b968237679f807b84b7dad96cadcc1419355ee7ea946275ada58704",
+  "sdkLogs": {
+    "CHN8.TXT": "",
+    "CHN9.TXT": "CHAIN PIN index=1 stable=1 retired=1\r\nCHAIN PIN index=0 stable=1 retired=1\r\nCHAIN PIN index=2 stable=1 retired=1\r\nSWAPCHAIN LIFETIME api=9 implicitCycles=32 additional=4 deviceLifetimes=3 zeroRelease=64 revivals=32 devicePinDeltas=0 lastOwners=2 factoryFinal=1\r\nPASS swap-chain lifetime API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d9proxy/d3d9_proxy.c": "aa06c76fba3c40e3727a58d8b5113d3271f96a30c7e015b538c44a4c73f066ff",
+    "glbridge/sample/d3d9_swap_chain_lifetime_test.c": "e1502bebb4927fafbf2d53c39713a59e253c32374e121564d92d8abe1cc6e18e"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "9": "943d19f3fe24bbb40019e741cba3a246cb3bc9705192d0bd01f411cb82f476e3"
+    },
+    "exeSha256": {
+      "9": "c725f4323ffd10ae859570dfdc0bb1f606aaa071dfcde32701f5901a1f6fa2ea"
+    }
+  },
+  "scope": "not exercised; D3D9 implicit/additional swap-chain COM references, repeated zero/revival and final-owner device/factory cleanup"
+}

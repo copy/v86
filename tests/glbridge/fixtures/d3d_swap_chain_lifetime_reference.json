@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "scope": "D3D9 swap-chain public reference/lifetime correction only. The active embedded implicit chain owns one device child pin across all positive public reference counts, supports zero Release and revival. Additional chains keep the constructor lifetime pin and do not add device pins on each AddRef. Preserve existing backing-texture/surface representation and its internal device reference counts. Independent buffer/container semantics, multiple backbuffers, full Reset normalization, native Microsoft HAL, game/FPS and stages 4/5/6 remain incomplete. No new GPU pixel run; inherit 4H6f4c/4H6c evidence.",
+  "sources": [
+    {
+      "file": "d3d9-com-swapchain.c",
+      "sha256": "4e4d530b24fb6ebe2c27be8c173d6d2df9d230de71e3779ba2a8af11ffc231d9",
+      "blobSha1": "e87b8627ba3e511f84ef2074cc02b963c01c9daf",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/swapchain.c",
+      "evidence": "Wine implementation (W): AddRef pins parent only on 0-to-1; Release ignores zero and unpins only on 1-to-0; constructor owns initial parent reference."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "evidence": "Wine Windows test_refcount: implicit chain identity, zero Release, revival, retained device lifetime."
+    }
+  ],
+  "facts": {
+    "portableChecks": 1958,
+    "implicitPortableCycles": 128,
+    "implicitXPCycles": 32,
+    "additionalChains": 4,
+    "deviceLifetimes": 3,
+    "lastChildDeviceTeardowns": 2,
+    "zeroReleaseCalls": 64,
+    "implicitRevivals": 32,
+    "deviceReferenceDeltaForAdditionalAddRef": 0,
+    "finalFactoryReferences": 1
+  }
+}
