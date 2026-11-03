@@ -1,0 +1,214 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048578,
+      "created": 1,
+      "resets": 1,
+      "destroyed": 1,
+      "targets": 1,
+      "depthTargets": 1
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048578,
+      "created": 1,
+      "resets": 1,
+      "destroyed": 1,
+      "targets": 1,
+      "depthTargets": 1
+    }
+  ],
+  "regression": [
+    {
+      "owner": 3,
+      "api": 8,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        },
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048582,
+          "kind": 5,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048583,
+          "kind": 3,
+          "levels": 1,
+          "format": 21
+        },
+        {
+          "handle": 1048584,
+          "kind": 3,
+          "levels": 1,
+          "format": 75
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580,
+        1048581,
+        1048582,
+        1048583,
+        1048584
+      ],
+      "chain": 0,
+      "chainsCreated": 0,
+      "chainsDestroyed": 0,
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "13": 1,
+        "256": 2,
+        "259": 8,
+        "272": 3,
+        "273": 1,
+        "274": 1,
+        "512": 1,
+        "519": 1,
+        "541": 1
+      }
+    },
+    {
+      "owner": 4,
+      "api": 9,
+      "device": 1048577,
+      "created": 1,
+      "destroyed": 1,
+      "resources": [
+        {
+          "handle": 1048578,
+          "kind": 1,
+          "bytes": 64
+        },
+        {
+          "handle": 1048579,
+          "kind": 2,
+          "bytes": 32
+        },
+        {
+          "handle": 1048580,
+          "kind": 3,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048581,
+          "kind": 4,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048582,
+          "kind": 5,
+          "levels": 2,
+          "format": 21
+        },
+        {
+          "handle": 1048583,
+          "kind": 3,
+          "levels": 1,
+          "format": 21
+        },
+        {
+          "handle": 1048584,
+          "kind": 3,
+          "levels": 1,
+          "format": 75
+        },
+        {
+          "handle": 1048585,
+          "kind": 3,
+          "levels": 1,
+          "format": 22
+        }
+      ],
+      "retired": [
+        1048578,
+        1048579,
+        1048580,
+        1048581,
+        1048582,
+        1048583,
+        1048584,
+        1048585
+      ],
+      "chain": 1048586,
+      "chainsCreated": 1,
+      "chainsDestroyed": 1,
+      "commands": {
+        "1": 1,
+        "2": 1,
+        "11": 1,
+        "13": 1,
+        "256": 2,
+        "259": 9,
+        "272": 4,
+        "273": 1,
+        "274": 1,
+        "541": 1,
+        "548": 1,
+        "549": 1
+      }
+    }
+  ],
+  "traceSha256": "f0cf770b6a08aedfd0b3b4dc5482a76342442dc49b2d9a135bb42e55635182ea",
+  "referenceSha256": "c702f0723ffde9ec5ffb9c23558fff158f327130fe04faea90c839f3d2d0d5d6",
+  "sdkLogs": {
+    "IMP8.TXT": "IMPLICIT 8 kind=0 count=0 pin=1 live=1 revived=1 stereo=1 container=1\r\nIMPLICIT 8 kind=1 count=0 pin=1 live=1 revived=1 stereo=0 container=1\r\nRESET IMPLICIT 8 width=80 height=72 samples=4 owned=1\r\nFINAL IMPLICIT 8 device=2 back=0 depth=0\r\nPASS implicit API=8\r\n",
+    "IMP9.TXT": "IMPLICIT 9 kind=0 count=0 pin=1 live=1 revived=1 stereo=1 container=1\r\nIMPLICIT 9 kind=1 count=0 pin=1 live=1 revived=1 stereo=0 container=1\r\nRESET IMPLICIT 9 width=80 height=72 samples=4 owned=1\r\nFINAL IMPLICIT 9 device=2 back=0 depth=0\r\nPASS implicit API=9\r\n",
+    "PRIV8.TXT": "CHECK PRIVATE 8 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 8 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 8 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 0 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 8 2 refs=1 released=0\r\nCHECK SURFACE OWNERS 8 back=2 depth=2 chain=1 earlyRelease=0 isolated=1\r\nCHECK SURFACE DEVICE 8 back=1 depth=1 released=0\r\nPASS private API=8\r\n",
+    "PRIV9.TXT": "CHECK PRIVATE 9 0 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK PRIVATE 9 1 raw=1234ABCD size=4 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 0 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 1 children=3 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK TEXTURE PRIVATE 9 2 children=2 parent=10203040 persistent=1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 0 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 1 refs=1 released=0\r\nCHECK SURFACE PRIVATE 9 2 refs=1 released=0\r\nCHECK SURFACE OWNERS 9 back=2 depth=2 chain=1 earlyRelease=0 isolated=1\r\nCHECK SURFACE DEVICE 9 back=1 depth=1 released=0\r\nPASS private API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_present_pacing.c": "2d4162feeeba458b925ee6fb281ed6a5f4f4cc18564db2458ae053db4a8951fb",
+    "glbridge/runtime/d9wg_present_pacing.h": "4242319df86e7666d625b79b38b33d503bfe8a6b50af02b15ec69b5e0530d851",
+    "glbridge/runtime/d9wg_present_pacing_bridge.h": "e4323c447e55d7e9b8523b978fd996ef8baff532b404f620bc366e8b3d26dbc8",
+    "glbridge/runtime/build.sh": "5faef442a3889dea33ff857eeba30dd9001e316b997242dce9392979a273cd68",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "d59265893ce121562f77436f334c9f0d2629055a81afa2e74cdd47a3b8057ce6",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "b756deb4ce3728d7b90d79fcc9fab0d89e6b2f4dc21753544424076c4d93bc15",
+    "glbridge/sample/d3d_implicit_identity_test.c": "6d86e96db85067a01ebd21edb83a2eff6e1594307d663c69c273b71cadc9dee5",
+    "glbridge/sample/d3d_private_data_test.c": "ecbed0fb8290005a2d3d92c750cf725552ea745fc5c879d37d5d5d2027198bcb"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "51f6442193b6f34fcc72a92ffed5b772c1ade0eedede6e273cd8ae3f43ac72a0",
+      "d3d9": "af40ac3a61a2958195f39034521193e8c5cc5d70b73ed8fd3242ecf87ff016de"
+    },
+    "exeSha256": {
+      "IMP8": "c1e027507de77f2152fcc2b3c9e6c899ade1ffaeba76ac72b517d1d62848ce55",
+      "IMP9": "e06d23669538394ac8b3b71ebe9b492bfafb354f2b03861f075bdaff188ab71d",
+      "PRIV8": "9db330314fcb8b83ee491d84e7578c7e3a536d221a6609510065c06d8d69cb1b",
+      "PRIV9": "ff2de4c9f6d938c7a82166ebf46b7602502d11945cc905da8d9469086b56e94d"
+    }
+  },
+  "scope": "not exercised; implicit surface identity, zero/nonzero device pins, device-owned Reset and private-data regressions; no GPU pixel execution"
+}

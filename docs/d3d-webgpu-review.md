@@ -1719,6 +1719,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 199 组核心、196 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包不变，沿用 4H6c GPU 基线。见 [stage4h6f1-validation.json](fixtures/d3d-review/stage4h6f1-validation.json)。
 > - 本项为客体 COM/存储生命周期验收，未执行 GPU 像素或原生 Microsoft HAL；并发缓存发布、隐式/附加链表面同一性及 Reset 边界继续处理。S2-42、D3D8 包装转换和阶段 4/5/6 未宣称完成。
 
+> **阶段 4H6f2（2026-11-03）：隐式表面 COM 同一性、归零恢复及设备引用转换（S2-42 部分）完成。**
+>
+> - D3D8 设备缓存隐式 back/depth 包装；GetRenderTarget 与 GetBackBuffer 返回同一对象。两 API 的隐式表面公开引用独立于设备计数：仅 0→1 保留设备、1→0 释放设备，0 时重复 Release 返回 0，缓存对象可在设备仍存活时恢复引用。最后设备退出时清理缓存及私有数据。
+> - 两版设备 GetBackBuffer 按 Wine Windows 测试忽略 mono/left/right/未知 type 选择值；索引仍校验。补上 D3D9 自动深度表面 GetContainer 的设备接口身份及引用。D3D8 区分设备自己持有的默认深度引用与调用者额外引用，避免仅恢复默认目标后 Reset 永久失败；成功 Reset 更新缓存的尺寸、格式、采样及字节布局。
+> - 实际获取/引用/设备销毁入口各 20 组生命周期检查，覆盖缓存分配失败、重复获取、归零恢复、设备先退出、默认深度的内部/外部引用差别及容器查询；23/23 新增语义变异和 ASan/UBSan 通过。保留 105 项子视图、39 项 render-target、81 项 MSAA 与独立/隐式私有存储检查；其 18/28/19/19 项变异继续通过。分别恢复上一提交的 D8 获取入口及 D9 AddRef 函数原体，均在运行时负面对照失败。
+> - XP 两版验证活跃/归零/重新获取/IUnknown/container 身份、原始私有数据、独立表面与设备计数、stereo 容忍、设备先退出、仅设备持有默认目标时成功 Reset，以及 80×72/4×MSAA 描述更新；另复跑完整私有数据/表面探针，四个 owner 正常退出，140 秒。冻结轨迹确认两次 Reset、默认目标绑定和既有 15 个资源清理，六项轨迹/日志损坏被发现。
+> - 200 组核心、198 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包不变，沿用 4H6c GPU 基线。见 [stage4h6f2-validation.json](fixtures/d3d-review/stage4h6f2-validation.json)。
+> - 本项验收客体 COM/元数据，不宣称物理 MSAA、GPU 像素或原生 HAL。D3D9 外部隐式引用的 Reset 拒绝、完整 Reset 私有数据/资源边界、并发缓存发布、附加交换链表面与独立像素继续处理；S2-42、包装转换及阶段 4/5/6 未宣称完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

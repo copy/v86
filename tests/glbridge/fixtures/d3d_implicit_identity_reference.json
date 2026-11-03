@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "scope": "Implicit back-buffer/auto-depth wrapper identity, zero/nonzero device retention, zero Release/revival, stereo selector tolerance and container identity. A successful Reset with only device-owned default targets updates cached geometry. D3D9 external implicit-reference Reset rejection, full Reset private-data boundaries, additional-chain surface identity, concurrent publication, native Microsoft HAL, physical MSAA rendering and game/FPS acceptance remain outside this step.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "file": "d3d8-private-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5"
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55"
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+    }
+  ],
+  "observations": {
+    "oneDevicePinPerNonzeroSurfaceCount": true,
+    "surfaceAndDeviceCountsIndependent": true,
+    "zeroReleaseReturnsZero": true,
+    "revivalAtZeroSupportedWhileDeviceLives": true,
+    "renderTargetIsBackBuffer": true,
+    "stereoSelectorIgnored": true,
+    "autoDepthContainerIsDevice": true,
+    "onlyDeviceOwnedDepthDoesNotBlockReset": true
+  }
+}
