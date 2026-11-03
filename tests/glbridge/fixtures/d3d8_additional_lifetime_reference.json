@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "scope": "D3D8 additional backbuffer public COM counts are independent of private texture references. The chain owns the storage creation device pin; a live public surface owns one additional device/storage pin only across public count 0-to-1 / 1-to-0 edges. Zero-count cached views and stores survive while a chain or target binding keeps storage alive. Validate repeated zero Release, direct/cached revival, last-view device destruction, and successful Reset when storage is held only by a device binding. Ordinary texture forwarding and implicit surface behavior are retained. D3D8 additional-chain physical lifetime/revival while its public chain count is zero, D3D9 chain containers/independent surface counters, multiple buffers, standalone render/depth counters, complete Reset, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. No host/protocol/shader change or new GPU pixel run; inherit the rebuilt 7a baseline.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Pinned Windows additional-chain reference test: creating the chain adds one device reference; getting the backbuffer returns public count 1 and adds one device pin; subsequent AddRef preserves device count, final public Release returns zero, cached AddRef at zero is valid while chain survives and repeated zero Release returns zero."
+    },
+    {
+      "file": "d3d8-container-surface.c",
+      "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+      "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/surface.c",
+      "evidence": "Surface AddRef/Release maintain their own resource.refcount for non-texture public surfaces; device and underlying texture/swapchain references change only on public zero/nonzero edges. Release storage before the parent device, since storage destruction can free the surface."
+    }
+  ],
+  "facts": {
+    "actualLifetimeChecks": 1178,
+    "portableCachedRevivalCycles": 128,
+    "semanticMutations": 12,
+    "xpCachedRevivalCycles": 32,
+    "xpDeviceLifetimes": 3,
+    "xpQueuedResets": 2,
+    "xpRefusedResets": 1,
+    "xpPrivateObjectsFinalized": 3,
+    "bindingOnlyResetSucceeds": true,
+    "lastViewDestroysDeviceAfterApplicationAndChainRelease": true,
+    "ordinaryTexturePublicCounterForwardingRetained": true
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "hello": 1,
+      "ended": 1,
+      "cases": [
+        {
+          "index": 0,
+          "handles": [
+            1048577,
+            1048581
+          ],
+          "texture": 1048578,
+          "chain": 1048579,
+          "textureRetired": true,
+          "chainRetired": true,
+          "resets": 1,
+          "targets": 0,
+          "destroyed": 1
+        },
+        {
+          "index": 1,
+          "handles": [
+            1048582
+          ],
+          "texture": 1048583,
+          "chain": 1048584,
+          "textureRetired": true,
+          "chainRetired": true,
+          "resets": 0,
+          "targets": 0,
+          "destroyed": 1
+        },
+        {
+          "index": 2,
+          "handles": [
+            1048585,
+            1048588
+          ],
+          "texture": 1048586,
+          "chain": 1048587,
+          "textureRetired": true,
+          "chainRetired": true,
+          "resets": 1,
+          "targets": 1,
+          "destroyed": 1
+        }
+      ]
+    }
+  ],
+  "deviceLifetimes": 3,
+  "resets": 2,
+  "chains": 3,
+  "textures": 3,
+  "renderTargetBindings": 1,
+  "cachedRevivalCycles": 32,
+  "refusedResetCalls": 1,
+  "privateObjectsFinalized": 3,
+  "drawOrPresentCommands": 0,
+  "traceSha256": "7d261a82bf202bd75450d4d5647701e5c68ec234dbdc5a936571e274d3f3336b",
+  "referenceSha256": "cd9adceaa2446219c57e548a0c0e1db0eecbcf358cd830513e2ffe08ab800429",
+  "sdkLogs": {
+    "REF8.TXT": "REF8 case=0 cycles=32 publicZero=1 devicePin=1 failedReset=1 recoveredReset=1 privateFinalized=1\r\nREF8 case=1 deviceFirst=1 chainFirst=1 lastViewDevice=0 privateFinalized=1\r\nREF8 case=2 bindingOnly=1 surfacePublic=0 reset=1 privateFinalized=1 deviceRefs=0\r\nPASS additional lifetime API=8\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "a4ad9d9c2bc2e9ae9641ea61031126243bb2920c8d1afa8eba1696ad2a0129d1",
+    "glbridge/sample/d3d8_additional_lifetime_test.c": "fc1d2b9af6d2aede99d365a2886e0751eac9f11dc18f2b882cf1599867ccc1a4"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "26d574849ab4e354b016c59fad8c58281024120558a46c06d2e98e63f4018450"
+    },
+    "exeSha256": {
+      "8": "48c7b829bf814e148cbe1fd955f2e1f14f076ee13d4000691ac3a4b405ee356f"
+    }
+  },
+  "scope": "not exercised; D3D8 additional-buffer independent public counts, 32 cached zero-count revivals, exact device pin edges, private IUnknown finalization, device/chain-first teardown, live-chain Reset rejection/recovery and binding-only Reset cleanup"
+}
