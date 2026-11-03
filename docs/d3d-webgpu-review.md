@@ -1746,6 +1746,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 同一新轨迹在 SwiftShader 和 Metal 各重放一次，每后端原始/显示各 4096 个参考像素零误差，无 GPU/宿主错误。202 组核心、202 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测零售 DLL和严格诊断 DLL。宿主/运行包不变，保留 4H6c 全量 GPU 基线。见 [stage4h6f3b-validation.json](fixtures/d3d-review/stage4h6f3b-validation.json)。
 > - 接着修复 Reset 对活动 Scene 的处理，再继续状态块/私有数据、窗口/全屏模式及附加交换链边界；物理设备丢失、线程约束、公开绑定引用计数、完整包装转换和阶段 4/5/6 仍待完成。
 
+> **阶段 4H6f3c（2026-11-03）：Reset 对活动 Scene 的处理（S1-9 / S2-42 部分）完成。**
+>
+> - 按两版固定 Wine Windows `test_scene`，更正 4H6f3a 将活动 Scene 作为资源阻塞的判定：只要资源图允许，Scene 内可成功 Reset。重置命令成功排入队列后清除旧 Scene；此前拒绝的 Reset 保留其标志，后续默认状态重放失败则维持 NOTRESET。成功后 EndScene 返回 INVALIDCALL，新的 BeginScene/EndScene 正常工作。
+> - 实际 C Reset/Scene/协作状态/Present 每版 411 项，12 类失败路径同时检查 Scene 的保持或清理；资源图保留 580/587 项并修正活动 Scene 期望。状态 23/23、资源图 35/35 语义变异和 ASan/UBSan 通过，上一提交两版源码均在运行时负面对照失败。
+> - 真实 XP 每版 8 次在活动 Scene 中成功 Reset、15 次拒绝旧 EndScene、15 对新 Scene；原 7 次失败 Reset、28 次 NOTRESET 查询、7 次失败 Present、managed 像素和私有数据继续通过。两个 owner 正常退出，115 秒；冻结轨迹逐 owner 验证 24 次 Begin、16 次 End、8 次由 Reset 结束 Scene，资源保持 30 次成功 Reset、30 个完整退出，十项日志/轨迹语义损坏被发现。
+> - 新 XP 轨迹在 SwiftShader 和 Metal 各重放一次，每后端原始/显示各 4096 个参考像素零误差，无 GPU/宿主错误。203 组核心检查、14 组相关客体回归及变异、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；其余客体检查继承 4H6f3b 的 202 组完整基线。发布本次 XP 所测零售 DLL和严格诊断 DLL；宿主/运行包不变，另保留 4H6c 全量 GPU 基线。见 [stage4h6f3c-validation.json](fixtures/d3d-review/stage4h6f3c-validation.json)。
+> - 继续完整 Reset 的状态块/私有数据与窗口/全屏切换，再处理附加交换链和包装转换；物理设备丢失、线程约束、公开绑定引用计数及阶段 4/5/6 仍未宣称完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

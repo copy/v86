@@ -1,0 +1,1158 @@
+{
+  "stage": "4H6f3c Reset closes active Scene after Reset command queuing (S1-9 / S2-42 part)",
+  "date": "2026-11-03",
+  "bundle": "a532e70eacef8cba3d10",
+  "coreSuites": 203,
+  "guestTargetedSuites": 14,
+  "guestBaseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6f3b-validation.json",
+    "sha256": "32e12deb120c3933c134f65722909ae82c971dd1b8b38f9b65ea9da06ed6d6d0",
+    "fullSuites": 202,
+    "reason": "Only two Reset/preflight paths changed; rerun all affected Reset, implicit-surface, private-surface, interval and pacing checks and their mutations."
+  },
+  "webgpuRuns": 2,
+  "gpu": {
+    "swift": {
+      "traceSha256": "303eb091968d10ab2d8fc9545c3c3de208eafcfc264f187af0899571068257b7",
+      "referenceSha256": "8a85a75f48da8d18a2a0aab61e64212da0414670cd30bcf2de5dabf16e46e4c0",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "4e3332a19ff1a6327caaa976194fee2417339efe64ac82852d91280a4acdc569",
+          "d3d9": "f88347d77744eb0678b9003c7fd37a83507756c566cce93322590c25e7745b8a"
+        },
+        "exeSha256": {
+          "8": "96ed65cfbda4d7a4633e90a8897881faa38d0cb43d63e0d88b092b0dd141c7ca",
+          "9": "3502e6c9780ea977e0b54ee7dc8feffe3932ed9a32e4bb37b6ebf7898f961af5"
+        }
+      },
+      "resets": 30,
+      "frames": 2,
+      "rawPixels": 4096,
+      "displayPixels": 4096,
+      "batches": 7,
+      "comparisons": [
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048607,
+          "pixels": 2048,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048607,
+          "pixels": 2048,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 7,
+        "commands": 376,
+        "presents": 2,
+        "queueSubmits": 10,
+        "drawCalls": 2,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 2,
+        "pipelineCreations": 1,
+        "pipelineHits": 1,
+        "pipelinesRejected": 0,
+        "programBuilds": 2,
+        "programCacheHits": 0,
+        "bindGroupCreations": 2,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 8,
+        "backBufferPresents": 2,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 2,
+        "readbackRequests": 2,
+        "frameFlushes": 6,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 22,
+        "textureUploads": 6,
+        "textureBytesUploaded": 384,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 2,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 1,
+        "samplerHits": 1,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 2,
+        "uploadStagingUploads": 6,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 3,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 4,
+        "volumeTexturesCreated": 4,
+        "renderTargetsCreated": 2,
+        "renderTargetBinds": 2,
+        "renderPasses": 2,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 1048578,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 1024,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 2,
+        "renderTargetReadbackBytes": 32768,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "b91aa0585e5649329e614e4ac4058554c1effee09dcfbe8970eacf7e7b124685"
+    },
+    "metal": {
+      "traceSha256": "303eb091968d10ab2d8fc9545c3c3de208eafcfc264f187af0899571068257b7",
+      "referenceSha256": "8a85a75f48da8d18a2a0aab61e64212da0414670cd30bcf2de5dabf16e46e4c0",
+      "captureBuild": {
+        "dllSha256": {
+          "d3d8": "4e3332a19ff1a6327caaa976194fee2417339efe64ac82852d91280a4acdc569",
+          "d3d9": "f88347d77744eb0678b9003c7fd37a83507756c566cce93322590c25e7745b8a"
+        },
+        "exeSha256": {
+          "8": "96ed65cfbda4d7a4633e90a8897881faa38d0cb43d63e0d88b092b0dd141c7ca",
+          "9": "3502e6c9780ea977e0b54ee7dc8feffe3932ed9a32e4bb37b6ebf7898f961af5"
+        }
+      },
+      "resets": 30,
+      "frames": 2,
+      "rawPixels": 4096,
+      "displayPixels": 4096,
+      "batches": 7,
+      "comparisons": [
+        {
+          "owner": 1,
+          "api": 8,
+          "device": 1048607,
+          "pixels": 2048,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "device": 1048607,
+          "pixels": 2048,
+          "rawMaximumByteError": 0,
+          "displayMaximumByteError": 0
+        }
+      ],
+      "stats": {
+        "batches": 7,
+        "commands": 376,
+        "presents": 2,
+        "queueSubmits": 10,
+        "drawCalls": 2,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 2,
+        "pipelineCreations": 1,
+        "pipelineHits": 1,
+        "pipelinesRejected": 0,
+        "programBuilds": 2,
+        "programCacheHits": 0,
+        "bindGroupCreations": 2,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 8,
+        "backBufferPresents": 2,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 2,
+        "readbackRequests": 2,
+        "frameFlushes": 6,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 22,
+        "textureUploads": 6,
+        "textureBytesUploaded": 384,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 2,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 2,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 1,
+        "samplerHits": 1,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 2,
+        "uploadStagingUploads": 6,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 3,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 4,
+        "volumeTexturesCreated": 4,
+        "renderTargetsCreated": 2,
+        "renderTargetBinds": 2,
+        "renderPasses": 2,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 1048578,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 1024,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 2,
+        "renderTargetReadbackBytes": 32768,
+        "renderTargetReadbackFailures": 0
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "artifactSha256": "b91aa0585e5649329e614e4ac4058554c1effee09dcfbe8970eacf7e7b124685"
+    }
+  },
+  "gpuBaseline": {
+    "file": "docs/fixtures/d3d-review/stage4h6c-validation.json",
+    "sha256": "4d7a00aa1081a2840b17c3bcffb5987d2fed26531bd53e419ed07f24f48ef0a0",
+    "bundle": "a532e70eacef8cba3d10",
+    "webgpuRuns": 58,
+    "reason": "Host/protocol/shader sources unchanged; inherit the full 4H6c GPU baseline and add dedicated XP Reset/resource pixel replay on SwiftShader and Metal."
+  },
+  "siteIntegrationTests": 2,
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "ff96316da3484ff2a0d6573b02724e43a179cf2ce85cd2dcfefd4c27618863c3"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "1f90d7363b088b1e968db058687cadc8cac6f15f33f4e602f8f2761c9eccd4bd"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "3bc9da70db83fb41d2ed56538d0f79b64e41f783a4a50b8df9ba4f6cd541903d"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "e5f3a11e8171ccf61b394e62b5a666a4914d20ff525c0a38355e320b1711c173"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "8b515ae8cb5aa9cf89df5cec30d370ff1cdc5e3fa7ad04f15ce291a99fe03508"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "f39947a55773cd16555a6920c486e6ed8a1a6b754f817059da3b34ed1fcf0459"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "bdab607e9e65a066238103b8972d7482c02d29c9928026356a2eb11226ae677a"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "f4102e85ec76443c5c840a9882d47b99cf15771b360bc6d704cff083b9e3e820"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "b8542b670a3348055f855f6d26723c27a19e539e65f54af2d91452dfb031dec0"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "fdcab800fcd928535bb811dcf024da391c5a1704ddd55aaa61ce50bd27398349"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "207177f06b3a321e000c917baf050c02d0d76d0e16728e58ca26289c442b2d3a"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "fb7d3a5274f5d348950ff355eaab408c13b8aa4d502e2c6316bd050dab719ec8"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "08cb4b40ee2ccc16f7c9070143187897cea515de96c8af847f6ca1275a1a7c2d"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "dd9452497f678308c22151fa22f173c39244c05a1d00a8955e7ccae046aa17b1"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "aed2c8304d50e91a521fdb7125642ba5d9ce17ea2eeb51f1d982b6fac9d3c512"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "681e894ac5039b79b8a99618f7923d5d40ea1e2be305d4d7817d86f5f42a3836"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "32d9249867d55e15719178195c3236547e8d6fbce8af8e7b095ad2f8f0fb05cf"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "247dc920ec6ff1fa6892283adf2c2311986eb41c998606f952b751ec9d129eeb"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP Reset Scene/status probe DLL",
+      "shippedDllSha256": "4e3332a19ff1a6327caaa976194fee2417339efe64ac82852d91280a4acdc569",
+      "diagnosticSha256": "8cf526b02dc8a684c217962f7ab105d437aa43e84b0e13052fcf3dcce7975de6"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "0e8c329df8aa79fdd1cde8603177e364e5b3b042b41c2839747def352631e903"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "8b9c190ea21cfa38cd5ef786777f2a91dfe7fcdfc3567ef14862778bbd7e7902"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "1aa382521f7c1a9717ab88c157cab71aeef6aacd89324ec05ef5734c072e28fc"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "9fb2c1ce59de0fe154c936852deee48258ffe2b1ead579d748159a354479fe13"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "3b9c27fbf90c8abe9556de5f80db1dff1627a21ee8ccf399c20dd8f3ccde74ef"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "bae6967cbb32d4eee32207b0031242c4a425dad38f885f4d6f76209e79cf016a"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "8fc6c82fc93f19c04ff5be962f4c93d34ab08eb955e4fd4a7660de38e1236082"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "a6fb30c89a284d97582d64dd988b0d4e8bb3cbc7f6407a4c17e1af5937d959a3"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "58af7335993650986129dd436cd97682b491a87a58a232c586fd399533b4b8ae"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "df1a9b897f816563c0cc1ddd1aab79fb953526126e91dd7ac947d089ed45116d"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "f1c064b453efb97825c3fd1ff2f31f404b48852110ef8d11248ac1fbcd5ee007"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "8d419678087c8cb76e5a4051d77db2c02e22cc56ba85467d6c18d44a64e9eb57"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "9886a8b30e0340a45ad560c9641bf86d7436e8e403a30dd8bab3e365700ed16e"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "22a73df8fffa0c565b3d3cb3eaafe0fd0057df480f65d6217b4cf57a4964daa8"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact final XP Reset Scene/status probe DLL",
+      "shippedDllSha256": "f88347d77744eb0678b9003c7fd37a83507756c566cce93322590c25e7745b8a",
+      "diagnosticSha256": "75c1c005b0904d7a4d1845b61e12cdabe39a0b2d9031333ecfcf5c4934408061"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "24acebb93375b3c084d7ec297375b9cca2d810b29f2d4d3f9ef4a3b5a2ddec0c"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "02c4d513ea0b52551a8ef65b7060892d099f495e2a82bc78cd834eaf9fe48841"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "d21a8922b05dd917121d33d057cacfbb0ecd5318997ea3186d97d2d3fe5b35a4"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "0972f6b46dfc91ca07b49b4ffb768905e530948b105c587727621f7e5b1e3f3a"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged prior accepted DLLs",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "portable": {
+    "actualResetStatusChecks": {
+      "8": 411,
+      "9": 411
+    },
+    "failurePathsPerAPI": 12,
+    "previousSourceRuntimeNegativeControls": 2,
+    "repeatedBlockedRetries": 8,
+    "mutations": {
+      "resetStatus": 23,
+      "resourceGraph": 35
+    },
+    "retainedPacingAndIntervalMutations": {
+      "parameters": 18,
+      "devicePacing": 27,
+      "chainPacing": 19
+    },
+    "retainedResourceGraphObservations": {
+      "8": 580,
+      "9": 587
+    },
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "fixtureCorruptions": 10,
+    "noLostPresentCommandsOrTiming": true,
+    "recoveryAfterCompleteStateReplay": true,
+    "queriesAndReleaseDoNotRecover": true,
+    "deviceIsolation": true
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_reset_scene_reference.json",
+    "sha256": "8a85a75f48da8d18a2a0aab61e64212da0414670cd30bcf2de5dabf16e46e4c0",
+    "sources": [
+      {
+        "file": "d3d8-device-tests.c",
+        "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+        "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+      },
+      {
+        "file": "d3d8-private-surface.c",
+        "sha256": "94409282de3533f8ddfe4392c04568346d090bb5f39f1bb33fef910613e13f89",
+        "blobSha1": "5b02035d53980c006fc19122b028f9263d1219a5"
+      },
+      {
+        "file": "d3d9-private-surface.c",
+        "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+        "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55"
+      },
+      {
+        "file": "d3d9-device-tests.c",
+        "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+        "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+      }
+    ],
+    "documentation": [
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-reset",
+        "fact": "A failed Reset leaves the device non-operational. Reset/TestCooperativeLevel/Release are the guaranteed calls after failure."
+      },
+      {
+        "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3ddevice9-testcooperativelevel",
+        "fact": "NOTRESET permits a Reset retry; Present returns DEVICELOST for both lost and not-reset devices."
+      }
+    ],
+    "facts": {
+      "resourceFamilies": [
+        "vertex",
+        "index",
+        "2D",
+        "cube",
+        "volume"
+      ],
+      "nondefaultPoolsSurviveReset": true,
+      "mappedCPUStorageRemainsValid": true,
+      "deviceOnlyTargetsAllowReset": true,
+      "applicationImplicitRefsBlockReset": true,
+      "ownedBackingTextureCountPerSurfaceNotPerSlot": true,
+      "failedResetCooperativeHR": "88760869",
+      "resourceRefusalHR": {
+        "8": "88760868",
+        "9": "8876086C"
+      },
+      "lostPresentHR": "88760868",
+      "releaseOrQueryDoesNotRecover": true,
+      "onlyCompleteResetRestoresReady": true,
+      "noLostPresentWireCommands": true,
+      "sceneSourceTests": {
+        "8": "d3d8-device-tests.c test_scene, lines 2176-2189",
+        "9": "d3d9-device-tests.c test_scene, lines 2730-2743"
+      },
+      "openSceneDoesNotBlockReset": true,
+      "acceptedResetEndsScene": true,
+      "postResetEndSceneHR": "8876086C",
+      "freshScenePairAfterReset": true
+    },
+    "frame": {
+      "width": 64,
+      "height": 64,
+      "clearARGB": 4281376880,
+      "markerARGB": 4288692256,
+      "quad": [
+        16,
+        16,
+        48,
+        48
+      ],
+      "center": [
+        24,
+        24,
+        40,
+        40
+      ],
+      "border": 8,
+      "pixelsPerImage": 2048
+    }
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 115,
+    "batches": 7,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS reset probes \r\n",
+    "logs": {
+      "RST8.TXT": "RESET GRAPH 8 accepted=15 refused=7 families=5 cpuMapped=2 implicit=2 ownedTargets=1 private=11223344 frame=1\r\nRESET STATUS 8 refused=7 recovered=15 lostPresents=7 coopNotReset=28 coopReady=15 resetHR=88760868 coopHR=88760869 presentHR=88760868\r\nRESET SCENE 8 resetOpen=8 endRefused=15 freshPairs=15\r\nPASS reset API=8\r\n",
+      "RST9.TXT": "RESET GRAPH 9 accepted=15 refused=7 families=5 cpuMapped=2 implicit=2 ownedTargets=1 private=11223344 frame=1\r\nRESET STATUS 9 refused=7 recovered=15 lostPresents=7 coopNotReset=28 coopReady=15 resetHR=8876086C coopHR=88760869 presentHR=88760868\r\nRESET SCENE 9 resetOpen=8 endRefused=15 freshPairs=15\r\nPASS reset API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "not exercised; Reset active-Scene termination, HRESULT/cooperative-level recovery and lost Present rejection; post-Reset rendering command sequence; GPU pixels separately replayed",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 165180,
+        "crc32": "5d02c548"
+      }
+    },
+    "perAPI": [
+      {
+        "owner": 1,
+        "api": 8,
+        "device": 1048607,
+        "created": 1,
+        "resets": 15,
+        "destroyed": 1,
+        "resources": [
+          {
+            "index": 0,
+            "handle": 1048578,
+            "kind": 3,
+            "pool": 1,
+            "born": 0,
+            "retired": 15,
+            "uploads": 1
+          },
+          {
+            "index": 1,
+            "handle": 1048579,
+            "kind": 1,
+            "pool": 0,
+            "born": 0,
+            "retired": 0,
+            "uploads": 0
+          },
+          {
+            "index": 2,
+            "handle": 1048581,
+            "kind": 2,
+            "pool": 0,
+            "born": 1,
+            "retired": 1,
+            "uploads": 0
+          },
+          {
+            "index": 3,
+            "handle": 1048583,
+            "kind": 3,
+            "pool": 0,
+            "born": 2,
+            "retired": 2,
+            "uploads": 0
+          },
+          {
+            "index": 4,
+            "handle": 1048585,
+            "kind": 4,
+            "pool": 0,
+            "born": 3,
+            "retired": 3,
+            "uploads": 0
+          },
+          {
+            "index": 5,
+            "handle": 1048587,
+            "kind": 5,
+            "pool": 0,
+            "born": 4,
+            "retired": 4,
+            "uploads": 0
+          },
+          {
+            "index": 6,
+            "handle": 1048589,
+            "kind": 1,
+            "pool": 0,
+            "born": 5,
+            "retired": 6,
+            "uploads": 0
+          },
+          {
+            "index": 7,
+            "handle": 1048591,
+            "kind": 2,
+            "pool": 0,
+            "born": 6,
+            "retired": 7,
+            "uploads": 0
+          },
+          {
+            "index": 8,
+            "handle": 1048593,
+            "kind": 3,
+            "pool": 0,
+            "born": 7,
+            "retired": 8,
+            "uploads": 0
+          },
+          {
+            "index": 9,
+            "handle": 1048595,
+            "kind": 4,
+            "pool": 0,
+            "born": 8,
+            "retired": 9,
+            "uploads": 0
+          },
+          {
+            "index": 10,
+            "handle": 1048597,
+            "kind": 5,
+            "pool": 0,
+            "born": 9,
+            "retired": 10,
+            "uploads": 0
+          },
+          {
+            "index": 11,
+            "handle": 1048599,
+            "kind": 3,
+            "pool": 2,
+            "born": 10,
+            "retired": 11,
+            "uploads": 1
+          },
+          {
+            "index": 12,
+            "handle": 1048601,
+            "kind": 3,
+            "pool": 3,
+            "born": 11,
+            "retired": 12,
+            "uploads": 1
+          },
+          {
+            "index": 13,
+            "handle": 1048605,
+            "kind": 3,
+            "pool": 0,
+            "born": 14,
+            "retired": 15,
+            "uploads": 0
+          },
+          {
+            "index": 14,
+            "handle": 1048606,
+            "kind": 3,
+            "pool": 0,
+            "born": 14,
+            "retired": 15,
+            "uploads": 0
+          }
+        ],
+        "clears": 1,
+        "draws": 1,
+        "presents": 1,
+        "uploads": 3,
+        "uploadedBytes": 192,
+        "bound": 1048578,
+        "fvf": 324
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "device": 1048607,
+        "created": 1,
+        "resets": 15,
+        "destroyed": 1,
+        "resources": [
+          {
+            "index": 0,
+            "handle": 1048578,
+            "kind": 3,
+            "pool": 1,
+            "born": 0,
+            "retired": 15,
+            "uploads": 1
+          },
+          {
+            "index": 1,
+            "handle": 1048579,
+            "kind": 1,
+            "pool": 0,
+            "born": 0,
+            "retired": 0,
+            "uploads": 0
+          },
+          {
+            "index": 2,
+            "handle": 1048581,
+            "kind": 2,
+            "pool": 0,
+            "born": 1,
+            "retired": 1,
+            "uploads": 0
+          },
+          {
+            "index": 3,
+            "handle": 1048583,
+            "kind": 3,
+            "pool": 0,
+            "born": 2,
+            "retired": 2,
+            "uploads": 0
+          },
+          {
+            "index": 4,
+            "handle": 1048585,
+            "kind": 4,
+            "pool": 0,
+            "born": 3,
+            "retired": 3,
+            "uploads": 0
+          },
+          {
+            "index": 5,
+            "handle": 1048587,
+            "kind": 5,
+            "pool": 0,
+            "born": 4,
+            "retired": 4,
+            "uploads": 0
+          },
+          {
+            "index": 6,
+            "handle": 1048589,
+            "kind": 1,
+            "pool": 0,
+            "born": 5,
+            "retired": 6,
+            "uploads": 0
+          },
+          {
+            "index": 7,
+            "handle": 1048591,
+            "kind": 2,
+            "pool": 0,
+            "born": 6,
+            "retired": 7,
+            "uploads": 0
+          },
+          {
+            "index": 8,
+            "handle": 1048593,
+            "kind": 3,
+            "pool": 0,
+            "born": 7,
+            "retired": 8,
+            "uploads": 0
+          },
+          {
+            "index": 9,
+            "handle": 1048595,
+            "kind": 4,
+            "pool": 0,
+            "born": 8,
+            "retired": 9,
+            "uploads": 0
+          },
+          {
+            "index": 10,
+            "handle": 1048597,
+            "kind": 5,
+            "pool": 0,
+            "born": 9,
+            "retired": 10,
+            "uploads": 0
+          },
+          {
+            "index": 11,
+            "handle": 1048599,
+            "kind": 3,
+            "pool": 2,
+            "born": 10,
+            "retired": 11,
+            "uploads": 1
+          },
+          {
+            "index": 12,
+            "handle": 1048601,
+            "kind": 3,
+            "pool": 3,
+            "born": 11,
+            "retired": 12,
+            "uploads": 1
+          },
+          {
+            "index": 13,
+            "handle": 1048605,
+            "kind": 3,
+            "pool": 0,
+            "born": 14,
+            "retired": 15,
+            "uploads": 0
+          },
+          {
+            "index": 14,
+            "handle": 1048606,
+            "kind": 3,
+            "pool": 0,
+            "born": 14,
+            "retired": 15,
+            "uploads": 0
+          }
+        ],
+        "clears": 1,
+        "draws": 1,
+        "presents": 1,
+        "uploads": 3,
+        "uploadedBytes": 192,
+        "bound": 1048578,
+        "fvf": 324
+      }
+    ],
+    "statuses": [
+      {
+        "api": 8,
+        "refusedResets": 7,
+        "successfulResets": 15,
+        "lostPresents": 7,
+        "notResetQueries": 28,
+        "readyQueriesAfterReset": 15,
+        "resetHR": "88760868",
+        "cooperativeHR": "88760869",
+        "presentHR": "88760868"
+      },
+      {
+        "api": 9,
+        "refusedResets": 7,
+        "successfulResets": 15,
+        "lostPresents": 7,
+        "notResetQueries": 28,
+        "readyQueriesAfterReset": 15,
+        "resetHR": "8876086C",
+        "cooperativeHR": "88760869",
+        "presentHR": "88760868"
+      }
+    ],
+    "scenes": [
+      {
+        "api": 8,
+        "device": 1048607,
+        "active": false,
+        "begins": 24,
+        "ends": 16,
+        "openResets": 8
+      },
+      {
+        "api": 9,
+        "device": 1048607,
+        "active": false,
+        "begins": 24,
+        "ends": 16,
+        "openResets": 8
+      }
+    ],
+    "frames": [
+      {
+        "owner": 1,
+        "api": 8,
+        "device": 1048607,
+        "marker": 1048578
+      },
+      {
+        "owner": 2,
+        "api": 9,
+        "device": 1048607,
+        "marker": 1048578
+      }
+    ],
+    "graphicsSha256": "303eb091968d10ab2d8fc9545c3c3de208eafcfc264f187af0899571068257b7"
+  },
+  "fixture": {
+    "metadataSha256": "c038ed3eb5aada731650484a296ba6d96f587f660a737ff983d10681c6084f09",
+    "compressedTraceSha256": "c34d02a550a297a2b8f81b9b368210eb66fb08b93f67987e52b7ac9c5822bd3c",
+    "captureBuild": {
+      "dllSha256": {
+        "d3d8": "4e3332a19ff1a6327caaa976194fee2417339efe64ac82852d91280a4acdc569",
+        "d3d9": "f88347d77744eb0678b9003c7fd37a83507756c566cce93322590c25e7745b8a"
+      },
+      "exeSha256": {
+        "8": "96ed65cfbda4d7a4633e90a8897881faa38d0cb43d63e0d88b092b0dd141c7ca",
+        "9": "3502e6c9780ea977e0b54ee7dc8feffe3932ed9a32e4bb37b6ebf7898f961af5"
+      }
+    }
+  },
+  "scope": "Active-Scene Reset boundary: Reset succeeds while a Scene is open when its resource graph permits it, closes the old Scene after the Reset command is queued, and permits a fresh BeginScene/EndScene pair. Rejected Reset retains the guest Scene flag; post-queue state-replay failure may leave the old Scene ended and remains NOTRESET. Full state-block/private-data, window/mode, physical loss, threading, public binding refcounts, native HAL and game/FPS acceptance remain outside this step. S2-42, D3D8 wrapping and stages 4/5/6 remain incomplete.",
+  "coreSha256": {
+    "tests/glbridge/d3d_reset_scene_fixture_test.js": "27789401e22ed6fa5639f93349ec85924508c3b29f56bec4efec85162495c506",
+    "tests/glbridge/d3d_reset_scene_xp.mjs": "c0770d64d567cb649d9c34e9d726e4b0678b6b99b6936f8cf2c7d5f0996987bf",
+    "tests/glbridge/fixtures/d3d_reset_scene_reference.json": "8a85a75f48da8d18a2a0aab61e64212da0414670cd30bcf2de5dabf16e46e4c0",
+    "tests/glbridge/fixtures/d3d_reset_scene_xp.bin.gz": "c34d02a550a297a2b8f81b9b368210eb66fb08b93f67987e52b7ac9c5822bd3c",
+    "tests/glbridge/fixtures/d3d_reset_scene_xp.json": "c038ed3eb5aada731650484a296ba6d96f587f660a737ff983d10681c6084f09",
+    "tests/lib/d3d_reset_scene_wire.mjs": "c723a3ff7d801bc6cfa68bcc532fbe337094867892472ee5a1ce27ac80fc0e68",
+    "docs/d3d-webgpu-review.md": "e96ac4d0288f2e504cce4d6fecdb36fe8ad723e02af150f1a415446fab028f76"
+  },
+  "siteSha256": {
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "8cf526b02dc8a684c217962f7ab105d437aa43e84b0e13052fcf3dcce7975de6",
+    "glbridge/d3d8proxy/d3d8.dll": "4e3332a19ff1a6327caaa976194fee2417339efe64ac82852d91280a4acdc569",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "612c877f4afbe104836f9a0fabc5e4b226a202e9a7e73a8bdbbd757e8645dea0",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "75c1c005b0904d7a4d1845b61e12cdabe39a0b2d9031333ecfcf5c4934408061",
+    "glbridge/d3d9proxy/d3d9.dll": "f88347d77744eb0678b9003c7fd37a83507756c566cce93322590c25e7745b8a",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "673786e174e1663b69214d507181cdd1a7ac3b632861ae77d6d1de6ffa62def3",
+    "glbridge/sample/d3d_reset_resources_test.c": "aba1520b3f4a84638445ca2c06c9bc9dd43b6cd69778d894aed58a0e1ec9f039",
+    "glbridge/tests/d9wg_reset_resources_mutation_test.js": "f04b55e0270cdcd6264b79f2e7f32c4172c436c167357cd7a1aff4aaa1f0d92f",
+    "glbridge/tests/d9wg_reset_resources_test.js": "8a42c6de473c24dec54150c81100662bb7c9e4931d65b2e4ce4547643f1b51cb",
+    "glbridge/tests/d9wg_reset_status_mutation_test.js": "013b7d9a58579aadf73cc117a45931caa48ec2086d9ffa954314e0f52a1d382b",
+    "glbridge/tests/d9wg_reset_status_test.js": "ab368b6d4b2cb94b54e99935ddb5a89cb26e9978ba282711a74e8c08dd1cdc56"
+  },
+  "logSha256": {
+    "core": "693f4fe366ac3e9c2ae163186fdf8ae118d46fea3f3fc4fc1a1a2341cbd0a98b",
+    "guest": "a2e11290421a44a04a32ec64acae3ca5c25be2776cc13d3d8f04f163fabaa8e9",
+    "xp": "c0bcc948c09163db5c72ee63fc79416cb9029b7acc63d7f0a9f9c6a2cfb32304",
+    "before": "f01a45378193d99f0741b06a3350d5f18d3ac88e781eae0671f5519d01593465",
+    "mutations-status": "c18d26bb8b1f9e557f6f67510808d4178f94790b939e609e1b4ab36474c598e8",
+    "mutations-resources": "cd8a17205cb65bbc7dd81e349232075e9ccdbd147e88dd33ebe7f67dccbd259d",
+    "sanitize": "fa4659d198c9df6deedb0bd6873b3cf943d70586c7a735a1b623fd239c35baf8",
+    "gpu-swift": "95f27bc85e2707c35d1368ee79b404889bb6279c2b46834c77f6313ced4c093c",
+    "gpu-metal": "95f27bc85e2707c35d1368ee79b404889bb6279c2b46834c77f6313ced4c093c",
+    "fixture": "c64472852661c3ced17583e292eb91cd811c400f730206e672e786145e57a5cf",
+    "builds": "fea1b9ae8c7fa3a967e0ccbdbf51b743065e4c084f8dc99ced42b4759bb70880",
+    "lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "site-lint": "e959fc3cc32615f04dc04fbabc5397bc650c0fbab74eedcc786c2172b97d87c4",
+    "integration": "fc9e44e4f3e78756ac086777b5256ecf8b3f7394ad1ea2ec614ed5d5d75e950e"
+  }
+}
