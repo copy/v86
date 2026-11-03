@@ -1623,6 +1623,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 182 组核心、169 组客体、36 个 SDK 冒烟 EXE、六个严格 DLL和两项集成通过。D3D8 发布最终 XP 验收原 DLL，D3D9/DDraw 保持既有已验收字节。宿主源码/运行包 `8cc48a9a2b75d0296e91` 未变，沿用先前完整 GPU/533 场景基线并新增两次最终回放；完整 GPU 目标现含 52 次运行。见 [stage4h5a-validation.json](fixtures/d3d-review/stage4h5a-validation.json)。
 > - NULL 行为及深度错误依据固定 Wine Windows 测试；颜色查询已保持资源/face/mip 身份，COM 表面指针同一性仍留给 S2-42。客体 CPU 回复是显式模拟，GPU 像素单独验收，不宣称原生 Microsoft HAL、完整 Reset/MSAA 或游戏/FPS 验收。接着修复 MSAA 目标重复创建（S2-43）和相关元数据，随后继续共用包装及阶段 4/5/6。
 
+> **阶段 4H5b（2026-11-03）：D3D8 MSAA 单次创建、表面描述和深度采样匹配（S2-43 / S2-42 部分）完成。**
+>
+> - 把颜色纹理构造收敛为带采样类型的内部入口；公开 CreateTexture 继续传 NONE，CreateRenderTarget 在第一次且唯一一次 CREATE 中传请求类型。删除同句柄先 NONE 再 4× 的重复创建。采样质量固定为 0，仅宣称后端能够表示的 NONE/4×。
+> - 纹理承载表面、back buffer 和隐式深度表面的 GetDesc 返回实际采样类型；隐式深度尺寸采用呈现参数，未指定时才回退显示模式。SetRenderTarget 的显式颜色和 NULL 颜色两条路径都在引用/命令副作用之前检查颜色与深度采样类型一致；立方体仍为 NONE。
+> - 原生编译实际构造方法运行 81 项检查，覆盖 64 次交替创建、精确首条命令、描述、锁定限制及分配/提交/表面转换失败清理；绑定检查扩展到 39 项。17/17 构造、28/28 绑定语义变异与 ASan/UBSan 通过；冻结命令的五种破坏均被捕获。
+> - 真实 XP 使用 4× back buffer，交替创建 16 个 NONE/4× 目标；查询描述，拒绝显式和 depth-only 的不匹配绑定并保持视口，逐个绘制/回读，最后检查 back buffer 未被改写。18 个资源句柄各创建/销毁一次，设备与 owner 正常释放。客体 CPU 回复明确使用模拟；独立 SwiftShader/Metal 重放分别验证 17 次实际 GPU 回读和 20,480 个像素，零宿主/GPU 错误或丢弃。
+> - 探针图形超出视口边界，保证所有样本覆盖；本项只验证 resolve、回读和生命周期，不把纯色结果称为 MSAA 边缘覆盖率验收。184 组核心、171 组客体、36 个标准 SDK 冒烟 EXE 与六份严格零售/诊断 DLL、站点两项集成通过；发布本次 XP 所测 D3D8 DLL。宿主及 `8cc48a9a2b75d0296e91` 运行包未变，完整 GPU 基线沿用 4H5a 加本次新页面（目标总计 53 次）。见 [stage4h5b-validation.json](fixtures/d3d-review/stage4h5b-validation.json)。
+> - S2-42 的 SetLOD、光标、gamma、私有数据、Present 节流、表面 COM 同一性及附加交换链仍待继续；完整 Reset 边界、包装层转换及阶段 4/5/6 未宣称完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

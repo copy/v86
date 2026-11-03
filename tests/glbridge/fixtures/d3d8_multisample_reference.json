@@ -1,0 +1,38 @@
+{
+  "schema": "d3d8-render-target-reference-v1",
+  "scope": "D3D8 NONE/4x resource creation, descriptor metadata and depth sample matching. Explicit known-input guest replies plus independent real GPU replay; no native Microsoft HAL claim.",
+  "paletteARGB": [
+    4294901760,
+    4278255360,
+    4278190335,
+    4294967040,
+    4294902015,
+    4278255615
+  ],
+  "backARGB": 4280303712,
+  "clearARGB": 4279242768,
+  "sources": [
+    {
+      "file": "d3d8-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593"
+    },
+    {
+      "file": "d3d8-device-tests.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/tests/device.c",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2"
+    }
+  ],
+  "targetCount": 16,
+  "targetSize": 32,
+  "sampleTypes": [
+    0,
+    4
+  ],
+  "construction": "One host CREATE per resource handle, requested NONE/4x on that first command; quality is always zero.",
+  "binding": "Explicit and NULL-color depth changes require matching multisample type before binding effects; sample metadata comes from the actual current target.",
+  "implicit": "Back/depth descriptors use the presentation sample type and presentation extent, with display-mode fallback only for unspecified dimensions.",
+  "limits": "Solid full-target colors validate resolve/readback and lifetime. This fixture does not measure MSAA edge coverage, complete Reset boundaries, surface COM pointer identity, or native Microsoft HAL pixels."
+}
