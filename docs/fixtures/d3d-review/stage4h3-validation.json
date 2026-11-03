@@ -1,0 +1,2183 @@
+{
+  "stage": "4H3 shared UpdateTexture mip matching and bounded 2D/cube/volume copies (S2-35)",
+  "date": "2026-11-03",
+  "bundle": "8cc48a9a2b75d0296e91",
+  "coreSuites": 177,
+  "guestSuites": 162,
+  "webgpuRuns": 2,
+  "siteIntegrationTests": 2,
+  "fullGPUTarget": {
+    "swiftPageRuns": 48,
+    "metalConformanceRuns": 1,
+    "total": 49
+  },
+  "builds": {
+    "d3d8": {
+      "executables": [
+        {
+          "file": "d3d8_caps_audit_test.exe",
+          "sha256": "dc50ab2fa44f926e32aa346f33267fc8b69b21661afac53a31b7a3fe1e0c0114"
+        },
+        {
+          "file": "d3d8_dynamic_resources_test.exe",
+          "sha256": "6bf481b2cc22ebbb84702104a972796f4c9e9aac8102bdea714789c6708b81ab"
+        },
+        {
+          "file": "d3d8_fog_test.exe",
+          "sha256": "d5925860a2e617d7561383ed1b6cedb05e73226fbe014feeaab57e73b20f4ea8"
+        },
+        {
+          "file": "d3d8_geometry_test.exe",
+          "sha256": "f3a29bc724d579a7cbdcc58a66d7dfe0293b2233f3257c0c2f1caed9cdc2f33c"
+        },
+        {
+          "file": "d3d8_lifecycle_compat_test.exe",
+          "sha256": "098e32a6355561565a12be584aab2d3f72a840779987f329ae1bf3958b61ca38"
+        },
+        {
+          "file": "d3d8_lighting_test.exe",
+          "sha256": "59c24adc80aa4c1580148ef595c496005f5e94d0f09209ca3f22b317c127ceef"
+        },
+        {
+          "file": "d3d8_maple_gr2d_test.exe",
+          "sha256": "87816dd2ba5ccba9cc9d4628323d63c48e775880029c20cf259a978360e2aaeb"
+        },
+        {
+          "file": "d3d8_mipmap_filter_test.exe",
+          "sha256": "4fc7d6ef33b863c6f490bc42f1147669cd3925e9fbb2992d16fd97eb9420854e"
+        },
+        {
+          "file": "d3d8_multitexture_test.exe",
+          "sha256": "5074120cadde22026b090b87886d45a7e4b78b84cfef303088e9bbe55b5d11c4"
+        },
+        {
+          "file": "d3d8_raster_stencil_test.exe",
+          "sha256": "8f35ea69def5dad9fa255b15cc2a8913e4220cb9fb561a4fb6b42185b595c9e9"
+        },
+        {
+          "file": "d3d8_reset_lifecycle_test.exe",
+          "sha256": "d9b3e2fe92e58de1f9c0716d08d3ce228d36ed84902d7d30133f288dfd80bffd"
+        },
+        {
+          "file": "d3d8_stateblock_test.exe",
+          "sha256": "3e42cbb3bfab27cd5dc04a11d8b1130ef2f4967ba8ac43925f8e8fb8a8590b78"
+        },
+        {
+          "file": "d3d8_texture_formats_test.exe",
+          "sha256": "52fc4efcc206aa7d538b8c0f5f0a2832146bf784ded470ba567bf44028b2eb44"
+        },
+        {
+          "file": "d3d8_texture_stage_ops_test.exe",
+          "sha256": "291b70c2ccacfda9fe266b7da23326f7e821c12c933832826148875461f8b00a"
+        },
+        {
+          "file": "d3d8_texture_test.exe",
+          "sha256": "eb8baee4b9093c517de9d7a97740fea89dd97c4b51b68433e9bcd8f90fb63035"
+        },
+        {
+          "file": "d3d8_textured_cube_test.exe",
+          "sha256": "bf6a878822e25cf97dc49427fb2c8116c79f2adf528cba8c195d1b361dcfa7c9"
+        },
+        {
+          "file": "d3d8_transform_depth_test.exe",
+          "sha256": "426d82f902e1cf4b8c28b92ac19a177f664dd3785acb13c40ba0c8340aeb049d"
+        },
+        {
+          "file": "d3d8_tween_draw_test.exe",
+          "sha256": "3d4c4f86e018a499bfe7bbd86e8b15680020df6c48abaa0118b4f167961ba048"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact accepted final texture-copy XP probe binaries",
+      "shippedDllSha256": "77a2ecf34e42871e6a816da4b2796497ed8f6ae89162b03d6ef6e777fbb65fc0",
+      "diagnosticSha256": "3d88afd2c7bc6fa7006d7c1488da1e804b7947db981f7eb168e5cea8580e2ec4"
+    },
+    "d3d9": {
+      "executables": [
+        {
+          "file": "d3d9_caps_test.exe",
+          "sha256": "97ba6e6f7ed9731fd62ce4349131fb28ace8fe01a78f8f2ac8d806f02063b24e"
+        },
+        {
+          "file": "d3d9_clear_test.exe",
+          "sha256": "4b468f7b278820000b9306b7684e9b6dee6bda338d64d9f2bfb3ae347cfb8bb6"
+        },
+        {
+          "file": "d3d9_cube_texture_test.exe",
+          "sha256": "816e95dfd9d9b3e5192237e96ad84f3dfd6100cadb6874693dd110e20f588c32"
+        },
+        {
+          "file": "d3d9_depth_texture_test.exe",
+          "sha256": "8cce6b46e2d8b2a05cb180f42a95382ce5ab5730efdc286eff745cad119b033b"
+        },
+        {
+          "file": "d3d9_patch_test.exe",
+          "sha256": "370392b8e5b4a2fa9c850e10897419e63da6ec5b398e1daa4a3099fc5c8d3a5c"
+        },
+        {
+          "file": "d3d9_process_vertices_test.exe",
+          "sha256": "8edca09f74b15ca8ad1099fe65a5c122cb4f9b5c3ff68012b52d576c57b2bbcd"
+        },
+        {
+          "file": "d3d9_reset_test.exe",
+          "sha256": "2f421513d83def07385bb4174622425e89aa10384a2518449b26d32bdfa7c42a"
+        },
+        {
+          "file": "d3d9_rt_viewport_test.exe",
+          "sha256": "5d36079edba0c3de5a76ac6dab753058b75df6882284e5ba2a353f316dc18c04"
+        },
+        {
+          "file": "d3d9_shader_test.exe",
+          "sha256": "238887b65328f5d28b6266b3e38fc583c7639f67a0b0e8d7bb0989c23a573d04"
+        },
+        {
+          "file": "d3d9_surface_lifetime_test.exe",
+          "sha256": "47ac5f38372770bd56b6328e7b041db4a5a2c289d21261bf3413923f1569b687"
+        },
+        {
+          "file": "d3d9_swapchain_test.exe",
+          "sha256": "236cd61e1a1946c417edb482f5bc7712904e56f2b3978822afb1b2b4968c9076"
+        },
+        {
+          "file": "d3d9_texture_test.exe",
+          "sha256": "06b9a08f9b8aec24d6b5223cca8e44943c64874033add1a2346b03ce40b725af"
+        },
+        {
+          "file": "d3d9_triangle_test.exe",
+          "sha256": "f59dc701ce846518ff94422c7f66ffa35760de106c32eed58d3ce2d0ddf638dd"
+        },
+        {
+          "file": "d3d9_world_test.exe",
+          "sha256": "00d0d78de04161cf6159fb2d785ebf76281fe6b567b57624391c60ba7e7c1331"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "exact accepted final texture-copy XP probe binaries",
+      "shippedDllSha256": "42c2c61ef3e48ee2b5b9d48824c11aa286b3b6d3a7c371836e07ae5da04665f7",
+      "diagnosticSha256": "caa91bf0b7ad8be5766cabe11dbaa345ec0e317f7cd783af45cac215f508859a"
+    },
+    "ddraw": {
+      "executables": [
+        {
+          "file": "ddraw_d3d1_execute_buffer_test.exe",
+          "sha256": "de75064a5edb68893de4e8d29e5f800cf9e1d551524d3e69423b80927f9e49d7"
+        },
+        {
+          "file": "ddraw_d3d7_advanced_texture_test.exe",
+          "sha256": "5679b3cb3ab0e8bb0148d0225cbff1d79aad026be16e18bc7ab790c1460f7d8c"
+        },
+        {
+          "file": "ddraw_d3d7_triangle_test.exe",
+          "sha256": "1c504939a32cb583fb25aa9dbb60eb759f760ba47abda5d8015b8aea0881adf7"
+        },
+        {
+          "file": "ddraw_surface_advanced_test.exe",
+          "sha256": "e07f22480a74bfcf0b98fdbf10ea23aed6911d5accfac24c712c335ea5e86831"
+        }
+      ],
+      "strictRetailAndDiagnosticDLLs": 2,
+      "publication": "unchanged accepted 4G3 binaries",
+      "shippedDllSha256": "544a4ab07fc847aec01eabb7eda76a6556ec7d886d4a5d34b2a1f5cc82cc7961",
+      "diagnosticSha256": "f3ca7a30f5ba311168f77cfb2fb9f383310e889099987afc2f66312fba964c85"
+    }
+  },
+  "unchangedHost": {
+    "reference": "stage4h2b-validation.json",
+    "referenceSha256": "0a331a41921b8409699a37545a5d0314b3aac7e452c5948e9f66855655a82a95",
+    "files": {
+      "game.html": "8b469d2165020d049f0f928f39038272e2c8909c49e4546bf2e145f4656af378",
+      "vendor/v86/glbridge/d3d9_shader_pipeline.js": "21c9184ae22a73e11fd0bcf51e5b9578f3832a097dec667e3e9159c35887b526",
+      "vendor/v86/glbridge/d3d9_shader_worker.js": "5e061529a9e5f84409feaa7e08ff38f4f0ed0b0cb8a64d8b4006165d4c8a75d7",
+      "vendor/v86/glbridge/d9wg_diagnostics.js": "68df12b646d608b98a79f296a480ff683094ab0e9a95e4a7adbf4ad7bdeecb80",
+      "vendor/v86/glbridge/graphics_journal_worker.js": "1fec966714e67b9087a743cfda4f8ee330433e1d9a9510abd4ebbc3cb01d55ef",
+      "vendor/v86/glbridge/libv86-webgpu.js": "1ac1ebdf9b12a1a4b39172e4723b4be4d77d2c33e228c5616b405ce7fa176cf1",
+      "vendor/v86/glbridge/manifest.json": "1bf64c08b4359b98a1555a1c62e77f240bc722471b170588f582640446c1e1c3",
+      "vendor/v86/glbridge/v86gl-device.js": "b0c05630503cd21313ecfca69acd040bfaf3d0001c255416c993b3a18397d5f7"
+    },
+    "priorFullTarget": {
+      "swiftPageRuns": 47,
+      "metalConformanceRuns": 1,
+      "total": 48
+    },
+    "bundle": "8cc48a9a2b75d0296e91"
+  },
+  "portable": {
+    "independentMipCases": 100000,
+    "actualSDKCasesPerAPI": 42,
+    "apis": [
+      8,
+      9
+    ],
+    "mutations": {
+      "killed": 25,
+      "total": 25
+    },
+    "fixtureCorruptions": 4,
+    "sanitizers": [
+      "AddressSanitizer",
+      "UndefinedBehaviorSanitizer"
+    ],
+    "separateCubeFaceStrides": true,
+    "lateMetadataValidationAtomic": true,
+    "allShadowAllocationsBeforeCopy": true,
+    "lazyDestinationShadows": true,
+    "retainedTransportPrefix": true,
+    "preFixActualEntrypoints": [
+      {
+        "api": 8,
+        "sourceSha256": "5c1b99c13c40ac23251f6e42eaf72a370b88f3cae1bcfce69088c031f5cd4f27",
+        "failure": "actual prior 2D UpdateTexture entry dereferences a lazy null destination shadow"
+      },
+      {
+        "api": 9,
+        "sourceSha256": "4b64e6cbac7fba5cb725b7831327e0685879ab5d6d884061d4f5683fedefae2f",
+        "failure": "actual prior 2D UpdateTexture entry dereferences a lazy null destination shadow"
+      }
+    ]
+  },
+  "reference": {
+    "file": "tests/glbridge/fixtures/d3d_texture_copy_reference.json",
+    "sha256": "351b96d5a40e4a364b9a07c36fddbd678f5ef09f1c529c11a4a5928e5023f1c9",
+    "sources": [
+      {
+        "file": "wined3d-map-device.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/device.c",
+        "blobSha1": "63aec972659adc08e48a11790e2f937c259701ed",
+        "sha256": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406"
+      },
+      {
+        "file": "d3d9-lock-tests.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/device.c",
+        "blobSha1": "eb168cb32e6d15513e004f7e1e94f915f8bbd359",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020"
+      },
+      {
+        "file": "d3d8-map-device.c",
+        "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+        "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+        "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593"
+      }
+    ]
+  },
+  "xp": {
+    "status": "PASS",
+    "seconds": 154,
+    "batches": 89,
+    "releases": [
+      1,
+      2
+    ],
+    "owners": [
+      1,
+      2
+    ],
+    "text": "PASS texture copy probes \r\n",
+    "logs": {
+      "COPY8.TXT": "FRAME 8 0 0 0 0 0 FF0000FF\r\nFRAME 8 0 1 1 0 0 FFFFFF00\r\nFRAME 8 0 2 2 0 0 FFFF00FF\r\nFRAME 8 0 3 3 0 0 FF00FFFF\r\nFRAME 8 1 0 0 0 0 FF0000FF\r\nFRAME 8 1 1 1 0 0 FF204060\r\nFRAME 8 1 2 2 0 0 FF204060\r\nFRAME 8 1 3 3 0 0 FF204060\r\nFRAME 8 2 0 0 0 0 FF0000FF\r\nFRAME 8 2 1 3 0 0 FF00FFFF\r\nFRAME 8 2 2 0 1 0 FFFFFF00\r\nFRAME 8 2 3 3 1 0 FFFF0000\r\nFRAME 8 2 4 0 2 0 FFFF00FF\r\nFRAME 8 2 5 3 2 0 FF00FF00\r\nFRAME 8 2 6 0 3 0 FF00FFFF\r\nFRAME 8 2 7 3 3 0 FF0000FF\r\nFRAME 8 2 8 0 4 0 FFFF0000\r\nFRAME 8 2 9 3 4 0 FFFFFF00\r\nFRAME 8 2 10 0 5 0 FF00FF00\r\nFRAME 8 2 11 3 5 0 FFFF00FF\r\nFRAME 8 3 0 0 0 0 FF0000FF\r\nFRAME 8 3 1 1 0 0 FF204060\r\nFRAME 8 3 2 0 1 0 FFFFFF00\r\nFRAME 8 3 3 1 1 0 FF204060\r\nFRAME 8 3 4 0 2 0 FFFF00FF\r\nFRAME 8 3 5 1 2 0 FF204060\r\nFRAME 8 3 6 0 3 0 FF00FFFF\r\nFRAME 8 3 7 1 3 0 FF204060\r\nFRAME 8 3 8 0 4 0 FFFF0000\r\nFRAME 8 3 9 1 4 0 FF204060\r\nFRAME 8 3 10 0 5 0 FF00FF00\r\nFRAME 8 3 11 1 5 0 FF204060\r\nFRAME 8 4 0 0 0 0 FF0000FF\r\nFRAME 8 4 1 0 0 1 FFFFFF00\r\nFRAME 8 4 2 1 0 0 FFFFFF00\r\nFRAME 8 4 3 2 0 0 FFFF00FF\r\nFRAME 8 5 0 0 0 0 FF0000FF\r\nFRAME 8 5 1 0 0 3 FF00FFFF\r\nFRAME 8 5 2 1 0 0 FFFFFF00\r\nFRAME 8 5 3 1 0 1 FFFF00FF\r\nFRAME 8 5 4 2 0 0 FFFF00FF\r\nFRAME 8 6 0 0 0 0 FF0000FF\r\nPASS texture copy API=8\r\n",
+      "COPY9.TXT": "FRAME 9 0 0 0 0 0 FF0000FF\r\nFRAME 9 0 1 1 0 0 FFFFFF00\r\nFRAME 9 0 2 2 0 0 FFFF00FF\r\nFRAME 9 0 3 3 0 0 FF00FFFF\r\nFRAME 9 1 0 0 0 0 FF0000FF\r\nFRAME 9 1 1 1 0 0 FF204060\r\nFRAME 9 1 2 2 0 0 FF204060\r\nFRAME 9 1 3 3 0 0 FF204060\r\nFRAME 9 2 0 0 0 0 FF0000FF\r\nFRAME 9 2 1 3 0 0 FF00FFFF\r\nFRAME 9 2 2 0 1 0 FFFFFF00\r\nFRAME 9 2 3 3 1 0 FFFF0000\r\nFRAME 9 2 4 0 2 0 FFFF00FF\r\nFRAME 9 2 5 3 2 0 FF00FF00\r\nFRAME 9 2 6 0 3 0 FF00FFFF\r\nFRAME 9 2 7 3 3 0 FF0000FF\r\nFRAME 9 2 8 0 4 0 FFFF0000\r\nFRAME 9 2 9 3 4 0 FFFFFF00\r\nFRAME 9 2 10 0 5 0 FF00FF00\r\nFRAME 9 2 11 3 5 0 FFFF00FF\r\nFRAME 9 3 0 0 0 0 FF0000FF\r\nFRAME 9 3 1 1 0 0 FF204060\r\nFRAME 9 3 2 0 1 0 FFFFFF00\r\nFRAME 9 3 3 1 1 0 FF204060\r\nFRAME 9 3 4 0 2 0 FFFF00FF\r\nFRAME 9 3 5 1 2 0 FF204060\r\nFRAME 9 3 6 0 3 0 FF00FFFF\r\nFRAME 9 3 7 1 3 0 FF204060\r\nFRAME 9 3 8 0 4 0 FFFF0000\r\nFRAME 9 3 9 1 4 0 FF204060\r\nFRAME 9 3 10 0 5 0 FF00FF00\r\nFRAME 9 3 11 1 5 0 FF204060\r\nFRAME 9 4 0 0 0 0 FF0000FF\r\nFRAME 9 4 1 0 0 1 FFFFFF00\r\nFRAME 9 4 2 1 0 0 FFFFFF00\r\nFRAME 9 4 3 2 0 0 FFFF00FF\r\nFRAME 9 5 0 0 0 0 FF0000FF\r\nFRAME 9 5 1 0 0 3 FF00FFFF\r\nFRAME 9 5 2 1 0 0 FFFFFF00\r\nFRAME 9 5 3 1 0 1 FFFF00FF\r\nFRAME 9 5 4 2 0 0 FFFF00FF\r\nFRAME 9 6 0 0 0 0 FF0000FF\r\nPASS texture copy API=9\r\n"
+    },
+    "diskWrites": "RAM sector overlay only",
+    "rendering": "captured proxy draw commands only; pixel validation is separate GPU replay",
+    "artifacts": {
+      "graphics.bin": {
+        "bytes": 263940,
+        "crc32": "c9ea2d44"
+      }
+    },
+    "wire": {
+      "perAPI": [
+        {
+          "owner": 1,
+          "api": 8,
+          "frames": 42,
+          "textures": 21,
+          "releasedTextures": 21,
+          "updates": 299,
+          "uploadedBytes": 91396
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "frames": 42,
+          "textures": 21,
+          "releasedTextures": 21,
+          "updates": 299,
+          "uploadedBytes": 91396
+        }
+      ],
+      "frames": [
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "phase": 0,
+          "name": "2d-full",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "phase": 1,
+          "name": "2d-full",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "phase": 2,
+          "name": "2d-full",
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 0,
+          "phase": 3,
+          "name": "2d-full",
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "phase": 0,
+          "name": "2d-short-chain",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "phase": 1,
+          "name": "2d-short-chain",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "phase": 2,
+          "name": "2d-short-chain",
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 1,
+          "phase": 3,
+          "name": "2d-short-chain",
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 0,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 1,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 2,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 3,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 4,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 5,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 6,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 7,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 8,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 9,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 10,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 2,
+          "phase": 11,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 0,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 1,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 2,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 3,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 4,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 5,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 6,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 7,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 8,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 9,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 10,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 3,
+          "phase": 11,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "phase": 0,
+          "name": "volume",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "phase": 1,
+          "name": "volume",
+          "mip": 0,
+          "face": 0,
+          "slice": 1,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "phase": 2,
+          "name": "volume",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 4,
+          "phase": 3,
+          "name": "volume",
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "phase": 0,
+          "name": "depth-dominant",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "phase": 1,
+          "name": "depth-dominant",
+          "mip": 0,
+          "face": 0,
+          "slice": 3,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "phase": 2,
+          "name": "depth-dominant",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "phase": 3,
+          "name": "depth-dominant",
+          "mip": 1,
+          "face": 0,
+          "slice": 1,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 5,
+          "phase": 4,
+          "name": "depth-dominant",
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 1,
+          "api": 8,
+          "scene": 6,
+          "phase": 0,
+          "name": "render-target-mirrors",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "phase": 0,
+          "name": "2d-full",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "phase": 1,
+          "name": "2d-full",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "phase": 2,
+          "name": "2d-full",
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 0,
+          "phase": 3,
+          "name": "2d-full",
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "phase": 0,
+          "name": "2d-short-chain",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "phase": 1,
+          "name": "2d-short-chain",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "phase": 2,
+          "name": "2d-short-chain",
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 1,
+          "phase": 3,
+          "name": "2d-short-chain",
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 0,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 1,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 2,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 3,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 4,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 5,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 6,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 7,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 8,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 9,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 10,
+          "name": "cube-full",
+          "mip": 0,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 2,
+          "phase": 11,
+          "name": "cube-full",
+          "mip": 3,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 0,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 1,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 2,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 3,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 4,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 5,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 6,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 7,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 8,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 9,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 10,
+          "name": "cube-short-chain",
+          "mip": 0,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 3,
+          "phase": 11,
+          "name": "cube-short-chain",
+          "mip": 1,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "phase": 0,
+          "name": "volume",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "phase": 1,
+          "name": "volume",
+          "mip": 0,
+          "face": 0,
+          "slice": 1,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "phase": 2,
+          "name": "volume",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 4,
+          "phase": 3,
+          "name": "volume",
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "phase": 0,
+          "name": "depth-dominant",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "phase": 1,
+          "name": "depth-dominant",
+          "mip": 0,
+          "face": 0,
+          "slice": 3,
+          "expectedARGB": 4278255615
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "phase": 2,
+          "name": "depth-dominant",
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "phase": 3,
+          "name": "depth-dominant",
+          "mip": 1,
+          "face": 0,
+          "slice": 1,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 5,
+          "phase": 4,
+          "name": "depth-dominant",
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "owner": 2,
+          "api": 9,
+          "scene": 6,
+          "phase": 0,
+          "name": "render-target-mirrors",
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        }
+      ]
+    },
+    "graphicsSha256": "044769344c3b5ebc6d64e358b4ee7996191cc031f44f86fbe8839271f97adab4"
+  },
+  "fixture": {
+    "metadataSha256": "c97c20e1ed580ed91a6dcf56cb76d7a5c936c7e61e3987fe82d5ed39405db4a1",
+    "compressedTraceSha256": "53d9577b24d15976e7c2c59800e24355dad566c4b0ae1c641298f7edd84c5108",
+    "captureBuild": {
+      "dllSha256": {
+        "d3d8": "77a2ecf34e42871e6a816da4b2796497ed8f6ae89162b03d6ef6e777fbb65fc0",
+        "d3d9": "42c2c61ef3e48ee2b5b9d48824c11aa286b3b6d3a7c371836e07ae5da04665f7"
+      },
+      "executableSha256": {
+        "COPY8.EXE": "a8d538cd1b261f552507e68baa2a7c5788c0c3876bcd9a3772d16d4cb415b371",
+        "COPY9.EXE": "e31aa89afa3bb85eacde38058a7f40daf26753ab6999b94e6da3c1361772ca08"
+      }
+    }
+  },
+  "gpu": {
+    "swift": {
+      "artifactSha256": "5fdaa8b64b298b480bf396a1017ab6ad425a781e9d3ea79446dae3c4ad9b21e4",
+      "frames": 84,
+      "probes": 252,
+      "maximumByteError": 0,
+      "stats": {
+        "batches": 89,
+        "commands": 1278,
+        "presents": 84,
+        "queueSubmits": 252,
+        "drawCalls": 84,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 84,
+        "pipelineCreations": 3,
+        "pipelineHits": 81,
+        "pipelinesRejected": 0,
+        "programBuilds": 84,
+        "programCacheHits": 0,
+        "bindGroupCreations": 38,
+        "bindGroupHits": 46,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 84,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 126,
+        "readbackRequests": 84,
+        "frameFlushes": 84,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 42,
+        "textureUploads": 598,
+        "textureBytesUploaded": 182792,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 84,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 4,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 4,
+        "samplerHits": 80,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 84,
+        "uploadChunksAllocated": 2,
+        "uploadStagingUploads": 14,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 2,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 2,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 1,
+        "cursorDraws": 42,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 12,
+        "volumeTexturesCreated": 12,
+        "renderTargetsCreated": 2,
+        "renderTargetBinds": 0,
+        "renderPasses": 84,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 1048597,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 53760,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 84,
+        "renderTargetReadbackBytes": 1376256,
+        "renderTargetReadbackFailures": 0,
+        "unreadStateIds": {
+          "samplerStates": [
+            9
+          ]
+        }
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    },
+    "metal": {
+      "artifactSha256": "5fdaa8b64b298b480bf396a1017ab6ad425a781e9d3ea79446dae3c4ad9b21e4",
+      "frames": 84,
+      "probes": 252,
+      "maximumByteError": 0,
+      "stats": {
+        "batches": 89,
+        "commands": 1278,
+        "presents": 84,
+        "queueSubmits": 252,
+        "drawCalls": 84,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 84,
+        "pipelineCreations": 3,
+        "pipelineHits": 81,
+        "pipelinesRejected": 0,
+        "programBuilds": 84,
+        "programCacheHits": 0,
+        "bindGroupCreations": 38,
+        "bindGroupHits": 46,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 2,
+        "uniformRingChunksUsed": 1,
+        "backBufferAllocations": 2,
+        "backBufferPresents": 84,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 126,
+        "readbackRequests": 84,
+        "frameFlushes": 84,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 0,
+        "swapChainsDestroyed": 0,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 1,
+        "texturesCreated": 42,
+        "textureUploads": 598,
+        "textureBytesUploaded": 182792,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 84,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 0,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 4,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 4,
+        "samplerHits": 80,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 84,
+        "uploadChunksAllocated": 2,
+        "uploadStagingUploads": 14,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 2,
+        "sessionChanges": 0,
+        "sessionsEnded": 2,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 3,
+        "guestShaderModel2": true,
+        "guestShaderModel3": true,
+        "windowStateChanges": 2,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 1,
+        "cursorDraws": 42,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 12,
+        "volumeTexturesCreated": 12,
+        "renderTargetsCreated": 2,
+        "renderTargetBinds": 0,
+        "renderPasses": 84,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 1048597,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 53760,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 84,
+        "renderTargetReadbackBytes": 1376256,
+        "renderTargetReadbackFailures": 0,
+        "unreadStateIds": {
+          "samplerStates": [
+            9
+          ]
+        }
+      },
+      "gpuErrors": [],
+      "hostErrors": []
+    }
+  },
+  "tnl": {
+    "status": "PASS",
+    "seconds": 149,
+    "owners": [
+      1,
+      2,
+      3
+    ],
+    "releases": [
+      1,
+      2,
+      3
+    ],
+    "diskWrites": "RAM sector overlay only",
+    "logs": {
+      "TNL7.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D7 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared vertex blend checks\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL8.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D8 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS D3D8 deferred recording: live queries, render/stage/viewport/material/transform/shaders, exact VB/IB/texture references, ordered local multiplication, same-value masks and explicit Apply\r\nPASS D3D8 constant and plane recording: live queries, tail/overlap/zero/overflow writes, capture masks, VS/PS/ALL scopes and explicit Apply\r\nPASS D3D8 shader lifetime: expired public handles, captured/recorded VS/PS objects, binding ownership, recapture, same-reference Capture, recorded deletion and final unbind\r\nPASS D3D8 declaration-only shaders: NULL-function creation, exact declaration/empty code queries, deferred retained lifetime, constants and validation\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS shared vertex blend checks\r\nPASS D3D8 declared draws: stream 15 with constant secondary, Tween ClipStatus, primary/secondary bounds, locked streams, indexed bounds and UP single-stream restriction\r\nPASS D3D8 CPU tween: declaration/multi/constant inputs, independent position/normal, lighting/fog/texgen, state-block factor, user-plane ClipStatus, alias snapshot and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\n",
+      "TNL9.TXT": "READY real XP ProcessVertices lighting COM probe\r\nPASS shared light-enable queries: unknown/null failure, untouched output, disabled zero, enabled 128 and noncanonical BOOL input\r\nPASS sparse light defaults and vertex/pixel captures\r\nPASS D3D9 sparse recorded block restoration and masks\r\nPASS sparse light state: default creation on disable, exact SDK fields, DWORD indices, enable persistence, vertex/pixel blocks and capture masks\r\nPASS shared D3D8/9 state scope checks: independent classes and intersections, ALL-only objects/material/planes, fixed light keys and all 266 matrices\r\nPASS D3D9 scalar deferred recording: live queries, ordered matrix operations, RS/TSS/sampler/structs/modes, six constant banks, End preservation, Apply and Capture masks\r\nPASS D3D9 object deferred recording: live queries, exact COM references, texture kinds, VS/PS/declarations, sparse default lights, invalid End retention, Apply, repeated Capture and binding ownership\r\nPASS shared vertex blend checks\r\nPASS D3D9 CPU tween: positions/normals, lighting/fog/texgen, multi/constant streams, state-block factor, user-plane ClipStatus and atomic failure\r\nPASS shared texture coordinate checks\r\nPASS shared vertex fog checks\r\nPASS shared vertex copy, bounds and layout checks\r\nPASS all real XP ProcessVertices lighting checks\r\nPASS D3D9 abandoned recording cleanup\r\n"
+    },
+    "lifetime": {
+      "shaders": 12,
+      "vertexShaders": 6,
+      "pixelShaders": 6,
+      "vertexDeclarationsDestroyed": 13,
+      "declarationOnlyDeclarations": 7,
+      "resources": [
+        {
+          "handle": 1073741825,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1419,
+          "binds": [
+            1423,
+            1427
+          ],
+          "destroyed": 1526
+        },
+        {
+          "handle": 1073741827,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1421,
+          "binds": [
+            1425
+          ],
+          "destroyed": 1528
+        },
+        {
+          "handle": 1073741829,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1531,
+          "binds": [
+            1533
+          ],
+          "destroyed": 1536
+        },
+        {
+          "handle": 1073741831,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1539,
+          "binds": [
+            1543
+          ],
+          "destroyed": 1546
+        },
+        {
+          "handle": 1073741833,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1541,
+          "binds": [
+            1545
+          ],
+          "destroyed": 1550
+        },
+        {
+          "handle": 1073741835,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_SHADER",
+          "created": 1553,
+          "binds": [
+            1555
+          ],
+          "destroyed": 1558
+        },
+        {
+          "handle": 1073741837,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1560,
+          "binds": [
+            1562,
+            1564
+          ],
+          "destroyed": 1574
+        },
+        {
+          "handle": 1073741839,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1561,
+          "binds": [
+            1563
+          ],
+          "destroyed": 1575
+        },
+        {
+          "handle": 1073741841,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1576,
+          "binds": [
+            1577
+          ],
+          "destroyed": 1579
+        },
+        {
+          "handle": 1073741843,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1580,
+          "binds": [
+            1582
+          ],
+          "destroyed": 1584
+        },
+        {
+          "handle": 1073741845,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1581,
+          "binds": [
+            1583
+          ],
+          "destroyed": 1586
+        },
+        {
+          "handle": 1073741847,
+          "owner": 2,
+          "kind": "CREATE_PIXEL_SHADER",
+          "created": 1587,
+          "binds": [
+            1588
+          ],
+          "destroyed": 1590
+        },
+        {
+          "handle": 1048583,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1418,
+          "binds": [
+            1422,
+            1426
+          ],
+          "destroyed": 1527,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048584,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1420,
+          "binds": [
+            1424
+          ],
+          "destroyed": 1529,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048585,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1530,
+          "binds": [
+            1532
+          ],
+          "destroyed": 1537,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048586,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1538,
+          "binds": [
+            1542
+          ],
+          "destroyed": 1547,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048587,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1540,
+          "binds": [
+            1544
+          ],
+          "destroyed": 1551,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048588,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1552,
+          "binds": [
+            1554
+          ],
+          "destroyed": 1559,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ]
+        },
+        {
+          "handle": 1048589,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1704,
+          "binds": [
+            1706
+          ],
+          "destroyed": 1710,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 0,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048590,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1705,
+          "binds": [
+            1708
+          ],
+          "destroyed": 1713,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 0,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048591,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 1714,
+          "binds": [
+            1715
+          ],
+          "destroyed": 1720,
+          "elements": [
+            {
+              "stream": 0,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048601,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4644,
+          "binds": [
+            4656,
+            4687
+          ],
+          "destroyed": 4854,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048602,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4645,
+          "binds": [
+            4722
+          ],
+          "destroyed": 4855,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048603,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4646,
+          "binds": [
+            4683
+          ],
+          "destroyed": 4856,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        },
+        {
+          "handle": 1048604,
+          "owner": 2,
+          "kind": "CREATE_VERTEX_DECLARATION",
+          "created": 4647,
+          "binds": [
+            4679
+          ],
+          "destroyed": 4857,
+          "elements": [
+            {
+              "stream": 15,
+              "offset": 0,
+              "type": 2,
+              "method": 0,
+              "usage": 0,
+              "usage_index": 0
+            },
+            {
+              "stream": 15,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 0
+            },
+            {
+              "stream": 1,
+              "offset": 12,
+              "type": 2,
+              "method": 0,
+              "usage": 3,
+              "usage_index": 1
+            }
+          ],
+          "fixedFunction": true
+        }
+      ]
+    },
+    "graphicsSha256": "4aa41a4e5e072dbb92b938f37f96cf16b738f6c149ce4d289b53e3758a109439"
+  },
+  "scope": "One common pure C mip plan and typed SDK bridge replace three duplicated copy loops in each frontend. Matching dimensions skip larger source top mips; remaining available source levels cap every face and destination. Theoretical matching shapes with absent source mip storage succeed without copying as an explicit safe proxy policy. All copied metadata is validated before destination shadows are allocated; all required shadows are prepared before copying/emitting, and late invalid metadata/OOM cannot produce a pixel-copy prefix. Allocations already prepared can remain reusable. Upload transport errors retain an accepted prefix. D3D9 shadow validity is set for all texture kinds; lazy render-target mirrors are allocated. Existing owner/type/format and D3D9 pool guards remain. Existing D3D8 permissive pool behavior, dirty-region semantics and locked copied levels are not a complete UpdateTexture contract audit. The XP probe uses seven valid creation scenes per API: 2D full/short chains, cube full/short chains with differing source/destination mip strides, volume and depth-dominant slices, and a single-level render-target destination supported by both current constructors. All source/initializer writes use SYSTEMMEM and initial sentinel UpdateTexture, never DEFAULT locking. Known uniform colors yield 84 frames and 252 probes on each GPU. No original Microsoft HAL pixels or unsafe mismatched-memory copies are claimed. Host code and bundle remain unchanged, inheriting the linked prior full GPU/533-case baseline plus this new fixture. Guest wrappers, programmable CPU processing and remaining stages 4/5/6 continue.",
+  "coreSha256": {
+    "tests/glbridge/d3d_texture_copy_fixture_test.js": "ba3c5b68f0b91c79f8def57d0e08d59ebe3a0cdd5bd099c0da5edb6e4216eec6",
+    "tests/glbridge/d3d_texture_copy_reference_test.js": "85bf3e2dfc56519eb5a907fc3b76347132724aff7a909ce70826ba53cfa35000",
+    "tests/glbridge/d3d_texture_copy_replay_browser_test.html": "f9f0b4fea2dfa9e3433a9179b90d911eadd6313a82bc6a32ab13ec8d4702d034",
+    "tests/glbridge/d3d_texture_copy_xp.mjs": "430ea1a02cae337912569f44dd0d56e55495910797621de460afc5f07040d562",
+    "tests/glbridge/fixtures/d3d_texture_copy_reference.json": "351b96d5a40e4a364b9a07c36fddbd678f5ef09f1c529c11a4a5928e5023f1c9",
+    "tests/glbridge/fixtures/d3d_texture_copy_xp.bin.gz": "53d9577b24d15976e7c2c59800e24355dad566c4b0ae1c641298f7edd84c5108",
+    "tests/glbridge/fixtures/d3d_texture_copy_xp.json": "c97c20e1ed580ed91a6dcf56cb76d7a5c936c7e61e3987fe82d5ed39405db4a1",
+    "tests/lib/d3d_texture_copy_wire.mjs": "390cfe274c090379bb662ce1ea6f9c75a99e50f6dcfc94255043a52623473022",
+    "tools/gen_d3d_texture_copy_reference.mjs": "5e7b2b28482f0262800c6c767892e1d094393156d29be5cd0f97c6de5bf0e1e2",
+    "Makefile": "2476d4e6647ada50ab3c55f54f9f9128fea61e2f7bb01802594a30144a030f1f",
+    "docs/d3d-webgpu-review.md": "27f83d1a8f09f8cc424ec1f63fc3f2f1544268b1ff0f311502e9c73474d7a9cd"
+  },
+  "siteSha256": {
+    "glbridge/runtime/d9wg_texture_copy_bridge.h": "515403d21adbfe7a28e259b29495b1892c11ab18bb5e473fb9e7153fb8672d3c",
+    "glbridge/sample/d3d_texture_copy_test.c": "5cd85e1f1bd0b6b3885c7b376557925537148b92b67a2ce43cdb198989668e0c",
+    "glbridge/tests/d9wg_texture_copy_mutation_test.js": "c5f840e539fb3cc46e4797f3719cc894a5f2ce27cbb6feb6a41c7226c045947f",
+    "glbridge/tests/d9wg_texture_copy_plan_test.js": "e30cc9d896a41c4e1a69f7fa46593bfe69f6789455bd4505dcdd1edead40f786",
+    "glbridge/tests/d9wg_texture_copy_test.js": "8e6e06d6e38006a227390428ab442d860ad8218f59ab8f165e7acd52df9238a4",
+    "glbridge/tests/native/d3d_texture_copy_reference.h": "7dc9ecffbf7746e28b085ee9979dd8fc5807db581467d83bd6078e4152596b15",
+    "glbridge/tests/native/d9wg_texture_copy_cases.h": "aa8880c212150851db189d752d4f66cdde38bdab6faed898106b77fb5ceb6e12",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "3d88afd2c7bc6fa7006d7c1488da1e804b7947db981f7eb168e5cea8580e2ec4",
+    "glbridge/d3d8proxy/d3d8.dll": "77a2ecf34e42871e6a816da4b2796497ed8f6ae89162b03d6ef6e777fbb65fc0",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "9cb9c8523fe48a71adff0252b4da4b6450452e9853fcfb7ac323183e4e0a732b",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "caa91bf0b7ad8be5766cabe11dbaa345ec0e317f7cd783af45cac215f508859a",
+    "glbridge/d3d9proxy/d3d9.dll": "42c2c61ef3e48ee2b5b9d48824c11aa286b3b6d3a7c371836e07ae5da04665f7",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "2eb84a148446335e37ae892ecda33cfc4090a48d6c06594556862aec804654ab",
+    "glbridge/runtime/d9wg_runtime.c": "d8178e7fa7af63f6fe5bf0a646b5d2ed1550c04539fef287f8d3aafe461937f5",
+    "glbridge/runtime/d9wg_runtime.h": "5b1722c05918cfaa511a25bf44c7ce5fa7606b6eec73c988a1d7de13db6d9196"
+  },
+  "logSha256": {
+    "core": "5f2de503d909b038727168a043bfe5e04adc27334cfd15e8bae52add5a0cc8af",
+    "guest": "626a8e9181da364e5da8cfb43cf7189cb791761ba075ec0b134dc06d2e76dd3b",
+    "copy-xp": "2c6f51a3b8aa7f1e0ddadb138f4cc0fcd3cf392227f0989bb71bdd1c25c1b61c",
+    "copy-swift": "9e90a29ffa0883c941e91924a95fbdde4aeb2e1e78904b59d453972d82b166e6",
+    "copy-metal": "9e90a29ffa0883c941e91924a95fbdde4aeb2e1e78904b59d453972d82b166e6",
+    "tnl": "dbf12dc2b3283c8025d9ffd7c7548ceff7d1a77c3f581d9b497643cc3b5e3b89",
+    "sanitize": "e06633d2799c71953d62579dd5dd9adb2040ecfe6e56aee9d72ffe121933774b",
+    "before-8": "c89c2abaf2fa46ba062daa79e1d73ebfd93d2f05198ab63aad50813d799c083e",
+    "before-9": "1d047106db45592234c64f39b38f129e2d3a399e9769053b3acd4a679dd6075e",
+    "fixture-unit": "8624a83f624f2fc8aa0363118de2959f8f272bc295958e442a04e8d33c2cfc16",
+    "builds": "d8934a01c89a0c545f14c4aaace59760a18de2e1a1c377d535be1e4f4ee21edb",
+    "lint": "708b766e2e21b2dd77fb7798ac774b5ffe7ec933aa411b26c594169901c56af7",
+    "site-lint": "6e18ceb6b1605de00a6460a3a1d7a4f01cd0c00d0ca5ce446cafebcd1baeb5dd",
+    "integration": "af831b6af31b051346baee2dc19c8d7bda14b3f0d71f63e0ff070ecfa005e5a7"
+  }
+}

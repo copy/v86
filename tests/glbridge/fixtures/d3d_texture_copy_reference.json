@@ -1,0 +1,434 @@
+{
+  "schema": "d3d-texture-copy-reference-v1",
+  "scope": "Matching source-mip shapes follow Wine implementation facts; pool HRESULTs have Wine Windows tests. Missing source mips are an explicit safe no-op policy, not a Microsoft out-of-bounds memcpy observation. Known-color inputs define expected pixels; no original Microsoft HAL pixel claim.",
+  "sentinelARGB": 4280303712,
+  "paletteARGB": [
+    4294901760,
+    4278255360,
+    4278190335,
+    4294967040,
+    4294902015,
+    4278255615
+  ],
+  "sources": [
+    {
+      "file": "wined3d-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/wined3d/device.c",
+      "blobSha1": "63aec972659adc08e48a11790e2f937c259701ed",
+      "sha256": "cf5246308f4d3c0a4da0784bf9f546a2bdfb8e479e47274aed75f4a835986406"
+    },
+    {
+      "file": "d3d9-lock-tests.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/device.c",
+      "blobSha1": "eb168cb32e6d15513e004f7e1e94f915f8bbd359",
+      "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020"
+    },
+    {
+      "file": "d3d8-map-device.c",
+      "url": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d8/device.c",
+      "blobSha1": "c04283c1ad453d438eac64b99b84cebd0ff5298f",
+      "sha256": "b6a0622d9d2bce1f00d8cb4d70fd38d462d068dfe85cc768806b9c1d20e50593"
+    }
+  ],
+  "scenes": [
+    {
+      "name": "2d-full",
+      "kind": 0,
+      "source": {
+        "width": 32,
+        "height": 16,
+        "depth": 1,
+        "levels": 6
+      },
+      "destination": {
+        "width": 8,
+        "height": 4,
+        "depth": 1,
+        "levels": 4
+      },
+      "usage": 0,
+      "sourceSkip": 2,
+      "copyLevels": 4,
+      "frames": [
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        }
+      ]
+    },
+    {
+      "name": "2d-short-chain",
+      "kind": 0,
+      "source": {
+        "width": 32,
+        "height": 16,
+        "depth": 1,
+        "levels": 3
+      },
+      "destination": {
+        "width": 8,
+        "height": 4,
+        "depth": 1,
+        "levels": 4
+      },
+      "usage": 0,
+      "sourceSkip": 2,
+      "copyLevels": 1,
+      "frames": [
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        }
+      ]
+    },
+    {
+      "name": "cube-full",
+      "kind": 1,
+      "source": {
+        "width": 32,
+        "height": 32,
+        "depth": 1,
+        "levels": 6
+      },
+      "destination": {
+        "width": 8,
+        "height": 8,
+        "depth": 1,
+        "levels": 4
+      },
+      "usage": 0,
+      "sourceSkip": 2,
+      "copyLevels": 4,
+      "frames": [
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "mip": 3,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "mip": 0,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "mip": 3,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "mip": 0,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "mip": 3,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "mip": 0,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "mip": 3,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "mip": 0,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "mip": 3,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "mip": 0,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "mip": 3,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        }
+      ]
+    },
+    {
+      "name": "cube-short-chain",
+      "kind": 1,
+      "source": {
+        "width": 32,
+        "height": 32,
+        "depth": 1,
+        "levels": 3
+      },
+      "destination": {
+        "width": 8,
+        "height": 8,
+        "depth": 1,
+        "levels": 4
+      },
+      "usage": 0,
+      "sourceSkip": 2,
+      "copyLevels": 1,
+      "frames": [
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "mip": 0,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "mip": 1,
+          "face": 1,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "mip": 0,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        },
+        {
+          "mip": 1,
+          "face": 2,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "mip": 0,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4278255615
+        },
+        {
+          "mip": 1,
+          "face": 3,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "mip": 0,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4294901760
+        },
+        {
+          "mip": 1,
+          "face": 4,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        },
+        {
+          "mip": 0,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4278255360
+        },
+        {
+          "mip": 1,
+          "face": 5,
+          "slice": 0,
+          "expectedARGB": 4280303712
+        }
+      ]
+    },
+    {
+      "name": "volume",
+      "kind": 2,
+      "source": {
+        "width": 16,
+        "height": 8,
+        "depth": 8,
+        "levels": 5
+      },
+      "destination": {
+        "width": 4,
+        "height": 2,
+        "depth": 2,
+        "levels": 3
+      },
+      "usage": 0,
+      "sourceSkip": 2,
+      "copyLevels": 3,
+      "frames": [
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 1,
+          "expectedARGB": 4294967040
+        },
+        {
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        }
+      ]
+    },
+    {
+      "name": "depth-dominant",
+      "kind": 2,
+      "source": {
+        "width": 1,
+        "height": 1,
+        "depth": 16,
+        "levels": 5
+      },
+      "destination": {
+        "width": 1,
+        "height": 1,
+        "depth": 4,
+        "levels": 3
+      },
+      "usage": 0,
+      "sourceSkip": 2,
+      "copyLevels": 3,
+      "frames": [
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        },
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 3,
+          "expectedARGB": 4278255615
+        },
+        {
+          "mip": 1,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294967040
+        },
+        {
+          "mip": 1,
+          "face": 0,
+          "slice": 1,
+          "expectedARGB": 4294902015
+        },
+        {
+          "mip": 2,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4294902015
+        }
+      ]
+    },
+    {
+      "name": "render-target-mirrors",
+      "kind": 0,
+      "source": {
+        "width": 32,
+        "height": 16,
+        "depth": 1,
+        "levels": 6
+      },
+      "destination": {
+        "width": 8,
+        "height": 4,
+        "depth": 1,
+        "levels": 1
+      },
+      "usage": 1,
+      "sourceSkip": 2,
+      "copyLevels": 1,
+      "frames": [
+        {
+          "mip": 0,
+          "face": 0,
+          "slice": 0,
+          "expectedARGB": 4278190335
+        }
+      ]
+    }
+  ]
+}
