@@ -1801,6 +1801,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 继续交换链 back buffer 的选择器、身份、独立缓冲/容器及多缓冲边界，完整 Reset、包装转换和阶段 4/5/6 仍未完成。
 
 
+> **阶段 4H6f5b（2026-11-03）：D3D8/9 交换链 back buffer 选择器与错误输出（S2-42 相关）完成。**
+>
+> - 两版附加链忽略 MONO/LEFT/RIGHT 及任意类型值；无效索引返回 INVALIDCALL 并保留调用方原输出指针，NULL 输出同样拒绝。D3D9 隐式链在转到设备入口前检查索引，避免设备入口清空输出的不同约定泄漏到链接口。成功查询仍精确取得一次表面引用，失败不增加引用。
+> - 依据固定版本 Wine 两版 Windows test_swapchain 与链实现；本项只覆盖当前支持的单缓冲链，不宣称 BackBufferCount>1 的多缓冲支持、D3D8 附加表面身份或独立 GPU 缓冲已实现。D3D8 现有分配失败 NULL 输出及私有数据 owner 清理约定保留。
+> - 实际 C 入口 D3D8 36 项、D3D9 75 项，覆盖五种类型、四个无效索引、两种 D3D9 链、成功引用和 D3D8 分配失败；8/8 语义变异、上一版两份运行时负面对照、ASan/UBSan 及私有表面/隐式身份/链引用/呈现节流回归通过。
+> - XP 两版共十五次成功查询、三十次无效索引输出保留及十五次 NULL 拒绝，附加缓冲为 96×64，D3D9 隐式缓冲为 64×64；最终设备引用回到 1，两 owner 正常退出，109 秒。冻结轨迹确认无绘制/Reset/Present、设备和 D3D9 附加链/backing texture 正常退役，九项语义损坏被发现。
+> - 四组相关核心、十组相关客体、36 个标准 SDK EXE、六份严格 DLL、另两份选择器 SDK EXE及站点两项集成通过；其余检查继承 4H6f4c 完整基线。发布本次 XP 所测两版零售 DLL 和严格诊断 DLL，DDraw 保持上一验收文件。宿主/协议/着色器不变，无新 GPU 像素运行，继承 4H6f4c/4H6c。见 [stage4h6f5b-validation.json](fixtures/d3d-review/stage4h6f5b-validation.json)。
+> - 继续呈现参数归一化、附加链独立缓冲/身份/容器及多缓冲边界；完整 Reset、包装转换和阶段 4/5/6 尚未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

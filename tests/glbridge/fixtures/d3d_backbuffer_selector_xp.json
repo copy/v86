@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 0,
+      "created": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1,
+      "textures": [],
+      "chains": []
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 0,
+      "created": 1,
+      "destroyed": 1,
+      "hello": 1,
+      "ended": 1,
+      "textures": [
+        {
+          "handle": 1048578,
+          "retired": true
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048579,
+          "retired": true
+        }
+      ]
+    }
+  ],
+  "deviceLifetimes": 2,
+  "successfulQueries": 15,
+  "invalidQueries": 30,
+  "nullQueries": 15,
+  "preservedOutputs": 30,
+  "renderingCommands": 0,
+  "traceSha256": "3624de2bb2b3a4d20555a7a3b58d648e69a77766d0249cdf21ae9548bd536fa9",
+  "referenceSha256": "5b6a7f8b562f7f2db5fa25b7b7eec8ba86b684fb740762e9b96fff7bd86a7936",
+  "sdkLogs": {
+    "SEL8.TXT": "BACKBUFFER SELECTOR api=8 route=0 width=96 height=64 valid=5 invalid=10 null=5 preserved=10\r\nSELECTOR STATUS api=8 routes=1 valid=5 invalid=10 null=5 preserved=10 deviceRefs=1\r\nPASS backbuffer selectors API=8\r\n",
+    "SEL9.TXT": "BACKBUFFER SELECTOR api=9 route=0 width=96 height=64 valid=5 invalid=10 null=5 preserved=10\r\nBACKBUFFER SELECTOR api=9 route=1 width=64 height=64 valid=5 invalid=10 null=5 preserved=10\r\nSELECTOR STATUS api=9 routes=2 valid=10 invalid=20 null=10 preserved=20 deviceRefs=1\r\nPASS backbuffer selectors API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "ac87bd9a86b0d66bb274dc6b985e086a96bc04f5fd144490720bb985b5213370",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "4a644e40dcfba5f4bb1a9aca8de992d64ae20fd9b40b9f76d20366df758c1b07",
+    "glbridge/sample/d3d_backbuffer_selector_test.c": "1850096cc13e17dd4839f1981baf7800a641f80064d33fe2293f70266feead0f"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "8": "55fbd9dda7413ab6259eeff518905c1f099319e0e4f741175d2dd14dd4134fb9",
+      "9": "208061bb6869e201a5b59d41be8219d0b9f7f7809c838b46b47279e713591620"
+    },
+    "exeSha256": {
+      "8": "23483d2521c07d4f47377be2c113b01f783163e80327a4f234dbdb9d59ecd210",
+      "9": "bf87f698908b763fa319ec6a6bd3ce5eb399545264729143e89c432a92903a85"
+    }
+  },
+  "scope": "not exercised; D3D8/9 chain backbuffer selector/invalid-output boundaries; D3D9 implicit route and retained resource ownership"
+}

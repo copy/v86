@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "scope": "Backbuffer stereo/index selector contract for supported single-buffer chains only. D3D8/9 additional-chain routes and D3D9 implicit-chain wrapper ignore every stereo value, reject NULL output, and preserve caller output on invalid indices. D3D8 allocation failure keeps its existing NULL-output behavior and retained private-store lifetime. D3D8 additional buffer COM identity/independent GPU storage/container, multiple backbuffers and complete Reset/wrapping remain incomplete. No new GPU pixel run; inherit 4H6f4c/4H6c evidence.",
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "evidence": "Windows test_swapchain expects ignored stereo types and unchanged output on invalid chain backbuffer index."
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Windows test_swapchain expects ignored stereo types and unchanged output on invalid chain backbuffer index."
+    }
+  ],
+  "facts": {
+    "actualEntryChecks": {
+      "8": 36,
+      "9": 75
+    },
+    "types": [
+      0,
+      1,
+      2,
+      3735928559,
+      4294967295
+    ],
+    "portableInvalidIndices": [
+      1,
+      2,
+      3,
+      4294967295
+    ],
+    "successfulXPQueries": 15,
+    "invalidXPQueries": 30,
+    "nullXPQueries": 15,
+    "preservedXPOutputs": 30,
+    "allocationFailureOwnershipPreserved": true
+  }
+}
