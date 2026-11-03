@@ -425,7 +425,7 @@ game.exe
 | S2-52 | 执行缓冲 `D3DPROCESSVERTICES_TRANSFORM` 丢掉 LVERTEX 颜色；传统视口映射被忽略 | `DL:2882, 2896-2897`；`DL:639-656, 780-820` | 预光照几何变白；D3DVIEWPORT 的 `dvScaleX/Y` 和 D3DVIEWPORT2 的 `dvClip*`、MinZ/MaxZ 应经裁剪空间矩阵生效（深度范围固定 0..1；`dvMaxX/Y` Wine 也不用） | ✅；4I7 |
 | S2-53 | 对象生命周期 | `GD:4021, 4338, 4650, 3226, 3298` | 释放 flip chain 前缓冲时，隐式后缓冲及其 GPU 纹理全部泄漏，`flip_next` 悬空；经 IDirectDraw4/7 创建的表面应 AddRef DirectDraw 对象（DD1/DD2 不加），现在不加，v4/v7 应用先释放 DirectDraw 就会 use-after-free；SetPalette/SetClipper 先 Release 旧对象再 AddRef 新对象，设回同一个对象时会 AddRef 已释放的内存 | ✅；4I8 |
 | S2-54 | 纹理 `Load` 不完整 | `D7:2573-2604`、`DL:1213-1240` | D3D7 `Load` 只拷第 0 级（没有 mip、没有立方体面），忽略 flags；`IDirect3DTexture2::Load` 不拷调色板和颜色键，mip 数不同时返回 BADSIZE（Wine 加载共同的级） | ✅；4I9 |
-| S2-55 | DX3 `D3DLIGHT` 的 `dwFlags`=0 被当成“禁用” | `DL:580` | 传统灯光不起作用 | W+（`ddraw/light.c:174` 小于 D3DLIGHT2 的灯视为 ACTIVE；ddraw1 `7827-7838` 无标志的灯照亮四边形） |
+| S2-55 | DX3 `D3DLIGHT` 的 `dwFlags`=0 被当成“禁用” | `DL:580` | 传统灯光不起作用 | ✅；4I10 |
 | S2-57 | 无源 BLACKNESS/WHITENESS 被拒；P8 表面没有调色板时 GetDC 的颜色表全黑 | `GD:2354, 2405-2415`；`GD:2959-2969` | 用 ROP 清屏的程序得到 `DDERR_INVALIDPARAMS`（WHITENESS 得 `NORASTEROPHW`）；GDI 文字不可见 | W+（ddraw7 `12363-12378`；`surface.c:2531-2542` 回退到主表面调色板，ddraw7 `10360-10372`） |
 
 ### 3.3 S3 一般（摘要，细节见共享笔记目录里的各区报告）
@@ -2078,6 +2078,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 宿主资源策略改变后新跑 **完整核心 238 suites**、DDraw/D3D1–7 **27 suites**、26 个 DDraw 执行器和保留的 178 个 D3D9 执行器用例、四个标准 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题。两种 GPU 各另跑 **533 conformance cases** 和既有 **84 帧/252 色探针纹理复制**，本阶段合计六次通过的 GPU 运行及一次旧模块负对照；其余客体继承 4I3 全 247 suites。
 > - 图形包重建并同步至 **`9335ee9a77fb7cc808d2`**，页面及全部 worker revision 一致；四个 CPU 产物与前一提交、核心 build 均逐字节一致，协议 ABI/着色器语义和 D3D8/9 DLL 不变。发布本次 XP 的准确 DDraw DLL 与严格 diagnostic。证据：`docs/fixtures/d3d-review/stage4i9-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4I9.json`。
 > - 传统接口 cube 支持是项目既有扩展；安全的负坐标/NULL/非顶层拒绝和传输失败返回，不复制原生崩溃/静默失败。部分 cube 创建、任意公开子级 palette/key 继承及限制、完整格式/压缩/回调/线程/丢失/Reset/包装转换、S2-55/57、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I10（2026-11-04）：DX3 灯光默认启用与完整 D3DLIGHT2 标志（S2-55）完成。**
+> - 共用旧灯光 SetLight 按调用方结构大小选标志：76 字节 D3DLIGHT 及未包含完整 flags 的尺寸默认 ACTIVE，80 字节 D3DLIGHT2 保留显式 0/ACTIVE/NO_SPECULAR。输入保持原值，当前视口即时更新，未选中/脱离视口只更新缓存；既有 NO_SPECULAR 翻译继续独立作用于 specular。
+> - 实际 C **59,995 检查、2,304 次尺寸/标志转换**，精确尺寸分配验证不越读 DX3 尾部，覆盖输出边界、显式禁用、镜面色、非当前/脱离隔离、NULL/短结构拒绝及已接受的传输失败前缀。**6/6** 严格编译后运行时变异检出、旧实际源的运行时负对照及 ASAN/UBSAN 通过。
+> - CRT-free XP SDK 在一个真实灯光上运行 **9 状态 × Execute TRANSFORMLIGHT / D3D3 原始法线两路径**，含蓝/黑/红、完整标志 0 与 NO_SPECULAR、脱离后红色缓存和重附着。9 次 diffuse/specular 查询、2 次非法输入拒绝、18 次真实读回；119 秒、20 批次、一个真实 owner/release，只写 RAM overlay。最初 SDK 把启用查询与 TRUE=1 比较，现按已钉住的返回值 0x80 检查，生产实现未因此改变，早期失败工件保留。
+> - 独立像素期望及冻结流检查含 **43 项语义破坏**；SwiftShader/Metal 各核对 **18 图像、1,152 实际像素，零误差/零 GPU 或宿主错误**。XP 的模拟像素回复仅用于传输；双 GPU 验证真正图像。单纹理和设备均显式销毁，真实 owner 释放前实际资源/设备表为空。
+> - 新跑核心相关 **33 suites**、DDraw/D3D1–7 **29 suites**、四个标准 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题；其余继承 4I9 完整核心 238 suites/六次 GPU 和 4I3 完整客体 247 suites。发布准确 XP DDraw DLL 与严格 diagnostic；D3D8/9、宿主/协议/着色器及图形包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4i10-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4I10.json`。
+> - GetLight 原始调用方尺寸怪癖、完整 type/range 验证、任意多灯顺序、S2-57、完整格式/线程/丢失/Reset/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
