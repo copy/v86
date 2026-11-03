@@ -1737,6 +1737,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 同一 XP 轨迹在 SwiftShader 和 Metal 各重放一次，两 API 最终帧的 managed 纹理和清屏区域均正确；每后端原始图像 4096、显示图像 4096 个像素比较均为零误差，无 GPU/宿主错误。201 组核心、200 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包不变，另保留 4H6c 全量 GPU 基线。见 [stage4h6f3a-validation.json](fixtures/d3d-review/stage4h6f3a-validation.json)。
 > - 下一步继续 Reset HRESULT/设备状态；公开绑定引用计数、完整 Reset 私有数据/模式边界、并发缓存、附加交换链独立像素及后续包装转换和阶段 4/5/6 仍未完成。本项不宣称原生 Microsoft HAL 或完整 S2-42 验收。
 
+> **阶段 4H6f3b（2026-11-03）：Reset 返回码、协作状态及失败期间的 Present（S1-9 / S2-42 部分）完成。**
+>
+> - 两版设备共用 Reset 状态：开始重置即进入可重试的 NOTRESET，所有失败出口保持该状态，完整 Reset 和默认状态重放成功后才恢复可用。TestCooperativeLevel 返回实际状态；查询或释放阻塞资源不会自行恢复设备。D3D8 资源阻塞返回 DEVICELOST，D3D9 保持 INVALIDCALL，按固定 Wine Windows 测试区分。
+> - 设备及隐式/附加交换链 Present 在需要重置时返回 DEVICELOST，先于提交、窗口探测、节流和 DONOTWAIT deadline 处理；不会产生帧或推进计时。此步骤只建模虚拟适配器的 Reset 失败，不把物理失焦或设备移除混入同一状态。
+> - 实际 C Reset、协作查询和 Present 入口各 363 项、12 类失败出口，覆盖参数/资源拒绝、内存和提交失败、状态重放失败、反复查询/重试、设备隔离及恢复后继续呈现；19/19 新增语义变异及 ASan/UBSan 通过。原参数、设备节流和交换链节流的 18/27/19 项变异继续通过，上一提交两版源码均被运行时负面对照发现。
+> - 真实 XP 两 API 各核对 7 次资源拒绝、28 次 NOTRESET 查询、7 次 DEVICELOST Present 及 15 次成功 Reset 后的可用状态，日志保存实际 HRESULT；两 owner 正常退出，114 秒。冻结轨迹保持 30 次成功 Reset、30 个资源完整退出和两帧，失败 Present 无对应提交；八项日志/轨迹语义损坏被发现。
+> - 同一新轨迹在 SwiftShader 和 Metal 各重放一次，每后端原始/显示各 4096 个参考像素零误差，无 GPU/宿主错误。202 组核心、202 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测零售 DLL和严格诊断 DLL。宿主/运行包不变，保留 4H6c 全量 GPU 基线。见 [stage4h6f3b-validation.json](fixtures/d3d-review/stage4h6f3b-validation.json)。
+> - 接着修复 Reset 对活动 Scene 的处理，再继续状态块/私有数据、窗口/全屏模式及附加交换链边界；物理设备丢失、线程约束、公开绑定引用计数、完整包装转换和阶段 4/5/6 仍待完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

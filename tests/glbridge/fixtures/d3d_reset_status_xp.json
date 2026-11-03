@@ -1,0 +1,376 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048607,
+      "created": 1,
+      "resets": 15,
+      "destroyed": 1,
+      "resources": [
+        {
+          "index": 0,
+          "handle": 1048578,
+          "kind": 3,
+          "pool": 1,
+          "born": 0,
+          "retired": 15,
+          "uploads": 1
+        },
+        {
+          "index": 1,
+          "handle": 1048579,
+          "kind": 1,
+          "pool": 0,
+          "born": 0,
+          "retired": 0,
+          "uploads": 0
+        },
+        {
+          "index": 2,
+          "handle": 1048581,
+          "kind": 2,
+          "pool": 0,
+          "born": 1,
+          "retired": 1,
+          "uploads": 0
+        },
+        {
+          "index": 3,
+          "handle": 1048583,
+          "kind": 3,
+          "pool": 0,
+          "born": 2,
+          "retired": 2,
+          "uploads": 0
+        },
+        {
+          "index": 4,
+          "handle": 1048585,
+          "kind": 4,
+          "pool": 0,
+          "born": 3,
+          "retired": 3,
+          "uploads": 0
+        },
+        {
+          "index": 5,
+          "handle": 1048587,
+          "kind": 5,
+          "pool": 0,
+          "born": 4,
+          "retired": 4,
+          "uploads": 0
+        },
+        {
+          "index": 6,
+          "handle": 1048589,
+          "kind": 1,
+          "pool": 0,
+          "born": 5,
+          "retired": 6,
+          "uploads": 0
+        },
+        {
+          "index": 7,
+          "handle": 1048591,
+          "kind": 2,
+          "pool": 0,
+          "born": 6,
+          "retired": 7,
+          "uploads": 0
+        },
+        {
+          "index": 8,
+          "handle": 1048593,
+          "kind": 3,
+          "pool": 0,
+          "born": 7,
+          "retired": 8,
+          "uploads": 0
+        },
+        {
+          "index": 9,
+          "handle": 1048595,
+          "kind": 4,
+          "pool": 0,
+          "born": 8,
+          "retired": 9,
+          "uploads": 0
+        },
+        {
+          "index": 10,
+          "handle": 1048597,
+          "kind": 5,
+          "pool": 0,
+          "born": 9,
+          "retired": 10,
+          "uploads": 0
+        },
+        {
+          "index": 11,
+          "handle": 1048599,
+          "kind": 3,
+          "pool": 2,
+          "born": 10,
+          "retired": 11,
+          "uploads": 1
+        },
+        {
+          "index": 12,
+          "handle": 1048601,
+          "kind": 3,
+          "pool": 3,
+          "born": 11,
+          "retired": 12,
+          "uploads": 1
+        },
+        {
+          "index": 13,
+          "handle": 1048605,
+          "kind": 3,
+          "pool": 0,
+          "born": 14,
+          "retired": 15,
+          "uploads": 0
+        },
+        {
+          "index": 14,
+          "handle": 1048606,
+          "kind": 3,
+          "pool": 0,
+          "born": 14,
+          "retired": 15,
+          "uploads": 0
+        }
+      ],
+      "clears": 1,
+      "draws": 1,
+      "presents": 1,
+      "uploads": 3,
+      "uploadedBytes": 192,
+      "bound": 1048578,
+      "fvf": 324
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048607,
+      "created": 1,
+      "resets": 15,
+      "destroyed": 1,
+      "resources": [
+        {
+          "index": 0,
+          "handle": 1048578,
+          "kind": 3,
+          "pool": 1,
+          "born": 0,
+          "retired": 15,
+          "uploads": 1
+        },
+        {
+          "index": 1,
+          "handle": 1048579,
+          "kind": 1,
+          "pool": 0,
+          "born": 0,
+          "retired": 0,
+          "uploads": 0
+        },
+        {
+          "index": 2,
+          "handle": 1048581,
+          "kind": 2,
+          "pool": 0,
+          "born": 1,
+          "retired": 1,
+          "uploads": 0
+        },
+        {
+          "index": 3,
+          "handle": 1048583,
+          "kind": 3,
+          "pool": 0,
+          "born": 2,
+          "retired": 2,
+          "uploads": 0
+        },
+        {
+          "index": 4,
+          "handle": 1048585,
+          "kind": 4,
+          "pool": 0,
+          "born": 3,
+          "retired": 3,
+          "uploads": 0
+        },
+        {
+          "index": 5,
+          "handle": 1048587,
+          "kind": 5,
+          "pool": 0,
+          "born": 4,
+          "retired": 4,
+          "uploads": 0
+        },
+        {
+          "index": 6,
+          "handle": 1048589,
+          "kind": 1,
+          "pool": 0,
+          "born": 5,
+          "retired": 6,
+          "uploads": 0
+        },
+        {
+          "index": 7,
+          "handle": 1048591,
+          "kind": 2,
+          "pool": 0,
+          "born": 6,
+          "retired": 7,
+          "uploads": 0
+        },
+        {
+          "index": 8,
+          "handle": 1048593,
+          "kind": 3,
+          "pool": 0,
+          "born": 7,
+          "retired": 8,
+          "uploads": 0
+        },
+        {
+          "index": 9,
+          "handle": 1048595,
+          "kind": 4,
+          "pool": 0,
+          "born": 8,
+          "retired": 9,
+          "uploads": 0
+        },
+        {
+          "index": 10,
+          "handle": 1048597,
+          "kind": 5,
+          "pool": 0,
+          "born": 9,
+          "retired": 10,
+          "uploads": 0
+        },
+        {
+          "index": 11,
+          "handle": 1048599,
+          "kind": 3,
+          "pool": 2,
+          "born": 10,
+          "retired": 11,
+          "uploads": 1
+        },
+        {
+          "index": 12,
+          "handle": 1048601,
+          "kind": 3,
+          "pool": 3,
+          "born": 11,
+          "retired": 12,
+          "uploads": 1
+        },
+        {
+          "index": 13,
+          "handle": 1048605,
+          "kind": 3,
+          "pool": 0,
+          "born": 14,
+          "retired": 15,
+          "uploads": 0
+        },
+        {
+          "index": 14,
+          "handle": 1048606,
+          "kind": 3,
+          "pool": 0,
+          "born": 14,
+          "retired": 15,
+          "uploads": 0
+        }
+      ],
+      "clears": 1,
+      "draws": 1,
+      "presents": 1,
+      "uploads": 3,
+      "uploadedBytes": 192,
+      "bound": 1048578,
+      "fvf": 324
+    }
+  ],
+  "frames": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048607,
+      "marker": 1048578
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048607,
+      "marker": 1048578
+    }
+  ],
+  "resources": 30,
+  "resets": 30,
+  "statuses": [
+    {
+      "api": 8,
+      "refusedResets": 7,
+      "successfulResets": 15,
+      "lostPresents": 7,
+      "notResetQueries": 28,
+      "readyQueriesAfterReset": 15,
+      "resetHR": "88760868",
+      "cooperativeHR": "88760869",
+      "presentHR": "88760868"
+    },
+    {
+      "api": 9,
+      "refusedResets": 7,
+      "successfulResets": 15,
+      "lostPresents": 7,
+      "notResetQueries": 28,
+      "readyQueriesAfterReset": 15,
+      "resetHR": "8876086C",
+      "cooperativeHR": "88760869",
+      "presentHR": "88760868"
+    }
+  ],
+  "traceSha256": "54e666412e217f08282938ac5f20102e049e18bd4e7e57bd9cd875915c2335c8",
+  "referenceSha256": "9ee5e34d6ad0be50a9b39bfde86ecc1f16ddaace67db150889b767aae714899c",
+  "sdkLogs": {
+    "RST8.TXT": "RESET GRAPH 8 accepted=15 refused=7 families=5 cpuMapped=2 implicit=2 ownedTargets=1 private=11223344 frame=1\r\nRESET STATUS 8 refused=7 recovered=15 lostPresents=7 coopNotReset=28 coopReady=15 resetHR=88760868 coopHR=88760869 presentHR=88760868\r\nPASS reset API=8\r\n",
+    "RST9.TXT": "RESET GRAPH 9 accepted=15 refused=7 families=5 cpuMapped=2 implicit=2 ownedTargets=1 private=11223344 frame=1\r\nRESET STATUS 9 refused=7 recovered=15 lostPresents=7 coopNotReset=28 coopReady=15 resetHR=8876086C coopHR=88760869 presentHR=88760868\r\nPASS reset API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_reset.h": "75178abd77352369f3448eeb773a85480e2a965eb47124d37fcb70ed2ca1e67b",
+    "glbridge/runtime/d9wg_present_pacing.c": "2d4162feeeba458b925ee6fb281ed6a5f4f4cc18564db2458ae053db4a8951fb",
+    "glbridge/runtime/d9wg_present_pacing.h": "4242319df86e7666d625b79b38b33d503bfe8a6b50af02b15ec69b5e0530d851",
+    "glbridge/runtime/d9wg_present_pacing_bridge.h": "e4323c447e55d7e9b8523b978fd996ef8baff532b404f620bc366e8b3d26dbc8",
+    "glbridge/runtime/build.sh": "5faef442a3889dea33ff857eeba30dd9001e316b997242dce9392979a273cd68",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "461ca498217c4cc27a4745e84aade34acf10477786a311fe96641f7ce381424b",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "aac44ce9609317549ec31c3ae9841379ad0922a2b051469295a9dba891ca9e30",
+    "glbridge/sample/d3d_reset_resources_test.c": "491363a98fb266b8e1f5fc1870a3cfaafa9c1eb269477d9ee302adf0fc2fd00f"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "2e95139d404095d3758d40c33a6bbea357d6f99032dba16061d273d3530e93ef",
+      "d3d9": "c3210e8c604ab120acb192c358fde47905788a99c44f8edf755063998786ce17"
+    },
+    "exeSha256": {
+      "8": "fb9091e84bf72318d798ddccf195cd3a8e6f67cccdda7f0947e81f351b97f194",
+      "9": "41f1a154d6e975e8429cbe1e4b513f65dc15e9df50787719388ace29279e3178"
+    }
+  },
+  "scope": "not exercised; Reset HRESULT/cooperative-level recovery and lost Present rejection; post-Reset rendering command sequence; GPU pixels separately replayed"
+}
