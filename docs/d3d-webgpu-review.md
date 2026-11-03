@@ -426,7 +426,7 @@ game.exe
 | S2-53 | 对象生命周期 | `GD:4021, 4338, 4650, 3226, 3298` | 释放 flip chain 前缓冲时，隐式后缓冲及其 GPU 纹理全部泄漏，`flip_next` 悬空；经 IDirectDraw4/7 创建的表面应 AddRef DirectDraw 对象（DD1/DD2 不加），现在不加，v4/v7 应用先释放 DirectDraw 就会 use-after-free；SetPalette/SetClipper 先 Release 旧对象再 AddRef 新对象，设回同一个对象时会 AddRef 已释放的内存 | ✅；4I8 |
 | S2-54 | 纹理 `Load` 不完整 | `D7:2573-2604`、`DL:1213-1240` | D3D7 `Load` 只拷第 0 级（没有 mip、没有立方体面），忽略 flags；`IDirect3DTexture2::Load` 不拷调色板和颜色键，mip 数不同时返回 BADSIZE（Wine 加载共同的级） | ✅；4I9 |
 | S2-55 | DX3 `D3DLIGHT` 的 `dwFlags`=0 被当成“禁用” | `DL:580` | 传统灯光不起作用 | ✅；4I10 |
-| S2-57 | 无源 BLACKNESS/WHITENESS 被拒；P8 表面没有调色板时 GetDC 的颜色表全黑 | `GD:2354, 2405-2415`；`GD:2959-2969` | 用 ROP 清屏的程序得到 `DDERR_INVALIDPARAMS`（WHITENESS 得 `NORASTEROPHW`）；GDI 文字不可见 | W+（ddraw7 `12363-12378`；`surface.c:2531-2542` 回退到主表面调色板，ddraw7 `10360-10372`） |
+| S2-57 | 无源 BLACKNESS/WHITENESS 被拒；P8 表面没有调色板时 GetDC 的颜色表全黑 | `GD:2354, 2405-2415`；`GD:2959-2969` | 用 ROP 清屏的程序得到 `DDERR_INVALIDPARAMS`（WHITENESS 得 `NORASTEROPHW`）；GDI 文字不可见 | ✅；4I11 |
 
 ### 3.3 S3 一般（摘要，细节见共享笔记目录里的各区报告）
 
@@ -2086,6 +2086,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 独立像素期望及冻结流检查含 **43 项语义破坏**；SwiftShader/Metal 各核对 **18 图像、1,152 实际像素，零误差/零 GPU 或宿主错误**。XP 的模拟像素回复仅用于传输；双 GPU 验证真正图像。单纹理和设备均显式销毁，真实 owner 释放前实际资源/设备表为空。
 > - 新跑核心相关 **33 suites**、DDraw/D3D1–7 **29 suites**、四个标准 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题；其余继承 4I9 完整核心 238 suites/六次 GPU 和 4I3 完整客体 247 suites。发布准确 XP DDraw DLL 与严格 diagnostic；D3D8/9、宿主/协议/着色器及图形包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4i10-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4I10.json`。
 > - GetLight 原始调用方尺寸怪癖、完整 type/range 验证、任意多灯顺序、S2-57、完整格式/线程/丢失/Reset/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
+> **阶段 4I11（2026-11-04）：无源 ROP 填充与 P8 GetDC 调色板快照（S2-57）完成。**
+> - BLACKNESS/WHITENESS 在源检查前转换为共用 native-pixel 填充；NULL 源和被忽略的已锁源可用。SRCCOPY 仍检查有效未锁源，缺 fx/其他 ROP 返回明确错误；调用方 fx/RECT 不变，裁剪、外部内存同步和呈现失败前缀沿用。白色用 P8 索引 255 或目标 RGB 掩码，ARGB alpha=0，与 Windows 测试记录一致。
+> - P8 GetDC 按自身 palette、当前主表面 palette、既有空表取快照；继承只影响 DC，不给表面绑定 palette。采用 Wine 的主调色板回退策略，不声称完整原生系统调色板或已打开 DC 的实时变更。
+> - 实际 C **73,524 检查**，含 **1,024** 个 P8/565/555/ARGB32 填充与 **256** 份完整颜色表，覆盖裁剪/调用方守卫/自身优先/无 owner/无 primary palette/GDI 失败及既有读回失败策略。**11/11** 严格编译后的运行时变异检出、旧实际源运行时负对照及 ASAN/UBSAN 通过。
+> - XP CRT-free SDK 通过 Surface1/2/3/4/7 实际执行 **10 填充、20 份 GetDIBColorTable（5,120 条）、1,280 次 SetPixelV、15 次拒绝、30 次读回**。先验证继承后表面仍未绑定 palette，再显式绑定仅用于索引预览。一个主表面和十个普通表面全部释放；111 秒、34 批次、一个真实 owner/release，仅写 RAM overlay。8×8×8 虚拟模式是项目测试配置，不是原生 HAL 模式验收。
+> - 冻结流检查准确的 **55 份表、55 次绑定、20 个索引上传、10 填充/20 复制**，**37 项语义破坏**均拒绝。最初 reader 把公开 DDSCL_NORMAL=8 当作线上的 cooperative_flags，已改用既有映射值 1；生产、SDK 和捕获不变。SwiftShader/Metal 各核对 **30 图像、1,920 实际像素，零误差/零 GPU 或宿主错误**；11 纹理显式销毁，真实 owner 释放之前实际资源/设备表为空。XP 模拟回复只作传输控制。
+> - 新跑核心相关 **34 suites**、DDraw/D3D1–7 **31 suites**、四个标准 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU 和 4I3 完整客体 247 suites。发布准确 XP DDraw DLL 与严格 diagnostic；图形包 `9335ee9a77fb7cc808d2`、D3D8/9 和宿主/协议/着色器保持一致。证据：`docs/fixtures/d3d-review/stage4i11-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4I11.json`。
+> - 原生无调色板时的系统 palette、打开 DC 后实时 palette、GetDC 读回失败策略、完整格式/深度/压缩 ROP 矩阵、任意 ROP 真值表、回调/线程/丢失/Reset/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
