@@ -1944,6 +1944,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 十五组相关核心、236 组完整客体、14 个 D3D9 标准 SDK EXE、两份严格 D3D9 DLL、新双设备 SDK EXE和站点两项集成通过；未改的 D3D8/DDraw 继承紧邻 8f 的 36 EXE/六 DLL 验收及原发布文件。只发布最终 XP 所测 D3D9 零售 DLL及严格诊断 DLL。宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 未改，无新 GPU 像素运行，继承 7d/e、8c 核心/GPU 基线。见 [stage4h6f8g-validation.json](fixtures/d3d-review/stage4h6f8g-validation.json)。
 > - 绑定对象的原生公共计数/设备引用、其他跨设备资源入口、完整格式/MSAA/刷新率/全屏参数、多缓冲存储/轮转、完整 Reset/线程/物理丢失、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f8h（2026-11-03）：D3D9 独立 RT/depth 分离公共计数与内部绑定存储（S2-42 相关）完成。**
+>
+> - 独立表面新增内部绑定计数；SetRenderTarget / SetDepthStencilSurface、同对象重绑及清绑定不再取得公共表面/设备引用。公共计数归零归还唯一设备引用，内部绑定继续保存原表面、GPU 存储及私有数据；GetRenderTarget / GetDepthStencilSurface 从零恢复同一对象时只重新取得一个设备引用。最后解绑且公共计数为零时才销毁存储；多个内部槽只拥有一份私有 texture。普通 texture/cube 级表面和隐式/交换链缓冲保留原模型。
+> - Reset 对独立表面只看公共引用和锁定，不再把内部槽从公共计数中扣除；原交换链模型仍按其原计数处理。设备清理临时保留自身，保护仅剩内部绑定的私有 IUnknown 回调。公共 Release 的进入/退出记录保持平衡，内部物理销毁不伪造公共 Release 退出；回调中的计数验证本项目安全不变量，不作为原生 HAL 析构计数证明。
+> - 固定 Wine 的独立表面零/非零设备引用及内部 view 保留作为依据。新增实际构造/绑定/查询/清理/Reset 阻塞入口 4,255 项、16 组、1,024 次零公共计数恢复，覆盖单槽/双槽、普通/四倍 RT/depth、借用指针同目标重绑、最后解绑/设备先释放/最后公共引用等顺序；23 项新变异、既有 12 项目标生存期、14 项附加生命周期、23 项隐式及 37 项 Reset 变异通过。Reset 资源图 D3D9 增至 598 项，D3D8 保留 580 项；六族 ASan/UBSan 通过。
+> - XP 真实四倍 RT/depth 各 32 轮从零恢复，IUnknown/容器/私有数据及精确设备引用保持；在公共计数为零时 Clear 两帧，经 StretchRect 解析到主缓冲并呈现。随后仅剩内部绑定时 Reset 成功，两份存储/私有对象清理；另覆盖设备最后释放和最后解绑，三设备生存期、一次 Reset、五份 IUnknown 恰好析构一次，工厂归零。冻结轨迹核对五份 GPU 存储、40 次 RT/38 次 depth 绑定、两次 Clear/复制/呈现及资源先于设备退役，30 项语义损坏全部检出。
+> - SwiftShader 与本机 GPU 各回放同一 XP 两帧，独立解析真实四倍采样附件，并读取解析纹理及呈现纹理；每后端分别 1,536 / 1,536 / 1,536 像素全部零误差，零 WebGPU/宿主错误，owner 完整结束。原始计数与诊断记录分别有旧源运行时对照；诊断收尾前后零售 DLL 的 .text 完全相同，最终 XP 使用收尾后的零售 DLL。
+> - 16 组相关核心、238 组完整客体、14 个 D3D9 标准 SDK EXE、两份严格 D3D9 DLL、两份专用 SDK EXE及站点两项集成通过。完整客体回归之后仅校正诊断记录并补充实际记录断言/三项变异，最终入口/变异/ASan 和严格诊断构建再次通过；零售指令相同。只发布最终 XP 所测 D3D9 零售 DLL及严格诊断 DLL。宿主/协议/着色器与 bundle `64aa2cd7f7413ccbe760` 未改，继承 7d/e、8c 基线并新增本次双后端 GPU 验收。见 [stage4h6f8h-validation.json](fixtures/d3d-review/stage4h6f8h-validation.json)。
+> - 本项只收敛 D3D9 独立表面绑定；D3D8、texture/cube/缓冲/着色器/状态块及隐式/链绑定的公共计数仍待后续。通用设备根引用消失但外部资源仍存活时的状态保持、回调重入的完整资源图、其他跨设备入口、完整格式/MSAA/呈现/Reset/线程/物理丢失、多缓冲轮转、原生 Microsoft HAL、游戏/FPS、包装转换及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

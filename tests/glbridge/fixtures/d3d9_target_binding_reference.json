@@ -1,0 +1,55 @@
+{
+  "schema": 1,
+  "width": 32,
+  "height": 24,
+  "colors": [
+    4289732624,
+    4279255232
+  ],
+  "scope": "D3D9 standalone RT/depth surfaces use separate public and internal binding counters. Setters, same-object rebind and final device cleanup retain private storage without adding public surface/device references. Public zero returns the one parent pin while storage remains bound; GetRenderTarget/GetDepthStencilSurface revives the identical wrapper and one parent pin. Only public references and locks block Reset; multiple private slots own one backing-texture reference. Last unbind retires storage only when public refs are zero. Device cycle cleanup holds a temporary self pin while bound-only private-data callbacks run. XP covers real four-sample public-zero targets, two Clear/resolve/Present frames, private retention, bound-only Reset, application-device-last and last-unbind destruction. Callback counts are proxy safety invariants, not native HAL counts. Texture/cube levels, implicit/chain buffers, textures/buffers/shaders and state blocks keep their existing reference model; the existing general device cycle-break policy still needs full native ownership-graph work, including state preservation when external resource refs outlive the application device root. Do not claim all native binding/device lifetime semantics are complete. Full format/MSAA/refresh/fullscreen/multiple-buffer/Reset/thread/device-loss acceptance, original Microsoft HAL, games/FPS and review stages 4/5/6 remain open. No host/protocol/shader/bundle change.",
+  "sources": [
+    {
+      "file": "d3d9-device-tests.c",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Pinned Windows resource-refcount/Reset tests provide the parent-pin and bound-only reset context; this phase also uses actual Wine implementation structure and does not claim an original Microsoft HAL run."
+    },
+    {
+      "file": "d3d9-reset-device.c",
+      "blobSha1": "2d036f2c22ef92b0c3b55fccf1bb2af477c9b146",
+      "sha256": "b70a5ed02fdd3e72f030d492770b13a16e8cd73b51c2ac8684e08f921af6fd58",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/device.c",
+      "evidence": "SetRenderTarget/SetDepthStencilSurface retain internal render-target views rather than public Surface.AddRef references; getters acquire public surface references. Resource/view lifetime is distinct from the public count."
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+      "evidence": "Standalone surface public AddRef/Release changes the parent-device pin only on zero/nonzero edges; separate wined3d storage/view references can keep the wrapper alive while public refs are zero."
+    }
+  ],
+  "facts": {
+    "nativeChecks": 4255,
+    "nativeLifecycleGroups": 16,
+    "nativePublicZeroRevivals": 1024,
+    "newMutations": 23,
+    "balancedSurfaceReleaseMarkers": true,
+    "retainedTargetLifetimeMutations": 12,
+    "retainedAdditionalLifetimeMutations": 14,
+    "retainedImplicitMutations": 23,
+    "resetResourceChecks8": 580,
+    "resetResourceChecks9": 598,
+    "xpLogicalDevices": 3,
+    "xpReset": 1,
+    "xpPublicZeroRevivals": 64,
+    "xpPrivateObjectsFinalized": 5,
+    "xpRenderTargetBindings": 40,
+    "xpDepthBindings": 38,
+    "xpFrames": 2,
+    "xpBackingTextures": 5,
+    "standalonePrivateBindingScope": true,
+    "generalDeviceCycleBreakStillApproximate": true
+  }
+}
