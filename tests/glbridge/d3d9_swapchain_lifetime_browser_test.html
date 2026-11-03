@@ -76,9 +76,17 @@
         await read(contexts[1], [255, 0, 0]);await read(contexts[2], [0, 255, 0]);
         await submit([create(30), present(30), destroy(30)]);await gpu.checkpointIdle();
         if (nativeCloses !== 1) throw new Error("native WebGPU canvas context was not retired");
+        await submit([fill(0xff0000ff), create(40), present(40),
+            command(P.OP.RESET, {old_device_handle: 1, new_device_handle: 3, width: 8, height: 8, windowed: 1, backbuffer_format: 21}),
+            command(P.OP.DESTROY_SWAP_CHAIN, {device_handle: 3, swap_chain_handle: 40}),
+            command(P.OP.DESTROY_RESOURCE, {resource_handle: 2, resource_kind: 3}),
+            command(P.OP.DESTROY_RESOURCE, {resource_handle: 3, resource_kind: 0})]);
+        await gpu.checkpointIdle();
+        await read(contexts[3], [0, 0, 255]);
         if (gpu.hostErrors.length || gpu.gpuErrors.errors.length || gpu.stats.commandsFailed || gpu.stats.swapChainPresentsDropped) throw new Error("swap-chain lifecycle rejected accepted work");
+        await fetch("/__test_file?name=d9wg-swapchain-reset-lifetime.json", {method: "POST", body: JSON.stringify({pixels: 256, contextClosures: contexts.map(c => c.closes), nativeCloses, stats: gpu.stats, hostErrors: gpu.hostErrors, gpuErrors: gpu.gpuErrors.errors})});
         for (const entry of contexts) entry.texture.destroy();
-        document.querySelector("#result").textContent = "PASS 192 GPU scanout pixels: queued presents complete before context destruction/replacement; native canvas retirement and empty unowned Present are safe";
+        document.querySelector("#result").textContent = "PASS 256 GPU scanout pixels: queued presents complete before context destruction/replacement/Reset; contexts retire exactly once and empty unowned Present is safe";
     } catch (error) { document.querySelector("#result").textContent = "FAIL " + error.stack; }
 })();
 </script>

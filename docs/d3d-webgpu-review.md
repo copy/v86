@@ -1863,6 +1863,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 八组相关核心、24 组相关客体、36 个标准 SDK EXE、六份严格 DLL、另一个公共生命周期 SDK EXE和站点两项集成通过。继承 4H6f7a 的 213/218 完整回归及 58 次 GPU 运行；宿主/协议/着色器和 bundle 未变，本项无新 GPU 像素运行。只发布最终 XP 所测 D3D8 零售 DLL和严格诊断 DLL。见 [stage4h6f7c-validation.json](fixtures/d3d-review/stage4h6f7c-validation.json)。
 > - 继续 D3D9 附加缓冲的独立公共计数、链容器以及公共链计数为零时的物理存活/恢复；D3D8 公共链归零后的物理生存期也未在本项验收。多缓冲、独立 render/depth surface 计数、完整呈现/Reset、原生 Microsoft HAL、游戏/FPS、包装转换和阶段 4/5/6 仍未完成。
 
+> **阶段 4H6f7d（2026-11-03）：D3D9 附加缓冲/链公共计数、零计数链容器与 Reset 上下文退休（S2-42 / S1-10 相关）完成。**
+>
+> - 附加 back buffer 的 GetContainer 对 IUnknown / IDirect3DSwapChain9 返回所属链。表面与链各有独立公共计数，各自只在零/非零边界保留一个设备引用；第一次 GetBackBuffer 返回 1，链 AddRef 不再改变表面计数。创建时把独立表面的设备引用转交链，并归还多余的内部纹理设备引用；内部析构跳过已经转交的引用，避免最终双重归还。
+> - 链公共计数归零后，只要表面仍被持有，链和存储继续物理存活；GetContainer 可以重新取得同一条链，缓存缓冲和私有数据保持。两者公共计数都为零才统一移除设备链表、发送销毁并清理表面/纹理，最后归还当前公共对象的设备引用。Reset 仅把正公共计数的附加链视为直接阻塞，外部缓冲仍由 DEFAULT 资源图阻塞，仅有设备绑定的存储可清理；接受 Reset 后先切换设备 handle，再释放绑定，后续链销毁对应新宿主 handle。
+> - 实际表面/纹理/链和设备引用清理入口新增 1,305 项，含各 128 轮表面及链归零/恢复、物理链/私有数据保留、最后视图销毁设备和仅剩绑定的最终清理；保留 D3D8 1,178 项和 D3D9 链 1,958 项。14/14 新变异、链 14/14、隐式 23/23、资源图 37、私有表面 16 项变异及 ASan/UBSan 通过。资源图 D3D9 增至 590 项，新增零公共链与混合链表；两份旧源运行时对照分别拒绝旧设备引用数量和零公共链阻塞 Reset。
+> - XP 单进程完成三设备生存期、32 轮表面恢复和 32 轮 GetContainer 链恢复，链/缓冲身份与公共计数保持，设备引用精确归还。覆盖活跃链阻止 Reset 后恢复、应用先释放设备与链后由最后表面完成销毁、仅有绑定时 Reset 成功；三份私有 IUnknown 各析构一次，114 秒正常退出。冻结轨迹确认三链/三 texture、两次排队 Reset、一次 RT 绑定及三设备退役，十五项语义损坏被发现。本次没有 SESSION_END 命令，但明确记录一次驱动 owner 释放；独立验证和宿主回放使用该真实退出事件结束会话。
+> - 新 XP 轨迹暴露宿主 Reset 遗漏：替换设备状态会丢掉仍存活的交换链上下文，没有 unconfigure。旧宿主仅关闭两个而应关闭三个；共用 Reset 现先提交排队工作，再退休附加链上下文。严格宿主测试 178 项通过。实际 GPU 用例增加链画面提交后立即 Reset，两个后端各检查 256 个显示像素、四个保留纹理上下文及一个原生上下文恰好关闭一次；原有 14 帧/40 原始及 42 显示快照也在两个后端重新验收，零误差。
+> - 重建并同步 bundle；216/222 组完整核心/客体回归、56 页 SwiftShader、Metal 533 项一致性及两个生命周期/独立缓冲页面，共 59 次新 GPU 运行通过。36 个标准 SDK EXE、六份严格 DLL、另一个 D3D9 公共生命周期 SDK EXE和站点两项集成通过。只发布最终 XP 所测 D3D9 零售 DLL和严格诊断 DLL，D3D8/DDraw 保持已验收文件。见 [stage4h6f7d-validation.json](fixtures/d3d-review/stage4h6f7d-validation.json)。
+> - D3D8 公共链归零后的物理生存期、多 back buffer、独立 render/depth 表面计数/设备引用、完整 MSAA/呈现/Reset、原生 Microsoft HAL、游戏/FPS、包装转换和阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

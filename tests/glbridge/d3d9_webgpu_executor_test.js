@@ -1714,6 +1714,32 @@ await test("primary and additional presentation remain independent across mixed 
     assert.equal(executor.stats.swapChainPresentsDropped, 1);
 });
 
+await test("XP additional-chain revival and binding-only Reset retire each context once", async () => {
+    const fs = require("node:fs"), path = require("node:path"), {gunzipSync} = require("node:zlib");
+    const metadata = require("./fixtures/d3d9_additional_lifetime_xp.json");
+    const bytes = gunzipSync(fs.readFileSync(path.join(__dirname, "fixtures/d3d9_additional_lifetime_xp.bin.gz")));
+    assert.equal(require("node:crypto").createHash("sha256").update(bytes).digest("hex"), metadata.traceSha256);
+    const {executor, find, calls} = makeExecutor({strict: true, createSwapChainCanvas: () => makeSwapChainCanvas(calls)});
+    for (let at = 0; at < bytes.length;) {
+        const ownerToken = bytes.readUInt32LE(at), flags = bytes.readUInt32LE(at + 4), size = bytes.readUInt32LE(at + 8);
+        assert.equal(bytes.readUInt16LE(at + 12), 0xffe1);
+        await executor.submit(bytes.subarray(at + 20, at + 12 + size), {ownerToken, flags, writeGuestMemory() {}});
+        at += 12 + size;
+    }
+    for (const owner of metadata.ownerReleases) executor.endOwnerSessions(owner);
+    await executor.idle();
+    assert.equal(executor.stats.swapChainsCreated, 3);
+    assert.equal(find("swapchain-unconfigure").length, 3);
+    assert.equal(find("swapchain-getCurrentTexture").length, 0);
+    assert.equal(find("getCurrentTexture").length, 0);
+    assert.equal(executor.stats.sessionsEnded, 1, "the captured driver release ends the session without a SESSION_END command");
+    assert.equal(executor.stats.commandsFailed, 0);
+    assert.equal(executor.stats.malformedBatches, 0);
+    assert.equal(executor.stats.droppedDraws, 0);
+    assert.equal(executor.hostErrors.length, 0);
+    assert.equal(executor.gpuErrors.errors.length, 0);
+});
+
 await test("destroying an additional swap chain unconfigures and reports it",
         async () => {
     const surfaces = [];

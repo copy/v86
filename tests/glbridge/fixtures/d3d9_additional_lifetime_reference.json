@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "scope": "D3D9 additional backbuffers expose the owning swap chain and have independent public surface/chain counters. Each active public object owns one device pin; creation transfers the standalone surface pin to the chain and drops the extra private texture pin. Keep physical storage and the chain until both public counters reach zero, allowing GetContainer to revive the same zero-count chain while its surface survives. Binding-only storage can be released by Reset; publish the accepted new device handle before binding cleanup so deferred chain destruction addresses the live host device. Ordinary standalone target counters/pins, multiple backbuffers, full MSAA/presentation/Reset, D3D8 public-chain-zero physical lifetime, original Microsoft HAL, games/FPS and review stages 4/5/6 remain incomplete. Guest lifecycle changes expose a shared host Reset leak: replacing device state discarded live swap-chain contexts without retirement. Fix host Reset to drain recorded work and retire contexts before replacement; rebuild and sync the bundle, rerun the full 56-page SwiftShader target and Metal conformance, and verify 256 queued scanout pixels/context closures plus the retained 14-frame independent-chain pixel fixture on both backends. The accepted capture has zero SESSION_END commands and one observed driver owner-release event; strict host replay consumes that event to finish the session, without inserting a synthetic command.",
+  "sources": [
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "evidence": "Pinned Windows additional-chain test_refcount: backbuffer container is its IDirect3DSwapChain9; surface public count starts at one and has an independent device pin. Pinned swapchain implementation pins its parent only at public zero/nonzero edges."
+    },
+    {
+      "file": "d3d9-private-surface.c",
+      "sha256": "34898c6ddfd4895d464a4cf35b630160b0e8730bb71607089b165fa0f319200c",
+      "blobSha1": "1ea8c60a4fd48a080d35ed56bcb134534260ec55",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/surface.c",
+      "evidence": "Non-texture surface AddRef/Release retain the device and swapchain/texture storage on public zero/nonzero edges; a held surface keeps its container alive."
+    },
+    {
+      "file": "d3d9-com-swapchain.c",
+      "sha256": "4e4d530b24fb6ebe2c27be8c173d6d2df9d230de71e3779ba2a8af11ffc231d9",
+      "blobSha1": "e87b8627ba3e511f84ef2074cc02b963c01c9daf",
+      "url": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/swapchain.c",
+      "evidence": "Public chain AddRef from zero reacquires one parent reference; repeated zero Release returns zero while physical backing storage survives."
+    }
+  ],
+  "facts": {
+    "actualAdditionalLifetimeChecks": 1305,
+    "retainedChainLifetimeChecks": 1958,
+    "portableSurfaceRevivals": 128,
+    "portableChainRevivals": 128,
+    "semanticMutations": 14,
+    "xpSurfaceRevivals": 32,
+    "xpChainContainerRevivals": 32,
+    "xpDeviceLifetimes": 3,
+    "xpQueuedResets": 2,
+    "xpRefusedResets": 1,
+    "xpPrivateObjectsFinalized": 3,
+    "bindingOnlyResetSucceeds": true,
+    "independentSurfaceChainPublicCounts": true,
+    "newHandlePublishedBeforeBindingDestruction": true,
+    "explicitSessionEndCommands": 0,
+    "observedOwnerReleaseEvents": 1,
+    "fixtureSemanticCorruptions": 15,
+    "hostExecutorTests": 178,
+    "hostResetRetiresContexts": true,
+    "liveContextGPUScanoutPixelsPerBackend": 256,
+    "fullSwiftGPUPageRuns": 56,
+    "freshGPUPageRuns": 59
+  }
+}

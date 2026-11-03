@@ -2118,6 +2118,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 throw new Error("D9WG RESET target device already exists");
             this.finishFrame(false);
             if (oldState) {
+                this.retireSwapChains(oldState);
                 this.retireGPUObject(oldState.depthTexture);
                 this.retireGPUObject(oldState.backBufferMsaaTexture);
                 this.retireDeviceBackBuffer(oldState);
