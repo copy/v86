@@ -1728,6 +1728,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 200 组核心、198 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包不变，沿用 4H6c GPU 基线。见 [stage4h6f2-validation.json](fixtures/d3d-review/stage4h6f2-validation.json)。
 > - 本项验收客体 COM/元数据，不宣称物理 MSAA、GPU 像素或原生 HAL。D3D9 外部隐式引用的 Reset 拒绝、完整 Reset 私有数据/资源边界、并发缓存发布、附加交换链表面与独立像素继续处理；S2-42、包装转换及阶段 4/5/6 未宣称完成。
 
+> **阶段 4H6f3a（2026-11-03）：Reset 资源图检查及设备内部引用区分（S1-9 / S2-42 部分）完成。**
+>
+> - D3D8/9 共用 DEFAULT 资源阻塞判定，逐项核对 VB、IB、2D、cube、volume 的外部引用及锁定状态；扣除设备自己持有的 stream、sampler、目标与深度引用，设备内部绑定可在 Reset 清理。SYSTEMMEM/SCRATCH 的映射保持有效，managed 纹理保留内容及私有数据。
+> - 隐式 back/depth 的外部引用和仍存活的附加链视图会阻止 Reset；D3D9 独立目标的 backing texture 按表面唯一计数，重复绑定到多个槽位不会重复扣除，调用者仍持有表面时不会误判成内部资源。检查阶段不改写资源图。
+> - 实际 C 资源图 D3D8 580 项、D3D9 587 项，覆盖五类资源、四种 pool、列表尾、最后 stream/sampler、全部 cube 面及内外引用差别；33/33 新增语义变异、23/23 保留隐式生命周期变异和 ASan/UBSan 通过。
+> - 真实 XP 两 API 各执行 15 次成功、7 次拒绝 Reset，覆盖应用持有、仅设备绑定、CPU 锁定、隐式表面及默认目标恢复；managed 标记和私有数据逐次保持。两个 owner 正常退出，114 秒，冻结轨迹核对 30 次 Reset、30 个资源退出，六项语义损坏被发现。
+> - 同一 XP 轨迹在 SwiftShader 和 Metal 各重放一次，两 API 最终帧的 managed 纹理和清屏区域均正确；每后端原始图像 4096、显示图像 4096 个像素比较均为零误差，无 GPU/宿主错误。201 组核心、200 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包不变，另保留 4H6c 全量 GPU 基线。见 [stage4h6f3a-validation.json](fixtures/d3d-review/stage4h6f3a-validation.json)。
+> - 下一步继续 Reset HRESULT/设备状态；公开绑定引用计数、完整 Reset 私有数据/模式边界、并发缓存、附加交换链独立像素及后续包装转换和阶段 4/5/6 仍未完成。本项不宣称原生 Microsoft HAL 或完整 S2-42 验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
