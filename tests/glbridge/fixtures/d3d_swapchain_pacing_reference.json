@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "scope": "Additional-chain virtual deadline pacing and D3D9 implicit/explicit DONOTWAIT readiness. Busy refuses before emitting and without Sleep; successful submission commits its candidate deadline. No physical vblank, GPU hardware queue readiness, source/destination rectangle validation, full presentation flags, native Microsoft HAL, D3D8 independent back-buffer pixels, Reset boundaries or game/FPS acceptance is claimed. LINEAR_CONTENT is accepted with its capability absent by default; the explicit permissive diagnostic mode is unchanged.",
+  "framesPerChain": 12,
+  "chainsPerMode": 2,
+  "modes": [
+    {
+      "mode": 0,
+      "effective": 2147483648,
+      "swap8": 1,
+      "interval9": 2147483648
+    },
+    {
+      "mode": 1,
+      "effective": 1,
+      "swap8": 4,
+      "interval9": 1
+    }
+  ],
+  "sources": [
+    {
+      "file": "d3d8-device-tests.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "blobSha1": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "file": "d3d9-device-tests.c",
+      "sha256": "78c0925be01fba6e2b3ce54a7f6f9f32e2a3c3d0680b48eabb102b00d50c89eb",
+      "blobSha1": "24c02ea6b68eebaf24e9e613ffb1d33d8738222f"
+    },
+    {
+      "file": "dxvk-d3d8-present-util.h",
+      "sha256": "ca5a1772cf614bc06842302281c253cf85fef1ac173d2b5a28c97df47799cf0f",
+      "blobSha1": "4c6247eeeed80dd7d7da0b442791797de0ad57b5"
+    }
+  ],
+  "articles": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/d3d9/nf-d3d9-idirect3dswapchain9-present",
+      "facts": "DONOTWAIT reports WASSTILLDRAWING when unable to schedule, including pending synchronization; flags may combine with LINEAR_CONTENT."
+    },
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresent",
+      "facts": "LINEAR_CONTENT is accepted and takes effect only when its corresponding capability is exposed. ONE is equivalent to D3D8 COPY_VSYNC."
+    }
+  ]
+}

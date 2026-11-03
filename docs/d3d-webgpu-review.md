@@ -1701,6 +1701,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 197 组核心、191 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL。宿主/运行包不变，沿用 4H6c GPU 基线。见 [stage4h6e2-validation.json](fixtures/d3d-review/stage4h6e2-validation.json)。
 > - 本项仅完成 interval 字段；其余呈现参数、完整 Reset、附加交换链节流/标志和 D3D8 独立像素、表面 COM 同一性继续处理。未宣称原生 Microsoft HAL、完整 S2-42 或阶段 4/5/6 完成。
 
+> **阶段 4H6e3（2026-11-03）：附加交换链独立节流与 D3D9 DONOTWAIT（S2-42 部分）完成。**
+>
+> - D3D8/9 附加交换链分别持有时钟及 deadline；D3D8 普通窗口保持立即语义，COPY_VSYNC 接入同步节奏。D3D9 隐式链继续共享设备节奏，附加链互不影响，成功提交后才更新状态。
+> - 共用 deadline 转换同时服务等待和非阻塞路径。D3D9 DONOTWAIT 在虚拟间隔未到时返回 WASSTILLDRAWING，不提交帧、不调用 Sleep，也不推进状态；成功提交才发布候选 deadline，已报告的提交失败丢弃候选。LINEAR_CONTENT 可组合接受；默认能力未宣称线性到 sRGB 转换，既有显式 permissive 诊断模式保持原用途。
+> - 原 241 项/1,461,000 帧等待模型继续通过，新增 134 项/128,000 帧非阻塞解析式与边界检查；实际链入口 D3D8 24 项、D3D9 60 项覆盖链/设备独立、隐式连续性、计时回退、关闭节流、窗口覆盖、组合标志和失败原子性。19/19 新增变异、27/27 保留变异及 ASan/UBSan 通过；两版上一提交的无附加节流入口均在运行时负面对照失败。
+> - 真实 XP 两 API 各运行立即/同步两模式，每模式两条链各 12 帧；D3D9 另验证显式和隐式 DONOTWAIT 的忙碌/可用调用。轨迹共 100 次成功呈现、八个附加链生存期、两个 owner 退出，四行独立 QPC 记录中两行验证同步下限；六项轨迹/计时损坏被发现。命令收发已执行，GPU 像素与物理硬件队列就绪不在此验收范围。
+> - 198 组核心、194 组客体、36 个标准 SDK EXE、六份严格 DLL及站点两项集成通过；发布本次 XP 所测两 API 零售 DLL和严格诊断 DLL，宿主/运行包不变，沿用 4H6c GPU 基线。见 [stage4h6e3-validation.json](fixtures/d3d-review/stage4h6e3-validation.json)。
+> - 继续表面 COM 同一性、D3D8 附加链独立 back buffer、其余呈现矩形/标志与完整 Reset，随后继续包装转换和阶段 4/5/6；本项未宣称完整 S2-42 或阶段 4 完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

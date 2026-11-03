@@ -1,0 +1,639 @@
+{
+  "schema": 1,
+  "perAPI": [
+    {
+      "owner": 1,
+      "api": 8,
+      "device": 1048577,
+      "destroyed": 1,
+      "mode": 1,
+      "windows": [
+        65856,
+        65858
+      ],
+      "textures": [],
+      "chains": [],
+      "frames": [
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 0
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 1
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 2
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 3
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 4
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 5
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 6
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 7
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 8
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 9
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 10
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 11
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 12
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 13
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 14
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 15
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 16
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 17
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 18
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 19
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 20
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 21
+        },
+        {
+          "mode": 0,
+          "window": 65856,
+          "index": 22
+        },
+        {
+          "mode": 0,
+          "window": 65858,
+          "index": 23
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 0
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 1
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 2
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 3
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 4
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 5
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 6
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 7
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 8
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 9
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 10
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 11
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 12
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 13
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 14
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 15
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 16
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 17
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 18
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 19
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 20
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 21
+        },
+        {
+          "mode": 1,
+          "window": 65856,
+          "index": 22
+        },
+        {
+          "mode": 1,
+          "window": 65858,
+          "index": 23
+        }
+      ],
+      "clears": 2,
+      "implicitPresents": 0,
+      "measurements": [
+        {
+          "api": 8,
+          "mode": 0,
+          "frames": 24,
+          "qpc": 6966,
+          "hz": 1193182,
+          "interval": 2147483648
+        },
+        {
+          "api": 8,
+          "mode": 1,
+          "frames": 24,
+          "qpc": 223783,
+          "hz": 1193182,
+          "interval": 1
+        }
+      ]
+    },
+    {
+      "owner": 2,
+      "api": 9,
+      "device": 1048577,
+      "destroyed": 1,
+      "mode": 1,
+      "windows": [],
+      "textures": [
+        {
+          "handle": 1048578,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048580,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048582,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048584,
+          "destroyed": 1
+        }
+      ],
+      "chains": [
+        {
+          "handle": 1048579,
+          "texture": 1048578,
+          "window": 131392,
+          "mode": 0,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048581,
+          "texture": 1048580,
+          "window": 131394,
+          "mode": 0,
+          "presents": 12,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048583,
+          "texture": 1048582,
+          "window": 131392,
+          "mode": 1,
+          "presents": 14,
+          "destroyed": 1
+        },
+        {
+          "handle": 1048585,
+          "texture": 1048584,
+          "window": 131394,
+          "mode": 1,
+          "presents": 12,
+          "destroyed": 1
+        }
+      ],
+      "frames": [
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 0
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 0
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 1
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 1
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 2
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 2
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 3
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 3
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 4
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 4
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 5
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 5
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 6
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 6
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 7
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 7
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 8
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 8
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 9
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 9
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 10
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 10
+        },
+        {
+          "mode": 0,
+          "chain": 1048579,
+          "index": 11
+        },
+        {
+          "mode": 0,
+          "chain": 1048581,
+          "index": 11
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 0
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 0
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 1
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 1
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 2
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 2
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 3
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 3
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 4
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 4
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 5
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 5
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 6
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 6
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 7
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 7
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 8
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 8
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 9
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 9
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 10
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 10
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 11
+        },
+        {
+          "mode": 1,
+          "chain": 1048585,
+          "index": 11
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 12
+        },
+        {
+          "mode": 1,
+          "chain": 1048583,
+          "index": 13
+        }
+      ],
+      "clears": 2,
+      "implicitPresents": 2,
+      "measurements": [
+        {
+          "api": 9,
+          "mode": 0,
+          "frames": 24,
+          "qpc": 7618,
+          "hz": 1193182,
+          "interval": 2147483648
+        },
+        {
+          "api": 9,
+          "mode": 1,
+          "frames": 24,
+          "qpc": 230161,
+          "hz": 1193182,
+          "interval": 1
+        }
+      ]
+    }
+  ],
+  "presentations": 100,
+  "traceSha256": "c6f66d5c323a33c2c1552b47aef58bcf8c3e00bf9dda53ec74644331c107d30e",
+  "referenceSha256": "2a26593433c98c7949b2fa56d1ec7c68e299c8d3c3c35aa0ce88fb7e7ad17812",
+  "sdkLogs": {
+    "CHN8.TXT": "CHAIN 8 0 frames=24 qpc=6966 hz=1193182 effective=80000000\r\nCHAIN 8 1 frames=24 qpc=223783 hz=1193182 effective=00000001\r\nPASS chain API=8\r\n",
+    "CHN9.TXT": "CHAIN 9 0 frames=24 qpc=7618 hz=1193182 effective=80000000\r\nCHAIN 9 1 frames=24 qpc=230161 hz=1193182 effective=00000001\r\nNONBLOCK 9 additional=1 implicit=1 linear=accepted\r\nPASS chain API=9\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/runtime/d9wg_present_pacing.c": "2d4162feeeba458b925ee6fb281ed6a5f4f4cc18564db2458ae053db4a8951fb",
+    "glbridge/runtime/d9wg_present_pacing.h": "4242319df86e7666d625b79b38b33d503bfe8a6b50af02b15ec69b5e0530d851",
+    "glbridge/runtime/d9wg_present_pacing_bridge.h": "e4323c447e55d7e9b8523b978fd996ef8baff532b404f620bc366e8b3d26dbc8",
+    "glbridge/runtime/build.sh": "5faef442a3889dea33ff857eeba30dd9001e316b997242dce9392979a273cd68",
+    "glbridge/d3d8proxy/d3d8_proxy.c": "e5080792a1acf7c1119d0fee39ffc5e9bf1799e5c875aff49d7e2af33446fb91",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "d3d0872ee31c0125ca1b97aecdf298a920feadcec22098c5a8f4df535a9fce64",
+    "glbridge/sample/d3d_swapchain_pacing_test.c": "7e593c16886aae4360e34b4bb0f73f9ac527850219ca401865fbeb2e6552cde9"
+  },
+  "captureBuild": {
+    "dllSha256": {
+      "d3d8": "8e74cd0182a04c330bbe81f0e45db32da27686f4c0404546feb22bd41d4fbd94",
+      "d3d9": "a7314e95db97ca27ccd8ccd32ee38354bd90e56eca4edc9e4ddd2f94f640ddcb"
+    },
+    "exeSha256": {
+      "8": "0d4b4430a7d763a03f35127137bfd9396c31af6fb435596faee2c79ab65a828e",
+      "9": "23aca7246dc2668202e0b12bde5b8d5e0f0970dbe12372a61ddc9836f444baea"
+    }
+  },
+  "scope": "not exercised; independent additional-chain virtual pacing and D9 explicit/implicit DONOTWAIT; no GPU pixel execution"
+}
