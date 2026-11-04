@@ -2,9 +2,10 @@
 // a FIFO transfer. The status is latched until the guest acknowledges it.
 export class AppleI2C
 {
-    constructor(cpu, base, irq, vic, pmu, backlight = null)
+    constructor(cpu, base, irq, vic, pmu, backlight = null, pmu_irq = null)
     {
         this.backlight = backlight;
+        this.pmu_irq = pmu_irq;
         this.irq = irq;
         this.vic = vic;
         this.pmu = pmu ? new Uint8Array(256) : null;
@@ -56,11 +57,29 @@ export class AppleI2C
                 const subaddress = this.regs[4];
                 if(value & 1)
                 {
-                    for(let i = 0; i < Math.min(count, this.fifo.length); i++) this.pmu[subaddress + i & 255] = this.fifo[i];
+                    for(let i = 0; i < Math.min(count, this.fifo.length); i++)
+                    {
+                        const reg = subaddress + i & 255;
+                        const before = this.pmu[reg];
+                        this.pmu[reg] = this.fifo[i];
+                        // D1815 software-start conversion. Unconnected analog
+                        // inputs read zero; signal completion to the native PMU driver.
+                        if(reg === 0x30 && (this.pmu[reg] & 0x10) && !(before & 0x10))
+                        {
+                            this.pmu[0x31] = this.pmu[0x32] = 0;
+                            const pending = this.pmu[2] & 0x20;
+                            this.pmu[2] |= 0x20;
+                            if(!pending) this.pmu_irq?.();
+                        }
+                    }
                     this.update_backlight();
                     this.fifo = [];
                 }
-                else this.fifo = Array.from({ length: count }, (_, i) => this.pmu[subaddress + i & 255]);
+                else this.fifo = Array.from({ length: count }, (_, i) => {
+                    const reg = subaddress + i & 255, byte = this.pmu[reg];
+                    if(reg === 2) this.pmu[reg] &= ~0x20; // read-to-clear conversion event
+                    return byte;
+                });
                 this.regs[3] |= 0x10;
             }
             else

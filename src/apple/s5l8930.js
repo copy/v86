@@ -21,6 +21,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
 {
     const display = new DisplayHub(bus, screen);
     const vic = new AppleVIC(cpu);
+    const gpio = new AppleGPIO(cpu, vic);
     const clcd = new AppleCLCD(cpu, display, vic);
     const nand = buffer ? new AppleNAND(cpu, buffer) : null;
     const iop = new AppleIOP(cpu);
@@ -34,11 +35,11 @@ export function create_n90_devices(cpu, bus, screen, buffer)
         apple_vectors: new AppleVectors(cpu),
         apple_vic: vic,
         apple_timer: new AppleTimer(cpu, vic),
-        apple_gpio: new AppleGPIO(cpu),
+        apple_gpio: gpio,
         apple_cdma: dma,
         apple_miu: new AppleRegisterWindow(cpu, "miu", 0xBFC00000, 0x1000),
         apple_clcd: clcd,
-        apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true, level => clcd.set_backlight(level)),
+        apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true, level => clcd.set_backlight(level), () => gpio.pulse(13)),
         apple_i2c2: new AppleI2C(cpu, 0x83400000, 21, vic, false),
         apple_swi: new AppleSWI(cpu),
         apple_dart1: new AppleRegisterWindow(cpu, "dart1", 0x88D00000, 0x2000),
@@ -73,21 +74,73 @@ export class AppleVectors
 // sampled/driven value; its mode and pull configuration share the word.
 export class AppleGPIO
 {
-    constructor(cpu)
+    constructor(cpu, vic)
     {
+        this.vic = vic;
         this.pins = new Uint32Array(22 * 8);
+        this.mask = new Uint32Array(6);
+        this.pending = new Uint32Array(6);
+        this.reset();
         cpu.io.register_mmio(0xBFA00000, 0x1000, {
             name: "gpio",
-            read: offset => this.pins[offset >>> 2] || 0,
-            write: (offset, width, value) => {
-                if(offset < this.pins.byteLength) this.pins[offset >>> 2] = Number(value);
-            },
+            read: offset => this.read(offset),
+            write: (offset, width, value) => this.write(offset, Number(value)),
         });
     }
 
-    reset() { this.pins.fill(0); }
-    get_state() { return [this.pins.slice()]; }
-    set_state(state) { this.pins.set(state[0]); }
+    groups()
+    {
+        let groups = 0;
+        for(let i = 0; i < this.pending.length; i++) if(this.pending[i] & ~this.mask[i]) groups |= 1 << i;
+        return groups;
+    }
+
+    update_irq() { this.vic.set_line(0x74, !!this.groups()); }
+
+    // Latch an interrupt from an edge-triggered peripheral.
+    pulse(pin)
+    {
+        this.pending[pin >>> 5] |= 1 << (pin & 31);
+        this.update_irq();
+    }
+
+    read(offset)
+    {
+        if(offset < this.pins.byteLength) return this.pins[offset >>> 2];
+        if(offset === 0xC00) return this.groups();
+        const bank = (offset & 63) >>> 2;
+        if(bank >= this.mask.length) return 0;
+        if((offset & ~63) === 0x800) return this.mask[bank];
+        if((offset & ~63) === 0x880) return (this.pending[bank] & ~this.mask[bank]) >>> 0;
+        return 0;
+    }
+
+    write(offset, value)
+    {
+        if(offset < this.pins.byteLength) { this.pins[offset >>> 2] = value; return; }
+        const bank = (offset & 63) >>> 2;
+        if(bank >= this.mask.length) return;
+        switch(offset & ~63)
+        {
+            case 0x800: this.mask[bank] |= value; break;
+            case 0x840: this.mask[bank] &= ~value; break;
+            case 0x880: this.pending[bank] &= ~value; break;
+            default: return;
+        }
+        this.update_irq();
+    }
+
+    reset() { this.pins.fill(0); this.mask.fill(0xFFFFFFFF); this.pending.fill(0); this.update_irq(); }
+    get_state() { return [this.pins.slice(), this.mask.slice(), this.pending.slice()]; }
+    set_state(state)
+    {
+        this.pins.set(state[0]);
+        this.mask.fill(0xFFFFFFFF);
+        this.pending.fill(0);
+        if(state[1]) this.mask.set(state[1]);
+        if(state[2]) this.pending.set(state[2]);
+        this.update_irq();
+    }
 }
 
 // Configuration latches for the MIU and the single-wire voltage controller.

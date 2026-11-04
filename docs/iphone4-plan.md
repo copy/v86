@@ -616,7 +616,9 @@ CI 只跑 eslint、构建与 `make ci-tests`：不依赖苹果文件的 `make io
 VIC1 的向量 `0x8000002a`，随后到 CLCD+0x102c 查询状态。+0x1028 是掩码，状态位写一清除；
 完成中断时先写所属 VIC，再写 VIC0。PMU 寄存器 0x66、0x67 和 0x68 控制背光 DAC 和使能。
 
-**S4 辅助串口，2026-11-05。** 原版 UserEventAgent 打开电量计的 UART5 时，AppleSamsungSerial 在读取控制寄存器（物理地址 0x82a00004）时触发内核异常。现为设备树中六个辅助串口提供各自的控制、FIFO 状态与波特率寄存器，启动控制台仍用 UART0。用已有启动快照重放时，已观察到 UART5 多轮真实控制读写，系统随后开始读取 PMU 的 ADC 通道。电量计外设的串行应答和 ADC 采样仍待验证。
+**S4 辅助串口，2026-11-05。** 原版 UserEventAgent 打开电量计的 UART5 时，AppleSamsungSerial 在读取控制寄存器（物理地址 0x82a00004）时触发内核异常。现为设备树中六个辅助串口提供各自的控制、FIFO 状态与波特率寄存器，启动控制台仍用 UART0。用已有启动快照重放时，已观察到 UART5 多轮真实控制读写，系统随后开始读取 PMU 的 ADC 通道。电量计外设的串行应答仍待验证。
+
+D1815 PMU 的原版驱动写寄存器 0x30 启动 ADC，等待 GPIO 13 中断，然后读取状态块的第二个字节。此前它反复报告 ADC 状态停在 1。模拟转换现在锁存完成位，按板级设备树经 GPIO 控制器和 VIC 中断 116 通知内核。冷启动已观察到原版驱动读取含 0x20 的状态块，设备测试覆盖屏蔽、开中断、确认及快照恢复。未建模的模拟输入返回零；温度与电池电量数值尚待校验。
 
 **N90 面板识别，2026-11-05。** 恢复设备树在 `/arm-io/mipi-dsim/lcd` 留下为零的 `lcd-panel-id`。在该值为零的对照运行中，ApplePinotLCD 的启动方法返回失败，AppleCLCD 对象已出现在 IORegistry 但没有可打开的主显示器。backboardd 对显示列表的断言抛出 `NSInternalInconsistencyException: No window server display found`，随后被 launchd 重启。
 

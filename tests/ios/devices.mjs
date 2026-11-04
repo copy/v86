@@ -5,6 +5,7 @@ import { AppleTimer } from "../../src/apple/timer.js";
 import { AppleCLCD } from "../../src/apple/clcd.js";
 import { AppleCDMA } from "../../src/apple/cdma.js";
 import { AppleI2C } from "../../src/apple/i2c.js";
+import { AppleGPIO } from "../../src/apple/s5l8930.js";
 import { AppleUART } from "../../src/apple/uart.js";
 
 let now = 0, signals = 0;
@@ -123,6 +124,35 @@ assert.equal(signals, 0);
 panel.on_vblank();
 assert.equal(signals, 1);
 console.log("PASS: CLCD retrace through chained VIC1, guest status acknowledgement and next frame");
+
+// ADC completion arrives through PMU status byte 2, GPIO 13, then VIC3.
+vic.reset();
+const gpio = new AppleGPIO(cpu, vic);
+const adc = new AppleI2C(cpu, 0x83200000, 19, vic, true, null, () => gpio.pulse(13));
+intc.write(0x30010, 4, 1 << 20);
+adc.write(0, 0x74);
+adc.write(0x10, 0x30);
+adc.write(0x18, 1);
+adc.write(0x20, 0x12);
+adc.write(0x24, 5);
+assert.equal(signals, 0);
+gpio.write(0x840, 1 << 13);
+assert.equal(signals, 1);
+assert.equal(gpio.read(0xC00), 1);
+assert.equal(gpio.read(0x880), 1 << 13);
+const pendingGPIO = gpio.get_state();
+gpio.write(0x880, 1 << 13);
+assert.equal(signals, 0);
+gpio.set_state(pendingGPIO);
+assert.equal(signals, 1);
+gpio.write(0x880, 1 << 13);
+adc.write(0x10, 1);
+adc.write(0x18, 6);
+adc.write(0x24, 4);
+assert.equal(adc.fifo[1], 0x20);
+adc.write(0x24, 4);
+assert.equal(adc.fifo[1], 0);
+console.log("PASS: PMU ADC status, masked GPIO event, VIC3 delivery and snapshot restore");
 
 const { AppleH2FMI } = await import("../../src/apple/h2fmi.js");
 const fmi = new AppleH2FMI(cpu, 0x81200000);
