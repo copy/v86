@@ -684,6 +684,8 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel b
 **S5 接口核对，10B329。** 本机原版 armv7 共享缓存的 OpenGLES 含 344 个 `gl[A-Z]` 公共符号。反汇编确认 glClear、glDrawArrays、glDrawElements、glGetError 和 glViewport 经每线程的分派表调用。包装函数从 TPIDRURO（清低两位）偏移 0x78 取当前表，从表偏移 0x10 取驱动上下文作为第一个参数。五个函数的目标槽偏移依次为 0x3c、0x118、0x120、0x1ac、0x550。S5 客体适配层可据此为每个 EAGL 上下文设置分派表，需保留驱动上下文参数与原有寄存器、栈参数布局。
 
 QuartzCore 的动态依赖含 OpenGLES、IOSurface、IOMobileFramebuffer。其未定义符号含 EAGLContext、SwapBegin、SwapSetLayer、SwapEnd 和 SwapWait，但符号表没有逐个导入公共 gl 函数。仍须用运行中的合成进程验证实际绘制入口与最终呈现。
+运行 `node tests/ios/gl-dispatch.mjs build/ios/dp/cache-armv7`，测试从用户的共享缓存取出这五个位置无关的 Thumb 函数，并在 v86 的 AArch32 核心上实际执行。测试覆盖空上下文、驱动上下文指针、寄存器及栈上传参、返回值。此项覆盖公共入口的 ABI，上下文创建与合成仍须在系统客体内验证。
+
 
 
 
