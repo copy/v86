@@ -1,0 +1,3058 @@
+{
+  "schema": 1,
+  "statePlans": [
+    [
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3064448428
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3089614252
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 137,
+        "value": 0
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 22,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 60,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 4
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3090988642
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 2
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      }
+    ],
+    [
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3064448428
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3089614252
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 137,
+        "value": 0
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 22,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 60,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 4
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3090988642
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 2
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      }
+    ],
+    [
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 2147483648
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3064448428
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3089614252
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 137,
+        "value": 0
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 22,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 60,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 4
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3090988642
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 2
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      }
+    ],
+    [
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 2147483648
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3064448428
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3089614252
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 137,
+        "value": 0
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 22,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 60,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 4
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3090988642
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 2
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      }
+    ],
+    [
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 2147483648
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3064448428
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3089614252
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3098002860
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 137,
+        "value": 0
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 22,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 60,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 0,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 1,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 2,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 3,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 4,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 5,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 6,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 2,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 4,
+        "value": 287454020
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 5,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 6,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 8,
+        "value": 1056964608
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 9,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 10,
+        "value": 4
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 4
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 7,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3090988642
+      },
+      {
+        "kind": "stage",
+        "stage": 0,
+        "state": 1,
+        "value": 2
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 2
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3072837036
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 1
+      },
+      {
+        "kind": "render",
+        "stage": 0,
+        "state": 195,
+        "value": 3086723202
+      },
+      {
+        "kind": "sampler",
+        "stage": 7,
+        "state": 3,
+        "value": 3
+      }
+    ]
+  ],
+  "scope": "Shared pure API8 render/TSS translation. Frozen4K25 old/current public8 preserve raw shadows;ordinary9 reference/private8 SDK120/220 onlystore converted backend states. Seven drops,ZBIAS clamp0..16/float bits,80samplers perdevice,record/live/Get/Apply/Capture/Reset andfive final releases. ZBIAS scale is inherited local compatibility approximation,notnative-driver precision. No draws/readbacks/injectedCPU replies/new GPU pixel claim;fullpublic8 device/resource wrappers and raw8 metadata adapter remain open."
+}

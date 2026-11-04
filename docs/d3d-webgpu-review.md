@@ -2424,6 +2424,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **344客体/71核心首次全通过**；32标准EXE/四严格DLL/21-member核心/SDK8 ABI、站点集成2项和两侧本任务零新增lint通过。发布最终XP接受的准确8/9零售DLL及严格diagnostic，见 [stage4k25-validation.json](fixtures/d3d-review/stage4k25-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K25.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续状态/复制/句柄翻译与公开8设备/资源包装；原生验证缺口、RT纹理/立方体读回、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/游戏/FPS及阶段4/5/6仍开放。
 >
 
+> **阶段 4K26（2026-11-04）：共用 D3D8 render/TSS 翻译及私有核心状态入口完成。**
+>
+> - `runtime/d9wg_state_bridge8.h` 统一七个旧状态的丢弃、ZBIAS 的 0..16 限幅/负浮点位及十个 TSS→sampler 映射；公开8命令生成和私有核心8入口共用。新 render/TSS 入口 ABI 为 **@12/@16**，先检查 NULL/profile/范围，再调用实际9 setter，复用其重复过滤和状态块录制。**原始8 Get 值、被删除状态、未限幅 ZBIAS 及其状态块掩码仍归前端**，不把这两个入口当作完整公开8包装。ZBIAS 比例保留现有本地近似，不宣称原生驱动精度。
+> - 实际旧8命令/setter、旧普通9 setter 和当前实际9录制对照 **740,360组合/1,533,458检查**：163,840命令、72,192原始前端、327,680翻译后端、176,640普通9；覆盖256个render槽、8×32个TSS槽、SDK8/9枚举、随机/NaN/符号位、负零、失败/重复顺序、原始查询和录制。旧8常量冻结为SDK数值，旧sampler函数单独冻结，oracle不调用被测映射。**35个有效严格运行变异、两个实际2e3982d普通9函数用于私有8边界的反例、ASAN**通过；反例说明需要翻译层，不宣称普通9 setter自身有错。13个公开8/普通9查询、设置和录制函数与4K25逐字节相同。
+> - 初始原生夹具在重复设置检查前过早清空录制指针，修正夹具并保留失败日志。初始变异发现 `>=256` 改为 `>256` 被实际9 setter等价拦截，明确剔除，未算作检出。XP文件名最初超过8.3，构建完成但VM未启动；首轮实际VM通过旧/当前公开8后，因探针误认为所有被删除状态的9版默认值均为0而失败，实际172/173为3/1；改为设置前读取、设置后断言未变，保留捕获和源快照，生产代码未变。
+> - 下一轮VM **126秒/9批次**通过五模式且driver owner释放，但没有SESSION_END：快速的无绘制探针在窗口监听线程异步卸载模块前退出。保留完整捕获/源快照，探针在FreeLibrary后等待四个模块实际卸载，**最终VM110秒/10批次**通过。准确4K25旧/当前公开8、普通9、核心8 SDK120/220共五设备/五Reset/10句柄、35次被删除状态设置、400组sampler配置，录制期间live查询、Apply/Capture/Reset默认及finalRefs=0通过；Hello[0,0,3]、单owner/session/end/最终释放、模拟能力0和RAM overlay。**没有绘制/读回/CPU注入回复，也没有新增像素正确性宣称。**
+> - 独立SDK操作计划精确核对 **507条状态及八条默认补丁**，**2,243项语义损坏**均检出。原始8每设备102条，翻译9每设备101条，原因是9在ZBIAS转换后过滤等值输入；分别按原始/转换空间验证，未放宽序列。初始模型把Hello错误放在设备计数0/2/4，按前端实际激活顺序修正为0/1/2，状态计划未改。另外在SwiftShader/Metal分别重放**保留的4K25**缓冲绘制，均20图/1280像素零差异，15indexed+5nonindexed、SessionEnd回退前/owner释放前maps=0；这是既有L3回归，不是新状态探针的像素验收。
+> - 首次完整客体 **342通过/四个旧夹具失败**：协议测试直接找原头文件内常量，caps夹具没引入共用限值，声明变异的临时头文件缺新include路径。修正夹具并重跑四项后 **346项汇总全通过**；协议映射检查改为编译执行实际C映射，保留caps16/声明9个严格运行变异。核心 **72项首次完整通过**；32标准EXE、四严格DLL、21-member核心/SDK8 ABI、站点集成2项、两侧本任务零新增lint通过。发布最终XP接受的准确8/9零售DLL和严格diagnostic，见 [stage4k26-validation.json](fixtures/d3d-review/stage4k26-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K26.json`。
+> - 宿主/协议/着色器/DDraw/包 `9335ee9a77fb7cc808d2` 未变，继承4I9完整核心238/六GPU基线。继续复制/着色器句柄转换、原始8状态适配及完整公开8设备/资源包装；原生pool/FVF/depth-Usage/pitch、RT纹理/立方体读回、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

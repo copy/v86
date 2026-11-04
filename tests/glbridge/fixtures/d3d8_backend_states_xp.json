@@ -1,0 +1,4191 @@
+{
+  "schema": 1,
+  "owners": [
+    1
+  ],
+  "ownerReleases": [
+    1
+  ],
+  "devices": [
+    {
+      "mode": 0,
+      "handle": 1048578,
+      "initialHandle": 1048577,
+      "stateCount": 102,
+      "minPatches": 2,
+      "reset": true,
+      "retired": true
+    },
+    {
+      "mode": 1,
+      "handle": 1048580,
+      "initialHandle": 1048579,
+      "stateCount": 102,
+      "minPatches": 2,
+      "reset": true,
+      "retired": true
+    },
+    {
+      "mode": 2,
+      "handle": 1048582,
+      "initialHandle": 1048581,
+      "stateCount": 101,
+      "minPatches": 0,
+      "reset": true,
+      "retired": true
+    },
+    {
+      "mode": 3,
+      "handle": 1048584,
+      "initialHandle": 1048583,
+      "stateCount": 101,
+      "minPatches": 2,
+      "reset": true,
+      "retired": true
+    },
+    {
+      "mode": 4,
+      "handle": 1048586,
+      "initialHandle": 1048585,
+      "stateCount": 101,
+      "minPatches": 2,
+      "reset": true,
+      "retired": true
+    }
+  ],
+  "resets": [
+    {
+      "mode": 0,
+      "old": 1048577,
+      "current": 1048578
+    },
+    {
+      "mode": 1,
+      "old": 1048579,
+      "current": 1048580
+    },
+    {
+      "mode": 2,
+      "old": 1048581,
+      "current": 1048582
+    },
+    {
+      "mode": 3,
+      "old": 1048583,
+      "current": 1048584
+    },
+    {
+      "mode": 4,
+      "old": 1048585,
+      "current": 1048586
+    }
+  ],
+  "states": [
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3064448428
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3089614252
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 137,
+      "value": 0
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 22,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 60,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 4
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3090988642
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 2
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 0,
+      "device": 1048577,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3064448428
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3089614252
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 137,
+      "value": 0
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 22,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 60,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 4
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3090988642
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 2
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 1,
+      "device": 1048579,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 2147483648
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3064448428
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3089614252
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 137,
+      "value": 0
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 22,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 60,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 4
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3090988642
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 2
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 2,
+      "device": 1048581,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 2147483648
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3064448428
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3089614252
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 137,
+      "value": 0
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 22,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 60,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 4
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3090988642
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 2
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 3,
+      "device": 1048583,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 2147483648
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3064448428
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3089614252
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3098002860
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 137,
+      "value": 0
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 22,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 60,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 0,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 1,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 2,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 3,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 4,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 5,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 6,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 2,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 4,
+      "value": 287454020
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 5,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 6,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 8,
+      "value": 1056964608
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 9,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 10,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 4
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 7,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3090988642
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "stage",
+      "stage": 0,
+      "state": 1,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 2
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3072837036
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 1
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "render",
+      "stage": 0,
+      "state": 195,
+      "value": 3086723202
+    },
+    {
+      "mode": 4,
+      "device": 1048585,
+      "kind": "sampler",
+      "stage": 7,
+      "state": 3,
+      "value": 3
+    }
+  ],
+  "hello": 3,
+  "session": [
+    860387558,
+    31204525
+  ],
+  "sessionEnds": 1,
+  "uniqueHandles": 10,
+  "draws": 0,
+  "readbacks": 0,
+  "pixels": 0,
+  "implicitGuestLeaks": 0,
+  "traceSha256": "3a750c728bd1577b90b425ce715e35f1f32098c13a01385b1e8cf8b34540c74d",
+  "referenceSha256": "0ddf93b9a969d093f1f5ee85cda7333a54cf4aeb6b7df18fbfc392638fc33c3c",
+  "sdkLogs": {
+    "STCORE.TXT": "STATECORE CHECK mode=0 sevenDrops=1 zbias=6 samplers=80 recording=1 apply=1 capture=1 rawMetadata=1 reset=1 finalRefs=0\r\nSTATECORE CHECK mode=1 sevenDrops=1 zbias=6 samplers=80 recording=1 apply=1 capture=1 rawMetadata=1 reset=1 finalRefs=0\r\nSTATECORE CHECK mode=2 sevenDrops=1 zbias=6 samplers=80 recording=1 apply=1 capture=1 rawMetadata=0 reset=1 finalRefs=0\r\nSTATECORE CHECK mode=3 sevenDrops=1 zbias=6 samplers=80 recording=1 apply=1 capture=1 rawMetadata=0 reset=1 finalRefs=0\r\nSTATECORE CHECK mode=4 sevenDrops=1 zbias=6 samplers=80 recording=1 apply=1 capture=1 rawMetadata=0 reset=1 finalRefs=0\r\nPASS private states8 modes=5 devices=5 resets=5 sevenDrops=35 samplers=400 finalRefs=0\r\n"
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "332c18a3d6a56c864b8be3886d1e57c2b7b77e87b961fc34c99e52d854d19598",
+    "glbridge/d3d8proxy/d3d8_protocol.h": "9174b08b821c1fd2598210536b982b08600f5b79d6157b87528acacf99f4f798",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "381b2480c3dbe1f852fd1327524611445ae2a3c8a72fd19a905dbf38221ad396",
+    "glbridge/d3d9proxy/d3d9_core.h": "7a569630ce23066c194c48b2f0b64264eba6f5ff03f2eb8c9b5a9100c56022a0",
+    "glbridge/runtime/d9wg_state_bridge8.h": "5f50917c2b7b8ab022f5a257d07f516286ed15b47cc0e8ef6b356fb49ebb3edb",
+    "glbridge/runtime/d9wg_state_defaults.h": "dc479a49aad241deed78208ea656bdadf8b093f4d4f3b9cd4130503252336bba",
+    "glbridge/sample/d3d8_backend_states_test.c": "75169ecb1a886c3ad5971b12d14829b93475763d06cae73ff1025afd07e4f647",
+    "glbridge/sample/d3d8_backend_states8_probe.c": "7e9f51c63980391ae8b0881063c03cd2cff5be890d4913ba8445ab02f8ffd685",
+    "glbridge/sample/d3d8_backend_states_cases.h": "96a075b45437347096c5e71601d206826e8af16ef64a3dc594be65834e39fd84",
+    "glbridge/sample/d3d8_backend_states_consumer.c": "6e26982a94e45f51b2e261c711593570f73fc5ca6496923278e8b19c97afe916",
+    "glbridge/sample/d3d8_backend_states_consumer.def": "396161a4380481fdf41d5a9cf3bf09866c7d9f0feedbf6d6f60ce8cc150f7840"
+  },
+  "captureBuild": {
+    "d3d8DllSha256": "4ce3cbeb452a297c50874d984211c11f8fa536a7c564bfa52fea3b084bac3549",
+    "d3d9DllSha256": "6f3f454570a813824a09fa6da2e6d0d7ca07221f76655d733696d56b52241732",
+    "exeSha256": "4372993260fe4b897e73adc72454904c0830b34250e4b96d77f85f2f30f4e7b0",
+    "consumerSha256": "01f7ef26f822a0f36f9c70f061a1df896b3814afbd24db70a1ce2d05bbc4ef86",
+    "archiveSha256": "cd291a76a89979faa208a5687e8eadc06cdef63d33bfed1a73b281945edc56cc",
+    "baseline8DllSha256": "11d6f2aaea43a21f19ee84e1c9712175ab2e574225ed41284e504b80ca32c3d3"
+  },
+  "scope": "Pure shared API8 render/TSS translation and private8 backend setters. Accurate4K25old/currentpublic8,ordinary9,core8SDK120/220;five devices/fiveReset/seven droppedstates each/six ZBIAS inputs/400sampler configurations. Raw8 getters/recorded deletedstate stayfrontend-owned. Core9 onlyrecords translatedstates;recording emitsnone untilApply,Capture andReset/finalcleanup tested. No draws/readbacks/CPU injectedresponses;this is state/wire evidence,notnew GPU pixels",
+  "unloadCorrection": {
+    "reason": "Allfive state modes anddriver ownerrelease passed, buttrace lackedSessionEnd. Window watch workers retainDLL references until asynchronous unhook andFreeLibraryAndExitThread. Probe nowwaits up to2 seconds for actualGetModuleHandleA(fullpath)==NULL for allfour modules afterFreeLibrary, thenreportsPASS. This validatesexplicitunload/session ratherthanOS process-exit cleanup. Production unchanged.",
+    "originalSourceSha256": "0c9e39177005ec8edd7d82f34c94a3eacdbdeac2af8913ec60db8e7940cceffa",
+    "correctedSourceSha256": "75169ecb1a886c3ad5971b12d14829b93475763d06cae73ff1025afd07e4f647"
+  },
+  "inputCorrection": {
+    "reason": "Test assumed every deleted8 render state has ordinary9 default0. Actual generated defaults preserve172/POSITIONDEGREE=3 and173/NORMALDEGREE=1. Snapshot actual value before setting each dropped8 state, then assert unchanged, rather than compare0. First VM passed old/current public8 then failed ordinary9 reference;private8 modes were not reached. Production unchanged.",
+    "originalSourceSha256": "f5f8bbd344549aed159c230eaa878629e7fd981471f655436b56522e34e4bc93",
+    "correctedSourceSha256": "0c9e39177005ec8edd7d82f34c94a3eacdbdeac2af8913ec60db8e7940cceffa",
+    "originalDirectory": "build/d3d-review/stage4k26-backend-states-xp-pre-drop-default-fix",
+    "originalLogSha256": "ed24a9e73dbe8045436e5d3f4ff725ad4b19a9c7cbe4dee040235d647ee19934"
+  }
+}
