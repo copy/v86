@@ -2395,6 +2395,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 验收后仅清除一个空行尾随空格，保持所有C token及行号。保留XP原始源哈希，严格重建8/9及SDK8 consumer；首次原始section比较受链接器按输出路径分配的image base影响，按PE实际HIGHLOW重定位归一到RVA后，18个代码/常量/数据/重定位section均逐字节一致。发布准确XP接受的零售8/9及严格diagnostic；见 [stage4k22-validation.json](fixtures/d3d-review/stage4k22-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K22.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续立方体/体积/VB/IB及状态/复制适配，阶段4/5/6仍开放。
 >
 
+> **阶段 4K23（2026-11-04）：SDK8 私有立方体纹理创建、六面/mip CPU 锁定与上传适配。**
+>
+> - 新增 `d9wg_d3d9_core_cube_texture8@28` 与真实SDK8 consumer。共用构造按版本保留8版4096/格式/池/usage/层级规则和9版8192/autogen规则，六面按face-major排列完整mip链；8版未知autogen位不额外发9版生成命令。普通立方体CPU锁定/上传按所属设备版本取格式，并保留8版压缩块子矩形对齐拒绝规则；普通9既有对齐行为不变。RT立方体创建可对照，专用读回和公开8完整包装仍待后续。
+> - 实际旧8/9构造和创建命令对照 **2,548,803组合/12,875,871检查、65,934个face/mip比较**，覆盖格式/边界/层级/池/usage/每面分配失败/独立提交失败、零存储、链表和父引用。普通9支持谓词使用两边相同的受控provider，不替代完整原生格式验收；旧8对NULL的失败HeapFree按无成功释放处理。锁定/上传 **467,712组合/1,554,588检查**，六面/三层的选择与隔离、BC版本差异、子矩形pitch/偏移、只读、失败输出及上传失败清理均有独立计算对照。**26严格运行期变异、三个实际4K22旧入口反例、两组ASAN**通过；编译失败不计变异检出。
+> - XP 首次严格构建/捕获 **109秒/55批次**通过：准确4K22旧公开8、当前公开8、普通9、核心8 SDK120/220，五设备/五Reset/14立方体/三声明/27句柄、**173上传/45采样绘制/45读回**。四8版模式检查65的六面/两层CPU零存储、写入保持、pitch/Size及32次非法调用，普通9拒绝65；全部模式检查21的六面/三层、表面身份/父设备、单面子视图更新及BC1。单owner/session/最终释放，能力0及RAM overlay；GPU读回CPU回复仍明确为解析图像注入。
+> - 独立操作模型产生每面/mip上传字节，再对六个固定方向采样；修改+Z面中央子矩形后，检查+Z变化及-Z不变。**7,246项语义破坏检测**通过。SwiftShader/Metal各 **45图像/2,880真实像素零差异/错误**，真实14立方体/173上传/45采样绘制；SessionEnd兜底和owner释放前资源表为空。65仅验证CPU位保持和GPU上传生命周期，未采样，不宣称其采样精度；没有RT立方体读回或全mip GPU过滤覆盖的声明。
+> - 32标准EXE/四严格DLL/21-member静态核心及SDK8 ABI、站点集成2项和本任务两侧零新增lint通过。发布同次XP接受的准确零售8/9及严格diagnostic。完整客体337和核心69回归结果写入 [stage4k23-validation.json](fixtures/d3d-review/stage4k23-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K23.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续体积/VB/IB与状态/复制/包装适配；颜色/CPU原生行距、全部flag/格式/MSAA/窗口/丢失/线程、数值差分与阶段4/5/6仍开放。
+>
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
