@@ -11,7 +11,9 @@
     align-items: center;
     justify-content: center;
 }
-#screen_container:fullscreen #vga {
+#screen_container:fullscreen #vga,
+#screen_container:fullscreen #virtio_gpu_canvas,
+#screen_container:fullscreen #virtio_gpu_fallback_canvas {
     width: auto !important;
     height: 100% !important;
 }
@@ -44,12 +46,12 @@
     font-size: 15px;
     line-height: normal;
 }
-#screen, #vga {
+#screen, #vga, #virtio_gpu_canvas, #virtio_gpu_fallback_canvas {
     -webkit-transform-origin: top left;
     -moz-transform-origin: top left;
     transform-origin: top left;
 }
-#vga {
+#vga, #virtio_gpu_canvas, #virtio_gpu_fallback_canvas {
     background-color: #000;
     touch-action: none;
 }

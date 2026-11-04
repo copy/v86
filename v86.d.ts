@@ -576,6 +576,12 @@ export interface V86Options {
     virtio_balloon?: boolean;
 
     /**
+     * Create the experimental 2D VirtIO-GPU device.
+     * @default false
+     */
+    virtio_gpu?: boolean;
+
+    /**
      * Override the maximum supported cpuid level
      * Used for some versions of Windows, see [docs/windows-nt.md](https://github.com/copy/v86/blob/master/docs/windows-nt.md)
      */
