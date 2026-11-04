@@ -2551,6 +2551,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **370客体 / 84核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 stdcall4/8、两项站点集成和范围lint通过；发布准确XP零售8/9及同源严格diagnostic。证据 [stage4k38-validation.json](fixtures/d3d-review/stage4k38-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K38.json`。宿主/协议/translator/DDraw/运行包未改。
 > - **继续项：** 完整公开8对象/状态块包装和全部预定义范围接线，其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS及阶段4/5/6。
 
+> **4K39（2026-11-05，已完成）：公开8包装对象的弱缓存基础。**
+> - 私有 `get_view8`/`attach_view8`（stdcall8/12，retire callback stdcall4）为同一个实际9资源存储保留唯一前端元数据。查询/注册不持有资源或设备公开引用；公开引用归零而核心私有绑定仍保留存储时，缓存仍可复用。仅接受本核心8配置的VB/IB/纹理/cube/volume及其表面/volume视图、独立/隐式表面和附加链；拒绝普通9配置、其他接口、重复注册与隐式链。尚未把这些元数据替换为完整公开8 COM包装。
+> - 八条实际销毁路径接入通知，资源私有数据清理后、存储释放前回调一次。回调期间保留retiring记录，拒绝查询/重注册同一正在销毁对象；递归通知不重复调用。回调可使其他对象退出链表，返回后重新定位当前记录，避免使用失效的链表位置。元数据回调释放前端元数据，不释放正在销毁的核心对象。
+> - 原生 **112,181检查 / 1,038用例**：1,024组两种pool/四种清理顺序，每组五种父资源、三个缓存子视图、两隐式表面；公共引用归零/Get复活、状态块保留/Reset式清理、真实私有数据回调顺序、重复/OOM/接口/配置guard、嵌套删除链表首项、独立RT，以及附加链类型识别。附加链的实际新通知由SDK/XP验证，原生该项只执行元数据类型路径；不把它标成原生COM销毁覆盖。**35严格语义变异**及组合ASAN通过，ASAN同时覆盖保留9状态块160,909检查和8增量/句柄生命周期。旧volume元数据fixture缺少接口表，已在新用例中补齐；首次变异缺少插入函数的前置声明而编译失败，改用既有COM入口后才计入运行时检出。
+> - 源审计：**643个既有9函数逐字节一致**；八个销毁函数去掉通知及相应括号后与原文一致，十种原有存储结构及完整公开8/状态映射/范围/FVF/Process布局未改。零新协议命令；宿主/协议/translator/DDraw/运行包未改。
+> - 严格SDK编译先检出测试源for语句缩进，修正后首次实际XP **105秒 / 32批 / 一次启动**。准确4K38旧8/当前8/普通9/coreSDK120/220五渲染配置，另加SDK120/220两个生命周期设备：共 **七设备/七Reset/80协议资源句柄**。每新增配置14个缓存，**28销毁回调**验证父子顺序、raw资源/缓存同一性、公开零计数复活、RT/附加链/隐式视图及最终设备释放；另 **32 DWORD实际CPU影子**核对。SDK最终PASS行的五设备字段只统计保留渲染配置，两条独立生命周期日志单独统计新增设备。
+> - 独立wire先逐项验证原始捕获，再将五渲染配置的完整命令前缀交给既有4K38模型，另用独立顺序/资源状态机消费全部新增生命周期命令，核对80句柄、七Reset、六常量库清零、绑定/退休及28回调日志。**16,339项篡改检出**。两GPU各 **20完整图像 / 1,280 RGBA像素零误差**，10纹理/2cube/2volume/4RT、35shader translations、0纹理上传/Present/GPU/host错误，设备/资源表在SessionEnd及owner兜底前为空。首次回放未提供第二画布，swapChainsRefused=2；补齐真实canvas后重跑，两GPU均swapChainsCreated=2/refused=0/destroyed=2，不把初始拒绝计作最终通过。
+> - **372客体 / 85核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 ABI、两项站点集成/范围lint通过；发布准确XP零售8/9及同源严格diagnostic。证据 [stage4k39-validation.json](fixtures/d3d-review/stage4k39-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K39.json`。CPU帧缓冲回复仍明确解析注入，与新增实际CPU影子检查、GPU图像分开。
+> - **继续项：** 接入完整公开8设备/资源/状态块COM包装和全部预定义范围，其他原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS及阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
