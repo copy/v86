@@ -2130,6 +2130,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新跑 **完整客体 271 suites**、核心相关 **38 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU。旧 D3D9 Reset 的最后 stream 公共引用折扣变异改为私有缓冲错误折扣控制，D3D8 原控制保留；private-data selectors 跟随真实物理销毁函数。发布准确 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/着色器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j4-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J4.json`。
 > - NULL stream 的 offset/stride 零售边界、D3D8、声明/着色器/状态块绑定计数、外部子资源存活时设备根状态保持、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J5（2026-11-04）：D3D9 声明/VS/PS 私有绑定与公开归零恢复（S2-42 / Reset 后续）完成。**
+> - 顶点声明、顶点/像素着色器采用独立私有 binding_refs；实时 Set 不增加公开 COM 计数，同对象重绑先保留新槽并发布状态，再释放旧槽。公开 0→1/1→0 只转换一个设备 pin；共享 shader QueryInterface 也通过公开 AddRef 恢复 pin。存储销毁先摘链、释放字节码/对象，再最后归还公开设备引用。FVF、统一清理与 Reset 均使用私有释放；复核补齐统一清理的声明分支，避免保留公开 Release。
+> - 新实际 C **179,968 检查、1,024 最终拥有者组合、24,576 次公开归零 QI 恢复**，核对公开/私有计数、Getter、元数据、设备 pin、FVF、清理/重绑和最终存储清理；**30/30** 严格编译后运行时变异、旧实际 Set 与旧实际 QI 配新 lifetime helpers 的两组计数负对照及 ASAN/UBSAN 通过。保留二维/cube/volume/VB-IB/独立目标全部检查。录制测试补充后端私有构造持有 stub，录制公开计数仍单独观察。
+> - XP 创建 **2 声明、2 VS、2 PS**，执行 **384 次 QI 恢复、384 次 Getter、129 轮完整声明与字节码比对**，逐项检查设备 pin。公开为零时执行四次可编程 UP 绘制：FVF 退休旧声明，解绑替换旧 VS/PS；第一次 Reset 在外部公开对象存活时成功，保持元数据并可重绑，第二次仅私有绑定 Reset 成功并退休剩余对象。**212 秒、7 批次、一个 owner/release、5 读回**，仅写 RAM overlay；XP 模拟回复仍只证明传输。
+> - 冻结流独立核对两份准确声明、四份 VS/PS 字节码与缓存 hash、14 次准确绑定、FVF 元素、4 绘制/1 清屏、两次 Reset 跨设备句柄重绑及六个对象的准确销毁位置；**63 项语义破坏**均拒绝。hash 参考以整数计算现有 limb-hash ABI 的 `2^32+0x1b3` 乘子，不把旧代码注释所写的 FNV 乘子当作新规范；生产 hash/翻译器未改。SwiftShader/Metal 各验证 **5 图像、320 实际像素，零误差/零 GPU 或宿主错误**；真实 owner 释放前设备/资源表为空。
+> - 新跑 **完整客体 273 suites**、核心相关 **39 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU。发布准确 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j5-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J5.json`。
+> - 录制/已完成状态块暂保留公开资源持有规则；状态块私有化、外部子资源存活时设备根状态保持、D3D8、NULL stream 的 offset/stride 零售边界、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
