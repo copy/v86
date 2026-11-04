@@ -2579,6 +2579,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **24张完整图像 / 1,536像素，SwiftShader与Metal均零误差**；20个保留可编程图像加实际Texture8/Surface8写入产生的4个red/blue固定管线图像。mip1/cube绿色核对CPU与完整上传，不宣称本探针采样。独立wire验证LOD 3→0、8次上传/1,280字节、全部退休，**18,046项篡改检出**；2交换链创建/0拒绝/2销毁、0 Present/GPU/host错误，资源在SessionEnd及owner兜底前为空。帧缓冲CPU回复明确为解析注入。
 > - **376客体 / 87核心回归**、32标准EXE/四严格DLL/21成员静态核心/实际SDK8接口边界/两项站点集成/范围lint通过；发布准确XP零售8/9及同源diagnostic。证据 [stage4k41-validation.json](fixtures/d3d-review/stage4k41-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K41.json`。继续Cube8/Volume8/VB/IB/SwapChain8/Device8、状态块范围和默认工厂，以及原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
 
+> **4K42（2026-11-05，已完成）：真实CubeTexture8六面与Surface8容器。**
+> - 新增 `d3d8_core_cube_texture.c/.h`，SDK8真实19方法表通过15方法类型化核心9边界转发；六面/各mip的GetCubeMapSurface返回真实Surface8，容器是实际CubeTexture8，复用共用引用计数、弱缓存、八字描述与核心锁定状态。拥有的输入引用在所有构造返回路径均消费，缓存命中无分配，失败/竞争/OOM不泄漏。
+> - 原生 **61,952检查 / 1,164用例**，其中1,152组六面×三个mip×四种释放顺序，检查子表面实际后端地址/尺寸、容器计数、public-zero复活、父对象/设备先释放、所有权消费与失败路径；**47严格语义变异与ASAN**通过，包含Get/Lock/Unlock/Dirty丢失face参数的变异。后端明确为COM/元数据shim；保留Texture8 **54,048检查/43变异**与Surface8 **54,571检查/34变异**通过。
+> - **663个既有核心9函数、十种存储结构、完整旧8、现有Surface8/Texture8/共用辅助头和运行策略逐字节一致**；8构建只增加Cube适配器。初始生成头文件类型名/borrowed getter命名问题被严格编译检出并修正；SDK探针同一行两条if触发缩进警告，拆行后继续，未放宽警告。
+> - 首次实际XP **128秒 / 52批 / 一次启动**：保留4K41七设备，再加SDK120/220实际CubeTexture8两设备，共 **九设备/九Reset/84句柄/19声明/35shader**。每个新设备检查全部六面×四mip的24个实际Surface8、四种QI、private/priority/LOD/type/PreLoad/描述、无效face/level/out、跨接口同面锁定互斥/不同面同时锁定、public-zero缓存复活与Reset后同一性。新增 **928 DWORD实际CPU影子**，合计1,280 DWORD；新设备的Device8父接口仍为明确的IUnknown夹具。
+> - 六面分别写入六种颜色并用三维方向采样，Reset后face0改白；**14张新增固定管线图像 + 24张保留图像 = 38完整图像 / 2,432像素**，SwiftShader与Metal均零误差。face5/mip1绿色核对CPU/上传；本探针不宣称采样该mip。独立wire **27,582项篡改检出**，核对24次上传/4,992字节；10纹理/4cube/0volume、20可编程+18固定管线draw、2交换链创建/0拒绝/2销毁、0 Present/GPU/host错误，资源在兜底前为空。帧缓冲CPU回复为解析注入，与实际CPU影子及真实GPU图像区分。Cube AddDirtyRect沿用核心现有no-op政策，尚未宣称原生HAL一致。
+> - **378客体 / 88核心回归**、32标准EXE/四严格DLL/21成员静态核心/SDK8边界、两项站点集成/范围lint通过；发布准确XP零售8/9和同源diagnostic。证据 [stage4k42-validation.json](fixtures/d3d-review/stage4k42-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K42.json`。继续Volume8/VolumeTexture8/VB/IB/SwapChain8/Device8、状态块范围与默认工厂，再完成其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS及阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
