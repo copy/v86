@@ -66,11 +66,19 @@ try
     const marker = waitRoot ? /Waiting on [^\n]*IOMedia[^\n]*Apple_HFS|still waiting for root device/i : /corecrypto\.kext FIPS POST passed!/;
     const deadline = performance.now() + (waitRoot ? 600000 : 60000);
     cpu.clock.resume();
-    while(!marker.test(serial) && !/panic\(cpu/.test(serial) && performance.now() < deadline)
+    const display = process.argv.includes("--display");
+    const panel = /ApplePinotLCD: _lcdPanelID: 0x(?!00000000)[0-9a-f]+ _lcdPanelClass: [12]/i;
+    const pipeline = /AppleCLCD::start_hardware[^\n]*clcdDitherCfg/;
+    while((!marker.test(serial) || display && (!panel.test(serial) || !pipeline.test(serial))) && !/panic\(cpu/.test(serial) && performance.now() < deadline)
     {
         cpu.run_cores();
     }
     process.stdout.write(serial);
+    if(display)
+    {
+        assert.match(serial, panel);
+        assert.match(serial, pipeline);
+    }
     assert.match(serial, marker, "stopped at " + cpu.read_pc());
     assert.doesNotMatch(serial, /panic\(cpu/);
     if(process.argv.includes("--display"))

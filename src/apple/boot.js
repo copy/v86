@@ -41,6 +41,15 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
     tree.children = tree.children.filter(child => dt_name(child) !== "baseband");
     io.children = io.children.filter(child => !["sdio", "spi2", "tv-out", "rgbout", "displayport", "isp",
         "venc", "vxd", "jpeg", "scaler", "usb-complex", "otgphyctrl"].includes(dt_name(child)));
+    // iBoot would identify the internal panel before XNU starts. The
+    // restore tree carries a zero placeholder, which ApplePinotLCD rejects.
+    const lcd = dt_find(tree, "/arm-io/mipi-dsim/lcd");
+    if(lcd)
+    {
+        const id = dt_property(lcd, "lcd-panel-id");
+        if(!id || (id.value.length === 4 && id.value.every(byte => byte === 0)))
+            dt_set(lcd, "lcd-panel-id", cells(1)); // emulated Pinot class 1
+    }
     const uart3 = dt_find(tree, "/arm-io/uart3");
     if(uart3) uart3.children = uart3.children.filter(child => dt_name(child) !== "bluetooth");
     const cpu = required("/cpus/cpu0");
