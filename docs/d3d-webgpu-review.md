@@ -2146,6 +2146,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - SDK 初版严格构建补上 unbind 循环大括号；首轮 API 通过后将日志误写的 Getter 536 核正为实际 528，并保存旧捕获后重新启动 XP 取得最终证据。完整客体初跑发现二维/cube 独立入口不再调用 volume 公开 Release 的严格未使用函数错误，补充函数地址引用后新跑 **完整客体 275 suites** 全过，核心相关 **40 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题均通过。继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j6-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J6.json`。
 > - 外部子资源存活时设备根状态保持、D3D8、NULL stream 的 offset/stride 零售边界、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J7（2026-11-04）：D3D9 外部子资源保留设备完整状态与录制块设备引用转移（S2-42 后续）完成。**
+> - 所有实时/状态块内部引用私有化后，设备清理改为仅在总公开计数真正归零时进行；应用最后一个直接设备引用释放后，外部公开子资源或已完成状态块仍保留设备的全部绑定和标量状态。未结束录制块不持有公开设备 pin，End 发布时才取得一个，完成块释放时最后归还；最终设备释放仍在临时保护下取消未完成录制并清理内部存储。Wine Device.Release716+ 与 Windows 测试 device.c1804–1807 分别支持最终状态生命周期及 Begin 不加/End 加一个设备引用。
+> - 新实际 C **111,616 检查、2,048 pool/公开锚点/最终拥有者组合、2,048 次 GetDevice 恢复**，覆盖八类公开资源保留完整实时状态、设备/最后子资源/完成块的最终释放顺序、未结束录制跨直接设备释放仍存活及 End 的准确 pin。**9/9** 严格编译后断言变异、旧实际 Device.Release 和旧 End 配新私有 allocator 两组负对照、两组 ASAN/UBSAN 通过。保留全部先前生命周期检查。额外交换链私有测试新增“公开 chain 存活时显式清理绑定”第六种顺序，达到 **3,124 检查、768 次公开归零恢复**，原 12 个变异全部继续检出；两侧 implicit private callback 各 11 个准确 finalizer 保留。
+> - XP 每次仅保留二维/cube/volume/VB/IB/声明/VS/PS 中一个公开资源，再释放原设备引用；关键区间没有 CPU 读回表面等其他子资源 pin。随后经该资源 GetDevice 恢复同一设备，核对八个完整绑定、offset/stride、cull 与自定义 shader 常量并绘制。第九设备取消未完成内部录制，第十设备仅由已完成状态块保留，经其 GetDevice 恢复再 Apply/绘制。**10 设备、80 资源、72 Getter、9 元数据轮、8 子资源恢复/1 状态块恢复**；准确捕获 **125 秒、20 批次、一个 owner/release、9 读回**，仅写 RAM overlay。
+> - 冻结流独立验证 **80 创建/销毁、10 设备创建/销毁、20 准确缓冲上传、83 次绑定、9 份自定义常量、9 次可编程索引绘制**，**109 项语义破坏**全部拒绝。无 auto-depth 时 ZENABLE 按共享创建默认 false 初始化，不能要求被 guest 去重过滤的重复 FALSE 写入。SwiftShader/Metal 各核对 **9 图像、576 实际像素，零误差/零 GPU 或宿主错误**，真实 owner 释放前设备/资源表为空。
+> - 首轮 XP 的 API/9 图像日志已通过，但 runner 沿用旧成功文本误报；修正 runner 后完整重新捕获，生产 C/SDK 未改。完整客体初跑中仅旧 D3D9 额外 chain/surface 测试仍期待直接设备 Release 清空两个槽，改为保留槽并补齐显式解绑路径后，原 12 个变异再次全部检出。新跑 **完整客体 277 suites**、核心相关 **41 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 问题通过，继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j7-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J7.json`。
+> - D3D8、NULL stream 的 offset/stride 零售边界、FVF 转换声明的公开缓存身份、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
