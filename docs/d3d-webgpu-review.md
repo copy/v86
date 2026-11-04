@@ -2202,6 +2202,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 初次静态模式沿用纯 runtime 的 freestanding/no-builtin 参数，导致 Win32 SDK 内存宏生成 CRT 外部符号；改为与已验证客体 DLL 一致的 frontend 编译参数，保留 CRT-free 链接/import 检查。构建检查适配新版 objdump 的 ordinal/+base/hint 导出表格式。**完整客体 288 suites**、核心相关 **47 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、两个静态 archive/严格消费 DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 通过，继承 4I9 完整核心238/六次 GPU。发布准确最终 XP retail DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4k1-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4K1.json`。
 > - 这是 D3D8 包装迁移的编译/加载基础。D3D8 factory/device/resource 真正委托、caps/PP/state/CopyRects/句柄和身份映射、完整零售输入/Reset/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。
 
+> **阶段 4K2（2026-11-04）：D3D8 工厂真实包装 D3D9 核心与单一模块进程拥有权完成。**
+> - D8Direct3D 为每个公开工厂保留一个真实私有 D3D9 工厂引用，最终公开 wrapper Release 先释放 backend 再回收 wrapper；D3D8 QueryInterface/SDK120与220/设备 GetDirect3D 仍保持原来的公开身份与计数。GetAdapterCount/GetAdapterMonitor 通过独立 SDK ABI 委托真实后台。D3D9 构造抽成共用 helper，正常 Direct3DCreate9 仍发布自己的 HELLO，供 D3D8 使用的 create8 不发布 D3D9 HELLO，避免改变兼容配置。
+> - D3D8 链接同一核心 archive，DllMain 委托核心 attach/detach 并借用 canonical process，**一个 DLL 仍只有一个进程 attachment**，不另附着 runtime；移除 D3D8 重复的 transport close/shutdown 路径，最终 flush/SessionEnd/owner release 由核心处理。D3D8 自有诊断保留，后台诊断使用私有文件名。原生进程模型执行真实后台 DllMain/borrow getter，保留三前端引用为3、创建者先卸载、失败 attach，并增加 D3D8 在终止进程锁已占用时的保留路径。
+> - 新实际 C **69,764 检查、512 SDK/最终拥有者组合、16,384 轮查询/身份验证**，真实 D3D8 wrapper/真实 D3D9 constructor与Release/私有桥接运行；适配器 provider 使用可观测 stub 来确认委托，Windows 进程映射由原模型提供。验证 backend恰好一个引用、多个公开 wrapper AddRef 不加 backend引用、最后父拥有者、后台无HELLO及 wrapper/backend分配与transport失败的原子回收。**12/12** 严格编译后断言变异、旧实际 D8构造/Release/count/DllMain **4组负对照**和两组 ASAN/UBSAN 通过。
+> - XP 用两个 SDK 编译单元避免混用 D3D8/9 类型：**128 轮工厂、264 次 root/parent 身份检查**；SDK120/220 各创建设备，应用提前释放工厂后仍可经设备取得同一 wrapper并查询后台。两个 D3D8 DLL/设备生命周期之间，普通 D3D9 设备持续绘制；**128秒、11批次、一个owner/release、5读回**，仅RAM overlay。冻结流精确要求 **HELLO配置0/3/0**、三个实际设备、只有普通D3D9的一个缓存声明、五个UP、D8两次NULL VS绑定、0→2→1设备销毁和最后单个SessionEnd；后台工厂没有额外HELLO或设备。
+> - **60项语义破坏**全部拒绝。SwiftShader/Metal 各验证 **5图像、320实际像素，零误差/零图形错误**，SessionEnd兜底清理之前及真实driver owner release之前表都为空。首轮SDK沿用D3D9 IMMEDIATE填写D3D8窗口模式的全屏interval字段，设备拒绝；归档首轮，采用既有D3D8测试的DEFAULT后重新完整XP。SDK模拟像素只证明传输。
+> - **完整客体290 suites**、核心相关**48 suites**、18 D3D8 +14 D3D9标准EXE、四个retail/diagnostic DLL及私有核心构建、自定义SDK、站点集成2项、两侧零新增lint通过，继承4I9完整核心238/六次GPU。发布准确最终XP D3D8/D3D9 DLL与严格diagnostic；DDraw、宿主/协议/翻译器及包`9335ee9a77fb7cc808d2`不变。证据：`docs/fixtures/d3d-review/stage4k2-validation.json`，站点镜像`glbridge/deployments/d3d-webgpu-review-4K2.json`。
+> - D3D8 device/resource 目前仍使用旧实现；其真正委托、caps/PP/format/state/CopyRects/DWORD句柄/容器缓存转换、完整零售输入/Reset/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
