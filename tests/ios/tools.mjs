@@ -8,7 +8,8 @@
 import assert from "node:assert/strict";
 import zlib from "node:zlib";
 import { execFileSync } from "node:child_process";
-import { wipe_info } from "../../tools/ios/lockers.mjs";
+import { createHash } from "node:crypto";
+import { effaceable_unit, wipe_info } from "../../tools/ios/lockers.mjs";
 import { systembag } from "../../tools/ios/systembag.mjs";
 import { AES, SHA1, HMAC_SHA1, from_hex, to_hex } from "../../src/ios/crypto.js";
 import { img3_build, img3_payload, img3_parse } from "../../src/ios/img3.js";
@@ -540,9 +541,16 @@ if(process.platform === "darwin") test("N90 systembag: CBC envelope, signature a
     const signed = Object.fromEntries(fields(Buffer.from(parse(plain.subarray(0, -pad)).KeyBagKeys)));
     const data = fields(signed.DATA), keys = Object.fromEntries(data);
     assert.deepEqual(Buffer.from(new HMAC_SHA1(signed.DATA).mac(unwrap(keys.HMCK))), signed.SIGN);
-    assert.deepEqual(data.filter(([tag]) => tag === "CLAS").map(([, v]) => v.readUInt32BE()), [1, 2, 3, 4, 6, 7, 8, 9, 10, 11]);
-    const classKeys = data.filter(([tag]) => tag === "WPKY").map(([, v]) => unwrap(v).toString("hex"));
-    assert.equal(new Set(classKeys).size, 10);
+    const ids = data.filter(([tag]) => tag === "CLAS").map(([, v]) => v.readUInt32BE());
+    assert.deepEqual(ids, [1, 2, 3, 4, 6, 7, 8, 9, 10, 11]);
+    const classKeys = data.filter(([tag]) => tag === "WPKY").map(([, wrapped]) => {
+        const key = Buffer.from(wrapped);
+        assert.equal(key.length, 32);
+        cipher.cbc(key, new Uint8Array(16), true);
+        return key.toString("hex");
+    });
+    assert.deepEqual(classKeys, ids.map(id => createHash("sha256").update("v86/N90/10B329/class" + id).digest("hex")));
+    assert.equal(unwrap(effaceable_unit().subarray(132, 172)).toString("hex"), classKeys[3]);
 });
 
 let failed = 0;

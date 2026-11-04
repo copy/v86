@@ -34,7 +34,9 @@ try
         assert.equal(magic.readUInt32LE(4), 1);
         assert.equal(unit.readUInt32LE(60), crc32(unit.subarray(64), crc32(unit.subarray(32, 60), crc32(magic))));
         assert.equal(unit.readUInt32LE(68), 0x42414731);
-        assert.equal(unit.readUInt32LE(128), 0x444F4E45);
+        assert.equal(unit.readUInt16LE(126), 40);
+        assert.equal(unit.readUInt32LE(128), 0x446B6579);
+        assert.equal(unit.readUInt32LE(176), 0x444F4E45);
         assert.deepEqual(read(0, 528).subarray(0, 1024), unit);
         const last = (blocks - 1) * 128;
         assert.equal(read(0, last + 1).toString("ascii", 0, 14), "NANDDRIVERSIGN");

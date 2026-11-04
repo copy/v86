@@ -1,10 +1,9 @@
 // Reproducible simulator-only wipe material, not keys from a device.
-import { createHash } from "node:crypto";
+import { derive, wrap_device_key } from "./device-keys.mjs";
 import { crc32 } from "../../src/android/bytes.js";
 
 export function wipe_info()
 {
-    const derive = label => createHash("sha256").update("v86/N90/10B329/" + label).digest();
     return { iv: derive("wipe-iv").subarray(0, 16), key: derive("wipe-key") };
 }
 
@@ -24,7 +23,13 @@ export function effaceable_unit()
     unit.writeUInt32LE(0x42414731, wipe + 8);
     iv.copy(unit, wipe + 12);
     key.copy(unit, wipe + 28);
-    const end = wipe + 8 + 52;
+    const dkey = wipe + 8 + 52;
+    const wrapped = wrap_device_key(derive("class4"));
+    unit.writeUInt16LE(0x4C6B, dkey);
+    unit.writeUInt16LE(wrapped.length, dkey + 2);
+    unit.writeUInt32LE(0x446B6579, dkey + 4); // Dkey for the always-accessible class
+    wrapped.copy(unit, dkey + 8);
+    const end = dkey + 8 + wrapped.length;
     unit.writeUInt16LE(0x4C6B, end);
     unit.writeUInt32LE(0x444F4E45, end + 4); // DONE
     const crc = crc32(unit.subarray(64), crc32(unit.subarray(32, 60), crc32(unit.subarray(0, 16))));

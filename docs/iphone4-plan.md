@@ -682,6 +682,8 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel b
 用 `node tests/ios/system.mjs build/ios/10B329 build/ios/provisioned-s4.img --keybag` 在新生成的 NAND 冷启动复测通过。检查器在客体内存里查找含线程 ID 和调用者名的完整日志，同时核对双卷挂载与四个核心进程。固件内置的消息常量无法单独满足此检查。
 在独立系统卷副本的 fstab 给数据卷启用 `protect` 后，原版内核在挂载输出中列出该标志，同一冷启动也通过了 `--keybag`。在钥匙包加载后调用客体的 open、fcntl、write、fsync、close、read 与 unlink，确认 D 类文件（类别 4）重开时类别和八字节负载均保留。受保护数据卷默认使用此挂载选项。C 类（首次解锁后可用）在同一启动阶段设置类别返回 EPERM，首次解锁和其他类别仍待验证。此测试没有检查 NAND 原始页上的密文。
 **S4 出厂配置。** 已确认 AppleNANDLegacyFTL 的第 1 区读取名为 DEVICEUNIQUEINFO 的物理特殊页。构建器在第一个芯片末块的第 2 页写入 SCfg，包含模拟器专用的 SrNm。用原版内核启动自建 NAND 后，在隔离的诊断运行中调用已注册的 AppleNANDLegacyFTL 实例的 readRegion(1)，IOKit 返回成功，缓冲区内的 44 字节 SCfg 和序列号与建盘输入一致。此项验收驱动读取路径，首次设置流程还需另测。
+**S4 文件保护类别，2026-11-05。** 生成工具现在分别处理钥匙包中设备专用的 WPKY（32 字节、零 IV 的 AES-CBC）和 HMCK、Dkey（RFC 3394）。物理可擦除区的 Dkey 与钥匙包中的 D 类密钥解密后相同。用修正后的数据卷与 NAND 冷启动，keybagd 成功加载系统包。在它报告加载成功后执行客体文件系统调用，设置 C 类（3）、写入、同步、关闭、重开、查询类别、读回并比对八字节内容，全部通过。此前的“EPERM”发生在旧镜像，单独看到系统包加载成功无法覆盖文件类别测试。仍须独立测试真实的锁定/解锁转换和物理 NAND 上的密文。
+
 
 
 
