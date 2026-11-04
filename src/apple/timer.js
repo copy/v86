@@ -33,7 +33,15 @@ export class AppleTimer
 
     write(offset, value)
     {
+        // Clock gates expose the requested mode in bits 3:0 and the
+        // acknowledged mode in 7:4. XNU polls until the nibbles agree.
+        if(offset >= 0x1010 && offset < 0x1210) value = value & ~0xF0 | (value & 15) << 4;
         this.regs[offset >>> 2] = value;
+        if(offset === 0x2008 && (this.regs[0x2010 >>> 2] & 1))
+        {
+            this.vic.set_line(6, false);
+            this.deadline = this.ticks() + (value >>> 0);
+        }
         if(offset === 0x2010)
         {
             this.vic.set_line(6, false);

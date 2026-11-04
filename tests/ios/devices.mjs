@@ -2,6 +2,8 @@
 import assert from "node:assert/strict";
 import { AppleVIC } from "../../src/apple/vic.js";
 import { AppleTimer } from "../../src/apple/timer.js";
+import { AppleCDMA } from "../../src/apple/cdma.js";
+import { AppleI2C } from "../../src/apple/i2c.js";
 import { AppleUART } from "../../src/apple/uart.js";
 
 let now = 0, signals = 0;
@@ -52,3 +54,32 @@ assert.equal(signals, 2);
 intc.write(0x1001C, 4, 1 << 31);
 assert.equal(signals, 0);
 console.log("PASS: N90 UART, timer deadline, VIC IRQ/FIQ, acknowledge and restore");
+
+new AppleCDMA(cpu);
+const dma = ports.get(0x87000000);
+dma.write(4, 4, 0x20);
+assert.equal(dma.read(0x14), 0x20);
+dma.write(12, 4, 0x20);
+assert.equal(dma.read(0x14), 0);
+dma.write(0x100C, 4, 200);
+dma.write(0x1000, 4, 2);
+assert.equal(dma.read(0x100C), 0);
+pmgr.write(0x1014, 4, 0xA05);
+assert.equal(pmgr.read(0x1014), 0xA55);
+
+new AppleI2C(cpu, 0x83200000, 19, vic, true);
+const i2c = ports.get(0x83200000);
+intc.write(0x10, 4, 1 << 19);
+i2c.write(0, 4, 0x74);
+i2c.write(8, 4, 0x30);
+i2c.write(0x10, 4, 7);
+i2c.write(0x18, 4, 1);
+i2c.write(0x24, 4, 4);
+assert.equal(signals, 1);
+assert.equal(i2c.read(0x20), 8);
+i2c.write(0x0C, 4, 0x10);
+assert.equal(signals, 0);
+i2c.write(0, 4, 0x33);
+i2c.write(0x24, 4, 4);
+assert.equal(i2c.read(0x0C), 0x20);
+console.log("PASS: CDMA gating, PMGR acknowledgement, I2C completion and missing slave");

@@ -976,6 +976,9 @@ V86.prototype.continue_init = async function(emulator, options)
                 settings.initrd = buffer.buffer;
                 break;
             // machine_type "virt" (src/virt/loader.js)
+            case "ios_bootlogo":
+                settings.ios_bootlogo = buffer.buffer;
+                break;
             case "kernel":
                 settings.kernel = buffer.buffer;
                 break;
@@ -1068,7 +1071,7 @@ V86.prototype.continue_init = async function(emulator, options)
 
         if(name === "bios" || name === "vga_bios" || name === "firmware_code" || name === "firmware_vars" || name === "tpm_wasm" || name === "tpm_state" ||
             name === "initial_state" || name === "multiboot" ||
-            name === "bzimage" || name === "initrd" || name === "kernel" || name === "dtb" || name === "android_vendor_ramdisk")
+            name === "bzimage" || name === "initrd" || name === "kernel" || name === "ios_bootlogo" || name === "dtb" || name === "android_vendor_ramdisk")
         {
             // Ignore async for these because they must be available before boot.
             // This should make result.buffer available after the object is loaded
@@ -1136,6 +1139,7 @@ V86.prototype.continue_init = async function(emulator, options)
     }
     add_file("initrd", options.ios ? options.ios.ramdisk : options.initrd);
     add_file("kernel", options.ios ? options.ios.kernelcache : options.kernel);
+    add_file("ios_bootlogo", options.ios && options.ios.bootlogo);
     add_file("dtb", options.ios ? options.ios.devicetree : options.dtb);
     add_file("android_vendor_ramdisk", options.android && options.android.vendor_ramdisk);
     // the virt machine's virtio-blk disks: {url or buffer, async, size, id,

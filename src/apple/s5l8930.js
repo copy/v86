@@ -1,3 +1,40 @@
+import { DisplayHub } from "../display.js";
+import { AppleCDMA } from "./cdma.js";
+import { AppleCLCD } from "./clcd.js";
+import { AppleI2C } from "./i2c.js";
+import { AppleTimer } from "./timer.js";
+import { AppleUART } from "./uart.js";
+import { AppleVIC } from "./vic.js";
+
+// Append new devices to preserve the order in snapshots.
+export const N90_DEVICE_ORDER = [
+    "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx",
+];
+
+export function create_n90_devices(cpu, bus, screen)
+{
+    const display = new DisplayHub(bus, screen);
+    const vic = new AppleVIC(cpu);
+    return {
+        display,
+        apple_uart: new AppleUART(cpu, bus),
+        apple_vectors: new AppleVectors(cpu),
+        apple_vic: vic,
+        apple_timer: new AppleTimer(cpu, vic),
+        apple_gpio: new AppleGPIO(cpu),
+        apple_cdma: new AppleCDMA(cpu),
+        apple_miu: new AppleRegisterWindow(cpu, "miu", 0xBFC00000, 0x1000),
+        apple_clcd: new AppleCLCD(cpu, display),
+        apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true),
+        apple_i2c2: new AppleI2C(cpu, 0x83400000, 21, vic, false),
+        apple_swi: new AppleSWI(cpu),
+        apple_dart1: new AppleRegisterWindow(cpu, "dart1", 0x88D00000, 0x2000),
+        apple_dart2: new AppleRegisterWindow(cpu, "dart2", 0x89D00000, 0x2000),
+        apple_sgx: new AppleRegisterWindow(cpu, "sgx", 0x85100000, 0x1000),
+    };
+}
+
 // The N90 board's writable low exception vectors. XNU maps physical zero
 // during CPU bootstrap and copies the reset vector and its handler here.
 export class AppleVectors
@@ -36,4 +73,33 @@ export class AppleGPIO
     reset() { this.pins.fill(0); }
     get_state() { return [this.pins.slice()]; }
     set_state(state) { this.pins.set(state[0]); }
+}
+
+// Configuration latches for the MIU and the single-wire voltage controller.
+// The platform driver programs the bus timeout and SWI timings at probe.
+export class AppleRegisterWindow
+{
+    constructor(cpu, name, base, size)
+    {
+        this.regs = new Uint32Array(size / 4);
+        cpu.io.register_mmio(base, size, {
+            name,
+            read: offset => this.regs[offset >>> 2],
+            write: (offset, width, value) => this.write(offset, Number(value)),
+        });
+    }
+
+    write(offset, value) { this.regs[offset >>> 2] = value; }
+    reset() { this.regs.fill(0); }
+    get_state() { return [this.regs.slice()]; }
+    set_state(state) { this.regs.set(state[0]); }
+}
+
+
+// SWI's voltage transactions complete synchronously. AppleSamsungSWI polls
+// the busy bit at +0x14 before issuing the next PMU voltage command.
+class AppleSWI extends AppleRegisterWindow
+{
+    constructor(cpu) { super(cpu, "swi", 0xBF600000, 0x1000); }
+    write(offset, value) { super.write(offset, offset === 0x14 ? value & ~1 : value); }
 }

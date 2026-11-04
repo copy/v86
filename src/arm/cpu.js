@@ -11,10 +11,9 @@ import { set_jit_switches } from "../jit_switches.js";
 import { relaxed_fma_fused } from "../cpu.js";
 import { view, Bitmap } from "../lib.js";
 import { v86 } from "../main.js";
-import { AppleVIC } from "../apple/vic.js";
-import { AppleTimer } from "../apple/timer.js";
-import { AppleGPIO, AppleVectors } from "../apple/s5l8930.js";
-import { AppleUART } from "../apple/uart.js";
+import { create_n90_devices, N90_DEVICE_ORDER } from "../apple/s5l8930.js";
+import { draw_n90_logo } from "../apple/bootlogo.js";
+import { N90_VIDEO } from "../apple/clcd.js";
 import { load_n90_kernel } from "../apple/boot.js";
 import { MachineClock } from "../machine_clock.js";
 import { check_machine_options } from "../machine_options.js";
@@ -52,7 +51,7 @@ import { ParallelMachine } from "../parallel/machine.js";
 import { COMMAND_RELOAD, COMMAND_RESET } from "../parallel/control.js";
 
 /** The devices in a snapshot's state[4], in this order */
-const DEVICE_ORDER = ["pl011", "pl031", "goldfish_fb", "goldfish_events", "goldfish_battery", "goldfish_audio", "goldfish_pipe", "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio"];
+const DEVICE_ORDER = ["pl011", "pl031", "goldfish_fb", "goldfish_events", "goldfish_battery", "goldfish_audio", "goldfish_pipe", ...N90_DEVICE_ORDER];
 
 /** (src/state.js: one buffer holds at most 2 GiB) */
 const STATE_MAX_SINGLE_BUFFER = 0x7FFFFFFF;
@@ -264,15 +263,12 @@ A64CPU.prototype.init = function(settings, device_bus)
     this.device_bus = device_bus;
     if(machine_type === "s5l8930")
     {
-        this.devices = { "apple_uart": new AppleUART(this, device_bus), "apple_vectors": new AppleVectors(this) };
-        this.devices.apple_gpio = new AppleGPIO(this);
-        this.devices.apple_vic = new AppleVIC(this);
-        this.devices.apple_timer = new AppleTimer(this, this.devices.apple_vic);
+        this.devices = create_n90_devices(this, device_bus, settings.screen);
         this.virtio_devices = [];
         this.shared_spi_sources = new Map();
         this.virtio_transport = "none";
         this.booted = false;
-        this.boot_files = settings.kernel ? { kernel: settings.kernel, dtb: settings.dtb, initrd: settings.initrd, cmdline: settings.cmdline } : null;
+        this.boot_files = settings.kernel ? { kernel: settings.kernel, dtb: settings.dtb, initrd: settings.initrd, cmdline: settings.cmdline, logo: settings.ios_bootlogo } : null;
         if(this.boot_files) this.load_boot_files();
         return;
     }
@@ -500,6 +496,14 @@ A64CPU.prototype.load_boot_files = function()
         const handoff = load_n90_kernel(this.mem8, new Uint8Array(f.kernel), new Uint8Array(f.dtb),
             f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline);
         this.wm.exports["a64_bus_written"](0, handoff.r0 - VIRT_RAM_BASE + 4096);
+        if(f.logo)
+        {
+            const offset = N90_VIDEO.base - VIRT_RAM_BASE;
+            draw_n90_logo(new Uint32Array(this.mem8.buffer, this.mem8.byteOffset + offset, N90_VIDEO.width * N90_VIDEO.height),
+                new Uint8Array(f.logo));
+            this.wm.exports["a64_bus_written"](offset, N90_VIDEO.height * N90_VIDEO.stride);
+            this.devices.apple_clcd.render();
+        }
         this.boot(handoff.entry, handoff.r0);
     }
     else
@@ -749,8 +753,8 @@ A64CPU.prototype.state_block_of = function(core)
 /** (env.run_hardware_timers) the virt machine's device timers (the PL031's alarm, the display's); the cores' timers are their own */
 A64CPU.prototype.run_hardware_timers = function(acpi, now)
 {
-    if(this.devices.apple_timer) return this.devices.apple_timer.timer();
     const display = this.devices.display ? this.devices.display.timer(now) : 100;
+    if(this.devices.apple_timer) return Math.min(display, this.devices.apple_timer.timer());
     const sound = this.virtio_sound ? this.virtio_sound.timer(now) : 100;
     const audio = this.devices["goldfish_audio"] ? this.devices["goldfish_audio"].timer(now) : 100;
     return Math.min(100, display, sound, audio, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);

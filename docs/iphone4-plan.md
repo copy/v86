@@ -1,8 +1,8 @@
 # iPhone 4（A4，S5L8930）机器实施计划
 
-状态：实施中（2026-11-04）。S0 的固件工具和初步清单已落地。S1 已从公开的 V86 构造入口启动本机的
-10B329 内核，串口输出到 `corecrypto.kext FIPS POST passed!`。等待根设备、恢复盘 shell 和图形界面尚待验证。
-可用 `node tests/ios/boot.mjs build/ios/10B329` 重跑串口检查；附加 `--wait-root` 单独检查 S1 的验收点。
+状态：实施中（2026-11-04）。用真实 10B329 验证了 S1 的串口里程碑：不提供根盘时，XNU 等待
+类型为 Apple_HFS 的 IOMedia。S2 已验证固件启动图、640×960 启动文字与逐像素快照恢复；显示驱动的垂直同步中断仍在调试。
+S3 本机验收通过：在恢复盘内的串口 shell 执行了 uname -a 和 sysctl hw。S4–S7 尚未验收。
 
 本计划为 v86 增加机器类型 `machine_type: "s5l8930"`，模拟 iPhone 4（`iPhone3,1`，板子 N90AP），目标是
 iOS 6.1.3 启动到主屏幕，能触控操作，能运行系统自带的应用。
@@ -587,10 +587,28 @@ CI 只跑 eslint、构建与 `make ci-tests`：不依赖苹果文件的 `make io
   时间基准留零会触发内核的 `rtclock timebase_callback` panic。
 - 入口的 cache 清理循环给出 64 字节行、四路 32 KiB L1 和八路 512 KiB L2。
   MIDR 暂用本机 QEMU Cortex-A8 的 `0x410fc080`，固件设备树没有给出芯片修订值。
-- 当前串口已验证 corecrypto 的完整性、AES、TDES、SHA、HMAC、ECDSA、DRBG 自检。
-  初始化 IODTNVRAM 时，8 KiB 的 nvram-proxy-data 需要长度非零的分区；10B329 按小端 16 字节单位前进。
-  补全后已看到 AppleARMBacklight 和 AppleARMPerformanceController 的启动日志。
-  此项不代替 S1 的根设备等待验收。S0 的数据保护、图形调用及上屏路径研究仍待完成。
+- UART0 输出了 corecrypto 的完整性、AES、TDES、SHA、HMAC、ECDSA 和 DRBG 自检结果。
+  IODTNVRAM 按小端 16 字节单位遍历 8 KiB 的 nvram-proxy-data。模板中的零长度分区会让遍历原地循环。
+  填入 common 分区后，IOKit 启动 AppleARMBacklight 和 AppleARMPerformanceController。
+- 不挂盘时运行 `node tests/ios/boot.mjs build/ios/10B329 --wait-root --display`。
+  它要求串口收到等待 Apple_HFS 根设备的消息，并验证修改过的显示内存能经快照恢复到逐像素一致。
+  CLCD 使用 `0x5f700000` 的 640×960、32 位启动帧缓冲。没有使用宿主绘制的替代启动画面。
+- 使用 `ios.ramdisk` 与 `rd=md0` 后，串口报告 `BSD root: md0, major 3, minor 0`。
+  调试恢复盘的工具将本地构建的静态 shell 替换到恢复盘副本中，回读验证可执行文件。
+  实测 10B329 的 BSD 初始化在 `0x802bbe68` 调用 IOSecureBSDRoot，随后 AppleARMPlatform 等待
+  SecureRootCallBack。调试副本用两个 Thumb NOP 替换此处的 BL。工具检查完整 SHA-256 和原指令，
+  拒绝其余版本、已修改的输入或已存在的输出文件。原始内核仍用于无盘 S1 测试。
+- S3 本机复测（以下命令从仓库根运行；输出目录须存在，镜像文件须为新文件）：
+  ```sh
+  sh tools/ios/guest/build-shell.sh build/ios/shell
+  node tools/ios/kernel_patch.mjs build/ios/10B329/kernelcache.n90.macho build/ios/shell/kernel.macho
+  node tools/ios/recovery-ramdisk.mjs build/ios/10B329/restore.dmg build/ios/shell/recovery-shell build/ios/shell/disk.dmg
+  node tests/ios/recovery.mjs build/ios/shell/kernel.macho build/ios/10B329/DeviceTree.n90ap.bin build/ios/shell/disk.dmg
+  ```
+  macOS 自带 clang、ld 与 codesign 可生成 armv7 静态 Mach-O 及 SHA-1/SHA-256 临时签名，无需 iOS SDK。
+  串口输入后，内核 sysctl 返回 Darwin 13.0.0、iPhone3,1、1 核、527433728 字节可用物理内存。
+  时钟门控和 CDMA 通道注册已过启动探测，CDMA 数据传送、
+  DART DMA 地址转换、NAND、密钥与完整电源模型还未验收。
 
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。

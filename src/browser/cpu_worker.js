@@ -111,7 +111,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         // (machine_type "virt": docs/arm64-virt-android16-plan.md P1.1)
         "apple_model": o.apple_model,
         "ios": o.ios && { "kernelcache": file(o.ios.kernelcache), "devicetree": file(o.ios.devicetree),
-            "ramdisk": file(o.ios.ramdisk), "boot_args": o.ios.boot_args },
+            "ramdisk": file(o.ios.ramdisk), "bootlogo": file(o.ios.bootlogo), "boot_args": o.ios.boot_args },
         "kernel": file(o.kernel), "dtb": file(o.dtb),
         // (docs/android-images-plan.md I2: the bootloader runs in the worker, beside the disk)
         "android": o.android && { "device": o.android.device, "gpu_mode": o.android.gpu_mode, "selinux": o.android.selinux,

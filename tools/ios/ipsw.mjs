@@ -84,6 +84,7 @@ const image = name =>
 write_file(`kernelcache.${model}.macho`, complzss_decompress((await image("Kernelcache")).data));
 write_file(`DeviceTree.${board}.bin`, (await image("DeviceTree")).data);
 write_file("restore.dmg", (await image("RestoreRamdisk")).data);
+if(keys.images.AppleLogo) write_file("AppleLogo.ibootim", (await image("AppleLogo")).data);
 if(!no_rootfs)
 {
     const target = path.join(out_dir, "rootfs.hfs");
