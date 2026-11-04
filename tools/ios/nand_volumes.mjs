@@ -1,6 +1,7 @@
 // Build the logical volumes and YAFTL translation pages for the N90.
 // Inputs are raw HFS+/HFSX volumes (not the encrypted IPSW container).
 import fs from "node:fs";
+import { open_volume } from "./hfs_edit.mjs";
 import { crc32 } from "../../src/android/bytes.js";
 import { NAND_DATA } from "../../src/apple/nand.js";
 import { FTL_BLOCK_PAGES, FTL_ENTRIES, FTL_USER_PAGES, FIRST_INDEX_BLOCK, CONTROL_BLOCK,
@@ -10,15 +11,12 @@ const CHUNK = 2 ** Math.ceil(Math.log2(MEDIA_SIZE / 1024));
 const CHUNKS = Math.floor(MEDIA_SIZE / CHUNK);
 const empty = Buffer.alloc(NAND_DATA);
 
-function volume_size(fd)
+async function volume_geometry(fd)
 {
-    const header = Buffer.alloc(512);
-    if(fs.readSync(fd, header, 0, header.length, 1024) !== header.length ||
-        !["H+", "HX"].includes(header.toString("ascii", 0, 2))) throw new Error("expected a raw HFS+ or HFSX volume");
-    const blockSize = header.readUInt32BE(40), size = blockSize * header.readUInt32BE(44);
-    if(blockSize < 512 || (blockSize & (blockSize - 1)) || !Number.isSafeInteger(size) ||
+    const volume = await open_volume(fd, true), block = volume.block_size, size = block * volume.total_blocks;
+    if(block < 512 || (block & (block - 1)) || !Number.isSafeInteger(size) ||
         !size || size > fs.fstatSync(fd).size) throw new Error("invalid HFS volume geometry");
-    return size;
+    return volume;
 }
 
 export function data_capacity(systemSize)
@@ -56,9 +54,12 @@ function lwvm_header(dataStart)
     return h;
 }
 
-export function write_volumes(put, system, data)
+export async function write_volumes(put, system, data)
 {
-    const sizes = [volume_size(system), volume_size(data)], dataStart = 1 + Math.ceil(sizes[0] / CHUNK);
+    const [sys, varVolume] = await Promise.all([volume_geometry(system), volume_geometry(data)]);
+    const sizes = [sys.block_size * sys.total_blocks, varVolume.block_size * varVolume.total_blocks];
+    const dataStart = 1 + Math.ceil(sizes[0] / CHUNK);
+    const allocation = await varVolume.allocation_bitmap();
     if(dataStart >= CHUNKS - 8 || sizes[1] > data_capacity(sizes[0]))
         throw new Error("HFS volumes do not fit N90 NAND");
     const indices = new Map(), directory = Buffer.alloc(NAND_DATA, 255);
@@ -103,7 +104,18 @@ export function write_volumes(put, system, data)
             const length = Math.min(NAND_DATA, size - at);
             if(length < NAND_DATA) page.fill(0);
             if(fs.readSync(fd, page, 0, length, at) !== length) throw new Error("short HFS volume read");
-            if(!page.equals(empty)) map((start * CHUNK + at) / NAND_DATA, page);
+            // 10B329 can leave the caller's buffer untouched for an unmapped
+            // YAFTL page. Preserve all bytes of the restore volume and allocated
+            // data blocks, including zero-filled file data and HFS metadata.
+            if(fd === data && allocation && page.equals(empty))
+            {
+                const first = Math.floor(at / varVolume.block_size);
+                const end = Math.ceil((at + length) / varVolume.block_size);
+                let b = first;
+                while(b < end && !(allocation[b >>> 3] & (0x80 >>> (b & 7)))) b++;
+                if(b === end) continue;
+            }
+            map((start * CHUNK + at) / NAND_DATA, page);
         }
     }
     const index = stream(FIRST_INDEX_BLOCK, CONTROL_BLOCK, 4);

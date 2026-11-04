@@ -38,7 +38,7 @@ try
             try
             {
                 const data = fs.openSync(pages[1], "r");
-                try { write_volumes(put, sys, data); }
+                try { await write_volumes(put, sys, data); }
                 finally { fs.closeSync(data); }
             }
             finally { fs.closeSync(sys); }

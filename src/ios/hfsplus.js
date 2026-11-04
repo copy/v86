@@ -16,7 +16,7 @@ const be32 = (b, at) => (b[at] << 24 | b[at + 1] << 16 | b[at + 2] << 8 | b[at +
 const be64 = (b, at) => be32(b, at) * 0x100000000 + be32(b, at + 4);
 
 const FOLDER = 1, FILE = 2, FOLDER_THREAD = 3, FILE_THREAD = 4;
-const ROOT_ID = 2, EXTENTS_ID = 3, CATALOG_ID = 4, ATTRIBUTES_ID = 8;
+const ROOT_ID = 2, EXTENTS_ID = 3, CATALOG_ID = 4, ALLOCATION_ID = 6, ATTRIBUTES_ID = 8;
 const LEAF = -1, INDEX = 0, HEADER = 1;
 // (seconds from 1904 to 1970)
 const EPOCH = 2082844800;
@@ -52,8 +52,8 @@ export function HFSPlus(read)
     this.header = null;
 }
 
-/** Reads the volume header and the B-trees' headers */
-HFSPlus.prototype.open = async function()
+/** Read the volume geometry and metadata fork descriptors. */
+HFSPlus.prototype.open_header = async function()
 {
     const h = await this.read(1024, 512);
     const signature = latin1(h, 0, 2);
@@ -63,7 +63,25 @@ HFSPlus.prototype.open = async function()
     this.total_blocks = be32(h, 0x2C);
     this.free_blocks = be32(h, 0x30);
     this.header = h;
-    this.forks = { [EXTENTS_ID]: fork(h, 0xC0), [CATALOG_ID]: fork(h, 0x110), [ATTRIBUTES_ID]: fork(h, 0x160) };
+    this.forks = { [ALLOCATION_ID]: fork(h, 0x70), [EXTENTS_ID]: fork(h, 0xC0), [CATALOG_ID]: fork(h, 0x110), [ATTRIBUTES_ID]: fork(h, 0x160) };
+    return this;
+};
+
+/** Read only the allocation bits, including overflow extents when needed. */
+HFSPlus.prototype.allocation_bitmap = async function()
+{
+    const file = this.forks[ALLOCATION_ID], size = Math.ceil(this.total_blocks / 8);
+    if(!file.size) return null;
+    if(file.size < size) throw new Error("HFS+: short allocation bitmap");
+    const covered = file.extents.reduce((n, e) => n + e.count, 0) * this.block_size;
+    if(covered < file.size && !this.extents) this.extents = await this.btree(EXTENTS_ID);
+    return this.read_fork(ALLOCATION_ID, file, 0, size);
+};
+
+/** Reads the volume header and the B-trees' headers */
+HFSPlus.prototype.open = async function()
+{
+    await this.open_header();
     this.extents = await this.btree(EXTENTS_ID);
     this.catalog = await this.btree(CATALOG_ID);
     this.attributes = this.forks[ATTRIBUTES_ID].size ? await this.btree(ATTRIBUTES_ID) : null;

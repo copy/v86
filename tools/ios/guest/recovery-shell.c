@@ -66,6 +66,49 @@ static void number_field(int group, int field)
     put(buf + i);
 }
 
+#ifdef N90_TEST_NAND
+// Raw I/O issues multi-page reads to both FMI buses without mounting or
+// writing the system volume. Print a cumulative CRC every 4 MiB.
+static unsigned char nand_block[256 * 1024] __attribute__((aligned(4096)));
+static void put_hex(unsigned value)
+{
+    char text[9];
+    for(int i = 7; i >= 0; i--) { text[i] = "0123456789abcdef"[value & 15]; value >>= 4; }
+    text[8] = 0;
+    put(text);
+}
+
+static void nand_crc(void)
+{
+    int fd = -1;
+    for(unsigned i = 0; i < 300 && fd < 0; i++)
+    {
+        fd = call(5, (word)"/dev/rdisk0s1s1", 0, 0, 0, 0, 0);
+        if(fd < 0)
+        {
+            int timeout[2] = { 0, 100000 };
+            call(93, 0, 0, 0, 0, (word)timeout, 0);
+        }
+    }
+    if(fd < 0) { put("NAND system device unavailable\n"); return; }
+    unsigned table[256], crc = ~0u;
+    for(unsigned i = 0; i < 256; i++)
+    {
+        unsigned v = i;
+        for(unsigned bit = 0; bit < 8; bit++) v = (v >> 1) ^ (0xedb88320u & -(v & 1));
+        table[i] = v;
+    }
+    for(unsigned n = 1; n <= 128; n++)
+    {
+        int size = call(3, fd, (word)nand_block, sizeof(nand_block), 0, 0, 0);
+        if(size != sizeof(nand_block)) { put("NAND short read\n"); break; }
+        for(unsigned i = 0; i < sizeof(nand_block); i++) crc = table[(crc ^ nand_block[i]) & 255] ^ (crc >> 8);
+        if(n % 16 == 0) { put("NAND CRC "); put_hex(~crc); put("\n"); }
+    }
+    call(6, fd, 0, 0, 0, 0, 0);
+}
+#endif
+
 #ifdef N90_TEST_GLES
 #include "gles-transport.h"
 
@@ -158,6 +201,9 @@ __attribute__((noreturn)) void start(void)
             if(conn > 0) gles_call(5, 0, 0, conn);
             put(ok ? "GLES frame matched 64 pixels\n" : "GLES frame failed\n");
         }
+#endif
+#ifdef N90_TEST_NAND
+        else if(equal(line, "nand crc")) nand_crc();
 #endif
         else if(n) put("commands: uname -a, sysctl hw\n");
     }

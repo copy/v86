@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { crc32 } from "node:zlib";
 
-function check(image, sources)
+function check(image, sources, synthetic = false)
 {
     const fd = fs.openSync(image, "r"), zero = Buffer.alloc(8192);
     try
@@ -36,15 +36,15 @@ function check(image, sources)
             assert.ok(physical(block * 512 + cursor).every(b => b === 255), "next program must target an erased row");
         }
         const directory = physical(control + 4), cache = new Map();
-        function logical(lpn)
+        function mappedPage(lpn)
         {
             const dir = lpn >>> 11, index = directory.readUInt32LE(dir * 4);
-            if(index === 0xFFFFFFFF) return zero;
+            if(index === 0xFFFFFFFF) return null;
             if(!cache.has(index)) cache.set(index, physical(index));
             const vpn = cache.get(index).readUInt32LE((lpn & 2047) * 4);
-            return vpn === 0xFFFFFFFF ? zero : physical(vpn);
+            return vpn === 0xFFFFFFFF ? null : physical(vpn);
         }
-        const head = logical(0).subarray(0, 4096);
+        const head = mappedPage(0).subarray(0, 4096);
         assert.equal(head.toString("hex", 0, 16), "6a9088cf8afd630ae351e24887e0b98b");
         const checksum = head.readUInt32LE(44);
         head.writeUInt32LE(0, 44);
@@ -76,7 +76,13 @@ function check(image, sources)
                     assert.equal(fs.readSync(input, src, 0, n, off), n);
                     const tag = (part << 12) + Math.floor(off / chunk);
                     assert.ok(chunks.has(tag));
-                    const data = logical((chunks.get(tag) * chunk + off % chunk) / 8192);
+                    const mapped = mappedPage((chunks.get(tag) * chunk + off % chunk) / 8192);
+                    if(part === 0) assert.ok(mapped, "unmapped system page at " + off);
+                    if(synthetic && part === 1 && off === 4 * 8192)
+                        assert.ok(mapped, "allocated zero data block must have a NAND mapping");
+                    if(synthetic && part === 1 && off === 5 * 8192)
+                        assert.equal(mapped, null, "free zero data page can be trimmed");
+                    const data = mapped || zero;
                     assert.ok(data.subarray(0, n).equals(src.subarray(0, n)), "volume " + part + " mismatch at " + off);
                 }
             }
@@ -106,6 +112,14 @@ else
                 header.write("HX");
                 header.writeUInt32BE(4096, 40);
                 header.writeUInt32BE(size / 4096, 44);
+                if(i)
+                {
+                    header.writeBigUInt64BE(BigInt(size / 4096 / 8), 112);
+                    header.writeUInt32BE(1, 124);
+                    header.writeUInt32BE(2, 128);
+                    header.writeUInt32BE(1, 132);
+                    fs.writeSync(fd, Buffer.from([0xA0, 0x40]), 0, 2, 8192);
+                }
                 fs.writeSync(fd, header, 0, header.length, 1024);
                 const mark = Buffer.alloc(32, i + 13);
                 fs.writeSync(fd, mark, 0, mark.length, size - 512);
@@ -116,7 +130,7 @@ else
         const image = path.join(temp, "flash.img");
         execFileSync(process.execPath, [fileURLToPath(new URL("../../tools/ios/nand_build.mjs", import.meta.url)),
             "volumes", image, ...sources]);
-        check(image, sources);
+        check(image, sources, true);
     }
     finally { fs.rmSync(temp, { recursive: true, force: true }); }
 }

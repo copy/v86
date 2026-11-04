@@ -1,19 +1,25 @@
 // S3 acceptance against a private kernel and copy of the restore ramdisk.
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import { crc32 } from "node:zlib";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { V86 } from "../../src/main.js";
 
-const [kernel, dt, disk, mode] = process.argv.slice(2);
-if(!disk || mode && !["--gles", "--frame"].includes(mode)) throw new Error("usage: recovery.mjs kernel device-tree debug-ramdisk [--gles|--frame]");
+const [kernel, dt, disk, mode, nand, system, ...extra] = process.argv.slice(2);
+if(!disk || extra.length || (mode && !["--gles", "--frame", "--nand"].includes(mode)) ||
+    (mode === "--nand" ? !nand || !system : nand || system))
+    throw new Error("usage: recovery.mjs kernel device-tree debug-ramdisk [--gles|--frame|--nand flash.img system.hfs]");
+const graphics = mode === "--gles" || mode === "--frame";
 const file = name => ({ url: path.resolve(name) });
 const renderer = mode === "--frame" ? await (await import("../gles/chrome_renderer.mjs")).chrome_renderer() : null;
 const emulator = new V86({
     machine_type: "s5l8930", graphics_adapter: "none", log_level: 0, autostart: false,
-    gles_backdoor: !!mode,
-    graphics_adapter_renderer_channel: renderer || (mode ? { post() {}, listen() {} } : null),
+    gles_backdoor: graphics,
+    graphics_adapter_renderer_channel: renderer || (graphics ? { post() {}, listen() {} } : null),
     wasm_path: fileURLToPath(new URL("../../build/v86-arm64.wasm", import.meta.url)),
-    ios: { kernelcache: file(kernel), devicetree: file(dt), ramdisk: file(disk), boot_args: "-v serial=3 rd=md0" },
+    ios: { kernelcache: file(kernel), devicetree: file(dt), ramdisk: file(disk),
+        nand: nand ? { url: path.resolve(nand), size: fs.statSync(nand).size } : undefined, boot_args: "-v serial=3 rd=md0" },
 });
 let serial = "";
 emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
@@ -26,7 +32,7 @@ try
     const cpu = emulator.v86.cpu;
     cpu.clock.resume();
     const until = async (offset, text) => {
-        const deadline = performance.now() + 120000;
+        const deadline = performance.now() + (mode === "--nand" ? 600000 : 120000);
         while(!serial.includes(text, offset) && !serial.includes("panic(cpu") && performance.now() < deadline)
         {
             for(let i = 0; i < 32; i++) cpu.run_cores();
@@ -47,7 +53,26 @@ try
     assert.match(hardware, /hw\.machine = iPhone3,1/);
     assert.match(hardware, /hw\.ncpu = 1/);
     assert.match(hardware, /hw\.physmem = [1-9]\d+/);
-    if(mode) assert.match(await command("gles display"), /GLES display 640x960 326 dpi/);
+    if(graphics) assert.match(await command("gles display"), /GLES display 640x960 326 dpi/);
+    if(nand)
+    {
+        await until(0, "LwVM::_partitionsFromConfig - loaded configuration for 2 partitions");
+        const raw = await command("nand crc");
+        const expected = [], block = Buffer.alloc(4 * 1024 * 1024), fd = fs.openSync(system, "r");
+        try
+        {
+            let crc = 0;
+            for(let i = 0; i < 8; i++)
+            {
+                assert.equal(fs.readSync(fd, block), block.length);
+                crc = crc32(block, crc);
+                expected.push(crc.toString(16).padStart(8, "0"));
+            }
+        }
+        finally { fs.closeSync(fd); }
+        assert.deepEqual(Array.from(raw.matchAll(/NAND CRC ([0-9a-f]{8})/g), m => m[1]), expected, raw);
+        console.log("PASS: 32 MiB read through the guest raw NAND device matches the supplied HFS volume");
+    }
     if(renderer)
     {
         assert.match(await command("gles frame"), /GLES frame matched 64 pixels/);

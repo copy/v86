@@ -4,13 +4,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { HFSPlus } from "../../src/ios/hfsplus.js";
 
-export function open_volume(fd)
+export function open_volume(fd, headerOnly = false)
 {
-    return new HFSPlus((at, n) => {
+    const volume = new HFSPlus((at, n) => {
         const b = Buffer.alloc(n);
         assert.equal(fs.readSync(fd, b, 0, n, at), n);
         return b;
-    }).open();
+    });
+    return headerOnly ? volume.open_header() : volume.open();
 }
 
 export async function write_node(fd, volume, tree, number, bytes)
