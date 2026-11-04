@@ -2154,6 +2154,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 首轮 XP 的 API/9 图像日志已通过，但 runner 沿用旧成功文本误报；修正 runner 后完整重新捕获，生产 C/SDK 未改。完整客体初跑中仅旧 D3D9 额外 chain/surface 测试仍期待直接设备 Release 清空两个槽，改为保留槽并补齐显式解绑路径后，原 12 个变异再次全部检出。新跑 **完整客体 277 suites**、核心相关 **41 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 问题通过，继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j7-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J7.json`。
 > - D3D8、NULL stream 的 offset/stride 零售边界、FVF 转换声明的公开缓存身份、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J8（2026-11-04）：D3D9 空 stream 零售元数据、状态块精确恢复与成功 UP 清零完成。**
+> - 公开 SetStreamSource(NULL) 忽略传入 offset/stride，保留当前实时槽的元数据；录制时同样取实时槽，不能误取先前录制的 VB 参数。共用内部绑定 setter 负责准确发布 buffer/offset/stride 及私有释放，状态块 Apply 直接通过它恢复捕获的空槽元数据，避免再触发公开 NULL 归一化。成功 UP 将 stream 0 的 buffer/offset/stride 全部清零；IndexedUP 另清 IB。依据固定 Wine 公开 Set3848+、内部 setter2032+、UP3362/3431 及 Windows NULL/UP 测试。
+> - 新实际 C **40,960 检查、512 pool/slot 组合、4,096 次 NULL 保留、512 轮录制 NULL/Capture/Apply**，覆盖 16 槽、零 stride、巨大但被忽略的输入、重复过滤、实时与录制参数区别、捕获参数精确恢复及最终存储回收。**12/12** 严格编译后断言变异、旧实际公开 Set/旧 Apply 配新公开 NULL 规则/旧 UP 三组负对照及 ASAN/UBSAN 通过，先前资源/根状态/回调检查保留。VB 实时变异改为选择共用内部 setter，录制变异明确选录制分支，原 27/11 项控制继续通过。
+> - XP 使用 **5 VB / 1 IB、16 槽、70 次 stream Getter、两次 Apply、一次 Capture**：16 槽解绑均保留 16/20 参数；录制不同 VB 的 64/28 后再录 NULL，准确取实时 32/20；实时改成 0/4 后 Apply 仍恢复 NULL 32/20，Capture 空槽后再次恢复同样参数并回收替换 VB。两次绑定 strip 绘制、PrimitiveUP、IndexedUP 和 Reset 后 Clear 共 **5 读回**；UP 查询为 NULL/0/0，IB 清空，Reset 后全部槽归默认。设备 pin 与最终引用核对通过。捕获 **135 秒、7 批次、一个 owner/release**，仅写 RAM overlay，模拟像素只证明传输。
+> - 冻结流核对 **6 次准确上传、38 stream / 1 indices 设置、2 bound / 1 UP / 1 indexedUP、1 清屏、1 Reset、6 缓冲销毁**；逐项验证 16 槽保留参数、录制没有误发实时指令、Capture/Apply 的 NULL 32/20 与资源退休。C 先发布空槽再私有释放，故线上 Destroy 可紧邻并先于 SET_STREAM_SOURCE(NULL)；reader 要求准确的下一命令配对及其他槽已解绑，避免将合理顺序误判为旧句柄绘制。**61 项语义破坏**均拒绝。SwiftShader/Metal 各验证 **5 图像、320 实际像素，零误差/零 GPU 或宿主错误**，真实 owner 释放前设备/资源表为空。
+> - SDK 严格构建发现沿用的 refs helper 未使用，补入设备 pin 债务核对后才进行最终 XP；fixture lint 清除复用 reader 的未使用局部变量。新跑 **完整客体 279 suites**、核心相关 **42 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题通过，继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j8-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J8.json`。
+> - 非 NULL offset 范围/未对齐硬件差异、失败 UP 清理、FVF 转换声明公开缓存身份、D3D8、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
