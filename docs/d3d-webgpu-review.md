@@ -2178,6 +2178,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **完整客体 283 suites**、核心相关 **44 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题通过；继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j10-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J10.json`。
 > - 完整用户声明反推、非 NULL stream 范围/硬件未对齐、失败 UP 清理、D3D8 包装、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J11（2026-11-04）：D3D9 缺少顶点声明时 UP 失败的私有存储清理完成。**
+> - 对基本参数有效、非零 primitive 且缺少声明的公开 UP，返回 INVALIDCALL，同时断开实时 stream 0；IndexedUP 另断开 IB。失败保留原 offset/stride，与成功 UP 的 NULL/0/0 分开。仅通过私有 hold 释放，槽发布为空后才回收旧对象，其他槽保持；录制中直接作用于实时状态，不将清理录入状态块。内部 indexed draw 新增独立 public_up 参数，与 track_status 分离：N-patch 的 TRUE/FALSE 和 Rect/Tri patch 的 FALSE/FALSE 都保留绑定。依据 Windows device3171–3203 的 NULL VB/保留 stride 与 NULL IB（Wine todo）及3270+不录制成功清理；其他参数/status/发射失败保留旧策略，失败 offset/IndexedUP 元数据沿用保守规则，不冒充新的 HAL 证明。
+> - 新实际 C **44,800 检查、256 pool/最终拥有者组合、8,192 次缺声明拒绝**，覆盖实时元数据、索引私有回收、第二槽隔离、录制排除、独立 tracking/public 标志、成功 UP 清零及其他失败不变。状态计算与传输为明确 stub，真正公开方法和私有生命周期执行；**12/12** 严格编译后断言变异、旧实际非索引 UP/旧 indexed 内部函数两组负对照与 ASAN/UBSAN 通过。旧 indexed 对照只适配未使用的新参数，旧行为原样保留。先前资源/声明/缓存/根状态检查继续通过。
+> - XP 使用 **3 VB / 2 IB**，验证 **3 次缺声明 + 1 次基本参数拒绝、16 次 stream / 6 次 indices 查询**。私有独占 A/C/IB 在失败时及时退休，旁路槽 B 保留；失败期间的空记录状态块 Capture/Apply 不覆盖后续 B/IB，之后绑定绘制、两次 UP 和一次 IndexedUP 正常，成功清零与失败保留明确区分，最后 Reset/Clear。**128 秒、7 批次、一个 owner/release、5 读回**，仅 RAM overlay；模拟像素只证明传输。
+> - 冻结流核对 **5 次准确上传、7 stream / 2 indices、1 bound / 2 UP / 1 IndexedUP、1 Reset / Clear、5 buffer + 1 缓存声明销毁**，拒绝绘制没有错误发射 packet。仅有资源退休而无状态命令的实时变更由 SDK Getter 证明；wire 验证退休顺序和后续可见行为。**86 项语义破坏**全部拒绝。SwiftShader/Metal 各验证 **5 图像、320 实际像素，零误差/零图形错误**，真实 owner 释放前设备/资源表为空。
+> - 初次原生 harness 将新状态字段放在 COM interface 前，破坏已有转换；恢复 interface 首字段并修正严格比较警告后通过。初次 retail 缺输出目录，创建后严格构建通过。首轮 XP 日志 `UPFAIL FRAME` 意外包含工具失败哨兵 `FAIL `，保存失败记录、改成 `UPF` 并重新完整捕获。**完整客体 285 suites**、核心相关 **45 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 通过，继承 4I9 完整核心238/六次 GPU。发布准确最终 XP DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j11-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J11.json`。
+> - 零 primitive UP、其他零售 stream/UP 分支、完整用户声明反推、D3D8 包装、任意线程/回调/丢失/完整 Reset/格式/MSAA/全屏/多缓冲、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
