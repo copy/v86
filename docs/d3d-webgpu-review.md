@@ -2455,6 +2455,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **350客体/74核心完整通过**；32标准EXE/四严格DLL/21-member核心/SDK8新ABI、站点集成2项和两侧本任务零新增lint通过。发布最终XP接受的准确8/9零售DLL及严格diagnostic，见 [stage4k28-validation.json](fixtures/d3d-review/stage4k28-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K28.json`。
 > - 宿主/协议/着色器/DDraw/包 `9335ee9a77fb7cc808d2` 未变，继承4I9完整核心238/六GPU基线。继续CopyRects/着色器句柄转换与完整公开8设备/资源包装；原生pool/FVF/depth-Usage/pitch、RT纹理/立方体其他读回规则、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
 
+> **阶段 4K29（2026-11-05）：共用 API8 CopyRects 顺序、重叠及 CPU/GPU 复制算法。**
+> - 把原公开8的单矩形算法和数组入口原样抽入 `d9wg_copy_rects_bridge8.h`，公开8变成薄调用；新增私有 `d9wg_d3d9_core_copy_rects8@24`，只接受API8核心设备，使用实际核心9的表面/父级存储、上传及公共读回传输。保留零count指针语义、多矩形逐项提交/中途失败、可选目标点、同存储快照、部分写的有效性、池组合和立方体face/mip身份。普通9的UpdateSurface/StretchRect/GetRenderTargetData仍应用原规则。
+> - 冻结准确4K28旧8两个实际函数作对照，SDK8/9描述从真实头文件提取；**316,230次检查 / 77,766个案例**覆盖四池、21/23/内部65元数据、CPU/2D/cube/隐式缓冲、padding、锁/深度/异设备、读取/上传失败、顺序部分成功、重叠/OOM及profile守卫。内部合成池/65组合用于算法对照，不冒充原生HAL能力。**22项严格编译后的实际C断言变异、两组ASAN**通过；保留公开8的61案例/29项语义变异全部通过。源码审计证明16个原有方法/存储函数字节未变，两个共享主体机械还原后与准确旧8逐字节相同。
+> - **首次严格SDK构建和首次实际XP捕获170秒/29批次通过**：准确4K28旧8、当前公开8、核心8 SDK120/220，四设备/四Reset、**1,148个本地DWORD检查、16纹理/24句柄、16上传528字节、20GPU blit、20读回**。核对立方体face4/mip1、CPU和cube重叠、两项成功后第三矩形失败且前两项已生效、零count无操作、锁定源/越界拒绝及Reset8×8→5×3。实际Hello为 **[0,0]**；核心8借用已附加的进程运行时，没有普通9模式新增Hello。单owner/session/end/最终释放、模块实际卸载、finalRefs=0、能力0与RAM磁盘overlay通过。CPU读回回复明确为独立解析图像注入。
+> - 冻结器首轮误把外层Escape的保留word当0、遗漏WINDOW_STATE/常量默认包并误设三次Hello，还引用了协议中不存在的Clear.rects_offset；核对真实协议/捕获后修正检查器，保留三轮失败日志，未改VM字节、SDK断言或生产代码。**1,273项字段/像素/日志/生命周期语义破坏**全部检出。
+> - SwiftShader与Metal各验证 **20张完整图像 / 1,084个RGBA像素零差异**，实际16纹理/4cube、16上传528字节、20blit、20读回、零Draw/Present、零宿主/GPU错误；客体在SessionEnd兜底及owner释放前已把资源/设备映射清空。此项证明复制路径，不宣称新增着色器绘图正确性。
+> - **352客体/75核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/SDK8新ABI、站点集成2项和两侧本任务零新增lint通过。发布本次XP接受的准确公开8零售DLL、同源严格构建9零售DLL及两API严格diagnostic；本次没有运行普通9的SDK模式，普通9由源码不变审计及保留测试覆盖。证据 [stage4k29-validation.json](fixtures/d3d-review/stage4k29-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K29.json`。
+> - 宿主/协议/着色器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续着色器/状态块句柄与完整公开8设备/资源包装；其他原生pool/FVF/depth-Usage/pitch、RT纹理/cube普通Lock读回、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
