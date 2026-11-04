@@ -2114,6 +2114,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新跑 **完整客体 267 suites**、核心相关 **36 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU。发布准确 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/着色器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j2-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J2.json`。
 > - D3D8、volume/缓冲/着色器/状态块的绑定计数、外部子资源存活时设备根状态保持、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J3（2026-11-04）：D3D9 体纹理 sampler/层视图的公开计数与体数据存储（S2-42 / Reset 后续）完成。**
+> - volume sampler 只保留内部 binding_refs，公开计数由父纹理/所有缓存 volume 层共享；公开 0→1 只持有一个设备 pin，1→0 先处理物理存储再最后归还。共用销毁摘除 volume 资源链并清理父/层 private data、缓存视图与切片像素。实时替换、设备清理和 Reset 使用私有 volume 引用；三类纹理都不再把私有 sampler 槽作为 DEFAULT 公开计数的折扣。
+> - 新实际 C **70,656 检查、1,024 pool/最终拥有者组合、8,192 次公开归零恢复、64 轮二维→cube→volume→二维替换**，覆盖四 sampler、两层缓存与共享计数、设备 pin、锁/外部公开引用 Reset、非法层/stage/外设备及四种清理顺序。**14/14** 严格编译后运行时变异、旧实际 volume 方法配新 helpers 的计数负对照及 ASAN/UBSAN 通过，保留二维 86,784/cube 104,192 检查与独立目标 suite。
+> - XP 构造 **4×4×4 DEFAULT dynamic volume + 2×2×2 mip**，上传六个切片，经三个 sampler 保留；**128 次**父/层/容器恢复、256 次 private data 和 128 次容器查询，公开转换设备 pin 逐项核对。采样四个基级切片，通过缓存层只改 slice 2 并验证 slice 3 保留；显式 MIPFILTER POINT/MAXMIPLEVEL=1 选择两个较小层切片。父公开引用及仅子层引用分别阻止 Reset，释放后仅绑定允许 Reset。**139 秒、11 批次、一个 owner/release、9 读回**，仅写 RAM overlay；XP 模拟回复仍只验证传输。
+> - 冻结流核对 **7 个准确切片上传、8 绘制、1 清屏、9 读回**，独立校验 UpdateTexture 的 z/depth/slice_pitch、三维坐标、mip 选择和 Reset 后准确 volume 销毁；**45 项语义破坏**均拒绝。MIN/MAG POINT 属于默认值，guest 会过滤重复写，reader 已用共享默认值初始化并仍要求显式 mip 状态，清除复用 cube reader 的残留变量；生产/SDK/捕获不变。SwiftShader/Metal 各核对 **9 图像、576 实际像素，零误差/零 GPU 或宿主错误**；真实 owner 释放前实际设备/资源表为空。
+> - 新跑 **完整客体 269 suites**、核心相关 **37 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU。三类 sampler 均已私有化，旧 D3D9 Reset 的“最后 sampler 公共引用折扣”变异相应改为“私有 sampler 错误折扣”，D3D8 原最后槽控制保留。发布准确 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/着色器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j3-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J3.json`。
+> - D3D8、缓冲/声明/着色器/状态块绑定计数、外部子资源存活时设备根状态保持、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
