@@ -2170,6 +2170,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 录制 registry 的 cache 创建使用独立后端构造 stub，明确区分资源创建和被记录的状态写入；真实 cache 存储/pin 在新原生图和 XP 验证。完整客体初跑中未启用声明测试的十个入口因 cache 统计变量未使用而严格编译失败，改为按声明功能声明计数后新跑 **完整客体 281 suites** 全过。另有核心相关 **43 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 问题通过，继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j9-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J9.json`。
 > - 用户声明反推 FVF（特别是 Windows POSITION/POSITIONT-only 分支）、非 NULL stream 范围/未对齐硬件差异、失败 UP 清理、D3D8、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J10（2026-11-04）：D3D9 POSITION-only 用户声明 FVF 关联与转换缓存身份隔离完成。**
+> - CreateVertexDeclaration 为精确单元素、stream/offset/index 为零且默认 method 的 POSITION FLOAT3 / POSITIONT FLOAT4 分别关联 XYZ2 / XYZRHW4；实时和录制绑定、Capture/Apply 通过已有声明关联保留 GetFVF。其余反推保持原来的零值。新增独立 `fvf_converted` 来源标志，使 cache 查找不会吸收同 FVF 的用户对象；来源标志与可摘除的 cache 私有拥有标志分开，公开视图清理后仍可恢复原缓存身份。依据固定 Windows 声明转换测试514–545（两项正例在 Wine 标记 todo_wine）及 Wine 独立转换缓存3563+ / GetFVF3657+；测试本身注明原生配置差异，非零 stream/offset/method/多元素保护只表示保守保留旧策略。
+> - 新实际 C **60,032 检查、128 最终拥有者组合、8,192 次冲突切换**，通过真实公开创建/解析/关联/绑定方法，覆盖 17 个 Windows 正负声明、END、用户先建/缓存先建两种顺序、精确设备 pin、状态块私有存储和最终清理。**11/11** 严格编译后断言变异、旧实际用户构造函数及旧精确 key 查找（移除来源保护）两组负对照、ASAN/UBSAN 通过；4J9 缓存变异按新条件选择后原 14 项继续通过，先前生命周期检查保留。
+> - XP 创建 **7 用户 / 2 缓存声明**，进行 **128 组冲突切换、269 次身份/FVF 查询、269 轮完整布局与 END 比对**。先建 XYZ 用户后建同值 cache，先建 RHW cache 后建同值用户；录制用户公开归零后由状态块保留，Apply/Capture 恢复关联；公开 cache 视图允许 Reset，随后返回原指针。五个 position-only UP 绘制通过 texture-factor 着色，覆盖 XYZ 用户/cache、RHW 用户/cache及 Reset 恢复。**127 秒、7 批次、一个 owner/release、5 读回**，仅写 RAM overlay；模拟像素只证明传输。
+> - 冻结流核对 **9 声明、133 内联 FVF、141 资源声明绑定、5 UP、1 Reset、9 准确销毁**，包括空声明、12/16 字节原始顶点、每帧 texture-factor 与用户/缓存独立退休顺序。**69 项语义破坏**全部拒绝。SwiftShader/Metal 各验证 **5 图像、320 实际像素，零误差/零图形错误**，真实 owner 释放前设备/资源表为空。初次 fixture 复制留下多余括号，修正后重新跑相关 44 核心检查。
+> - **完整客体 283 suites**、核心相关 **44 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题通过；继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j10-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J10.json`。
+> - 完整用户声明反推、非 NULL stream 范围/硬件未对齐、失败 UP 清理、D3D8 包装、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

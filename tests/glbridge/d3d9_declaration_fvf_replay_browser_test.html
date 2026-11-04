@@ -1,0 +1,65 @@
+<!doctype html><meta charset="utf-8"><title>D3D9 user declaration FVF and converted identity</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async () => {
+    /* global TextDecoder */
+    "use strict";
+    const P = D9WGProtocol, comparisons = []; let gpu, batches = 0, pixels = 0;
+    function check(value, message) {if (!value) throw Error(message);}
+    async function hash(bytes) {return Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)), v => v.toString(16).padStart(2, "0")).join("");}
+    async function artifact(data) {await fetch("/__test_file?name=d3d9-declaration-fvf-guest.json", {method: "POST", body: JSON.stringify(data, null, 2)});}
+    try {
+        const prefix = "fixtures/d3d9_declaration_fvf_", m = await (await fetch(prefix + "xp.json")).json(), refBytes = new Uint8Array(await (await fetch(prefix + "reference.json")).arrayBuffer());
+        check(await hash(refBytes) === m.referenceSha256, "Reference hash mismatch"); const reference = JSON.parse(new TextDecoder().decode(refBytes));
+        const response = await fetch(prefix + "xp.bin.gz"), bytes = new Uint8Array(await new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer()), view = new DataView(bytes.buffer);
+        check(await hash(bytes) === m.traceSha256, "Trace hash mismatch");
+        gpu = new D3D9WebGPUExecutor(document.querySelector("canvas"), {strict: true, useShaderWorker: false}); await gpu.initialize();
+        const context = gpu.context; gpu.context = {configure: options => context.configure(options), unconfigure: () => context.unconfigure(), getCurrentTexture() {throw Error("Unexpected primary Present");}};
+        for (let at = 0; at < bytes.length;) {
+            const ownerToken = view.getUint32(at, true), flags = view.getUint32(at + 4, true), size = view.getUint32(at + 8, true); at += 12;
+            check(size >= 8 && size <= bytes.length - at && view.getUint16(at, true) === 0xffe1 && view.getUint32(at + 4, true) === size - 8, "Invalid carrier");
+            const packet = bytes.subarray(at + 8, at + size), pv = new DataView(packet.buffer, packet.byteOffset, packet.byteLength), reads = [];
+            for (let x = P.STRUCTS.BatchHeader.size; x < packet.length;) {
+                const op = pv.getUint16(x, true), length = pv.getUint32(x + P.F.CommandHeader.size, true); check(length >= P.STRUCTS.CommandHeader.size && x + length <= packet.length, "Invalid command");
+                check(op !== P.OP.PRESENT && op !== P.OP.PRESENT_SWAP_CHAIN, "Unexpected presentation");
+                if (op === P.OP.READBACK_SURFACE) reads.push(P.decode("ReadbackSurface", pv, x + P.STRUCTS.CommandHeader.size, length - P.STRUCTS.CommandHeader.size)); x += length;
+            }
+            check(reads.length <= 1, "Multiple readbacks in one guest batch"); let observed = 0;
+            await gpu.submit(packet, {ownerToken, flags, writeGuestMemory(address, data) {
+                const q = reads[0];
+                if (!q || address !== 16 * 1024 * 1024 - P.C.D9WG_RESPONSE_REGION_BYTES + q.response_offset) return;
+                observed++; const frame = m.frames[comparisons.length], row = new DataView(data.buffer, data.byteOffset, data.byteLength);
+                check(frame && q && frame.owner === ownerToken && frame.device === q.device_handle && frame.texture === q.texture_handle && frame.request === q.request_id, "Readback frame identity mismatch");
+                check(address === 16 * 1024 * 1024 - P.C.D9WG_RESPONSE_REGION_BYTES + q.response_offset, "Readback address mismatch");
+                check(data.length === 272 && row.getUint32(P.F.ReadbackResponse.request_id, true) === frame.request && row.getUint32(P.F.ReadbackResponse.byte_count, true) === 256 && row.getUint32(P.F.ReadbackResponse.status, true) === P.C.D9WG_RESPONSE_OK, "Actual GPU readback failed");
+                const wanted = reference.scenes[comparisons.length]; check(JSON.stringify(frame.pixels) === JSON.stringify(wanted.pixels), "Independent pixel reference mismatch");
+                const actual = []; let error = 0; for (let p = 0; p < 64; p++) {actual.push(row.getUint32(16 + p * 4, true)); for (let c = 0; c < 4; c++) error = Math.max(error, Math.abs(data[16 + p * 4 + c] - (wanted.pixels[p] >>> (c * 8) & 255)));}
+                pixels += 64; comparisons.push({index: frame.index, step: frame.index, actual, wanted: wanted.pixels, error});
+            }});
+            await gpu.checkpointIdle();
+            check(observed === reads.length, "Missing actual GPU reply"); at += size; batches++;
+        }
+        const guestCleanup = {devices: gpu.devices.size, resources: gpu.resources.size}; check(!guestCleanup.devices && !guestCleanup.resources, "Guest left live devices/resources before owner release");
+        check(m.ownerReleases.length === 1, "Missing real driver owner release"); for (const owner of m.ownerReleases) await gpu.endOwnerSessions(owner); await gpu.checkpointIdle(); await gpu.device.queue.onSubmittedWorkDone();
+        await artifact({traceSha256: m.traceSha256, referenceSha256: m.referenceSha256, frames: comparisons.length, pixels, comparisons, batches, guestCleanup, stats: gpu.stats, gpuErrors: gpu.gpuErrors.errors, hostErrors: gpu.hostErrors});
+        check(comparisons.length === 5 && pixels === 320 && comparisons.every(c => !c.error), "User declaration FVF pixels mismatch");
+        check(gpu.stats.readbackRequests === 5 && !gpu.stats.renderTargetReadbackFailures && !gpu.stats.responseWriteFailures && gpu.stats.presents === 0 && gpu.stats.sessionsEnded === 1 && !gpu.stats.commandsFailed && !gpu.gpuErrors.errors.length && !gpu.hostErrors.length, "User declaration FVF host lifetime mismatch");
+        document.querySelector("#result").textContent = "PASS actual XP D3D9 user declaration FVF: two POSITION associations, separate canonical cache identities, recorded private lifetime and public Reset, five images, 320 real RGBA pixels, zero error";
+    } catch (error) {await artifact({failed: true, error: String(error.stack), comparisons, stats: gpu && gpu.stats, gpuErrors: gpu && gpu.gpuErrors.errors, hostErrors: gpu && gpu.hostErrors}); document.querySelector("#result").textContent = "FAIL " + error.stack;}
+})();
+</script>
