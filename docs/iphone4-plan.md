@@ -2,7 +2,7 @@
 
 截至 2026-11-05，S1–S3 已用 iPhone3,1 的 10B329 固件验收。S4 已用原版内核从 NAND 挂载系统卷与数据卷，启动核心服务，加载系统钥匙包，并验证 C、D 两类文件写入、同步和重开后的内容。持续运行与首次设置仍在验证中。
 
-S5 已在恢复环境经原版 OpenGLES 入口绘制 640×960 测试帧，并逐像素验证快照恢复。在完整系统冷启动中，backboardd 和 SpringBoard 均已用原版 EAGL 创建宿主上下文，在两个上下文间共享着色器并完成切换和释放。这两个进程也已通过原版 EAGL 接口在共享 IOSurface 上绘图并逐像素读回。系统合成器提交真实界面仍待验收。S6 的触控操作和 S7 的整机集成尚待验收。
+S5 已在恢复环境经原版 OpenGLES 入口绘制 640×960 测试帧，并逐像素验证快照恢复。在完整系统冷启动中，backboardd 和 SpringBoard 均已用原版 EAGL 创建宿主上下文，在两个上下文间共享着色器并完成切换和释放。这两个进程也已通过原版 EAGL 接口在共享 IOSurface 上绘图并逐像素读回，还各自通过原版 CAEAGLLayer 发布了像素正确的窗口测试帧。系统合成器提交真实界面仍待验收。S6 的触控操作和 S7 的整机集成尚待验收。
 
 本计划为 v86 增加机器类型 `machine_type: "s5l8930"`，模拟 iPhone 4（`iPhone3,1`，板子 N90AP），目标是
 iOS 6.1.3 启动到主屏幕，能触控操作，能运行系统自带的应用。
@@ -740,7 +740,7 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/gpu/flash.img --debug-kerne
 
 CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读锁内取得内核种子，按实际行跨度读取有效像素。宿主保存最近导入的种子，转换原生顶行与 GL 底行的方向。同一种子的重复绑定保留 GPU 后续绘制的内容。测试逐像素核对了初次 CPU 导入、GPU 更新、重复导入、快照恢复和新种子的 CPU 更新。
 
-构建客体库时用 `--check-host-surfaces <dyld_shared_cache_armv7>`，完整 NAND 冷启动时用 `system.mjs --surfaces` 验证系统进程。backboardd 和 SpringBoard 均通过原版 EAGL 调用把同一块内核 IOSurface 绑定到两个上下文，在渲染缓冲上绘图，从纹理读回，64×48 的所有像素均匹配。另用 `--check-host-window` 构建和 `system.mjs --windows` 区分两项窗口验收。测试窗口在两个真实内核表面之间轮换，发布回调逐像素验证了连续两帧及行方向。原版 CAEAGLLayer 的结果单独记录。
+构建客体库时用 `--check-host-surfaces <dyld_shared_cache_armv7>`，完整 NAND 冷启动时用 `system.mjs --surfaces` 验证系统进程。backboardd 和 SpringBoard 均通过原版 EAGL 调用把同一块内核 IOSurface 绑定到两个上下文，在渲染缓冲上绘图，从纹理读回，64×48 的所有像素均匹配。另用 `--check-host-window` 构建和 `system.mjs --windows` 区分两项窗口验收。测试窗口在两个真实内核表面之间轮换，发布回调逐像素验证了连续两帧及行方向。启用保留内容时，第二帧只改左下角，另一个缓冲完整保留首帧背景。在同一次完整冷启动中，backboardd 和 SpringBoard 均在原版 CAEAGLLayer 上执行 renderbufferStorage:fromDrawable: 和 presentRenderbuffer:，发布后核对了内核 IOSurface 全部 64×48 像素。在测试中引用已经领到的缓冲，这个版本的原生窗口每帧只允许领取一次。整屏合成及 SpringBoard 主屏仍待验证。
 
 另在多次较长的启动运行中记录到 AppleIOPFMI 等待多页读取超时，向 IOP 发 NMI 后内核 panic。原配置也可复现。持续运行的验收需要覆盖这个故障。
 
