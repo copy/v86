@@ -289,7 +289,13 @@ GLESExecutor.prototype.run = function(record)
         case "COLOR_BUFFER_BIND":
         {
             const conn = this.conns.get(record.conn);
-            if(conn) this.shadow.bind_color_buffer(conn.context, record.color_buffer, !!record.texture);
+            this.end_pass();
+            if(conn && this.shadow.bind_color_buffer(conn.context, record.color_buffer, !!record.texture) && !record.texture)
+            {
+                const c = this.shadow.contexts.get(conn.context), rb = c.group.renderbuffers.get(c.renderbuffer);
+                if(rb.gpu) this.staging.push(rb.gpu);
+                rb.gpu = null;
+            }
             return undefined;
         }
         case "IMAGE_CREATE":
@@ -570,6 +576,7 @@ GLESExecutor.prototype.target_of = function(c)
         {
             const rb = c.group.renderbuffers.get(a.name);
             if(rb && rb.image) return this.image_texture(rb.image);
+            if(rb && rb.color_buffer) return this.color_buffer_texture(rb.color_buffer);
             return rb && rb.gpu ? { texture: rb.gpu.texture, format: rb.gpu.format, layer: 0, level: 0 } : null;
         }
         const texture = c.group.textures.get(a.name);
@@ -1642,7 +1649,7 @@ GLESExecutor.prototype.restore = function(packed)
         for(const rb of group.renderbuffers.values())
         {
             rb.gpu = null;
-            if(!rb.width || !rb.height || rb.image) continue;
+            if(!rb.width || !rb.height || rb.image || rb.color_buffer) continue;
             if(rb.saved3)
             {
                 this.restore_renderbuffer3(rb);

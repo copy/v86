@@ -1155,7 +1155,7 @@ const HANDLERS = {
         if(!size) return fail(c, GL.INVALID_VALUE);
         const rb = c.group.renderbuffers.get(c.renderbuffer);
         if(!rb) return fail(c, GL.INVALID_OPERATION);
-        Object.assign(rb, { width: size.width, height: size.height, format: size.format === GL.RGB ? GL.RGB8_OES : GL.RGBA8_OES, image });
+        Object.assign(rb, { width: size.width, height: size.height, format: size.format === GL.RGB ? GL.RGB8_OES : GL.RGBA8_OES, image, color_buffer: 0 });
     },
 
     // ---- buffers
@@ -1234,7 +1234,7 @@ const HANDLERS = {
         if(width < 0 || height < 0 || width > MAX_SIZE || height > MAX_SIZE) return fail(c, GL.INVALID_VALUE);
         const rb = c.group.renderbuffers.get(c.renderbuffer);
         if(!rb) return fail(c, GL.INVALID_OPERATION);
-        Object.assign(rb, { width, height, format, image: 0 });
+        Object.assign(rb, { width, height, format, image: 0, color_buffer: 0 });
     },
     "glGetRenderbufferParameteriv": (shadow, c, [target, pname, params]) =>
     {
@@ -1794,7 +1794,7 @@ GLESShadow.prototype.bind_color_buffer = function(handle, color_buffer, texture)
     }
     const rb = c.group.renderbuffers.get(c.renderbuffer);
     if(!rb) return false;
-    Object.assign(rb, { width: cb.width, height: cb.height, format: format === GL.RGB ? GL.RGB8_OES : GL.RGBA8_OES, image: 0 });
+    Object.assign(rb, { width: cb.width, height: cb.height, format: format === GL.RGB ? GL.RGB8_OES : GL.RGBA8_OES, image: 0, color_buffer, samples: 0 });
     return true;
 };
 

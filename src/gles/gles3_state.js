@@ -2139,7 +2139,7 @@ export function gles3_handlers(h)
         if(samples > LIMITS3.MAX_SAMPLES || samples > 0 && info && (info.kind === "int" || info.kind === "uint")) return fail(c, GL.INVALID_OPERATION);
         const rb = c.group.renderbuffers.get(c.renderbuffer);
         if(!rb) return fail(c, GL.INVALID_OPERATION);
-        Object.assign(rb, { width, height, format, image: 0, samples: samples ? LIMITS3.MAX_SAMPLES : 0 });
+        Object.assign(rb, { width, height, format, image: 0, color_buffer: 0, samples: samples ? LIMITS3.MAX_SAMPLES : 0 });
         return undefined;
     }
 

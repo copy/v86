@@ -730,6 +730,8 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/gpu/flash.img --debug-kerne
 
 **S5 IOSurface 标识与宿主缓冲。** 在原版 backboardd 的独立诊断运行中，IOSurfaceCreate 创建了 64×48 的 BGRA 表面，真实行跨度为 256 字节，IOSurfaceLookup 按内核 ID 成功取回同一表面。两条客体 GLES 连接用该 ID 调用 v86 私有命令后取得同一个宿主颜色缓冲句柄；释放第一条连接后，第二条仍能打开该缓冲。宿主协议测试另覆盖两个进程、几何不匹配、快照恢复、最后一次释放后复用同一内核 ID。此处验证了身份和引用寿命，纹理绑定和显示器提交需要像素级测试。
 
+在本机 WebGPU 上，`tests/ios/iosurface-render.mjs` 通过两条独立进程连接验证了宿主像素共享。写方将同一 IOSurface 的颜色缓冲绑作渲染缓冲，另一方将其绑作纹理。64×48 全部像素经第二方帧缓冲读回并与绿底、红角图案比对。快照恢复后，写方把红角改黄，读方观察到更新；写方另行分配普通渲染缓冲再清蓝，读方仍保留黄角和绿底。此测试覆盖宿主渲染器，客体 CAEAGLLayer 的窗口提交仍需验证。
+
 另在多次较长的启动运行中记录到 AppleIOPFMI 等待多页读取超时，向 IOP 发 NMI 后内核 panic。原配置也可复现。持续运行的验收需要覆盖这个故障。
 
 

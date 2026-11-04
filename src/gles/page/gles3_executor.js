@@ -1254,7 +1254,7 @@ export const GLES3 = {
     /** A renderbuffer's texture, of its format and samples */
     make_renderbuffer3(rb)
     {
-        if(!rb.width || !rb.height || rb.image) return;
+        if(!rb.width || !rb.height || rb.image || rb.color_buffer) return;
         const info = format_info(rb.format);
         const format = info ? info.webgpu : RENDERBUFFER_WEBGPU[rb.format] || COLOR_FORMAT;
         if(!RENDERABLE.has(format)) return void this.note3("a renderbuffer of a format WebGPU draws no " + format);
@@ -1392,6 +1392,7 @@ export const GLES3 = {
         {
             const rb = c.group.renderbuffers.get(a.name);
             if(rb && rb.image) return color_buffer(this.image_texture(rb.image));
+            if(rb && rb.color_buffer) return color_buffer(this.color_buffer_texture(rb.color_buffer));
             if(!rb || !rb.gpu) return null;
             return { texture: rb.gpu.texture, view: rb.gpu.view, format: rb.gpu.format, mip: 0, layer: 0, samples: rb.gpu.samples, width: rb.width,
                 height: rb.height, no_alpha: alpha_less(rb.format, rb.gpu.format) };
