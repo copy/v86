@@ -14,6 +14,7 @@ export class AppleH2FMI
         this.bus = bus;
         this.signal = signal;
         this.page = null;
+        this.read_stream = null;
         this.column = 0;
         this.program = null;
         this.program_address = null;
@@ -66,7 +67,7 @@ export class AppleH2FMI
         this.failed_chips.clear();
         this.page_chip = -1;
         this.id_offset = this.column = 0;
-        this.page = null;
+        this.page = this.read_stream = null;
         this.requests = 0;
         this.program = null;
         this.program_address = null;
@@ -140,7 +141,7 @@ export class AppleH2FMI
         const token = this.begin_operation(ce);
         this.page = this.program = this.program_address = null;
         this.pio_left = 0;
-        this.requests = 0;
+        if(!this.read_stream) this.requests = 0;
         this.fail = false;
         this.column = address & 65535;
         const complete = (page, failed) => {
@@ -173,10 +174,11 @@ export class AppleH2FMI
     drain(bit)
     {
         if(!(this.requests & bit)) return;
-        const page = this.program || this.page || ERASED, meta = bit === 2;
-        const source = meta ? page.subarray(NAND_DATA, NAND_DATA + 12) : page.subarray(this.column, NAND_DATA);
+        const page = this.read_stream ? this.read_stream[0] : this.program, meta = bit === 2;
+        const column = this.read_stream ? this.read_stream[1] : this.column;
+        const source = meta ? page.subarray(NAND_DATA, NAND_DATA + 12) : page.subarray(column, NAND_DATA);
         const fifo = meta ? 1 : 0, remaining = source.subarray(this.fifo_offset[fifo]);
-        const result = this.dma.transfer(this.base + (meta ? 0x18 : 0x14), remaining, !this.program);
+        const result = this.dma.transfer(this.base + (meta ? 0x18 : 0x14), remaining, !!this.read_stream);
         if(result !== null)
         {
             if(result > 0)
@@ -186,6 +188,7 @@ export class AppleH2FMI
             }
             if(result < 0) this.fail = true;
             this.requests &= ~bit;
+            if(!this.requests) this.read_stream = null;
             if(!this.requests && (this.program || (this.regs[0] & 1)))
             {
                 this.regs[3] |= 2;
@@ -247,6 +250,7 @@ export class AppleH2FMI
         // program. Unserved read requests must not drain the new DMA list.
         if(offset === 4 && value === 6)
         {
+            this.read_stream = null;
             this.requests = 0;
             this.pio_left = 0;
         }
@@ -257,6 +261,7 @@ export class AppleH2FMI
             {
                 this.pending.delete(this.chip());
                 this.failed_chips.delete(this.chip());
+                this.read_stream = null;
                 this.program = ERASED.slice();
                 this.pio_left = 0;
                 this.program_address = [this.chip(), this.row()];
@@ -302,6 +307,9 @@ export class AppleH2FMI
             if(this.dma && [0, 0x3000].includes(this.regs[0x1014 >>> 2]))
             {
                 this.select_page();
+                // The DMA FIFOs drain the selected chip even if the sequencer
+                // prefetches another page before a scatterlist refill arrives.
+                this.read_stream = [this.page || ERASED, this.column];
                 this.fifo_offset.fill(0);
                 this.requests = 3;
                 this.drain(1);
@@ -314,7 +322,7 @@ export class AppleH2FMI
         this.update_irq();
     }
 
-    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null, Array.from(this.cache), this.page_chip, this.pio_left, Array.from(this.failed_chips), this.fifo_offset.slice()]; }
+    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null, Array.from(this.cache), this.page_chip, this.pio_left, Array.from(this.failed_chips), this.fifo_offset.slice(), this.read_stream]; }
     set_state(state)
     {
         this.pending.clear();
@@ -328,6 +336,7 @@ export class AppleH2FMI
         this.requests = state[6] || 0;
         this.fifo_offset.set(state[13] || [0, 0]);
         this.program = state[7] || null;
+        this.read_stream = state[14] || (this.requests && !this.program ? [this.page || ERASED, this.column] : null);
         this.program_address = state[8] || null;
         this.failed_chips = new Set(state[12] || (this.fail ? [this.chip()] : []));
         this.page_chip = state[10] ?? this.chip();

@@ -618,7 +618,7 @@ VIC1 的向量 `0x8000002a`，随后到 CLCD+0x102c 查询状态。+0x1028 是�
 
 **S4 辅助串口，2026-11-05。** 原版 UserEventAgent 打开电量计的 UART5 时，AppleSamsungSerial 在读取控制寄存器（物理地址 0x82a00004）时触发内核异常。现为设备树中六个辅助串口提供各自的控制、FIFO 状态与波特率寄存器，启动控制台仍用 UART0。用已有启动快照重放时，已观察到 UART5 多轮真实控制读写，系统随后开始读取 PMU 的 ADC 通道。电量计外设的串行应答仍待验证。
 
-D1815 PMU 的原版驱动写寄存器 0x30 启动 ADC，等待 GPIO 13 中断，然后读取状态块的第二个字节。此前它反复报告 ADC 状态停在 1。模拟转换现在锁存完成位，按板级设备树经 GPIO 控制器和 VIC 中断 116 通知内核。冷启动已观察到原版驱动读取含 0x20 的状态块，设备测试覆盖屏蔽、开中断、确认及快照恢复。未建模的模拟输入返回零；温度与电池电量数值尚待校验。
+D1815 PMU 的原版驱动写寄存器 0x30 启动 ADC，等待 GPIO 13 中断，然后读取状态块的第二个字节。此前它反复报告 ADC 状态停在 1。模拟转换现在锁存完成位，按板级设备树经 GPIO 控制器和 VIC 中断 116 通知内核。完整冷启动跟踪到了 32 次原版驱动读取含 0x20 的状态块，同次运行未再出现 ADC 状态超时。设备测试覆盖屏蔽、开中断、确认及快照恢复。未建模的模拟输入返回零；温度与电池电量数值尚待校验。
 
 **N90 面板识别，2026-11-05。** 恢复设备树在 `/arm-io/mipi-dsim/lcd` 留下为零的 `lcd-panel-id`。在该值为零的对照运行中，ApplePinotLCD 的启动方法返回失败，AppleCLCD 对象已出现在 IORegistry 但没有可打开的主显示器。backboardd 对显示列表的断言抛出 `NSInternalInconsistencyException: No window server display found`，随后被 launchd 重启。
 
@@ -743,6 +743,8 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/gpu/flash.img --debug-kerne
 CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读锁内取得内核种子，按实际行跨度读取有效像素。宿主保存最近导入的种子，转换原生顶行与 GL 底行的方向。同一种子的重复绑定保留 GPU 后续绘制的内容。测试逐像素核对了初次 CPU 导入、GPU 更新、重复导入、快照恢复和新种子的 CPU 更新。
 
 构建客体库时用 `--check-host-surfaces <dyld_shared_cache_armv7>`，完整 NAND 冷启动时用 `system.mjs --surfaces` 验证系统进程。backboardd 和 SpringBoard 均通过原版 EAGL 调用把同一块内核 IOSurface 绑定到两个上下文，在渲染缓冲上绘图，从纹理读回，64×48 的所有像素均匹配。另用 `--check-host-window` 构建和 `system.mjs --windows` 区分两项窗口验收。测试窗口在两个真实内核表面之间轮换，发布回调逐像素验证了连续两帧及行方向。启用保留内容时，第二帧只改左下角，另一个缓冲完整保留首帧背景。在同一次完整冷启动中，backboardd 和 SpringBoard 均在原版 CAEAGLLayer 上执行 renderbufferStorage:fromDrawable: 和 presentRenderbuffer:，发布后核对了内核 IOSurface 全部 64×48 像素。在测试中引用已经领到的缓冲，这个版本的原生窗口每帧只允许领取一次。整屏合成及 SpringBoard 主屏仍待验证。
+
+新增的双芯片回归覆盖了一颗芯片预读时另一颗仍在等待 DMA 的情况。模拟器为已启动的传输保留源页和列，恢复快照后仍能读出原来的字节，下一颗芯片的新页也能按序读取。
 
 另在多次较长的启动运行中记录到 AppleIOPFMI 等待多页读取超时，向 IOP 发 NMI 后内核 panic。原配置也可复现。持续运行的验收需要覆盖这个故障。
 

@@ -368,7 +368,7 @@ console.log("PASS: spare completion waits for NAND data DMA before retiring the 
 const callbacks = [];
 const banks = new AppleH2FMI(controllerCPU, 0x81200000, 0, {
     read(bus, ce, row, done) { callbacks[ce] = done; },
-});
+}, () => {}, channelDMA);
 const twoIds = new Uint8Array(256);
 twoIds[0] = twoIds[8] = 0xEC;
 banks.configure(twoIds, 0);
@@ -389,6 +389,24 @@ for(const [mask, byte] of [[2, 22], [1, 11]])
     assert.equal(banks.read(0x14), byte);
 }
 console.log("PASS: interleaved chip read registers survive out-of-order completions and restore");
+
+// A chip can prepare its next page while another chip's stream is
+// waiting for a DMA descriptor. Retain the FIFO source across restore.
+channelDMA.reset();
+descriptor.setUint32(0x108, 0x200, true);
+descriptor.setUint32(0x10C, 4, true);
+banks.write(0, 0xF5);
+banks.write(0x100C, 1);
+banks.write(4, 3);
+banks.write(0x100C, 2);
+banks.write(0x1014, 0x3000);
+banks.write(0x1010, 11);
+callbacks[1](Uint8Array.of(99, 98, 97, 96));
+banks.set_state(banks.get_state());
+arm();
+assert.deepEqual([...memory.subarray(0x200, 0x204)], [11, 0, 0, 0], "descriptor must drain the armed chip");
+assert.equal(banks.read(0x14), 0x60616263, "the newly prepared chip remains available");
+console.log("PASS: chip prefetch preserves the active NAND DMA stream");
 
 // An erase on CE1 can overlap an array read on CE0. NAND STATUS is
 // chip-local; completing one operation must not discard the other one's IRQ.
