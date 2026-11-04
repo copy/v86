@@ -2333,6 +2333,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 初次定制SDK编译只修复一行误导缩进，未启动XP；最终首次VM捕获通过。**完整客体321 suites、核心相关62 suites零失败**，32标准EXE/四严格零售诊断DLL/21-member静态核心/SDK8 consumer、站点集成2项、两侧零新增lint通过；继承4I9完整核心238/六GPU基线。发布同次XP准确8/9零售DLL和严格diagnostic。见 [stage4k16-validation.json](fixtures/d3d-review/stage4k16-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K16.json`。
 > - 宿主/协议/翻译器/包 `9335ee9a77fb7cc808d2` 与DDraw不变；附加链/其他表面锁、完整flags/格式/MSAA/全屏/多缓冲/物理loss/线程、完整包装、数值差分/语料、HAL/游戏/FPS和阶段4/5/6仍开放。GPU格式只验收21，不将六格式的原生内存检查扩展成全部GPU格式验收。
 
+> **阶段 4K17（2026-11-04）：核心独立RT及附加back buffer锁定、写回缓存失效与锁定Reset保护。**
+>
+> - 核心9的`CreateRenderTarget(Lockable)`和附加链`LOCKABLE_BACKBUFFER`现在保存表面锁定权限，与隐式缓冲共用范围校验和GPU读回；写回桥接增加目标纹理/层/面参数。普通RT纹理子表面保持不可锁定，MSAA仍拒绝锁定。公开8已有独立/附加锁定实现，本项保留并作为旧版与当前版对照，未把它登记成新修复。
+> - 成功锁定后同步纹理层的locked状态，防止公开引用归零、仅内部绑定保留时Reset漏判；解锁清除此状态。可写解锁使旧Clear/ColorFill CPU镜像失效，后续GetRenderTargetData重新读GPU；复制拒绝锁定的源/目标表面和层。只读解锁不上传。
+> - 原生 **88,470检查/43,008纯计划/96适配场景** 覆盖六格式、填充行距、局部字节、目标权限/身份、重复锁定、输出守卫、失败清理及缓存失效；独立构造器 **11,520检查/5,760组合** 对照旧验证/输出/提供方参数，复制入口43场景。**33项严格编译后运行失败变异、三个实际旧入口对照、三组ASAN**通过。此前4K14的16项和4K16的22项变异用固定旧源码加显式编译错误筛选复核，全部确属运行期检测；当前筛选同步加强。
+> - SDK8/9混合XP程序比较准确4K16旧8/9与当前8/9、私有API8核心：旧8的独立/附加路径正常，旧9拒绝；当前核心验证红色只读、蓝色4×4局部写、GPU读回、绿色整面写与读回、锁定复制拒绝、归零锁定目标阻止Reset、身份恢复及解锁后Reset成功。**131秒/54批次、五设备/四成功Reset/十目标/五附加链/八临时纹理、33唯一协议句柄、46读回**，Hello能力0/3/0/3，一个owner/session/最终释放。模拟能力0且磁盘仅RAM overlay；CPU回复明确注入独立解析图像，实际像素另由GPU验证。
+> - 冻结读取器核对每次直接上传/临时上传的字节、目标和区域、绑定/清除/读回次序、所有资源在SessionEnd前退役与SDK结果；**2,167项语义破坏检测**通过。SwiftShader/Metal各 **46图像/2,944真实像素、零差异和图形错误**，18纹理/16上传/八blit/两绘制；兜底前和driver释放前资源表为空。回放没有窗口关联，五个附加呈现链被宿主拒绝；真实RT纹理存储及读写已验证，**不据此宣称附加Present验收**。
+> - 完整客体322 suites、核心相关63 suites，32标准EXE、四严格DLL、21-member静态核心及SDK8 consumer、站点集成2项和两侧零新增lint；客体首次回归一项旧变异选择器仍指向已改为包装器的上传函数，改为实际通用函数后重跑通过，其余321项沿用同次通过结果。发布本次XP接受的准确8/9零售DLL及严格diagnostic，证据见 [stage4k17-validation.json](fixtures/d3d-review/stage4k17-validation.json)，站点镜像`glbridge/deployments/d3d-webgpu-review-4K17.json`。
+> - 宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变；继承4I9完整核心238/六GPU基线。深度/其他格式、完整标志/MSAA/全屏/多缓冲/物理loss/线程、公开8设备与资源包装、数值差分/语料、原生HAL/游戏/FPS及阶段4/5/6继续开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
