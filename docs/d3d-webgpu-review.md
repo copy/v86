@@ -2162,6 +2162,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - SDK 严格构建发现沿用的 refs helper 未使用，补入设备 pin 债务核对后才进行最终 XP；fixture lint 清除复用 reader 的未使用局部变量。新跑 **完整客体 279 suites**、核心相关 **42 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题通过，继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j8-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J8.json`。
 > - 非 NULL offset 范围/未对齐硬件差异、失败 UP 清理、FVF 转换声明公开缓存身份、D3D8、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J9（2026-11-04）：D3D9 FVF 转换声明缓存、公开身份与零 FVF 无操作完成。**
+> - SetFVF 为精确 FVF 保留真实声明对象，设备 cache 只持有一个私有存储引用，不增加公开资源/设备计数；实时/录制槽另保留私有引用。GetVertexDeclaration 返回真实公开对象，切换 FVF、公开归零后恢复及 Reset 后重用均保持身份/布局。SetFVF(0) 成功且不改变当前或录制声明。直接绑定转换声明保留其 FVF 关联；最终设备清理在普通绑定/录制之后摘除 cache 标志再释放，允许公开视图存活时幂等清理并重新接回 cache。依据 Windows fvf_decl_management843+、零 FVF803–833 及 Wine cache3563+ / SetFVF3630+ / 最终清理734+。
+> - 新实际 C **116,928 检查、128 最终拥有者组合、8,192 次缓存切换、16,384 次公开归零恢复**，链接真实共用 FVF decoder，以六份独立元素表核对 XYZ、XYZRHW、NORMAL-only、变换后 diffuse、normal/texture、specular/texture 布局及 END；还核对记录/Capture/Apply、Reset 式清理后身份、公开设备 pin、新条目分配/创建发射失败时原状态保留、幂等 cache 释放与最终拥有者顺序。**14/14** 严格编译后断言变异、旧实际 SetFVF/转换声明重绑/owned-cleanup 三组负对照及 ASAN/UBSAN 通过；先前所有资源/根状态/stream/私有回调检查保留，原断言计数不变，物理清理预期计入新增 cache 条目。
+> - XP 进行 **768 次循环切换/公开归零恢复、778 轮完整布局与 END 比对**，只创建 **6 缓存声明 + 1 用户声明**。零 FVF 保留两类对象；直接资源声明、录制/Capture/Apply 后转换声明分别实际绘制；公开 cache 视图允许 Reset 并在恢复同一 FVF 时返回同一指针；第二次 Reset 回收用户声明，最后设备释放回收六个缓存。**111 秒、7 批次、一个 owner/release、5 读回**，仅写 RAM overlay。模拟 XP 像素只证明传输。
+> - 冻结流核对 **7 份准确声明、777 次准确内联 FVF、4 次资源声明绑定、4 个 UP 绘制、1 清屏、2 Reset 及 7 个准确声明销毁**；验证 20/32 字节顶点和宽格式 specular/UV 数据，两条布局入口共享同一像素预期。**74 项语义破坏**全部拒绝。SwiftShader/Metal 各验证 **5 图像、320 实际像素，零误差/零 GPU 或宿主错误**，真实 owner 释放前设备/资源表为空。
+> - 录制 registry 的 cache 创建使用独立后端构造 stub，明确区分资源创建和被记录的状态写入；真实 cache 存储/pin 在新原生图和 XP 验证。完整客体初跑中未启用声明测试的十个入口因 cache 统计变量未使用而严格编译失败，改为按声明功能声明计数后新跑 **完整客体 281 suites** 全过。另有核心相关 **43 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 问题通过，继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j9-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J9.json`。
+> - 用户声明反推 FVF（特别是 Windows POSITION/POSITIONT-only 分支）、非 NULL stream 范围/未对齐硬件差异、失败 UP 清理、D3D8、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
