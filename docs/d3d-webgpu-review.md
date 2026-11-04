@@ -2314,6 +2314,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - SwiftShader/Metal各 **14帧、896真实像素、零差异/图形错误**，包含旧DLL蓝色回归和修复后的两SDK全部场景；14次可编程绘制，设备/资源在SessionEnd兜底与driver释放前均为空。公开8/9共存及完整PPLIFE矩阵继承4K13/4K12；本项不冒充新9设备或完整生命周期矩阵重跑。
 > - 完整客体 **319 suites零失败**、核心相关 **60 suites**（保留59项通过及补齐检查器后的新fixture复检）、18标准EXE/两零售诊断DLL、定制SDK、站点集成2项、两侧零新增lint通过。验证和发布记录见 [stage4k14-validation.json](fixtures/d3d-review/stage4k14-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4K14.json`。只发布同次已验收XP的准确8零售DLL与严格diagnostic，9/DDraw继承已验收文件。完整包装、公开8直接backbuffer锁定、数值差分/语料、零售/loss/线程/完整格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍开放，包 `9335ee9a77fb7cc808d2` 不变。
 
+
+> **阶段 4K15（2026-11-04）：S2-41，公共核心接受 ps_1_4 CND。**
+> - 按 [Microsoft CND 语义](https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/cnd---ps) 和固定 [Wine cnd_test](https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c#L1741)，把公共核心CND的最高pixel minor从3改为4，顶点拒绝及其他opcode不变。公开8调用同一校验器；实际核心API8构造也使用它。普通9仍使用原扫描器。宿主既有CND逐通道比较无需修改，coissue特殊语义不在本项验收范围。
+> - 在历史SDK8 oracle上明确加入唯一的文档契约差异“pixel CND minor4合法”，其余历史规则不改。**3,492,911项策略检查**、786,432 opcode/model与640,000有界body/委托案例通过；**43,518项构造检查、10,578次构造**，91合法8/5,189拒绝8及5,280普通9历史对照。**17项变异**严格编译后运行时断言全部检出，真实修复前公共opcode函数负对照和两组地址检查通过。
+> - XP SDK120/220同时对照准确4K14旧8 DLL与当前DLL。旧版各接受CND1.0–1.3、拒绝1.4；新版各接受五版本，逐字节函数及过期句柄查询通过。旧版1.1标量样例保持白色；新版每SDK六个1.1 alpha标量、六个1.4逐分量案例，包含恰好0.5、相邻float32位值0x3effffff/0x3f000001、混合通道与alpha。**118秒、35批次、四设备/18shader/22唯一句柄、26读回、两个0能力Hello、一个owner/session/最终释放**。明确模拟能力0、仅RAM overlay；XP实际使用公开8对象，私有核心API8 CND构造由原生实际C函数矩阵覆盖。
+> - 冻结流核对原始九token线代码/既有hash、四FVF布局、十次pixel绑定、34次常量写入、所有比较输入/逐帧角色/资源退役及SDK拒绝记录，**1,262项语义破坏检测**通过。SwiftShader和Metal各 **26帧、1,664真实像素、零差异/图形错误**；所有资源在SessionEnd兜底和driver释放前已清空。未把定向CND边界样例称为完整数值解释器/差分语料或原生Microsoft HAL结果。
+> - **完整客体319 suites、核心相关61 suites零失败**，32标准EXE/四严格零售诊断DLL、定制SDK、站点集成2项及两侧零新增lint通过；继承4I9完整核心238/六GPU基线。验证与发布证据见 [stage4k15-validation.json](fixtures/d3d-review/stage4k15-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K15.json`。只发布同次已验收XP的准确8零售DLL与严格诊断DLL；普通9原扫描路径未变、保留已验收零售/诊断文件，新增9严格构建用于源码检查。宿主/协议/翻译器/包 `9335ee9a77fb7cc808d2` 及DDraw不变。完整包装/锁定、数值差分/语料、coissue、零售/loss/线程/完整格式/MSAA/全屏/多缓冲、HAL/游戏/FPS和阶段4/5/6仍开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
