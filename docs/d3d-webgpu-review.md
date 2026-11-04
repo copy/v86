@@ -2275,6 +2275,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 首轮304客体中300通过，四个变异测试仍定位旧literal9/赋值写法；仅更新定位，四项重跑并补两个新增suite，归档初轮/复检。最终 **完整客体306 suites、核心相关56 suites**、18 D8+14 D9标准EXE、四个retail/diagnostic DLL/静态核心/测试consumer、自定义SDK、站点集成2项、两侧零新增lint通过。第一次自定义EXE编译发现memcmp的CRT引用，改用显式字节比较后才运行XP。
 > - 发布准确已验收XP DLL及严格diagnostic；证据`docs/fixtures/d3d-review/stage4k10-validation.json`，站点镜像`glbridge/deployments/d3d-webgpu-review-4K10.json`。本阶段仅私有核心创建基础，公开8 device/resource/state/copy/句柄包装、API8 Reset/附加链/shader兼容、完整零售/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
 
+> **阶段 4K11（2026-11-04）：真正核心设备的API8 Reset兼容、错误状态与默认值重建。**
+> - 核心从设备父工厂取得API profile；Reset保留8的interval/COPY_VSYNC/MSAA-lockable/旧颜色深度格式、UNKNOWN沿用当前格式、资源占用返回DEVICELOST、count-only内部回写，普通9仍保留原校验/桌面格式/INVALIDCALL/尺寸回写。Reset初始化与发送默认补丁均使用该profile。新私有`core_reset8`接受只读52字节PP8；NULL仍进入实际Reset以设置pending状态，错误profile/设备拒绝。
+> - 旧实际8/9 Reset前缀 **57,028检查、45,940组合**；完整核心8 Reset **608检查、12失败路径、42录制/34几何/98旧格式检查**，含取消录制顺序、失败原子性、反复恢复、Scene、缓存表面和24个格式/count/MSAA组合。SDK桥 **6,147检查、2,051组合**；默认状态 **230,016检查、768组合**，核对8/9重置包装。新增 **15运行时变异、两个旧实际9负对照**；保留创建15变异及codec98,304项，四类ASAN/UBSAN通过。实际Reset replay函数额外验证profile8补丁路由。
+> - XP SDK120/220分别验证NULL/非法windowed interval导致DEVICENOTRESET、持有真实backbuffer表面导致DEVICELOST、释放后恢复；完整52字节输入保持不变，UNKNOWN仍21，有效8×8/count1，POINTSIZE_MIN恢复0/material恢复1110。普通9实际Reset回写尺寸8×8/count1、默认1.0；保留提前释放工厂/COM身份、四临时设备和两次私有卸载。最终 **172秒、13批次、七设备/三个成功Reset/三个声明/13唯一句柄、五UP/读回、一个HELLO/owner/SessionEnd/release**，能力0明确模拟、仅RAM overlay。
+> - 初轮XP错用没有8对应getter的隐式9交换链作blocker，改持有backbuffer表面；首次通过136秒流仍有旧held-chain描述，归档后以准确说明重采最终流。新原生ASAN发现测试局部表面指针超出作用域，清除该fixture指针后重跑通过，生产代码未因此修改。初轮/中间捕获和原ASAN日志均保留。
+> - **270项流/日志破坏**拒绝；SwiftShader/Metal各 **五图像、320真实像素、零误差/图形错误**，三次真实Reset完整重放，SessionEnd兜底及driver释放前表为空。另以当前DLL复检公开8 Create/Reset/附加链/旧DLL查询，**151秒、13批次、五读回、两个Reset/附加链**，保留4K9检查器通过，不另算新的GPU像素验收。
+> - 初轮完整310客体有303通过，七项为新profile helper的严格编译引用、逻辑display字段或旧Reset源码定位；修正后复检七项及四项受影响测试，保留299项未改通过结果，原日志/11项复检归档。最终 **完整客体310 suites、核心相关57 suites**、32标准EXE/四retail-diagnostic DLL/静态核心/测试consumer、自定义SDK、站点集成2项、两侧零新增lint通过，继承4I9完整核心238/六次GPU。
+> - 发布准确最终XP DLL及严格diagnostic；证据`docs/fixtures/d3d-review/stage4k11-validation.json`，镜像`glbridge/deployments/d3d-webgpu-review-4K11.json`。公开8仍用原设备；API8附加链/shader兼容、真正device/resource/state/copy/句柄包装、完整零售/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
