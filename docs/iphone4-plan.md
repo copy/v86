@@ -681,6 +681,8 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel b
 在 10B329 原版内核和系统上，采样 keybagd 实际调用 syslog 时传入的格式化消息，读到 `main: System Keybag loaded`。同次启动可看到 backboardd、SpringBoard 的进程名。尚需验证带保护类别的文件读写、首次设置与激活，以及主屏幕画面。后续启动日志中出现 `AppleNANDLegacyFTL::readRegion: failed to read region 1` 和 `Failed to read syscfg region.`，下一步核对该出厂配置区。
 用 `node tests/ios/system.mjs build/ios/10B329 build/ios/provisioned-s4.img --keybag` 在新生成的 NAND 冷启动复测通过。检查器在客体内存里查找含线程 ID 和调用者名的完整日志，同时核对双卷挂载与四个核心进程。固件内置的消息常量无法单独满足此检查。
 在独立系统卷副本的 fstab 给数据卷启用 `protect` 后，原版内核在挂载输出中列出该标志，同一冷启动也通过了 `--keybag`。在钥匙包加载后调用客体的 open、fcntl、write、fsync、close、read 与 unlink，确认 D 类文件（类别 4）重开时类别和八字节负载均保留。受保护数据卷默认使用此挂载选项。C 类（首次解锁后可用）在同一启动阶段设置类别返回 EPERM，首次解锁和其他类别仍待验证。此测试没有检查 NAND 原始页上的密文。
+**S4 出厂配置。** 已确认 AppleNANDLegacyFTL 的第 1 区读取名为 DEVICEUNIQUEINFO 的物理特殊页。构建器在第一个芯片末块的第 2 页写入 SCfg，包含模拟器专用的 SrNm。用原版内核启动自建 NAND 后，在隔离的诊断运行中调用已注册的 AppleNANDLegacyFTL 实例的 readRegion(1)，IOKit 返回成功，缓冲区内的 44 字节 SCfg 和序列号与建盘输入一致。此项验收驱动读取路径，首次设置流程还需另测。
+
 
 
 **S5 接口核对，10B329。** 本机原版 armv7 共享缓存的 OpenGLES 含 344 个 `gl[A-Z]` 公共符号。反汇编确认 glClear、glDrawArrays、glDrawElements、glGetError 和 glViewport 经每线程的分派表调用。包装函数从 TPIDRURO（清低两位）偏移 0x78 取当前表，从表偏移 0x10 取驱动上下文作为第一个参数。五个函数的目标槽偏移依次为 0x3c、0x118、0x120、0x1ac、0x550。S5 客体适配层可据此为每个 EAGL 上下文设置分派表，需保留驱动上下文参数与原有寄存器、栈参数布局。

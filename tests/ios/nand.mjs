@@ -38,6 +38,15 @@ try
         assert.deepEqual(read(0, 528).subarray(0, 1024), unit);
         const last = (blocks - 1) * 128;
         assert.equal(read(0, last + 1).toString("ascii", 0, 14), "NANDDRIVERSIGN");
+        const unique = read(0, last + 2);
+        assert.equal(unique.toString("ascii", 0, 16), "DEVICEUNIQUEINFO");
+        const cfg = unique.subarray(56, 56 + unique.readUInt32LE(52));
+        assert.equal(cfg.readUInt32LE(), 0x53436667);
+        assert.equal(cfg.readUInt32LE(4), cfg.length);
+        assert.equal(cfg.readUInt32LE(8), cfg.length);
+        assert.equal(cfg.readUInt32LE(20), (cfg.length - 24) / 20);
+        assert.equal(cfg.readUInt32LE(24), 0x53724E6D);
+        assert.equal(cfg.toString("ascii", 28, 40), "V86N90SIM001");
         const control = 3997 * 128;
         const checkpoint = read(0, control);
         assert.equal(checkpoint.toString("ascii", 0, 4), "CX01");

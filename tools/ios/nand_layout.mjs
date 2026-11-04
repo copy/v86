@@ -46,6 +46,21 @@ export function physical_partitions()
     return page;
 }
 
+// AppleNANDLegacyFTL serves readRegion(1) from DEVICEUNIQUEINFO. Its
+// payload starts with an SCfg header followed by inline 20-byte entries.
+function factory_config()
+{
+    const cfg = Buffer.alloc(24 + 20);
+    cfg.write("gfCS");
+    cfg.writeUInt32LE(cfg.length, 4);  // used bytes
+    cfg.writeUInt32LE(cfg.length, 8);  // capacity
+    cfg.writeUInt32LE(1, 12);
+    cfg.writeUInt32LE(1, 20);
+    cfg.write("mNrS", 24); // SrNm
+    cfg.write("V86N90SIM001", 28);
+    return cfg;
+}
+
 function special_page(name, payload)
 {
     const page = Buffer.alloc(NAND_PAGE, 0xFF);
@@ -132,6 +147,8 @@ export function write_bootstrap_pages(put)
     signature.write("111C");
     signature.writeUInt32LE(0x10001, 4);
     put(0, 0, row + 1, special_page("NANDDRIVERSIGN", signature));
+
+    put(0, 0, row + 2, special_page("DEVICEUNIQUEINFO", factory_config()));
 
     for(let i = 0; i < 8; i++)
     {
