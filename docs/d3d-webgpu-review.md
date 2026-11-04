@@ -2322,6 +2322,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 冻结流核对原始九token线代码/既有hash、四FVF布局、十次pixel绑定、34次常量写入、所有比较输入/逐帧角色/资源退役及SDK拒绝记录，**1,262项语义破坏检测**通过。SwiftShader和Metal各 **26帧、1,664真实像素、零差异/图形错误**；所有资源在SessionEnd兜底和driver释放前已清空。未把定向CND边界样例称为完整数值解释器/差分语料或原生Microsoft HAL结果。
 > - **完整客体319 suites、核心相关61 suites零失败**，32标准EXE/四严格零售诊断DLL、定制SDK、站点集成2项及两侧零新增lint通过；继承4I9完整核心238/六GPU基线。验证与发布证据见 [stage4k15-validation.json](fixtures/d3d-review/stage4k15-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K15.json`。只发布同次已验收XP的准确8零售DLL与严格诊断DLL；普通9原扫描路径未变、保留已验收零售/诊断文件，新增9严格构建用于源码检查。宿主/协议/翻译器/包 `9335ee9a77fb7cc808d2` 及DDraw不变。完整包装/锁定、数值差分/语料、coissue、零售/loss/线程/完整格式/MSAA/全屏/多缓冲、HAL/游戏/FPS和阶段4/5/6仍开放。
 
+
+> **阶段 4K16（2026-11-04）：两API隐式back buffer共用锁定校验与区域写回。**
+> - 接续4K14实测失败，按固定 [Wine8 lockable-backbuffer测试](https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c#L9346) 与 [Microsoft锁定标志](https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dpresentflag) 实现显式LOCKABLE_BACKBUFFER：无标志、多重采样、重复锁、非法矩形仍拒绝。公共纯C规划器核对矩形/行距/缓冲范围，8和核心9各自适配设备存储；成功锁定前读取真实GPU内容，只在完成读回后发布指针和锁状态。只读解锁不上传，写锁只上传所锁矩形。
+> - 公共上传桥抽取原8的临时纹理→行上传→backbuffer blit→销毁流程，核心9复用；原8 CopyRects路径也使用同一实现。上传/拷贝失败仍尝试退役已创建临时资源并报告失败。9的隐式表面按需分配CPU锁存储，成功Reset时释放旧存储，保留缓存对象身份与更新尺寸。CPU/texture/cube旧分派保持原有路径。此项只接通**隐式**缓冲，附加链和其他目标锁定不在本次验收范围。
+> - **87,414项检查、43,008个纯规划案例、48组实际8/9方法场景**，覆盖六种格式、带填充行距、部分写入、当前GPU读回、只读不上传、输出字段、MSAA/标志/重复锁、读回/OOM/提交失败及清理；**22项变异**严格编译后运行时断言全检出，两份真实旧Surface.LockRect负对照通过。保留61组实际8表面复制和29项变异，把其中三项上传变异接到真正共享实现。三组地址检查通过；Reset矩阵另核对五次旧CPU锁存储释放，核心API8为613项/12失败路径、普通9为564项/14失败路径。
+> - 同次XP加载准确4K15 BASE8/BASE9、当前8/9及私有CORE8。旧8 SDK120/220和旧9在flag1下复现拒绝；当前公开8 SDK120/220、普通9、SDK9接口的API8兼容核心设备分别验证flag0拒绝、只读GPU刷新、4×4蓝色局部写、整面绿色写、只读不上传、锁定时Reset阻塞与恢复、缩为4×4后蓝色读回。两公开8及私有核心8另创建MSAA4/flag1临时设备并拒绝锁定，普通9的MSAA组合不在本项XP范围。SDK核对描述、重复查询身份、行距、输出字段和最终引用。
+> - **139秒、48批次、十设备/八成功Reset/三声明/八临时纹理与blit、29唯一句柄、27读回**，四Hello能力0/3/0/3，一个owner/session/最终释放。明确模拟能力0、只用RAM overlay；为SDK的CPU像素检查注入解析预期图像，**数值绘图证据由两次真实GPU回放独立提供**，不把模拟CPU回复称为真实GPU读回。测试日志`api=18`仅标记“SDK9接口的API8核心设备”，不表示新API版本。
+> - 冻结验证核对每次上传的确切蓝/绿字节、临时纹理/目标区域/行距、前后图像、11个UP/11次FVF、27读回（末图4×4）、全部资源退役及SDK失败/重置记录，**1,637项语义破坏检测**通过。SwiftShader/Metal各 **27图像、1,536真实像素、零差异/图形错误**，11绘制/八blit；SessionEnd兜底及driver释放前表为空。
+> - 初次定制SDK编译只修复一行误导缩进，未启动XP；最终首次VM捕获通过。**完整客体321 suites、核心相关62 suites零失败**，32标准EXE/四严格零售诊断DLL/21-member静态核心/SDK8 consumer、站点集成2项、两侧零新增lint通过；继承4I9完整核心238/六GPU基线。发布同次XP准确8/9零售DLL和严格diagnostic。见 [stage4k16-validation.json](fixtures/d3d-review/stage4k16-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K16.json`。
+> - 宿主/协议/翻译器/包 `9335ee9a77fb7cc808d2` 与DDraw不变；附加链/其他表面锁、完整flags/格式/MSAA/全屏/多缓冲/物理loss/线程、完整包装、数值差分/语料、HAL/游戏/FPS和阶段4/5/6仍开放。GPU格式只验收21，不将六格式的原生内存检查扩展成全部GPU格式验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
