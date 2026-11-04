@@ -7,11 +7,15 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { open_volume, write_node } from "./hfs_edit.mjs";
 import { plist_parse } from "../../src/ios/plist.js";
+import { macho_parse, CPU_TYPE_ARM } from "../../src/apple/macho.js";
 import { data_capacity } from "./nand_volumes.mjs";
+import { GUEST_GL_LIBRARY } from "./guest-load.mjs";
 import { systembag } from "./systembag.mjs";
 
-const [source, output] = process.argv.slice(2);
-if(!source || !output) throw new Error("usage: data-volume.mjs system.hfs new-data.hfs");
+const [source, output, option, library, ...extra] = process.argv.slice(2);
+if(!source || !output || extra.length || option && (option !== "--gles-library" || !library))
+    throw new Error("usage: data-volume.mjs system.hfs new-data.hfs [--gles-library libv86gles.dylib]");
+
 const dir = fs.mkdtempSync(path.join(path.dirname(path.resolve(output)), ".n90-data-"));
 const stage = path.join(dir, "files"), bundle = path.join(dir, "Data.sparsebundle"), raw = path.join(dir, "volume");
 
@@ -34,14 +38,27 @@ try
             else throw new Error("unsupported data volume entry " + p);
             entries.set("/" + rel, entry);
         });
-        const bagPath = "/keybags/systembag.kb", bag = systembag();
-        if(!entries.has("/keybags"))
+        const generated = new Map();
+        function provision(directory, name, bytes, dirMode, fileMode)
         {
-            fs.mkdirSync(path.join(stage, "keybags"), { mode: 0o700 });
-            entries.set("/keybags", { type: "directory", uid: 0, gid: 0, flags: 0, mode: 0o40700 });
+            const key = "/" + directory, file = key + "/" + name;
+            if(!entries.has(key))
+            {
+                fs.mkdirSync(path.join(stage, directory), { mode: dirMode });
+                entries.set(key, { type: "directory", uid: 0, gid: 0, flags: 0, mode: 0o40000 | dirMode });
+            }
+            fs.writeFileSync(path.join(stage, directory, name), bytes, { flag: "wx", mode: fileMode });
+            entries.set(file, { type: "file", uid: 0, gid: 0, flags: 0, mode: 0o100000 | fileMode });
+            generated.set(file, bytes);
         }
-        fs.writeFileSync(path.join(stage, "keybags", "systembag.kb"), bag, { flag: "wx", mode: 0o600 });
-        entries.set(bagPath, { type: "file", uid: 0, gid: 0, flags: 0, mode: 0o100600 });
+        provision("keybags", "systembag.kb", systembag(), 0o700, 0o600);
+        if(library)
+        {
+            const bytes = fs.readFileSync(library), binary = macho_parse(bytes);
+            assert.ok(!binary.is64 && binary.cputype === CPU_TYPE_ARM && binary.filetype === 6 &&
+                binary.id === GUEST_GL_LIBRARY, "expected the N90 guest GLES dylib");
+            provision("v86", "libv86gles.dylib", bytes, 0o755, 0o755);
+        }
         execFileSync("hdiutil", ["create", "-srcfolder", stage, "-fs", "HFSX", "-layout", "NONE", "-format", "UDSB",
             "-size", capacity / 1048576 + "m", "-nospotlight", "-volname", "Data", bundle], { stdio: "inherit" });
 
@@ -96,7 +113,7 @@ try
                 assert.deepEqual([dest.type, dest.uid, dest.gid, dest.mode],
                     [sourceEntry.type, sourceEntry.uid, sourceEntry.gid, sourceEntry.mode], p);
                 if(dest.type !== "directory")
-                    assert.ok(Buffer.from(await verified.contents(dest)).equals(p === bagPath ? bag : await system.contents(sourceEntry)), p);
+                    assert.ok(Buffer.from(await verified.contents(dest)).equals(generated.get(p) ?? await system.contents(sourceEntry)), p);
             }
         }
         finally { fs.closeSync(fd); }

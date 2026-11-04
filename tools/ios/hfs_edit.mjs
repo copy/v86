@@ -15,13 +15,17 @@ export function open_volume(fd)
 
 export async function write_node(fd, volume, tree, number, bytes)
 {
-    const at = number * tree.node_size;
     assert.equal(bytes.length, tree.node_size);
-    assert.ok(at + bytes.length <= tree.fork.size);
-    let extents = tree.fork.extents;
+    await write_fork(fd, volume, tree.file_id, tree.fork, 0, number * tree.node_size, bytes);
+}
+
+export async function write_fork(fd, volume, id, fork, type, at, bytes)
+{
+    assert.ok(at >= 0 && at + bytes.length <= fork.size);
+    let extents = fork.extents;
     const covered = extents.reduce((n, e) => n + e.count, 0);
     if(at + bytes.length > covered * volume.block_size)
-        extents = extents.concat(await volume.overflow_extents(tree.file_id, 0, covered));
+        extents = extents.concat(await volume.overflow_extents(id, type, covered));
     let pos = 0, done = 0;
     for(const extent of extents)
     {
