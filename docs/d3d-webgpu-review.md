@@ -2524,6 +2524,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 源码审计：原**638个核心9函数及状态块存储逐字节一致**，完整公开8/FVF decoder/8状态转换与范围头未改。**364客体 / 81核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 callback与stdcall16、两项站点集成及任务范围lint通过。发布本次XP准确8/9零售DLL和严格diagnostic；证据 [stage4k35-validation.json](fixtures/d3d-review/stage4k35-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K35.json`。
 > - **仍需继续：** 完整公开8 DWORD状态块/对象包装及全部预定义8范围接线，ProcessVertices目标8方言，其余原生兼容性/着色器数值差分/原生HAL/游戏/FPS及阶段4/5/6。recorder只用于已准备快照的可录制转换setter；本阶段没有把普通9预定义范围当作8范围。宿主、协议、translator、DDraw及运行包未改。
 
+> **4K36（2026-11-05，已完成）：ProcessVertices8 目标布局进入共用软件处理管线。**
+> - 公开8原有目标FVF子集抽为纯头；8 decoder仅换成调用。核心9保留原验证/输出声明规则，把实际变换、属性复制、ClipStatus与上传主体抽成共用函数，新增私有 `process_vertices8`（stdcall24）选择8目标方言，无临时输出声明。重建旧函数逐字节一致：保留390个8函数/638个9函数，八份共用运行文件未改；普通9仍拒绝没有显式声明的raw8 bit14目标FVF。
+> - 原生 **392,170检查 / 364,469用例**：362,144个冻结8布局比较，2,325个实际处理/控制用例；别名、范围、矩阵、零W本地策略、颜色/纹理属性、DONOTCOPYDATA、完整缓冲区与padding、ClipStatus、上传和清理。冻结9、抽取后9及私有8结果逐字节对照；**22严格语义变异、两组ASAN**通过。首次零count变异落在既有拒绝之后，等价变异存活；移到拒绝前形成可达错误后检出。数值用例只覆盖未照明配置，未声称全部照明/HAL一致；上传失败时CPU数据已提交，保持旧9行为。
+> - 首次XP **116秒 / 30批 / 一次启动**：准确4K35旧8/当前8/普通9规范化FVF/core8 SDK120/220，五设备/五Reset、10 managed VB、六缓存声明/26协议句柄。source0x4042/destination0x4044、首尾哨兵、索引1/count6、目标stride20；**800 DWORD实际客体CPU顶点结果**核对。四步red/red/green/purple验证DONOTCOPYDATA与managed Reset，20个绑定draw；另1,280 DWORD帧缓冲回复为明确解析注入，独立GPU验证实际图像。
+> - 独立wire核对45次更新/5,760字节完整源/目标/padding，45流绑定、格式切换、25拒绝、Reset及资源退休，**8,084项篡改检出**。初始模型遗漏普通9/private9解绑保留stride20，而旧8发0，修正模型后通过，生产/SDK/捕获未改。两GPU各 **20完整图像 / 1,280 RGBA像素零误差**，20非索引绑定draw、0 UP/programmable/纹理/Present，GPU/host错误0，资源表在SessionEnd与owner兜底前为空。
+> - **366客体 / 82核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 stdcall24、两项站点集成、范围lint通过。发布准确XP零售8/9及同源严格diagnostic。证据 [stage4k36-validation.json](fixtures/d3d-review/stage4k36-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K36.json`。宿主/协议/translator/DDraw/运行包未改。
+> - **继续项：** 公开8 DWORD状态块所有权、全部预定义范围及对象包装，原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
