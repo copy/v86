@@ -2464,6 +2464,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **352客体/75核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/SDK8新ABI、站点集成2项和两侧本任务零新增lint通过。发布本次XP接受的准确公开8零售DLL、同源严格构建9零售DLL及两API严格diagnostic；本次没有运行普通9的SDK模式，普通9由源码不变审计及保留测试覆盖。证据 [stage4k29-validation.json](fixtures/d3d-review/stage4k29-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K29.json`。
 > - 宿主/协议/着色器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续着色器/状态块句柄与完整公开8设备/资源包装；其他原生pool/FVF/depth-Usage/pitch、RT纹理/cube普通Lock读回、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
 
+> **阶段 4K30（2026-11-05）：共用 D3D8 顶点声明策略/解析器，私有核心构造真实声明对象。**
+> - 把旧8的声明字段、类型大小/映射和寄存器语义移到SDK无关的 `d9wg_declaration8_policy.h`，原8头引用该表；两个扫描/转换主体共用 `d9wg_declaration8.h`，公开8保留薄包装。新增 `d9wg_d3d9_core_vertex_declaration8@16`，仅接受API8核心设备，转换后调用真实9声明构造器，保留declaration-only主NORMAL只能FLOAT3的规则。原始8声明、DWORD句柄和局部常量元数据继续由8适配层持有；本项不把局部常量写进设备API常量，也不构造完整8着色器包装。
+> - 准确4K29旧8策略/两个C函数冻结为独立对照；真实SDK9提取的8字节顶点元素布局参与验证。**4,013,650次检查 / 1,105,927个案例**覆盖多流/跳过/offset、所有寄存器和输入类型、容量、局部常量块/字面END/重叠/范围、主/次NORMAL规则、8192边界、profile/输出及后端构造错误。**25项严格编译后实际数字行C断言变异、两组ASAN**通过；保留局部常量1,656,669次检查和16变异、declaration-only完整路径及9变异通过。
+> - 初轮严格SDK8静态核心构建发现`DWORD*`与`uint32_t*`虽然同宽却是不同C类型；改成`memcpy`读取四字节word、按字节复制常量，消除强转/别名假设后重新构建。初轮新变异中FLOAT3大小修改未被检出：原测试将可变类型放在最后一个元素，无法观察其大小；增加后继元素观察下一offset，保留失败日志后25项全过。旧变异夹具补上纯解析器/策略头依赖和固定宽度类型匹配，没有放宽编译或断言。
+> - **首个实际XP VM135秒/20批次通过**，启动器第一次无SDK日志，第二次启动成功；捕获严格只含一组五模式执行。准确4K29旧8/当前公开8/普通9独立SDK布局/核心8 SDK120/220，共五设备/五Reset、10托管VB/五声明/25句柄、**15上传640字节/十次双流绑定绘制/十读回/640本地DWORD**。输入位置/颜色分别使用stream0/1、offset4、stride16/8；核对原8的48字节声明/空函数/失效句柄、核心COM描述/父设备/绑定身份、16次非法声明拒绝、常量字面END不被当终止及API常量不被覆盖。Reset后保留真实对象与位置缓冲，只更新颜色后继续绘制；单owner/session/end/release、模块实际卸载、finalRefs=0、Hello[0,0,3]、能力0/RAM overlay通过。CPU读回回复明确为解析图像注入。
+> - 冻结检查器依据实际旧8/9规则区分NULL流解绑：公开8把stride写0，9和当前私有8核心保留旧stride；该差异仍需未来公开8包装层保存原8查询状态。另纠正检查器对Reset常量全清零的假设：两侧均重发已保留的c2白色值；逐字校验完整常量包。保留三轮检查失败日志，捕获/SDK断言/生产代码未因此改动。**8,514项字段/声明字节/顶点字节/常量字节/日志/生命周期破坏**全检出。
+> - SwiftShader和Metal各验证 **10张完整图像 / 640个RGBA像素零差异**，包含跨Reset红→绿、真实双流偏移输入；十次非UP/非索引缓冲绘制、零纹理/Present、零宿主/GPU错误，资源/设备映射在SessionEnd兜底及owner释放前归零。源码审计确认19个原8/9创建、绑定、查询和常量方法未变，策略表精确搬迁，两个解析主体机械适配后相同。
+> - **354客体/76核心完整回归**、32标准EXE/四严格DLL/21-member核心/真实SDK8新ABI、站点集成2项及两侧本任务零新增lint通过。发布本次XP准确8/9零售DLL和严格diagnostic；证据 [stage4k30-validation.json](fixtures/d3d-review/stage4k30-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K30.json`。宿主/协议/着色器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续局部DEF构造、真实核心着色器/句柄、状态块及完整公开8对象包装；其他原生兼容、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
