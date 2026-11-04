@@ -2542,6 +2542,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 客体回归为首次全量367项通过，加修正旧变异测试函数边界后补跑一项通过（11/11）；原失败日志与补跑日志均保留，未把匹配不到目标算作运行时变异检出。
 > - **继续项：** 将核心能力接入完整公开8对象/状态块包装及全部预定义范围，其他原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
 
+> **4K38（2026-11-05，已完成）：增量Begin/End录制进入核心8 DWORD句柄。**
+> - 私有 `begin_state_block8`（stdcall4）直接调用实际9 Begin，`end_state_block_handle8`（stdcall8）调用实际9 End后发布设备持有的token。与4K37快照创建共用同一个token publisher；只移动原有token分配/碰撞跳过/adopt主体，重建原Create8逐字节一致。End输出先清零；空End/错误配置/清理期间调用拒绝，无效输出不取消正在录制的块。前端继续负责raw8范围/Get影子，公开8设备包装尚待接线。
+> - 原生 **79,400检查 / 1,038用例**：1,024组八类资源/两种pool/四种清理顺序，连续记录同一对象与替换对象、实时状态不变、公开引用归零、End后Apply与设备先释放，另14组null/profile/teardown/OOM/现有recording/无效End、与普通9 Begin/End互通、未结束录制的设备清理。**15个新严格语义变异 + 保留25个句柄变异**通过；组合ASAN覆盖新录制、句柄管理与保留9状态块160,909检查。旧变异定位随publisher抽取迁移，未使用helper及缩进编译失败均不计作检出，修正变异表达式后严格编译并由C断言检出。
+> - 源审计：**647个既有9函数逐字节一致**；Create8重建与移出的publisher主体完全一致，状态块存储、公开8、8状态映射/范围、FVF与Process布局文件未改。实际9 Begin/End及Capture/Apply/生命周期函数未改。
+> - 首次XP **136秒 / 30批 / 一次启动**：准确4K37旧8/当前8/普通9显式录制参考/coreSDK120/220，五设备/五Reset/15声明/35shader/60协议资源句柄。私有配置实际执行Begin、嵌套Begin拒绝、映射setter录制、无效End保留、End生成DWORD，实时red保持不变，Apply变green并在Reset后恢复；保留失败Capture/稳定token/删除后拒绝/遗留空token自动清理。20个programmable UP draw及1,280 DWORD帧缓冲解析回复核对，PS1.0–1.4仅元数据，本地ZBIAS近似范围不变。
+> - 独立wire验证全部布局/着色器/常量/顶点/绑定/状态映射/Reset/退休及SDK增量录制日志，**11,756项篡改检出**。两GPU各 **20完整图像 / 1,280 RGBA像素零误差**，35shader translations、0纹理/Present/GPU/host错误，资源表在SessionEnd及owner兜底前为空。CPU帧缓冲回复明确为解析注入，实际GPU图像独立验证。
+> - **370客体 / 84核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 stdcall4/8、两项站点集成和范围lint通过；发布准确XP零售8/9及同源严格diagnostic。证据 [stage4k38-validation.json](fixtures/d3d-review/stage4k38-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K38.json`。宿主/协议/translator/DDraw/运行包未改。
+> - **继续项：** 完整公开8对象/状态块包装和全部预定义范围接线，其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS及阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
