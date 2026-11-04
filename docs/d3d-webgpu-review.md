@@ -2513,6 +2513,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 源码审计证明原**637个核心9函数逐字节一致**，公开8完整文件及FVF decoder未改。**362客体 / 80核心完整回归**、32标准EXE/四严格DLL、静态核心及两项站点集成、任务范围lint通过；发布第二轮XP准确8/9零售DLL和严格diagnostic。证据 [stage4k34-validation.json](fixtures/d3d-review/stage4k34-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K34.json`。
 > - 继续DWORD状态块句柄/原始元数据与完整公开8对象包装，及ProcessVertices目标8方言、其余原生兼容性/数值差分/原生HAL/游戏/FPS和阶段4/5/6；宿主、协议、translator、DDraw及运行包 `9335ee9a77fb7cc808d2` 未改。
 
+
+> **阶段 4K35（2026-11-05）：核心8根据前端原始快照构建真实9状态块。**
+>
+> - 新增私有 `d9wg_d3d9_core_record_state_block8@16` 和SDK无关的同步recorder回调。前端按8的范围选出原始快照，通过现有8转换入口录制；核心复用真实9 Begin/End，成功后只保留值和对象引用，失败调用现有 `device_cancel_recording`。回调及context不进入状态块；已存在录制在Begin失败时原样保留。8的DWORD句柄、原始Get、范围选择与Capture重建策略仍归包装层，可用新9快照替换同一公开8句柄背后的对象。
+> - **19,488项原生检查 / 1,037例**：1,024程序/声明专用及四种清理顺序，录制期间live不变、栈快照改写后Apply仍使用已保存数据、重建替换、公开引用归零/再取回、设备先释放/最后公开视图/最后状态块。另13例入口/已有录制/Begin OOM/回调错误/空context/正HRESULT/冷FVF创建失败与缓存所有权；负HRESULT原样返回，输出清空，失败块/父引用无泄漏。冷FVF录制可准备仍由设备持有的缓存，取消块不会丢失该缓存所有权。**15/15严格C语义变异**及新快照/保留9状态块两族ASAN通过；原9状态块160,909项检查继续通过。首次fixture把LONG引用数存入UINT触发严格编译，改用准确LONG，未放宽警告。
+> - **真实XP 141秒 / 30批 / 一次启动**：准确4K34旧8、当前公开8、普通9显式规范化快照参考、核心8 SDK120/220，5设备/5Reset/15声明/35着色器/60协议句柄。红色live状态下记录绿色对，先检查录制/失败均不改变live，再Apply变绿；Capture更新快照后跨Reset恢复。公开8查询保留ZBIAS原整数111及已删除POSITIONORDER的42/7；9查询分别验证转换后的clamped浮点bias和ADDRESSU→sampler。转换尺度沿用既有本地近似，不宣称原生HAL精度。回调栈数据改写、公开原始8与9扩展shader查询、最终引用0和模块卸载/单owner/SessionEnd/释放通过。
+> - 旧8参考的放弃录制用End/Delete，普通9参考用End/Release，私有8回调失败则执行真实cancel；**不把前两者称为已有公开回调API**。Capture在公开8保留DWORD，在私有/参考9根据新的前端快照重建对象。PS1.0–1.4仍只验证创建/查询/销毁，不宣称PS像素数值。
+> - 独立wire模型验证完整布局/字节码/散列/常量/顶点、绑定顺序、bias/sampler值与Reset退休，**11,749项关键字段/日志/截断篡改全部检出**。初始模型把原始8零值与9转换后的负零都当作会发出；已分别钉住8未变化raw0省略、9的0x80000000初始写入，生产/SDK/捕获未改。两GPU各**20完整图像 / 1,280 RGBA像素零误差**，20可编程UP draw、35 shader translations、0纹理/Present，GPU/host错误0，资源表在SessionEnd兜底与owner释放前为空；CPU回复明确为解析图像注入，GPU结果独立记录。
+> - 源码审计：原**638个核心9函数及状态块存储逐字节一致**，完整公开8/FVF decoder/8状态转换与范围头未改。**364客体 / 81核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 callback与stdcall16、两项站点集成及任务范围lint通过。发布本次XP准确8/9零售DLL和严格diagnostic；证据 [stage4k35-validation.json](fixtures/d3d-review/stage4k35-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K35.json`。
+> - **仍需继续：** 完整公开8 DWORD状态块/对象包装及全部预定义8范围接线，ProcessVertices目标8方言，其余原生兼容性/着色器数值差分/原生HAL/游戏/FPS及阶段4/5/6。recorder只用于已准备快照的可录制转换setter；本阶段没有把普通9预定义范围当作8范围。宿主、协议、translator、DDraw及运行包未改。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
