@@ -49,6 +49,18 @@ static void *exercise(void *unused)
         if(ok && i == 1) ok = is_shader(shader);
         if(ok && i == 2) { delete_shader(shader); ok = !is_shader(shader); }
     }
+#ifdef N90_CHECK_SURFACES
+    extern int n90_surface_pixels(void *, void *, void *);
+    int surface_step = ok ? n90_surface_pixels(cls, first, second) : -1;
+    syslog(5, "V86 IOSurface pixels pid %d step %d", getpid(), surface_step);
+#endif
+#ifdef N90_CHECK_WINDOW
+    extern int n90_window_pixels(void *, int);
+    int window_step = surface_step ? -1 : n90_window_pixels(first, 0);
+    syslog(5, "V86 native window pid %d step %d", getpid(), window_step);
+    int layer_step = window_step ? -1 : n90_window_pixels(first, 1);
+    syslog(5, "V86 CAEAGLLayer pid %d step %d", getpid(), layer_step);
+#endif
     if(!bind_context(cls, 0) || send(cls, "currentContext")) ok = 0;
     release_object(second);
     release_object(first);

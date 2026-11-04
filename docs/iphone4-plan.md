@@ -2,7 +2,7 @@
 
 截至 2026-11-05，S1–S3 已用 iPhone3,1 的 10B329 固件验收。S4 已用原版内核从 NAND 挂载系统卷与数据卷，启动核心服务，加载系统钥匙包，并验证 C、D 两类文件写入、同步和重开后的内容。持续运行与首次设置仍在验证中。
 
-S5 已在恢复环境经原版 OpenGLES 入口绘制 640×960 测试帧，并逐像素验证快照恢复。在完整系统冷启动中，backboardd 和 SpringBoard 均已用原版 EAGL 创建宿主上下文，在两个上下文间共享着色器并完成切换和释放。下一项验收是 IOSurface 共享绘图以及由系统合成器提交真实界面。S6 的触控操作和 S7 的整机集成尚待验收。
+S5 已在恢复环境经原版 OpenGLES 入口绘制 640×960 测试帧，并逐像素验证快照恢复。在完整系统冷启动中，backboardd 和 SpringBoard 均已用原版 EAGL 创建宿主上下文，在两个上下文间共享着色器并完成切换和释放。这两个进程也已通过原版 EAGL 接口在共享 IOSurface 上绘图并逐像素读回。系统合成器提交真实界面仍待验收。S6 的触控操作和 S7 的整机集成尚待验收。
 
 本计划为 v86 增加机器类型 `machine_type: "s5l8930"`，模拟 iPhone 4（`iPhone3,1`，板子 N90AP），目标是
 iOS 6.1.3 启动到主屏幕，能触控操作，能运行系统自带的应用。
@@ -618,7 +618,7 @@ VIC1 的向量 `0x8000002a`，随后到 CLCD+0x102c 查询状态。+0x1028 是�
 
 **N90 面板识别，2026-11-05。** 恢复设备树在 `/arm-io/mipi-dsim/lcd` 留下为零的 `lcd-panel-id`。在该值为零的对照运行中，ApplePinotLCD 的启动方法返回失败，AppleCLCD 对象已出现在 IORegistry 但没有可打开的主显示器。backboardd 对显示列表的断言抛出 `NSInternalInconsistencyException: No window server display found`，随后被 launchd 重启。
 
-直接引导现在为缺失或全零的面板标识填写模拟值 1，保留设备树原有的非零值。这个值选择 Pinot 一类面板，不代表某块量产屏的厂商编号。仅替换这个字段时，10B329 的同一方法返回成功，串口报告面板标识 1、类别 1，并进入此前未到达的 AppleCLCD 抖动配置阶段。`tests/ios/boot.mjs <固件目录> --wait-root --display` 同时检查两项驱动日志、画面和快照。
+直接引导现在为缺失或全零的面板标识填写模拟值 1，保留设备树原有的非零值。这个值选择 Pinot 一类面板，不代表某块量产屏的厂商编号。仅替换这个字段时，10B329 的同一方法返回成功，串口报告面板标识 1、类别 1，并进入此前未到达的 AppleCLCD 抖动配置阶段。`tests/ios/boot.mjs <固件目录> --wait-root --display` 同时检查两项驱动日志、画面和快照。完整系统中，原版 IOMobileFramebufferGetMainDisplay 从返回 0xe00002c0 和空引用变为返回 0 和有效引用。未替换入口的 backboardd 执行 CAWindowServer 的 addDisplay: 后再次读取显示列表，越过了原先的断言。
 
 **S4 正在实施：需要运行 IOP 固件。** 未填充的闪存设备树会使 AppleIOPFMI 报告 32 个全零芯片 ID。
 在局部探测中，提供 NAND 几何后必须给 `/arm-io/clock-frequencies` 中的 0x21 项赋值，
@@ -737,6 +737,8 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/gpu/flash.img --debug-kerne
 在本机 WebGPU 上，`tests/ios/iosurface-render.mjs` 通过两条独立进程连接验证了宿主像素共享。写方将同一 IOSurface 的颜色缓冲绑作渲染缓冲，另一方将其绑作纹理。64×48 全部像素经第二方帧缓冲读回并与绿底、红角图案比对。快照恢复后，写方把红角改黄，读方观察到更新；写方另行分配普通渲染缓冲再清蓝，读方仍保留黄角和绿底。此测试覆盖宿主渲染器，客体 CAEAGLLayer 的窗口提交仍需验证。
 
 CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读锁内取得内核种子，按实际行跨度读取有效像素。宿主保存最近导入的种子，转换原生顶行与 GL 底行的方向。同一种子的重复绑定保留 GPU 后续绘制的内容。测试逐像素核对了初次 CPU 导入、GPU 更新、重复导入、快照恢复和新种子的 CPU 更新。
+
+构建客体库时用 `--check-host-surfaces <dyld_shared_cache_armv7>`，完整 NAND 冷启动时用 `system.mjs --surfaces` 验证系统进程。backboardd 和 SpringBoard 均通过原版 EAGL 调用把同一块内核 IOSurface 绑定到两个上下文，在渲染缓冲上绘图，从纹理读回，64×48 的所有像素均匹配。另用 `--check-host-window` 构建和 `system.mjs --windows` 区分两项窗口验收。测试窗口在两个真实内核表面之间轮换，发布回调逐像素验证了连续两帧及行方向。原版 CAEAGLLayer 的结果单独记录。
 
 另在多次较长的启动运行中记录到 AppleIOPFMI 等待多页读取超时，向 IOP 发 NMI 后内核 panic。原配置也可复现。持续运行的验收需要覆盖这个故障。
 

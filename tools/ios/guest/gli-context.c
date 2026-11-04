@@ -24,11 +24,13 @@ extern void OSSpinLockLock(volatile int *), OSSpinLockUnlock(volatile int *);
 struct context {
     struct n90_driver driver;    // also the opaque argument of public GL calls
     struct context *next;
+    struct group *group;
     unsigned handle, error;
     char *strings[5];
 };
 struct group {
     struct group *next;
+    struct binding *bindings;
     unsigned connection, handle;
 };
 static struct context *contexts;
@@ -73,6 +75,8 @@ static unsigned invalid_operation(struct context *ctx)
     if(!ctx->error) ctx->error = 0x502;
     return 0;
 }
+
+#include "gli-surface.h"
 
 static unsigned get_error(struct context *ctx)
 {
@@ -135,12 +139,14 @@ static int create_context(void **out, const void *format, struct group *group, d
         free(ctx);
         return 1;
     }
+    ctx->group = g;
     ctx->driver.ok = 1;
     // GLI receives pointers to the function arrays; OpenGLES public
     // wrappers index from the start of the enclosing EAGL private state.
     for(int i = 0; i < 914; i++) primary[i] = (driver_word)invalid_operation;
     install_frame_functions(primary);
     install_scalar_functions(primary);
+    install_surface_functions(primary);
     primary[N90_glDeleteShader - 5] = (driver_word)delete_object;
     primary[N90_glGetError - 5] = (driver_word)get_error;
     primary[N90_glGetString - 5] = (driver_word)get_string;
@@ -168,19 +174,12 @@ static int destroy_context(struct context *ctx)
 }
 
 static int unavailable(void) { return 1; }
-static int no_drawable(void) { return 0; }
+
 
 static signed char present(void *obj, void *sel, unsigned target)
 {
-    driver_word *state = *(driver_word **)((char *)obj + context_offset);
-    if(state)
-    {
-        OSSpinLockLock(&lock);
-        struct context *c = contexts;
-        while(c && (driver_word)c != state[4]) c = c->next;
-        OSSpinLockUnlock(&lock);
-        if(c) return 0; // This provider has no bound native window yet.
-    }
+    struct context *ctx = host_context(obj);
+    if(ctx) return target == 0x8d41 && present_view(ctx);
     return original_present(obj, sel, target);
 }
 fn n90_gli_target(unsigned slot, void *const *args)
@@ -192,7 +191,8 @@ fn n90_gli_target(unsigned slot, void *const *args)
         if(args[0] == c || args[1] == c || args[2] == c || args[3] == c)
         {
             if(slot == 7 && args[0] == c) target = (fn)destroy_context;
-            else if(slot == 16 || slot == 17) target = (fn)no_drawable;
+            else if(slot == 16 && args[0] == c) target = (fn)bind_view;
+            else if(slot == 17 && args[0] == c) target = (fn)present_view;
             else target = (fn)unavailable;
             break;
         }
@@ -262,7 +262,17 @@ static void dispose_group(void *obj, void *sel)
         if(*p) { g = *p; *p = g->next; state[16] = 0; }
         OSSpinLockUnlock(&lock);
     }
-    if(g) { close_handle(g->connection, g->handle); free(g); }
+    if(g)
+    {
+        while(g->bindings)
+        {
+            struct binding *b = g->bindings;
+            g->bindings = b->next;
+            release_binding(b);
+        }
+        close_handle(g->connection, g->handle);
+        free(g);
+    }
     original_dispose(obj, sel);
 }
 
@@ -275,8 +285,10 @@ int n90_install_contexts(void)
     void *eagl = objc_getClass("EAGLContext");
     void *present_sel = class_getInstanceMethod(eagl, sel_registerName("presentRenderbuffer:"));
     void *ctx_ivar = class_getInstanceVariable(eagl, "_private");
+    void *surface_sel = class_getInstanceMethod(eagl, sel_registerName(
+        "texImageIOSurface:target:internalFormat:width:height:format:type:plane:invert:"));
     struct image_info info;
-    if(!load || !dispose || !ivar || !present_sel || !ctx_ivar || !dladdr((void *)method_getImplementation(load), &info)) return 0;
+    if(!load || !dispose || !ivar || !present_sel || !surface_sel || !ctx_ivar || !dladdr((void *)method_getImplementation(load), &info)) return 0;
     const unsigned *hdr = info.base;
     if(hdr[0] != 0xfeedface || hdr[1] != 12) return 0;
     const unsigned *cmd = hdr + 7;
@@ -299,6 +311,7 @@ int n90_install_contexts(void)
     slots = (fn *)((unsigned)hdr + table - unslid);
     group_offset = ivar_getOffset(ivar);
     context_offset = ivar_getOffset(ctx_ivar);
+    native_surface = (surface_method)method_setImplementation(surface_sel, (fn)attach_surface);
     original_present = (present_method)method_setImplementation(present_sel, (fn)present);
     original_dispose = (dispose_method)method_setImplementation(dispose, (fn)dispose_group);
     original_load = (load_method)method_setImplementation(load, (fn)load_group);
