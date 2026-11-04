@@ -13,7 +13,6 @@ export class AppleH2FMI
         this.nand = nand;
         this.bus = bus;
         this.signal = signal;
-        this.epoch = 0;
         this.page = null;
         this.column = 0;
         this.program = null;
@@ -31,7 +30,8 @@ export class AppleH2FMI
         this.id_offset = 0;
         this.chips = new Map();
         this.cache = new Map();
-        this.read_generation = new Map();
+        this.pending = new Map();
+        this.failed_chips = new Set();
         this.page_chip = -1;
         for(let bank = 0; bank < 3; bank++)
         {
@@ -47,6 +47,8 @@ export class AppleH2FMI
     {
         this.chips.clear();
         this.cache.clear();
+        this.pending.clear();
+        this.failed_chips.clear();
         if(!ids || ids.length !== 256) return;
         for(let ce = 0; ce < 16; ce++)
         {
@@ -57,10 +59,10 @@ export class AppleH2FMI
 
     reset()
     {
-        this.epoch++;
         this.regs.fill(0);
         this.cache.clear();
-        this.read_generation.clear();
+        this.pending.clear();
+        this.failed_chips.clear();
         this.page_chip = -1;
         this.id_offset = this.column = 0;
         this.page = null;
@@ -89,11 +91,33 @@ export class AppleH2FMI
         return (this.regs[0x1018 >>> 2] >>> 16) + ((this.regs[0x101C >>> 2] & 255) << 16);
     }
 
+    begin_operation(ce)
+    {
+        const token = {};
+        this.pending.set(ce, token);
+        this.failed_chips.delete(ce);
+        return token;
+    }
+
+    complete_operation(ce, token, failed)
+    {
+        if(this.pending.get(ce) !== token) return false;
+        this.pending.delete(ce);
+        if(failed) this.failed_chips.add(ce);
+        return true;
+    }
+
+    nand_status()
+    {
+        const ce = this.chip();
+        return 0x80 | (this.pending.has(ce) ? 0 : 0x40) | Number(this.failed_chips.has(ce));
+    }
+
     commit(run, erase)
     {
-        const ce = this.chip(), epoch = ++this.epoch;
+        const ce = this.chip(), token = this.begin_operation(ce);
         const finish = failed => {
-            if(epoch !== this.epoch) return;
+            if(!this.complete_operation(ce, token, failed)) return;
             this.fail = failed;
             this.regs[0x1044 >>> 2] |= run & 15;
             this.update_irq();
@@ -112,15 +136,14 @@ export class AppleH2FMI
     load_page(run)
     {
         const address = this.regs[0x1018 >>> 2], row = this.row(), ce = this.chip();
-        const epoch = this.epoch, generation = (this.read_generation.get(ce) || 0) + 1;
-        this.read_generation.set(ce, generation);
+        const token = this.begin_operation(ce);
         this.page = this.program = this.program_address = null;
         this.pio_left = 0;
         this.requests = 0;
         this.fail = false;
         this.column = address & 65535;
         const complete = (page, failed) => {
-            if(this.epoch !== epoch || this.read_generation.get(ce) !== generation) return;
+            if(!this.complete_operation(ce, token, failed)) return;
             const entry = [page, address & 65535, !page || page.every(byte => byte === 255), failed];
             this.cache.set(ce, entry);
             this.page_chip = ce;
@@ -191,7 +214,7 @@ export class AppleH2FMI
             return word >>> 0;
         }
         const command = this.regs[0x1014 >>> 2];
-        if((offset === 0x14 || offset === 0x1024) && [0x70, 0xF1, 0xF2].includes(command)) return 0xC0 | Number(this.fail);
+        if((offset === 0x14 || offset === 0x1024) && [0x70, 0xF1, 0xF2].includes(command)) return this.nand_status();
         if(offset === 0x14 && (command === 0 || command === 0x3000)) return this.data_word();
         return this.regs[offset >>> 2] || 0;
     }
@@ -218,7 +241,8 @@ export class AppleH2FMI
             const command = this.regs[0x1014 >>> 2];
             if(command === 0x80)
             {
-                this.epoch++;
+                this.pending.delete(this.chip());
+                this.failed_chips.delete(this.chip());
                 this.program = ERASED.slice();
                 this.pio_left = 0;
                 this.program_address = [this.chip(), this.row()];
@@ -239,7 +263,7 @@ export class AppleH2FMI
             }
             if(value === 0x50 && [0x70, 0xF1, 0xF2].includes(command))
             {
-                this.regs[0x1048 >>> 2] = 0xC0 | Number(this.fail);
+                this.regs[0x1048 >>> 2] = this.nand_status();
                 this.regs[0x1044 >>> 2] |= 0x20;
             }
             if([0, 0x70, 0xF1, 0xF2, 0x90, 0xFF].includes(command))
@@ -272,10 +296,10 @@ export class AppleH2FMI
         this.update_irq();
     }
 
-    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null, Array.from(this.cache), this.page_chip, this.pio_left]; }
+    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null, Array.from(this.cache), this.page_chip, this.pio_left, Array.from(this.failed_chips)]; }
     set_state(state)
     {
-        this.epoch++;
+        this.pending.clear();
         this.regs.set(state[0]);
         this.id_offset = state[1];
         this.chips = new Map(state[2]);
@@ -286,7 +310,7 @@ export class AppleH2FMI
         this.requests = state[6] || 0;
         this.program = state[7] || null;
         this.program_address = state[8] || null;
-        this.read_generation.clear();
+        this.failed_chips = new Set(state[12] || (this.fail ? [this.chip()] : []));
         this.page_chip = state[10] ?? this.chip();
         this.pio_left = state[11] || 0;
         this.cache = new Map(state[9] || [[this.chip(), [this.page, this.column, this.erased, this.fail]]]);

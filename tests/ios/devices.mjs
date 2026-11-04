@@ -295,6 +295,38 @@ for(const [mask, byte] of [[2, 22], [1, 11]])
 }
 console.log("PASS: interleaved chip read registers survive out-of-order completions and restore");
 
+// An erase on CE1 can overlap an array read on CE0. NAND STATUS is
+// chip-local; completing one operation must not discard the other one's IRQ.
+let finishErase;
+banks.nand.erase = (_bus, _ce, _row, done, fail) => { finishErase = { done, fail }; };
+banks.reset();
+banks.write(0x100C, 1);
+banks.write(0x1014, 0x3000);
+banks.write(0x1010, 11);
+banks.write(0x1014, 0x70);
+assert.equal(banks.read(0x1024) & 0x40, 0, "CE0 stays busy until its read completes");
+banks.write(0x100C, 2);
+assert.equal(banks.read(0x1024), 0xC0, "CE1 is independently ready");
+banks.write(0x1014, 0xD060);
+banks.write(0x1010, 9);
+callbacks[0](Uint8Array.of(31, 0, 0, 0));
+assert.equal(banks.read(0x1044), 11);
+banks.write(0x1044, 11);
+banks.write(0x1014, 0x70);
+assert.equal(banks.read(0x1024) & 0x40, 0, "CE1 is still erasing");
+finishErase.fail();
+assert.equal(banks.read(0x1044), 9);
+assert.equal(banks.read(0x1024), 0xC1);
+const failedState = banks.get_state();
+banks.reset();
+banks.set_state(failedState);
+assert.equal(banks.read(0x1024), 0xC1);
+banks.write(0x100C, 1);
+assert.equal(banks.read(0x1024), 0xC0);
+banks.write(0x1014, 0);
+assert.equal(banks.read(0x14), 31);
+console.log("PASS: overlapping read and erase keep separate ready, fail and completion state per NAND chip");
+
 // Boot-page programs do not use CDMA. 10B329 polls the TX FIFO before
 // writing three 512-byte sectors, acknowledging each one independently.
 flashPort.reset();
