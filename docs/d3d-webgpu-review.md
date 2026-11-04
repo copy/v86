@@ -2304,6 +2304,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 完整客体317项初轮316通过、一项仍在旧8文件定位诊断文本；修正到实际共享实现后通过，保留未改316项及初轮/复检证据。核心相关59项、32标准EXE/四零售诊断DLL、静态核心/SDK consumer、站点集成2项、两侧零新增lint通过；继承4I9完整核心238/六GPU基线。发布同一次已验收XP中的准确8/9零售DLL及严格diagnostic。
 > - 证据 [stage4k13-validation.json](fixtures/d3d-review/stage4k13-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K13.json`。本项完成共享校验前置条件；公开8仍用原设备，完整device/resource/state/copy/句柄包装、表面锁定、shader数值差分/语料、完整零售/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍开放。宿主/协议/翻译器/包 `9335ee9a77fb7cc808d2` 及DDraw不变。
 
+
+> **阶段 4K14（2026-11-04）：D3D8 声明多段局部常量、API隔离与Reset/状态块。**
+> - 继续收敛 S2-40：声明扫描器跨过完整 CONSTMEM 字面值，不再把常量中的 `0xffffffff` 误认为声明END；转换保留全部离散常量块、空洞与c95边界。多次定义同一寄存器采用确定的最后块值，原生HAL的重叠优先级不在本项验收范围。
+> - 核对固定版本 [Wine声明加载](https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/vertexdeclaration.c#L146) 与 [shader创建](https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/shader.c#L130)：声明常量属于shader-local，NULL函数不加载局部常量。实现将全部值转为私有wire code里的DEF，普通函数字节、声明查询、协议hash算法与API设备常量银行保持各自语义；移除绑定时向设备常量上传声明值。原审查表“GetVertexShaderConstant应反映声明常量”的推论在此更正：API银行不应被局部常量覆盖。此方案复用现有宿主DEF路径，不改宿主/协议。
+> - **1,656,669项原生检查**，12,544个解码案例、489,216次有界扫描、128个公开构造；含多块/空洞/重叠/c95、原始END/NaN位模式、私有DEF逐字节和独立既有hash、原始查询、设备银行不变、重绑定、再次编码、固定声明与记录常量。16项变异严格编译后运行时断言拒绝；真实旧扫描器负对照、两组地址检查及保留9项declaration-only变异通过。NaN仅核对位模式/解析，不宣称数值一致性。
+> - 新XP SDK120/220探针同进程加载准确4K13旧DLL与当前DLL。旧版两帧复现早先常量块丢失的蓝色结果；当前各六帧核对c2红、c8绿、空洞API蓝、API覆盖后仍红、公开句柄已删除但状态块保留后绿、Reset后红。核对原始声明/函数、字面END、NULL函数与API常量查询隔离；**109秒、25批次、四设备/两Reset/十声明/八shader/24唯一句柄、14读回、一个owner/session/最终释放**。两个DLL各只发送一次Hello（实际共两个0能力Hello，非每factory一次）；修正探针初始描述中的四Hello计数，不改已捕获字节或SDK结果。仍明确模拟能力0、仅RAM overlay。
+> - 初轮两次探针在直接backbuffer LockRect退出：加lockable标志后确认该公开8入口尚未接通。失败输出已归档；改用既有 `CopyRects` 到CPU image surface再锁定的读回路径，未为探针改动生产表面代码。冻结验证发现一次无绘制的临时声明篡改未被原检查器识别，补齐完整42次绑定/资源退役时间线后，**847项语义破坏检测**全过。
+> - SwiftShader/Metal各 **14帧、896真实像素、零差异/图形错误**，包含旧DLL蓝色回归和修复后的两SDK全部场景；14次可编程绘制，设备/资源在SessionEnd兜底与driver释放前均为空。公开8/9共存及完整PPLIFE矩阵继承4K13/4K12；本项不冒充新9设备或完整生命周期矩阵重跑。
+> - 完整客体 **319 suites零失败**、核心相关 **60 suites**（保留59项通过及补齐检查器后的新fixture复检）、18标准EXE/两零售诊断DLL、定制SDK、站点集成2项、两侧零新增lint通过。验证和发布记录见 [stage4k14-validation.json](fixtures/d3d-review/stage4k14-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4K14.json`。只发布同次已验收XP的准确8零售DLL与严格diagnostic，9/DDraw继承已验收文件。完整包装、公开8直接backbuffer锁定、数值差分/语料、零售/loss/线程/完整格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍开放，包 `9335ee9a77fb7cc808d2` 不变。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
