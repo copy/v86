@@ -2532,6 +2532,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **366客体 / 82核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 stdcall24、两项站点集成、范围lint通过。发布准确XP零售8/9及同源严格diagnostic。证据 [stage4k36-validation.json](fixtures/d3d-review/stage4k36-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K36.json`。宿主/协议/translator/DDraw/运行包未改。
 > - **继续项：** 公开8 DWORD状态块所有权、全部预定义范围及对象包装，原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
 
+> **4K37（2026-11-05，已完成）：核心8 DWORD状态块所有权。**
+> - 新增私有create/capture/apply/delete句柄入口（stdcall16/16/8/8），使用4K35同步recorder建立真实9状态块。新增零初始化 `handle8`；普通9块仍是COM对象，8句柄只保留块存储、不保留设备parent pin，设备最终释放时统一清理。token不发协议资源命令；跨设备/配置/零/失效句柄拒绝。原始8范围和Get影子继续由前端管理，尚未接入完整公开8包装。
+> - Capture先建立新快照，成功后沿用原DWORD并释放旧块；OOM/回调失败保留旧块。操作临时持有设备和块存储，回调中删除旧token后不得复活。清理先摘掉句柄，再释放资源；清理期间拒绝重入句柄操作，私有数据回调保留设备后允许后续重新创建。源审计：**640个既有9函数逐字节一致**；设备清理仅新增token drain，状态块存储仅新增DWORD和注释，完整公开8/FVF/状态范围/转换策略未改。
+> - 原生 **19,161检查 / 1,117用例**：1,024 program/FFP/四种清理顺序、64组八类资源，稳定Capture、失败/现有recording、普通9块共存、公共引用归零/设备先释放/真实跨设备拒绝、32句柄乱序删除及计数碰撞跳过。真实纹理私有数据回调覆盖Apply时删除正在应用的块、销毁时访问另一枚token、设备复活。**25严格编译语义变异、两组ASAN**通过，保留9状态块160,909检查通过。初始变异发现另一枚token在清理回调中的覆盖缺口，补用例；泛化信号与unused-function编译错误均未计入，通过后才计数。
+> - 真实SDK编译发现新增声明早于recorder typedef，已调整顺序，保持Windows-only不暴露SDK枚举。首次XP **120秒 / 30批 / 一次启动**：准确4K36旧8/当前8/普通9参考/coreSDK120/220，五设备/五Reset/15声明/35shader/60协议资源句柄，20个programmable UP draw、1,280 DWORD本地帧缓冲核对。私有配置执行新四入口、失败Capture/稳定token/删除后拒绝、遗留空token设备自动清理；旧8/普通9继续用其原API作为图像/元数据参考。
+> - 独立wire检查完整布局/字节码/常量/顶点、状态映射和资源退休，**11,753项篡改检出**。两GPU各 **20完整图像 / 1,280 RGBA像素零误差**，35shader translations，0纹理/Present/GPU/host错误，资源表在SessionEnd及owner兜底前为空。CPU帧缓冲回复为明确解析注入；GPU图像独立验证。ZBIAS继续只是本地clamp16×−0.000005近似，PS1.0–1.4仅元数据用例。
+> - **368客体 / 83核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 ABI、两项站点集成/范围lint通过；发布准确XP零售8/9与严格diagnostic。证据 [stage4k37-validation.json](fixtures/d3d-review/stage4k37-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K37.json`。宿主/协议/translator/DDraw/运行包未改。
+> - 客体回归为首次全量367项通过，加修正旧变异测试函数边界后补跑一项通过（11/11）；原失败日志与补跑日志均保留，未把匹配不到目标算作运行时变异检出。
+> - **继续项：** 将核心能力接入完整公开8对象/状态块包装及全部预定义范围，其他原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
