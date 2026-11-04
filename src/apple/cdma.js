@@ -1,6 +1,9 @@
 // S5L8930 channel DMA. Bank zero contains two 32-bit channel-enable masks.
 // Channels 1..37 have configuration and descriptor registers on a 4 KiB
 // stride. At S1 the driver resets and disables them during its probe.
+import { AES } from "../ios/crypto.js";
+import { N90_UID } from "./uid.js";
+
 export class AppleCDMA
 {
     constructor(cpu, signal = (n, level) => {})
@@ -42,13 +45,68 @@ export class AppleCDMA
             {
                 if(value === 2 || (value & 1)) this.progress.delete(n);
                 if(value === 2) this.channel.fill(0, n * 8, n * 8 + 8);
-                else if(value & 1) this.channel[n * 8] = value & 0xFFFF;
-                else this.channel[n * 8] &= ~(value & 0x1C0000);
+                else
+                {
+                    const status = value & 1 ? 0 : this.channel[n * 8] & 0x1C0000 & ~value;
+                    if(value & 0xFFFF || !(value & 0x1C0000)) this.channel[n * 8] = status | (value & 0xFFFF);
+                    else this.channel[n * 8] &= ~(value & 0x1C0000);
+                }
                 this.signal(n, false);
-                if(value & 1) this.ports.get(this.channel[n * 8 + 2])?.();
+                if(value & 1)
+                {
+                    if(n <= 2) this.run_aes_pair();
+                    else this.ports.get(this.channel[n * 8 + 2])?.();
+                }
             }
             else if(n && reg > 0 && reg < 32) this.channel[n * 8 + (reg >>> 2)] = value;
         }
+    }
+
+    // CDMAAES feeds RAM into channel 1 and drains ciphertext or plaintext
+    // into channel 2. Their two descriptor lists may have different splits.
+    run_aes_pair()
+    {
+        const src = 8, dst = 16;
+        if(!(this.channel[src] & this.channel[dst] & 1)) return;
+        const count = this.channel[src + 3];
+        const context = (this.channel[src] >>> 8 & 15) * 1024;
+        const config = this.aes[context], mode = config >>> 16 & 3;
+        const keyLength = 16 + (config >>> 18 & 3) * 8;
+        const source = this.descriptors(src), destination = this.descriptors(dst);
+        const keySlot = config >>> 20 & 31;
+        const key = keySlot === 0 && keyLength === 16 ? N90_UID : keySlot === 1 && keyLength <= 32 ?
+            this.aes_bytes(context + 8, keyLength) : null;
+        const valid = key && (mode === 2 || mode === 3) && (config >>> 8 & 255) === 1 &&
+            count === this.channel[dst + 3] && !(count & 15) && source && destination;
+        if(valid)
+        {
+            const cipher = new AES(key);
+            let iv = this.aes_bytes(context + 4, 16);
+            const input = [source, 0, 0], output = [destination, 0, 0];
+            for(let remaining = count; remaining;)
+            {
+                const chunk = new Uint8Array(Math.min(remaining, 16384));
+                this.copy_segments(input, chunk, false);
+                iv = cipher.cbc(chunk, iv, mode === 2);
+                this.copy_segments(output, chunk, true);
+                remaining -= chunk.length;
+            }
+            const view = new DataView(iv.buffer, iv.byteOffset, iv.byteLength);
+            for(let i = 0; i < 4; i++) this.aes[context + 4 + i] = view.getUint32(i * 4, true);
+            this.channel[src + 3] = this.channel[dst + 3] = 0;
+        }
+        for(const n of [1, 2])
+        {
+            this.channel[n * 8] = (this.channel[n * 8] & ~1) | (valid ? 0x80000 : 0x40000);
+            this.signal(n, true);
+        }
+    }
+
+    aes_bytes(word, length)
+    {
+        const out = new Uint8Array(length), view = new DataView(out.buffer);
+        for(let i = 0; i < length / 4; i++) view.setUint32(i * 4, this.aes[word + i], true);
+        return out;
     }
 
     // Validate the whole descriptor chain before exposing the first page.
@@ -96,19 +154,7 @@ export class AppleCDMA
                 position = [segments, 0, 0];
                 this.progress.set(n, position);
             }
-            const segments = position[0];
-            let used = 0;
-            while(used < bytes.length && position[1] < segments.length)
-            {
-                const [addr, size] = segments[position[1]];
-                const offset = position[2], length = Math.min(size - offset, bytes.length - used);
-                const part = bytes.subarray(used, used + length);
-                if(to_ram) this.cpu.write_blob_physical(part, addr + offset);
-                else part.set(this.cpu.read_blob_physical(addr + offset, length));
-                used += length;
-                position[2] += length;
-                if(position[2] === size) { position[1]++; position[2] = 0; }
-            }
+            const used = this.copy_segments(position, bytes, to_ram);
             this.channel[i + 3] -= used;
             if(!this.channel[i + 3])
             {
@@ -119,6 +165,24 @@ export class AppleCDMA
             if(!result) result = 1;
         }
         return result;
+    }
+
+    copy_segments(position, bytes, to_ram)
+    {
+        const segments = position[0];
+        let used = 0;
+        while(used < bytes.length && position[1] < segments.length)
+        {
+            const [addr, size] = segments[position[1]];
+            const offset = position[2], length = Math.min(size - offset, bytes.length - used);
+            const part = bytes.subarray(used, used + length);
+            if(to_ram) this.cpu.write_blob_physical(part, addr + offset);
+            else part.set(this.cpu.read_blob_physical(addr + offset, length));
+            used += length;
+            position[2] += length;
+            if(position[2] === size) { position[1]++; position[2] = 0; }
+        }
+        return used;
     }
 
     reset() { this.enabled.fill(0); this.channel.fill(0); this.aes.fill(0); this.progress.clear(); }

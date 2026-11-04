@@ -329,3 +329,50 @@ for(let i = 0; i < 384; i++)
 assert.ok(programmed.subarray(1536).every(b => b === 255));
 finishProgram();
 console.log("PASS: PIO boot-page programming, individual FIFO sectors and snapshot during a sector");
+
+// The guest AES driver first configures both channels without START and
+// then reads each control register back to set START. Both AP IRQs fire.
+const aesPorts = new Map(), aesIrqs = [];
+const pair = new AppleCDMA({ ...controllerCPU, io: { register_mmio(base, len, port) { aesPorts.set(base, port); } } },
+    (n, level) => aesIrqs.push([n, level]));
+const aesPort = aesPorts.get(0x87800000), cdmaPort = aesPorts.get(0x87000000);
+const wr = (offset, value) => cdmaPort.write(offset, 4, value);
+function pairTransfer(config, key, iv, input)
+{
+    for(let i = 0; i < 4; i++) aesPort.write(0x1010 + 4 * i, 4, iv.readUInt32LE(i * 4));
+    for(let i = 0; i < key.length; i += 4) aesPort.write(0x1020 + i, 4, key.readUInt32LE(i));
+    aesPort.write(0x1000, 4, config);
+    memory.set(input, 0x400);
+    for(const [n, addr, mode] of [[1, 0x400, 0x188], [2, 0x600, 0x88]])
+    {
+        const d = 0x300 + n * 16;
+        descriptor.setUint32(d, 0, true);
+        descriptor.setUint32(d + 4, n === 1 ? 0x30103 : 0x103, true);
+        descriptor.setUint32(d + 8, addr, true);
+        descriptor.setUint32(d + 12, input.length, true);
+        wr(n * 4096, 2);
+        wr(n * 4096 + 20, d);
+        wr(n * 4096, mode);
+        wr(n * 4096 + 12, input.length);
+        assert.equal(pair.read(n * 4096), mode);
+    }
+    wr(0x1000, pair.read(0x1000) | 1);
+    assert.equal(pair.read(0x100C), input.length);
+    wr(0x2000, pair.read(0x2000) | 1);
+    assert.deepEqual(aesIrqs.slice(-2), [[1, true], [2, true]]);
+    for(const n of [1, 2])
+    {
+        assert.ok(pair.read(n * 4096) & 0x80000);
+        assert.equal(pair.read(n * 4096 + 12), 0);
+    }
+    return Buffer.from(memory.subarray(0x600, 0x600 + input.length));
+}
+const blockIV = Buffer.from("000102030405060708090a0b0c0d0e0f", "hex");
+const blockKey = Buffer.from("2b7e151628aed2a6abf7158809cf4f3c", "hex");
+const clear = Buffer.from("6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e51", "hex");
+const encrypted = Buffer.from("7649abac8119b246cee98e9b12e9197d5086cb9b507219ee95db113a917678b2", "hex");
+assert.deepEqual(pairTransfer(0x130100, blockKey, blockIV, clear), encrypted);
+assert.deepEqual(pairTransfer(0x120100, blockKey, blockIV, encrypted), clear);
+const uid835 = pairTransfer(0x030100, Buffer.alloc(0), Buffer.alloc(16), Buffer.alloc(16, 1));
+assert.equal(uid835.toString("hex"), "75cbb019857f831fffd9e66d0110f2a9");
+console.log("PASS: paired CDMA AES-CBC encrypt/decrypt, fixed N90 UID derivation and both completion interrupts");

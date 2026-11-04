@@ -7,10 +7,17 @@ import { fileURLToPath } from "node:url";
 import { process_list } from "./process-list.mjs";
 import { V86 } from "../../src/main.js";
 
-const [firmware, image, option, debugKernel, gate] = process.argv.slice(2);
-if(gate && !["--mounts", "--processes"].includes(gate)) throw new Error("unknown system boot gate " + gate);
-if(option && (option !== "--debug-kernel" || !debugKernel)) throw new Error("expected --debug-kernel local-kernel.macho");
-if(!firmware || !image) throw new Error("usage: system.mjs extracted-10B329-directory flash.img [--debug-kernel local-kernel.macho [--mounts|--processes]]");
+const [firmware, image, ...args] = process.argv.slice(2);
+if(!firmware || !image) throw new Error("usage: system.mjs firmware-directory flash.img [--debug-kernel kernel] [--mounts|--processes]");
+let debugKernel;
+if(args[0] === "--debug-kernel")
+{
+    args.shift();
+    debugKernel = args.shift();
+    if(!debugKernel || debugKernel.startsWith("--")) throw new Error("expected a local debug kernel");
+}
+const gate = args.shift();
+if(args.length || (gate && !["--mounts", "--processes"].includes(gate))) throw new Error("unknown system boot gate");
 const file = name => ({ url: path.resolve(firmware, name) });
 const emulator = new V86({
     machine_type: "s5l8930", graphics_adapter: "none", log_level: 0, autostart: false,
@@ -27,7 +34,7 @@ try
         emulator.add_listener("emulator-error", fail);
     });
     const root = "BSD root: disk0s1s1, major ";
-    const end = performance.now() + (debugKernel ? 600000 : 180000);
+    const end = performance.now() + (debugKernel || gate ? 600000 : 180000);
     const launchd = "launchd[1] has started up";
     const marker = gate ? "/dev/disk0s1s2 on /private/var (hfs, local, nodev, nosuid" : debugKernel ? launchd : root;
     const cpu = emulator.v86.cpu;

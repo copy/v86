@@ -2,7 +2,7 @@
 
 状态：实施中（2026-11-04）。用真实 10B329 验证了 S1 的串口里程碑：不提供根盘时，XNU 等待
 类型为 Apple_HFS 的 IOMedia。S2 已验证固件启动图、640×960 启动文字与逐像素快照恢复。垂直同步从 VIC1 经 VIC0 送到客体，背光由 PMU 控制。
-S3 本机验收通过：在恢复盘内的串口 shell 执行了 uname -a 和 sysctl hw。S4–S7 尚未验收。
+S3 本机验收通过：在恢复盘内的串口 shell 执行了 uname -a 和 sysctl hw。S4 已用原版内核从 NAND 挂载系统卷与数据卷，并在同一时刻读到四个核心进程。数据保护、首次设置与 S5–S7 尚未验收。
 
 本计划为 v86 增加机器类型 `machine_type: "s5l8930"`，模拟 iPhone 4（`iPhone3,1`，板子 N90AP），目标是
 iOS 6.1.3 启动到主屏幕，能触控操作，能运行系统自带的应用。
@@ -671,6 +671,11 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel b
 
 **S4 可擦除密钥存储。** plog 使用 slice 标志，物理块 1–4 的启动页 16 保存第 1 代 Face 记录。头部、内容 CRC 和 BAG1 记录由构建器生成，BAG1 内的密钥材料仅供模拟设备使用。H2FMI 支持客体以三个 512 字节的 PIO 传输写入一张启动页，写到半个扇区时也可快照往返。
 运行 node tests/ios/flash.mjs build/ios/10B329 --lockers --snapshot，10B329 的 AppleEffaceableStorage 报告在 group 0 读取到第 1 代记录。尚须让 keybagd 从数据卷加载与此记录配套的系统钥匙包，并验证 UID 加解密。
+
+**S4 原版内核启动，2026-11-04。** A4 的 CDMA 通道 1 从内存取明文或密文，通道 2 将 AES-CBC 结果写回内存。两个通道分别向应用处理器发送完成中断。原版内核使用固定的模拟 UID 执行设备密钥派生，完成安全根设备回调。启动使用固件设备树原有的安全根前缀。
+
+在本机用带实验性系统钥匙包的 NAND 运行 `node tests/ios/system.mjs build/ios/10B329 build/ios/bag-candidate.img --processes`，未修改的 kernelcache 挂载了只读系统卷与可写数据卷，进程表同时出现 launchd（PID 1）、mediaserverd（39）、lockdownd（45）和 configd（48）。此项仅验收挂载与进程启动；系统钥匙包解锁和首次设置需独立验证。
+
 
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。
