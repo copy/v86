@@ -57,7 +57,7 @@ RenderControl.prototype.reset = function()
     this.contexts = new Map();
     /** @type {!Map<number, {config: number, width: number, height: number, color_buffer: number, owner: string}>} */
     this.surfaces = new Map();
-    /** @type {!Map<number, {width: number, height: number, format: number, refs: !Map<string, number>, updates: number, iosurface: (number|undefined)}>} */
+    /** @type {!Map<number, {width: number, height: number, format: number, refs: !Map<string, number>, updates: number, iosurface: (number|undefined), cpu_seed: (number|undefined)}>} */
     this.color_buffers = new Map();
     /** @type {!Map<number, {context: number, target: number, buffer: number, owner: string}>} */
     this.images = new Map();
@@ -212,6 +212,29 @@ const HANDLERS = {
     },
     "rcDestroyWindowSurface": (rc, conn, [surface]) => { if(rc.surfaces.delete(surface)) rc.events("surface_destroy", surface); },
     "v86AcquireIOSurface": (rc, conn, [id, width, height, fourcc]) => rc.acquire_iosurface(conn, id, width, height, fourcc),
+    "v86IOSurfaceIsCurrent": (rc, conn, [handle, seed]) =>
+    {
+        const cb = rc.color_buffers.get(handle);
+        return cb && cb.iosurface && cb.refs.has(owner_of(conn)) && cb.cpu_seed === seed ? 1 : 0;
+    },
+    "v86UploadIOSurface": (rc, conn, [handle, seed, pixels]) =>
+    {
+        const cb = rc.color_buffers.get(handle);
+        if(!cb || !cb.iosurface || !cb.refs.has(owner_of(conn)) || !pixels || pixels.length !== cb.width * cb.height * 4) return 0;
+        if(cb.cpu_seed !== seed)
+        {
+            cb.updates++;
+            rc.update_bytes += pixels.length;
+            // IOSurface row zero is the top; emugl texture updates start
+            // at the bottom. Preserve native orientation on the GPU.
+            const bgraRows = new Uint8Array(pixels.length), stride = cb.width * 4;
+            for(let y = 0; y < cb.height; y++)
+                bgraRows.set(pixels.subarray(y * stride, (y + 1) * stride), (cb.height - 1 - y) * stride);
+            rc.events("color_buffer_update", handle, 0, 0, cb.width, cb.height, 0x80e1, 0x1401, bgraRows);
+            cb.cpu_seed = seed;
+        }
+        return 1;
+    },
     "rcCreateColorBuffer": (rc, conn, [width, height, format]) => rc.create_color_buffer(conn, width, height, format, 0),
     "rcCreateColorBufferDMA": (rc, conn, [width, height, format]) => rc.create_color_buffer(conn, width, height, format, 0),
     "rcCreateColorBufferWithHandle": (rc, conn, [width, height, format, handle]) => { rc.create_color_buffer(conn, width, height, format, handle); },
@@ -353,7 +376,7 @@ RenderControl.prototype.create_color_buffer = function(conn, width, height, form
 {
     if(!width || !height || width > 0x4000 || height > 0x4000) return 0;
     handle = handle || this.handle();
-    this.color_buffers.set(handle, { width, height, format, refs: new Map([[owner_of(conn), 1]]), updates: 0, iosurface: undefined });
+    this.color_buffers.set(handle, { width, height, format, refs: new Map([[owner_of(conn), 1]]), updates: 0, iosurface: undefined, cpu_seed: undefined });
     this.events("color_buffer_create", handle, width, height, format);
     return handle;
 };

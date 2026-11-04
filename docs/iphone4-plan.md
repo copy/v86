@@ -736,6 +736,8 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/gpu/flash.img --debug-kerne
 
 在本机 WebGPU 上，`tests/ios/iosurface-render.mjs` 通过两条独立进程连接验证了宿主像素共享。写方将同一 IOSurface 的颜色缓冲绑作渲染缓冲，另一方将其绑作纹理。64×48 全部像素经第二方帧缓冲读回并与绿底、红角图案比对。快照恢复后，写方把红角改黄，读方观察到更新；写方另行分配普通渲染缓冲再清蓝，读方仍保留黄角和绿底。此测试覆盖宿主渲染器，客体 CAEAGLLayer 的窗口提交仍需验证。
 
+CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读锁内取得内核种子，按实际行跨度读取有效像素。宿主保存最近导入的种子，转换原生顶行与 GL 底行的方向。同一种子的重复绑定保留 GPU 后续绘制的内容。测试逐像素核对了初次 CPU 导入、GPU 更新、重复导入、快照恢复和新种子的 CPU 更新。
+
 另在多次较长的启动运行中记录到 AppleIOPFMI 等待多页读取超时，向 IOP 发 NMI 后内核 panic。原配置也可复现。持续运行的验收需要覆盖这个故障。
 
 
