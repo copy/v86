@@ -2587,6 +2587,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 六面分别写入六种颜色并用三维方向采样，Reset后face0改白；**14张新增固定管线图像 + 24张保留图像 = 38完整图像 / 2,432像素**，SwiftShader与Metal均零误差。face5/mip1绿色核对CPU/上传；本探针不宣称采样该mip。独立wire **27,582项篡改检出**，核对24次上传/4,992字节；10纹理/4cube/0volume、20可编程+18固定管线draw、2交换链创建/0拒绝/2销毁、0 Present/GPU/host错误，资源在兜底前为空。帧缓冲CPU回复为解析注入，与实际CPU影子及真实GPU图像区分。Cube AddDirtyRect沿用核心现有no-op政策，尚未宣称原生HAL一致。
 > - **378客体 / 88核心回归**、32标准EXE/四严格DLL/21成员静态核心/SDK8边界、两项站点集成/范围lint通过；发布准确XP零售8/9和同源diagnostic。证据 [stage4k42-validation.json](fixtures/d3d-review/stage4k42-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K42.json`。继续Volume8/VolumeTexture8/VB/IB/SwapChain8/Device8、状态块范围与默认工厂，再完成其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS及阶段4/5/6。
 
+> **4K43（2026-11-05，已完成）：真实VolumeTexture8与Volume8层级容器。**
+> - 新增 `d3d8_core_volume_texture.c/.h`（19方法）及 `d3d8_core_volume.c/.h`（11方法）。Volume8的容器/引用拥有者为实际VolumeTexture8；两种接口共用核心三维锁定、私有数据、弱缓存和存储退休。Volume8沿用既有IUnknown/Volume8查询政策，不接受Resource8。15/6方法的类型化边界使用中立盒/输出指针，SDK转换只在核心9实现内完成。
+> - **669个既有核心9函数、十种存储结构及九个完整旧8/运行策略/Surface8/Texture8/Cube8/共用文件保持一致**；volume_desc8的原有打包逻辑抽为共用函数，内联并恢复局部声明可逐字节重建旧函数，纹理层级描述不再需要临时Volume对象。8构建仅增加两份适配器源，公开默认工厂尚未切换。
+> - 原生 **66,667检查 / 790用例**，768组三个三维mip×四种释放顺序及构造/缓存/竞争/OOM/输入引用消费、实际子对象地址、GUID/方法参数/HRESULT、容器与设备同一性检查；后端明确为COM/元数据shim。**42项纹理适配器 + 28项Volume8变异、ASAN**通过；输出清空变异起初因输入已经NULL而存活，改为非空哨兵后检出。保留体积描述 **79,297检查 / 26,433用例**及33项核心体积变异通过。
+> - 独立消费者最初检出了核心头对SDK盒类型的依赖，改成中立边界后严格独立/SDK8编译均通过。首次XP因测试消费者缺少体积创建导出失败；补齐后第二次129秒/64批通过，但不作为最终证据。最终中立边界重新独立捕获 **136秒 / 64批，第三次运行**：共 **十一设备/十一Reset/92句柄/21声明/35shader**。每个新设备覆盖四层三维mip（8×4×4、4×2×2、2×1×1、1×1×1）、真实Volume8容器与QI/private/设备/Size、行/片跨度、同层跨接口互斥与不同层同时锁定、priority/LOD/PreLoad/type/dirty/public-zero复活、Reset同一性及最终引用0；新增544 DWORD实际CPU影子，累计 **1,824 DWORD**。新Device8父接口仍明确为IUnknown夹具。
+> - 四个深度切片分别采样red/green/blue/yellow，Reset后改白，新增10图像；累计 **48完整图像 / 3,072像素**，SwiftShader与Metal均零误差。mip1 magenta核对CPU/上传，本探针未采样该mip。独立wire **35317项篡改检出**，核对44次逐片上传/7,168字节；12纹理/4cube/2volume、20可编程+28固定管线draw、35shader translations、2交换链创建/0拒绝/2销毁，0 Present/GPU/host错误，资源在兜底前为空。CPU帧缓冲回复明确为解析注入，区别于实际CPU影子与GPU图像。AddDirtyBox沿用核心现有no-op政策，原生HAL一致性仍待验证。
+> - **381客体 / 89核心最终回归**、32标准EXE/四严格DLL/21成员核心/独立消费者及SDK8边界、两项站点集成/范围lint通过；发布准确最终XP零售8/9及同源diagnostic。证据 [stage4k43-validation.json](fixtures/d3d-review/stage4k43-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K43.json`。继续VB/IB/SwapChain8/Device8、状态块范围与默认工厂，及其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
