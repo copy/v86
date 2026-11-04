@@ -1,0 +1,30 @@
+#!/usr/bin/env node
+import {backend_depth_scenes} from "../lib/d3d8_backend_depth_wire.mjs";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import {createRequire} from "node:module";
+import {execFileSync as run} from "node:child_process";
+import {fileURLToPath} from "node:url";
+import {site_directory} from "../lib/site.mjs";
+import {run_xp_ram_probe} from "../lib/xp_ram_probe.mjs";
+const root = fileURLToPath(new URL("../../", import.meta.url)), site = site_directory(root);
+const out = path.resolve(process.env.D8WG_DEPTH_SIZE_OUT || root + "build/d3d-review/stage4k21-depth-size-xp");
+const require=createRequire(import.meta.url), P=require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"), W=require("../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js");let replies=0;
+process.chdir(root);
+fs.mkdirSync(out, {recursive: true});
+fs.rmSync(out + "/probe-result.json", {force: true}); fs.rmSync(out + "/graphics.bin", {force: true});
+const scenes=backend_depth_scenes();
+const files = {"V86GL.SYS": fs.readFileSync(site + "/glbridge/v86gl_driver/v86gl.sys")};
+const baseline=run("git",["show","8b4e498:glbridge/d3d8proxy/d3d8.dll"],{cwd:site,stdio:"pipe"});fs.writeFileSync(out+"/BASE8.DLL",baseline);files["BASE8.DLL"]=baseline;run("sh",[site+"/glbridge/d3d8proxy/build.sh",out+"/d3d8.dll"],{stdio:"pipe"});files["D3D8.DLL"]=fs.readFileSync(out+"/d3d8.dll");
+run("sh", [site + "/glbridge/d3d9proxy/build.sh", out + "/d3d9.dll"], {stdio: "pipe"});
+run("sh", [site + "/glbridge/d3d9proxy/build.sh", "--static",out + "/libd9wg_d3d9.a"], {stdio: "pipe"});
+run(process.env.D9WG_CC || "i686-w64-mingw32-gcc", ["-shared","-std=gnu99","-Os","-s","-nostdlib","-Wall","-Wextra","-Werror","-Wl,--subsystem,windows:5.01","-Wl,-e,_DllMain@12","-Wl,--kill-at","-Wl,--exclude-all-symbols","-o",out+"/CORE8.DLL",site+"/glbridge/sample/d3d8_backend_image_consumer.c",site+"/glbridge/sample/d3d8_backend_image_consumer.def",out+"/libd9wg_d3d9.a","-luser32","-lgdi32","-lkernel32"],{stdio:"pipe"});
+files["CORE8.DLL"]=fs.readFileSync(out+"/CORE8.DLL");
+run(process.env.D9WG_CC || "i686-w64-mingw32-gcc", ["-mwindows", "-std=gnu99", "-Os", "-s", "-nostdlib", "-Wall", "-Wextra", "-Werror", "-Wl,--subsystem,windows:5.01", "-Wl,-e,_WinMainCRTStartup@0", "-o", out + "/DSIZE8.EXE", site + "/glbridge/sample/d3d8_depth_size_test.c",site+"/glbridge/sample/d3d8_depth_size8_probe.c", "-ldxguid", "-luser32", "-lkernel32"], {stdio: "pipe"});
+files["D3D9.DLL"] = fs.readFileSync(out + "/d3d9.dll"); files["DSIZE8.EXE"] = fs.readFileSync(out + "/DSIZE8.EXE");
+files["PROBE.CMD"] = Buffer.from(["@echo off", "set D9WG_GDI_CURSOR=0", "sc stop v86gl", "copy /y %~d0\\v86gl.sys C:\\WINDOWS\\system32\\drivers\\v86gl.sys", "sc config v86gl binPath= C:\\WINDOWS\\system32\\drivers\\v86gl.sys", "sc start v86gl", "if errorlevel 1 goto failed", "%~d0\\DSIZE8.EXE", "if errorlevel 1 goto failed", "echo PASS depth size probes >%~d0\\OWNER.TXT", "exit /b", ":failed", "echo FAIL depth size probes >%~d0\\OWNER.TXT", ""].join("\r\n"));
+const result = await run_xp_ram_probe({root, out, files, image: process.env.XP_IMAGE || site + "/windowsxp/windowsxp_multidisk_C_4G.img", success: "PASS depth size probes", log_files: ["DSIZE8.TXT"], capture_graphics: true, expected_releases: 1, simulated_host_features:0, rendering: "Common API8 depth resource Size:four-byte aligned rows,2/4byte formats,MSAA-independent,shared public8implicit/standalone/Reset andcoreSDK8descriptor. Accurate4K20baseline8 reproducesstandaloneSize0andimplicitfixed4;current8/core8SDK120/220 validateall6depthformatsat3x2/MSAA0/4,initialD16Size128and5x3ResetSize36. Ordinary9 unchanged. Retainedformat65CPU/descriptor guardsand20independentdepth/stencilimages1280pixels,five devices/nineReset/63textures/oneowner/session/release. CPUreadbackreplies explicitlyanalyticinjection;realGPUsmustindependentlyverify retainedpixels. No GPUdepthprecision/nativeWindowsalignment/fullwrappingclaim", observe_batch(message,read,write){const h=W.readHeader(message.bytes.subarray(8));W.checkStream(h.view,h.end,h.commandCount);for(let x=P.STRUCTS.BatchHeader.size;x<h.end;){const op=h.view.getUint16(x,true),n=h.view.getUint32(x+P.F.CommandHeader.size,true);if(op===P.OP.READBACK_SURFACE){const q=P.decode("ReadbackSurface",h.view,x+16,n-16);const scene=scenes[replies];assert(scene);assert.equal(q.width,scene.width);assert.equal(q.height,scene.height);assert.equal(q.destination_bytes,scene.pixels.length*4);const payload=Buffer.alloc(16+q.destination_bytes);Buffer.from(P.encode("ReadbackResponse",{request_id:q.request_id,byte_count:q.destination_bytes,status:P.C.D9WG_RESPONSE_OK})).copy(payload);for(let i=0;i<scene.pixels.length;i++)payload.writeUInt32LE(scene.pixels[i],16+i*4);write((16<<20)-P.C.D9WG_RESPONSE_REGION_BYTES+q.response_offset,payload);replies++;}x+=n;}}, inspect(r) {
+    assert.equal(replies,20);assert(r.logs["DSIZE8.TXT"].includes("IMAGE8 CORE mode=3 format65=1 Size=24 pitch=12 invalidCases=9 descriptorGuards=1 finalRefs=0"));assert(r.logs["DSIZE8.TXT"].includes("IMAGE8 CORE mode=4 format65=1 Size=24 pitch=12 invalidCases=9 descriptorGuards=1 finalRefs=0"));assert.equal(r.owners.length, 1); assert(r.logs["DSIZE8.TXT"].includes("PASS shared depth Size modes=5 devices=5 resets=9 frames=20 finalRefs=0"));
+}});
+console.log(JSON.stringify(result));
