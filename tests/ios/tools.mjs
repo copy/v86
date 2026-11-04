@@ -7,6 +7,9 @@
 
 import assert from "node:assert/strict";
 import zlib from "node:zlib";
+import { execFileSync } from "node:child_process";
+import { wipe_info } from "../../tools/ios/lockers.mjs";
+import { systembag } from "../../tools/ios/systembag.mjs";
 import { AES, SHA1, HMAC_SHA1, from_hex, to_hex } from "../../src/ios/crypto.js";
 import { img3_build, img3_payload, img3_parse } from "../../src/ios/img3.js";
 import { lzss_decompress, complzss_decompress, adler32 } from "../../src/ios/lzss.js";
@@ -492,6 +495,54 @@ test("key files: format, hex lengths, the root filesystem's 36-byte key", () =>
     assert.throws(() => keys_parse({ ...good, format: "other" }), /v86-ios-keys/);
     assert.throws(() => keys_parse({ ...good, images: { RootFileSystem: { file: "x", key: "22".repeat(32) } } }), /36 bytes/);
     assert.throws(() => keys_parse({ ...good, images: { Kernelcache: { file: "x", iv: "00", key: "11".repeat(32) } } }), /IV/);
+});
+
+// plutil also builds the binary envelopes in the macOS data-volume tool.
+if(process.platform === "darwin") test("N90 systembag: CBC envelope, signature and ten device-wrapped class keys", () =>
+{
+    const parse = input => plist_parse(execFileSync("/usr/bin/plutil", ["-convert", "xml1", "-o", "-", "--", "-"], { input }));
+    const bag = parse(systembag()), { key, iv } = wipe_info();
+    assert.equal(bag._MKBWIPEID, 0x42414731);
+    assert.deepEqual(Buffer.from(bag._MKBIV), iv);
+    const plain = Buffer.from(bag._MKBPAYLOAD);
+    new AES(key).cbc(plain, iv, true);
+    const pad = plain.at(-1);
+    assert.ok(pad >= 1 && pad <= 16 && plain.subarray(-pad).every(v => v === pad));
+    function fields(bytes)
+    {
+        const values = [];
+        for(let at = 0; at < bytes.length;)
+        {
+            const n = bytes.readUInt32BE(at + 4);
+            assert.ok(n <= bytes.length - at - 8);
+            values.push([bytes.toString("ascii", at, at + 4), bytes.subarray(at + 8, at + 8 + n)]);
+            at += 8 + n;
+        }
+        return values;
+    }
+    // RFC 3394 inverse using the emulated AES implementation.
+    const cipher = new AES(from_hex("75cbb019857f831fffd9e66d0110f2a9"));
+    function unwrap(bytes)
+    {
+        const r = Buffer.from(bytes), n = r.length / 8 - 1;
+        for(let t = 6 * n; t > 0; t--)
+        {
+            const at = 8 * (1 + (t - 1) % n);
+            const block = Buffer.concat([r.subarray(0, 8), r.subarray(at, at + 8)]);
+            block.writeBigUInt64BE(block.readBigUInt64BE() ^ BigInt(t));
+            cipher.block(block, 0, true);
+            block.copy(r, 0, 0, 8);
+            block.copy(r, at, 8);
+        }
+        assert.deepEqual(r.subarray(0, 8), Buffer.alloc(8, 0xA6));
+        return r.subarray(8);
+    }
+    const signed = Object.fromEntries(fields(Buffer.from(parse(plain.subarray(0, -pad)).KeyBagKeys)));
+    const data = fields(signed.DATA), keys = Object.fromEntries(data);
+    assert.deepEqual(Buffer.from(new HMAC_SHA1(signed.DATA).mac(unwrap(keys.HMCK))), signed.SIGN);
+    assert.deepEqual(data.filter(([tag]) => tag === "CLAS").map(([, v]) => v.readUInt32BE()), [1, 2, 3, 4, 6, 7, 8, 9, 10, 11]);
+    const classKeys = data.filter(([tag]) => tag === "WPKY").map(([, v]) => unwrap(v).toString("hex"));
+    assert.equal(new Set(classKeys).size, 10);
 });
 
 let failed = 0;

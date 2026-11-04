@@ -8,6 +8,7 @@ import { execFileSync } from "node:child_process";
 import { open_volume, write_node } from "./hfs_edit.mjs";
 import { plist_parse } from "../../src/ios/plist.js";
 import { data_capacity } from "./nand_volumes.mjs";
+import { systembag } from "./systembag.mjs";
 
 const [source, output] = process.argv.slice(2);
 if(!source || !output) throw new Error("usage: data-volume.mjs system.hfs new-data.hfs");
@@ -33,6 +34,14 @@ try
             else throw new Error("unsupported data volume entry " + p);
             entries.set("/" + rel, entry);
         });
+        const bagPath = "/keybags/systembag.kb", bag = systembag();
+        if(!entries.has("/keybags"))
+        {
+            fs.mkdirSync(path.join(stage, "keybags"), { mode: 0o700 });
+            entries.set("/keybags", { type: "directory", uid: 0, gid: 0, flags: 0, mode: 0o40700 });
+        }
+        fs.writeFileSync(path.join(stage, "keybags", "systembag.kb"), bag, { flag: "wx", mode: 0o600 });
+        entries.set(bagPath, { type: "file", uid: 0, gid: 0, flags: 0, mode: 0o100600 });
         execFileSync("hdiutil", ["create", "-srcfolder", stage, "-fs", "HFSX", "-layout", "NONE", "-format", "UDSB",
             "-size", capacity / 1048576 + "m", "-nospotlight", "-volname", "Data", bundle], { stdio: "inherit" });
 
@@ -87,7 +96,7 @@ try
                 assert.deepEqual([dest.type, dest.uid, dest.gid, dest.mode],
                     [sourceEntry.type, sourceEntry.uid, sourceEntry.gid, sourceEntry.mode], p);
                 if(dest.type !== "directory")
-                    assert.ok(Buffer.from(await verified.contents(dest)).equals(await system.contents(sourceEntry)), p);
+                    assert.ok(Buffer.from(await verified.contents(dest)).equals(p === bagPath ? bag : await system.contents(sourceEntry)), p);
             }
         }
         finally { fs.closeSync(fd); }
