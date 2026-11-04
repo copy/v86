@@ -500,7 +500,7 @@ A64CPU.prototype.load_boot_files = function()
     {
         const f = this.boot_files;
         const handoff = load_n90_kernel(this.mem8, new Uint8Array(f.kernel), new Uint8Array(f.dtb),
-            f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline, !!this.devices.apple_nand);
+            f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline, !!this.devices.apple_nand, !!this.devices.backdoor);
         this.wm.exports["a64_bus_written"](0, handoff.r0 - VIRT_RAM_BASE + 4096);
         this.devices.apple_fmi0.configure(handoff.chip_ids, 0);
         this.devices.apple_fmi1.configure(handoff.chip_ids, 1);

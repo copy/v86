@@ -17,7 +17,7 @@ function cells(...values)
 }
 
 /** Populate guest RAM and return the physical PC and r0 used at reset. */
-export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, nand = false)
+export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, nand = false, gles = false)
 {
     const kernel = macho_parse(kernelcache);
     if(kernel.is64 || kernel.cputype !== CPU_TYPE_ARM || kernel.filetype !== 2 ||
@@ -81,6 +81,7 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
     dt_set(required("/memory"), "reg", cells(PHYS, usable));
     dt_set(required("/vram"), "reg", cells(N90_VIDEO.base, N90_VIDEO.height * N90_VIDEO.stride));
     dt_set(required("/chosen"), "chip-id", cells(0x8930));
+    if(gles) dt_set(required("/chosen"), "v86,gles-backdoor", cells(1));
     if(ramdisk) dt_set(required("/chosen/memory-map"), "RAMDisk", cells(PHYS + disk, ramdisk.length));
     const dt = dt_serialize(tree);
     const args = page(treeOffset + dt.length);

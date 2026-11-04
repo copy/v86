@@ -8,7 +8,7 @@ import { process_list } from "./process-list.mjs";
 import { V86 } from "../../src/main.js";
 
 const [firmware, image, ...args] = process.argv.slice(2);
-if(!firmware || !image) throw new Error("usage: system.mjs firmware-directory flash.img [--debug-kernel kernel] [--mounts|--processes|--keybag]");
+if(!firmware || !image) throw new Error("usage: system.mjs firmware-directory flash.img [--debug-kernel kernel] [--mounts|--processes|--keybag|--graphics]");
 let debugKernel;
 if(args[0] === "--debug-kernel")
 {
@@ -17,10 +17,13 @@ if(args[0] === "--debug-kernel")
     if(!debugKernel || debugKernel.startsWith("--")) throw new Error("expected a local debug kernel");
 }
 const gate = args.shift();
-if(args.length || (gate && !["--mounts", "--processes", "--keybag"].includes(gate))) throw new Error("unknown system boot gate");
+if(args.length || (gate && !["--mounts", "--processes", "--keybag", "--graphics"].includes(gate))) throw new Error("unknown system boot gate");
 const file = name => ({ url: path.resolve(firmware, name) });
 const emulator = new V86({
     machine_type: "s5l8930", graphics_adapter: "none", log_level: 0, autostart: false,
+    gles_backdoor: gate === "--graphics",
+    // The in-process adapter queries renderControl during startup.
+    graphics_adapter_renderer_channel: gate === "--graphics" ? { post() {}, listen() {} } : null,
     wasm_path: fileURLToPath(new URL("../../build/v86-arm64.wasm", import.meta.url)),
     ios: { kernelcache: debugKernel ? { url: path.resolve(debugKernel) } : file("kernelcache.n90.macho"), devicetree: file("DeviceTree.n90ap.bin"),
         nand: { url: path.resolve(image), size: fs.statSync(image).size } },
@@ -34,18 +37,18 @@ try
         emulator.add_listener("emulator-error", fail);
     });
     const root = "BSD root: disk0s1s1, major ";
-    const end = performance.now() + (debugKernel || gate ? 600000 : 180000);
+    const end = performance.now() + (gate === "--graphics" ? 1200000 : debugKernel || gate ? 600000 : 180000);
     const launchd = "launchd[1] has started up";
     const marker = gate ? "/dev/disk0s1s2 on /private/var (hfs, local, nodev, nosuid" : debugKernel ? launchd : root;
     const cpu = emulator.v86.cpu;
     const required = ["lockdownd", "configd", "mediaserverd"];
-    let names = [], processesReady = gate !== "--processes" && gate !== "--keybag", nextSample = 0;
-    let keybagReady = gate !== "--keybag", nextLogCheck = 0;
+    let names = [], processesReady = !["--processes", "--keybag", "--graphics"].includes(gate), nextSample = 0;
+    let keybagReady = gate !== "--keybag" && gate !== "--graphics", graphicsReady = gate !== "--graphics", nextLogCheck = 0;
     // keybagd formats the syslog entry using its thread ID and caller name.
     // The constant in the Mach-O contains only the bare message.
     const message = Buffer.from(" main: System Keybag loaded");
     cpu.clock.resume();
-    while((!serial.includes(marker) || !processesReady || !keybagReady) && !serial.includes("Userspace shutdown begun") && !serial.includes("panic(cpu") && performance.now() < end)
+    while((!serial.includes(marker) || !processesReady || !keybagReady || !graphicsReady) && !serial.includes("Userspace shutdown begun") && !serial.includes("panic(cpu") && performance.now() < end)
     {
         for(let i = 0; i < 24; i++) cpu.run_cores();
         if(!processesReady && serial.includes(marker) && performance.now() >= nextSample)
@@ -55,11 +58,17 @@ try
             processesReady = names.some(p => p.pid === 1 && p.name === "launchd") &&
                 required.every(name => names.some(p => p.name === name));
         }
-        if(!keybagReady && processesReady && performance.now() >= nextLogCheck)
+        if((!keybagReady || !graphicsReady) && processesReady && performance.now() >= nextLogCheck)
         {
             nextLogCheck = performance.now() + 2000;
             const ram = Buffer.from(cpu.mem8.buffer, cpu.mem8.byteOffset, cpu.mem8.length);
-            for(let at = ram.indexOf(message); at >= 0; at = ram.indexOf(message, at + 1))
+            if(!graphicsReady)
+            {
+                names = process_list(cpu);
+                graphicsReady = ["backboardd", "SpringBoard"].every(name => names.some(p =>
+                    p.name === name && ram.includes(Buffer.from("V86 EAGL attached pid " + p.pid + " display 640x960"))));
+            }
+            for(let at = keybagReady ? -1 : ram.indexOf(message); at >= 0; at = ram.indexOf(message, at + 1))
             {
                 if(at >= 8 && /^[a-f0-9]{8}$/.test(ram.toString("latin1", at - 8, at)))
                 {
@@ -72,17 +81,23 @@ try
     }
     assert.ok(serial.includes("FTL_Open            [OK]") &&
         serial.includes("loaded configuration for 2 partitions") && serial.includes(root) && serial.includes(marker) &&
-        processesReady && keybagReady && !serial.includes("Userspace shutdown begun") && !serial.includes("panic(cpu"), serial.slice(-2600));
+        processesReady && keybagReady && graphicsReady && !serial.includes("Userspace shutdown begun") && !serial.includes("panic(cpu"), serial.slice(-2600));
     if(gate)
     {
         assert.ok(serial.includes(launchd) && serial.includes("/dev/disk0s1s1 on / (hfs, local, read-only"));
         assert.ok(serial.includes("** /dev/rdisk0s1s1") && serial.includes("** /dev/rdisk0s1s2"));
-        if(gate === "--processes" || gate === "--keybag")
+        if(["--processes", "--keybag", "--graphics"].includes(gate))
         {
             for(const p of names.filter(p => p.pid === 1 || required.includes(p.name)))
                 console.log(p.pid + " " + p.name);
         }
-        if(gate === "--keybag") console.log("PASS: keybagd logged that the system keybag loaded");
+        if(gate === "--graphics")
+        {
+            for(const p of names.filter(p => ["backboardd", "SpringBoard"].includes(p.name)))
+                console.log(p.pid + " " + p.name);
+            console.log("PASS: backboardd and SpringBoard loaded the N90 EAGL adapter and queried the host display");
+        }
+        if(gate === "--keybag" || gate === "--graphics") console.log("PASS: keybagd logged that the system keybag loaded");
         console.log("PASS: launchd checked the LwVM slices and mounted the read-only system and writable data volumes");
     }
     else console.log(debugKernel ? "PASS: the local debug kernel ran the system volume’s launchd as PID 1 from NAND" :

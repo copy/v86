@@ -330,7 +330,7 @@ libv86gles.dylib：v86 自己的编码器              镜像自带的编码器�
 - **客体库** `libv86gles.dylib`（armv7）：
   - 编码器由同一套规格文件生成 C 代码；
   - 构建：clang 加 cctools-port 的 ld64，链接用从固件导出表生成的桩，不需要苹果的 SDK；
-  - 注入：`DYLD_INSERT_LIBRARIES`（`launchd` 环境中设置，覆盖 `backboardd` 与各应用）；
+  - 10B329 的加载方式见下面 S5 系统进程加载记录。
   - 替换 Objective-C 的部分：`EAGLContext` 等类的方法在构造函数中替换。消息是动态分派的，共享缓存里的调用者
     也走得到；
   - 替换 C 函数不能只靠 dyld 的 `__interpose`：它只改进程与它装载的库之间的绑定，共享缓存
@@ -699,6 +699,19 @@ QuartzCore 的动态依赖含 OpenGLES、IOSurface、IOMobileFramebuffer。其�
 **S5 系统进程加载，2026-11-05。** 10B329 的 launchctl 从共享缓存内的 xpcd_cache.dylib 读取启动任务。对照运行已确认，仅在两份磁盘 plist 中加 DYLD_INSERT_LIBRARIES 时，两个进程的 dyld 映像清单均不含客体库。现用 `system-volume.mjs ... --gles` 在私有副本的 backboardd、SpringBoard 原有 Mach-O 头部空隙增加弱库依赖，重算改动页的签名哈希，保留原有依赖序号和权限声明。数据卷的 `--gles-library` 选项按 root:wheel、0755 安装 `/private/var/v86/libv86gles.dylib` 并回读验证。固件共享缓存保持原样。
 
 专用的 `graphics-kernel.mjs <原版内核> <已链接的系统卷> <客体库> <新内核>` 只接受已核对的 10B329 原版输入，将这两个副本和客体库的 CodeDirectory 哈希写入 AMFI 原生信任表，并跳过启动时清空该表头的一条指令。原有签名校验继续执行。在隔离的同版本客体中装入这组哈希后，分别从 backboardd 和 SpringBoard 的 dyld 映像清单读到了客体库，与原版 QuartzCore 和 OpenGLES 同驻。独立冷启动也已读回预置表头。映像清单证明加载，初始化、EAGL 调用与主屏幕呈现另行验收。
+客体库由 `sh tools/ios/guest/build-gles.sh <输出目录>` 构建。10B329 的 ARM 入口可以由 dyld 的模块初始化指针直接调用。机器只在启用 GLES 传输时在设备树的 /chosen 下发布版本号，客体库读取该属性后才执行 UDF。它向宿主查询实际显示大小，并通过 Objective-C 运行时接入 EAGLContext 的私有初始化方法，目前将初始化转交给原实现并记录结果。已从冷启动复测通过 `--graphics`：backboardd 和 SpringBoard 均已在本进程中加载客体库、挂接初始化方法、查询宿主并发出含各自 PID 与实测 640×960 的完整日志；同一运行还验证了核心进程、钥匙包和两个卷。独立快照复测中两者的 PID 分别是 26 和 65。目前该方法转交原实现，尚未让系统合成器经代理绘制主屏幕。
+
+本地验收命令（输出路径须是新文件，数据卷生成需要 macOS）：
+```sh
+sh tools/ios/guest/build-gles.sh build/ios/gpu
+node tools/ios/system-volume.mjs build/ios/10B329/rootfs.hfs build/ios/gpu/system.hfs --gles
+node tools/ios/data-volume.mjs build/ios/gpu/system.hfs build/ios/gpu/data.hfs --gles-library build/ios/gpu/libv86gles.dylib
+node tools/ios/nand_build.mjs volumes build/ios/gpu/flash.img build/ios/gpu/system.hfs build/ios/gpu/data.hfs
+node tools/ios/graphics-kernel.mjs build/ios/10B329/kernelcache.n90.macho build/ios/gpu/system.hfs build/ios/gpu/libv86gles.dylib build/ios/gpu/kernel.macho
+node tests/ios/system.mjs build/ios/10B329 build/ios/gpu/flash.img --debug-kernel build/ios/gpu/kernel.macho --graphics
+```
+另在多次较长的启动运行中记录到 AppleIOPFMI 等待多页读取超时，向 IOP 发 NMI 后内核 panic。原配置也可复现。持续运行的验收需要覆盖这个故障。
+
 
 
 
