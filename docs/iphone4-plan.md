@@ -679,6 +679,12 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel b
 **S4 系统钥匙包，2026-11-04。** data-volume 生成与本机模拟 UID、BAG1 配套的无密码钥匙包，并将它写入数据卷的 `/keybags/systembag.kb`。目录属主为 root、模式为 0700，文件属主为 root、模式为 0600。建盘后逐项核对 62 个文件和目录的内容或元数据。主机侧用独立 AES 实现验证封装、SIGN 和十组类别密钥的完整性。
 
 在 10B329 原版内核和系统上，采样 keybagd 实际调用 syslog 时传入的格式化消息，读到 `main: System Keybag loaded`。同次启动可看到 backboardd、SpringBoard 的进程名。尚需验证带保护类别的文件读写、首次设置与激活，以及主屏幕画面。后续启动日志中出现 `AppleNANDLegacyFTL::readRegion: failed to read region 1` 和 `Failed to read syscfg region.`，下一步核对该出厂配置区。
+用 `node tests/ios/system.mjs build/ios/10B329 build/ios/provisioned-s4.img --keybag` 在新生成的 NAND 冷启动复测通过。检查器在客体内存里查找含线程 ID 和调用者名的完整日志，同时核对双卷挂载与四个核心进程。固件内置的消息常量无法单独满足此检查。
+
+**S5 接口核对，10B329。** 本机原版 armv7 共享缓存的 OpenGLES 含 344 个 `gl[A-Z]` 公共符号。反汇编确认 glClear、glDrawArrays、glDrawElements、glGetError 和 glViewport 经每线程的分派表调用。包装函数从 TPIDRURO（清低两位）偏移 0x78 取当前表，从表偏移 0x10 取驱动上下文作为第一个参数。五个函数的目标槽偏移依次为 0x3c、0x118、0x120、0x1ac、0x550。S5 客体适配层可据此为每个 EAGL 上下文设置分派表，需保留驱动上下文参数与原有寄存器、栈参数布局。
+
+QuartzCore 的动态依赖含 OpenGLES、IOSurface、IOMobileFramebuffer。其未定义符号含 EAGLContext、SwapBegin、SwapSetLayer、SwapEnd 和 SwapWait，但符号表没有逐个导入公共 gl 函数。仍须用运行中的合成进程验证实际绘制入口与最终呈现。
+
 
 
 
