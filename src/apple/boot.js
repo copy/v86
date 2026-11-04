@@ -17,7 +17,7 @@ function cells(...values)
 }
 
 /** Populate guest RAM and return the physical PC and r0 used at reset. */
-export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline = "-v serial=3", nand = false)
+export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, nand = false)
 {
     const kernel = macho_parse(kernelcache);
     if(kernel.is64 || kernel.cputype !== CPU_TYPE_ARM || kernel.filetype !== 2 ||
@@ -63,7 +63,7 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline =
     nvram[1] = sum;
     dt_set(required("/chosen"), "nvram-proxy-data", nvram);
     dt_set(required("/chosen"), "firmware-version", new TextEncoder().encode("v86 direct boot\0"));
-    const command = new TextEncoder().encode(cmdline);
+    const command = new TextEncoder().encode(cmdline ?? (nand && !ramdisk ? "-v serial=3 rd=disk0s1s1" : "-v serial=3"));
     if(command.includes(0) || command.length >= 256) throw new Error("invalid iOS boot command line");
     let end = 0;
     for(const s of kernel.segments)

@@ -29,6 +29,9 @@ export class AppleH2FMI
         this.regs = new Uint32Array(3 * 1024);
         this.id_offset = 0;
         this.chips = new Map();
+        this.cache = new Map();
+        this.read_generation = new Map();
+        this.page_chip = -1;
         for(let bank = 0; bank < 3; bank++)
         {
             cpu.io.register_mmio(base + bank * 0x40000, 4096, {
@@ -42,6 +45,7 @@ export class AppleH2FMI
     configure(ids, bus)
     {
         this.chips.clear();
+        this.cache.clear();
         if(!ids || ids.length !== 256) return;
         for(let ce = 0; ce < 16; ce++)
         {
@@ -54,6 +58,9 @@ export class AppleH2FMI
     {
         this.epoch++;
         this.regs.fill(0);
+        this.cache.clear();
+        this.read_generation.clear();
+        this.page_chip = -1;
         this.id_offset = this.column = 0;
         this.page = null;
         this.requests = 0;
@@ -102,22 +109,37 @@ export class AppleH2FMI
     load_page(run)
     {
         const address = this.regs[0x1018 >>> 2], row = this.row(), ce = this.chip();
-        const epoch = ++this.epoch;
+        const epoch = this.epoch, generation = (this.read_generation.get(ce) || 0) + 1;
+        this.read_generation.set(ce, generation);
         this.page = this.program = this.program_address = null;
         this.requests = 0;
         this.fail = false;
         this.column = address & 65535;
         const complete = (page, failed) => {
-            if(this.epoch !== epoch) return;
-            this.page = page;
-            this.erased = !page || page.every(byte => byte === 255);
-            this.fail = failed;
+            if(this.epoch !== epoch || this.read_generation.get(ce) !== generation) return;
+            const entry = [page, address & 65535, !page || page.every(byte => byte === 255), failed];
+            this.cache.set(ce, entry);
+            this.page_chip = ce;
+            [this.page, this.column, this.erased, this.fail] = entry;
             this.regs[0x1044 >>> 2] |= run & 15;
             this.update_irq();
         };
         if(this.nand && this.chips.has(ce))
             this.nand.read(this.bus, ce, row, page => complete(page, false), () => complete(null, true));
         else complete(null, false);
+    }
+
+    // Each chip has its own read register. Scattered reads issue READ on
+    // another chip before switching the bus back to drain the first chip.
+    select_page()
+    {
+        const entry = this.cache.get(this.chip());
+        if(entry)
+        {
+            this.page_chip = this.chip();
+            [this.page, this.column, this.erased, this.fail] = entry;
+        }
+
     }
 
     drain(bit)
@@ -140,6 +162,7 @@ export class AppleH2FMI
 
     data_word()
     {
+        if(this.page_chip !== this.chip()) this.select_page();
         let value = 0;
         for(let b = 0; b < 4; b++) value |= (this.page?.[this.column + b] ?? 255) << (8 * b);
         this.column += 4;
@@ -173,6 +196,7 @@ export class AppleH2FMI
         const index = offset >>> 2;
         if(offset === 0xC || offset === 0x1044) { this.regs[index] &= ~value; this.update_irq(); return; }
         this.regs[index] = value;
+
         if(offset === 0x1010)
         {
             const command = this.regs[0x1014 >>> 2];
@@ -217,6 +241,7 @@ export class AppleH2FMI
         {
             if(this.dma && [0, 0x3000].includes(this.regs[0x1014 >>> 2]))
             {
+                this.select_page();
                 this.requests = 3;
                 this.drain(1);
                 this.drain(2);
@@ -226,7 +251,7 @@ export class AppleH2FMI
         this.update_irq();
     }
 
-    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null]; }
+    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null, Array.from(this.cache), this.page_chip]; }
     set_state(state)
     {
         this.epoch++;
@@ -240,6 +265,9 @@ export class AppleH2FMI
         this.requests = state[6] || 0;
         this.program = state[7] || null;
         this.program_address = state[8] || null;
+        this.read_generation.clear();
+        this.page_chip = state[10] ?? this.chip();
+        this.cache = new Map(state[9] || [[this.chip(), [this.page, this.column, this.erased, this.fail]]]);
         this.update_irq();
     }
 }

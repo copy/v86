@@ -266,3 +266,30 @@ channelDMA.transfer(port, Uint8Array.of(5, 6, 7, 8), true);
 assert.equal(channelDMA.read(0x5000), 0x80008);
 assert.deepEqual([...memory.subarray(0x200, 0x206), ...memory.subarray(0x220, 0x222)], [1, 2, 3, 4, 5, 6, 7, 8]);
 console.log("PASS: CDMA burst resumes inside a scatterlist descriptor after snapshot restore");
+
+// Reads on separate CEs may overlap. Switching back before draining the
+// FIFO must select that chip's row even after saving and restoring.
+const callbacks = [];
+const banks = new AppleH2FMI(controllerCPU, 0x81200000, 0, {
+    read(bus, ce, row, done) { callbacks[ce] = done; },
+});
+const twoIds = new Uint8Array(256);
+twoIds[0] = twoIds[8] = 0xEC;
+banks.configure(twoIds, 0);
+for(const mask of [1, 2])
+{
+    banks.write(0x100C, mask);
+    banks.write(0x1014, 0x3000);
+    banks.write(0x1010, 11);
+}
+callbacks[1](Uint8Array.of(22, 0, 0, 0));
+callbacks[0](Uint8Array.of(11, 0, 0, 0));
+const bankState = banks.get_state();
+banks.reset();
+banks.set_state(bankState);
+for(const [mask, byte] of [[2, 22], [1, 11]])
+{
+    banks.write(0x100C, mask);
+    assert.equal(banks.read(0x14), byte);
+}
+console.log("PASS: interleaved chip read registers survive out-of-order completions and restore");

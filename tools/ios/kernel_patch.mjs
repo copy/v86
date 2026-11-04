@@ -1,4 +1,4 @@
-// S3 only: build a local kernel for the modified restore ramdisk. 10B329
+// Local debug kernel for S3 recovery and S4 direct NAND boot. 10B329
 // invokes the platform SecureRootName callback from BSD init, then waits
 // for a verifier for the physical boot chain which is absent on direct boot.
 import fs from "node:fs";
@@ -17,4 +17,4 @@ if(site < 0 || bytes.readUInt32LE(site) !== 0xF82CF7B5) throw new Error("unexpec
 // and this BSD-init caller; the platform-function dispatcher stays intact.
 bytes.writeUInt32LE(0xBF00BF00, site);
 fs.writeFileSync(output, bytes, { flag: "wx" });
-console.log("Created local 10B329 recovery kernel " + output);
+console.log("Created local 10B329 debug kernel " + output);

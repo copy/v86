@@ -139,14 +139,30 @@ export function write_bootstrap_pages(put)
 
 // A clean YAFTL checkpoint. Virtual pages stripe across both controllers
 // before advancing to the next chip select and then to the next row.
-export function write_ftl_pages(put)
+export const FTL_BLOCKS = 4000, FTL_BLOCK_PAGES = 4 * NAND_BLOCK_PAGES;
+export const FTL_ENTRIES = NAND_DATA / 4;
+export const FTL_USER_PAGES = FTL_BLOCK_PAGES - Math.ceil(FTL_BLOCK_PAGES / FTL_ENTRIES);
+const indexBlocks = 3 * Math.ceil((FTL_BLOCKS - 8) / FTL_ENTRIES);
+const totalPages = (FTL_BLOCKS - 8) * FTL_USER_PAGES - indexBlocks * FTL_BLOCK_PAGES;
+// 10B329 divides by 100 before applying the 99 percent user capacity.
+export const MEDIA_SIZE = Math.floor(totalPages / 100) * 99 * NAND_DATA;
+export const CONTROL_BLOCK = FTL_BLOCKS - 3;
+export const FIRST_INDEX_BLOCK = CONTROL_BLOCK - indexBlocks;
+
+export function write_virtual_page(put, vpn, data, lpn, usn, type)
 {
-    const blocks = 4000, pagesPerBlock = 4 * NAND_BLOCK_PAGES;
-    const entriesPerPage = NAND_DATA / 4;
-    const userPages = pagesPerBlock - Math.ceil(pagesPerBlock / entriesPerPage);
-    const indexBlocks = 3 * Math.ceil((blocks - 8) / entriesPerPage);
-    const totalPages = (blocks - 8) * userPages - indexBlocks * pagesPerBlock;
-    const control = blocks - 3, userBlock = 22, indexBlock = 23;
+    const row = Math.floor(vpn / FTL_BLOCK_PAGES) * NAND_BLOCK_PAGES + ((vpn % FTL_BLOCK_PAGES) >>> 2);
+    const page = Buffer.alloc(NAND_PAGE, 255);
+    data.copy(page);
+    spare(page, row, lpn, usn, type);
+    put(vpn & 1, (vpn >>> 1) & 1, row, page);
+}
+
+export function write_ftl_pages(put, volume)
+{
+    const blocks = FTL_BLOCKS, pagesPerBlock = FTL_BLOCK_PAGES, entriesPerPage = FTL_ENTRIES;
+    const userPages = FTL_USER_PAGES, control = CONTROL_BLOCK;
+    const userBlock = volume?.userBlock ?? 22, indexBlock = volume?.indexBlock ?? 23;
     // Header, two block TOCs, statistics, index-page directory, block
     // states, read counts, two erase-count pages and two valid-page counts.
     for(let part = 0; part < 11; part++)
@@ -163,8 +179,8 @@ export function write_ftl_pages(put)
             page.writeUInt32LE(1, 16);
             page.writeUInt32LE(indexBlock, 20);
             page.writeUInt32LE(1, 24);
-            page.writeUInt32LE(1, 36);
-            page.writeUInt32LE(1, 40);
+            page.writeUInt32LE(volume?.userCounts.size ?? 1, 36);
+            page.writeUInt32LE(volume?.indexCounts.size ?? 1, 40);
             page.writeUInt32LE(10, 44);
             page.writeUInt16LE(Math.ceil(blocks * pagesPerBlock / entriesPerPage), 0x5C);
             page.writeUInt16LE(pagesPerBlock - userPages, 0x5E);
@@ -172,15 +188,28 @@ export function write_ftl_pages(put)
             page.writeUInt16LE(userPages, 0x64);
             page[0x94] = 99;
         }
+        else if(part === 1 && volume) volume.userTOC.copy(page);
+        else if(part === 2 && volume) volume.indexTOC.copy(page);
+        else if(part === 4 && volume) volume.directory.copy(page);
         else if(part === 5)
         {
             page.fill(2, 0, 19);
             page[userBlock] = 1;
             page[indexBlock] = 0x40;
+            if(volume)
+            {
+                for(const block of volume.userCounts.keys()) page[block] = 1;
+                for(const block of volume.indexCounts.keys()) page[block] = 0x40;
+            }
             page[control] = 0x10;
             page[control + 1] = page[control + 2] = 2;
         }
         else if(part === 3 || part >= 6) page.fill(0, 0, NAND_DATA);
+        if(volume && (part === 9 || part === 10))
+        {
+            const counts = part === 9 ? volume.indexCounts : volume.userCounts;
+            for(const [block, count] of counts) page.writeUInt16LE(count, block * 2);
+        }
         spare(page, row, 0, 1, 0x20);
         put(part & 1, (part >>> 1) & 1, row, page);
     }

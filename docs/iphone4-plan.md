@@ -641,6 +641,19 @@ NAND READ（0x3000）。已支持擦除态和已写页读回，已接入稀疏�
 - 新增 format 模式写入干净的 CX01 检查点。控制块为 3997，逻辑页依次跨 FMI0/CE0、FMI1/CE0、FMI0/CE1、FMI1/CE1。10B329 读取控制页后报告 FTL_Open [OK] 并发布闪存服务。运行 node tests/ios/flash.mjs build/ios/10B329 --format --snapshot 可复测。
 - H2FMI 支持 DMA 编程数据与 spare、确认写入和按块擦除。设备测试验证只能清零已写位、擦除范围和快照恢复，包括跨页 DMA 的中间状态。当前格式化卷的逻辑页索引为空，尚需写入 LwVM、系统与数据卷并验证数据保护。
 
+**S4 逻辑卷，2026-11-04。** 构建器将本机的 HFS+/HFSX 系统与数据卷写入 NAND 的数据页、反向页表、索引页及 CX01 目录。
+LwVM 的逻辑扇区 0 含校验和及两个分区的块映射。10B329 识别两个分区，选择系统分区 disk0s1s1 为 BSD 根设备。
+数据分区为 disk0s1s2。带 NAND 的直接启动默认传 rd=disk0s1s1，显式 boot_args 仍优先。
+本机使用 1,271,173,120 字节的原版系统卷和一个 128 MiB 空白 HFSX 数据卷。独立读取器逐页核对两个源卷的全部字节。
+原版内核在 SecureRootCallBack 处等待。使用 S3 同一份本地调试内核（无 ramdisk），HFS 根卷挂载成功，原版系统卷的 launchd 以 PID 1 打印启动消息，随后调用 fsck_hfs。此后曾出现 YAFTL 批量读的元数据校验错误；数据卷挂载、密钥与核心服务仍待验收。
+
+```sh
+node tools/ios/nand_build.mjs volumes build/ios/root-native.img build/ios/10B329/rootfs.hfs build/ios/n90-data-probe.dmg
+node tests/ios/nand-volumes.mjs build/ios/root-native.img build/ios/10B329/rootfs.hfs build/ios/n90-data-probe.dmg
+node tests/ios/system.mjs build/ios/10B329 build/ios/root-native.img
+node tests/ios/system.mjs build/ios/10B329 build/ios/root-native.img --debug-kernel build/ios/shell/kernel.macho
+```
+
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。
 

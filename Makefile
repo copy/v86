@@ -2056,6 +2056,7 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 # make themselves (made-up keys, no Apple files)
 .PHONY: ios-tests
 ios-tests:
+	node tests/ios/nand-volumes.mjs
 	node tests/ios/nand.mjs
 	node tests/ios/tools.mjs
 	node tests/ios/devices.mjs
