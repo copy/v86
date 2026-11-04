@@ -2259,6 +2259,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **完整客体302 suites、核心相关54 suites**、18 D8+14 D9标准EXE、四个retail/diagnostic DLL及私有核心构建、自定义SDK、站点集成2项、两侧零新增lint通过，继承4I9完整核心238/六次GPU。发布准确最终XP DLL和严格diagnostic，证据`docs/fixtures/d3d-review/stage4k8-validation.json`，站点镜像`glbridge/deployments/d3d-webgpu-review-4K8.json`。
 > - 本阶段只迁移CreateDevice的有效参数存储；Reset/附加交换链仍直调原SDK8 helper，随后接入同一桥。真正device/resource/state/copy/句柄包装、完整零售/Reset/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
 
+> **阶段 4K9（2026-11-04）：D3D8 Reset/附加交换链有效参数统一到PP8/PP9核心桥。**
+> - 实际8 Reset和CreateAdditionalSwapChain改调已有核心桥，完成Create/Reset/Additional三个存储入口。未改校验、成功回写、资源/回调顺序；共用52/56字节转换实现和呈现头本阶段未改。保留 **98,304 SDK检查、32,768 metadata/provider/alias组合、15变异**。
+> - 实际Reset逻辑fixture保留8/9 **545/559检查、13/14失败路径**及各42录制/34几何检查；附加链 **128/141检查、25/28构造**。观测8成功入口恰好调用一次核心normalizer，历史站点`20ab5b5`两个实际方法严格编译后失败委托断言。**20几何/Reset+10附加链变异**更新8函数名定位后保持运行时断言；真实codec、Reset、附加链及私有生命周期四类ASAN/UBSAN通过。逻辑fixture不替代真实SDK布局测试。
+> - XP SDK120/220分别实际Create、Reset、CreateAdditional，均请求宽/高/count0及NULL HWND；**六次完整52字节caller比较**只允许count1回写，所有实际描述8×8。新增 **两个RESET、两组临时RT纹理/交换链**，在主设备绘制前完整释放；保留旧DLL查询矩阵/身份/共存、9跨两次8卸载绘制。**121秒、13批次、一个owner/release、5读回**，仅RAM overlay，明确模拟能力0。
+> - 冻结流要求 **10唯一句柄、三个逻辑设备/两次改句柄Reset、两组临时texture/chain、一个声明、五UP/读回、五HELLO0/0/3/3/0、最终SessionEnd**。纹理销毁kind用协议常量3，非buffer的1。**218项流/日志/能力破坏**拒绝，含Reset旧新句柄、资源/窗口/尺寸/释放身份和各路径caller字段。SwiftShader/Metal各 **5图像、320真实像素、零误差/图形错误**，两次显式纹理创建，无主Present，SessionEnd兜底及driver释放前表为空。
+> - 初轮完整客体302中8项因同一个私有生命周期fixture缺少新8参数入口而编译失败；加该所有权fixture的逻辑normalizer provider后，保留294项未受影响通过结果，八项全部重跑，更新fixture亦经ASAN/UBSAN。初轮和复检日志归档，生产/SDK/捕获未改。**最终完整客体302 suites、核心相关55 suites**、18 D8+14 D9标准EXE、四个retail/diagnostic DLL、私有核心构建、自定义SDK、站点集成2项及两侧零新增lint通过，继承4I9完整核心238/六次GPU。
+> - 发布准确最终XP DLL及严格diagnostic，证据`docs/fixtures/d3d-review/stage4k9-validation.json`，站点镜像`glbridge/deployments/d3d-webgpu-review-4K9.json`。真正device/resource/state/copy/句柄包装、完整零售/Reset/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成；宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
