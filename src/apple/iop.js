@@ -8,6 +8,8 @@ export class AppleIOP
     constructor(cpu)
     {
         this.cpu = cpu;
+        this.in_slice = false;
+        this.polling = null;
         this.core = cpu.wm.exports;
         this.regs = new Uint32Array(0x1000 / 4);
         this.irq = false;
@@ -29,6 +31,8 @@ export class AppleIOP
         this.regs[0x100 >>> 2] = 2;
         this.running = false;
         this.pending_reset = false;
+        this.in_slice = false;
+        this.polling = null;
         this.vic.reset();
         this.core["a32_iop_remap"](0, 0);
     }
@@ -49,6 +53,14 @@ export class AppleIOP
         this.regs[offset >>> 2] = value;
     }
 
+    // The NAND firmware polls the sequencer with interrupts masked. While
+    // its host read is pending, give the event loop a chance to deliver
+    // bytes instead of interpreting thousands of identical status reads.
+    wait_for_io(pending)
+    {
+        if(this.in_slice) this.polling = pending;
+    }
+
     run()
     {
         if(!this.running) return;
@@ -57,7 +69,11 @@ export class AppleIOP
             this.core["a32_iop_reset"]();
             this.pending_reset = false;
         }
-        this.core["a32_iop_slice"](4096, this.irq, this.fiq);
+        const budget = this.polling?.size ? 32 : 4096;
+        this.polling = null;
+        this.in_slice = true;
+        try { this.core["a32_iop_slice"](budget, this.irq, this.fiq); }
+        finally { this.in_slice = false; }
     }
 
     get_state()
@@ -74,6 +90,7 @@ export class AppleIOP
 
     set_state(state)
     {
+        this.polling = null;
         this.regs.set(state[0]);
         this.running = state[1];
         this.pending_reset = state[2];

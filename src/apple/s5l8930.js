@@ -25,11 +25,12 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     const clcd = new AppleCLCD(cpu, display, vic);
     const nand = buffer ? new AppleNAND(cpu, buffer) : null;
     const iop = new AppleIOP(cpu);
+    const wait_for_io = pending => iop.wait_for_io(pending);
     const dma = new AppleCDMA(cpu, (n, level) => (n <= 2 ? vic : iop.vic).set_line(0x30 + n, level));
     const devices = {
         display,
-        apple_fmi0: new AppleH2FMI(cpu, 0x81200000, 0, nand, level => iop.vic.set_line(34, level), dma),
-        apple_fmi1: new AppleH2FMI(cpu, 0x81300000, 1, nand, level => iop.vic.set_line(35, level), dma),
+        apple_fmi0: new AppleH2FMI(cpu, 0x81200000, 0, nand, level => iop.vic.set_line(34, level), dma, wait_for_io),
+        apple_fmi1: new AppleH2FMI(cpu, 0x81300000, 1, nand, level => iop.vic.set_line(35, level), dma, wait_for_io),
         apple_iop: iop,
         apple_uart: new AppleUART(cpu, bus),
         apple_vectors: new AppleVectors(cpu),

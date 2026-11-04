@@ -5,6 +5,7 @@ import { AppleTimer } from "../../src/apple/timer.js";
 import { AppleCLCD } from "../../src/apple/clcd.js";
 import { AppleCDMA } from "../../src/apple/cdma.js";
 import { AppleI2C } from "../../src/apple/i2c.js";
+import { AppleIOP } from "../../src/apple/iop.js";
 import { AppleGPIO } from "../../src/apple/s5l8930.js";
 import { AppleUART } from "../../src/apple/uart.js";
 
@@ -155,6 +156,22 @@ assert.equal(adc.fifo[1], 0);
 console.log("PASS: PMU ADC status, masked GPIO event, VIC3 delivery and snapshot restore");
 
 const { AppleH2FMI } = await import("../../src/apple/h2fmi.js");
+// Shorten only slices following an actual firmware poll of outstanding
+// host I/O. Once the read completes, resume at the normal budget.
+const budgets = [], hostOps = new Map([[0, {}]]);
+const pollingCPU = { io: { register_mmio() {} }, wm: { exports: {
+    a32_iop_remap() {},
+    a32_iop_slice(budget) { budgets.push(budget); if(hostOps.size) iop.wait_for_io(hostOps); },
+} } };
+const iop = new AppleIOP(pollingCPU);
+iop.running = true;
+iop.wait_for_io(hostOps); // a read by the application CPU
+iop.run();
+iop.run();
+hostOps.clear();
+iop.run();
+assert.deepEqual(budgets, [4096, 32, 4096]);
+
 const fmi = new AppleH2FMI(cpu, 0x81200000);
 const ids = new Uint8Array(256);
 ids.set([0xEC, 0xD7, 0x94, 0x72]);

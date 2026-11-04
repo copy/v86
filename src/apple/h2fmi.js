@@ -6,10 +6,11 @@ const ERASED = new Uint8Array(NAND_PAGE).fill(255);
 
 export class AppleH2FMI
 {
-    constructor(cpu, base, bus = 0, nand = null, signal = level => {}, dma = null)
+    constructor(cpu, base, bus = 0, nand = null, signal = level => {}, dma = null, wait_for_io = null)
     {
         this.base = base;
         this.dma = dma;
+        this.wait_for_io = wait_for_io;
         this.nand = nand;
         this.bus = bus;
         this.signal = signal;
@@ -208,6 +209,8 @@ export class AppleH2FMI
 
     read(offset)
     {
+        if(offset === 0x1044 && !this.regs[offset >>> 2] && this.pending.size)
+            this.wait_for_io?.(this.pending);
         if(offset === 0x1C && this.pio_left) return 0x18;
         if(offset === 0x200C) return this.fail ? 4 : this.erased ? 2 : 0;
         if(offset === 0xC) return this.regs[3] | (this.regs[0x1040 >>> 2] & this.regs[0x1044 >>> 2] ? 0x100 : 0);
