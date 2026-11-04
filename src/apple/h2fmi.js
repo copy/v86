@@ -236,6 +236,13 @@ export class AppleH2FMI
         if(offset === 0xC || offset === 0x1044) { this.regs[index] &= ~value; this.update_irq(); return; }
         this.regs[index] = value;
 
+        // The IOP flushes both FIFOs between a boot-page read and a page
+        // program. Unserved read requests must not drain the new DMA list.
+        if(offset === 4 && value === 6)
+        {
+            this.requests = 0;
+            this.pio_left = 0;
+        }
         if(offset === 0x1010)
         {
             const command = this.regs[0x1014 >>> 2];

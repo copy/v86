@@ -216,6 +216,13 @@ media.program = (bus, ce, row, page, done) => {
 };
 media.erase = (bus, ce, row, done) => { erasedRow = row; done(); };
 flashPort.reset();
+issue();
+completeRead(Uint8Array.of(0, 1, 90, 91, 92, 93));
+flashPort.write(0x1044, 11);
+flashPort.write(4, 3);
+flashPort.write(4, 6); // IOP resets both FIFOs before arming the program channels
+arm();
+assert.equal(channelDMA.read(0x500C), 4, "a previous read must not consume the next program descriptor");
 flashPort.write(0x100C, 1);
 flashPort.write(0x1018, 0x02030002);
 flashPort.write(0x101C, 1);
@@ -224,7 +231,6 @@ flashPort.write(0x1010, 9);
 assert.equal(flashPort.read(0x1044), 9);
 flashPort.write(0x1044, 9);
 flashPort.write(0, 0xF5);
-arm();
 flashPort.write(4, 5);
 channelDMA.write(0x6008, 0x81200018);
 channelDMA.write(0x600C, 4);
