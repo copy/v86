@@ -2385,6 +2385,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 发布同次XP接受的8/9零售DLL和严格diagnostic，证据 [stage4k21-validation.json](fixtures/d3d-review/stage4k21-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K21.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。后续继续纹理/立方体/体积/VB/IB及状态/复制适配，公开8全面包装、原生对照和阶段4/5/6仍未完成。
 >
 
+> **阶段 4K22（2026-11-04）：SDK8 私有二维纹理创建与普通 CPU 纹理锁定/上传适配。**
+>
+> - 新增 `d9wg_d3d9_core_texture8@32` 和真实 SDK8 consumer；按旧公开8保留4096尺寸界限、8版格式/池/层级/RT参数与失败输出规则，再复用共用核心的存储、资源链表、父引用和失败清理。普通9构造入口仍选择9版8192/格式/autogen策略。核心普通纹理锁定和上传按所属设备版本取格式，支持8专有65；普通9仍拒绝65。8版未知autogen位不额外触发9版生成命令。RT纹理的创建可对照，专用读回及公开8包装尚待后续。
+> - 旧8/9实际构造与创建命令对照 **2,945,283组合/14,928,972检查、103,737个mip比较**，包含两版本、注册格式、尺寸边界、层级、池/usage、每层分配失败与独立提交失败、零初始化、输出/资源链表/父引用。普通9创建支持谓词通过共享测试provider控制，两边调用同一provider；该对照证明构造重构不漂移，不替代9版全部原生格式兼容性验收。真实锁定/上传 **41,760组/88,694检查**，覆盖子矩形偏移、整行pitch、BC边界、只读/重复/空输出/非法层、上传失败清理；**23严格运行期变异、三个实际4K21旧入口反例、两组ASAN**通过。
+> - 新 SDK8/9 分离编译探针在 XP 首次 **117秒/30批次**通过：准确4K21旧公开8、当前公开8、普通9、核心8 SDK120/220，五设备/五Reset/14纹理/三声明/27句柄/**43上传、20采样绘制、20读回**。四8版模式检查65的两级CPU零存储、写入保持、pitch/Size及44个非法调用，普通9拒绝65；全部模式验证四级21纹理、表面身份/父设备、子矩形整行pitch、Surface子视图上传及BC1。单owner/session/最终释放，能力0及RAM磁盘overlay；GPU读回CPU回复明确为解析图像注入。
+> - 独立模型从操作规格产生上传字节和纹素，检查整面红、中央蓝子矩形、右侧绿表面写及BC1蓝，**3,317项语义破坏检测**通过。SwiftShader/Metal各 **20图像/1,280真实像素零差异/错误**，验证43次真实上传/20次采样绘制，SessionEnd兜底和owner释放前表为空。65的GPU上传与生命周期可见，未绘制65，不宣称其GPU采样精度；只读CPU检查不依赖解析GPU回复。
+> - **334客体、68核心首次全通过**；构造测试在整套运行后补充独立提交失败及较低mip分配失败，将147万组合扩展至294万，最终构造/变异/ASAN均单独重验通过，保留两套准确计数日志。32标准EXE/四严格DLL/21-member静态核心及SDK8 ABI、站点集成2项、两侧本任务零新增lint通过。
+> - 验收后仅清除一个空行尾随空格，保持所有C token及行号。保留XP原始源哈希，严格重建8/9及SDK8 consumer；首次原始section比较受链接器按输出路径分配的image base影响，按PE实际HIGHLOW重定位归一到RVA后，18个代码/常量/数据/重定位section均逐字节一致。发布准确XP接受的零售8/9及严格diagnostic；见 [stage4k22-validation.json](fixtures/d3d-review/stage4k22-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K22.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续立方体/体积/VB/IB及状态/复制适配，阶段4/5/6仍开放。
+>
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
