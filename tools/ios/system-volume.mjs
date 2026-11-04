@@ -9,7 +9,8 @@ import { open_volume, write_node } from "./hfs_edit.mjs";
 const [source, output] = process.argv.slice(2);
 if(!source || !output) throw new Error("usage: system-volume.mjs rootfs.hfs new-system.hfs");
 const original = "/dev/disk0s1 / hfs ro 0 1\n/dev/disk0s2 /private/var hfs rw,nosuid,nodev 0 2\n";
-const prepared = original.replace("disk0s1 ", "disk0s1s1 ").replace("disk0s2 ", "disk0s1s2 ");
+const prepared = original.replace("disk0s1 ", "disk0s1s1 ").replace("disk0s2 ", "disk0s1s2 ")
+    .replace("rw,nosuid,nodev", "rw,nosuid,nodev,protect");
 const dir = fs.mkdtempSync(path.join(path.dirname(path.resolve(output)), ".n90-system-"));
 const temp = path.join(dir, "volume");
 try
