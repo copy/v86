@@ -2138,6 +2138,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新跑 **完整客体 273 suites**、核心相关 **39 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU。发布准确 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j5-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J5.json`。
 > - 录制/已完成状态块暂保留公开资源持有规则；状态块私有化、外部子资源存活时设备根状态保持、D3D8、NULL stream 的 offset/stride 零售边界、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J6（2026-11-04）：D3D9 状态块八类资源私有持有与 Capture 录制边界（S2-42 / Reset 后续）完成。**
+> - 录制、Capture、释放统一使用二维/cube/volume、VB/IB、声明、VS/PS 的私有存储引用，不增加资源公开 COM 计数；录制替换先保留并发布新槽再释放旧存储，状态块清理先清空槽再逐项私有释放，最后先释放块内存再归还设备 pin。Windows/Wine 对照确认录制期间 Capture 与 Apply 都应拒绝，补齐原先仅 Apply 的保护。
+> - 新实际 C **160,909 检查、512 pool/最终拥有者组合、4,096 轮 Capture→清理→Apply**，覆盖八类资源、公开归零、同对象/跨纹理种类录制替换、FVF、空 Capture、替换 Capture、录制拒绝、未结束录制取消及最终回收。**35/35** 严格编译后断言变异、旧完整 4J5/旧实际 Capture/旧实际 Capture 入口三组负对照及 ASAN/UBSAN 通过。保留全部纹理/缓冲/声明/着色器/目标生命周期检查；录制 registry 改为分别观察公开与私有计数，其原 11 个变异保留。五组实时绑定变异明确选择录制分支之后的实时路径，避免因同名 helper 重复而漏测。
+> - XP 录制 **八类资源、两组共 16 对象**，公开引用归零后完成 **65 次 Capture、528 次 Getter、64 轮完整声明/字节码查询、2 次 Apply**。录制中的 Capture/Apply 各拒绝一次。第一组仅由状态块保留时 DEFAULT Reset 成功，Apply 恢复完整资源身份/offset/stride；替换 Capture 销毁第一组八对象，释放状态块保留仍绑定的第二组，最后显式解绑回收第二组。两次 Reset 成功，四次可编程索引绘制后读回；准确最终捕获 **128 秒、7 批次、一个 owner/release、5 读回**，仅写 RAM overlay。
+> - 冻结流独立核对 **16 创建、6 准确缓冲上传、40 次绑定、两份声明/四份 shader 字节码与 hash、4 绘制/1 清屏、2 Reset 和全部 16 销毁**；两组清理顺序分别按 Capture 旧快照释放及显式解绑验证，**103 项语义破坏**均拒绝。SwiftShader/Metal 各验证 **5 图像、320 实际像素，零误差/零 GPU 或宿主错误**，真实 owner 释放前设备/资源表为空。这里三类纹理参与真实绑定/持有但 PS 只输出顶点颜色；采样仍由先前独立阶段验证，XP 模拟回复只证明传输。
+> - SDK 初版严格构建补上 unbind 循环大括号；首轮 API 通过后将日志误写的 Getter 536 核正为实际 528，并保存旧捕获后重新启动 XP 取得最终证据。完整客体初跑发现二维/cube 独立入口不再调用 volume 公开 Release 的严格未使用函数错误，补充函数地址引用后新跑 **完整客体 275 suites** 全过，核心相关 **40 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题均通过。继承 4I9 完整核心 238 suites/六次 GPU。发布准确最终 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j6-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J6.json`。
+> - 外部子资源存活时设备根状态保持、D3D8、NULL stream 的 offset/stride 零售边界、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
