@@ -202,7 +202,8 @@ static int draw_pattern(unsigned conn)
     driver_word *slots = thread_slots();
     if(!slots) return 0;
     driver_word saved = slots[30];
-    install_frame_slots(frame_table, &driver);
+    frame_table[4] = (driver_word)&driver;
+    install_frame_functions(frame_table + 5);
     slots[30] = (driver_word)frame_table;
     glClearColor(0, 1, 0, 1); glClear(0x4000);
     glEnable(0x0c11); glScissor(0, 0, 2, 2);

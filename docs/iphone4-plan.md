@@ -2,7 +2,7 @@
 
 截至 2026-11-05，S1–S3 已用 iPhone3,1 的 10B329 固件验收。S4 已用原版内核从 NAND 挂载系统卷与数据卷，启动核心服务，加载系统钥匙包，并验证 C、D 两类文件写入、同步和重开后的内容。持续运行与首次设置仍在验证中。
 
-S5 已在恢复环境经 WebGPU 绘制 640×960 测试帧，并逐像素验证快照恢复。用本地调试内核冷启动时，backboardd 和 SpringBoard 均能加载客体图形库并读取显示尺寸。下一项验收是由系统合成器绘出真实界面。S6 的触控操作和 S7 的整机集成尚待验收。
+S5 已在恢复环境经原版 OpenGLES 入口绘制 640×960 测试帧，并逐像素验证快照恢复。在完整系统冷启动中，backboardd 和 SpringBoard 均已用原版 EAGL 创建宿主上下文，在两个上下文间共享着色器并完成切换和释放。下一项验收是 IOSurface 共享绘图以及由系统合成器提交真实界面。S6 的触控操作和 S7 的整机集成尚待验收。
 
 本计划为 v86 增加机器类型 `machine_type: "s5l8930"`，模拟 iPhone 4（`iPhone3,1`，板子 N90AP），目标是
 iOS 6.1.3 启动到主屏幕，能触控操作，能运行系统自带的应用。
@@ -722,6 +722,12 @@ node tools/ios/nand_build.mjs volumes build/ios/gpu/flash.img build/ios/gpu/syst
 node tools/ios/graphics-kernel.mjs build/ios/10B329/kernelcache.n90.macho build/ios/gpu/system.hfs build/ios/gpu/libv86gles.dylib build/ios/gpu/kernel.macho
 node tests/ios/system.mjs build/ios/10B329 build/ios/gpu/flash.img --debug-kernel build/ios/gpu/kernel.macho --graphics
 ```
+**S5 原版 EAGL 上下文，2026-11-05。** 在 backboardd 中，原版 EAGLSharegroup 会调用 libGFXShared 的 gfxCreateSharedState，继而进入 IMGSGX535GLDriver。10B329 的 OpenGLES 从 GLEngine 按名称载入 17 项 GLI 接口。客体库的 `--host-contexts <本地共享缓存>` 构建模式核对框架 UUID、数据区和这组函数地址，接入 ES2 共享组和上下文的创建与销毁。iOS 本身继续管理 EAGL 对象、每线程的当前上下文和分派表。每个上下文按宿主返回的实际长度保存自己的 GL 字符串。
+
+用 `sh tools/ios/guest/build-gles.sh <目录> --check-host-contexts <dyld_shared_cache_armv7>` 构建带验收线程的客体库，然后依上面的流程创建数据卷、NAND 和调试内核，在 `system.mjs` 使用 `--contexts`。一次完整冷启动中，backboardd 和 SpringBoard 各自创建两个 EAGLContext，第一项创建的着色器可从第二项查询，切回第一项后成功删除。两个进程都读回了宿主渲染器名称、清除了当前上下文并释放对象。普通 `--host-contexts` 构建没有验收线程。该模式目前支持无窗口的 ES2 上下文；原生窗口、IOSurface 和最终上屏分开验收。
+
+`node tests/ios/gl-scalar.mjs <dyld_shared_cache_armv7>` 逐一执行 76 个原版入口，比较传输包的长度及每个字节，并验证 8 位和 32 位返回值。代码生成器使用同一份宿主命令定义，处理混合字节宽度、软浮点调用约定和栈参数。两个删除入口在 10B329 中机器码相同，驱动根据宿主共享组中的对象类型选择着色器或程序删除命令。
+
 另在多次较长的启动运行中记录到 AppleIOPFMI 等待多页读取超时，向 IOP 发 NMI 后内核 panic。原配置也可复现。持续运行的验收需要覆盖这个故障。
 
 

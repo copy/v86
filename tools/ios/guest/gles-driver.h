@@ -30,11 +30,10 @@ static void driver_scissor(struct n90_driver *d, int x, int y, int w, int h)
     d->ok &= SEND(d->connection, gles2_glScissor, x, y, w, h);
 }
 
-static void install_frame_slots(driver_word *table, struct n90_driver *d)
+static void install_frame_functions(driver_word *functions)
 {
-    table[4] = (driver_word)d;
-    table[N90_glClear] = (driver_word)driver_clear;
-    table[N90_glClearColor] = (driver_word)driver_clear_color;
-    table[N90_glEnable] = (driver_word)driver_enable;
-    table[N90_glScissor] = (driver_word)driver_scissor;
+    functions[N90_glClear - 5] = (driver_word)driver_clear;
+    functions[N90_glClearColor - 5] = (driver_word)driver_clear_color;
+    functions[N90_glEnable - 5] = (driver_word)driver_enable;
+    functions[N90_glScissor - 5] = (driver_word)driver_scissor;
 }

@@ -13,6 +13,12 @@ extern void *class_getInstanceMethod(void *, void *);
 typedef void (*implementation)(void);
 extern implementation method_setImplementation(void *, implementation);
 
+#ifdef N90_HOST_CONTEXTS
+extern int n90_install_contexts(void);
+#ifdef N90_CHECK_CONTEXTS
+extern void n90_check_contexts(void);
+#endif
+#endif
 typedef void *(*init_method)(void *, void *, unsigned, void *);
 static init_method native_init;
 
@@ -49,5 +55,14 @@ __attribute__((constructor)) static void start_driver(void)
     void *method = cls ? class_getInstanceMethod(cls, sel_registerName("initWithAPI:properties:")) : 0;
     if(!method) return;
     native_init = (init_method)method_setImplementation(method, (implementation)init_context);
+#ifdef N90_HOST_CONTEXTS
+    if(n90_install_contexts())
+    {
+        syslog(5, "V86 GLI provider installed pid %d", getpid());
+#ifdef N90_CHECK_CONTEXTS
+        n90_check_contexts();
+#endif
+    }
+#endif
     syslog(5, "V86 EAGL attached pid %d display %ux%u", getpid(), width, height);
 }
