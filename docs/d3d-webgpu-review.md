@@ -2571,6 +2571,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **374客体 / 86核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8边界与stdcall20包装入口、两项站点集成/范围lint通过；发布准确XP零售8/9及同源diagnostic。证据 [stage4k40-validation.json](fixtures/d3d-review/stage4k40-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K40.json`。宿主/协议/translator/DDraw/运行包未改。
 > - **继续项：** 接入真实Texture8/Cube8/Volume8/VB/IB/SwapChain8及Device8父对象、全部状态块范围和默认工厂，再完成其他原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
 
+> **4K41（2026-11-05，已完成）：真实Texture8接口与Surface8容器组合。**
+> - 新增 `d3d8_core_texture.c/.h`，实现SDK8真实19方法表；通过15方法的类型化核心9边界复用私有数据、priority/LOD、描述、锁定、dirty rect。GetSurfaceLevel返回真实Surface8，GetContainer回到真实Texture8，两个接口共享核心锁定状态、容器计数与弱缓存。GUID/自身引用计数抽到共用头；表面/纹理八字描述共用原有打包逻辑，纹理描述不创建临时Surface。
+> - 原生执行两种实际适配器，后端明确为COM/元数据shim：**54,048检查 / 1,036用例、43严格语义变异与ASAN**通过；保留Surface8 **54,571检查 / 1,037用例、34变异与ASAN**及描述/31项image-depth变异。错误mip变异起初存活，补充独立的子表面尺寸/Size断言后检出。新文件名曾与4K22重名，七个旧文件已从HEAD准确恢复，新探针统一使用 `frontend_texture`；静态ABI测试的重复生成声明也已由严格编译检出并修正。
+> - **657个既有核心9函数、十种存储结构、完整旧8源与共用运行策略保持一致**。既有surface_desc8通过内联共用描述函数、恢复局部变量声明可逐字节重建；Surface8除三个共用辅助入口外其余函数保持一致。8构建仅增加Texture8源。默认公开工厂尚未切换，完整Device8/Cube8等仍待接入。
+> - 首次实际XP **106秒 / 36批 / 一次启动**（此前一次SDK编译失败，未进入VM）：准确4K40旧8/当前8/普通9/coreSDK120/220五配置，加两组实际Texture8客户端，共 **七设备/七Reset/76句柄/17声明/35shader**。**2个真实Texture8与16个Surface8**覆盖四层mip（8/4/2/1）、四种QI、私有数据/priority/LOD/PreLoad/描述/dirty、跨接口锁定互斥、public-zero复活、Reset后同一性和最终引用0；核对 **352 DWORD实际CPU影子**。Device8与Cube8父接口仍明确为IUnknown引用夹具。
+> - **24张完整图像 / 1,536像素，SwiftShader与Metal均零误差**；20个保留可编程图像加实际Texture8/Surface8写入产生的4个red/blue固定管线图像。mip1/cube绿色核对CPU与完整上传，不宣称本探针采样。独立wire验证LOD 3→0、8次上传/1,280字节、全部退休，**18,046项篡改检出**；2交换链创建/0拒绝/2销毁、0 Present/GPU/host错误，资源在SessionEnd及owner兜底前为空。帧缓冲CPU回复明确为解析注入。
+> - **376客体 / 87核心回归**、32标准EXE/四严格DLL/21成员静态核心/实际SDK8接口边界/两项站点集成/范围lint通过；发布准确XP零售8/9及同源diagnostic。证据 [stage4k41-validation.json](fixtures/d3d-review/stage4k41-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K41.json`。继续Cube8/Volume8/VB/IB/SwapChain8/Device8、状态块范围和默认工厂，以及原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
