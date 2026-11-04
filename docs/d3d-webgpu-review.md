@@ -2445,6 +2445,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **348客体/73核心完整通过**；核心首次启动脚本与生成并行导致文件尚未存在，未运行任何测试，保留启动日志，实际首次执行73项全通过。32标准EXE/四严格DLL/21-member核心/SDK8新ABI、站点集成2项及两侧本任务零新增lint通过。发布最终XP接受的准确8/9零售DLL及严格diagnostic，见 [stage4k27-validation.json](fixtures/d3d-review/stage4k27-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K27.json`。
 > - 宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 未变，继承4I9完整核心238/六GPU基线。继续表面复制/前缓冲/着色器句柄转换和公开8对象包装；原生pool/FVF/depth-Usage/pitch的其他缺口、RT纹理/立方体读回、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
 
+> **阶段 4K28（2026-11-05）：共用 API8 前缓冲算法及私有核心读回入口完成。**
+>
+> - `runtime/d9wg_front_buffer_bridge8.h` 将实际旧8 GetFrontBuffer 算法用SDK绑定实例化；公开8变成薄调用，核心8新增 **@8** 入口及实际9对象的存储/读回/上传适配。保留大目标外圈、X8、2D/cube子表面和不透明A8结果；不能直接调用要求等尺寸/A8/CPU目标的普通9入口。共用函数体与实际c5221bb旧8方法经类型/访问器机械重绑定后的函数体逐字相同；六个普通9方法逐字不变。
+> - 原生 **28,835组合/133,300检查**，实际冻结旧8方法oracle、真实SDK8/9的32字节描述及不同字段偏移、21/22/23格式、等大/更大/带padding目标、CPU/2D/cube/backbuffer/RT、锁定/父设备/depth/NULL、读回与上传失败、缓存源引用、零分配/两处OOM/外圈保护通过。另测内部65 CPU布局，不宣称65为合法backbuffer或GPU精度。**25个严格运行变异**要求实际C数字行号断言或精确的分配器保护断言（函数/文件/行号），不接受一般信号；一个实际旧9严格方法保留profile守卫后作为私有8入口的反例通过，不把9方法本身说成有错。
+> - 保留公开8表面 **61组/29变异**、普通9读回 **43组**，两组ASAN通过。初始原生夹具名称`gets`撞到标准库且少一个runtime类型include，修正夹具；分配保护触发的C断言最初未被分类识别，增加精确匹配。收紧旧表面分类后发现越界点用例只产生SIGBUS；为非法矩形探针增加实际调用者缓冲范围观察，在非法写入前产生C断言，29个变异全部按C断言检出，未把任意崩溃算成功。最初DLL输出目录不存在、SDK探针缩排被Werror拒绝均发生在VM之前；修正目录/括号，编译标准未降。
+> - **实际XP首轮125秒/59批次通过**：准确4K27旧8/当前公开8/普通9/核心8 SDK120/220，共五设备/五Reset、35前缓冲调用 **29成功/6拒绝**、**4095个本地DWORD**、10纹理/三声明/23句柄。普通9只接受等大A8 CPU目标，其余旧8形状保持拒绝且目标未变；8路径保持大目标外圈及X8、2D/cube子表面上传，Reset后5×3源写入7×5目标仍保持外圈。单owner/session/end/最终释放、Hello[0,0,3]、能力0/RAM overlay及finalRefs=0通过。
+> - CPU读回回复明确为解析注入，A8源回复刻意保留alpha=0，由API前缓冲路径置255；X8回复按格式为不透明。独立SDK操作模型核对 **18上传/6048字节、20次中心/外圈UP绘制、49次读回/2940像素、55清除**，**4233项语义损坏**均检出。SwiftShader/Metal均49图/2940实际像素零差异；中心为不透明复制色，外圈保留原alpha/颜色，并核对透明源、X8和Reset后的源。零宿主/GPU错误，SessionEnd回退及owner释放前maps=0。这里只验收代理输出面，不宣称原生桌面、窗口偏移或完整Present前后时序。
+> - **350客体/74核心完整通过**；32标准EXE/四严格DLL/21-member核心/SDK8新ABI、站点集成2项和两侧本任务零新增lint通过。发布最终XP接受的准确8/9零售DLL及严格diagnostic，见 [stage4k28-validation.json](fixtures/d3d-review/stage4k28-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K28.json`。
+> - 宿主/协议/着色器/DDraw/包 `9335ee9a77fb7cc808d2` 未变，继承4I9完整核心238/六GPU基线。继续CopyRects/着色器句柄转换与完整公开8设备/资源包装；原生pool/FVF/depth-Usage/pitch、RT纹理/立方体其他读回规则、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
