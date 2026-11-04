@@ -24,7 +24,17 @@ function check(image, sources)
             return bytes;
         }
         const context = physical(15 * 512), control = context.readUInt16LE(0x69A) * 512;
-        assert.equal(physical(control).toString("ascii", 0, 4), "CX01");
+        const state = physical(control);
+        assert.equal(state.toString("ascii", 0, 4), "CX01");
+        for(const [blockOffset, cursorOffset, tocPart] of [[12, 0x66, 1], [20, 0x68, 2]])
+        {
+            const block = state.readUInt32LE(blockOffset), cursor = state.readUInt16LE(cursorOffset);
+            const toc = physical(control + tocPart);
+            assert.ok(cursor >= 1 && cursor <= 511);
+            assert.notEqual(toc.readUInt32LE((cursor - 1) * 4), 0xFFFFFFFF);
+            assert.equal(toc.readUInt32LE(cursor * 4), 0xFFFFFFFF);
+            assert.ok(physical(block * 512 + cursor).every(b => b === 255), "next program must target an erased row");
+        }
         const directory = physical(control + 4), cache = new Map();
         function logical(lpn)
         {

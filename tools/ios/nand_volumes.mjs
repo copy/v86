@@ -21,6 +21,11 @@ function volume_size(fd)
     return size;
 }
 
+export function data_capacity(systemSize)
+{
+    return (CHUNKS - 9 - Math.ceil(systemSize / CHUNK)) * CHUNK;
+}
+
 function lwvm_header(dataStart)
 {
     const h = Buffer.alloc(NAND_DATA);
@@ -54,7 +59,7 @@ function lwvm_header(dataStart)
 export function write_volumes(put, system, data)
 {
     const sizes = [volume_size(system), volume_size(data)], dataStart = 1 + Math.ceil(sizes[0] / CHUNK);
-    if(dataStart >= CHUNKS - 8 || sizes[1] > (CHUNKS - 8 - dataStart) * CHUNK)
+    if(dataStart >= CHUNKS - 8 || sizes[1] > data_capacity(sizes[0]))
         throw new Error("HFS volumes do not fit N90 NAND");
     const indices = new Map(), directory = Buffer.alloc(NAND_DATA, 255);
     function stream(first, limit, type)
@@ -78,7 +83,8 @@ export function write_volumes(put, system, data)
                 counts.set(block, ++used);
                 return vpn;
             },
-            finish() { close(); return { block, toc, counts }; },
+            // The final block remains open. Its TOC lives in the checkpoint until sealed.
+            finish() { return { block, toc, counts }; },
         };
     }
     const user = stream(22, FIRST_INDEX_BLOCK, 0x10);

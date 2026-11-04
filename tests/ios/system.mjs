@@ -4,11 +4,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { process_list } from "./process-list.mjs";
 import { V86 } from "../../src/main.js";
 
-const [firmware, image, option, debugKernel] = process.argv.slice(2);
+const [firmware, image, option, debugKernel, gate] = process.argv.slice(2);
+if(gate && !["--mounts", "--processes"].includes(gate)) throw new Error("unknown system boot gate " + gate);
 if(option && (option !== "--debug-kernel" || !debugKernel)) throw new Error("expected --debug-kernel local-kernel.macho");
-if(!firmware || !image) throw new Error("usage: system.mjs extracted-10B329-directory flash.img [--debug-kernel local-kernel.macho]");
+if(!firmware || !image) throw new Error("usage: system.mjs extracted-10B329-directory flash.img [--debug-kernel local-kernel.macho [--mounts|--processes]]");
 const file = name => ({ url: path.resolve(firmware, name) });
 const emulator = new V86({
     machine_type: "s5l8930", graphics_adapter: "none", log_level: 0, autostart: false,
@@ -26,18 +28,39 @@ try
     });
     const root = "BSD root: disk0s1s1, major ";
     const end = performance.now() + (debugKernel ? 600000 : 180000);
-    const marker = debugKernel ? "launchd[1] has started up" : root;
+    const launchd = "launchd[1] has started up";
+    const marker = gate ? "/dev/disk0s1s2 on /private/var (hfs, local, nodev, nosuid" : debugKernel ? launchd : root;
     const cpu = emulator.v86.cpu;
+    const required = ["lockdownd", "configd", "mediaserverd"];
+    let names = [], processesReady = gate !== "--processes", nextSample = 0;
     cpu.clock.resume();
-    while(!serial.includes(marker) && !serial.includes("panic(cpu") && performance.now() < end)
+    while((!serial.includes(marker) || !processesReady) && !serial.includes("Userspace shutdown begun") && !serial.includes("panic(cpu") && performance.now() < end)
     {
         for(let i = 0; i < 24; i++) cpu.run_cores();
+        if(!processesReady && serial.includes(marker) && performance.now() >= nextSample)
+        {
+            nextSample = performance.now() + 100;
+            names = process_list(cpu);
+            processesReady = names.some(p => p.pid === 1 && p.name === "launchd") &&
+                required.every(name => names.some(p => p.name === name));
+        }
         await new Promise(ok => setImmediate(ok));
     }
     assert.ok(serial.includes("FTL_Open            [OK]") &&
         serial.includes("loaded configuration for 2 partitions") && serial.includes(root) && serial.includes(marker) &&
-        !serial.includes("panic(cpu"), serial.slice(-2600));
-    console.log(debugKernel ? "PASS: the local debug kernel ran the system volume’s launchd as PID 1 from NAND" :
+        processesReady && !serial.includes("panic(cpu"), serial.slice(-2600));
+    if(gate)
+    {
+        assert.ok(serial.includes(launchd) && serial.includes("/dev/disk0s1s1 on / (hfs, local, read-only"));
+        assert.ok(serial.includes("** /dev/rdisk0s1s1") && serial.includes("** /dev/rdisk0s1s2"));
+        if(gate === "--processes")
+        {
+            for(const p of names.filter(p => p.pid === 1 || required.includes(p.name)))
+                console.log(p.pid + " " + p.name);
+        }
+        console.log("PASS: launchd checked the LwVM slices and mounted the read-only system and writable data volumes");
+    }
+    else console.log(debugKernel ? "PASS: the local debug kernel ran the system volume’s launchd as PID 1 from NAND" :
         "PASS: the original kernel reads LwVM from NAND and selects disk0s1s1 as BSD root");
 }
 finally { await emulator.destroy(); }

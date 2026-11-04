@@ -52,7 +52,7 @@ try
     cpu.clock.resume();
     // IOFlashStorage prints the rejected fourcc most significant byte
     // first, proving the IOP, H2FMI, CDMA and AP partition parser agree.
-    const marker = formatted ? "_publishServices:" : partition ? "YAFTL Register  [OK]" : "bad magic - 09N4";
+    const marker = formatted ? "published partition 1" : partition ? "YAFTL Register  [OK]" : "bad magic - 09N4";
     while(!serial.includes(marker) && !serial.includes("panic(cpu") && performance.now() < end)
     {
         for(let i = 0; i < 24; i++) cpu.run_cores();
@@ -63,7 +63,8 @@ try
     assert.equal(cpu.wm.exports.a64_current_core(), 0);
     if(formatted)
     {
-        assert.ok(serial.includes("FTL_Open            [OK]") && !serial.includes("Performing full NAND R/O restore"));
+        assert.ok(serial.includes("_publishServices:") && serial.includes("created partition 5 as 'Bad Block Table'") &&
+            serial.includes("FTL_Open            [OK]") && !serial.includes("Performing full NAND R/O restore"));
         console.log("PASS: 10B329 opened the clean YAFTL checkpoint and published flash storage services");
     }
     if(process.argv.includes("--snapshot"))

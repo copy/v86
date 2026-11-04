@@ -654,6 +654,21 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/root-native.img
 node tests/ios/system.mjs build/ios/10B329 build/ios/root-native.img --debug-kernel build/ios/shell/kernel.macho
 ```
 
+**S4 系统与数据卷挂载，2026-11-04。** 10B329 恢复镜像的 fstab 使用 disk0s1 和 disk0s2。system-volume 在独立副本中将这两项改为实际的 LwVM 子分区 disk0s1s1 和 disk0s1s2，保留原挂载选项。CX01 检查点现在记录数据和索引块的下一个空闲页，首次写入不会覆写已编程页。Grdn 的第 5 项是物理块 14 上的 fbbt，AppleNANDFactoryBBT 匹配后系统才发布 Effaceable、NVRAM 和其他分区。
+
+data-volume 在 macOS 上生成稀疏的 HFSX 卷，容量 15,082,717,184 字节，复制系统卷 /private/var 下 60 个条目。
+构建器独立回读文件、符号链接、属主和权限。用本地调试内核启动后，fsck_hfs 检查两个正确的分区，客体报告系统卷只读挂在 /，数据卷可写挂在 /private/var。FIPS 用户空间自检通过。
+从 XNU 进程表同时读到 launchd (1)、mediaserverd (39)、lockdownd (45)、configd (48) 和 backboardd (26)，PID 可随启动次序变化。
+数据卷缺少系统钥匙包时，keybagd 打印 FATAL KEYBAG ERROR: kb_load，随后 launchd 关机。数据保护、持续运行与首次设置仍未验收。
+
+```sh
+node tools/ios/system-volume.mjs build/ios/10B329/rootfs.hfs build/ios/system-fstab.hfs
+node tools/ios/data-volume.mjs build/ios/system-fstab.hfs build/ios/var-full.hfs
+node tools/ios/nand_build.mjs volumes build/ios/seeded.img build/ios/system-fstab.hfs build/ios/var-full.hfs
+node tests/ios/nand-volumes.mjs build/ios/seeded.img build/ios/system-fstab.hfs build/ios/var-full.hfs
+node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel build/ios/shell/kernel.macho --processes
+```
+
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。
 

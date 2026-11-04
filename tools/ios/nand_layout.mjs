@@ -31,8 +31,8 @@ export function physical_partitions()
     t.write("sbus", 0x35C);
     t.writeUInt16LE(fletcher16(t.subarray(0x35C, 0x3FE)), 0x3FE);
     const entries = [
-        ["boot", 0, 1, 0], ["plog", 1, 4, 0], ["nvrm", 5, 2, 0], ["firm", 7, 8, 0x200],
-        ["fsys", 15, NAND_BLOCKS - 15, 2],
+        ["boot", 0, 1, 0], ["plog", 1, 4, 0], ["nvrm", 5, 2, 0], ["firm", 7, 7, 0x200],
+        ["fsys", 15, NAND_BLOCKS - 15, 2], ["fbbt", 14, 1, 1],
     ];
     for(let i = 0; i < 32; i++)
     {
@@ -186,6 +186,8 @@ export function write_ftl_pages(put, volume)
             page.writeUInt16LE(pagesPerBlock - userPages, 0x5E);
             page.writeUInt16LE(entriesPerPage, 0x60);
             page.writeUInt16LE(userPages, 0x64);
+            page.writeUInt16LE(volume?.userCounts.get(userBlock) ?? 0, 0x66);
+            page.writeUInt16LE(volume?.indexCounts.get(indexBlock) ?? 0, 0x68);
             page[0x94] = 99;
         }
         else if(part === 1 && volume) volume.userTOC.copy(page);
