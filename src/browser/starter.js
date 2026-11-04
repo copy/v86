@@ -976,6 +976,9 @@ V86.prototype.continue_init = async function(emulator, options)
                 settings.initrd = buffer.buffer;
                 break;
             // machine_type "virt" (src/virt/loader.js)
+            case "ios_nand":
+                settings.ios_nand = buffer;
+                break;
             case "ios_bootlogo":
                 settings.ios_bootlogo = buffer.buffer;
                 break;
@@ -1139,6 +1142,7 @@ V86.prototype.continue_init = async function(emulator, options)
     }
     add_file("initrd", options.ios ? options.ios.ramdisk : options.initrd);
     add_file("kernel", options.ios ? options.ios.kernelcache : options.kernel);
+    if(options.ios?.nand) add_file("ios_nand", options.ios.nand.get ? options.ios.nand : Object.assign({}, options.ios.nand, { async: true }));
     add_file("ios_bootlogo", options.ios && options.ios.bootlogo);
     add_file("dtb", options.ios ? options.ios.devicetree : options.dtb);
     add_file("android_vendor_ramdisk", options.android && options.android.vendor_ramdisk);

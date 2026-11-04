@@ -148,3 +148,59 @@ backlight.write(0x24, 5);
 panel.render();
 assert.deepEqual(Array.from(presented.subarray(0, 4)), [128, 64, 32, 255]);
 console.log("PASS: PMU backlight off/on changes displayed pixels and preserves guest VRAM");
+
+// The real IOP starts CDMA before the boot-page transfer but after the
+// full-page transfer request. Both orders see the same descriptor/data.
+const memory = new Uint8Array(4096), received = [];
+const controllerCPU = {
+    io: { register_mmio() {} }, mem8: memory,
+    ram_offset: (a, n) => a >= 0 && a + n <= memory.length ? a : -1,
+    write_blob_physical: (bytes, a) => memory.set(bytes, a),
+};
+const channelDMA = new AppleCDMA(controllerCPU, (n, level) => received.push([n, level]));
+let completeRead;
+const media = { read(bus, ce, row, done) {
+    assert.deepEqual([bus, ce, row], [0, 0, 0x10203]);
+    completeRead = done;
+} };
+const flashPort = new AppleH2FMI(controllerCPU, 0x81200000, 0, media, () => {}, channelDMA);
+flashPort.configure(ids, 0);
+const descriptor = new DataView(memory.buffer);
+descriptor.setUint32(0x104, 0x103, true);
+descriptor.setUint32(0x108, 0x200, true);
+descriptor.setUint32(0x10C, 4, true);
+const issue = () => {
+    flashPort.write(0x100C, 1);
+    flashPort.write(0x1018, 0x02030002);
+    flashPort.write(0x101C, 1);
+    flashPort.write(0x1014, 0x3000);
+    flashPort.write(0x1010, 11);
+};
+const arm = () => {
+    channelDMA.write(0x5008, 0x81200014);
+    channelDMA.write(0x500C, 4);
+    channelDMA.write(0x5014, 0x100);
+    channelDMA.write(0x5000, 0x1C0009);
+};
+for(const early of [true, false])
+{
+    flashPort.reset();
+    issue();
+    assert.equal(flashPort.read(0x1044), 0);
+    completeRead(Uint8Array.of(0, 1, 11, 22, 33, 44));
+    assert.equal(flashPort.read(0x1044), 11);
+    memory.fill(0, 0x200, 0x204);
+    if(early) arm();
+    flashPort.write(4, 3);
+    if(!early) arm();
+    assert.deepEqual(Array.from(memory.subarray(0x200, 0x204)), [11, 22, 33, 44]);
+    assert.equal(channelDMA.read(0x5000), 0x80008);
+    assert.deepEqual(received.at(-1), [5, true]);
+    channelDMA.write(0x5000, 0x80000);
+    assert.deepEqual(received.at(-1), [5, false]);
+}
+issue();
+flashPort.reset();
+completeRead(Uint8Array.of(99));
+assert.equal(flashPort.read(0x1044), 0, "stale read cannot complete after reset");
+console.log("PASS: NAND row/column, async completion, both CDMA request orders and reset during read");

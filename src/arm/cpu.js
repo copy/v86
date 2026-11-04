@@ -16,6 +16,7 @@ import { draw_n90_logo } from "../apple/bootlogo.js";
 import { N90_VIDEO } from "../apple/clcd.js";
 import { load_n90_kernel } from "../apple/boot.js";
 import { MachineClock } from "../machine_clock.js";
+import { check_disk_state } from "../disk_writeback.js";
 import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
 import { VirtDeviceSpace } from "../virt/io.js";
@@ -263,7 +264,7 @@ A64CPU.prototype.init = function(settings, device_bus)
     this.device_bus = device_bus;
     if(machine_type === "s5l8930")
     {
-        this.devices = create_n90_devices(this, device_bus, settings.screen);
+        this.devices = create_n90_devices(this, device_bus, settings.screen, settings.ios_nand);
         this.virtio_devices = [];
         this.shared_spi_sources = new Map();
         this.virtio_transport = "none";
@@ -494,7 +495,7 @@ A64CPU.prototype.load_boot_files = function()
     {
         const f = this.boot_files;
         const handoff = load_n90_kernel(this.mem8, new Uint8Array(f.kernel), new Uint8Array(f.dtb),
-            f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline);
+            f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline, !!this.devices.apple_nand);
         this.wm.exports["a64_bus_written"](0, handoff.r0 - VIRT_RAM_BASE + 4096);
         this.devices.apple_fmi0.configure(handoff.chip_ids, 0);
         this.devices.apple_fmi1.configure(handoff.chip_ids, 1);
@@ -1241,6 +1242,14 @@ A64CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot is from " + machine + " layout " + identity[1] + " with CPU profile " + identity[2] +
             "; this machine is layout " + layout + ", " + this.profile);
+    }
+    if(this.machine_type === "s5l8930" && !!state[4]?.[DEVICE_ORDER.indexOf("apple_nand")] !== !!this.devices.apple_nand)
+    {
+        throw new Error("snapshot and machine must use the same N90 NAND configuration");
+    }
+    if(this.devices.apple_nand)
+    {
+        check_disk_state("ios_nand", this.devices.apple_nand.buffer, state[4][DEVICE_ORDER.indexOf("apple_nand")][0]);
     }
     if(state[0] !== this.memory_size[0])
     {

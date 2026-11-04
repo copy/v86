@@ -181,7 +181,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   ios/lzss.js apple/boot.js apple/bootlogo.js apple/cdma.js apple/clcd.js apple/devicetree.js apple/h2fmi.js apple/i2c.js apple/iop.js apple/macho.js apple/s5l8930.js apple/timer.js apple/uart.js apple/vic.js \
+	   ios/lzss.js apple/boot.js apple/bootlogo.js apple/cdma.js apple/clcd.js apple/devicetree.js apple/h2fmi.js apple/i2c.js apple/iop.js apple/macho.js apple/nand.js apple/s5l8930.js apple/timer.js apple/uart.js apple/vic.js \
 	   arm/state_layout.js arm/cpu.js arm/backdoor_a32.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/ranchu.js virt/goldfish.js virt/loader.js \
 	   android/bytes.js android/gpt.js android/avb.js android/bootimg.js android/bootconfig.js android/devices.js android/boot.js android/bootloader.js android/partition_buffer.js android/cpio.js android/ramdisk_overlay.js \
 	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/vhdx.js image/ova.js image/factory.js image/export.js image/qcow2_export.js

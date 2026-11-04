@@ -1,6 +1,7 @@
 import { DisplayHub } from "../display.js";
 import { AppleCDMA } from "./cdma.js";
 import { AppleCLCD } from "./clcd.js";
+import { AppleNAND } from "./nand.js";
 import { AppleH2FMI } from "./h2fmi.js";
 import { AppleIOP } from "./iop.js";
 import { AppleI2C } from "./i2c.js";
@@ -11,25 +12,28 @@ import { AppleVIC } from "./vic.js";
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1",
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand",
 ];
 
-export function create_n90_devices(cpu, bus, screen)
+export function create_n90_devices(cpu, bus, screen, buffer)
 {
     const display = new DisplayHub(bus, screen);
     const vic = new AppleVIC(cpu);
     const clcd = new AppleCLCD(cpu, display, vic);
-    return {
+    const nand = buffer ? new AppleNAND(cpu, buffer) : null;
+    const iop = new AppleIOP(cpu);
+    const dma = new AppleCDMA(cpu, (n, level) => iop.vic.set_line(0x30 + n, level));
+    const devices = {
         display,
-        apple_fmi0: new AppleH2FMI(cpu, 0x81200000),
-        apple_fmi1: new AppleH2FMI(cpu, 0x81300000),
-        apple_iop: new AppleIOP(cpu),
+        apple_fmi0: new AppleH2FMI(cpu, 0x81200000, 0, nand, level => iop.vic.set_line(34, level), dma),
+        apple_fmi1: new AppleH2FMI(cpu, 0x81300000, 1, nand, level => iop.vic.set_line(35, level), dma),
+        apple_iop: iop,
         apple_uart: new AppleUART(cpu, bus),
         apple_vectors: new AppleVectors(cpu),
         apple_vic: vic,
         apple_timer: new AppleTimer(cpu, vic),
         apple_gpio: new AppleGPIO(cpu),
-        apple_cdma: new AppleCDMA(cpu),
+        apple_cdma: dma,
         apple_miu: new AppleRegisterWindow(cpu, "miu", 0xBFC00000, 0x1000),
         apple_clcd: clcd,
         apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true, level => clcd.set_backlight(level)),
@@ -39,6 +43,8 @@ export function create_n90_devices(cpu, bus, screen)
         apple_dart2: new AppleRegisterWindow(cpu, "dart2", 0x89D00000, 0x2000),
         apple_sgx: new AppleRegisterWindow(cpu, "sgx", 0x85100000, 0x1000),
     };
+    if(nand) devices.apple_nand = nand;
+    return devices;
 }
 
 // The N90 board's writable low exception vectors. XNU maps physical zero

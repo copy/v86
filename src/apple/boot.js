@@ -1,5 +1,6 @@
 // Direct handoff to the 32-bit N90 kernel (10B329). XNU constructs its first
 // translation tables at topOfKernelData, after all the objects left by iBoot.
+import { configure_nand_tree } from "./nand.js";
 import { N90_VIDEO } from "./clcd.js";
 import { macho_parse, CPU_TYPE_ARM } from "./macho.js";
 import { dt_parse, dt_serialize, dt_find, dt_name, dt_property, dt_strings, dt_set } from "./devicetree.js";
@@ -16,7 +17,7 @@ function cells(...values)
 }
 
 /** Populate guest RAM and return the physical PC and r0 used at reset. */
-export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline = "-v serial=3")
+export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline = "-v serial=3", nand = false)
 {
     const kernel = macho_parse(kernelcache);
     if(kernel.is64 || kernel.cputype !== CPU_TYPE_ARM || kernel.filetype !== 2 ||
@@ -25,6 +26,7 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline =
         throw new Error("N90 boot needs an executable ARM kernelcache with a mapped entry");
     }
     const tree = dt_parse(devicetree);
+    if(nand) configure_nand_tree(tree);
     const compatible = dt_property(tree, "compatible");
     if(!compatible || !dt_strings(compatible.value).includes("N90AP")) throw new Error("expected N90AP device tree");
 

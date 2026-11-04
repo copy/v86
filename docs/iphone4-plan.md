@@ -623,8 +623,21 @@ VIC1 的向量 `0x8000002a`，随后到 CLCD+0x102c 查询状态。+0x1028 是�
 +0x114（实测 256 KiB）并从本地地址零启动。固件内有 ARM 指令异常向量。v86 已用独立寄存器组执行此固件；
 IOP 的低地址映射到所选 DRAM，0xc0000000 起的窗口通向共享 DRAM，另有从 0xbf300000 开始的 VIC。
 用 `node tests/ios/flash.mjs build/ios/10B329` 可复测：实测 IOP 自己向 FMI 的命令窗口发出
-NAND READ（0x3000）。目前仅有擦除态读回，未接入镜像数据。芯片读写、VSVFL/YAFTL、LwVM 和系统盘挂载分别验收；
+NAND READ（0x3000）。已支持擦除态和已写页读回，已接入稀疏物理镜像（见下文）。芯片读写、VSVFL/YAFTL、LwVM 和系统盘挂载分别验收；
 恢复盘 shell 不作为 S4 的验收依据。
+
+**S4 物理 NAND 镜像和分区，2026-11-04。** `ios.nand` 接受本地生成的四芯片稀疏镜像，使用通用磁盘后端按范围读取。
+每个总线有两个 CE，块大小为 128 页，每个 CE 有 0x1038 块。按总线、CE、物理行号排列；
+每页 8192 字节数据及 436 字节 spare，按位取反存储并将槽补齐到 8704 字节，稀疏空洞即全 0xff 的擦除页。
+构建工具不覆盖已有文件。以下两个实测走原版内核和真实 IOP 固件：
+
+- `node tests/ios/flash.mjs build/ios/10B329` 把标记写入 0 号芯片的第 0 页。
+  客体向 H2FMI 发出 0x3000 读命令，等待采样状态，经 CDMA 通道 5 的描述符将 1536 字节复制到应用 CPU 的 RAM；
+  IOFlashStorage 的分区解析器打印出该标记。
+- `node tests/ios/flash.mjs build/ios/10B329 --partition` 使用 `nand_build.mjs bootstrap`。
+  物理页 0、1 含 10B329 接受的 Grdn 分区表。客体识别 Boot Block、Effaceable、NVRAM、Firmware 和 Filesystem，
+  发布第 4 个分区，AppleNANDLegacyFTL 从物理块偏移 15 启动并通过 FIL、BUF、FPart 初始化。
+  这些偏移是模拟器的布局。每颗芯片末块含 DEVICEINFOBBT，第一颗另含 NANDDRIVERSIGN。原版内核读出 0x43313131，报告 VSVFL Register 和 VFL Init 均为 OK。尚需验证 VFL Open、YAFTL 映射、逻辑系统与数据卷以及数据保护内容。
 
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。

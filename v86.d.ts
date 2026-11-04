@@ -978,7 +978,7 @@ export interface V86Options {
      */
     machine_type?: "i440fx" | "q35" | "virt" | "ranchu" | "s5l8930";
     apple_model?: "iPhone3,1";
-    ios?: { kernelcache: V86Image; devicetree: V86Image; ramdisk?: V86Image; bootlogo?: V86Image; boot_args?: string };
+    ios?: { kernelcache: V86Image; devicetree: V86Image; ramdisk?: V86Image; nand?: V86HardDiskImage; bootlogo?: V86Image; boot_args?: string };
 
     /**
      * machine_type "ranchu" only: the display (the framebuffer's size in

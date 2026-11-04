@@ -5,35 +5,27 @@ import path from "node:path";
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import { V86 } from "../../src/main.js";
-import { dt_find, dt_parse, dt_set, dt_serialize } from "../../src/apple/devicetree.js";
+import os from "node:os";
+import { execFileSync } from "node:child_process";
+import { NAND_PAGE } from "../../src/apple/nand.js";
 
 const dir = process.argv[2];
 if(!dir) throw new Error("usage: flash.mjs extracted-10B329-directory");
-const root = dt_parse(fs.readFileSync(path.join(dir, "DeviceTree.n90ap.bin")));
-const flash = dt_find(root, "/arm-io/flash-controller0/disk");
-const ids = new Uint8Array(256);
-for(let bus = 0; bus < 2; bus++)
-    for(let ce = 0; ce < 2; ce++) ids.set([0xEC, 0xD7, 0x94, 0x72], 8 * (16 * bus + ce));
-dt_set(flash, "dbg-chipids", ids);
-const geometry = { "#ce": 4, "#databus": 2, "ce-bitmap": 0x30003, "#ce-blocks": 0x1038,
-    "#block-pages": 128, "#page-bytes": 8192, "#spare-bytes": 436, "#die-ce": 1,
-    "logical-page-size": 4096, "meta-per-logical-page": 12, "valid-meta-per-logical-page": 12,
-    "ecc-correctable": 8, "ecc-threshold": 8, "block-bits": 13, "page-bits": 7,
-    "bbt-format": 8, "vendor-type": 0x10001, "max-transaction-size": 65536 };
-for(const [name, value] of Object.entries(geometry))
-{
-    const cell = Buffer.alloc(4);
-    cell.writeUInt32LE(value);
-    dt_set(flash, name, cell);
-}
-const clocks = Buffer.alloc(256);
-clocks.writeUInt32LE(100000000, 4 * 0x21);
-dt_set(dt_find(root, "/arm-io"), "clock-frequencies", clocks);
-const emulator = new V86({ machine_type: "s5l8930", graphics_adapter: "none", autostart: false, log_level: 0,
-    wasm_path: fileURLToPath(new URL("../../build/v86-arm64.wasm", import.meta.url)),
-    ios: { kernelcache: { url: path.resolve(dir, "kernelcache.n90.macho") }, devicetree: { buffer: dt_serialize(root).buffer } } });
+const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "v86-n90-page-"));
+const disk = path.join(temporary, "test.img"), pageFile = path.join(temporary, "page.bin");
+const partition = process.argv.includes("--partition");
+let emulator;
 try
 {
+    const page = Buffer.alloc(NAND_PAGE, 0xFF);
+    page.write("4N90");
+    fs.writeFileSync(pageFile, page);
+    execFileSync(process.execPath, [fileURLToPath(new URL("../../tools/ios/nand_build.mjs", import.meta.url)),
+        ...(partition ? ["bootstrap", disk] : ["blank", disk, "0:0:0:" + pageFile])]);
+    emulator = new V86({ machine_type: "s5l8930", graphics_adapter: "none", autostart: false, log_level: 0,
+        wasm_path: fileURLToPath(new URL("../../build/v86-arm64.wasm", import.meta.url)),
+        ios: { kernelcache: { url: path.resolve(dir, "kernelcache.n90.macho") },
+            devicetree: { url: path.resolve(dir, "DeviceTree.n90ap.bin") }, nand: { url: disk, size: fs.statSync(disk).size } } });
     await new Promise((resolve, reject) => {
         emulator.add_listener("emulator-loaded", resolve);
         emulator.add_listener("emulator-error", reject);
@@ -51,10 +43,38 @@ try
     }
     const end = performance.now() + 120000;
     cpu.clock.resume();
-    while(!read && !serial.includes("panic(cpu") && performance.now() < end) cpu.run_cores();
-    assert.ok(iop.running && read, serial.slice(-2000));
+    // IOFlashStorage prints the rejected fourcc most significant byte
+    // first, proving the IOP, H2FMI, CDMA and AP partition parser agree.
+    const marker = partition ? "VFL Init            [OK]" : "bad magic - 09N4";
+    while(!serial.includes(marker) && !serial.includes("panic(cpu") && performance.now() < end)
+    {
+        for(let i = 0; i < 24; i++) cpu.run_cores();
+        await new Promise(resolve => setImmediate(resolve));
+    }
+    assert.ok(iop.running && read && serial.includes(marker) && !serial.includes("panic(cpu"), serial.slice(-2000));
     assert.equal(iop.regs[0x114 >>> 2], 0x40000);
     assert.equal(cpu.wm.exports.a64_current_core(), 0);
-    console.log("PASS: 10B329 IOP firmware issued NAND READ from its own CPU and 256 KiB remap");
+    if(process.argv.includes("--snapshot"))
+    {
+        const snapshot = await emulator.save_state();
+        const fmi = cpu.devices.apple_fmi0;
+        const before = fmi.get_state(), regs = before[0].slice();
+        fmi.reset();
+        await emulator.restore_state(snapshot);
+        assert.deepEqual(fmi.regs, regs);
+        assert.deepEqual(fmi.page, before[3]);
+        assert.equal(fmi.column, before[4]);
+    }
+    if(partition)
+    {
+        assert.ok(serial.includes("read valid partition table") && serial.includes("published partition 4") &&
+            serial.includes("VSVFL Register  [OK]") && serial.includes("AppleNANDLegacyFTL located at physical nand block offset 15"), serial.slice(-2500));
+        console.log("PASS: 10B329 accepted the physical partition map and LegacyFTL initialized VSVFL from the factory records");
+    }
+    else console.log("PASS: 10B329 IOP read the image and CDMA delivered its page marker to the guest partition parser");
 }
-finally { await emulator.destroy(); }
+finally
+{
+    await emulator?.destroy();
+    fs.rmSync(temporary, { recursive: true, force: true });
+}

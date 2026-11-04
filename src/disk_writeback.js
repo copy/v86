@@ -585,6 +585,7 @@ export function disk_buffers(cpu)
     const fdc = cpu.devices && cpu.devices.fdc;
     if(fdc && fdc.drives) fdc.drives.forEach((drive, i) => add(i ? "fdb" : "fda", drive.buffer));
     // (the UEFI firmware's variable store, src/pflash.js; the TPM's state, src/tpm/store.js)
+    if(cpu.devices?.apple_nand) add("ios_nand", cpu.devices.apple_nand.buffer);
     const pflash = cpu.firmware && cpu.firmware.pflash;
     if(pflash) add("firmware_vars", pflash.buffer);
     if(cpu.devices && cpu.devices.tpm) add("tpm_state", cpu.tpm_store);
