@@ -2293,6 +2293,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 原公开8的当前DLL复检首次在XP欢迎屏停留、测试EXE从未启动，失败图与空日志归档；完整并行回归释放资源后重试通过，**189秒、13批次、五读回、两个Reset/附加链**，保留4K9检查器通过。未为启动环境问题修改生产/SDK代码。
 > - 发布准确最终XP DLL及严格diagnostic；证据`docs/fixtures/d3d-review/stage4k12-validation.json`，镜像`glbridge/deployments/d3d-webgpu-review-4K12.json`。公开8仍用原设备，表面锁定/API8 shader兼容、真正device/resource/state/copy/句柄包装、完整零售/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
 
+
+> **阶段 4K13（2026-11-04）：共用 D3D8 SM1.x 着色器校验，核心设备保留旧版输入。**
+> - 核对实际代码后确认：原 D3D9 扫描器已经接受 1.0 和无 dcl 输入，本项不声称修复不存在的版本拒绝。把公开8原有 opcode/寄存器/body 策略移到核心，公开8委托同一实现；核心 API8 创建入口应用旧8版本及8192-token边界，普通9仍走原扫描器。SDK8寄存器枚举是左移编码、SDK9是序号，核心明确归一化后比较。版本、声明与 DWORD 句柄仍归8适配层。
+> - 原生执行真实SDK头/历史8校验和历史9构造器：**3,492,911项策略检查**，含786,432 opcode/model和640,000有界body/委托案例；**43,516项构造检查、10,578次构造**，覆盖1.0/无dcl、8192边界、逐字节复制、既有协议hash、类型/父引用、分配与提交失败及5,280组普通9对照。保留既有hash乘数，不改缓存/线协议。16项变异均严格编译后运行时断言拒绝，两个真实旧实现负对照及两组地址检查通过。
+> - 协议校验不再用源码正则推测8的opcode表，改为编译执行公共核心策略，再与宿主48个opcode/40格式/16输入寄存器契约比较。其他旧源码防护仍保留，未宣称全部测试完成迁移。
+> - XP 合并SDK探针在两个私有核心8设备上创建/逐字节查询 VS1.0/1.1、PS1.0/1.4，无dcl；核对四次shader设备身份、三次绑定身份、公开引用归零后的绑定存活及非法输入拒绝。SDK120实际运行1.0/1.0，SDK220运行1.1/1.4。另在同一XP中比较准确4K12公开8 DLL与当前DLL，每个模块接受2个VS/5个PS、拒绝7例、核对7个函数字节及7个过期句柄，最终引用归零并卸载。
+> - **115秒、17批次、九设备/七声明/22shader/53唯一句柄**，保留三Reset/六临时纹理链/五UP读回、两次私有模块生命周期、普通9持续可用，Hello能力序列3/0/0、一个owner/session/最终释放。明确模拟宿主能力0、只用RAM overlay。公开8完整生命周期矩阵继承4K12；本项当前公开8新增创建/查询路径在合并捕获中实测，不冒充完整矩阵重跑。
+> - 冻结流 **645项破坏检测**通过；SwiftShader和Metal各验证五帧、320真实像素、零误差/图形错误，两个programmable draw、22次shader翻译；所有资源在SessionEnd兜底前已退役。六附加链仅核对客体构造/元数据/生命周期，宿主无Present场景拒绝链显示，不计作附加链呈现验收。
+> - 完整客体317项初轮316通过、一项仍在旧8文件定位诊断文本；修正到实际共享实现后通过，保留未改316项及初轮/复检证据。核心相关59项、32标准EXE/四零售诊断DLL、静态核心/SDK consumer、站点集成2项、两侧零新增lint通过；继承4I9完整核心238/六GPU基线。发布同一次已验收XP中的准确8/9零售DLL及严格diagnostic。
+> - 证据 [stage4k13-validation.json](fixtures/d3d-review/stage4k13-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K13.json`。本项完成共享校验前置条件；公开8仍用原设备，完整device/resource/state/copy/句柄包装、表面锁定、shader数值差分/语料、完整零售/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍开放。宿主/协议/翻译器/包 `9335ee9a77fb7cc808d2` 及DDraw不变。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
