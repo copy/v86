@@ -2267,6 +2267,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 初轮完整客体302中8项因同一个私有生命周期fixture缺少新8参数入口而编译失败；加该所有权fixture的逻辑normalizer provider后，保留294项未受影响通过结果，八项全部重跑，更新fixture亦经ASAN/UBSAN。初轮和复检日志归档，生产/SDK/捕获未改。**最终完整客体302 suites、核心相关55 suites**、18 D8+14 D9标准EXE、四个retail/diagnostic DLL、私有核心构建、自定义SDK、站点集成2项及两侧零新增lint通过，继承4I9完整核心238/六次GPU。
 > - 发布准确最终XP DLL及严格diagnostic，证据`docs/fixtures/d3d-review/stage4k9-validation.json`，站点镜像`glbridge/deployments/d3d-webgpu-review-4K9.json`。真正device/resource/state/copy/句柄包装、完整零售/Reset/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成；宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
 
+> **阶段 4K10（2026-11-04）：真正D3D9核心设备的API8兼容创建入口及初始默认状态。**
+> - 新私有`core_create_device8`接受只读52字节PP8，复用52→56转换并插入quality0，实际调用核心9工厂的CreateDevice。profile8构造按原8规则保留COPY_VSYNC4、behavior0、16位backbuffer及MSAA+lockable；初始RS/TSS/material使用API8默认表并发送差异补丁。普通9构造仍按9规则；Reset初始化包装仍固定9，等待下一阶段迁移。D3D8公开设备本阶段仍是原实现。
+> - 实际旧8/9构造前缀对照 **234,460检查、134,654组合**，包括格式/深度/interval/MSAA/flags/behavior/失败输入和9桌面查询次数。实际初始状态对照 **229,632检查、768组合**，完整旧8共用字段及旧9逐字节默认值、Reset包装一致。真实SDK私有桥 **6,152检查、2,052组合**，观察全部参数、52/56字节布局、quality0、只读输入和失败输出。新增 **15运行时变异、两个旧实际9负对照**，四类ASAN/UBSAN通过；保留98,304项codec/15变异。
+> - SDK8编译测试consumer链接真实静态核心；XP SDK120/220各建两个临时16位/MSAA-lockable设备并释放，再建主设备，验证完整输入不变、有效8×8/count1、POINTSIZE_MIN为0、父/设备COM身份和提前释放工厂。普通9默认1.0且跨两次私有模块卸载继续绘制。**176秒、13批次、七个真实设备/三个声明、五UP/读回、仅一个普通9 HELLO、一个owner和最终SessionEnd/release**；显式模拟能力0，仅RAM overlay。
+> - **223项冻结流/日志破坏**拒绝。SwiftShader/Metal各 **五图像、320真实像素、零误差/图形错误**，SessionEnd兜底及driver释放前设备/资源表为空。另用当前DLL重跑原公开8的Create/Reset/Additional与旧DLL查询矩阵，**131秒、13批次、五读回、两个Reset/附加链**，通过保留4K9检查器；此复检不另算新的GPU像素验收。
+> - 首轮304客体中300通过，四个变异测试仍定位旧literal9/赋值写法；仅更新定位，四项重跑并补两个新增suite，归档初轮/复检。最终 **完整客体306 suites、核心相关56 suites**、18 D8+14 D9标准EXE、四个retail/diagnostic DLL/静态核心/测试consumer、自定义SDK、站点集成2项、两侧零新增lint通过。第一次自定义EXE编译发现memcmp的CRT引用，改用显式字节比较后才运行XP。
+> - 发布准确已验收XP DLL及严格diagnostic；证据`docs/fixtures/d3d-review/stage4k10-validation.json`，站点镜像`glbridge/deployments/d3d-webgpu-review-4K10.json`。本阶段仅私有核心创建基础，公开8 device/resource/state/copy/句柄包装、API8 Reset/附加链/shader兼容、完整零售/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
