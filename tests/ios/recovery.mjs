@@ -7,12 +7,12 @@ import { fileURLToPath } from "node:url";
 import { V86 } from "../../src/main.js";
 
 const [kernel, dt, disk, mode, nand, system, ...extra] = process.argv.slice(2);
-if(!disk || extra.length || (mode && !["--gles", "--frame", "--nand", "--scratch"].includes(mode)) ||
+if(!disk || extra.length || (mode && !["--gles", "--frame", "--native-frame", "--nand", "--scratch"].includes(mode)) ||
     (mode === "--nand" ? !nand || !system : mode === "--scratch" ? !nand || system : nand || system))
-    throw new Error("usage: recovery.mjs kernel device-tree debug-ramdisk [--gles|--frame|--nand flash.img system.hfs|--scratch disposable.img]");
-const graphics = mode === "--gles" || mode === "--frame";
+    throw new Error("usage: recovery.mjs kernel device-tree debug-ramdisk [--gles|--frame|--native-frame|--nand flash.img system.hfs|--scratch disposable.img]");
+const graphics = mode === "--gles" || mode === "--frame" || mode === "--native-frame";
 const file = name => ({ url: path.resolve(name) });
-const renderer = mode === "--frame" ? await (await import("../gles/chrome_renderer.mjs")).chrome_renderer() : null;
+const renderer = mode === "--frame" || mode === "--native-frame" ? await (await import("../gles/chrome_renderer.mjs")).chrome_renderer() : null;
 const emulator = new V86({
     machine_type: "s5l8930", graphics_adapter: "none", log_level: 0, autostart: false,
     gles_backdoor: graphics,
@@ -80,7 +80,9 @@ try
     }
     if(renderer)
     {
-        assert.match(await command("gles frame"), /GLES frame matched 64 pixels/);
+        const frame = await command("gles frame");
+        assert.match(frame, /GLES frame matched 64 pixels/);
+        if(mode === "--native-frame") assert.match(frame, /Native OpenGLES driver callbacks completed/);
         const panel = cpu.devices.apple_clcd;
         const deadline = performance.now() + 10000;
         while(!renderer.stats.frames && performance.now() < deadline)

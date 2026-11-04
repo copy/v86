@@ -704,6 +704,10 @@ QuartzCore 的动态依赖含 OpenGLES、IOSurface、IOMobileFramebuffer。其�
 
 10B329 OpenGLES 的 Objective-C 方法表另确认了私有参数入口 `initWithAPI:properties:`、`texImageIOSurface:target:internalFormat:width:height:format:type:plane:invert:` 及 `attachImage:toCoreSurface:invertedRender:`。接下来需将这些系统调用方与已验证的传输、上屏路径接通。
 10B329 的本地共享缓存可直接生成驱动分派表头文件。工具核对 OpenGLES 的 UUID，从 344 个公开 Thumb 入口解出 322 个不同的槽位，最大字节偏移为 0xe58；部分别名共用同一槽。全部槽位已跟本机 LLVM 的独立反汇编逐一比对。AArch32 测试用生成的头文件安装回调，再实际执行原版函数核对 ABI。表头只描述位置，各函数的协议编码和私有调用约定仍需逐项支持。
+**S5 原版 OpenGLES 入口绘图，2026-11-05。** 恢复盘里的绘图程序现在可以调用 10B329 自带的 `glClearColor`、`glClear`、`glEnable` 和 `glScissor`。四个入口从线程分派表取出客体驱动回调，回调将实际参数发给宿主。测试覆盖四个浮点颜色分量及带栈参数的裁剪矩形。原版内核中实际绘制并读回 64 个采样像素，宿主核对 CLCD 的全部 640×960 个像素和恢复快照后的画面。此路径使用恢复环境创建的上下文，系统合成器创建上下文和提交桌面仍需独立验收。
+
+在本机运行 `sh tools/ios/guest/build-shell.sh <输出目录> --native-gles <dyld_shared_cache_armv7>`，用 `recovery-ramdisk.mjs` 装入本地恢复盘，再以 `tests/ios/recovery.mjs <原版内核> <设备树> <恢复盘> --native-frame` 验证。构建时从用户提供的缓存取出这四个入口，生成的私有文件只供本地测试。
+
 **S5 系统进程加载，2026-11-05。** 10B329 的 launchctl 从共享缓存内的 xpcd_cache.dylib 读取启动任务。对照运行已确认，仅在两份磁盘 plist 中加 DYLD_INSERT_LIBRARIES 时，两个进程的 dyld 映像清单均不含客体库。现用 `system-volume.mjs ... --gles` 在私有副本的 backboardd、SpringBoard 原有 Mach-O 头部空隙增加弱库依赖，重算改动页的签名哈希，保留原有依赖序号和权限声明。数据卷的 `--gles-library` 选项按 root:wheel、0755 安装 `/private/var/v86/libv86gles.dylib` 并回读验证。固件共享缓存保持原样。
 
 专用的 `graphics-kernel.mjs <原版内核> <已链接的系统卷> <客体库> <新内核>` 只接受已核对的 10B329 原版输入，将这两个副本和客体库的 CodeDirectory 哈希写入 AMFI 原生信任表，并跳过启动时清空该表头的一条指令。原有签名校验继续执行。在隔离的同版本客体中装入这组哈希后，分别从 backboardd 和 SpringBoard 的 dyld 映像清单读到了客体库，与原版 QuartzCore 和 OpenGLES 同驻。独立冷启动也已读回预置表头。映像清单证明加载，初始化、EAGL 调用与主屏幕呈现另行验收。

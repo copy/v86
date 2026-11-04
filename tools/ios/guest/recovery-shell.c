@@ -167,6 +167,57 @@ static int gles_display(void)
     return gles_call(5, 0, 0, conn) == 0 && ok && reply[0] == 640 && reply[1] == 960 && reply[2] == 326;
 }
 
+#ifdef N90_NATIVE_GL
+#include "gles-driver.h"
+extern void glClear(unsigned), glClearColor(float, float, float, float);
+extern void glEnable(unsigned), glScissor(int, int, int, int);
+
+static driver_word shell_tls[64] __attribute__((aligned(16)));
+static driver_word frame_table[N90_GL_TABLE_WORDS];
+
+static driver_word *thread_slots(void)
+{
+    driver_word tls;
+    __asm__ volatile("mrc p15, 0, %0, c13, c0, 3" : "=r"(tls));
+    return (driver_word *)(tls & ~(driver_word)3);
+}
+
+static void set_shell_tls(driver_word *slots)
+{
+    // Darwin ARM's machine-dependent thread-pointer call, as used by
+    // libSystem before pthreads are available in a newly started process.
+    register driver_word r0 __asm__("r0") = (driver_word)slots;
+    register unsigned r3 __asm__("r3") = 2;
+    register unsigned r12 __asm__("r12") = 0x80000000;
+    __asm__ volatile("svc #0x80" : "+r"(r0) : "r"(r3), "r"(r12) : "memory", "cc");
+}
+#endif
+
+static int draw_pattern(unsigned conn)
+{
+#ifdef N90_NATIVE_GL
+    struct n90_driver driver = { conn, 1 };
+    driver_word *original = thread_slots();
+    if(!original) set_shell_tls(shell_tls);
+    driver_word *slots = thread_slots();
+    if(!slots) return 0;
+    driver_word saved = slots[30];
+    install_frame_slots(frame_table, &driver);
+    slots[30] = (driver_word)frame_table;
+    glClearColor(0, 1, 0, 1); glClear(0x4000);
+    glEnable(0x0c11); glScissor(0, 0, 2, 2);
+    glClearColor(1, 0, 0, 1); glClear(0x4000);
+    slots[30] = saved;
+    if(!original) set_shell_tls(0);
+    return driver.ok;
+#else
+    const unsigned one = 0x3f800000;
+    return SEND(conn, gles2_glClearColor, 0, one, 0, one) && SEND(conn, gles2_glClear, 0x4000) &&
+        SEND(conn, gles2_glEnable, 0x0c11) && SEND(conn, gles2_glScissor, 0, 0, 2, 2) &&
+        SEND(conn, gles2_glClearColor, one, 0, 0, one) && SEND(conn, gles2_glClear, 0x4000);
+#endif
+}
+
 static int gles_pattern(int conn)
 {
     unsigned ctx, surface, buffer, result;
@@ -176,12 +227,8 @@ static int gles_pattern(int conn)
         !SEND(conn, rc_rcSetWindowColorBuffer, surface, buffer) ||
         !SEND(conn, rc_rcMakeCurrent, ctx, surface, surface) || !gles_read(conn, &result, 4) || result != 1)
         return 0;
-    const unsigned one = 0x3f800000; // IEEE float 1.0
     unsigned char pixels[8 * 8 * 4];
-    if(!SEND(conn, gles2_glClearColor, 0, one, 0, one) || !SEND(conn, gles2_glClear, 0x4000) ||
-        !SEND(conn, gles2_glEnable, 0x0c11) || !SEND(conn, gles2_glScissor, 0, 0, 2, 2) ||
-        !SEND(conn, gles2_glClearColor, one, 0, 0, one) || !SEND(conn, gles2_glClear, 0x4000) ||
-        !SEND(conn, rc_rcFlushWindowColorBuffer, surface) || !gles_read(conn, &result, 4) || result != 0 ||
+    if(!draw_pattern(conn) || !SEND(conn, rc_rcFlushWindowColorBuffer, surface) || !gles_read(conn, &result, 4) || result != 0 ||
         !SEND(conn, rc_rcFBPost, buffer) ||
         !SEND(conn, rc_rcReadColorBuffer, buffer, 0, 952, 8, 8, 0x1908, 0x1401, sizeof(pixels)) ||
         !gles_read(conn, pixels, sizeof(pixels)))
@@ -243,6 +290,9 @@ __attribute__((noreturn)) void start(void)
             int conn = gles_open();
             int ok = conn > 0 && gles_pattern(conn);
             if(conn > 0) gles_call(5, 0, 0, conn);
+#ifdef N90_NATIVE_GL
+            if(ok) put("Native OpenGLES driver callbacks completed\n");
+#endif
             put(ok ? "GLES frame matched 64 pixels\n" : "GLES frame failed\n");
         }
 #endif
