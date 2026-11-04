@@ -2414,6 +2414,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **客体342项、核心70项首次全通过**；32标准EXE/四严格DLL/21-member静态核心/真实SDK8 ABI、站点集成2项和本任务两侧零新增lint通过。保留绑定夹具补上9版profile/vtable依赖，原缓存别名变异改为新查询中的唯一lookup表达式，断言未放宽；旧构造反例通过mock函数地址引用避免无关unused警告，编译失败从未计入检出。发布同次XP准确零售8/9及严格diagnostic，证据 [stage4k24-validation.json](fixtures/d3d-review/stage4k24-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K24.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续VB/IB、状态/复制/句柄及公开8包装；原生pitch/Usage/全flag/格式/MSAA/窗口/丢失/线程、数值差分、游戏/FPS和阶段4/5/6仍开放。
 >
 
+> **阶段 4K25（2026-11-04）：SDK8 私有顶点/索引缓冲创建与真实缓冲绘制验收。**
+>
+> - 新增 `d9wg_d3d9_core_vertex_buffer8@24`、`d9wg_d3d9_core_index_buffer8@24`，先清空输出并检查8版设备profile，再调用实际9版构造且shared handle固定NULL。实际旧8/9构造、描述和锁定规则在本迁移范围内一致，因此不复制分配/绑定引用/锁定/描述实现。真实SDK8/9预处理核对VB描述24字节/FVF偏移20、IB描述20字节，以及VertexData/Index16/Index32和资源类型枚举。保留旧代理接受SCRATCH、未校验最小FVF字节数等行为；官方9文档更严格，本阶段未将迁移一致性当作原生参数合规。
+> - 旧8/9实际构造/命令/8版描述对照 **52,806组合/218,286检查**，两版本各26,400及六个profile/null守卫，检查 **41,982,960字节**零存储、长度/池/usage/FVF/索引格式对齐、OOM/提交失败清理、初始锁定/内部引用状态、资源链表/父引用和shared=NULL。**24严格运行期变异、两个实际4K24普通9构造体用于私有8入口的wrong-profile反例**通过；该反例说明边界必须有profile检查，不宣称普通9构造体自身有错。构造与保留锁定两组ASAN通过；原有8/9锁定各 **1,344组**固定策略/七XP HRESULT观测/保护页检查复用。
+> - 保留锁定变异加强为明确拒绝编译失败；**27/27** 为23个C运行断言和四个受控保护页越界故障，后者必须有保护页标记及SIGSEGV/SIGBUS。初始仅接受SIGSEGV而拒绝了本机SIGBUS，保留日志后补上明确的平台故障类型。与实际4K24逐字节核对两个前端的四个锁定函数、共享策略、原27补丁计划和生成的C夹具均未变，避免把任意信号或编译错误算作检出。
+> - 探针runner初次生成有for-loop截断导致解析失败，构建/VM尚未启动；修正后首轮VM **107秒/30批次**通过。随后发现VB元数据的FVF误用十进制44，而设备FVF使用SDK标志对应68；保留完整原捕获及源快照，将探针改为SDK标志表达式并重跑，**最终VM120秒/30批次**通过，生产代码未变。旧4K24/当前公开8、普通9、核心8 SDK120/220共五设备/五Reset/15缓冲/三声明/28句柄/**30上传/20缓冲绘制/20读回**；CPU零存储/只读位保持/DISCARD/NOOVERWRITE/offset16部分更新、VB80/IB16-12/IB32-24描述、绑定身份及45个非法调用通过。单owner/session/最终释放，模拟能力0及RAM overlay；GPU读回CPU回复明确为解析图像注入。
+> - 独立模型规定顶点与16/32位索引字节，应用部分更新并核对两三角覆盖全屏，**1,857项语义破坏检测**通过。SwiftShader/Metal各 **20图像/1,280真实像素零差异/错误**，覆盖index16红/部分蓝、index32绿、非索引strip紫；实际GPU计数为 **15 indexedDrawCalls+5 drawCalls**，不要把后一个计数单独写为20。SessionEnd兜底和owner释放前表为空。
+> - **344客体/71核心首次全通过**；32标准EXE/四严格DLL/21-member核心/SDK8 ABI、站点集成2项和两侧本任务零新增lint通过。发布最终XP接受的准确8/9零售DLL及严格diagnostic，见 [stage4k25-validation.json](fixtures/d3d-review/stage4k25-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K25.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续状态/复制/句柄翻译与公开8设备/资源包装；原生验证缺口、RT纹理/立方体读回、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/游戏/FPS及阶段4/5/6仍开放。
+>
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
