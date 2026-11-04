@@ -274,6 +274,47 @@ assert.equal(channelDMA.read(0x5000), 0x80008);
 assert.deepEqual([...memory.subarray(0x200, 0x206), ...memory.subarray(0x220, 0x222)], [1, 2, 3, 4, 5, 6, 7, 8]);
 console.log("PASS: CDMA burst resumes inside a scatterlist descriptor after snapshot restore");
 
+// The IOP refills a descriptor list when it receives the completion IRQ
+// with bytes still outstanding. Place that boundary inside one FIFO read.
+flashPort.reset();
+issue();
+completeRead(Uint8Array.of(0, 0, 15, 16, 17, 18));
+descriptor.setUint32(0x104, 0x103, true);
+descriptor.setUint32(0x108, 0x200, true);
+descriptor.setUint32(0x10C, 2, true);
+arm();
+flashPort.write(4, 3);
+assert.equal(channelDMA.read(0x5000), 0x80008);
+assert.equal(channelDMA.read(0x500C), 2);
+assert.deepEqual([...memory.subarray(0x200, 0x202)], [15, 16]);
+flashPort.set_state(flashPort.get_state());
+channelDMA.set_state(channelDMA.get_state());
+descriptor.setUint32(0x108, 0x220, true);
+channelDMA.write(0x5000, 0x80000);
+channelDMA.write(0x5000, 9);
+assert.deepEqual([...memory.subarray(0x220, 0x222)], [17, 18]);
+assert.equal(channelDMA.read(0x500C), 0);
+assert.equal(channelDMA.read(0x5000), 0x80008);
+console.log("PASS: NAND CDMA list refill interrupts preserve residual count and FIFO position across restore");
+
+// A fast spare channel must not advance the IOP to another NAND row
+// while the data channel is stopped for its descriptor refill interrupt.
+flashPort.reset();
+flashPort.write(0, 0xF5);
+issue();
+const fullRow = new Uint8Array(8192 + 436);
+fullRow.set([21, 22, 23, 24], 2);
+completeRead(fullRow);
+channelDMA.write(0x600C, 2);
+channelDMA.write(0x6000, 9);
+flashPort.write(4, 3);
+assert.equal(channelDMA.read(0x600C), 0);
+assert.equal(flashPort.read(0xC) & 2, 0, "read completion waits for the data channel");
+channelDMA.write(0x500C, 2);
+channelDMA.write(0x5000, 9);
+assert.equal(flashPort.read(0xC) & 2, 2);
+console.log("PASS: spare completion waits for NAND data DMA before retiring the read");
+
 // Reads on separate CEs may overlap. Switching back before draining the
 // FIFO must select that chip's row even after saving and restoring.
 const callbacks = [];

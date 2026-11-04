@@ -7,9 +7,9 @@ import { fileURLToPath } from "node:url";
 import { V86 } from "../../src/main.js";
 
 const [kernel, dt, disk, mode, nand, system, ...extra] = process.argv.slice(2);
-if(!disk || extra.length || (mode && !["--gles", "--frame", "--nand"].includes(mode)) ||
-    (mode === "--nand" ? !nand || !system : nand || system))
-    throw new Error("usage: recovery.mjs kernel device-tree debug-ramdisk [--gles|--frame|--nand flash.img system.hfs]");
+if(!disk || extra.length || (mode && !["--gles", "--frame", "--nand", "--scratch"].includes(mode)) ||
+    (mode === "--nand" ? !nand || !system : mode === "--scratch" ? !nand || system : nand || system))
+    throw new Error("usage: recovery.mjs kernel device-tree debug-ramdisk [--gles|--frame|--nand flash.img system.hfs|--scratch disposable.img]");
 const graphics = mode === "--gles" || mode === "--frame";
 const file = name => ({ url: path.resolve(name) });
 const renderer = mode === "--frame" ? await (await import("../gles/chrome_renderer.mjs")).chrome_renderer() : null;
@@ -32,7 +32,7 @@ try
     const cpu = emulator.v86.cpu;
     cpu.clock.resume();
     const until = async (offset, text) => {
-        const deadline = performance.now() + (mode === "--nand" ? 600000 : 120000);
+        const deadline = performance.now() + (nand ? 600000 : 120000);
         while(!serial.includes(text, offset) && !serial.includes("panic(cpu") && performance.now() < deadline)
         {
             for(let i = 0; i < 32; i++) cpu.run_cores();
@@ -54,9 +54,14 @@ try
     assert.match(hardware, /hw\.ncpu = 1/);
     assert.match(hardware, /hw\.physmem = [1-9]\d+/);
     if(graphics) assert.match(await command("gles display"), /GLES display 640x960 326 dpi/);
-    if(nand)
+    if(nand) await until(0, "LwVM::_partitionsFromConfig - loaded configuration for 2 partitions");
+    if(mode === "--scratch")
     {
-        await until(0, "LwVM::_partitionsFromConfig - loaded configuration for 2 partitions");
+        assert.match(await command("nand roundtrip"), /NAND scratch 4 MiB roundtrip passed/);
+        console.log("PASS: native iOS raw writes, close, reopen and byte-for-byte readback on disposable NAND");
+    }
+    if(mode === "--nand")
+    {
         const raw = await command("nand crc");
         const expected = [], block = Buffer.alloc(4 * 1024 * 1024), fd = fs.openSync(system, "r");
         try

@@ -109,9 +109,9 @@ export class AppleCDMA
         return out;
     }
 
-    // Validate the whole descriptor chain before exposing the first page.
-    // The N90 IOP arms a single CDMA list for as many as sixteen FMI reads.
-    descriptors(i)
+    // The IOP can end a descriptor batch and refill it from its interrupt
+    // handler while the channel still has bytes outstanding.
+    descriptors(i, allow_refill = false)
     {
         const count = this.channel[i + 3], segments = [], visited = new Set();
         let descriptor = this.channel[i + 5], total = 0;
@@ -128,14 +128,16 @@ export class AppleCDMA
             if(!(flags & 1) || !size || size > count - total || this.cpu.ram_offset(addr, size) < 0) break;
             segments.push([addr, size]);
             total += size;
-            if(flags & 0x100) break;
+            if(flags & 0x100) return allow_refill || total === count ? segments : null;
         }
         return total && total === count ? segments : null;
     }
 
+    // null: no armed channel; -1: descriptor error; otherwise the number
+    // of FIFO bytes still waiting for the IOP to provide another batch.
     transfer(port, bytes, to_ram)
     {
-        let result = 0;
+        let result = null;
         for(let n = 1; n < 38; n++)
         {
             const i = n * 8;
@@ -143,7 +145,7 @@ export class AppleCDMA
             let position = this.progress.get(n);
             if(!position)
             {
-                const segments = this.descriptors(i);
+                const segments = this.descriptors(i, true);
                 if(!segments)
                 {
                     this.channel[i] = (this.channel[i] & ~1) | 0x40000;
@@ -156,13 +158,17 @@ export class AppleCDMA
             }
             const used = this.copy_segments(position, bytes, to_ram);
             this.channel[i + 3] -= used;
-            if(!this.channel[i + 3])
+            const batch_done = position[1] === position[0].length;
+            if(batch_done)
             {
                 this.progress.delete(n);
                 this.channel[i] = (this.channel[i] & ~1) | 0x80000;
                 this.signal(n, true);
             }
-            if(!result) result = 1;
+            // Short final transfers retire the FIFO request too. A short
+            // intermediate batch leaves its unread suffix for the next list.
+            const remaining = this.channel[i + 3] ? bytes.length - used : 0;
+            result = result === null ? remaining : Math.min(result, remaining);
         }
         return result;
     }

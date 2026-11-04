@@ -20,6 +20,7 @@ export class AppleH2FMI
         this.pio_left = 0;
         this.fail = false;
         this.erased = true;
+        this.fifo_offset = new Uint32Array(2);
         this.requests = 0;
         if(dma)
         {
@@ -174,12 +175,18 @@ export class AppleH2FMI
         if(!(this.requests & bit)) return;
         const page = this.program || this.page || ERASED, meta = bit === 2;
         const source = meta ? page.subarray(NAND_DATA, NAND_DATA + 12) : page.subarray(this.column, NAND_DATA);
-        const result = this.dma.transfer(this.base + (meta ? 0x18 : 0x14), source, !this.program);
-        if(result)
+        const fifo = meta ? 1 : 0, remaining = source.subarray(this.fifo_offset[fifo]);
+        const result = this.dma.transfer(this.base + (meta ? 0x18 : 0x14), remaining, !this.program);
+        if(result !== null)
         {
+            if(result > 0)
+            {
+                this.fifo_offset[fifo] += remaining.length - result;
+                return;
+            }
             if(result < 0) this.fail = true;
             this.requests &= ~bit;
-            if(this.program && !this.requests)
+            if(!this.requests && (this.program || (this.regs[0] & 1)))
             {
                 this.regs[3] |= 2;
                 this.update_irq();
@@ -285,6 +292,7 @@ export class AppleH2FMI
             this.pio_left = Math.min(512, Math.max(0, NAND_DATA - this.column));
         else if(offset === 4 && value === 5 && this.program && this.dma)
         {
+            this.fifo_offset.fill(0);
             this.requests = 3;
             this.drain(1);
             this.drain(2);
@@ -294,16 +302,19 @@ export class AppleH2FMI
             if(this.dma && [0, 0x3000].includes(this.regs[0x1014 >>> 2]))
             {
                 this.select_page();
+                this.fifo_offset.fill(0);
                 this.requests = 3;
                 this.drain(1);
                 this.drain(2);
+                // DMA completion comes from drain() after both channels.
+                if(!(this.regs[0] & 1)) this.regs[3] |= 2;
             }
-            this.regs[3] |= 2;
+            else this.regs[3] |= 2;
         }
         this.update_irq();
     }
 
-    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null, Array.from(this.cache), this.page_chip, this.pio_left, Array.from(this.failed_chips)]; }
+    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null, Array.from(this.cache), this.page_chip, this.pio_left, Array.from(this.failed_chips), this.fifo_offset.slice()]; }
     set_state(state)
     {
         this.pending.clear();
@@ -315,6 +326,7 @@ export class AppleH2FMI
         this.column = state[4] || 0;
         this.fail = !!state[5];
         this.requests = state[6] || 0;
+        this.fifo_offset.set(state[13] || [0, 0]);
         this.program = state[7] || null;
         this.program_address = state[8] || null;
         this.failed_chips = new Set(state[12] || (this.fail ? [this.chip()] : []));

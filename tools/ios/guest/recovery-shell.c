@@ -107,6 +107,50 @@ static void nand_crc(void)
     }
     call(6, fd, 0, 0, 0, 0, 0);
 }
+
+// The test runner builds a dedicated, unmounted partition with this marker.
+// Consume its first page on both opens so the volume header stays intact.
+static int scratch_device(int flags, unsigned char *block)
+{
+    const char marker[] = "v86-N90-disposable-IO-test";
+    int fd = call(5, (word)"/dev/rdisk0s1s2", flags, 0, 0, 0, 0);
+    if(fd < 0) return -1;
+    if(call(3, fd, (word)block, 8192, 0, 0, 0) == 8192)
+    {
+        unsigned i = 0;
+        while(i < sizeof(marker) && block[i] == marker[i]) i++;
+        if(i == sizeof(marker)) return fd;
+    }
+    call(6, fd, 0, 0, 0, 0, 0);
+    return -1;
+}
+
+static unsigned char scratch_block[1024 * 1024] __attribute__((aligned(4096)));
+static unsigned char pattern(unsigned i, unsigned pass)
+{
+    return (i * 17u + (i >> 12) * 7u + pass * 97u) & 255;
+}
+
+static void nand_roundtrip(void)
+{
+    for(unsigned reading = 0; reading <= 1; reading++)
+    {
+        int fd = scratch_device(reading ? 0 : 2, scratch_block);
+        if(fd < 0) { put("NAND scratch device unavailable\n"); return; }
+        int ok = 1;
+        for(unsigned pass = 0; ok && pass < 4; pass++)
+        {
+            for(unsigned i = 0; i < sizeof(scratch_block); i++)
+                scratch_block[i] = pattern(i, pass) ^ (reading ? 255 : 0);
+            ok = call(reading ? 3 : 4, fd, (word)scratch_block, sizeof(scratch_block), 0, 0, 0) == sizeof(scratch_block);
+            if(reading)
+                for(unsigned i = 0; ok && i < sizeof(scratch_block); i++) ok = scratch_block[i] == pattern(i, pass);
+        }
+        call(6, fd, 0, 0, 0, 0, 0);
+        if(!ok) { put("NAND scratch transfer failed\n"); return; }
+    }
+    put("NAND scratch 4 MiB roundtrip passed\n");
+}
 #endif
 
 #ifdef N90_TEST_GLES
@@ -204,6 +248,7 @@ __attribute__((noreturn)) void start(void)
 #endif
 #ifdef N90_TEST_NAND
         else if(equal(line, "nand crc")) nand_crc();
+        else if(equal(line, "nand roundtrip")) nand_roundtrip();
 #endif
         else if(n) put("commands: uname -a, sysctl hw\n");
     }

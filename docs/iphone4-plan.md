@@ -689,7 +689,11 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel b
 
 **S4 系统卷零页，2026-11-05。** 10B329 对没有 YAFTL 映射的逻辑页可能保留读取缓冲区的旧内容。旧镜像从系统分区起点连续读取 32 MiB 时，前 8 MiB 正确，到 12 MiB 的累计 CRC32 出现差异。宿主端模拟跳过未映射的页，复现了全部八个检查点。构建器现为整个系统卷分配 NAND 页，并按数据卷的 HFS 分配位图保留已用块里的零页。旧镜像需从源卷重新构建。
 
-独立校验器已核对新镜像的两个完整源卷。用 `build-shell.sh <目录> --nand` 构建恢复 shell，以 `recovery-ramdisk.mjs` 放入恢复盘，再运行 `node tests/ios/recovery.mjs <内核> <设备树> <恢复盘> --nand <NAND> <系统HFS>`。在原版内核中，连续 128 次读取 256 KiB 后，全部八个累计 CRC32 均与源系统卷吻合。另有 NAND 写入超时仍在排查。
+独立校验器已核对新镜像的两个完整源卷。用 `build-shell.sh <目录> --nand` 构建恢复 shell，以 `recovery-ramdisk.mjs` 放入恢复盘，再运行 `node tests/ios/recovery.mjs <内核> <设备树> <恢复盘> --nand <NAND> <系统HFS>`。在原版内核中，连续 128 次读取 256 KiB 后，全部八个累计 CRC32 均与源系统卷吻合。
+
+**S4 批量 NAND 读写，2026-11-05。** 原版 IOP 在较大的分页操作中会分批提供 CDMA 描述符。模拟器现在响应 FIFO 清空命令，保留批次结束时的剩余长度并通知 IOP 补充描述符。读操作等数据和备用区两个通道都完成再通知固件切页。设备测试还覆盖了描述符批次在一个 FIFO 请求中间结束，以及在该处保存、恢复快照。
+
+在一次性 NAND 上，原版内核已连续完成 32 次 1 MiB 写入。独立回读使用 `node tests/ios/nand-roundtrip.mjs <内核> <设备树> <带 --nand 命令的恢复盘>`，测试自行建盘，从数据分区第二页开始写入四份不同的 1 MiB 数据，关闭后重新打开，逐字节核对所有 4 MiB。修复前原版驱动在读取时报告 DMA 超时，修复后两次冷启动均通过。此项验收覆盖原始分区 I/O；系统长期运行单独验证。
 
 **S5 接口核对，10B329。** 本机原版 armv7 共享缓存的 OpenGLES 含 344 个 `gl[A-Z]` 公共符号。反汇编确认 glClear、glDrawArrays、glDrawElements、glGetError 和 glViewport 经每线程的分派表调用。包装函数从 TPIDRURO（清低两位）偏移 0x78 取当前表，从表偏移 0x10 取驱动上下文作为第一个参数。五个函数的目标槽偏移依次为 0x3c、0x118、0x120、0x1ac、0x550。S5 客体适配层可据此为每个 EAGL 上下文设置分派表，需保留驱动上下文参数与原有寄存器、栈参数布局。
 
