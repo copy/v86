@@ -2492,6 +2492,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 源码审计：原**634个核心9函数逐字节一致**，整个公开8源文件及8/9 decoder未改，冻结decoder与基线准确一致。**358客体 / 78核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8新ABI、站点集成2项及两侧本任务零新增lint通过。发布XP准确8/9零售DLL及严格diagnostic。证据 [stage4k32-validation.json](fixtures/d3d-review/stage4k32-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K32.json`。
 > - **范围仍开放：** 这是核心8绑定接口；原8前端保留DWORD句柄、原始Get影子及公开错误策略，完整公开8包装尚未切换。ProcessVertices目标VB的8方言FVF、其余池/标志/格式语义、着色器数值差分、原生HAL/游戏/FPS及阶段4/5/6继续推进。宿主、协议、translator、DDraw及运行包 `9335ee9a77fb7cc808d2` 未改。
 
+
+> **阶段 4K33（2026-11-05）：核心8绑定真实9的程序/声明对。**
+>
+> - 新增私有 `d9wg_d3d9_core_set_vertex_shader8@12`：接收前端已解析的真实9声明与VS，**先验证两对象的类型和设备归属，再修改任一绑定**；NULL VS支持声明专用，NULL/NULL复用8的清零入口。未录制的相同对象对无操作，录制中即使相同仍写入两个状态槽。公开8的DWORD句柄、Get原始字节和错误发布继续归前端。
+> - **33,440原生检查 / 1,036例**：程序/声明专用、独立换声明/独立换程序、公开引用归零/再取回、重复值与录制区别、状态块Apply及NULL/NULL录制、清绑定后恢复、设备先释放/最后公开视图/最后状态块清理。空设备/普通9配置/缺声明/异类型/跨设备输入在改状态前拒绝；第一或第二次提交失败均按底层9的状态发布顺序检查，不重放不确定前缀。**19/19严格编译C语义变异**、新绑定及实际创建两族ASAN通过。首次仅同时换两个对象的测试漏掉“忽略声明的重复判断”变异；补齐独立切换后全部检出，没有计入编译错误或普通信号。
+> - **真实XP 148秒 / 30批 / 一次启动**：准确4K32旧8、当前公开8、普通9、核心8 SDK120/220，5设备/5Reset/15声明/35着色器/60协议句柄。实际创建VS1.0/1.1及其局部DEF；先绑定并清除声明专用对象，再绘制红色；重复红色绑定录制后切绿并Apply恢复红色，API常量覆盖仍不改变局部红；Capture更新为绿色对，Reset后Apply恢复绿色。1,280本地DWORD、原始8与扩展9查询、最终引用0及模块卸载/单owner/SessionEnd/释放全部通过。PS1.0–1.4仍只验证创建/查询/销毁，不宣称像素数值。
+> - 独立wire模型钉住布局/字节码/散列/全部常量及顶点、逐模式绑定顺序和退休；**11,656项关键字段/日志/截断篡改全部检出**。SwiftShader与Metal各**20完整图像 / 1,280 RGBA像素零误差**，20可编程UP draw、0纹理/Present，35 shader translations，GPU/host错误0；资源表在SessionEnd兜底与owner释放前为空。CPU回复仍明确为解析图像注入，与实际GPU结果分别记录。
+> - 源码审计：原**636个核心9函数逐字节一致**，整个公开8文件与8/9 decoder未改。**360客体 / 79核心完整回归**、32标准EXE/四严格DLL/静态21-member/真实SDK8 stdcall12 ABI、两项站点集成及任务范围lint通过。发布XP准确零售8/9和严格diagnostic；证据 [stage4k33-validation.json](fixtures/d3d-review/stage4k33-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K33.json`。
+> - **失败边界：** 这里只对无效对象输入保证不改状态；实际9 setter先发布本地状态再提交，传输失败按其原有顺序保留已发布状态，不宣称公开8失败策略已替换。原生绑定测试的构造器仅供应对象元数据，实际SM1.x创建由保留创建套件及XP覆盖。完整公开8包装、原始句柄/状态块影子、ProcessVertices目标8方言、其余原生兼容性/数值差分/游戏/FPS和阶段4/5/6继续；宿主、协议、translator、DDraw及运行包未改。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
