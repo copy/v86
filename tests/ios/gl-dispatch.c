@@ -1,6 +1,7 @@
 // The functions declared here are the owner's 10B329 OpenGLES entry points.
 // The test supplies the driver-side table and checks its additional argument.
 #include <stdint.h>
+#include "gl-slots.h"
 #include <stdio.h>
 
 extern void glClear(unsigned);
@@ -9,7 +10,7 @@ extern void glDrawElements(unsigned, int, unsigned, const void *);
 extern unsigned glGetError(void);
 extern void glViewport(int, int, int, int);
 
-static uintptr_t tls[32], table[0x554 / 4];
+static uintptr_t tls[32], table[N90_GL_TABLE_WORDS];
 static unsigned calls;
 static char context, indices;
 
@@ -41,11 +42,11 @@ int main(void)
     if(glGetError() != 0) return 1;
     tls[0x78 / 4] = (uintptr_t)table;
     table[0x10 / 4] = (uintptr_t)&context;
-    table[0x3c / 4] = (uintptr_t)clear;
-    table[0x118 / 4] = (uintptr_t)arrays;
-    table[0x120 / 4] = (uintptr_t)elements;
-    table[0x1ac / 4] = (uintptr_t)error;
-    table[0x550 / 4] = (uintptr_t)viewport;
+    table[N90_glClear] = (uintptr_t)clear;
+    table[N90_glDrawArrays] = (uintptr_t)arrays;
+    table[N90_glDrawElements] = (uintptr_t)elements;
+    table[N90_glGetError] = (uintptr_t)error;
+    table[N90_glViewport] = (uintptr_t)viewport;
     glClear(0x4100);
     glDrawArrays(4, 2, 3);
     glDrawElements(4, 6, 0x1403, &indices);

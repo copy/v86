@@ -695,6 +695,8 @@ QuartzCore 的动态依赖含 OpenGLES、IOSurface、IOMobileFramebuffer。其�
 **S5 首张 GPU 测试帧，2026-11-05。** 用同一恢复盘构建流程和 `node tests/ios/recovery.mjs <原版内核> <设备树> <带 GLES 命令的恢复盘> --frame`，在本机 Chrome 的 WebGPU 设备上复测。iOS 用户进程经 UDF 创建上下文、窗口与颜色缓冲，画出绿色底面和左下角 2×2 红块，提交整帧并从宿主读回 8×8 采样区的全部 64 个像素。宿主把最终发布的全尺寸 RGBA 图像按当前 CLCD 窗口地址写回 XRGB 显存，经正常扫描输出。640×960 个像素逐一匹配；清空显存再恢复快照后，全部像素与保存前一致。这是恢复环境中的绘图验收。backboardd 的 EAGL/IOSurface 适配与 SpringBoard 主屏幕仍待验收。
 
 10B329 OpenGLES 的 Objective-C 方法表另确认了私有参数入口 `initWithAPI:properties:`、`texImageIOSurface:target:internalFormat:width:height:format:type:plane:invert:` 及 `attachImage:toCoreSurface:invertedRender:`。接下来需将这些系统调用方与已验证的传输、上屏路径接通。
+10B329 的本地共享缓存可直接生成驱动分派表头文件。工具核对 OpenGLES 的 UUID，从 344 个公开 Thumb 入口解出 322 个不同的槽位，最大字节偏移为 0xe58；部分别名共用同一槽。全部槽位已跟本机 LLVM 的独立反汇编逐一比对。AArch32 测试用生成的头文件安装回调，再实际执行原版函数核对 ABI。表头只描述位置，各函数的协议编码和私有调用约定仍需逐项支持。
+
 
 
 
