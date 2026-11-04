@@ -206,6 +206,12 @@ pub fn signal(core: usize) -> u8 {
         )
     }
 }
+#[no_mangle]
+pub fn a32_set_interrupt_lines(irq: bool, fiq: bool) {
+    if crate::aarch64::cpu::cortex_a8() {
+        set_signal(0, irq as u8 | (fiq as u8) << 1);
+    }
+}
 fn set_signal(core: usize, value: u8) {
     unsafe {
         let at = crate::parallel::machine(&raw mut SIGNAL)
@@ -350,6 +356,9 @@ fn group_mask(group: u32) -> u32 {
 
 /// Recompute a core's highest priority pending interrupt and its IRQ/FIQ signal
 fn update(core: usize) {
+    if crate::aarch64::cpu::cortex_a8() {
+        return;
+    }
     let g = gic();
     let mut best = HPPI_NONE;
     let mut consider = |irq: usize, prio: u32, group: usize| {

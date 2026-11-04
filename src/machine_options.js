@@ -34,13 +34,14 @@ export const CPU_PROFILES = {
     "generic-arm64-v1": { cpu_type: "arm64", hidden: true },
     "generic-arm64-v1.1": { cpu_type: "arm64", hidden: true },
     "cortex-a15": { cpu_type: "arm32" },
+    "cortex-a8": { cpu_type: "arm32" },
 };
 
 /** Each cpu_type's CPU model when cpu_profile is not given */
 export const DEFAULT_CPU_PROFILES = { "x86": "generic-x86", "x86_64": "generic-x86-64", "arm64": "generic-arm64", "arm32": "cortex-a15" };
 
 /** The CPU models a machine takes, where it is choosy: machine_type → cpu_type → models */
-export const MACHINE_CPU_PROFILES = { "ranchu": { "arm32": ["cortex-a15"] } };
+export const MACHINE_CPU_PROFILES = { "virt": { "arm32": ["cortex-a15"] }, "ranchu": { "arm32": ["cortex-a15"] }, "s5l8930": { "arm32": ["cortex-a8"] } };
 
 /**
  * The CPU models a page may offer for a CPU type and machine (the hidden ones left out)
@@ -61,9 +62,9 @@ export function cpu_profiles_of(cpu_type, machine_type)
  * management, AHCI; docs/q35.md), "virt" (the ARM board, docs/virt.md) and
  * "ranchu" (the Android emulator's ARM board: its SDK images, src/virt/ranchu.js)
  */
-export const MACHINE_TYPES = ["i440fx", "q35", "virt", "ranchu"];
+export const MACHINE_TYPES = ["i440fx", "q35", "virt", "ranchu", "s5l8930"];
 /** The ARM CPUs' machines */
-export const ARM_MACHINE_TYPES = ["virt", "ranchu"];
+export const ARM_MACHINE_TYPES = ["virt", "ranchu", "s5l8930"];
 
 /**
  * The most cores (`cpu_cores`) of the PC machines (src/platform.js): must
@@ -124,6 +125,9 @@ export const VIRT_NET_DEVICE_TYPES = ["virtio", "none"];
 /** Options that only the Q35 machine has */
 export const Q35_ONLY = ["hpet", "smbus", "pcie_root_ports"];
 
+const APPLE_UNAVAILABLE = ["hda", "hdb", "cdrom", "extended_memory_size", "virtio_rng", "virtio_disks", "virtio_input",
+            "virtio_vsock", "virtio_transport", "virtio_sound", "virtio_console", "virtio_balloon", "virtio_console_ports", "virtio_gpu_pci_slot"];
+
 const given = value => value !== undefined && value !== null && value !== false;
 
 /**
@@ -150,7 +154,7 @@ export function check_machine_options(options)
     }
     // (a CPU model alone picks its CPU type)
     const cpu_type = options["cpu_type"] !== undefined ? options["cpu_type"] :
-        cpu_profile !== undefined ? CPU_PROFILES[cpu_profile].cpu_type : CPU_TYPES[0];
+        cpu_profile !== undefined ? CPU_PROFILES[cpu_profile].cpu_type : options["machine_type"] === "s5l8930" ? "arm32" : CPU_TYPES[0];
     if(!CPU_TYPES.includes(cpu_type))
     {
         throw new Error("Unknown cpu_type " + JSON.stringify(cpu_type) + "; supported: " +
@@ -162,7 +166,7 @@ export function check_machine_options(options)
             "\", not \"" + cpu_type + "\"; cpu_type \"" + cpu_type + "\" has " + cpu_profiles_of(cpu_type).map(name => "\"" + name + "\"").join(", "));
     }
     const arm = is_arm(cpu_type);
-    const machine_type = options["machine_type"] === undefined ? (arm ? "virt" : "i440fx") : options["machine_type"];
+    const machine_type = options["machine_type"] === undefined ? (cpu_profile === "cortex-a8" ? "s5l8930" : arm ? "virt" : "i440fx") : options["machine_type"];
     if(!MACHINE_TYPES.includes(machine_type))
     {
         throw new Error("machine_type must be one of " + MACHINE_TYPES.map(m => "\"" + m + "\"").join(", ") +
@@ -197,7 +201,24 @@ export function check_machine_options(options)
             (arm ? "the ARM CPUs need machine_type \"virt\" (the default with them) or \"ranchu\"" :
                 "the " + machine_type + " machine needs cpu_type \"arm64\" or \"arm32\""));
     }
-    const profile = cpu_profile === undefined ? DEFAULT_CPU_PROFILES[cpu_type] : cpu_profile;
+    const apple = machine_type === "s5l8930";
+    if((options["ios"] || options["apple_model"]) && !apple) throw new Error("ios and apple_model require machine_type s5l8930");
+    if(apple)
+    {
+        if(cpu_type !== "arm32" || options["cpu_cores"] !== undefined && options["cpu_cores"] !== 1 ||
+            options["memory_size"] !== undefined && options["memory_size"] !== 512 * 1048576)
+        {
+            throw new Error("iPhone3,1 requires one ARM32 core and 512 MiB RAM");
+        }
+        if(options["apple_model"] !== undefined && options["apple_model"] !== "iPhone3,1") throw new Error("expected apple_model iPhone3,1");
+        for(const name of APPLE_UNAVAILABLE)
+        {
+            if(options[name]) throw new Error(name + " is not available on s5l8930");
+        }
+        if(options["graphics_adapter"] && options["graphics_adapter"] !== "none" ||
+            options["net_device"] && options["net_device"]["type"] !== "none") throw new Error("s5l8930 requires graphics and network adapters set to none");
+    }
+    const profile = cpu_profile === undefined ? (apple ? "cortex-a8" : DEFAULT_CPU_PROFILES[cpu_type]) : cpu_profile;
     const only = MACHINE_CPU_PROFILES[machine_type] && MACHINE_CPU_PROFILES[machine_type][cpu_type];
     if(only && !only.includes(profile))
     {
@@ -427,6 +448,10 @@ export function allowed_options(cpu_type, machine_type)
         unavailable["bios"] = unavailable["vga_bios"] = "the virt machine has no PC firmware (it boots its kernel directly)";
         unavailable["fda"] = unavailable["fdb"] = "the virt machine has no floppy controller";
         unavailable["acpi"] = "the virt machine describes itself with a device tree, not ACPI";
+        if(machine_type === "s5l8930")
+        {
+            for(const name of APPLE_UNAVAILABLE) unavailable[name] = "the iPhone 4 board has no " + name;
+        }
         if(machine_type === "ranchu")
         {
             unavailable["virtio_transport"] = "the ranchu machine has no PCIe host: its virtio devices are on virtio-mmio";
@@ -446,15 +471,15 @@ export function allowed_options(cpu_type, machine_type)
         }
     }
     return {
-        machine_types: is_arm(cpu_type) ? ARM_MACHINE_TYPES.slice() : MACHINE_TYPES.filter(m => !ARM_MACHINE_TYPES.includes(m)),
-        graphics_adapters: machine_type === "ranchu" ? ["none"] : virt ? VIRT_GRAPHICS_ADAPTERS.slice() : GRAPHICS_ADAPTERS.slice(),
-        net_device_types: virt ? VIRT_NET_DEVICE_TYPES.slice() : NET_DEVICE_TYPES.slice(),
+        machine_types: is_arm(cpu_type) ? ARM_MACHINE_TYPES.filter(m => m !== "s5l8930" || cpu_type === "arm32") : MACHINE_TYPES.filter(m => !ARM_MACHINE_TYPES.includes(m)),
+        graphics_adapters: machine_type === "ranchu" || machine_type === "s5l8930" ? ["none"] : virt ? VIRT_GRAPHICS_ADAPTERS.slice() : GRAPHICS_ADAPTERS.slice(),
+        net_device_types: machine_type === "s5l8930" ? ["none"] : virt ? VIRT_NET_DEVICE_TYPES.slice() : NET_DEVICE_TYPES.slice(),
         // (the virt machine's sound is virtio_sound)
         audio_devices: virt ? [] : AUDIO_DEVICES.slice(),
         // (the virt machine's input is virtio_input)
         usb_controllers: virt ? [] : USB_CONTROLLERS.slice(),
         cpu_profiles: cpu_profiles_of(cpu_type, machine_type),
-        max_cores: MAX_CORES,
+        max_cores: machine_type === "s5l8930" ? 1 : MAX_CORES,
         acpi: virt ? "none" : machine_type === "q35" ? "required" : "with_cores",
         unavailable,
     };

@@ -22,6 +22,7 @@ export const CPU_PROFILE_LABELS = {
     "generic-arm64": ["Generic 64-bit ARM (recommended)", "64-bit Linux, Android 16"],
     "generic-arm64-compat32": ["Generic 64-bit ARM that runs 32-bit programs",
         "A 64-bit system that runs 32-bit programs too (armhf, armeabi-v7a); their code is interpreted, slower than 64-bit code"],
+    "cortex-a8": ["ARM Cortex-A8 (2005)", "iPhone 4"],
     "cortex-a15": ["ARM Cortex-A15 (2011)", "32-bit Linux, Android 7.1"],
 };
 export const MACHINE_LABELS = { i440fx: "i440FX (IDE, PCI)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (ARM, virtio devices)",

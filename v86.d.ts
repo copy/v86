@@ -976,7 +976,9 @@ export interface V86Options {
      * "none"), a GICv2 with "arm32"; no PCIe.
      * @default "i440fx" ("virt" with cpu_type "arm64" or "arm32")
      */
-    machine_type?: "i440fx" | "q35" | "virt" | "ranchu";
+    machine_type?: "i440fx" | "q35" | "virt" | "ranchu" | "s5l8930";
+    apple_model?: "iPhone3,1";
+    ios?: { kernelcache: V86Image; devicetree: V86Image; ramdisk?: V86Image; boot_args?: string };
 
     /**
      * machine_type "ranchu" only: the display (the framebuffer's size in
@@ -1116,7 +1118,7 @@ export interface V86Options {
      * @default the cpu_type's generic model ("cortex-a15" for "arm32")
      */
     cpu_profile?: "generic-x86" | "generic-x86-64" | "generic-arm64" | "generic-arm64-compat32" | "generic-arm64-v1" | "generic-arm64-v1.1" |
-        "cortex-a15";
+        "cortex-a8" | "cortex-a15";
 
     /**
      * CPU features beyond the base profile, reported by CPUID: SSSE3, SSE4.1

@@ -1,7 +1,8 @@
 # iPhone 4（A4，S5L8930）机器实施计划
 
-状态：研究性计划，尚未实现。2026-10-27 初稿；同日复核，修正与补充见“复核结论”。所有者决定把 iPhone 4 作为
-v86 的第一台 iOS 设备。S0 第 1 步已完成：固件与密钥已在所有者本机，核对结果见“复核结论”的“固件与密钥”。
+状态：实施中（2026-11-04）。S0 的固件工具和初步清单已落地。S1 已从公开的 V86 构造入口启动本机的
+10B329 内核，串口输出到 `corecrypto.kext FIPS POST passed!`。等待根设备、恢复盘 shell 和图形界面尚待验证。
+可用 `node tests/ios/boot.mjs build/ios/10B329` 重跑串口检查；附加 `--wait-root` 单独检查 S1 的验收点。
 
 本计划为 v86 增加机器类型 `machine_type: "s5l8930"`，模拟 iPhone 4（`iPhone3,1`，板子 N90AP），目标是
 iOS 6.1.3 启动到主屏幕，能触控操作，能运行系统自带的应用。
@@ -571,6 +572,25 @@ CI 只跑 eslint、构建与 `make ci-tests`：不依赖苹果文件的 `make io
 | 法律风险 | 项目受影响 | 严格执行“法律与分发” |
 
 ## 复核结论
+
+**2026-11-04，10B329 的实机固件与 v86 串口。** 公开入口使用 `machine_type: "s5l8930"`、
+`graphics_adapter: "none"`、`ios.kernelcache` 和 `ios.devicetree`。默认选择单核 Cortex-A8 和 512 MiB。
+`build/ios/10B329` 下保留本地提取结果，固件不入库。
+
+- `LC_UNIXTHREAD` 给出的虚拟入口为 `0x80086084`。N90 主内存从 `0x40000000` 开始，
+  入口物理地址为 `0x40086084`。入口从 r0+4、+8、+12、+16 读取虚拟基址、物理基址、内存大小和临时页表起点。
+  页表起点必须按 16 KiB 对齐，内核从此处清零 40 KiB。
+- 此内核在 `0x8027ad4a` 从启动参数 +2 读取版本并检查它等于 3；命令行从 +0x38 取。
+  设备树指针使用虚拟地址。内核把 `/pram/reg` 作为启动跟踪缓冲区，模板中全零的范围会导致数据异常。
+- 设备树的总线地址需要经 `/arm-io/ranges` 翻译。UART0 在 `0x82500000`，IRQ 22；
+  四个 VIC 从 `0xbf200000` 开始，间隔 64 KiB。PMGR 的 24 MHz 计数器在 `0xbf102000`。
+  时间基准留零会触发内核的 `rtclock timebase_callback` panic。
+- 入口的 cache 清理循环给出 64 字节行、四路 32 KiB L1 和八路 512 KiB L2。
+  MIDR 暂用本机 QEMU Cortex-A8 的 `0x410fc080`，固件设备树没有给出芯片修订值。
+- 当前串口已验证 corecrypto 的完整性、AES、TDES、SHA、HMAC、ECDSA、DRBG 自检。
+  初始化 IODTNVRAM 时，8 KiB 的 nvram-proxy-data 需要长度非零的分区；10B329 按小端 16 字节单位前进。
+  补全后已看到 AppleARMBacklight 和 AppleARMPerformanceController 的启动日志。
+  此项不代替 S1 的根设备等待验收。S0 的数据保护、图形调用及上屏路径研究仍待完成。
 
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。

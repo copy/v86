@@ -371,6 +371,10 @@ pub fn vfp_system(register: u32, rt: u32, to_core: bool) -> Result<Flow, Excepti
     }
     let id = |row: usize| crate::aarch64::sysregs::AARCH32_ID[2][row] as u32;
     let value = match register {
+        0 if cpu::cortex_a8() => 0x4103_30C0,
+        5 if cpu::cortex_a8() => 0,
+        6 if cpu::cortex_a8() => 0x0001_1111,
+        7 if cpu::cortex_a8() => 0x1111_0222,
         0 => FPSID,
         5 => id(2),
         6 => id(1),
@@ -542,6 +546,9 @@ pub fn reset(entry: u64, context: u64) {
         for i in 0..5 {
             *a32_spsr.add(i) = 0;
         }
+        if cpu::cortex_a8() {
+            *actlr_el1 = 2;
+        }
         *a32_ttbcr = 0;
         *a32_dacr = 0;
         *a32_ifsr = 0;
@@ -629,7 +636,48 @@ pub fn cp15(
         }
         Ok(Flow::Next)
     };
+    let a8 = cpu::cortex_a8();
     match (opc1, crn, crm, opc2) {
+        // Cortex-A8 identification (realview-pb-a8); N90's bootstrap sweeps
+        // 32 KiB four-way L1s and a 512 KiB eight-way L2 with 64-byte lines.
+        (0, 0, 0, 0 | 4 | 7) if a8 => constant(0x410F_C080),
+        (0, 0, 0, 1) if a8 => constant(0x8204_8004),
+        (0, 0, 0, 5) if a8 => constant(0),
+        (0, 0, 1, n) if a8 => constant(
+            [
+                0x1031,
+                1,
+                0x400,
+                0,
+                0x3110_0003,
+                0x2000_0000,
+                0x0120_2000,
+                0x11,
+            ][n as usize],
+        ),
+        (0, 0, 2, n) if a8 => constant(
+            [
+                0x0010_1111,
+                0x1211_2111,
+                0x2123_2031,
+                0x1111_2131,
+                0x0011_1142,
+                0,
+                0,
+                0,
+            ][n as usize],
+        ),
+        (1, 0, 0, 0) if a8 => constant(match unsafe { *csselr_el1 } {
+            0 => 0xE00F_E01A,
+            1 => 0x200F_E01A,
+            2 => 0xF07F_E03A,
+            _ => 0,
+        }),
+        (1, 0, 0, 1) if a8 => constant(0x0A00_0023),
+        // Both auxiliary controls fit the banked and snapshotted ACTLR slot.
+        (0, 1, 0, 1) if a8 => half(actlr_el1, false),
+        (1, 9, 0, 2) if a8 => half(actlr_el1, true),
+        (0, 14, _, _) if a8 => Err(Exception::Undefined),
         // MIDR, CTR, TCMTR, TLBTR, MPIDR, REVIDR
         (0, 0, 0, 0) | (0, 0, 0, 4) | (0, 0, 0, 7) => constant(MIDR_A15),
         (0, 0, 0, 1) => constant(CTR_A15),
@@ -695,7 +743,26 @@ pub fn cp15(
         // cache maintenance and the CP15 barriers; the branch predictor
         (0, 7, 5, 4) | (0, 7, 10, 4) | (0, 7, 10, 5) if !read => Ok(Flow::Next),
         (0, 7, 1 | 5 | 6 | 10 | 11 | 14, _) if !read => Ok(Flow::Next),
-        // PAR (32-bit) and the address translation operations: not yet (UNDEFINED)
+        // Short-descriptor ATS1CPR/CPW/CUR/CUW and PAR.
+        (0, 7, 4, 0) if a8 => half(par_el1, false),
+        (0, 7, 8, op @ 0..=3) if a8 && !read => {
+            use crate::aarch64::mmu::{translate, Access};
+            let access = if op & 1 == 0 { Access::Read } else { Access::Write };
+            let par = if cpu::sctlr() & SCTLR_M == 0 {
+                value & !0xFFF
+            }
+            else {
+                match translate(value as u64, access, op & 2 != 0, 1) {
+                    Ok(t) => t.pa as u32 & !0xFFF,
+                    Err(fault) => {
+                        let status = fsr(fault);
+                        1 | (status & 15) << 1 | (status >> 10 & 1) << 5
+                    },
+                }
+            };
+            unsafe { *par_el1 = par as u64 };
+            Ok(Flow::Next)
+        },
         // TLB maintenance (the IS forms CRm 3; ITLB, DTLB, unified 5, 6, 7):
         // all, by MVA and ASID, by ASID, by MVA all ASIDs (the last level's too)
         (0, 8, 3 | 5 | 6 | 7, 0..=3 | 5 | 7) if !read => {
@@ -771,6 +838,9 @@ pub fn cp15_64(
         set_reg(rt, got as u32);
         set_reg(rt2, (got >> 32) as u32);
     };
+    if cpu::cortex_a8() && matches!(crm, 2 | 12 | 14) {
+        return Err(Exception::Undefined);
+    }
     match (opc1, crm) {
         (0 | 1, 2) => unsafe {
             let p = if opc1 == 0 { ttbr0_el1 } else { ttbr1_el1 };

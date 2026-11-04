@@ -469,6 +469,9 @@ pub unsafe fn a64_set_cores(cores: u32) -> bool {
         b.unmap(crate::aarch64::gic::GICD_BASE);
         b.unmap(crate::aarch64::gic::GICR_BASE);
         b.unmap(crate::aarch64::gic::GICC_BASE);
+        if crate::aarch64::cpu::cortex_a8() {
+            return true;
+        }
         b.map(
             crate::aarch64::gic::GICD_BASE,
             crate::aarch64::gic::GICD_SIZE,

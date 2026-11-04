@@ -11,6 +11,11 @@ import { set_jit_switches } from "../jit_switches.js";
 import { relaxed_fma_fused } from "../cpu.js";
 import { view, Bitmap } from "../lib.js";
 import { v86 } from "../main.js";
+import { AppleVIC } from "../apple/vic.js";
+import { AppleTimer } from "../apple/timer.js";
+import { AppleGPIO, AppleVectors } from "../apple/s5l8930.js";
+import { AppleUART } from "../apple/uart.js";
+import { load_n90_kernel } from "../apple/boot.js";
 import { MachineClock } from "../machine_clock.js";
 import { check_machine_options } from "../machine_options.js";
 import { CORE_STATE_RANGES, STATE_OFFSETS } from "./state_layout.js";
@@ -47,7 +52,7 @@ import { ParallelMachine } from "../parallel/machine.js";
 import { COMMAND_RELOAD, COMMAND_RESET } from "../parallel/control.js";
 
 /** The devices in a snapshot's state[4], in this order */
-const DEVICE_ORDER = ["pl011", "pl031", "goldfish_fb", "goldfish_events", "goldfish_battery", "goldfish_audio", "goldfish_pipe"];
+const DEVICE_ORDER = ["pl011", "pl031", "goldfish_fb", "goldfish_events", "goldfish_battery", "goldfish_audio", "goldfish_pipe", "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio"];
 
 /** (src/state.js: one buffer holds at most 2 GiB) */
 const STATE_MAX_SINGLE_BUFFER = 0x7FFFFFFF;
@@ -224,7 +229,7 @@ A64CPU.prototype.translate_user = function(address, write)
 A64CPU.prototype.init = function(settings, device_bus)
 {
     const { machine_type, cpu_profile } = check_machine_options(settings);
-    if(machine_type !== "virt" && machine_type !== "ranchu")
+    if(machine_type !== "virt" && machine_type !== "ranchu" && machine_type !== "s5l8930")
     {
         throw new Error("The ARM CPU runs machine_type \"virt\" or \"ranchu\"");
     }
@@ -254,9 +259,23 @@ A64CPU.prototype.init = function(settings, device_bus)
     this.graphics_adapter_descriptor = settings.graphics_adapter;
     const adapter = this.graphics_adapter_descriptor;
     this.create_memory(memory_size, adapter ? Math.max(DEVICE_MEMORY_SIZE,
-        adapter["device_memory_size"]?.({ "test": settings.graphics_adapter_test }) || 0) : 0);
+        adapter["device_memory_size"]?.({ "test": settings.graphics_adapter_test }) || 0) : machine_type === "s5l8930" ? 4096 : 0);
     this.configure_extended_memory(settings.extended_memory_size || 0, settings.extended_memory_cache);
     this.device_bus = device_bus;
+    if(machine_type === "s5l8930")
+    {
+        this.devices = { "apple_uart": new AppleUART(this, device_bus), "apple_vectors": new AppleVectors(this) };
+        this.devices.apple_gpio = new AppleGPIO(this);
+        this.devices.apple_vic = new AppleVIC(this);
+        this.devices.apple_timer = new AppleTimer(this, this.devices.apple_vic);
+        this.virtio_devices = [];
+        this.shared_spi_sources = new Map();
+        this.virtio_transport = "none";
+        this.booted = false;
+        this.boot_files = settings.kernel ? { kernel: settings.kernel, dtb: settings.dtb, initrd: settings.initrd, cmdline: settings.cmdline } : null;
+        if(this.boot_files) this.load_boot_files();
+        return;
+    }
     this.devices = {
         "pl011": new PL011(this, device_bus),
         "pl031": ranchu ? new PL031(this, RANCHU_RTC, 32 + RANCHU_SPI.rtc) : new PL031(this),
@@ -468,6 +487,23 @@ A64CPU.prototype.init = function(settings, device_bus)
     {
         // (kept: a reset loads them again, P4.6)
         this.boot_files = { kernel: settings.kernel, initrd: settings.initrd, cmdline: settings.cmdline, dtb: settings.dtb, cores };
+        this.load_boot_files();
+    }
+};
+
+A64CPU.prototype.load_boot_files = function()
+{
+    if(!this.boot_files) return;
+    if(this.machine_type === "s5l8930")
+    {
+        const f = this.boot_files;
+        const handoff = load_n90_kernel(this.mem8, new Uint8Array(f.kernel), new Uint8Array(f.dtb),
+            f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline);
+        this.wm.exports["a64_bus_written"](0, handoff.r0 - VIRT_RAM_BASE + 4096);
+        this.boot(handoff.entry, handoff.r0);
+    }
+    else
+    {
         const { entry, x0 } = load_linux(this, this.boot_files);
         this.boot(entry, x0);
     }
@@ -480,7 +516,7 @@ A64CPU.prototype.init = function(settings, device_bus)
  */
 A64CPU.prototype.boot = function(entry, x0)
 {
-    if(this.cpu_type === "arm32")
+    if(this.cpu_type === "arm32" && this.machine_type !== "s5l8930")
     {
         // (a 32-bit kernel: SVC mode, r0 0, r1 ~0 (a device tree, not a board), r2 the device tree)
         this.wm.exports["a32_boot"](entry >>> 0, x0 >>> 0);
@@ -713,6 +749,7 @@ A64CPU.prototype.state_block_of = function(core)
 /** (env.run_hardware_timers) the virt machine's device timers (the PL031's alarm, the display's); the cores' timers are their own */
 A64CPU.prototype.run_hardware_timers = function(acpi, now)
 {
+    if(this.devices.apple_timer) return this.devices.apple_timer.timer();
     const display = this.devices.display ? this.devices.display.timer(now) : 100;
     const sound = this.virtio_sound ? this.virtio_sound.timer(now) : 100;
     const audio = this.devices["goldfish_audio"] ? this.devices["goldfish_audio"].timer(now) : 100;
@@ -795,8 +832,7 @@ A64CPU.prototype.reboot_internal = function(reason)
     for(const { device } of this.virtio_devices) device.reset();
     if(this.boot_files)
     {
-        const { entry, x0 } = load_linux(this, this.boot_files);
-        this.boot(entry, x0);
+        this.load_boot_files();
     }
     else
     {

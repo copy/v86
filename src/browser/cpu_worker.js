@@ -4,7 +4,7 @@ import { state_stream_server } from "./state_stream_transport.js";
 import { DISPLAY_SINK_REPLAY } from "../display.js";
 import { default_graphics_adapter_path } from "../graphics_adapter.js";
 import { default_glslang_wasm_path, default_plugin_path, default_tpm_wasm_path } from "../device_plugin.js";
-import { is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
+import { check_machine_options, is_arm, AUDIO_DEVICE_PLUGINS, NET_DEVICE_PLUGINS } from "../machine_options.js";
 
 /**
  * @param {*} f
@@ -42,15 +42,17 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
     if(o.wasm_fn || fs?.handle9p) throw new Error("CPU Worker cannot transfer wasm_fn or handle9p callbacks");
     if(o["virtio_devices"]?.length) throw new Error("CPU Worker cannot transfer virtio_devices; their descriptors run on the CPU's thread");
     // (the defaults of src/browser/starter.js: an NE2000 and an SB16 on the PC machines)
-    const net_type = o.net_device?.type || (is_arm(o["cpu_type"]) ? "virtio" : "ne2k");
-    const audio_device = is_arm(o["cpu_type"]) ? o["audio_device"] : o["audio_device"] || "sb16";
+    const machine = check_machine_options(o);
+    const arm = is_arm(machine.cpu_type);
+    const net_type = o.net_device?.type || (machine.machine_type === "s5l8930" ? "none" : arm ? "virtio" : "ne2k");
+    const audio_device = arm ? o["audio_device"] : o["audio_device"] || "sb16";
     return {
         "device_plugins": plugins.map(plugin => {
             if(!plugin["worker_script"]) throw new Error("CPU Worker: " + plugin["name"] + " has no worker_script for its device");
             return { "name": plugin["name"], "script": new URL(plugin["worker_script"], location.href).href };
         }),
         // (the core of the CPU's family: docs/arm64-virt-android16-plan.md P1.3)
-        "wasm_path": new URL(o.wasm_path || (is_arm(o["cpu_type"]) ? "build/v86-arm64.wasm" : "build/v86.wasm"), location.href).href,
+        "wasm_path": new URL(o.wasm_path || (arm ? "build/v86-arm64.wasm" : "build/v86.wasm"), location.href).href,
         "wasm_fallback_path": o["wasm_fallback_path"] && new URL(o["wasm_fallback_path"], location.href).href,
         // (cores in vCPU workers, which this worker starts: absolute URLs)
         "parallel": o["parallel"],
@@ -69,7 +71,7 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "boot_order": o.boot_order, "acpi": o.acpi, "machine_type": o.machine_type, "pcie_root_ports": o.pcie_root_ports, "hpet": o.hpet, "smbus": o.smbus, "cpu_cores": o.cpu_cores,
         "cpu_clock": o.cpu_clock, "cpu_quantum": o.cpu_quantum, "cpu_schedule_seed": o.cpu_schedule_seed,
         "experimental_smp_jit": o.experimental_smp_jit, "disable_jit": o.disable_jit,
-        "cpu_type": o["cpu_type"], "cpu_features": o["cpu_features"], "cpu_features_unreleased": o["cpu_features_unreleased"],
+        "cpu_type": machine.cpu_type, "cpu_features": o["cpu_features"], "cpu_features_unreleased": o["cpu_features_unreleased"],
         "jit_backend": o["jit_backend"], "ir_tier0": o["ir_tier0"], "jit_switches": o["jit_switches"], "cpu_profile": o["cpu_profile"],
         "x87_fast_math": o["x87_fast_math"],
         "x87_jit_cache": o["x87_jit_cache"],
@@ -107,6 +109,9 @@ export function encode_worker_options(o, plugins = [], adapter_renderer = false)
         "fda": file(o.fda), "fdb": file(o.fdb), "cdrom": file(o.cdrom),
         "multiboot": file(o.multiboot), "bzimage": file(o.bzimage), "initrd": file(o.initrd),
         // (machine_type "virt": docs/arm64-virt-android16-plan.md P1.1)
+        "apple_model": o.apple_model,
+        "ios": o.ios && { "kernelcache": file(o.ios.kernelcache), "devicetree": file(o.ios.devicetree),
+            "ramdisk": file(o.ios.ramdisk), "boot_args": o.ios.boot_args },
         "kernel": file(o.kernel), "dtb": file(o.dtb),
         // (docs/android-images-plan.md I2: the bootloader runs in the worker, beside the disk)
         "android": o.android && { "device": o.android.device, "gpu_mode": o.android.gpu_mode, "selinux": o.android.selinux,

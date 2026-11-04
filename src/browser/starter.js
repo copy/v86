@@ -630,7 +630,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings["x87_fast_math"] = options["x87_fast_math"];
     settings["x87_jit_cache"] = options["x87_jit_cache"];
     settings.load_devices = true;
-    settings.memory_size = options.memory_size || 64 * 1024 * 1024;
+    settings.memory_size = options.memory_size || (this.machine_type === "s5l8930" ? 512 : 64) * 1024 * 1024;
     settings.high_memory_size = options.high_memory_size;
     settings.extended_memory_size = options.extended_memory_size;
     settings.extended_memory_cache = options.extended_memory_cache;
@@ -646,7 +646,7 @@ V86.prototype.continue_init = async function(emulator, options)
     settings.uart2 = options.uart2;
     settings.uart3 = options.uart3;
     settings.parallel1 = options.parallel1;
-    settings.cmdline = options.cmdline;
+    settings.cmdline = options.ios ? options.ios.boot_args : options.cmdline;
     settings.preserve_mac_from_state_image = options.preserve_mac_from_state_image;
     settings.mac_address_translation = options.mac_address_translation;
     settings.cpuid_level = options.cpuid_level;
@@ -1128,9 +1128,15 @@ V86.prototype.continue_init = async function(emulator, options)
     add_file("initial_state", options.initial_state);
     add_file("multiboot", options.multiboot);
     add_file("bzimage", options.bzimage);
-    add_file("initrd", options.initrd);
-    add_file("kernel", options.kernel);
-    add_file("dtb", options.dtb);
+    if(this.machine_type === "s5l8930")
+    {
+        if(options.kernel || options.dtb || options.initrd) throw new Error("use ios.kernelcache, ios.devicetree and ios.ramdisk on s5l8930");
+        if(!options.initial_state && (!options.ios?.kernelcache || !options.ios?.devicetree))
+            throw new Error("iPhone boot requires ios.kernelcache and ios.devicetree");
+    }
+    add_file("initrd", options.ios ? options.ios.ramdisk : options.initrd);
+    add_file("kernel", options.ios ? options.ios.kernelcache : options.kernel);
+    add_file("dtb", options.ios ? options.ios.devicetree : options.dtb);
     add_file("android_vendor_ramdisk", options.android && options.android.vendor_ramdisk);
     // the virt machine's virtio-blk disks: {url or buffer, async, size, id,
     // readonly}; the buffer an ArrayBuffer, a File, or a buffer object of

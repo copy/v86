@@ -13,7 +13,7 @@ const PLACEHOLDER = 0x80000000;
 export let DTProperty;
 
 /**
- * @typedef {{properties: !Array<!DTProperty>, children: !Array<!Object>}}
+ * @typedef {{properties: !Array<!DTProperty>, children: !Array<!DTNode>}}
  */
 export let DTNode;
 
