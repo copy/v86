@@ -2284,6 +2284,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 初轮完整310客体有303通过，七项为新profile helper的严格编译引用、逻辑display字段或旧Reset源码定位；修正后复检七项及四项受影响测试，保留299项未改通过结果，原日志/11项复检归档。最终 **完整客体310 suites、核心相关57 suites**、32标准EXE/四retail-diagnostic DLL/静态核心/测试consumer、自定义SDK、站点集成2项、两侧零新增lint通过，继承4I9完整核心238/六次GPU。
 > - 发布准确最终XP DLL及严格diagnostic；证据`docs/fixtures/d3d-review/stage4k11-validation.json`，镜像`glbridge/deployments/d3d-webgpu-review-4K11.json`。公开8仍用原设备；API8附加链/shader兼容、真正device/resource/state/copy/句柄包装、完整零售/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
 
+> **阶段 4K12（2026-11-04）：核心API8附加交换链创建、参数与生命周期兼容。**
+> - 新私有`core_additional8`复用52→56字节转换、quality0，52字节caller输入不变。实际核心9构造按API8保留interval/COPY_VSYNC/MSAA-lockable参数、六种旧颜色格式、UNKNOWN沿用当前格式、空窗口/空client尺寸回退、全屏父设备允许创建及count-only内部回写；普通9仍按原窗口/桌面/quality/尺寸回写规则。返回真实私有9交换链，表面LockRect及公开8包装仍是后续独立适配。
+> - 旧实际8/9构造前缀 **57,030检查、45,942组合**；完整核心8方法 **326检查、74构造**，含六旧格式、count0/1/3、独立零尺寸、空client/NULL窗口、全屏父、MSAA+flag1、分配/发送失败及完整清理。真实SDK桥 **6,152检查、2,052组合**；新增 **16运行时变异**。同一个历史9实际构造在参数前缀和完整caller回写两个上下文均严格编译后失败API8断言；四类ASAN/UBSAN通过，保留普通9 **141检查、28构造**和旧8 **128检查、25构造**。
+> - XP SDK120/220共建 **六组真实RT纹理/交换链**：两个在focus/window均NULL的临时设备上沿用16位格式24，四个在主设备Reset后沿用21，含两组MSAA4+flag1。核对完整caller不变、有效8×8/count1/quality0、真实描述和 **六次容器COM身份**，均在绘制/设备销毁前释放。保留七设备/三Reset/三声明/两次私有模块卸载/五UP读回；最终 **274秒、13批次、25唯一句柄、一个HELLO/owner/SessionEnd/release**，明确模拟能力0、仅RAM overlay。
+> - **407项冻结流/日志破坏**拒绝。SwiftShader/Metal各 **五图像、320真实像素、零误差/图形错误**，六次显式纹理创建，所有新链与纹理的创建/尺寸/格式/采样/NULL窗口/退役顺序完整核对，SessionEnd兜底及driver释放前表为空。未声称LockRect或附加链Present验收。
+> - 初轮完整314客体有313通过，一项仍定位旧literal9回写；修正定位后10变异严格编译/运行时断言全过，保留313项未改结果，初轮/复检日志归档。最终 **完整客体314 suites、核心相关58 suites**、32标准EXE/四retail-diagnostic DLL/静态核心/测试consumer、自定义SDK、站点集成2项、两侧零新增lint通过，继承4I9完整核心238/六次GPU。
+> - 原公开8的当前DLL复检首次在XP欢迎屏停留、测试EXE从未启动，失败图与空日志归档；完整并行回归释放资源后重试通过，**189秒、13批次、五读回、两个Reset/附加链**，保留4K9检查器通过。未为启动环境问题修改生产/SDK代码。
+> - 发布准确最终XP DLL及严格diagnostic；证据`docs/fixtures/d3d-review/stage4k12-validation.json`，镜像`glbridge/deployments/d3d-webgpu-review-4K12.json`。公开8仍用原设备，表面锁定/API8 shader兼容、真正device/resource/state/copy/句柄包装、完整零售/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
