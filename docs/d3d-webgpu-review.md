@@ -2502,6 +2502,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 源码审计：原**636个核心9函数逐字节一致**，整个公开8文件与8/9 decoder未改。**360客体 / 79核心完整回归**、32标准EXE/四严格DLL/静态21-member/真实SDK8 stdcall12 ABI、两项站点集成及任务范围lint通过。发布XP准确零售8/9和严格diagnostic；证据 [stage4k33-validation.json](fixtures/d3d-review/stage4k33-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K33.json`。
 > - **失败边界：** 这里只对无效对象输入保证不改状态；实际9 setter先发布本地状态再提交，传输失败按其原有顺序保留已发布状态，不宣称公开8失败策略已替换。原生绑定测试的构造器仅供应对象元数据，实际SM1.x创建由保留创建套件及XP覆盖。完整公开8包装、原始句柄/状态块影子、ProcessVertices目标8方言、其余原生兼容性/数值差分/游戏/FPS和阶段4/5/6继续；宿主、协议、translator、DDraw及运行包未改。
 
+
+> **阶段 4K34（2026-11-05）：D3D8 BaseVertexIndex 按原始位模式送入核心9索引绘制。**
+>
+> - 新增私有 `d9wg_d3d9_core_draw_indexed8@28`，前端把 SetIndices 保存的UINT基址逐次传入；通过字节复制得到INT基址，原值 `0xffffffff`准确成为−1，不清符号位、不取绝对值、不改核心9的索引绑定。公开8 GetIndices 与DWORD状态块中的原始base仍由包装层维护。边界头文件继续只依赖Windows与不透明COM声明，以UINT表示primitive类型，进入真实9调用时转换。
+> - **115,727项检查 / 50,004例**执行实际9 DrawIndexedPrimitive、范围判断、emitter及状态提交。50,000组独立物理顶点枚举对照：4,941次正常发出、42,375拒绝、2,459零图元、225传输失败；另4例空设备/普通9有效控制/配置隔离/无绑定零图元。覆盖正负极值、16/32位IB长度、两个流的offset/stride与常量流、原样hint、绑定保持、失败不提交ClipStatus/镜像。**16/16严格C语义变异**及新索引/保留公开8绘制两族ASAN通过。首次oracle遗漏原9最小stride限制，补齐前提；零hint随机样本未命中则补显式0后，原先存活的“拒绝空hint”变异被检出。
+> - 独立静态消费者发现新接口最初误将SDK专用枚举放进纯边界头；首轮探索XP仍通过138秒/30批。随后边界改UINT、实现显式转为SDK9枚举，21-member零售/诊断archive与无SDK消费者/真实SDK8 stdcall28全部通过，并以最终源码**重新XP验收：180秒 / 30批 / 一次启动**。最终交付仅取第二轮准确零售DLL。
+> - XP准确4K33旧8、当前公开8、普通9参考、核心8 SDK120/220：5设备/5Reset/15 managed VB/IB/3缓存声明/28协议句柄；基址+1、−1、0配合16/32位索引，六顶点的首尾为黄色屏外哨兵，实际索引均准确选中中间四顶点。红/蓝/绿/紫20次索引绘制和1,280本地DWORD，managed缓冲跨Reset、原始8 base查询、零图元及两种范围拒绝、父对象/绑定身份、最终引用0与模块卸载/单owner/SessionEnd/释放通过。极端基址只在原生范围/命令检查中使用，实际图像用有效+1/−1/0。
+> - 独立wire模型核对完整VB/IB上传、哨兵/位置/颜色、raw-to-signed base及全部draw字段、Reset保留及资源退休，**4,583项关键字段/载荷字节/日志/截断篡改全部检出**。两GPU各**20完整图像 / 1,280 RGBA像素零误差**：20 bound indexed draw、40 buffer uploads、0UP/可编程/纹理/Present；资源表在SessionEnd兜底与owner释放前为空，GPU/host错误0。VM CPU回复明确为解析图像注入；图像另由SwiftShader/Metal实际读回。模型先前误认为Reset重建FVF缓存声明，已按实际复用保留为每9模式一个，未改捕获或生产行为。
+> - 源码审计证明原**637个核心9函数逐字节一致**，公开8完整文件及FVF decoder未改。**362客体 / 80核心完整回归**、32标准EXE/四严格DLL、静态核心及两项站点集成、任务范围lint通过；发布第二轮XP准确8/9零售DLL和严格diagnostic。证据 [stage4k34-validation.json](fixtures/d3d-review/stage4k34-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K34.json`。
+> - 继续DWORD状态块句柄/原始元数据与完整公开8对象包装，及ProcessVertices目标8方言、其余原生兼容性/数值差分/原生HAL/游戏/FPS和阶段4/5/6；宿主、协议、translator、DDraw及运行包 `9335ee9a77fb7cc808d2` 未改。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
