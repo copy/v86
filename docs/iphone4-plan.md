@@ -669,6 +669,9 @@ node tests/ios/nand-volumes.mjs build/ios/seeded.img build/ios/system-fstab.hfs 
 node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel build/ios/shell/kernel.macho --processes
 ```
 
+**S4 可擦除密钥存储。** plog 使用 slice 标志，物理块 1–4 的启动页 16 保存第 1 代 Face 记录。头部、内容 CRC 和 BAG1 记录由构建器生成，BAG1 内的密钥材料仅供模拟设备使用。H2FMI 支持客体以三个 512 字节的 PIO 传输写入一张启动页，写到半个扇区时也可快照往返。
+运行 node tests/ios/flash.mjs build/ios/10B329 --lockers --snapshot，10B329 的 AppleEffaceableStorage 报告在 group 0 读取到第 1 代记录。尚须让 keybagd 从数据卷加载与此记录配套的系统钥匙包，并验证 UID 加解密。
+
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。
 

@@ -1,6 +1,7 @@
 // Physical partitions below the VSVFL/YAFTL and logical LwVM layers.
 // IOFlashStorage in 10B329 reads copies of this Grdn record via boot-page
 // reads. The filesystem entry must be a slice for LegacyFTL block offsets.
+import { effaceable_unit } from "./lockers.mjs";
 import { NAND_BLOCKS, NAND_BLOCK_PAGES, NAND_DATA, NAND_PAGE } from "../../src/apple/nand.js";
 
 function fletcher16(bytes)
@@ -31,7 +32,7 @@ export function physical_partitions()
     t.write("sbus", 0x35C);
     t.writeUInt16LE(fletcher16(t.subarray(0x35C, 0x3FE)), 0x3FE);
     const entries = [
-        ["boot", 0, 1, 0], ["plog", 1, 4, 0], ["nvrm", 5, 2, 0], ["firm", 7, 7, 0x200],
+        ["boot", 0, 1, 0], ["plog", 1, 4, 2], ["nvrm", 5, 2, 0], ["firm", 7, 7, 0x200],
         ["fsys", 15, NAND_BLOCKS - 15, 2], ["fbbt", 14, 1, 1],
     ];
     for(let i = 0; i < 32; i++)
@@ -111,6 +112,10 @@ function context_page(row)
 
 export function write_bootstrap_pages(put)
 {
+    // Each Effaceable group starts its units at boot page sixteen.
+    const locker = Buffer.alloc(NAND_PAGE, 255);
+    effaceable_unit().copy(locker);
+    for(let block = 1; block <= 4; block++) put(0, 0, block * NAND_BLOCK_PAGES + 16, locker);
     const table = physical_partitions();
     put(0, 0, 0, table);
     put(0, 0, 1, table);

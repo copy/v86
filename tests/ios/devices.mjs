@@ -223,6 +223,7 @@ flashPort.write(0x1014, 0x80);
 flashPort.write(0x1010, 9);
 assert.equal(flashPort.read(0x1044), 9);
 flashPort.write(0x1044, 9);
+flashPort.write(0, 0xF5);
 arm();
 flashPort.write(4, 5);
 channelDMA.write(0x6008, 0x81200018);
@@ -293,3 +294,38 @@ for(const [mask, byte] of [[2, 22], [1, 11]])
     assert.equal(banks.read(0x14), byte);
 }
 console.log("PASS: interleaved chip read registers survive out-of-order completions and restore");
+
+// Boot-page programs do not use CDMA. 10B329 polls the TX FIFO before
+// writing three 512-byte sectors, acknowledging each one independently.
+flashPort.reset();
+flashPort.write(0, 0xF0);
+flashPort.write(0x100C, 1);
+flashPort.write(0x1018, 0x02030000);
+flashPort.write(0x101C, 1);
+flashPort.write(0x1014, 0x80);
+flashPort.write(0x1010, 9);
+for(let sector = 0; sector < 3; sector++)
+{
+    flashPort.write(4, 5);
+    assert.equal(flashPort.read(0x1C) & 0x18, 0x18);
+    for(let word = 0; word < 128; word++)
+    {
+        if(sector === 1 && word === 99)
+        {
+            const state = flashPort.get_state();
+            flashPort.reset();
+            flashPort.set_state(state);
+        }
+        flashPort.write(0x14, sector * 128 + word);
+    }
+    assert.equal(flashPort.read(0x1C) & 0x18, 0);
+    assert.equal(flashPort.read(0xC) & 2, 2);
+    flashPort.write(0xC, 2);
+}
+flashPort.write(0x1014, 0x1000);
+flashPort.write(0x1010, 2);
+for(let i = 0; i < 384; i++)
+    assert.equal(new DataView(programmed.buffer, programmed.byteOffset).getUint32(i * 4, true), i);
+assert.ok(programmed.subarray(1536).every(b => b === 255));
+finishProgram();
+console.log("PASS: PIO boot-page programming, individual FIFO sectors and snapshot during a sector");

@@ -13,7 +13,8 @@ const dir = process.argv[2];
 if(!dir) throw new Error("usage: flash.mjs extracted-10B329-directory");
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "v86-n90-page-"));
 const disk = path.join(temporary, "test.img"), pageFile = path.join(temporary, "page.bin");
-const formatted = process.argv.includes("--format");
+const lockers = process.argv.includes("--lockers");
+const formatted = lockers || process.argv.includes("--format");
 const partition = formatted || process.argv.includes("--partition");
 let emulator;
 try
@@ -48,11 +49,11 @@ try
         if(row === (NAND_BLOCKS - 1) * NAND_BLOCK_PAGES) factoryReads.add(bus + ":" + ce);
         readPage(bus, ce, row, done, fail);
     };
-    const end = performance.now() + 120000;
+    const end = performance.now() + (lockers ? 300000 : 120000);
     cpu.clock.resume();
     // IOFlashStorage prints the rejected fourcc most significant byte
     // first, proving the IOP, H2FMI, CDMA and AP partition parser agree.
-    const marker = formatted ? "published partition 1" : partition ? "YAFTL Register  [OK]" : "bad magic - 09N4";
+    const marker = lockers ? "found current generation, 1, in group 0" : formatted ? "published partition 1" : partition ? "YAFTL Register  [OK]" : "bad magic - 09N4";
     while(!serial.includes(marker) && !serial.includes("panic(cpu") && performance.now() < end)
     {
         for(let i = 0; i < 24; i++) cpu.run_cores();
@@ -61,6 +62,7 @@ try
     assert.ok(iop.running && read && serial.includes(marker) && !serial.includes("panic(cpu"), serial.slice(-2000));
     assert.equal(iop.regs[0x114 >>> 2], 0x40000);
     assert.equal(cpu.wm.exports.a64_current_core(), 0);
+    if(lockers) console.log("PASS: AppleEffaceableStorage read generation 1 from the NAND locker partition");
     if(formatted)
     {
         assert.ok(serial.includes("_publishServices:") && serial.includes("created partition 5 as 'Bad Block Table'") &&

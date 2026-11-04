@@ -1,6 +1,7 @@
 // Inspect the published file independently of the builder's offset, page
 // decoding and checksum helpers. No Apple firmware required.
 import { AppleNAND, NAND_BYTES, NAND_PAGE, NAND_SLOT } from "../../src/apple/nand.js";
+import { crc32 } from "node:zlib";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
@@ -27,6 +28,14 @@ try
         }
         assert.deepEqual(read(0, 0), read(0, 1));
         assert.equal(read(0, 0).toString("ascii", 0, 4), "ndrG");
+        const unit = read(0, 144).subarray(0, 1024);
+        const magic = Buffer.from(unit.subarray(0, 16)).map((b, i) => b ^ unit[16 + i]);
+        assert.equal(magic.toString("ascii", 0, 4), "ecaF");
+        assert.equal(magic.readUInt32LE(4), 1);
+        assert.equal(unit.readUInt32LE(60), crc32(unit.subarray(64), crc32(unit.subarray(32, 60), crc32(magic))));
+        assert.equal(unit.readUInt32LE(68), 0x42414731);
+        assert.equal(unit.readUInt32LE(128), 0x444F4E45);
+        assert.deepEqual(read(0, 528).subarray(0, 1024), unit);
         const last = (blocks - 1) * 128;
         assert.equal(read(0, last + 1).toString("ascii", 0, 14), "NANDDRIVERSIGN");
         const control = 3997 * 128;
