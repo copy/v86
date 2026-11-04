@@ -2186,6 +2186,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 初次原生 harness 将新状态字段放在 COM interface 前，破坏已有转换；恢复 interface 首字段并修正严格比较警告后通过。初次 retail 缺输出目录，创建后严格构建通过。首轮 XP 日志 `UPFAIL FRAME` 意外包含工具失败哨兵 `FAIL `，保存失败记录、改成 `UPF` 并重新完整捕获。**完整客体 285 suites**、核心相关 **45 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 通过，继承 4I9 完整核心238/六次 GPU。发布准确最终 XP DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j11-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J11.json`。
 > - 零 primitive UP、其他零售 stream/UP 分支、完整用户声明反推、D3D8 包装、任意线程/回调/丢失/完整 Reset/格式/MSAA/全屏/多缓冲、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J12（2026-11-04）：D3D9 零 primitive UP 的成功空操作与校验顺序完成。**
+> - 两个公开 UP 入口在 stride 非零且 primitive_count 为零时立即成功返回，先于数据/格式检查，也先于成功或缺声明路径的解绑；stride 为零仍按原路径返回 INVALIDCALL。内部 patch helper 保持原有语义。依据固定 Wine public UP3327–3337 /3391–3401 明确的 stride→count→declaration 顺序；这是该参考实现的正例，并非额外完成原生 Microsoft HAL 测试。
+> - 新实际 C **15,808 检查、64 pool/format/record/最终拥有者组合、4,096 次成功空操作和4,096 次零 stride 拒绝**，覆盖 NULL/不可读指针、被忽略的巨大范围和无效 primitive 参数、无声明/有效缓存声明、录制、实时 VB/IB/声明身份及元数据、设备 pin、ClipStatus、无状态计算/传输/存储副作用与最终清理。**10/10** 严格编译后断言变异、旧实际两个公开 UP 入口负对照、ASAN/UBSAN 通过；先前缺声明/资源/根状态/缓存图继续通过。
+> - XP 在四个检查点追加 **512 次成功空操作、512 次零 stride 拒绝**，分别位于缺声明、录制、正常缓存声明和失败后空 stream 状态；**528 次 stream / 262 次 indices 查询**确认相同对象/参数，FVF 保持，空状态块 Capture/Apply 不记录隐含清理。保留 3 缺声明 / 1 基本参数拒绝与正常五幅场景。**178 秒、7 批次、一个 owner/release、5 读回**，仅 RAM overlay；模拟像素只证明传输。
+> - 冻结流仍只有 **5 buffer 上传、7 stream / 2 indices、1 bound / 2 UP / 1 IndexedUP、1 Reset/Clear、5 buffer + 1 缓存声明销毁**；空操作没有额外上传/绘制包，逐字核对状态日志及原始顶点/索引。**86 项语义破坏**全部拒绝。SwiftShader/Metal 各验证 **5 图像、320 实际像素，零误差/零图形错误**，真实 owner 释放前设备/资源表为空。
+> - **完整客体 287 suites**、核心相关 **46 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 通过，继承 4I9 完整核心238/六次 GPU。发布准确最终 XP DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j12-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J12.json`。
+> - 后续转入可链接的 D3D9 客体核心与 D3D8 包装迁移；完整零售输入矩阵、完整用户声明反推、硬件 stream 未对齐、任意线程/回调/丢失/完整 Reset/格式/MSAA/全屏/多缓冲、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
