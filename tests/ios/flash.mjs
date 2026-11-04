@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { V86 } from "../../src/main.js";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
-import { NAND_PAGE } from "../../src/apple/nand.js";
+import { NAND_BLOCKS, NAND_BLOCK_PAGES, NAND_PAGE } from "../../src/apple/nand.js";
 
 const dir = process.argv[2];
 if(!dir) throw new Error("usage: flash.mjs extracted-10B329-directory");
@@ -41,6 +41,12 @@ try
             original(offset, value);
         };
     }
+    const factoryReads = new Set();
+    const nand = cpu.devices.apple_nand, readPage = nand.read.bind(nand);
+    nand.read = (bus, ce, row, done, fail) => {
+        if(row === (NAND_BLOCKS - 1) * NAND_BLOCK_PAGES) factoryReads.add(bus + ":" + ce);
+        readPage(bus, ce, row, done, fail);
+    };
     const end = performance.now() + 120000;
     cpu.clock.resume();
     // IOFlashStorage prints the rejected fourcc most significant byte
@@ -67,6 +73,7 @@ try
     }
     if(partition)
     {
+        assert.deepEqual([...factoryReads].sort(), ["0:0", "0:1", "1:0", "1:1"]);
         assert.ok(serial.includes("read valid partition table") && serial.includes("published partition 4") &&
             serial.includes("VSVFL Register  [OK]") && serial.includes("VFL_Open            [OK]") && serial.includes("AppleNANDLegacyFTL located at physical nand block offset 15"), serial.slice(-2500));
         console.log("PASS: 10B329 accepted the physical partition map and LegacyFTL opened VSVFL and registered YAFTL from the generated NAND");

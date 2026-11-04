@@ -25,7 +25,9 @@ export function configure_nand_tree(tree)
     for(let bus = 0; bus < 2; bus++)
         for(let ce = 0; ce < 2; ce++) ids.set([0xEC, 0xD7, 0x94, 0x72], 8 * (16 * bus + ce));
     dt_set(flash, "dbg-chipids", ids);
-    const properties = { "#ce": 4, "#databus": 2, "ce-bitmap": 0x30003, "#ce-blocks": NAND_BLOCKS,
+    // dbg-chipids reserves sixteen IDs per bus, but AppleIOPFMI uses eight
+    // bits per bus in ce-bitmap when enumerating its logical chips.
+    const properties = { "#ce": 4, "#databus": 2, "ce-bitmap": 0x303, "#ce-blocks": NAND_BLOCKS,
         "#block-pages": NAND_BLOCK_PAGES, "#page-bytes": NAND_DATA, "#spare-bytes": NAND_SPARE, "#die-ce": 1,
         "logical-page-size": 4096, "meta-per-logical-page": 12, "valid-meta-per-logical-page": 12,
         "ecc-correctable": 8, "ecc-threshold": 8, "block-bits": 13, "page-bits": 7,
