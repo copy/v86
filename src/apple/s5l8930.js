@@ -9,10 +9,12 @@ import { AppleTimer } from "./timer.js";
 import { AppleUART } from "./uart.js";
 import { AppleVIC } from "./vic.js";
 
+const auxiliary_uarts = ["apple_uart1", "apple_uart2", "apple_uart3", "apple_uart4", "apple_uart5", "apple_uart6"];
+
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand",
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts,
 ];
 
 export function create_n90_devices(cpu, bus, screen, buffer)
@@ -43,6 +45,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
         apple_dart2: new AppleRegisterWindow(cpu, "dart2", 0x89D00000, 0x2000),
         apple_sgx: new AppleRegisterWindow(cpu, "sgx", 0x85100000, 0x1000),
     };
+    auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
     if(nand) devices.apple_nand = nand;
     return devices;
 }

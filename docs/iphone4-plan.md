@@ -616,6 +616,8 @@ CI 只跑 eslint、构建与 `make ci-tests`：不依赖苹果文件的 `make io
 VIC1 的向量 `0x8000002a`，随后到 CLCD+0x102c 查询状态。+0x1028 是掩码，状态位写一清除；
 完成中断时先写所属 VIC，再写 VIC0。PMU 寄存器 0x66、0x67 和 0x68 控制背光 DAC 和使能。
 
+**S4 辅助串口，2026-11-05。** 原版 UserEventAgent 打开电量计的 UART5 时，AppleSamsungSerial 在读取控制寄存器（物理地址 0x82a00004）时触发内核异常。现为设备树中六个辅助串口提供各自的控制、FIFO 状态与波特率寄存器，启动控制台仍用 UART0。用已有启动快照重放时，已观察到 UART5 多轮真实控制读写，系统随后开始读取 PMU 的 ADC 通道。电量计外设的串行应答和 ADC 采样仍待验证。
+
 **N90 面板识别，2026-11-05。** 恢复设备树在 `/arm-io/mipi-dsim/lcd` 留下为零的 `lcd-panel-id`。在该值为零的对照运行中，ApplePinotLCD 的启动方法返回失败，AppleCLCD 对象已出现在 IORegistry 但没有可打开的主显示器。backboardd 对显示列表的断言抛出 `NSInternalInconsistencyException: No window server display found`，随后被 launchd 重启。
 
 直接引导现在为缺失或全零的面板标识填写模拟值 1，保留设备树原有的非零值。这个值选择 Pinot 一类面板，不代表某块量产屏的厂商编号。仅替换这个字段时，10B329 的同一方法返回成功，串口报告面板标识 1、类别 1，并进入此前未到达的 AppleCLCD 抖动配置阶段。`tests/ios/boot.mjs <固件目录> --wait-root --display` 同时检查两项驱动日志、画面和快照。完整系统中，原版 IOMobileFramebufferGetMainDisplay 从返回 0xe00002c0 和空引用变为返回 0 和有效引用。未替换入口的 backboardd 执行 CAWindowServer 的 addDisplay: 后再次读取显示列表，越过了原先的断言。

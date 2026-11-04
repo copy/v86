@@ -1,20 +1,20 @@
-// N90AP /arm-io/uart0 ("uart-1,samsung", IRQ 22), the boot console.
+// N90AP Samsung UARTs 0–6. Port zero is the boot console.
 // UTXH completes synchronously on the serial bus. UTRSTAT and UFSTAT
 // describe the same RX queue in polling mode and FIFO mode.
 export class AppleUART
 {
-    constructor(cpu, bus)
+    constructor(cpu, bus, port = 0)
     {
-        this.bus = bus;
+        this.bus = port === 0 ? bus : null;
         this.regs = new Uint32Array(16);
         this.rx = [];
         this.reset();
-        cpu.io.register_mmio(0x82500000, 0x1000, {
-            name: "uart0",
+        cpu.io.register_mmio(0x82500000 + port * 0x100000, 0x1000, {
+            name: "uart" + port,
             read: offset => this.read(offset),
             write: (offset, width, value) => this.write(offset, Number(value)),
         });
-        bus.register("serial0-input", byte => { if(this.rx.length < 16) this.rx.push(byte & 255); }, this);
+        if(this.bus) this.bus.register("serial0-input", byte => { if(this.rx.length < 16) this.rx.push(byte & 255); }, this);
     }
 
     reset()
@@ -36,7 +36,7 @@ export class AppleUART
 
     write(offset, value)
     {
-        if(offset === 0x20) this.bus.send("serial0-output-byte", value & 255);
+        if(offset === 0x20) this.bus?.send("serial0-output-byte", value & 255);
         else if(offset === 8)
         {
             if(value & 2) this.rx.length = 0;

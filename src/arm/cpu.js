@@ -1302,7 +1302,11 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
     if(state[95]) this.clock.set_state(state[95]);
     state[2].forEach((saved, core) => this.each_core(() => this.load_core_state(saved, core), core));
     if(!this.parallel) this.wm.exports["a64_switch_core"](state[3] || 0);
-    (state[4] || []).forEach((device_state, i) => { if(device_state && this.devices[DEVICE_ORDER[i]]) this.devices[DEVICE_ORDER[i]].set_state(device_state); });
+    const device_states = state[4] || [];
+    device_states.forEach((device_state, i) => { if(device_state && this.devices[DEVICE_ORDER[i]]) this.devices[DEVICE_ORDER[i]].set_state(device_state); });
+    // Devices appended since this snapshot start in their reset state,
+    // including when restoring over a machine that has already used them.
+    for(const name of DEVICE_ORDER.slice(device_states.length)) this.devices[name]?.reset?.();
     if(state[5]) this.machine_state_bytes(0).set(state[5]);
     if(state[6]) { this.machine_state_bytes(1).set(state[6]); this.wm.exports["a64_psci_restored"](); }
     if(state[7]) [this.booted, this.boot_entry, this.boot_x0] = state[7];

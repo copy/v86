@@ -25,6 +25,24 @@ assert.equal(uart.read(0x10), 7);
 assert.equal(uart.read(0x24), 90);
 assert.equal(uart.read(0x10), 6);
 
+// The native gas-gauge client opens uart5 and reads UCON. All six
+// auxiliary ports expose independent registers, without a console peer.
+for(let port = 1; port <= 6; port++)
+{
+    const device = new AppleUART(cpu, bus, port);
+    const aux = ports.get(0x82500000 + port * 0x100000);
+    aux.write(4, 4, port);
+    aux.write(0x20, 1, 0x7f);
+    assert.equal(aux.read(0x10), 6);
+    const state = device.get_state();
+    device.reset();
+    assert.equal(aux.read(4), 0);
+    device.set_state(state);
+    assert.equal(aux.read(4), port);
+}
+assert.equal(uart.read(4), 0);
+assert.deepEqual(output, [65]);
+
 intc.write(0x10, 4, 1 << 6);
 intc.write(0x118, 4, 0xABC);
 pmgr.write(0x2008, 4, 48000);
