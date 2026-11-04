@@ -120,8 +120,9 @@ export function block_failed(owner, operation, start, length, error, retry, repo
  * @param {number} length
  * @param {function(!Uint8Array)} callback
  * @param {function(!Error)} on_error
+ * @param {boolean=} speculative
  */
-export function block_read(owner, start, length, callback, on_error)
+export function block_read(owner, start, length, callback, on_error, speculative = false)
 {
     const id = owner.last_io_id++;
     const attempt = () =>
@@ -144,6 +145,7 @@ export function block_read(owner, start, length, callback, on_error)
                 dbg_assert(removed);
                 if(error || !data)
                 {
+                    if(speculative) { on_error(error || new Error("read-ahead returned no data")); return; }
                     block_failed(owner, "read", start, length, error || new Error("the disk image returned no data"),
                         attempt, on_error, () => {});
                     return;
@@ -154,7 +156,8 @@ export function block_read(owner, start, length, callback, on_error)
         catch(error)
         {
             complete();
-            owner.in_progress.delete(id);
+            const pending = owner.in_progress.delete(id);
+            if(speculative && pending) { on_error(error); return; }
             throw error;
         }
     };
@@ -384,6 +387,9 @@ export function BlockBackend(cpu, buffer)
 }
 
 BlockBackend.prototype.read = function(start, length, callback, on_error) { block_read(this, start, length, callback, on_error); };
+// Failed speculative bytes must not stop the machine. The controller retries
+// the actual requested range through read(), with its normal error policy.
+BlockBackend.prototype.read_ahead = function(start, length, callback, miss) { block_read(this, start, length, callback, miss, true); };
 /**
  * @param {number} start
  * @param {!Uint8Array} data

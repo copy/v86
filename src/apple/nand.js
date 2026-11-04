@@ -9,6 +9,7 @@ export const NAND_DATA = 8192, NAND_SPARE = 436, NAND_PAGE = NAND_DATA + NAND_SP
 export const NAND_SLOT = Math.ceil(NAND_PAGE / 512) * 512;
 export const NAND_BLOCK_PAGES = 128, NAND_BLOCKS = 0x1038, NAND_ROWS = NAND_BLOCK_PAGES * NAND_BLOCKS;
 export const NAND_BYTES = 4 * NAND_ROWS * NAND_SLOT;
+const READ_SPAN = 16 * NAND_SLOT;
 
 export function nand_offset(bus, ce, row)
 {
@@ -52,17 +53,46 @@ export class AppleNAND
         if(buffer.byteLength !== NAND_BYTES) throw new Error("N90 NAND image size must be " + NAND_BYTES);
         this.buffer = buffer;
         this.backend = new BlockBackend(cpu, buffer);
+        this.read_cache = new Array(4).fill(null);
     }
 
     read(bus, ce, row, done, fail)
     {
         const offset = nand_offset(bus, ce, row);
         if(offset < 0) { fail(new Error("NAND page outside medium")); return; }
-        this.backend.read(offset, NAND_SLOT, bytes => {
-            if(bytes.length !== NAND_SLOT) { fail(new Error("short NAND page")); return; }
+        const chip = bus * 2 + ce, start = offset - offset % READ_SPAN, at = offset - start;
+        const deliver = bytes => {
+            if(bytes.length < NAND_SLOT) { fail(new Error("short NAND page")); return; }
             const page = new Uint8Array(NAND_PAGE);
             for(let i = 0; i < page.length; i++) page[i] = ~bytes[i];
             done(page);
+        };
+        // A native scattered read streams adjacent rows from all four
+        // chips. Keep just one raw range per chip, outside the snapshot.
+        const hit = this.read_cache[chip];
+        if(hit?.start === start && hit.bytes && at + NAND_SLOT <= hit.bytes.length)
+        {
+            deliver(hit.bytes.subarray(at));
+            return;
+        }
+        const entry = { start, bytes: null };
+        this.read_cache[chip] = entry;
+        const exact = () => this.backend.read(offset, NAND_SLOT, deliver, fail);
+        this.backend.read_ahead(start, READ_SPAN, bytes => {
+            if(at + NAND_SLOT > bytes.length) { exact(); return; }
+            entry.bytes = new Uint8Array(bytes);
+            deliver(entry.bytes.subarray(at));
+        }, exact);
+    }
+
+    write(bus, ce, offset, bytes, done, fail)
+    {
+        const chip = bus * 2 + ce;
+        this.read_cache[chip] = null;
+        this.backend.write(offset, bytes, () => {
+            // An overlapping read may have populated a range during the write.
+            this.read_cache[chip] = null;
+            done();
         }, fail);
     }
 
@@ -76,7 +106,7 @@ export class AppleNAND
             if(old.length !== NAND_SLOT) { fail(new Error("short NAND page")); return; }
             const slot = new Uint8Array(old);
             for(let i = 0; i < page.length; i++) slot[i] |= ~page[i];
-            this.backend.write(offset, slot, done, fail);
+            this.write(bus, ce, offset, slot, done, fail);
         }, fail);
     }
 
@@ -84,10 +114,10 @@ export class AppleNAND
     {
         const offset = nand_offset(bus, ce, row - row % NAND_BLOCK_PAGES);
         if(!Number.isInteger(row) || row < 0 || offset < 0) { fail(new Error("invalid NAND erase")); return; }
-        this.backend.write(offset, new Uint8Array(NAND_BLOCK_PAGES * NAND_SLOT), done, fail);
+        this.write(bus, ce, offset, new Uint8Array(NAND_BLOCK_PAGES * NAND_SLOT), done, fail);
     }
 
-    reset() { this.backend.reset(); }
+    reset() { this.read_cache.fill(null); this.backend.reset(); }
     get_state() { return [this.buffer]; }
     set_state(state) { this.reset(); restore_disk_state(this.buffer, state[0]); }
 }

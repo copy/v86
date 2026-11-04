@@ -109,3 +109,48 @@ await new Promise((ok, fail) => medium.erase(0, 0, 127, ok, fail));
 assert.ok((await read(127)).every(b => b === 255));
 assert.equal((await read(128))[0], 0xAC);
 console.log("PASS: NAND programs clear bits, block erase restores them and preserves the next block");
+
+// Failed speculative neighbours must not trigger the disk's stop policy
+// when the requested page itself can be read.
+let reads = 0;
+const rangeDisk = {
+    byteLength: NAND_BYTES, disk_error: "stop",
+    get(at, length, done) { reads++; done(block.subarray(at, at + length)); },
+};
+const rangeCPU = {}, rangeMedium = new AppleNAND(rangeCPU, rangeDisk);
+const rangeRead = row => new Promise((ok, fail) => rangeMedium.read(0, 0, row, ok, fail));
+await rangeRead(1);
+await rangeRead(2);
+assert.equal(reads, 1, "adjacent pages share one host read");
+rangeMedium.reset();
+rangeDisk.get = (at, length, done) => {
+    reads++;
+    if(length > NAND_SLOT) done(undefined, new Error("unavailable neighbour"));
+    else done(block.subarray(at, at + length));
+};
+assert.deepEqual(await rangeRead(2), await read(2));
+assert.equal(reads, 3);
+assert.ok(!rangeCPU.disk_holds?.length);
+console.log("PASS: bounded NAND read-ahead, reset and exact-page fallback before disk error policy");
+
+// A read which started before a program can complete afterwards. Its
+// private result must not displace the newly programmed range.
+const delayed = [], raw = new Uint8Array(16 * NAND_SLOT);
+const racingMedium = new AppleNAND({}, {
+    byteLength: NAND_BYTES,
+    get(at, n, done) {
+        const bytes = raw.slice(at, at + n);
+        if(n > NAND_SLOT) delayed.push(() => done(bytes)); else done(bytes);
+    },
+    set(at, bytes, done) { raw.set(bytes, at); done(); },
+});
+const racingRead = () => new Promise((ok, fail) => racingMedium.read(0, 0, 0, ok, fail));
+const oldPage = racingRead();
+await new Promise((ok, fail) => racingMedium.program(0, 0, 0, page, ok, fail));
+const newPage = racingRead();
+delayed.pop()();
+delayed.pop()();
+assert.equal((await oldPage)[0], 0xFF);
+assert.equal((await newPage)[0], page[0]);
+assert.equal((await racingRead())[0], page[0]);
+console.log("PASS: late pre-program read cannot replace the new NAND range");
