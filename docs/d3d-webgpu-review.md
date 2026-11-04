@@ -2194,6 +2194,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **完整客体 287 suites**、核心相关 **46 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 通过，继承 4I9 完整核心238/六次 GPU。发布准确最终 XP DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j12-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J12.json`。
 > - 后续转入可链接的 D3D9 客体核心与 D3D8 包装迁移；完整零售输入矩阵、完整用户声明反推、硬件 stream 未对齐、任意线程/回调/丢失/完整 Reset/格式/MSAA/全屏/多缓冲、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4K1（2026-11-04）：可静态链接的 D3D9 客体核心与真实模块共存验收完成。**
+> - build.sh 新增 `--static` / `--static-diagnostic`，将同一 D3D9 实现与20个共用 runtime object 打成 **21-member archive**。私有 factory/module 入口使用独立 stdcall 名称，静态模式不包含普通 D3D9 兼容/loader 导出；前端继续拥有自己的 DllMain 和导出表。边界头只前向声明 D3D9 接口，D3D8 SDK 可直接包含；未来适配方法在独立 D3D9 编译单元实现。私有诊断使用 `d3d9_core_trace_%lu.log`，避免覆盖普通 D3D9 日志。普通 DLL 的 API 实现及导出保持。
+> - 新构建检查同时验证 retail/diagnostic archive 的21个唯一成员、带参数字节数的私有符号、无普通 loader/兼容符号、只导出一个 factory 的严格消费 DLL、仅 GDI32/KERNEL32/USER32 导入以及 D3D8 头文件共存；旧实际 D3D9 源文件构建 archive 后，因缺少私有 ABI 被 artifact 断言拒绝（构建级负对照，不算来宾运行变异）。先前完整生命周期图与 ASAN/UBSAN 继续通过。
+> - XP 通过真实 loader 加载最小私有消费 DLL 与普通 D3D9.DLL。私有 DLL **加载/卸载各两次**，普通设备跨两次私有卸载持续绘制；**3 factory / 3 device、6 次 factory/parent 身份检查、准确最终零引用**。**115 秒、9 批次、一个 owner/release、5 读回**，仅 RAM overlay。冻结流要求三个 HELLO 使用同一 session，六个 device/cache-declaration 句柄全局唯一，三个设备/声明按0→2→1显式销毁，最后仅一个 SessionEnd；没有提前关闭仍在使用的 owner。
+> - **58 项语义破坏**全部拒绝。SwiftShader/Metal 各验证 **5 图像、320 实际像素，零误差/零图形错误**；额外在执行 SessionEnd 之前断言 device/resource 表已空，随后再处理真实 driver owner release，避免兜底清理掩盖遗漏。XP 模拟像素只证明传输，两个 GPU 使用独立颜色预期。
+> - 初次静态模式沿用纯 runtime 的 freestanding/no-builtin 参数，导致 Win32 SDK 内存宏生成 CRT 外部符号；改为与已验证客体 DLL 一致的 frontend 编译参数，保留 CRT-free 链接/import 检查。构建检查适配新版 objdump 的 ordinal/+base/hint 导出表格式。**完整客体 288 suites**、核心相关 **47 suites**、14 标准 D3D9 EXE、retail/diagnostic DLL、两个静态 archive/严格消费 DLL、自定义 SDK、站点集成 2 项与两侧零新增 lint 通过，继承 4I9 完整核心238/六次 GPU。发布准确最终 XP retail DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/翻译器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4k1-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4K1.json`。
+> - 这是 D3D8 包装迁移的编译/加载基础。D3D8 factory/device/resource 真正委托、caps/PP/state/CopyRects/句柄和身份映射、完整零售输入/Reset/loss/线程/格式/MSAA/全屏/多缓冲、HAL/游戏/FPS及阶段4/5/6仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
