@@ -2434,6 +2434,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 首次完整客体 **342通过/四个旧夹具失败**：协议测试直接找原头文件内常量，caps夹具没引入共用限值，声明变异的临时头文件缺新include路径。修正夹具并重跑四项后 **346项汇总全通过**；协议映射检查改为编译执行实际C映射，保留caps16/声明9个严格运行变异。核心 **72项首次完整通过**；32标准EXE、四严格DLL、21-member核心/SDK8 ABI、站点集成2项、两侧本任务零新增lint通过。发布最终XP接受的准确8/9零售DLL和严格diagnostic，见 [stage4k26-validation.json](fixtures/d3d-review/stage4k26-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K26.json`。
 > - 宿主/协议/着色器/DDraw/包 `9335ee9a77fb7cc808d2` 未变，继承4I9完整核心238/六GPU基线。继续复制/着色器句柄转换、原始8状态适配及完整公开8设备/资源包装；原生pool/FVF/depth-Usage/pitch、RT纹理/立方体读回、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
 
+> **阶段 4K27（2026-11-04）：UpdateTexture 原生池规则收敛及私有核心8复制入口完成。**
+>
+> - 固定 Wine blob `1764980c089b2dc8d1eab36312fea856c3e59d5f` 的 `test_update_texture_pool`：2D/volume只有SYSTEMMEM→DEFAULT成功，其他组合必须INVALIDCALL且目标像素不变；同时核对实际8包装和wined3d实现。发现公开8三个复制路径均缺此检查。新增共用 `d9wg_texture_copy_pools()`，公开8和普通9三类路径统一使用，修复8拒绝规则并保留9语义；cube按同一BaseTexture契约和既有9规则扩展，不把Wine的2D/volume用例称作独立原生cube HAL证明。
+> - 新私有 `d9wg_d3d9_core_update_texture8@12` 验证NULL/profile，再调用实际9 UpdateTexture；类型/父设备/格式、全部mip/面/体积预检、分配、CPU镜像和上传继续复用核心实现。不是完整公开8设备/资源包装，也不把2D/cube/volume新复制内核重复实现一遍。
+> - 原生 **221,186组合/663,614检查**，公开8/普通9/核心8各73,728，加两个边界守卫；SDK池枚举、全类型/池含坏元数据/NULL/父设备/格式组合、精确extent/指针/status、输入位保持及实际旧普通9oracle通过。实际旧8 **420次非法池分派**被新规则拦截，包含故障注入和构造器不会发布的坏pool元数据，未把它们称作420次原生API成功。**17严格运行变异、三个实际2a43549旧8函数反例、两组ASAN**通过。初始“source别名”变异产生unused参数而被严格编译拒绝；改为保留参数引用的错误实参顺序，未降低警告标准或算作检出。
+> - 保留实际8/9共用复制内核各 **42组** mip选择/截断/无源mip安全no-op/六面stride/late-invalid/OOM-before-copy/上传失败前缀用例，并让两版都检查非法source pool。保留 **25个复制变异**加强为明确拒绝编译失败及要求带数字行号的实际C断言。使用同一复制内核验证，未放宽失败分类。
+> - **XP首轮109秒/10批次通过**：准确4K26旧8/当前公开8/普通9/核心8 SDK120/220共五设备/五Reset、**480纹理/490句柄/240池组合/640个本地DWORD**，cube全部六面。旧DLL实际复现 **45次错误成功并改写目标**；其余四profile各拒绝45组，共 **180次拒绝且目标保持不变**，各三组合法复制成功。最终模块实际卸载、单owner/session/end/释放、Hello[0,0,3]、finalRefs=0、能力0/RAM overlay通过。无绘制/读回/注入CPU回复，未宣称新增GPU采样正确性。
+> - 独立操作模型精确核对 **1440次四字节上传**：旧8有384次，四个当前profile各264次；拒绝的调用无额外上传。**6205项语义损坏**均检出；初始遗漏volume-create reserved校验导致对应损坏存活，补充reserved=0断言，保留初始失败日志，未删变异。SwiftShader/Metal分别重放**保留的多mip复制夹具**，各 **84帧/252个采样点**字节误差0；42纹理/598上传/84UP/84Present/84真GPU读回、两session结束及零错误。旧浏览器只检查三个采样点/帧，未把它写成整幅64×64像素覆盖或本次池探针的新像素。
+> - **348客体/73核心完整通过**；核心首次启动脚本与生成并行导致文件尚未存在，未运行任何测试，保留启动日志，实际首次执行73项全通过。32标准EXE/四严格DLL/21-member核心/SDK8新ABI、站点集成2项及两侧本任务零新增lint通过。发布最终XP接受的准确8/9零售DLL及严格diagnostic，见 [stage4k27-validation.json](fixtures/d3d-review/stage4k27-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K27.json`。
+> - 宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 未变，继承4I9完整核心238/六GPU基线。继续表面复制/前缓冲/着色器句柄转换和公开8对象包装；原生pool/FVF/depth-Usage/pitch的其他缺口、RT纹理/立方体读回、全flag/格式/过滤/MSAA/窗口/丢失/线程、数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

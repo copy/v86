@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "eventCounts": [
+    576,
+    456,
+    456,
+    456,
+    456
+  ],
+  "poolCasesPerMode": 48,
+  "allowedNativePair": {
+    "source": 2,
+    "destination": 0
+  },
+  "sourceWord": 287454020,
+  "destinationWord": 1144201745,
+  "scope": "Native8/9 UpdateTexture pool validation,private8@12 usesactual9 copy. Actual4K26old8 reproduces45wrong-pool successes;currentpublic8/ordinary9/core8SDK120/220 reject180badpairs,accept12nativevalidpairs. Five devices/fiveReset/480textures/1440uploads,240poolcases/640localDWORD checks includingallcube faces,oneowner/session/end/release. NoGPUdraw/readback/injection/newpixelclaim;retainedmulti-mip-copy CPU/GPU regressions separate."
+}
