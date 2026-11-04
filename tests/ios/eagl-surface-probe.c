@@ -118,6 +118,15 @@ int n90_surface_pixels(void *cls, void *first, void *second)
         }
     step = 9;
     if(!paint_cpu(surface, 37) || !attach(second, 0xde1, other) || !check_cpu(37)) goto done;
+#ifdef N90_CHECK_DRAW
+    extern int n90_triangle_pixels(void);
+    extern int getpid(void);
+    extern void syslog(int, const char *, ...);
+    // Render through the first context's shared kernel renderbuffer.
+    if(!bind(cls, first)) goto done;
+    int draw_step = n90_triangle_pixels();
+    syslog(5, "V86 shader triangle pid %d step %d", getpid(), draw_step);
+#endif
     step = 0;
 done:
     if(bind(cls, second))

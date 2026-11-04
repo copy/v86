@@ -312,6 +312,7 @@ static void delete_##kind(struct context *c, int n, unsigned *names) \
 OBJECT_NAMES(Textures, 0x0de1)
 OBJECT_NAMES(Renderbuffers, 0x8d41)
 OBJECT_NAMES(Framebuffers, 0)
+OBJECT_NAMES(Buffers, 0)
 #undef OBJECT_NAMES
 
 static void read_rgba(struct context *ctx, int x, int y, int w, int h, unsigned format, unsigned type, void *pixels)
@@ -349,5 +350,7 @@ static void install_surface_functions(driver_word *table)
     table[N90_glDeleteRenderbuffers - 5] = (driver_word)delete_Renderbuffers;
     table[N90_glGenFramebuffers - 5] = (driver_word)gen_Framebuffers;
     table[N90_glDeleteFramebuffers - 5] = (driver_word)delete_Framebuffers;
+    table[N90_glGenBuffers - 5] = (driver_word)gen_Buffers;
+    table[N90_glDeleteBuffers - 5] = (driver_word)delete_Buffers;
     table[N90_glReadPixels - 5] = (driver_word)read_rgba;
 }

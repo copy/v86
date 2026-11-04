@@ -6,8 +6,8 @@ out=${1:?usage: build-gles.sh output-directory}
 src=$(dirname "$0")
 case "${2:-}" in
     "") test "$#" -eq 1; host_contexts= ;;
-    --host-contexts|--check-host-contexts|--check-host-surfaces|--check-host-window) test "$#" -eq 3; host_contexts=$2; cache=$3 ;;
-    *) echo "usage: build-gles.sh out [--host-contexts|--check-host-contexts|--check-host-surfaces|--check-host-window cache-armv7]" >&2; exit 2 ;;
+    --host-contexts|--check-host-contexts|--check-host-surfaces|--check-host-window|--check-host-draw) test "$#" -eq 3; host_contexts=$2; cache=$3 ;;
+    *) echo "usage: build-gles.sh out [--host-contexts|--check-host-contexts|--check-host-surfaces|--check-host-window|--check-host-draw cache-armv7]" >&2; exit 2 ;;
 esac
 mkdir -p "$out"
 stub() {
@@ -39,8 +39,14 @@ if [ -n "$host_contexts" ]; then
     surface_flag=
     if [ "$host_contexts" != "--host-contexts" ]; then
         if [ "$host_contexts" != "--check-host-contexts" ]; then
-            stub OpenGLES /System/Library/Frameworks/OpenGLES.framework/OpenGLES '_glGenFramebuffers, _glGenTextures, _glGenRenderbuffers, _glDeleteFramebuffers, _glDeleteTextures, _glDeleteRenderbuffers, _glBindFramebuffer, _glBindTexture, _glBindRenderbuffer, _glFramebufferRenderbuffer, _glFramebufferTexture2D, _glCheckFramebufferStatus, _glGetError, _glClearColor, _glClear, _glEnable, _glDisable, _glScissor, _glReadPixels, _kEAGLDrawablePropertyRetainedBacking'
-            compile -c "$src/../../../tests/ios/eagl-surface-probe.c" -o "$out/surface-check.o"
+            stub OpenGLES /System/Library/Frameworks/OpenGLES.framework/OpenGLES '_glGenFramebuffers, _glGenTextures, _glGenRenderbuffers, _glDeleteFramebuffers, _glDeleteTextures, _glDeleteRenderbuffers, _glBindFramebuffer, _glBindTexture, _glBindRenderbuffer, _glFramebufferRenderbuffer, _glFramebufferTexture2D, _glCheckFramebufferStatus, _glGetError, _glClearColor, _glClear, _glEnable, _glDisable, _glScissor, _glReadPixels, _kEAGLDrawablePropertyRetainedBacking, _glCreateShader, _glCreateProgram, _glShaderSource, _glCompileShader, _glAttachShader, _glLinkProgram, _glGetAttribLocation, _glUseProgram, _glGenBuffers, _glBindBuffer, _glDeleteBuffers, _glBufferData, _glBufferSubData, _glEnableVertexAttribArray, _glDisableVertexAttribArray, _glVertexAttribPointer, _glDrawArrays, _glViewport, _glDeleteProgram, _glDeleteShader'
+            test_draw=
+            if [ "$host_contexts" = "--check-host-draw" ]; then
+                test_draw=-DN90_CHECK_DRAW
+                compile -c "$src/../../../tests/ios/eagl-draw-probe.c" -o "$out/draw-check.o"
+                set -- "$@" "$out/draw-check.o"
+            fi
+            compile $test_draw -c "$src/../../../tests/ios/eagl-surface-probe.c" -o "$out/surface-check.o"
             set -- "$@" "$out/surface-check.o" -lOpenGLES
             surface_flag=-DN90_CHECK_SURFACES
             if [ "$host_contexts" = "--check-host-window" ]; then
