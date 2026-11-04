@@ -191,9 +191,9 @@ export function check_machine_options(options)
     {
         throw new Error("gles_backdoor must be a boolean, got " + JSON.stringify(options["gles_backdoor"]));
     }
-    if(options["gles_backdoor"] && (cpu_type !== "arm32" || machine_type !== "virt"))
+    if(options["gles_backdoor"] && (cpu_type !== "arm32" || !["virt", "s5l8930"].includes(machine_type)))
     {
-        throw new Error("gles_backdoor is an option of cpu_type \"arm32\" on machine_type \"virt\"");
+        throw new Error("gles_backdoor requires arm32 on virt or s5l8930");
     }
     if(arm !== ARM_MACHINE_TYPES.includes(machine_type))
     {

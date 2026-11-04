@@ -62,6 +62,32 @@ static void number_field(int group, int field)
     put(buf + i);
 }
 
+#ifdef N90_TEST_GLES
+static int gles_call(unsigned operation, const void *buffer, unsigned size, unsigned connection)
+{
+    register unsigned r0 __asm__("r0") = 0x86640000 | operation;
+    register word r1 __asm__("r1") = (word)buffer;
+    register unsigned r2 __asm__("r2") = size;
+    register unsigned r3 __asm__("r3") = connection;
+    __asm__ volatile(".word 0xe7f866f4" : "+r"(r0) : "r"(r1), "r"(r2), "r"(r3) : "memory");
+    return (int)r0;
+}
+
+static int gles_display(void)
+{
+    if(gles_call(0, 0, 0, 0) != 1) return 0;
+    int conn = gles_call(1, "opengles", 8, 0);
+    if(conn <= 0) return 0;
+    // emugl stream flags, then rcGetFBParam(width, height, xdpi).
+    const unsigned stream[] = { 0, 10007, 12, 1, 10007, 12, 2, 10007, 12, 3 };
+    unsigned reply[3] = { 0 };
+    int ok = gles_call(2, stream, sizeof(stream), conn) == sizeof(stream);
+    for(unsigned i = 0; ok && i < 3; i++)
+        ok = gles_call(3, &reply[i], sizeof(reply[i]), conn) == sizeof(reply[i]);
+    return gles_call(5, 0, 0, conn) == 0 && ok && reply[0] == 640 && reply[1] == 960 && reply[2] == 326;
+}
+#endif
+
 __attribute__((noreturn)) void start(void)
 {
     console = call(5, (word)"/dev/console", 2, 0, 0, 0, 0);
@@ -92,6 +118,10 @@ __attribute__((noreturn)) void start(void)
             put("\nhw.ncpu = "); number_field(6, 3);
             put("\nhw.physmem = "); number_field(6, 5); put("\n");
         }
+#ifdef N90_TEST_GLES
+        else if(equal(line, "gles display"))
+            put(gles_display() ? "GLES display 640x960 326 dpi\n" : "GLES display query failed\n");
+#endif
         else if(n) put("commands: uname -a, sysctl hw\n");
     }
 }

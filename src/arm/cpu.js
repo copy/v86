@@ -265,6 +265,7 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(machine_type === "s5l8930")
     {
         this.devices = create_n90_devices(this, device_bus, settings.screen, settings.ios_nand);
+        this.init_gles_backdoor(settings, { "width": N90_VIDEO.width, "height": N90_VIDEO.height, "dpi": 326 });
         this.virtio_devices = [];
         this.shared_spi_sources = new Map();
         this.virtio_transport = "none";
@@ -461,21 +462,7 @@ A64CPU.prototype.init = function(settings, device_bus)
             "qemu.sf.lcd_density": String(display.dpi), "qemu.hw.mainkeys": "0",
         }, settings.ranchu_properties), gles ? (name, wake, ...saved) => gles.device["service"](name, wake, ...saved) : undefined);
     }
-    // arm32's GLES backdoor (gles_backdoor: docs/gles-proxy-plan.md "iOS 传输"):
-    // the GLES host's services for user code, no screen of its own (its
-    // posts are not shown; the test reads its pixels back)
-    if(settings.gles_backdoor && settings.gles_plugin)
-    {
-        this.devices.gles = this.devices.gles || new PluginDevice(/** @type {?} */ (this), GLES_PLUGINS, settings.gles_plugin, -1, {}, {
-            "display": { "width": 800, "height": 600, "dpi": 160 },
-            "renderer": settings.graphics_adapter_renderer || null,
-            "present": () => {},
-            "prepared": settings.gles_prepared || null,
-            "max_version": settings.ranchu_gles_version || "2.0",
-        });
-        const gles = this.devices.gles;
-        this.devices.backdoor = new BackdoorA32(this, (name, wake, ...saved) => gles.device["service"](name, wake, ...saved));
-    }
+    this.init_gles_backdoor(settings, { "width": 800, "height": 600, "dpi": 160 });
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
     /** @type {Object} what the machine boots, loaded again at a reset */
@@ -485,6 +472,23 @@ A64CPU.prototype.init = function(settings, device_bus)
         // (kept: a reset loads them again, P4.6)
         this.boot_files = { kernel: settings.kernel, initrd: settings.initrd, cmdline: settings.cmdline, dtb: settings.dtb, cores };
         this.load_boot_files();
+    }
+};
+
+// The guest library uses the same GLES service and connection snapshots on both ARM boards.
+A64CPU.prototype.init_gles_backdoor = function(settings, display)
+{
+    if(settings.gles_backdoor && settings.gles_plugin)
+    {
+        this.devices.gles = this.devices.gles || new PluginDevice(/** @type {?} */ (this), GLES_PLUGINS, settings.gles_plugin, -1, {}, {
+            "display": display,
+            "renderer": settings.graphics_adapter_renderer || null,
+            "present": () => {},
+            "prepared": settings.gles_prepared || null,
+            "max_version": settings.ranchu_gles_version || "2.0",
+        });
+        const gles = this.devices.gles;
+        this.devices.backdoor = new BackdoorA32(this, (name, wake, ...saved) => gles.device["service"](name, wake, ...saved));
     }
 };
 

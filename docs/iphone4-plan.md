@@ -691,6 +691,8 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/seeded.img --debug-kernel b
 
 QuartzCore 的动态依赖含 OpenGLES、IOSurface、IOMobileFramebuffer。其未定义符号含 EAGLContext、SwapBegin、SwapSetLayer、SwapEnd 和 SwapWait，但符号表没有逐个导入公共 gl 函数。仍须用运行中的合成进程验证实际绘制入口与最终呈现。
 运行 `node tests/ios/gl-dispatch.mjs build/ios/dp/cache-armv7`，测试从用户的共享缓存取出这五个位置无关的 Thumb 函数，并在 v86 的 AArch32 核心上实际执行。测试覆盖空上下文、驱动上下文指针、寄存器及栈上传参、返回值。此项覆盖公共入口的 ABI，上下文创建与合成仍须在系统客体内验证。
+**S5 客体与宿主通信，2026-11-05。** N90 支持显式启用 `gles_backdoor`。用 `sh tools/ios/guest/build-shell.sh build/ios/gles-shell --gles` 构建诊断程序，以 recovery-ramdisk 工具装入本地恢复盘后，运行 `tests/ios/recovery.mjs` 并加 `--gles`。10B329 原版内核中的用户态程序已用真实 UDF 指令探测接口、打开 opengles 服务、发送三个 renderControl 显示参数查询、读回 640×960 和 326 dpi、关闭连接。此测试使用应答检查通道，未提交图形帧。下一项是从客体创建渲染上下文并经真实渲染器核对像素。
+
 
 
 

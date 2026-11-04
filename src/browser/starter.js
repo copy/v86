@@ -1437,7 +1437,7 @@ V86.prototype.continue_init = async function(emulator, options)
                     const node = typeof process !== "undefined" && process.versions && process.versions.node;
                     if(node && !options.gles_glslang_path) glslang = await load_whole_file("gles_glslang_path", "bios/glslang.wasm").catch(() => null);
                     // (GLES 2.0's shaders need no glslang: without it, a GLES 3.x is the error)
-                    if(!glslang && settings.ranchu_gles_version !== "2.0") throw error;
+                    if(!glslang && (settings.ranchu_gles_version || "2.0") !== "2.0") throw error;
                     if(!glslang) console.warn(error.message + ": the GLES host offers GLES 2.0 alone");
                 }
                 if(glslang) settings.gles_prepared = await settings.gles_plugin["prepare"]({ "glslang": glslang });
