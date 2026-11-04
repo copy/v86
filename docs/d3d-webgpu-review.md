@@ -2343,6 +2343,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 完整客体322 suites、核心相关63 suites，32标准EXE、四严格DLL、21-member静态核心及SDK8 consumer、站点集成2项和两侧零新增lint；客体首次回归一项旧变异选择器仍指向已改为包装器的上传函数，改为实际通用函数后重跑通过，其余321项沿用同次通过结果。发布本次XP接受的准确8/9零售DLL及严格diagnostic，证据见 [stage4k17-validation.json](fixtures/d3d-review/stage4k17-validation.json)，站点镜像`glbridge/deployments/d3d-webgpu-review-4K17.json`。
 > - 宿主/协议/翻译器/包`9335ee9a77fb7cc808d2`及DDraw不变；继承4I9完整核心238/六GPU基线。深度/其他格式、完整标志/MSAA/全屏/多缓冲/物理loss/线程、公开8设备与资源包装、数值差分/语料、原生HAL/游戏/FPS及阶段4/5/6继续开放。
 
+> **阶段 4K18（2026-11-04）：SDK8可调用的私有核心独立渲染目标创建适配器。**
+>
+> - 增加`d9wg_d3d9_core_render_target8`，以不混用SDK头的前置声明返回真实核心9表面。保留旧公开8的早期MSAA/可锁MSAA失败不改输出、后期失败清空输出、4096尺寸上限和六格式策略；只接受API8核心设备，向实际核心构造器传质量0及空共享句柄。存储、锁定和引用生命周期复用4K17；普通9和公开8的创建方法不改动。本项为后续资源包装提供入口，未开启公开8设备包装。
+> - 固定实际旧公开8构造方法作对照，执行 **1,264,902检查/421,635组合**，比较结果、输出、锁定发布、尺寸/格式/MSAA/负BOOL、提供方错误和转发参数；**16项严格编译后运行失败变异及一组ASAN**通过。真实SDK8 consumer、SDK8头兼容调用、21-member零售/诊断静态库及私有stdcall `@28`边界检查通过。
+> - 新SDK8 consumer在XP中调用私有入口；混合SDK程序检查13类无效尺寸、格式、采样、可锁MSAA和空输出的失败发布规则，再通过新入口创建独立目标，复用4K17独立定义的46图像契约，继续验证当前8/9/私有核心的区域写回、缓存刷新、归零锁定Reset及清理。旧8对照固定4K17，旧9拒绝对照固定4K16。
+> - 首次XP复用时错误选择4K17作旧9拒绝对照，程序在十幅旧8图像后正确报`FAIL old9 refusal`；保留失败现场，改回实际修复前4K16 DLL后完整重跑，未改生产实现或放宽断言。最终捕获为105秒/54批次、五设备、四成功Reset、十目标、五链、八临时纹理、33协议句柄、46读回；一个owner/session/最终释放，模拟能力0，磁盘仅RAM overlay。CPU回复明确为解析图像注入。
+> - 冻结读取器复用4K17独立字节/目标/次序/生命周期模型，增加私有SDK守卫日志校验，**2,170项语义破坏检测**通过。SwiftShader/Metal各 **46图像/2,944真实像素、零差异/图形错误**；兜底和owner释放前资源表为空。五个无窗口关联的附加呈现链被回放拒绝，本项验证实际纹理存储，不验收附加Present。
+> - 完整客体324 suites、核心相关64 suites、32标准EXE、四严格DLL、21-member静态核心/SDK8 consumer、站点集成2项及两侧零新增lint通过。发布同次XP接受的准确8/9零售DLL及严格diagnostic；见 [stage4k18-validation.json](fixtures/d3d-review/stage4k18-validation.json)，镜像`glbridge/deployments/d3d-webgpu-review-4K18.json`。宿主/协议/翻译器/DDraw/包`9335ee9a77fb7cc808d2`不变，继承4I9完整核心238/六GPU基线。
+> - 继续深度及其余资源/状态/复制适配器和公开8设备包装；完整格式/标志/MSAA/全屏/多缓冲/物理loss/线程、数值差分/语料、原生HAL/游戏/FPS及阶段4/5/6仍开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
