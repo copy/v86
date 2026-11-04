@@ -2122,6 +2122,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新跑 **完整客体 269 suites**、核心相关 **37 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项及两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU。三类 sampler 均已私有化，旧 D3D9 Reset 的“最后 sampler 公共引用折扣”变异相应改为“私有 sampler 错误折扣”，D3D8 原最后槽控制保留。发布准确 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/着色器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j3-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J3.json`。
 > - D3D8、缓冲/声明/着色器/状态块绑定计数、外部子资源存活时设备根状态保持、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
 
+> **阶段 4J4（2026-11-04）：D3D9 VB/IB 私有绑定与 UP 绘制清理（S2-42 / Reset 后续）完成。**
+> - 顶点 stream/索引槽采用私有 binding_refs；多槽共享缓冲不改变公开 COM 计数，公开 0→1/1→0 只转换一个设备 pin。共用 VB/IB 存储销毁先摘除资源链，清理 private data、裁剪记录和像素影子，再最后归还设备。实时替换先发布新槽/属性，再释放旧存储；普通清理、PrimitiveUP 的 stream 0、IndexedUP 的 stream 0/IB 全部使用同一套私有释放规则。
+> - DEFAULT Reset 按公开计数/锁判断，不扣除私有 stream/index 槽；录制/已完成状态块仍保留原公开持有规则。新实际 C **91,904 检查、1,024 pool/最终拥有者组合、16,384 次公开归零恢复**，覆盖三个 VB stream、一个 IB、Getter offset/stride、分别隔离的 VB/IB 公开 Reset 阻塞、UP 解绑和影子/裁剪清理。初始 75,520 检查补上仅 IB 公开引用的 Reset 观察后达到当前数量；**27/27** 严格编译后运行时变异、旧实际方法配新 helpers 的计数负对照及 ASAN/UBSAN 通过，三类纹理和独立目标检查保留。
+> - XP 使用 **3 VB / 2 IB、256 次恢复、256 次 private data 查询**，精确核对设备 pin。公开为零的缓冲通过 **offset=16** 执行索引绘制，局部更新顶点后变蓝；PrimitiveUP 只解绑并销毁 stream 0 的 VB、保留 IB；IndexedUP 解绑并销毁两者。新缓冲的 VB/IB 外部公开引用分别阻止 Reset，仅绑定允许 Reset，之后空槽和清屏读回正确。**129 秒、7 批次、一个 owner/release、5 读回**，仅写 RAM overlay；模拟 XP 像素只作传输。
+> - 冻结流核对 **6 次准确上传、3 次 stream / 2 次 indices 设置、2 次索引绑定绘制、各一次 PrimitiveUP/IndexedUP、1 清屏、5 读回**，包含前缀守卫、局部更新、完整顶点/索引布局以及 UP/Reset 五份准确缓冲销毁；**60 项语义破坏**均拒绝。SwiftShader/Metal 各核对 **5 图像、320 实际像素，零误差/零 GPU 或宿主错误**；真实 owner 释放之前设备/资源表为空。
+> - 新跑 **完整客体 271 suites**、核心相关 **38 suites**、14 个标准 D3D9 EXE、retail/diagnostic DLL、自定义 SDK、站点集成 2 项和两侧零新增 lint 问题，继承 4I9 完整核心 238 suites/六次 GPU。旧 D3D9 Reset 的最后 stream 公共引用折扣变异改为私有缓冲错误折扣控制，D3D8 原控制保留；private-data selectors 跟随真实物理销毁函数。发布准确 XP D3D9 DLL 与严格 diagnostic；D3D8/DDraw、宿主/协议/着色器及包 `9335ee9a77fb7cc808d2` 不变。证据：`docs/fixtures/d3d-review/stage4j4-validation.json`，站点镜像 `glbridge/deployments/d3d-webgpu-review-4J4.json`。
+> - NULL stream 的 offset/stride 零售边界、D3D8、声明/着色器/状态块绑定计数、外部子资源存活时设备根状态保持、任意回调/线程/丢失/完整 Reset/格式/MSAA/全屏/多缓冲/包装转换、原生 HAL、游戏/FPS及阶段 4/5/6 仍未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
