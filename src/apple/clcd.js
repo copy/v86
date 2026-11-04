@@ -11,6 +11,7 @@ export class AppleCLCD
         this.hub = hub;
         this.backlight = 2047;
         this.rgba = new Uint8ClampedArray(N90_VIDEO.stride * N90_VIDEO.height);
+        this.scanout_bytes = null;
         this.shown = new Uint32Array(N90_VIDEO.width * N90_VIDEO.height);
         this.regs = new Uint32Array(0x7000 / 4);
         this.color = new Uint32Array(0x2000 / 4);
@@ -108,6 +109,25 @@ export class AppleCLCD
             this.backlight = level;
             this.invalidate();
         }
+    }
+
+    // Only a full-panel renderControl post is a scanout. Store its top-down
+    // RGBA pixels in the current XRGB window so PMU brightness, VBL and
+    // snapshots follow the same path as frames painted by the guest CPU.
+    present(rgba, width, height)
+    {
+        if(width !== N90_VIDEO.width || height !== N90_VIDEO.height || rgba.length !== this.rgba.length) return;
+        const base = this.regs[0x4044 >>> 2];
+        if((base & 3) || this.cpu.ram_offset(base, rgba.length) < 0) return;
+        const bytes = this.scanout_bytes || (this.scanout_bytes = new Uint8Array(rgba.length));
+        for(let i = 0; i < bytes.length; i += 4)
+        {
+            bytes[i] = rgba[i + 2];
+            bytes[i + 1] = rgba[i + 1];
+            bytes[i + 2] = rgba[i];
+            bytes[i + 3] = 0;
+        }
+        this.cpu.write_blob_physical(bytes, base);
     }
 
     render()

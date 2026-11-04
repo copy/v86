@@ -265,7 +265,8 @@ A64CPU.prototype.init = function(settings, device_bus)
     if(machine_type === "s5l8930")
     {
         this.devices = create_n90_devices(this, device_bus, settings.screen, settings.ios_nand);
-        this.init_gles_backdoor(settings, { "width": N90_VIDEO.width, "height": N90_VIDEO.height, "dpi": 326 });
+        this.init_gles_backdoor(settings, { "width": N90_VIDEO.width, "height": N90_VIDEO.height, "dpi": 326 },
+            (rgba, width, height) => this.devices.apple_clcd.present(rgba, width, height));
         this.virtio_devices = [];
         this.shared_spi_sources = new Map();
         this.virtio_transport = "none";
@@ -462,7 +463,7 @@ A64CPU.prototype.init = function(settings, device_bus)
             "qemu.sf.lcd_density": String(display.dpi), "qemu.hw.mainkeys": "0",
         }, settings.ranchu_properties), gles ? (name, wake, ...saved) => gles.device["service"](name, wake, ...saved) : undefined);
     }
-    this.init_gles_backdoor(settings, { "width": 800, "height": 600, "dpi": 160 });
+    this.init_gles_backdoor(settings, { "width": 800, "height": 600, "dpi": 160 }, () => {});
     // the boot core starts at the kernel (P4.6: the device tree in x0, P4.2)
     this.booted = false;
     /** @type {Object} what the machine boots, loaded again at a reset */
@@ -476,14 +477,14 @@ A64CPU.prototype.init = function(settings, device_bus)
 };
 
 // The guest library uses the same GLES service and connection snapshots on both ARM boards.
-A64CPU.prototype.init_gles_backdoor = function(settings, display)
+A64CPU.prototype.init_gles_backdoor = function(settings, display, present)
 {
     if(settings.gles_backdoor && settings.gles_plugin)
     {
         this.devices.gles = this.devices.gles || new PluginDevice(/** @type {?} */ (this), GLES_PLUGINS, settings.gles_plugin, -1, {}, {
             "display": display,
             "renderer": settings.graphics_adapter_renderer || null,
-            "present": () => {},
+            "present": present,
             "prepared": settings.gles_prepared || null,
             "max_version": settings.ranchu_gles_version || "2.0",
         });

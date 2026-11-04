@@ -12,7 +12,11 @@ static int call(int number, word a, word b, word c, word d, word e, word f)
     register word r4 __asm__("r4") = e;
     register word r5 __asm__("r5") = f;
     register int r12 __asm__("r12") = number;
-    __asm__ volatile("svc #0x80\n\trsbcs r0, r0, #0"
+    __asm__ volatile("svc #0x80\n\t"
+#ifdef __thumb__
+        "it cs\n\t"
+#endif
+        "rsbcs r0, r0, #0"
         : "+r"(r0), "+r"(r1)
         : "r"(r2), "r"(r3), "r"(r4), "r"(r5), "r"(r12) : "cc", "memory");
     return (int)r0;
@@ -63,32 +67,58 @@ static void number_field(int group, int field)
 }
 
 #ifdef N90_TEST_GLES
-static int gles_call(unsigned operation, const void *buffer, unsigned size, unsigned connection)
-{
-    register unsigned r0 __asm__("r0") = 0x86640000 | operation;
-    register word r1 __asm__("r1") = (word)buffer;
-    register unsigned r2 __asm__("r2") = size;
-    register unsigned r3 __asm__("r3") = connection;
-    __asm__ volatile(".word 0xe7f866f4" : "+r"(r0) : "r"(r1), "r"(r2), "r"(r3) : "memory");
-    return (int)r0;
-}
+#include "gles-transport.h"
 
 static int gles_display(void)
 {
-    if(gles_call(0, 0, 0, 0) != 1) return 0;
-    int conn = gles_call(1, "opengles", 8, 0);
-    if(conn <= 0) return 0;
-    // emugl stream flags, then rcGetFBParam(width, height, xdpi).
-    const unsigned stream[] = { 0, 10007, 12, 1, 10007, 12, 2, 10007, 12, 3 };
-    unsigned reply[3] = { 0 };
-    int ok = gles_call(2, stream, sizeof(stream), conn) == sizeof(stream);
+    int conn = gles_open();
+    if(conn < 0) return 0;
+    unsigned reply[3];
+    int ok = 1;
     for(unsigned i = 0; ok && i < 3; i++)
-        ok = gles_call(3, &reply[i], sizeof(reply[i]), conn) == sizeof(reply[i]);
+        ok = SEND(conn, rc_rcGetFBParam, i + 1) && gles_read(conn, &reply[i], 4);
     return gles_call(5, 0, 0, conn) == 0 && ok && reply[0] == 640 && reply[1] == 960 && reply[2] == 326;
+}
+
+static int gles_pattern(int conn)
+{
+    unsigned ctx, surface, buffer, result;
+    if(!SEND(conn, rc_rcCreateContext, 3, 0, 2) || !gles_read(conn, &ctx, 4) || !ctx ||
+        !SEND(conn, rc_rcCreateWindowSurface, 3, 640, 960) || !gles_read(conn, &surface, 4) || !surface ||
+        !SEND(conn, rc_rcCreateColorBuffer, 640, 960, 0x1908) || !gles_read(conn, &buffer, 4) || !buffer ||
+        !SEND(conn, rc_rcSetWindowColorBuffer, surface, buffer) ||
+        !SEND(conn, rc_rcMakeCurrent, ctx, surface, surface) || !gles_read(conn, &result, 4) || result != 1)
+        return 0;
+    const unsigned one = 0x3f800000; // IEEE float 1.0
+    unsigned char pixels[8 * 8 * 4];
+    if(!SEND(conn, gles2_glClearColor, 0, one, 0, one) || !SEND(conn, gles2_glClear, 0x4000) ||
+        !SEND(conn, gles2_glEnable, 0x0c11) || !SEND(conn, gles2_glScissor, 0, 0, 2, 2) ||
+        !SEND(conn, gles2_glClearColor, one, 0, 0, one) || !SEND(conn, gles2_glClear, 0x4000) ||
+        !SEND(conn, rc_rcFlushWindowColorBuffer, surface) || !gles_read(conn, &result, 4) || result != 0 ||
+        !SEND(conn, rc_rcFBPost, buffer) ||
+        !SEND(conn, rc_rcReadColorBuffer, buffer, 0, 952, 8, 8, 0x1908, 0x1401, sizeof(pixels)) ||
+        !gles_read(conn, pixels, sizeof(pixels)))
+        return 0;
+    for(unsigned i = 0; i < 64; i++)
+    {
+        const int red = i / 8 >= 6 && i % 8 < 2;
+        if(pixels[4 * i] != (red ? 255 : 0) || pixels[4 * i + 1] != (red ? 0 : 255) ||
+            pixels[4 * i + 2] != 0 || pixels[4 * i + 3] != 255) return 0;
+    }
+    return 1;
 }
 #endif
 
+#ifdef __thumb__
+// LC_UNIXTHREAD starts this SDK-free executable in ARM state on iOS 6.
+__attribute__((target("arm"), naked, noreturn)) void start(void)
+{
+    __asm__ volatile("ldr r12, =_recovery_main\n\tbx r12");
+}
+__attribute__((used, noreturn)) static void recovery_main(void)
+#else
 __attribute__((noreturn)) void start(void)
+#endif
 {
     console = call(5, (word)"/dev/console", 2, 0, 0, 0, 0);
     if(console < 0) console = 1;
@@ -121,6 +151,13 @@ __attribute__((noreturn)) void start(void)
 #ifdef N90_TEST_GLES
         else if(equal(line, "gles display"))
             put(gles_display() ? "GLES display 640x960 326 dpi\n" : "GLES display query failed\n");
+        else if(equal(line, "gles frame"))
+        {
+            int conn = gles_open();
+            int ok = conn > 0 && gles_pattern(conn);
+            if(conn > 0) gles_call(5, 0, 0, conn);
+            put(ok ? "GLES frame matched 64 pixels\n" : "GLES frame failed\n");
+        }
 #endif
         else if(n) put("commands: uname -a, sysctl hw\n");
     }

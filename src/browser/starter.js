@@ -132,7 +132,7 @@ V86.prototype.create_adapter_renderer = async function(options, host)
     // compositor of its own takes over the screen canvas, as the proxy's
     // does, so that a posted frame is a layer over the screen and is not read
     // back, docs/gles-proxy-plan.md E5; the 2D canvas again if it cannot start)
-    if(!compositor && this.gles_host) compositor = await this.gles_screen_compositor();
+    if(!compositor && this.gles_host && this.machine_type !== "s5l8930") compositor = await this.gles_screen_compositor();
     const layer = compositor ? compositor["createLayer"]("display adapter") : null;
     const renderer_options = layer ? { "canvas": layer["canvas"], "executorOptions": { "host": layer["host"] }, "scanoutLayer": layer } : {};
     if(host)
