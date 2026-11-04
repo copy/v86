@@ -156,6 +156,7 @@ const controllerCPU = {
     io: { register_mmio() {} }, mem8: memory,
     ram_offset: (a, n) => a >= 0 && a + n <= memory.length ? a : -1,
     write_blob_physical: (bytes, a) => memory.set(bytes, a),
+    read_blob_physical: (a, n) => memory.subarray(a, a + n),
 };
 const channelDMA = new AppleCDMA(controllerCPU, (n, level) => received.push([n, level]));
 let completeRead;
@@ -204,3 +205,64 @@ flashPort.reset();
 completeRead(Uint8Array.of(99));
 assert.equal(flashPort.read(0x1044), 0, "stale read cannot complete after reset");
 console.log("PASS: NAND row/column, async completion, both CDMA request orders and reset during read");
+
+// The firmware sends data and spare bytes via separate scatterlists, then
+// confirms the program and polls for completion before sampling status.
+let programmed = null, finishProgram, erasedRow;
+media.program = (bus, ce, row, page, done) => {
+    assert.deepEqual([bus, ce, row], [0, 0, 0x10203]);
+    programmed = page;
+    finishProgram = done;
+};
+media.erase = (bus, ce, row, done) => { erasedRow = row; done(); };
+flashPort.reset();
+flashPort.write(0x100C, 1);
+flashPort.write(0x1018, 0x02030002);
+flashPort.write(0x101C, 1);
+flashPort.write(0x1014, 0x80);
+flashPort.write(0x1010, 9);
+assert.equal(flashPort.read(0x1044), 9);
+flashPort.write(0x1044, 9);
+arm();
+flashPort.write(4, 5);
+channelDMA.write(0x6008, 0x81200018);
+channelDMA.write(0x600C, 4);
+channelDMA.write(0x6014, 0x100);
+channelDMA.write(0x6000, 9);
+flashPort.write(0x1014, 0x1000);
+flashPort.write(0x1010, 2);
+assert.deepEqual(Array.from(programmed.subarray(0, 6)), [255, 255, 11, 22, 33, 44]);
+assert.deepEqual(Array.from(programmed.subarray(8192, 8196)), [11, 22, 33, 44]);
+assert.equal(flashPort.read(0x1044), 0);
+finishProgram();
+assert.equal(flashPort.read(0x1044), 2);
+flashPort.write(0x1044, 2);
+flashPort.write(0x1018, 0x10200);
+flashPort.write(0x1014, 0xD060);
+flashPort.write(0x1010, 11);
+assert.equal(erasedRow, 0x10200);
+assert.equal(flashPort.read(0x1044), 11);
+console.log("PASS: NAND program payload, spare DMA, confirm, asynchronous completion and block erase");
+
+// A page can end halfway through a descriptor. Restoring at that point
+// must resume at the saved byte and interrupt only after the final page.
+descriptor.setUint32(0x100, 0x120, true);
+descriptor.setUint32(0x104, 3, true);
+descriptor.setUint32(0x10C, 6, true);
+descriptor.setUint32(0x124, 0x103, true);
+descriptor.setUint32(0x128, 0x220, true);
+descriptor.setUint32(0x12C, 2, true);
+channelDMA.write(0x500C, 8);
+channelDMA.write(0x5014, 0x100);
+channelDMA.write(0x5000, 9);
+const port = 0x81200014;
+channelDMA.transfer(port, Uint8Array.of(1, 2, 3, 4), true);
+assert.equal(channelDMA.read(0x500C), 4);
+assert.equal(channelDMA.read(0x5000), 9);
+const dmaState = channelDMA.get_state();
+channelDMA.reset();
+channelDMA.set_state(dmaState);
+channelDMA.transfer(port, Uint8Array.of(5, 6, 7, 8), true);
+assert.equal(channelDMA.read(0x5000), 0x80008);
+assert.deepEqual([...memory.subarray(0x200, 0x206), ...memory.subarray(0x220, 0x222)], [1, 2, 3, 4, 5, 6, 7, 8]);
+console.log("PASS: CDMA burst resumes inside a scatterlist descriptor after snapshot restore");

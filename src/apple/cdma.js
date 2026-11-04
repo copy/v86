@@ -10,6 +10,7 @@ export class AppleCDMA
         this.ports = new Map();
         this.enabled = new Uint32Array(2);
         this.channel = new Uint32Array(38 * 8);
+        this.progress = new Map();
         this.aes = new Uint32Array(0x9000 / 4);
         cpu.io.register_mmio(0x87800000, 0x9000, {
             name: "cdma-aes",
@@ -39,6 +40,7 @@ export class AppleCDMA
             const n = offset >>> 12, reg = offset & 4095;
             if(n && reg === 0)
             {
+                if(value === 2 || (value & 1)) this.progress.delete(n);
                 if(value === 2) this.channel.fill(0, n * 8, n * 8 + 8);
                 else if(value & 1) this.channel[n * 8] = value & 0xFFFF;
                 else this.channel[n * 8] &= ~(value & 0x1C0000);
@@ -49,53 +51,85 @@ export class AppleCDMA
         }
     }
 
-    // A peripheral read request moves exactly the channel byte count.
-    // Validate the entire chain before exposing any bytes in shared DRAM.
-    receive(port, source)
+    // Validate the whole descriptor chain before exposing the first page.
+    // The N90 IOP arms a single CDMA list for as many as sixteen FMI reads.
+    descriptors(i)
     {
-        let transferred = false;
-        for(let n = 1; n < 38; n++)
+        const count = this.channel[i + 3], segments = [], visited = new Set();
+        let descriptor = this.channel[i + 5], total = 0;
+        while(total < count && !visited.has(descriptor) && visited.size < 4096)
         {
-            const i = n * 8, control = this.channel[i];
-            if(!(control & 1) || this.channel[i + 2] !== port) continue;
-            const count = this.channel[i + 3];
-            let descriptor = this.channel[i + 5], used = 0;
-            const destinations = [], visited = new Set();
-            while(used < count && count <= source.length && !visited.has(descriptor) && visited.size < 32)
-            {
-                const at = this.cpu.ram_offset(descriptor, 16);
-                if(at < 0 || (descriptor & 3)) break;
-                visited.add(descriptor);
-                const d = new DataView(this.cpu.mem8.buffer, this.cpu.mem8.byteOffset + at, 16);
-                const flags = d.getUint32(4, true), addr = d.getUint32(8, true), size = d.getUint32(12, true);
-                if((control & 0xF00) && (flags & 3) === 2)
-                {
-                    // Per-segment IV descriptor. The N90 raw-media path
-                    // currently stores logical bytes before NAND encryption.
-                    descriptor = d.getUint32(0, true);
-                    continue;
-                }
-                if((flags & 1) === 0 || !size || size > count - used || this.cpu.ram_offset(addr, size) < 0) break;
-                destinations.push([addr, used, size]);
-                used += size;
-                descriptor = d.getUint32(0, true);
-                if(flags & 0x100) break;
-            }
-            if(used === count && count)
-            {
-                for(const [addr, off, size] of destinations)
-                    this.cpu.write_blob_physical(source.subarray(off, off + size), addr);
-                this.channel[i + 3] = 0;
-                this.channel[i] = (control & ~1) | 0x80000;
-            }
-            else this.channel[i] = (control & ~1) | 0x40000;
-            this.signal(n, true);
-            transferred = true;
+            const at = this.cpu.ram_offset(descriptor, 16);
+            if(at < 0 || (descriptor & 3)) break;
+            visited.add(descriptor);
+            const d = new DataView(this.cpu.mem8.buffer, this.cpu.mem8.byteOffset + at, 16);
+            const flags = d.getUint32(4, true), addr = d.getUint32(8, true), size = d.getUint32(12, true);
+            descriptor = d.getUint32(0, true);
+            // The raw medium currently stores bytes before NAND encryption.
+            if((this.channel[i] & 0xF00) && (flags & 3) === 2) continue;
+            if(!(flags & 1) || !size || size > count - total || this.cpu.ram_offset(addr, size) < 0) break;
+            segments.push([addr, size]);
+            total += size;
+            if(flags & 0x100) break;
         }
-        return transferred;
+        return total && total === count ? segments : null;
     }
 
-    reset() { this.enabled.fill(0); this.channel.fill(0); this.aes.fill(0); }
-    get_state() { return [this.enabled.slice(), this.channel.slice(), this.aes.slice()]; }
-    set_state(state) { this.enabled.set(state[0]); this.channel.set(state[1]); this.aes.set(state[2]); }
+    transfer(port, bytes, to_ram)
+    {
+        let result = 0;
+        for(let n = 1; n < 38; n++)
+        {
+            const i = n * 8;
+            if(!(this.channel[i] & 1) || this.channel[i + 2] !== port) continue;
+            let position = this.progress.get(n);
+            if(!position)
+            {
+                const segments = this.descriptors(i);
+                if(!segments)
+                {
+                    this.channel[i] = (this.channel[i] & ~1) | 0x40000;
+                    this.signal(n, true);
+                    result = -1;
+                    continue;
+                }
+                position = [segments, 0, 0];
+                this.progress.set(n, position);
+            }
+            const segments = position[0];
+            let used = 0;
+            while(used < bytes.length && position[1] < segments.length)
+            {
+                const [addr, size] = segments[position[1]];
+                const offset = position[2], length = Math.min(size - offset, bytes.length - used);
+                const part = bytes.subarray(used, used + length);
+                if(to_ram) this.cpu.write_blob_physical(part, addr + offset);
+                else part.set(this.cpu.read_blob_physical(addr + offset, length));
+                used += length;
+                position[2] += length;
+                if(position[2] === size) { position[1]++; position[2] = 0; }
+            }
+            this.channel[i + 3] -= used;
+            if(!this.channel[i + 3])
+            {
+                this.progress.delete(n);
+                this.channel[i] = (this.channel[i] & ~1) | 0x80000;
+                this.signal(n, true);
+            }
+            if(!result) result = 1;
+        }
+        return result;
+    }
+
+    reset() { this.enabled.fill(0); this.channel.fill(0); this.aes.fill(0); this.progress.clear(); }
+    get_state()
+    {
+        return [this.enabled.slice(), this.channel.slice(), this.aes.slice(),
+            Array.from(this.progress, ([n, pos]) => [n, pos.slice()])];
+    }
+    set_state(state)
+    {
+        this.enabled.set(state[0]); this.channel.set(state[1]); this.aes.set(state[2]);
+        this.progress = new Map((state[3] || []).map(([n, pos]) => [n, pos.slice()]));
+    }
 }

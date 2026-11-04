@@ -66,6 +66,27 @@ export class AppleNAND
         }, fail);
     }
 
+    program(bus, ce, row, page, done, fail)
+    {
+        const offset = nand_offset(bus, ce, row);
+        if(offset < 0 || page.length !== NAND_PAGE) { fail(new Error("invalid NAND program")); return; }
+        // Physical programming only clears bits. The file stores their
+        // complement, so reprogramming an existing page ORs its slot.
+        this.backend.read(offset, NAND_SLOT, old => {
+            if(old.length !== NAND_SLOT) { fail(new Error("short NAND page")); return; }
+            const slot = new Uint8Array(old);
+            for(let i = 0; i < page.length; i++) slot[i] |= ~page[i];
+            this.backend.write(offset, slot, done, fail);
+        }, fail);
+    }
+
+    erase(bus, ce, row, done, fail)
+    {
+        const offset = nand_offset(bus, ce, row - row % NAND_BLOCK_PAGES);
+        if(!Number.isInteger(row) || row < 0 || offset < 0) { fail(new Error("invalid NAND erase")); return; }
+        this.backend.write(offset, new Uint8Array(NAND_BLOCK_PAGES * NAND_SLOT), done, fail);
+    }
+
     reset() { this.backend.reset(); }
     get_state() { return [this.buffer]; }
     set_state(state) { this.reset(); restore_disk_state(this.buffer, state[0]); }

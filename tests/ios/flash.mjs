@@ -13,7 +13,8 @@ const dir = process.argv[2];
 if(!dir) throw new Error("usage: flash.mjs extracted-10B329-directory");
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "v86-n90-page-"));
 const disk = path.join(temporary, "test.img"), pageFile = path.join(temporary, "page.bin");
-const partition = process.argv.includes("--partition");
+const formatted = process.argv.includes("--format");
+const partition = formatted || process.argv.includes("--partition");
 let emulator;
 try
 {
@@ -21,7 +22,7 @@ try
     page.write("4N90");
     fs.writeFileSync(pageFile, page);
     execFileSync(process.execPath, [fileURLToPath(new URL("../../tools/ios/nand_build.mjs", import.meta.url)),
-        ...(partition ? ["bootstrap", disk] : ["blank", disk, "0:0:0:" + pageFile])]);
+        ...(partition ? [formatted ? "format" : "bootstrap", disk] : ["blank", disk, "0:0:0:" + pageFile])]);
     emulator = new V86({ machine_type: "s5l8930", graphics_adapter: "none", autostart: false, log_level: 0,
         wasm_path: fileURLToPath(new URL("../../build/v86-arm64.wasm", import.meta.url)),
         ios: { kernelcache: { url: path.resolve(dir, "kernelcache.n90.macho") },
@@ -51,7 +52,7 @@ try
     cpu.clock.resume();
     // IOFlashStorage prints the rejected fourcc most significant byte
     // first, proving the IOP, H2FMI, CDMA and AP partition parser agree.
-    const marker = partition ? "YAFTL Register  [OK]" : "bad magic - 09N4";
+    const marker = formatted ? "_publishServices:" : partition ? "YAFTL Register  [OK]" : "bad magic - 09N4";
     while(!serial.includes(marker) && !serial.includes("panic(cpu") && performance.now() < end)
     {
         for(let i = 0; i < 24; i++) cpu.run_cores();
@@ -60,6 +61,11 @@ try
     assert.ok(iop.running && read && serial.includes(marker) && !serial.includes("panic(cpu"), serial.slice(-2000));
     assert.equal(iop.regs[0x114 >>> 2], 0x40000);
     assert.equal(cpu.wm.exports.a64_current_core(), 0);
+    if(formatted)
+    {
+        assert.ok(serial.includes("FTL_Open            [OK]") && !serial.includes("Performing full NAND R/O restore"));
+        console.log("PASS: 10B329 opened the clean YAFTL checkpoint and published flash storage services");
+    }
     if(process.argv.includes("--snapshot"))
     {
         const snapshot = await emulator.save_state();

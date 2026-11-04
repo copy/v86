@@ -1,13 +1,13 @@
 // S4 physical medium. Page dumps are data followed by OOB. The sparse
 // output initially contains only the explicitly supplied physical pages.
-//   nand_build.mjs blank|bootstrap new.img [bus:ce:row:page.bin ...]
-import { write_bootstrap_pages } from "./nand_layout.mjs";
+//   nand_build.mjs blank|bootstrap|format new.img [bus:ce:row:page.bin ...]
+import { write_bootstrap_pages, write_ftl_pages } from "./nand_layout.mjs";
 import fs from "node:fs";
 import path from "node:path";
 import { NAND_BYTES, NAND_PAGE, NAND_SLOT, nand_offset } from "../../src/apple/nand.js";
 
 const [command, output, ...pages] = process.argv.slice(2);
-if(!["blank", "bootstrap"].includes(command) || !output) throw new Error("usage: nand_build.mjs blank|bootstrap new.img [bus:ce:row:page.bin ...]");
+if(!["blank", "bootstrap", "format"].includes(command) || !output) throw new Error("usage: nand_build.mjs blank|bootstrap|format new.img [bus:ce:row:page.bin ...]");
 const dir = fs.mkdtempSync(path.join(path.dirname(path.resolve(output)), ".n90-nand-"));
 const temporary = path.join(dir, "image");
 const written = new Set();
@@ -27,7 +27,8 @@ try
             while(done < slot.length) done += fs.writeSync(fd, slot, done, slot.length - done, at + done);
             written.add(at);
         };
-        if(command === "bootstrap") write_bootstrap_pages(put);
+        if(command !== "blank") write_bootstrap_pages(put);
+        if(command === "format") write_ftl_pages(put);
         for(const arg of pages)
         {
             const m = /^(\d+):(\d+):(\d+):(.+)$/.exec(arg);

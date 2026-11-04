@@ -16,6 +16,8 @@ export class AppleH2FMI
         this.epoch = 0;
         this.page = null;
         this.column = 0;
+        this.program = null;
+        this.program_address = null;
         this.fail = false;
         this.erased = true;
         this.requests = 0;
@@ -55,6 +57,8 @@ export class AppleH2FMI
         this.id_offset = this.column = 0;
         this.page = null;
         this.requests = 0;
+        this.program = null;
+        this.program_address = null;
         this.erased = true;
         this.fail = false;
         this.update_irq();
@@ -65,12 +69,41 @@ export class AppleH2FMI
         this.signal(!!(this.regs[4] & this.read(0xC)));
     }
 
+    chip()
+    {
+        const mask = this.regs[0x100C >>> 2];
+        return 31 - Math.clz32(mask & -mask);
+    }
+
+    row()
+    {
+        return (this.regs[0x1018 >>> 2] >>> 16) + ((this.regs[0x101C >>> 2] & 255) << 16);
+    }
+
+    commit(run, erase)
+    {
+        const ce = this.chip(), epoch = ++this.epoch;
+        const finish = failed => {
+            if(epoch !== this.epoch) return;
+            this.fail = failed;
+            this.regs[0x1044 >>> 2] |= run & 15;
+            this.update_irq();
+        };
+        const page = this.program, address = this.program_address;
+        this.program = this.program_address = null;
+        if(!this.nand || !this.chips.has(ce)) finish(true);
+        else if(erase)
+            this.nand.erase(this.bus, ce, this.regs[0x1018 >>> 2] & 0xFFFFFF, () => finish(false), () => finish(true));
+        else if(page && address && ce === address[0] && !this.requests && !this.fail)
+            this.nand.program(this.bus, ce, address[1], page, () => finish(false), () => finish(true));
+        else finish(true);
+    }
+
     load_page(run)
     {
-        const address = this.regs[0x1018 >>> 2], row = (address >>> 16) + ((this.regs[0x101C >>> 2] & 255) << 16);
-        const mask = this.regs[0x100C >>> 2], ce = 31 - Math.clz32(mask & -mask);
+        const address = this.regs[0x1018 >>> 2], row = this.row(), ce = this.chip();
         const epoch = ++this.epoch;
-        this.page = null;
+        this.page = this.program = this.program_address = null;
         this.requests = 0;
         this.fail = false;
         this.column = address & 65535;
@@ -90,9 +123,19 @@ export class AppleH2FMI
     drain(bit)
     {
         if(!(this.requests & bit)) return;
-        const page = this.page || ERASED, meta = bit === 2;
-        const source = meta ? page.subarray(NAND_DATA) : page.subarray(this.column, NAND_DATA);
-        if(this.dma.receive(this.base + (meta ? 0x18 : 0x14), source)) this.requests &= ~bit;
+        const page = this.program || this.page || ERASED, meta = bit === 2;
+        const source = meta ? page.subarray(NAND_DATA, NAND_DATA + 12) : page.subarray(this.column, NAND_DATA);
+        const result = this.dma.transfer(this.base + (meta ? 0x18 : 0x14), source, !this.program);
+        if(result)
+        {
+            if(result < 0) this.fail = true;
+            this.requests &= ~bit;
+            if(this.program && !this.requests)
+            {
+                this.regs[3] |= 2;
+                this.update_irq();
+            }
+        }
     }
 
     data_word()
@@ -133,6 +176,21 @@ export class AppleH2FMI
         if(offset === 0x1010)
         {
             const command = this.regs[0x1014 >>> 2];
+            if(command === 0x80)
+            {
+                this.epoch++;
+                this.program = ERASED.slice();
+                this.program_address = [this.chip(), this.row()];
+                this.column = this.regs[0x1018 >>> 2] & 65535;
+                this.requests = 0;
+                this.fail = false;
+                this.regs[0x1044 >>> 2] |= value & 15;
+            }
+            if(value && (command === 0xD060 || command === 0x1000))
+            {
+                this.commit(value, command === 0xD060);
+                return;
+            }
             if(command === 0x3000)
             {
                 this.load_page(value);
@@ -149,6 +207,12 @@ export class AppleH2FMI
                 this.regs[0x1044 >>> 2] |= value & 15;
             }
         }
+        if(offset === 4 && value === 5 && this.program && this.dma)
+        {
+            this.requests = 3;
+            this.drain(1);
+            this.drain(2);
+        }
         if(offset === 4 && value === 3 && [0, 0x70, 0xF1, 0xF2, 0x90, 0x3000].includes(this.regs[0x1014 >>> 2]))
         {
             if(this.dma && [0, 0x3000].includes(this.regs[0x1014 >>> 2]))
@@ -162,7 +226,7 @@ export class AppleH2FMI
         this.update_irq();
     }
 
-    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests]; }
+    get_state() { return [this.regs.slice(), this.id_offset, Array.from(this.chips), this.page?.slice() || null, this.column, this.fail, this.requests, this.program?.slice() || null, this.program_address?.slice() || null]; }
     set_state(state)
     {
         this.epoch++;
@@ -174,6 +238,8 @@ export class AppleH2FMI
         this.column = state[4] || 0;
         this.fail = !!state[5];
         this.requests = state[6] || 0;
+        this.program = state[7] || null;
+        this.program_address = state[8] || null;
         this.update_irq();
     }
 }

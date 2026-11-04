@@ -65,6 +65,22 @@ for(let i = 0; i < whitening.length; i++)
     whitening[i] = seed;
 }
 
+function spare(page, row, first, second, type)
+{
+    for(const offset of [NAND_DATA, NAND_DATA + 12])
+    {
+        page.writeUInt32LE(first, offset);
+        page.writeUInt32LE(second, offset + 4);
+        page[offset + 8] = 0;
+        page[offset + 9] = type;
+        for(let i = 0; i < 3; i++)
+        {
+            const at = offset + i * 4;
+            page.writeUInt32LE((page.readUInt32LE(at) ^ whitening[(row + i) & 255]) >>> 0, at);
+        }
+    }
+}
+
 function context_page(row)
 {
     const page = Buffer.alloc(NAND_PAGE, 255);
@@ -89,18 +105,7 @@ function context_page(row)
     }
     page.writeUInt32LE(sum, 0x7F8);
     page.writeUInt32LE(xor, 0x7FC);
-    for(const offset of [NAND_DATA, NAND_DATA + 12])
-    {
-        page.writeUInt32LE(0xFFFFFFFE, offset);
-        page.writeUInt16LE(0, offset + 4);
-        page[offset + 8] = 0;
-        page[offset + 9] = 0x80;       // VFL metadata
-        for(let i = 0; i < 3; i++)
-        {
-            const at = offset + i * 4;
-            page.writeUInt32LE((page.readUInt32LE(at) ^ whitening[(row + i) & 255]) >>> 0, at);
-        }
-    }
+    spare(page, row, 0xFFFFFFFE, 0xFFFF0000, 0x80);
     return page;
 }
 
@@ -129,5 +134,54 @@ export function write_bootstrap_pages(put)
         const context = context_page(contextRow);
         for(let bus = 0; bus < 2; bus++)
             for(let ce = 0; ce < 2; ce++) put(bus, ce, contextRow, context);
+    }
+}
+
+// A clean YAFTL checkpoint. Virtual pages stripe across both controllers
+// before advancing to the next chip select and then to the next row.
+export function write_ftl_pages(put)
+{
+    const blocks = 4000, pagesPerBlock = 4 * NAND_BLOCK_PAGES;
+    const entriesPerPage = NAND_DATA / 4;
+    const userPages = pagesPerBlock - Math.ceil(pagesPerBlock / entriesPerPage);
+    const indexBlocks = 3 * Math.ceil((blocks - 8) / entriesPerPage);
+    const totalPages = (blocks - 8) * userPages - indexBlocks * pagesPerBlock;
+    const control = blocks - 3, userBlock = 22, indexBlock = 23;
+    // Header, two block TOCs, statistics, index-page directory, block
+    // states, read counts, two erase-count pages and two valid-page counts.
+    for(let part = 0; part < 11; part++)
+    {
+        const page = Buffer.alloc(NAND_PAGE, 255);
+        const row = control * NAND_BLOCK_PAGES + (part >>> 2);
+        if(part === 0)
+        {
+            page.fill(0, 0, NAND_DATA);
+            page.write("CX01");
+            page.writeUInt32LE(indexBlocks, 4);
+            page.writeUInt32LE(totalPages, 8);
+            page.writeUInt32LE(userBlock, 12);
+            page.writeUInt32LE(1, 16);
+            page.writeUInt32LE(indexBlock, 20);
+            page.writeUInt32LE(1, 24);
+            page.writeUInt32LE(1, 36);
+            page.writeUInt32LE(1, 40);
+            page.writeUInt32LE(10, 44);
+            page.writeUInt16LE(Math.ceil(blocks * pagesPerBlock / entriesPerPage), 0x5C);
+            page.writeUInt16LE(pagesPerBlock - userPages, 0x5E);
+            page.writeUInt16LE(entriesPerPage, 0x60);
+            page.writeUInt16LE(userPages, 0x64);
+            page[0x94] = 99;
+        }
+        else if(part === 5)
+        {
+            page.fill(2, 0, 19);
+            page[userBlock] = 1;
+            page[indexBlock] = 0x40;
+            page[control] = 0x10;
+            page[control + 1] = page[control + 2] = 2;
+        }
+        else if(part === 3 || part >= 6) page.fill(0, 0, NAND_DATA);
+        spare(page, row, 0, 1, 0x20);
+        put(part & 1, (part >>> 1) & 1, row, page);
     }
 }
