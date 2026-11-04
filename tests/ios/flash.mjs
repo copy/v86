@@ -45,7 +45,7 @@ try
     cpu.clock.resume();
     // IOFlashStorage prints the rejected fourcc most significant byte
     // first, proving the IOP, H2FMI, CDMA and AP partition parser agree.
-    const marker = partition ? "VFL Init            [OK]" : "bad magic - 09N4";
+    const marker = partition ? "YAFTL Register  [OK]" : "bad magic - 09N4";
     while(!serial.includes(marker) && !serial.includes("panic(cpu") && performance.now() < end)
     {
         for(let i = 0; i < 24; i++) cpu.run_cores();
@@ -68,8 +68,8 @@ try
     if(partition)
     {
         assert.ok(serial.includes("read valid partition table") && serial.includes("published partition 4") &&
-            serial.includes("VSVFL Register  [OK]") && serial.includes("AppleNANDLegacyFTL located at physical nand block offset 15"), serial.slice(-2500));
-        console.log("PASS: 10B329 accepted the physical partition map and LegacyFTL initialized VSVFL from the factory records");
+            serial.includes("VSVFL Register  [OK]") && serial.includes("VFL_Open            [OK]") && serial.includes("AppleNANDLegacyFTL located at physical nand block offset 15"), serial.slice(-2500));
+        console.log("PASS: 10B329 accepted the physical partition map and LegacyFTL opened VSVFL and registered YAFTL from the generated NAND");
     }
     else console.log("PASS: 10B329 IOP read the image and CDMA delivered its page marker to the guest partition parser");
 }

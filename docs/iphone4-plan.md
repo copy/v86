@@ -637,7 +637,7 @@ NAND READ（0x3000）。已支持擦除态和已写页读回，已接入稀疏�
 - `node tests/ios/flash.mjs build/ios/10B329 --partition` 使用 `nand_build.mjs bootstrap`。
   物理页 0、1 含 10B329 接受的 Grdn 分区表。客体识别 Boot Block、Effaceable、NVRAM、Firmware 和 Filesystem，
   发布第 4 个分区，AppleNANDLegacyFTL 从物理块偏移 15 启动并通过 FIL、BUF、FPart 初始化。
-  这些偏移是模拟器的布局。每颗芯片末块含 DEVICEINFOBBT，第一颗另含 NANDDRIVERSIGN。原版内核读出 0x43313131，报告 VSVFL Register 和 VFL Init 均为 OK。尚需验证 VFL Open、YAFTL 映射、逻辑系统与数据卷以及数据保护内容。
+  这些偏移是模拟器的布局。每颗芯片末块含 DEVICEINFOBBT，第一颗另含 NANDDRIVERSIGN。原版内核读出 0x43313131，报告 VSVFL Register 和 VFL Init 均为 OK。四颗芯片的第 15 块各含 8 份 VSVFL 上下文，spare 按物理行号 whitening；原版驱动扫描环形目录后报告 VFL_Open [OK]。上下文选择 FTL 类型 2 后，原版驱动报告 YAFTL Register [OK]。独立读回测试覆盖四个物理槽。当前固件读轨迹只观察到 FMI0 的两个片选，仍需核对跨控制器寻址。空的 YAFTL 控制块触发只读全盘恢复，尚需建立 YAFTL 映射、逻辑系统与数据卷以及数据保护内容。
 
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。
