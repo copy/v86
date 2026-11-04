@@ -2404,6 +2404,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 32标准EXE/四严格DLL/21-member静态核心及SDK8 ABI、站点集成2项和本任务两侧零新增lint通过。发布同次XP接受的准确零售8/9及严格diagnostic。完整客体337和核心69回归结果写入 [stage4k23-validation.json](fixtures/d3d-review/stage4k23-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K23.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续体积/VB/IB与状态/复制/包装适配；颜色/CPU原生行距、全部flag/格式/MSAA/窗口/丢失/线程、数值差分与阶段4/5/6仍开放。
 >
 
+> **阶段 4K24（2026-11-04）：SDK8 私有体积纹理、32字节体积描述及分层视图适配。**
+>
+> - 新增 `d9wg_d3d9_core_volume_texture8@36`、`d9wg_d3d9_core_volume_desc8@12`。共用构造保留8版2048/格式/usage/池/层级和失败输出规则，普通9保留既有创建策略及shadow失败后仍尝试view分配的次序。8版层级视图继续按需创建，9版继续构造时创建；查询的缓存身份、共享父引用、失败原子性和两版本非法level输出规则均保留。普通3D CPU锁定/逐切片上传按设备版本取格式，支持8专有65并保留8版子盒块对齐规则。
+> - 真实SDK预处理确认 `D3DVOLUME_DESC8` 为32字节、9版为28字节；私有转换在word4插入Size，采用格式行距×行数×depth的32位溢出守卫，完整暂存后才写出。保留代理原有Usage透传；官方9文档把Usage记为0，此处仅做接口迁移与布局转换，未把该透传当作原生语义正确性。
+> - 实际旧8/9构造/命令对照 **2,945,283组合/14,845,695检查、59,646个mip比较**；普通9支持谓词在两边使用相同受控provider，不替代全格式原生对照。真实box锁定/上传 **169,128组/447,186检查**，独立计算行距、切片间距、子盒源偏移/首尾切片、只读和上传失败清理；描述 **26,433组/79,297检查** 使用真实SDK布局及128位大小计算；视图 **320组/1,298检查** 覆盖按需分配失败、缓存身份和父引用。**33严格运行期变异、三个实际4K23旧入口反例、四组ASAN**通过，保留普通9体积绑定及14个严格运行期变异也通过。
+> - 首次探针构建把体积接口宏误写成LockRect/UnlockRect，严格编译已拒绝，尚未启动VM；修正为LockBox/UnlockBox后，**首轮XP VM 117秒/40批次**通过。准确4K23旧公开8、当前公开8、普通9、核心8 SDK120/220，五设备/五Reset/九体积纹理/三声明/22句柄、**56上传/30采样绘制/30读回**。四8版模式检查65的两级CPU零存储、位保持、RowPitch/SlicePitch/Size及52次非法调用；普通9拒绝65。全部模式检查21的四切片/三mip、view身份/父设备、单切片子盒view写入及相邻切片保持。单owner/session/最终释放，能力0/RAM overlay；GPU读回CPU回复明确为解析图像注入。
+> - 独立操作模型生成每层/每切片上传字节，再采样四个固定切片中心；子盒仅更新slice1，slice2保持原色。**4,102项语义破坏检测**通过，SwiftShader/Metal各 **30图像/1,920真实像素零差异/错误**、九体积纹理/56上传/30采样绘制；SessionEnd兜底和owner释放前表为空。65未采样，未声明GPU采样精度或全体积过滤/mip选择覆盖。
+> - **客体342项、核心70项首次全通过**；32标准EXE/四严格DLL/21-member静态核心/真实SDK8 ABI、站点集成2项和本任务两侧零新增lint通过。保留绑定夹具补上9版profile/vtable依赖，原缓存别名变异改为新查询中的唯一lookup表达式，断言未放宽；旧构造反例通过mock函数地址引用避免无关unused警告，编译失败从未计入检出。发布同次XP准确零售8/9及严格diagnostic，证据 [stage4k24-validation.json](fixtures/d3d-review/stage4k24-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K24.json`。宿主/协议/翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续VB/IB、状态/复制/句柄及公开8包装；原生pitch/Usage/全flag/格式/MSAA/窗口/丢失/线程、数值差分、游戏/FPS和阶段4/5/6仍开放。
+>
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
