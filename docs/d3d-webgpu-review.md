@@ -2561,6 +2561,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **372客体 / 85核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8 ABI、两项站点集成/范围lint通过；发布准确XP零售8/9及同源严格diagnostic。证据 [stage4k39-validation.json](fixtures/d3d-review/stage4k39-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K39.json`。CPU帧缓冲回复仍明确解析注入，与新增实际CPU影子检查、GPU图像分开。
 > - **继续项：** 接入完整公开8设备/资源/状态块COM包装和全部预定义范围，其他原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS及阶段4/5/6。
 
+> **4K40（2026-11-05，已完成）：真实IDirect3DSurface8接口包装核心9表面。**
+> - 新增SDK8独立编译的 `d3d8_core_surface.c/.h`，实现真实11方法表；通过Windows-only类型边界取得现有核心9私有数据/八字描述/锁定/解锁方法，新增lock输出指针薄适配。包装接入4K39弱缓存，返回同一前端接口。纹理/cube层级沿用前端容器引用计数，独立/隐式/RT/附加backbuffer使用自己的计数；零→非零时仅保留一个核心表面引用和前端设备引用。释放可能立即触发弱缓存回调销毁包装，因此先保存后续所需指针。GetDevice/GetContainer返回前端对象。
+> - 私有wrap入口在全部返回路径消费传入的一份已持有核心引用，成功时折叠到包装/容器已有引用；失败输出NULL、OOM与并发发布失败清理候选对象，重新读取竞争获胜的缓存对象，并检查类型/设备/容器/计数策略。缓存命中不分配，内存不足时仍可复用；保留现有8 QI政策（IUnknown/Resource8/Surface8），未宣称该历史政策已经过原生HAL验证。
+> - 原生执行实际适配器C/11方法表，后端是明确的COM/元数据shim：**54,571检查 / 1,037用例**，1,024组自身/容器计数、四种释放顺序、public-zero复活、竞争发布、所有权输入消费、失败HRESULT、16字节GUID逐项拒绝、缓存类型/父对象不匹配及完整清理；**34严格语义变异与ASAN**通过。初始fixture缺少FAILED宏且void*未显式转IUnknown，严格编译检出后补齐fixture，未放宽警告。
+> - 所有 **656个既有9函数、十种存储结构、完整旧8源与共用策略/运行文件逐字节一致**；8构建只增加新适配器源文件，公开DLL仍只有原四个导出。普通8设备工厂尚未切换到新资源包装；设备/容器父接口在SDK夹具中明确只实现IUnknown引用规则，不能据此声称完整Device8/Texture8/Cube8适配完成。
+> - 首次实际XP **125秒 / 36批 / 一次启动**：准确4K39旧8/当前8/普通9/coreSDK120/220五保留渲染配置，加SDK120/220两组新适配器：共 **七设备/七Reset/76协议句柄/17声明/35shader**。真实SDK8客户端在CPU表面、texture/cube层级、隐式back/depth、RT与附加backbuffer共 **14个Surface8接口**上覆盖适用方法、八字描述Size/容器/设备/QI/private MoreData/Delete、Lock双重调用/只读/行跨度、public-zero及Reset后缓存同一性；**128 DWORD实际CPU影子**核对。七种表面不等于每种都支持全部锁定标志。
+> - Surface8 texture层级Lock/Unlock将red/blue完整上传到实际核心9，SDK9固定管线参考绘制出 **4张新增图像**；保留20个可编程图像，合计 **24完整图像 / 1,536 RGBA像素**，两GPU均零误差。cube绿色核对CPU与完整上传，不在本探针中采样。独立wire核对6次纹理上传/384字节、168字节顶点/三元素布局、Reset保留和全部退休，**17,108项篡改检出**。8纹理/2cube、0volume、35shader translations、2交换链创建/0拒绝/2销毁、0 Present/GPU/host错误；资源表在SessionEnd及owner兜底前为空。帧缓冲CPU回复明确为解析注入，与实际CPU影子、GPU图像区分。
+> - **374客体 / 86核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8边界与stdcall20包装入口、两项站点集成/范围lint通过；发布准确XP零售8/9及同源diagnostic。证据 [stage4k40-validation.json](fixtures/d3d-review/stage4k40-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K40.json`。宿主/协议/translator/DDraw/运行包未改。
+> - **继续项：** 接入真实Texture8/Cube8/Volume8/VB/IB/SwapChain8及Device8父对象、全部状态块范围和默认工厂，再完成其他原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
