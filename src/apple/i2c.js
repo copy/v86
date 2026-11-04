@@ -2,8 +2,9 @@
 // a FIFO transfer. The status is latched until the guest acknowledges it.
 export class AppleI2C
 {
-    constructor(cpu, base, irq, vic, pmu)
+    constructor(cpu, base, irq, vic, pmu, backlight = null)
     {
+        this.backlight = backlight;
         this.irq = irq;
         this.vic = vic;
         this.pmu = pmu ? new Uint8Array(256) : null;
@@ -24,9 +25,18 @@ export class AppleI2C
         if(this.pmu)
         {
             this.pmu.fill(0);
+            this.pmu[0x66] = 255;
+            this.pmu[0x67] = 7;
+            this.pmu[0x68] = 0x15;
+            this.update_backlight();
             this.pmu[7] = 8; // USB supply present
         }
         this.vic.set_line(this.irq, false);
+    }
+
+    update_backlight()
+    {
+        if(this.backlight) this.backlight(this.pmu[0x68] & 1 ? (this.pmu[0x66] << 3) | (this.pmu[0x67] & 7) : 0);
     }
 
     write(offset, value)
@@ -47,6 +57,7 @@ export class AppleI2C
                 if(value & 1)
                 {
                     for(let i = 0; i < Math.min(count, this.fifo.length); i++) this.pmu[subaddress + i & 255] = this.fifo[i];
+                    this.update_backlight();
                     this.fifo = [];
                 }
                 else this.fifo = Array.from({ length: count }, (_, i) => this.pmu[subaddress + i & 255]);
@@ -66,7 +77,7 @@ export class AppleI2C
     {
         this.regs.set(state[0]);
         this.fifo = Array.from(state[1]);
-        if(this.pmu) this.pmu.set(state[2]);
+        if(this.pmu) { this.pmu.set(state[2]); this.update_backlight(); }
         this.vic.set_line(this.irq, !!(this.regs[2] & this.regs[3]));
     }
 }

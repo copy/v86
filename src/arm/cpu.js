@@ -496,6 +496,8 @@ A64CPU.prototype.load_boot_files = function()
         const handoff = load_n90_kernel(this.mem8, new Uint8Array(f.kernel), new Uint8Array(f.dtb),
             f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline);
         this.wm.exports["a64_bus_written"](0, handoff.r0 - VIRT_RAM_BASE + 4096);
+        this.devices.apple_fmi0.configure(handoff.chip_ids, 0);
+        this.devices.apple_fmi1.configure(handoff.chip_ids, 1);
         if(f.logo)
         {
             const offset = N90_VIDEO.base - VIRT_RAM_BASE;
@@ -677,6 +679,7 @@ A64CPU.prototype.run_machine_core = function()
     this.in_cpu = true;
     try
     {
+        if(this.devices.apple_iop) this.devices.apple_iop.run();
         const devices = this.run_hardware_timers(null, this.clock.now());
         const next = Math.min(run(this.clock.now()), devices);
         // (PSCI SYSTEM_RESET: the machine resets and boots again, P4.8)

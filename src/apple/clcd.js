@@ -4,10 +4,12 @@ export const N90_VIDEO = { base: 0x5F700000, width: 640, height: 960, stride: 25
 
 export class AppleCLCD
 {
-    constructor(cpu, hub)
+    constructor(cpu, hub, vic)
     {
         this.cpu = cpu;
+        this.vic = vic;
         this.hub = hub;
+        this.backlight = 2047;
         this.rgba = new Uint8ClampedArray(N90_VIDEO.stride * N90_VIDEO.height);
         this.shown = new Uint32Array(N90_VIDEO.width * N90_VIDEO.height);
         this.regs = new Uint32Array(0x7000 / 4);
@@ -19,13 +21,17 @@ export class AppleCLCD
         cpu.io.register_mmio(0x89000000, 0x7000, {
             name: "clcd",
             read: offset => this.regs[offset >>> 2],
-            write: (offset, width, value) => { this.regs[offset >>> 2] = Number(value); },
+            write: (offset, width, value) => {
+                if(offset === 0x102C) this.regs[offset >>> 2] &= ~Number(value);
+                else this.regs[offset >>> 2] = Number(value);
+                if(offset === 0x1028 || offset === 0x102C) this.update_irq();
+            },
         });
         // The second CLCD region in the N90 tree holds the color engine.
         cpu.io.register_mmio(0x89200000, 0x2000, {
             name: "clcd-color",
             read: offset => this.color[offset >>> 2],
-            write: (offset, width, value) => { this.color[offset >>> 2] = Number(value); },
+            write: (offset, width, value) => { this.color[offset >>> 2] = offset === 0x50 ? (Number(value) & ~2) | (Number(value) & 1 ? 0 : 2) : Number(value); },
         });
         cpu.io.register_mmio(0x89500000, 0x1000, {
             name: "mipi-dsim",
@@ -43,6 +49,7 @@ export class AppleCLCD
         this.color.fill(0);
         // iBoot leaves the panel timing and window active. AppleCLCD
         // checks both nonzero minus-one dimensions at 0x89200060.
+        this.color[0x50 >>> 2] = 1;
         this.color[0x60 >>> 2] = (N90_VIDEO.width - 1) << 16 | (N90_VIDEO.height - 1);
         this.ulps = 0;
         this.dsi[0] = 0x10010F;
@@ -52,6 +59,7 @@ export class AppleCLCD
         this.regs[0x4060 >>> 2] = N90_VIDEO.width << 16 | N90_VIDEO.height;
         this.regs[0x4044 >>> 2] = N90_VIDEO.base;
         this.regs[0x1030 >>> 2] = N90_VIDEO.width << 16 | N90_VIDEO.height;
+        this.update_irq();
         this.invalidate();
     }
 
@@ -77,8 +85,30 @@ export class AppleCLCD
     }
 
     vblank_period() { return 1000 / 60; }
-    on_vblank() { this.render(); }
+    update_irq()
+    {
+        this.vic.set_line(42, !!(this.regs[0x1028 >>> 2] & this.regs[0x102C >>> 2]));
+    }
+
+    on_vblank()
+    {
+        if(this.color[0x50 >>> 2] & 1)
+        {
+            this.regs[0x102C >>> 2] |= 1;
+            this.update_irq();
+        }
+        this.render();
+    }
     invalidate() { this.dirty = true; }
+
+    set_backlight(level)
+    {
+        if(this.backlight !== level)
+        {
+            this.backlight = level;
+            this.invalidate();
+        }
+    }
 
     render()
     {
@@ -93,9 +123,9 @@ export class AppleCLCD
             if(!this.dirty && p === this.shown[i]) continue;
             changed = true;
             this.shown[i] = p;
-            this.rgba[i * 4] = p >>> 16 & 255;
-            this.rgba[i * 4 + 1] = p >>> 8 & 255;
-            this.rgba[i * 4 + 2] = p & 255;
+            this.rgba[i * 4] = (p >>> 16 & 255) * this.backlight / 2047;
+            this.rgba[i * 4 + 1] = (p >>> 8 & 255) * this.backlight / 2047;
+            this.rgba[i * 4 + 2] = (p & 255) * this.backlight / 2047;
             this.rgba[i * 4 + 3] = 255;
         }
         this.dirty = false;
@@ -108,5 +138,5 @@ export class AppleCLCD
     }
 
     get_state() { return [this.regs.slice(), this.dsi.slice(), this.ulps, this.color.slice()]; }
-    set_state(state) { this.regs.set(state[0]); this.dsi.set(state[1]); this.ulps = state[2]; this.color.set(state[3]); this.invalidate(); }
+    set_state(state) { this.regs.set(state[0]); this.dsi.set(state[1]); this.ulps = state[2]; this.color.set(state[3]); this.update_irq(); this.invalidate(); }
 }

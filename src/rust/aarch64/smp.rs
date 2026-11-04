@@ -162,6 +162,38 @@ pub fn a64_switch_core(core: u32) {
     switch_to(core as usize);
 }
 
+// The A4's IO processor uses its own bank of ARM registers in the otherwise
+// unused slot 1. PSCI and XNU still see only the one application core.
+#[no_mangle]
+pub fn a32_iop_select(iop: bool) {
+    assert!(crate::aarch64::cpu::cortex_a8() && core_count() == 1 && !crate::parallel::active());
+    switch_to(iop as usize);
+}
+
+#[no_mangle]
+pub fn a32_iop_reset() {
+    a32_iop_select(true);
+    reset_state(0, 0);
+    a32_iop_select(false);
+}
+
+#[no_mangle]
+pub fn a32_iop_slice(budget: u32, irq: bool, fiq: bool) {
+    a32_iop_select(true);
+    if fiq && cpu::get_pstate() & cpu::PSTATE_F == 0 {
+        crate::aarch64::a32_system::take_interrupt(true);
+    }
+    else if irq && cpu::get_pstate() & cpu::PSTATE_I == 0 {
+        crate::aarch64::a32_system::take_interrupt(false);
+    }
+    for _ in 0..budget {
+        if matches!(execute::interpret_one(), Flow::Off | Flow::Wait(_)) {
+            break;
+        }
+    }
+    a32_iop_select(false);
+}
+
 /// An event for `core` (its WFE ends)
 pub fn event_to(core: usize) {
     unsafe {

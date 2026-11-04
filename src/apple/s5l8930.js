@@ -1,6 +1,8 @@
 import { DisplayHub } from "../display.js";
 import { AppleCDMA } from "./cdma.js";
 import { AppleCLCD } from "./clcd.js";
+import { AppleH2FMI } from "./h2fmi.js";
+import { AppleIOP } from "./iop.js";
 import { AppleI2C } from "./i2c.js";
 import { AppleTimer } from "./timer.js";
 import { AppleUART } from "./uart.js";
@@ -9,15 +11,19 @@ import { AppleVIC } from "./vic.js";
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx",
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1",
 ];
 
 export function create_n90_devices(cpu, bus, screen)
 {
     const display = new DisplayHub(bus, screen);
     const vic = new AppleVIC(cpu);
+    const clcd = new AppleCLCD(cpu, display, vic);
     return {
         display,
+        apple_fmi0: new AppleH2FMI(cpu, 0x81200000),
+        apple_fmi1: new AppleH2FMI(cpu, 0x81300000),
+        apple_iop: new AppleIOP(cpu),
         apple_uart: new AppleUART(cpu, bus),
         apple_vectors: new AppleVectors(cpu),
         apple_vic: vic,
@@ -25,8 +31,8 @@ export function create_n90_devices(cpu, bus, screen)
         apple_gpio: new AppleGPIO(cpu),
         apple_cdma: new AppleCDMA(cpu),
         apple_miu: new AppleRegisterWindow(cpu, "miu", 0xBFC00000, 0x1000),
-        apple_clcd: new AppleCLCD(cpu, display),
-        apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true),
+        apple_clcd: clcd,
+        apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true, level => clcd.set_backlight(level)),
         apple_i2c2: new AppleI2C(cpu, 0x83400000, 21, vic, false),
         apple_swi: new AppleSWI(cpu),
         apple_dart1: new AppleRegisterWindow(cpu, "dart1", 0x88D00000, 0x2000),

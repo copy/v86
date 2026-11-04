@@ -1,7 +1,7 @@
 # iPhone 4（A4，S5L8930）机器实施计划
 
 状态：实施中（2026-11-04）。用真实 10B329 验证了 S1 的串口里程碑：不提供根盘时，XNU 等待
-类型为 Apple_HFS 的 IOMedia。S2 已验证固件启动图、640×960 启动文字与逐像素快照恢复；显示驱动的垂直同步中断仍在调试。
+类型为 Apple_HFS 的 IOMedia。S2 已验证固件启动图、640×960 启动文字与逐像素快照恢复。垂直同步从 VIC1 经 VIC0 送到客体，背光由 PMU 控制。
 S3 本机验收通过：在恢复盘内的串口 shell 执行了 uname -a 和 sysctl hw。S4–S7 尚未验收。
 
 本计划为 v86 增加机器类型 `machine_type: "s5l8930"`，模拟 iPhone 4（`iPhone3,1`，板子 N90AP），目标是
@@ -609,6 +609,22 @@ CI 只跑 eslint、构建与 `make ci-tests`：不依赖苹果文件的 `make io
   串口输入后，内核 sysctl 返回 Darwin 13.0.0、iPhone3,1、1 核、527433728 字节可用物理内存。
   时钟门控和 CDMA 通道注册已过启动探测，CDMA 数据传送、
   DART DMA 地址转换、NAND、密钥与完整电源模型还未验收。
+
+**S2 显示与中断记录。** 从用户的 IPSW 提取 `AppleLogo.ibootim`，可选 `ios.bootlogo` 将其合成到启动帧缓冲。
+在同一提取目录运行 `node tests/ios/boot.mjs 目录 --logo --iop --wait-root --display`。AppleCLCD 会核对
+第二段 CLCD 寄存器的 +0x60（宽高各减一）和 +0x50（显示使能）。内核实际从 VIC0+0xf00 取到
+VIC1 的向量 `0x8000002a`，随后到 CLCD+0x102c 查询状态。+0x1028 是掩码，状态位写一清除；
+完成中断时先写所属 VIC，再写 VIC0。PMU 寄存器 0x66、0x67 和 0x68 控制背光 DAC 和使能。
+
+**S4 正在实施：需要运行 IOP 固件。** 未填充的闪存设备树会使 AppleIOPFMI 报告 32 个全零芯片 ID。
+在局部探测中，提供 NAND 几何后必须给 `/arm-io/clock-frequencies` 中的 0x21 项赋值，
+否则驱动在 `_fmiInitTimings` 的 `clockSpeedKHz > 0` 断言中停止。实验用 100 MHz，不代表测得的真机时钟。
+随后 AppleARM7M 向 0x86300100 发停止命令 0x10 并检查状态位 1，再写 +0x110（固件物理基址）、
++0x114（实测 256 KiB）并从本地地址零启动。固件内有 ARM 指令异常向量。v86 已用独立寄存器组执行此固件；
+IOP 的低地址映射到所选 DRAM，0xc0000000 起的窗口通向共享 DRAM，另有从 0xbf300000 开始的 VIC。
+用 `node tests/ios/flash.mjs build/ios/10B329` 可复测：实测 IOP 自己向 FMI 的命令窗口发出
+NAND READ（0x3000）。目前仅有擦除态读回，未接入镜像数据。芯片读写、VSVFL/YAFTL、LwVM 和系统盘挂载分别验收；
+恢复盘 shell 不作为 S4 的验收依据。
 
 **2026-10-27 复核初稿。** 对照 v86 的代码与公开资料核对，结果已经写进上文，这里汇总。S0 拿到固件后整理的清单也
 写在这一节。

@@ -97,5 +97,7 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline =
     ram.set(cells(N90_VIDEO.base, 0, N90_VIDEO.stride, N90_VIDEO.width, N90_VIDEO.height, 32), args + 0x14);
     ram.set(cells(VIRT + treeOffset, dt.length), args + 0x30);
     ram.set(command, args + 0x38);
-    return { entry: PHYS + kernel.entry - VIRT, r0: PHYS + args };
+    const diskNode = dt_find(tree, "/arm-io/flash-controller0/disk");
+    const chipIDs = diskNode && dt_property(diskNode, "dbg-chipids");
+    return { entry: PHYS + kernel.entry - VIRT, r0: PHYS + args, chip_ids: chipIDs ? chipIDs.value : null };
 }

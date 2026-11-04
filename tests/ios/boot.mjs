@@ -33,6 +33,36 @@ try
         assert.ok(frame.some(pixel => pixel !== 0), "iBootIm drawn before XNU starts");
         assert.equal(frame[0], 0);
     }
+    if(process.argv.includes("--iop"))
+    {
+        // A tiny private ARM firmware increments its own local word. The
+        // application CPU sees the alias in DRAM and retains its own PC.
+        const base = 0x41000000, offset = cpu.ram_offset(base, 4096);
+        const saved = cpu.mem8.slice(offset, offset + 4096), pc = cpu.read_pc();
+        const program = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset + offset, 4096);
+        [0xE3A00080, 0xE5901000, 0xE2811001, 0xE5801000, 0xEAFFFFFB]
+            .forEach((word, i) => program.setUint32(i * 4, word, true));
+        program.setUint32(128, 0, true);
+        const iop = cpu.devices.apple_iop;
+        iop.write(0x110, base);
+        iop.write(0x114, 4096);
+        iop.write(0x100, 1);
+        iop.run();
+        const first = program.getUint32(128, true);
+        assert.ok(first > 0);
+        assert.equal(cpu.read_pc(), pc);
+        const state = iop.get_state();
+        iop.run();
+        const next = program.getUint32(128, true);
+        assert.ok(next > first);
+        iop.set_state(state);
+        program.setUint32(128, first, true);
+        iop.run();
+        assert.equal(program.getUint32(128, true), next);
+        assert.equal(cpu.read_pc(), pc);
+        iop.reset();
+        cpu.write_blob_physical(saved, base);
+    }
     const marker = waitRoot ? /Waiting on [^\n]*IOMedia[^\n]*Apple_HFS|still waiting for root device/i : /corecrypto\.kext FIPS POST passed!/;
     const deadline = performance.now() + (waitRoot ? 600000 : 60000);
     cpu.clock.resume();

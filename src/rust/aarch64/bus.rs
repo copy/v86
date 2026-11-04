@@ -109,6 +109,32 @@ static mut BUS: AddressSpace = AddressSpace {
 };
 /// Guest memory's base in the Wasm memory (crate::aarch64::root's Env.mem8)
 pub static mut MEM8: *mut u8 = std::ptr::null_mut();
+// The N90 IO processor's low local address window aliases a section of
+// AP DRAM. Accesses to the same low address on the application CPU still
+// see its reset vectors. This is configured only for the single-core A4.
+static mut IOP_BASE: u32 = 0;
+static mut IOP_SIZE: u32 = 0;
+
+#[no_mangle]
+pub fn a32_iop_remap(base: u32, size: u32) -> bool {
+    let offset = (base as u64).wrapping_sub(RAM_BASE);
+    if !crate::aarch64::cpu::cortex_a8()
+        || crate::isa::core_count() != 1
+        || size != 0
+            && (base & 4095 != 0
+                || !size.is_power_of_two()
+                || offset >= bus().ram_size
+                || size as u64 > bus().ram_size - offset)
+    {
+        return false;
+    }
+    unsafe {
+        IOP_BASE = offset as u32;
+        IOP_SIZE = size;
+    }
+    true
+}
+
 /// The bytes of guest memory (RAM and the ROMs after it)
 pub static mut MEM8_SIZE: u32 = 0;
 /// Where device memory starts in guest memory (u32::MAX: there is none)
@@ -155,6 +181,25 @@ impl AddressSpace {
                 code_key: (offset >> 12) as u32,
                 writable: true,
             };
+        }
+        if unsafe { IOP_SIZE } != 0 && crate::isa::current_core() == 1 {
+            // The IOP also addresses shared DRAM through its uncached
+            // 0xc0000000 window. Both aliases must invalidate the same code.
+            let shared = pa.wrapping_sub(0xC000_0000);
+            let offset = if pa < unsafe { IOP_SIZE } as u64 {
+                unsafe { IOP_BASE as u64 + pa }
+            }
+            else {
+                shared
+            };
+            if offset < self.ram_size {
+                let backing = offset as u32;
+                return Lookup::Ram {
+                    backing,
+                    code_key: backing >> 12,
+                    writable: true,
+                };
+            }
         }
         match self.region_of(pa) {
             Some(r) => match r.kind {
