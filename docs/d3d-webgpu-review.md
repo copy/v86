@@ -2482,6 +2482,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 源码审计证明22个原8/9创建、绑定、查询、引用/销毁方法未改；把共享DEF调用还原成旧循环后，8 emitter逐字节一致；把抽出的分配主体放回后，9工厂的校验/分配主体逐字节一致。**356客体/77核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8新ABI、站点集成2项及两侧本任务零新增lint通过。发布本次XP准确8/9零售DLL和严格diagnostic；证据 [stage4k31-validation.json](fixtures/d3d-review/stage4k31-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K31.json`。
 > - 宿主/协议/着色器翻译器/DDraw/包 `9335ee9a77fb7cc808d2` 不变，继承4I9完整核心238/六GPU基线。继续API8的FVF/句柄绑定、原始查询状态/状态块和完整公开8对象包装；其他原生兼容、全部SM数值差分/语料/HAL/游戏/FPS及阶段4/5/6仍开放。
 
+
+> **阶段 4K32（2026-11-05）：核心8以真实9声明缓存绑定 FVF，并保持8的清零及状态块语义。**
+>
+> - 新增私有 `d9wg_d3d9_core_set_fvf8@8`。按8方言解码，解绑VS；零值清除VS和布局。转换后的真实9声明保留独立 `legacy_fvf8` 缓存键，内部 `fvf=0`，防止状态块 Apply 将8的数值按9再次解码。缓存只持内部引用，公开引用归零后不额外固定设备；状态块/公开声明可跨缓存清理及Reset保留，再次绑定复用同一对象。普通9缓存及 SetFVF(0) 无操作行为保留。
+> - **622,117项原生检查 / 40,970例**：冻结旧8/9 decoder，对照40,960种位置/标志/纹理维数，36,832接受、4,128拒绝，另10例清零/生命周期/入口及失败检查。覆盖声明字节、公开归零/设备父引用、两种缓存不串用、记录及应用状态块、缓存重获、设备先释放/最后公开视图清理、OOM/创建提交失败。**19/19变异**均严格编译后被实际C断言杀死；语义等价的Stream255终止项变异没有计作成功，改为真正无效的非终止UNUSED元素。新8绑定及保留9缓存两族ASAN通过。
+> - **真实XP 108秒 / 30批 / 一次启动**：准确4K31旧8、当前公开8、普通9参考、核心8 SDK120/220，5设备/5Reset/8声明/5VS/23协议句柄。旧8原值 `0x4042` 忽略bit14，得到FLOAT3+diffuse、stride16；普通9参考明确用 `0x42` 并单独解绑VS。各模式红色程序切到绿色FFP、顶点状态块恢复、清零后绘制拒绝、Reset后恢复，1,280本地DWORD、最终引用0、模块卸载/单owner/SessionEnd/释放通过。公开8仍返回原FVF，私有9 GetFVF为0，二者职责明确。
+> - 独立wire模型验证完整布局/着色器/顶点/常量载荷及绑定顺序、零值拒绝无draw、Reset及退休，**15,899项关键字段/日志/截断篡改全部检出**。SwiftShader和Metal各**20完整图像 / 1,280 RGBA像素零误差**：20UP draw包含5可编程+15FFP，0纹理/Present；SessionEnd回收前及owner释放前资源表均为空，GPU/host错误0。VM CPU回复明确为解析图像注入，真实图像由两GPU独立验证。
+> - 源码审计：原**634个核心9函数逐字节一致**，整个公开8源文件及8/9 decoder未改，冻结decoder与基线准确一致。**358客体 / 78核心完整回归**、32标准EXE/四严格DLL/21-member静态核心/真实SDK8新ABI、站点集成2项及两侧本任务零新增lint通过。发布XP准确8/9零售DLL及严格diagnostic。证据 [stage4k32-validation.json](fixtures/d3d-review/stage4k32-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K32.json`。
+> - **范围仍开放：** 这是核心8绑定接口；原8前端保留DWORD句柄、原始Get影子及公开错误策略，完整公开8包装尚未切换。ProcessVertices目标VB的8方言FVF、其余池/标志/格式语义、着色器数值差分、原生HAL/游戏/FPS及阶段4/5/6继续推进。宿主、协议、translator、DDraw及运行包 `9335ee9a77fb7cc808d2` 未改。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
