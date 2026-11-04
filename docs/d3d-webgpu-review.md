@@ -2363,6 +2363,17 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **完整客体326 suites、核心相关65 suites首次全通过**；32标准EXE、四严格DLL、21-member静态核心/SDK8 consumer、站点集成2项和两侧零新增lint通过。发布同次XP接受的准确8/9零售DLL及严格diagnostic，见 [stage4k19-validation.json](fixtures/d3d-review/stage4k19-validation.json)，镜像`glbridge/deployments/d3d-webgpu-review-4K19.json`。宿主/协议/翻译器/DDraw/包`9335ee9a77fb7cc808d2`不变，继承4I9完整核心238/六GPU基线。
 > - 继续其余纹理/cube/volume/VB/IB/状态/复制适配及公开8设备/资源包装；完整格式/标志/MSAA/全屏/多缓冲/物理loss/线程、数值差分/语料、原生HAL/游戏/FPS及阶段4/5/6仍开放。
 
+> **阶段 4K20（2026-11-04）：SDK8 CPU图像创建、32字节表面描述转换与版本化CPU锁定。**
+>
+> - 增加私有`image_surface8`和`surface_desc8`入口；从普通9的SYSTEMMEM/SCRATCH路径抽出共用CPU分配/生命周期，普通9原校验及DEFAULT GPU分支不变。API8图像保留8192上限、线性格式及失败输出规则，使用API8布局；CPU表面锁定按创建设备版本选布局，支持8独有的`W11V11U10/65`，普通9继续拒绝65。图像只占CPU内存，不新发GPU纹理创建。
+> - 真实SDK8/9表面描述均32字节，但8的`Size`/采样字段占据9的采样/质量位置；逐字段暂存转换并检查长度、版本、vtable、格式、溢出与提供方错误，失败不改输出。SDK8 consumer用真实结构断言Size偏移16、采样偏移20；私有stdcall分别`@20/@12`，静态核心仍21成员。
+> - 固定旧8图像/独立CPU构造及旧9offscreen方法对照 **59,475组合（8版8,496、普通9版50,976及三守卫）**，覆盖注册格式、池、尺寸/溢出、OOM清理、行距、零初始化与父引用。**47,203组**真实SDK描述布局/128位独立大小计算/输出守卫通过；保留锁定 **88,476检查/96适配场景**，新增65的版本差异检查。**24新变异、33保留变异、一个实际4K19旧CPU锁定入口对照、三组ASAN**通过，变异均严格编译后运行失败。
+> - XP旧4K19公开8、当前公开8、核心8 SDK120/220均验证65的实际CPU零存储、整面写、子矩形保持、pitch12/Size24及最终释放；普通9拒绝65。两核心模式各检查九种图像参数失败及31/33字节描述失败原子性，CPU/RT/depth均用新描述入口；20次读回中的私有核心CPU目标使用新图像入口。首次SDK构建和XP捕获 **143秒/30批次**通过，保留五设备/五Reset/15纹理/三声明/28句柄/35绘制/20读回、一个owner/session/最终释放。能力0和磁盘RAM overlay；GPU读回CPU回复仍明确为解析图像注入，65本地CPU测试无需该注入。
+> - 新读取器核对四模式CPU检查、9版拒绝及描述守卫，再复用4K19独立深度/模板/字节/生命周期模型，**2,891项语义破坏检测**通过；SwiftShader/Metal各 **20图像/1,280真实像素零差异/错误**，SessionEnd兜底和owner释放前表为空。此GPU验收覆盖保留的颜色21/深度75画面，不宣称65的GPU解码/采样。原捕获说明复制了“4K18旧8”标签，实际DLL为4K19 `404d7d5`且哈希吻合；保留原结果/日志，在元数据中明确更正原因及原文，仅修正未来运行说明，无需为标签重跑VM。
+> - **完整客体329 suites、核心相关66 suites首次全通过**；32标准EXE/四严格DLL/21-member静态核心及SDK8 consumer、站点集成2项和两侧零新增lint通过。发布本次XP接受的准确8/9零售DLL及严格diagnostic；证据 [stage4k20-validation.json](fixtures/d3d-review/stage4k20-validation.json)，镜像`glbridge/deployments/d3d-webgpu-review-4K20.json`。宿主/协议/翻译器/DDraw/包`9335ee9a77fb7cc808d2`不变，继承4I9完整核心238/六GPU基线。
+> - **已识别的下一修复：** 本次接口迁移的深度Size沿用旧代理“独立深度0、隐式深度固定四字节元数据”，不把它算作原生一致性。提交前核对固定Wine `415a275e` 的`d3d8_surface_GetDesc`及`wined3d_texture_init`，确认Size来自按格式/设备对齐计算的资源大小，而非CPU影子；接下来统一修正两入口的资源大小。相关源码blob分别`5b02035d53980c006fc19122b028f9263d1219a5`、`4ada3c3c8af82740cea4dc4a994fd3adb855d373`；尚无原生Windows对齐/物理深度精度验收。
+> - 其余纹理/cube/volume/VB/IB/状态/复制适配、公开8设备/资源包装、完整格式/标志/MSAA/全屏/多缓冲/物理loss/线程、数值差分/语料、HAL/游戏/FPS及阶段4/5/6继续开放。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
