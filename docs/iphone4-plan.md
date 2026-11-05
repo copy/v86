@@ -192,7 +192,7 @@ CPU”），以及能用哪些指令。两者混在 `cpu_profile` 里会出现�
 | `src/apple/devicetree.js` | 苹果设备树格式的解析与写回 |
 | `src/apple/vic.js`、`timer.js`、`uart.js`、`gpio.js`、`clock.js` | 中断、定时器、串口（Samsung 风格）、GPIO 与按键、时钟/电源门控/chipid/miu 寄存器 |
 | `src/apple/i2c.js`、`pmu.js`、`sensors.js` | I2C 控制器，电源管理芯片（RTC、电量、充电状态、背光），各种传感器 |
-| `src/apple/spi.js`、`multitouch.js` | SPI 控制器，多点触控控制器（Z2 协议）；照 ARM 机器的做法向页面宣告 `mouse-enable` 与 `absolute-pointer`，页面才会把触控板交给它，点击时也不锁指针 |
+| `src/apple/spi.js`、`multitouch.js` | SPI1 控制器，多点触控控制器（N90 的 N1 协议）；照 ARM 机器的做法向页面宣告 `mouse-enable` 与 `absolute-pointer`，页面才会把触控板交给它，点击时也不锁指针 |
 | `src/apple/h2fmi.js`、`cdma.js`、`aes.js` | NAND 控制器与 NAND 芯片模型，DMA 与 AES 引擎 |
 | `src/apple/clcd.js` | 显示控制器与 MIPI DSI、vsync 中断 |
 | `src/gles/`（与 Android 共用） | GLES 代理：解码器、影子状态、renderControl、后门传输（见 [gles-proxy-plan.md](gles-proxy-plan.md)）；后门的截获在 `src/rust/aarch64/a32.rs` |
@@ -506,8 +506,10 @@ SGX 的内核驱动保持加载，但没有硬件：它的 MMIO 读回“空闲�
 
 ### S6 交互
 
-- 多点触控（Z2 协议：接受驱动上传的固件、报告就绪、送出触点帧）、按键（Home、电源、音量、静音开关）、
+- 多点触控（N90 的 N1 协议：接受驱动上传的固件、报告就绪、送出触点帧）、按键（Home、电源、音量、静音开关）、
   方向。
+
+10B329 原版设备树将 `multi-touch,n90` 挂在 SPI1；固件的驱动匹配项选择 `AppleMultitouchN1SPI`。Z2 匹配项用于 K48、K94、J1，不能直接当作 N90 协议。SPI2 是基带，继续作为非目标移除。
 
 验收：
 - 解锁、翻页、打开并使用自带应用；
@@ -516,7 +518,7 @@ SGX 的内核驱动保持加载，但没有硬件：它的 MMIO 读回“空闲�
 
 ### S7 集成与完善
 
-- 声音（I2S 与音频 codec 的最小模型，接到 v86 的音频输出）；
+- 完成界面启动所需的音频控制初始化（I2S 与音频 codec）；PCM 播放输出仍属于“之后再定”；
 - 快照（含 NAND overlay）；
 - 性能测量；
 - VM 管理器中作为实验性机器，按“界面”一节实现，`make app-tests` 增加向导与设置的用例；
