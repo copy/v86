@@ -27,7 +27,24 @@ try
             return bytes.map(b => b ^ 255);
         }
         assert.deepEqual(read(0, 0), read(0, 1));
-        assert.equal(read(0, 0).toString("ascii", 0, 4), "ndrG");
+        const table = read(0, 0);
+        assert.equal(table.toString("ascii", 0, 4), "ndrG");
+        assert.equal(table.toString("ascii", 0x420, 0x424), "mrvn");
+        assert.equal(table.readUInt32LE(0x42C), 2, "NVRAM exposes block geometry");
+        const legacy = Buffer.alloc(3 * stride);
+        table.writeUInt32LE(0, 0x42C);
+        for(let row = 0; row < 3; row++) legacy.set(table.map(b => b ^ 255), row * stride);
+        const oldMedium = new AppleNAND({}, {
+            byteLength: NAND_BYTES,
+            get(at, length, done) { done(legacy.subarray(at, at + length)); },
+            set() { assert.fail("reading an old partition table must not rewrite the disk"); },
+        });
+        for(let row = 0; row < 3; row++)
+        {
+            const page = await new Promise((ok, fail) => oldMedium.read(0, 0, row, ok, fail));
+            assert.equal(new DataView(page.buffer).getUint32(0x42C, true), row < 2 ? 2 : 0);
+        }
+        assert.equal(legacy.readUInt32LE(0x42C), 0xFFFFFFFF);
         const unit = read(0, 144).subarray(0, 1024);
         const magic = Buffer.from(unit.subarray(0, 16)).map((b, i) => b ^ unit[16 + i]);
         assert.equal(magic.toString("ascii", 0, 4), "ecaF");

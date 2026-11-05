@@ -5,7 +5,8 @@ import { restore_disk_state } from "../disk_writeback.js";
 import { BlockBackend } from "../block_backend.js";
 import { begin_state_io } from "../state_io.js";
 import { dt_find, dt_property, dt_set } from "./devicetree.js";
-import { NAND_DATA, NAND_SPARE, NAND_PAGE, NAND_SLOT, NAND_BLOCK_PAGES, NAND_BLOCKS, NAND_BYTES, nand_offset } from "./nand_geometry.js";
+import { NAND_DATA, NAND_SPARE, NAND_PAGE, NAND_SLOT, NAND_BLOCK_PAGES, NAND_BLOCKS, NAND_BYTES,
+    NAND_NVRAM_ENTRY, NAND_PARTITION_BLOCK_MAPPED, nand_offset } from "./nand_geometry.js";
 export { NAND_DATA, NAND_SPARE, NAND_PAGE, NAND_SLOT, NAND_BLOCK_PAGES, NAND_BLOCKS, NAND_ROWS, NAND_BYTES, nand_offset } from "./nand_geometry.js";
 
 const READ_SPAN = 16 * NAND_SLOT;
@@ -102,6 +103,22 @@ export class AppleNAND
             if(bytes.length < NAND_SLOT) { fail(new Error("short NAND page")); return; }
             const page = new Uint8Array(NAND_PAGE);
             for(let i = 0; i < page.length; i++) page[i] = ~bytes[i];
+            if(offset <= NAND_SLOT)
+            {
+                // Earlier v86 images described these two NVRAM blocks as
+                // boot pages. Supply the block geometry to IOFlashNVRAM
+                // on either Grdn copy without rewriting an existing disk.
+                const table = new DataView(page.buffer), entry = NAND_NVRAM_ENTRY;
+                if(table.getUint32(0, true) === 0x4772646E &&
+                    table.getUint32(0x224, true) === 0xDEADCAFE &&
+                    table.getUint32(entry, true) === 0x6E76726D &&
+                    table.getUint32(entry + 4, true) === 5 &&
+                    table.getUint32(entry + 8, true) === 2 &&
+                    table.getUint32(entry + 12, true) === 0)
+                {
+                    table.setUint32(entry + 12, NAND_PARTITION_BLOCK_MAPPED, true);
+                }
+            }
             done(page);
         };
         // A native scattered read streams adjacent rows from all four

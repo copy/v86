@@ -2,7 +2,7 @@
 // IOFlashStorage in 10B329 reads copies of this Grdn record via boot-page
 // reads. The filesystem entry must be a slice for LegacyFTL block offsets.
 import { effaceable_unit } from "./provision.js";
-import { NAND_BLOCKS, NAND_BLOCK_PAGES, NAND_DATA, NAND_PAGE } from "../apple/nand_geometry.js";
+import { NAND_BLOCKS, NAND_BLOCK_PAGES, NAND_DATA, NAND_PAGE, NAND_PARTITION_BLOCK_MAPPED } from "../apple/nand_geometry.js";
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 const ascii = (bytes, value, at = 0) => {
@@ -40,8 +40,10 @@ export function physical_partitions()
     ascii(t, "sbus", 0x35C);
     view(t).setUint16(0x3FE, fletcher16(t.subarray(0x35C, 0x3FE)), true);
     const entries = [
-        ["boot", 0, 1, 0], ["plog", 1, 4, 2], ["nvrm", 5, 2, 0], ["firm", 7, 7, 0x200],
-        ["fsys", VFL_CONTEXT_BLOCK, NAND_BLOCKS - VFL_CONTEXT_BLOCK, 2], ["fbbt", 14, 1, 1],
+        ["boot", 0, 1, 0], ["plog", 1, 4, NAND_PARTITION_BLOCK_MAPPED],
+        ["nvrm", 5, 2, NAND_PARTITION_BLOCK_MAPPED], ["firm", 7, 7, 0x200],
+        ["fsys", VFL_CONTEXT_BLOCK, NAND_BLOCKS - VFL_CONTEXT_BLOCK, NAND_PARTITION_BLOCK_MAPPED],
+        ["fbbt", 14, 1, 1],
     ];
     for(let i = 0; i < 32; i++)
     {

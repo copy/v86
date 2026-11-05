@@ -4,6 +4,9 @@ export const NAND_SLOT = Math.ceil(NAND_PAGE / 512) * 512;
 export const NAND_BLOCK_PAGES = 128, NAND_BLOCKS = 0x1038, NAND_ROWS = NAND_BLOCK_PAGES * NAND_BLOCKS;
 export const NAND_BYTES = 4 * NAND_ROWS * NAND_SLOT;
 
+export const NAND_PARTITION_BLOCK_MAPPED = 2;
+export const NAND_NVRAM_ENTRY = 0x420;
+
 export function nand_offset(bus, ce, row)
 {
     if(!Number.isInteger(bus) || bus < 0 || bus >= 2 || !Number.isInteger(ce) || ce < 0 || ce >= 2 ||

@@ -68,6 +68,7 @@ entry, firmware rejection and fixed hardware settings.
 
 The model does not emulate the boot ROM or iBoot, the cellular modem,
 Wi-Fi, Bluetooth or the SGX hardware. Native audio control is present;
-PCM output is not implemented. The plan tracks separate acceptance for
-the home screen, app interactions and rotation. An original iOS lock
-screen has been verified on the simulated LCD after a NAND cold boot.
+PCM output is not implemented. A NAND cold boot has displayed the
+original iOS lock screen and accepted a touch swipe to SpringBoard's
+home screen on the simulated LCD. The plan tracks app interactions and
+guest rotation separately.
