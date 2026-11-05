@@ -1,0 +1,85 @@
+{
+  "stage": "5L3 legacy shader color outputs and fog source",
+  "date": "2026-11-05",
+  "baseline": {
+    "core": "9c4934b2",
+    "site": "fa20d50"
+  },
+  "changes": [
+    "VS1/2 diffuse defaults to white; diffuse/specular output saturation occurs before interpolation.",
+    "VS3 linked to fixed/legacy pixel stages uses a keyed saturation variant; VS3+PS3 preserves unclamped values.",
+    "VS1/2 without oFog use output specular alpha; explicit oFog, table fog precedence and PS3 fog bypass are preserved."
+  ],
+  "source": "https://github.com/wine-mirror/wine/blob/master/dlls/d3d9/tests/visual.c (test_color_clamping and fog source matrix)",
+  "referenceSourceSha256": "87724d3fe3f73cb0772aaffa2a94ee4bfa6c9257812a61ef314c6316bed3fd59",
+  "runs": {
+    "metal": {
+      "status": "PASS",
+      "cases": 662,
+      "newLegacyOutputCases": 129,
+      "logSha256": "7f2ca5ab9431152e7260f91fc996528acf9be450e94e0859cc59ceba10814f86",
+      "validation": "Real executor commands and guest READBACK; pixel probes with explicit <=1 UNORM8 tolerance; zero GPU/host errors, failed commands and dropped draws required by harness."
+    },
+    "swift": {
+      "status": "PASS",
+      "cases": 662,
+      "newLegacyOutputCases": 129,
+      "logSha256": "7f2ca5ab9431152e7260f91fc996528acf9be450e94e0859cc59ceba10814f86",
+      "validation": "Real executor commands and guest READBACK; pixel probes with explicit <=1 UNORM8 tolerance; zero GPU/host errors, failed commands and dropped draws required by harness."
+    }
+  },
+  "negativeControl": {
+    "status": "FAIL as expected",
+    "oldSource": "9c4934b2",
+    "cases": 124,
+    "failedCases": 48,
+    "logSha256": "6026e100ca93f42ec706252db5b7e15be2ce4a825675df3621481bd718cb02a0"
+  },
+  "validation": {
+    "shaderUnit": 43,
+    "executorUnit": 178,
+    "nagaPrograms": 190,
+    "strictPrivateCorpus": {
+      "translated": 12,
+      "naga": 12,
+      "chromeTint": 12
+    },
+    "siteIntegration": 2,
+    "lintFiles": 4,
+    "newLintProblems": 0
+  },
+  "sourceSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "5785f0dd1171b3bfeedfc452edc985190fda1b7965f4b773b699996eccf7a7af",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "cc9d70149d2204f3955eae8e2bc437fce081cefae5f99192c779083325a15fde",
+    "tests/glbridge/d3d9_feature_cases.js": "544b3390277aa64deaabd3502e1f87f2fe41ff37f63896a7fa91775d5e8d0285",
+    "tests/glbridge/d3d9_shader_pipeline_test.js": "376de7ac2ff3c6ba03f72d695104a2b11d09fc6aacf421f3e21d6456492edc42"
+  },
+  "bundle": {
+    "revision": "f85e1b4608acc142f6c0",
+    "files": [
+      "libv86-webgpu.js",
+      "d3d9_shader_worker.js",
+      "d3d9_shader_pipeline.js",
+      "graphics_journal_worker.js",
+      "d9wg_diagnostics.js",
+      "v86gl-device.js",
+      "glslang.wasm",
+      "vx_naga.wasm"
+    ]
+  },
+  "limitations": [
+    "Pixel precision uses explicit UNORM8 tolerance; not a new Windows native HAL run.",
+    "Full SM3 semantic linking, body-once variants, legacy projected/depth texture and relative input/output addressing remain stage 5 work.",
+    "Stage 4 full device suite still fails window/Reset/multi-backbuffer cases. MapleStory remains skipped per user instruction."
+  ],
+  "publishedSha256": {
+    "libv86-webgpu.js": "e8c8166fce8148112aaa03b485f789245a4dfbe956727bd64ca86235dae68a71",
+    "d3d9_shader_worker.js": "3ab0de111a9359c86c328fd3cf93a878a0e48f150a3c9cf9b8bd58aba33c98f7",
+    "d3d9_shader_pipeline.js": "d45ed73b196316e5312c83651f366d2add8594bf13669f5def158f48180f6d36",
+    "graphics_journal_worker.js": "b78c8462449be785af9d3ec51bc000db4cff088f8231dbd3844fe6b2668d8cf9",
+    "d9wg_diagnostics.js": "ddc451b0ae62db2c79e24d47d6d6b06563c66a7ca078ec3b0a73b450d0108921",
+    "v86gl-device.js": "d6b64679c36d7e8732c73a73e4abf46073154ab3a0025fbd08f83fbe88466e8d",
+    "glslang.wasm": "bf04f3f1aa510afd7e461ccb75c929e9498684b3186768c00804ffecc8bdbd16",
+    "vx_naga.wasm": "8a0e51ee1698ff84d14a125d00241fc57fa33f17123cc3d6850d742bf41f5641"
+  }
+}

@@ -4751,12 +4751,15 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     const swizzle = texture && samplingSwizzle(texture.format);
                     if (swizzle) { vertexSwizzles[sampler.index] = swizzle;vertexSwizzleKey += "|w" + sampler.index + ":" + swizzle; }
                 }
+                const legacyColorClamp = vsResource.translated.reflection.version.major >= 3 &&
+                    (!pixelReflection || pixelReflection.version.major < 3);
                 const variantKey = "b:" + bgra.join(",") + "|c:" +
                     conversionKey + pointKey + clipKey + vertexSwizzleKey +
+                    (legacyColorClamp ? "|legacy-color" : "") +
                     (flatShading ? "|flat" : "");
                 const needsVariant = bgra.length || conversionKey.length ||
                     !!drawOptions.pointExpansion || !!clipPlaneCount ||
-                    !!vertexSwizzleKey || flatShading;
+                    !!vertexSwizzleKey || flatShading || legacyColorClamp;
                 let variant = vsResource.variants.get(variantKey);
                 if (!variant) {
                     variant = needsVariant
@@ -4764,7 +4767,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             { bgraInputLocations: bgra, inputConversions, samplerSwizzles: vertexSwizzles,
                               pointExpansion: !!drawOptions.pointExpansion,
                               pointSprite: !!drawOptions.pointSprite,
-                              clipPlaneCount, flatShading })
+                              clipPlaneCount, flatShading, legacyColorClamp })
                         : vsResource.translated;
                     vsResource.variants.set(variantKey, variant);
                     if (needsVariant && variant.ok)

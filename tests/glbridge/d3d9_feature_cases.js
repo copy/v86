@@ -726,5 +726,80 @@
             draw(dev, quad(32, 0, 64, 64, .2, 0xff0000ff))],
         probes: [{ at: [16, 32], expect: [0, 255, 0, 255] }, { at: [48, 32], expect: [0, 0, 255, 255] }],
     });
+    // Wine visual.c test_color_clamping and fog source tests. Expectations
+    // below are independent scalar arithmetic, not generated shader text.
+    const legacyShader = (kind, major, instructions) => [
+        (kind === "vertex" ? 0xfffe0000 : 0xffff0000) | major << 8 | (major === 1 ? 1 : 0),
+        ...instructions.flatMap(([op, ...args]) => [major === 1 ? op : ins(op, args.length), ...args]), 0xffff];
+    const outputVS = (major, mode, fog) => {
+        const body = major === 1 ? [] : [[S.DCL, 0x80000000, dst(R.INPUT, 0)]];
+        if (major === 3) body.push([S.DCL, 0x80000000, dst(R.OUTPUT, 0)],
+            [S.DCL, 0x8000000a, dst(R.OUTPUT, 1)], [S.DCL, 0x8001000a, dst(R.OUTPUT, 2)]);
+        const color = index => dst(major === 3 ? R.OUTPUT : R.ATTROUT, major === 3 ? index + 1 : index);
+        body.push([S.MOV, dst(major === 3 ? R.OUTPUT : R.RASTOUT, 0), src(R.INPUT, 0)]);
+        if (mode === "interpolated") {
+            body.push([S.DEF, dst(R.CONST, 0), f(.5), f(.5), f(.5), f(.5)],
+                [S.ADD, color(0), src(R.INPUT, 0, 0), src(R.CONST, 0)]);
+        } else {
+            const diffuse = mode === "fog" ? [1, 0, 0, .25] : [-.5, 2, .25, .5];
+            const specular = mode === "fog" ? [0, 0, 0, .25] : [.75, -.5, 2, 1.5];
+            body.push([S.DEF, dst(R.CONST, 0), ...diffuse.map(f)], [S.DEF, dst(R.CONST, 1), ...specular.map(f)]);
+            if (mode !== "missing") body.push([S.MOV, color(0), src(R.CONST, 0)]);
+            body.push([S.MOV, color(1), src(R.CONST, 1)]);
+        }
+        if (fog === "explicit") body.push([S.DEF, dst(R.CONST, 2), f(.75), 0, 0, 0],
+            [S.MOV, dst(R.RASTOUT, 1, 1), src(R.CONST, 2, 0)]);
+        return legacyShader("vertex", major, body);
+    };
+    const outputPS = (major, mode) => {
+        const body = [];
+        if (major >= 2) body.push([S.DCL, major === 3 ? 0x8000000a : 0x80000000, dst(R.INPUT, 0)]);
+        if (mode === "sum" && major >= 2) body.push([S.DCL, major === 3 ? 0x8001000a : 0x80000000, dst(R.INPUT, 1)]);
+        const result = dst(major === 1 ? R.TEMP : R.COLOROUT, 0);
+        if (mode === "sum") body.push([S.DEF, dst(R.CONST, 0), f(.25), f(.25), f(.25), f(.25)],
+            [S.ADD, dst(R.TEMP, 0), src(R.INPUT, 0), src(R.INPUT, 1)], [S.MUL, result, src(R.TEMP, 0), src(R.CONST, 0)]);
+        else body.push([S.MOV, result, src(R.INPUT, 0)]);
+        return legacyShader("pixel", major, body);
+    };
+    const outputBindings = (dev, vm, pm, mode, fog) => {
+        const vs = dev + 0x600000, ps = vs + 1;
+        return [vertexShader(dev, vs, outputVS(vm, mode, fog)),
+            cmd(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", {device_handle: dev, shader_handle: vs})),
+            ...(pm ? [pixelShader(dev, ps, outputPS(pm, mode === "colors" ? "sum" : "copy")), bindPS(dev, ps)] : []),
+            tss(dev, 0, 1, 2), tss(dev, 0, 2, 0), tss(dev, 0, 4, 2), tss(dev, 0, 5, 0), rs(dev, 137, 0)];
+    };
+    for (const vm of [1, 2, 3]) for (const pm of [0, 1, 2, 3]) add("shader-legacy-outputs", {
+        name: "vs" + vm + " ps" + pm + " saturates colors before rasterization", body: dev => [
+            ...outputBindings(dev, vm, pm, "colors"), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))],
+        probes: [{at: [32, 32], expect: (pm ? vm === 3 && pm === 3 ? [.0625, .375, .5625, .5] : [.1875, .25, .3125, .375] : [0, 1, .25, .5]).map(clamp), tolerance: 1}],
+    });
+    for (const vm of [1, 2]) for (const pm of [0, 1, 2, 3]) {
+        add("shader-legacy-outputs", { name: "vs" + vm + " ps" + pm + " unwritten diffuse is white", body: dev => [
+            ...outputBindings(dev, vm, pm, "missing"), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))],
+            probes: [{at: [32, 32], expect: [255, 255, 255, 255]}] });
+        add("shader-legacy-outputs", { name: "vs" + vm + " ps" + pm + " color saturation precedes interpolation", body: dev => [
+            ...outputBindings(dev, vm, pm, "interpolated"), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))],
+            probes: [{at: [16, 32], expect: [64, 64, 64, 64], tolerance: 1}, {at: [48, 32], expect: [191, 191, 191, 191], tolerance: 1}] });
+        for (const fog of ["specular", "explicit", "table"]) for (const vertexMode of [0, 1, 2, 3]) add("shader-legacy-outputs", {
+            name: "vs" + vm + " ps" + pm + " fog=" + fog + " vertexmode=" + vertexMode,
+            body: dev => [...outputBindings(dev, vm, pm, "fog", fog), rs(dev, 28, 1), rs(dev, 34, 0x0000ff00),
+                rs(dev, 35, fog === "table" ? 3 : 0), rs(dev, 140, vertexMode), rs(dev, 36, f(0)), rs(dev, 37, f(1)),
+                ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))],
+            probes: [{at: [32, 32], expect: pm === 3 ? [255, 0, 0, 64] : fog === "explicit" ? [191, 64, 0, 64] : fog === "table" ? [128, 128, 0, 64] : [64, 191, 0, 64], tolerance: 1}],
+        });
+    }
+    add("shader-legacy-outputs", { name: "VS3 switches legacy color saturation with its pixel partner", body: dev => {
+        const ps3 = dev + 0x600001, ps2 = ps3 + 1;
+        const commands = [...outputBindings(dev, 3, 3, "colors"), pixelShader(dev, ps2, outputPS(2, "sum")), rs(dev, 174, 1)];
+        for (const [left, right, ps] of [[0, 21, ps2], [21, 43, ps3], [43, 64, ps2]])
+            commands.push(bindPS(dev, ps), wire("SetScissorRect", {device_handle: dev, left, top: 0, right, bottom: 64}),
+                ...drawXYZ(dev, fullXYZ(.5, 0xffffffff)));
+        return commands;
+    }, probes: [{at: [10, 32], expect: [48, 64, 80, 96], tolerance: 1},
+        {at: [32, 32], expect: [16, 96, 143, 128], tolerance: 1}, {at: [54, 32], expect: [48, 64, 80, 96], tolerance: 1}] });
+    for (const pm of [0, 1, 2, 3]) add("shader-legacy-outputs", { name: "vs3 ps" + pm + " color interpolation partner rule",
+        body: dev => [...outputBindings(dev, 3, pm, "interpolated"), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))],
+        probes: [{at: [16, 32], expect: Array(4).fill(pm === 3 ? 0 : 64), tolerance: 1},
+            {at: [48, 32], expect: Array(4).fill(pm === 3 ? 255 : 191), tolerance: 1}] });
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

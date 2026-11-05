@@ -236,15 +236,6 @@ test("vs_1_1 transform: parses, emits a vertex entry point and a WVP uniform", (
     assert.strictEqual(reflection.samplers.length, 0);
 });
 
-test("an unwritten oFog defaults to an unfogged factor", () => {
-    const { wgsl, reflection } = compileOk(VS_1_1_TRANSFORM, "vs_1_1");
-    assert.ok(!reflection.writtenVaryings.includes(pipeline.VARYING_FOG),
-        "the fixture must leave oFog unwritten");
-    assert.ok(wgsl.includes("var<private> o_varying10: vec4<f32> = " +
-        "vec4<f32>(1.0, 0.0, 0.0, 0.0);"),
-    "an unwritten oFog must default to factor one, not full fog:\n" + wgsl);
-});
-
 test("vs_1_1 m4x4 expands to four dot products against consecutive registers", () => {
     const { wgsl } = compileOk(VS_1_1_TRANSFORM, "vs_1_1");
     for (const register of [0, 1, 2, 3])

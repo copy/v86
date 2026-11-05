@@ -2775,6 +2775,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 数值用例保证quad内执行一致，未宣称真正分歧分支中的未定义导数具有确定值。三种谓词/break/call控制流通过真实Tint；12个私有shader通过Naga+Tint；44项单测、190个Naga程序、178项执行器、范围lint及两站点集成通过。删除了三个要求旧错误回退行为的文本断言。
 > - 发布bundle `895589dae30ca08739ae`。证据：[stage5l2-validation.json](fixtures/d3d-review/stage5l2-validation.json)。语义链接、旧版投影/深度/颜色/雾规则、主体只翻译一次及完整资源兼容性继续。
 
+> **阶段 5L3（2026-11-05，功能批次完成）：旧版着色器颜色输出与雾来源，修复 S2-14。**
+> - VS1/2 未写漫反射时默认白色；漫反射/高光在插值前夹取到 [0,1]。VS3 与旧版像素着色器/固定管线配对时使用单独缓存变体，VS3+PS3 保留未夹取值；同一帧切换旧/新像素伙伴的回归通过。
+> - VS1/2 未写 oFog 时从输出高光 alpha 取雾，保留显式 oFog、table fog 优先级和 PS3 不应用旧版后置雾的规则。删除要求错误“默认无雾”的文本断言，以实际像素覆盖。
+> - 新增129场景，覆盖版本配对、缺失颜色、插值前夹取、四种顶点雾模式与显式/高光/table来源。完整 **662场景在Metal/SwiftShader全部通过**，使用明确UNORM8±1预算，零GPU/宿主错误、失败命令或丢弃draw；旧版本在最初124个新场景中失败48个。
+> - 43翻译器单测、178执行器、190Naga程序、12私有shader严格Naga+Chrome Tint、范围lint和两站点集成通过。发布bundle `f85e1b4608acc142f6c0`。证据：[stage5l3-validation.json](fixtures/d3d-review/stage5l3-validation.json)。语义链接、主体一次翻译、旧版投影/深度采样及相对输入/输出寻址继续，阶段5尚未关闭。
+
 - **目标：** 翻译的正确性由差分测试保证。
 - **改动：**
   - 写一个 SM1–3 的 CPU 参考解释器（JS），按 D3D9 文档的伪代码实现。
