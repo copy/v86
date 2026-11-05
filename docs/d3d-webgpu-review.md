@@ -2756,6 +2756,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 本机实际C通过5万次串行/四线程复用、ASan/UBSan、缓冲上传范围/字节、生命周期/录制/Reset/映射绘制和严格变异检查；32 SDK EXE、四DLL、范围lint、两项站点集成通过。同步准确Metal验收的8零售DLL及同源诊断/9构建，宿主包不变。
 > - 完整原版套件终于正常跑完：**53,539项、71次失败、10次skip**，该审计发生在本批最后三处返回值断言修复之前，不能标记为通过。剩余集中在窗口/焦点/全屏丢失语义。结束前一个设备/目标残留已追溯到原版 `test_depth_stencil_size` 缺少设备Release，原版和严格清理断言均未修改。证据：[stage4l13-validation.json](fixtures/d3d-review/stage4l13-validation.json)。阶段4继续，阶段5完成；冒险岛跳过。
 
+
+> **阶段 4L14（2026-11-05，功能批次完成）：全屏焦点、窗口消息与丢失恢复。**
+> - API8 分开管理焦点窗口和绘图窗口，保留原有样式和原生消息顺序；失焦恢复桌面模式、最小化绘图窗口，恢复焦点后允许 Reset，Present 不再抢前台。XP 最小化期间的线程激活不提前恢复；只收到窗口激活时，按实际前台状态补齐恢复通知。
+> - 窗口订阅与 COM 设备分开保活，覆盖 ANSI/Unicode、共享窗口、回调中释放/销毁和应用替换窗口过程。实际 C 的 ASan/UBSan **130项**与 **14个**运行时变异通过，相关 Reset、窗口、寿命、节奏和参数回归通过；32 SDK EXE、四 DLL、范围 lint、站点集成通过。
+> - 五个未修改 Wine 函数及项目恢复场景在 XP Metal/SwiftShader 各 **249项、零失败/todo/flaky/skip**，各比较 **633,600个实际GPU读回像素**；GPU/宿主错误和 owner 释放前设备/资源均为零。同步准确 Metal 验收的8零售DLL及同源诊断/9包，宿主bundle不变。
+> - 完整未修改 Wine device 审计为 **53,530项、零失败/todo/flaky、10次可选分支skip**。严格门禁仍不算通过；原版 `test_depth_stencil_size` 漏掉设备 Release 的一设备/一目标残留继续如实记录，未修改上游或放宽清理断言。
+> - 修复测试失败时浏览器临时目录遗留：清理返回可等待结果，Wine harness 在抛错前等待完成；真实 Chrome 的正常结束、调用者失败及启动超时三条路径均确认目录已删除。证据：[stage4l14-validation.json](fixtures/d3d-review/stage4l14-validation.json)。阶段4继续最终跨API集成；阶段5完成，冒险岛跳过。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

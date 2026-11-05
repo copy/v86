@@ -50,6 +50,6 @@ export function attach_d3d_live_renderer(remote, options = {}, stats = {batches:
         submit(message,write) {stats.batches++;return send(message.ownerToken,message.flags||0,Buffer.from(message.bytes),write);},
         release(owner) {stats.releases++;return send(owner,0xffffffff,Buffer.alloc(0),()=>{throw new Error("Unexpected write during owner release");});},
         async idle() {await queue;if(failure) throw failure;},
-        close() {closed=true;if(active)active.reject(new Error("GPU renderer closed"));remote.close();},
+        close() {closed=true;if(active)active.reject(new Error("GPU renderer closed"));return remote.close();},
     };
 }

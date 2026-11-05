@@ -148,7 +148,7 @@ export async function create_remote_renderer(options = {})
         closing = true;
         socket && socket.destroy();
         kill_browser();process.off("exit", kill_browser);server.close();
-        setTimeout(() => fs.rmSync(profile, {recursive:true,force:true}), 2000).unref();
+        await new Promise((resolve, reject) => setTimeout(() => fs.rm(profile, {recursive:true,force:true,maxRetries:5}, error => error ? reject(error) : resolve()), 2000));
         throw error;
     }
     finally
@@ -217,8 +217,10 @@ export async function create_remote_renderer(options = {})
             browser.kill();
             process.off("exit", kill_browser);
             server.close();
-            // (Chrome may still be writing its profile as it goes)
-            setTimeout(() => fs.rm(profile, { recursive: true, force: true, maxRetries: 5 }, () => {}), 1000).unref();
+            // Await this promise in a failing harness: an uncaught exception
+            // exits even with referenced timers and would leave the profile.
+            return new Promise((resolve, reject) => setTimeout(() => fs.rm(profile,
+                {recursive:true,force:true,maxRetries:5}, error => error ? reject(error) : resolve()), 1000));
         },
     };
 }

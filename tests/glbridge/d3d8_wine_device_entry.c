@@ -232,7 +232,22 @@ static void device_tail_audit_group(void)
 #include "d3d8_retail_runtime.h"
 #include "d3d8_lifetime_runtime.h"
 
+#include "d3d8_window_runtime.h"
+
+static void window_runtime_group(void)
+{
+    WNDCLASSA wc = {0};wc.lpfnWndProc = DefWindowProcA;wc.lpszClassName = "d3d8_test_wc";
+    RegisterClassA(&wc);
+    registry_mode.dmSize = sizeof(registry_mode);
+    ok(EnumDisplaySettingsW(NULL, ENUM_REGISTRY_SETTINGS, &registry_mode), "Missing registry mode.\n");
+    test_wndproc();
+    test_wndproc_windowed();test_window_style();test_device_window_reset();test_lost_device();
+    window_recovery_pixels();
+    UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
+}
+
 const struct test winetest_testlist[] = {
+    { "window-runtime", window_runtime_group },
     { "lifetime-runtime", lifetime_runtime_group },
     { "retail-runtime", retail_runtime_group },
     { "device", full_device_suite },

@@ -13,7 +13,7 @@ import {create_d3d_live_renderer} from "../lib/d3d_live_renderer.mjs";
 const root=fileURLToPath(new URL("../../",import.meta.url)),site=site_directory(root);
 const group=process.env.D3D_WINE_DEVICE_GROUP || "compatibility";
 const vendor=root+"tests/glbridge/wine/",out=path.resolve(process.env.D3D_WINE_OUT || root+"build/d3d-review/wine-device8-"+group);
-assert(["compatibility","locking","storage","storage-audit","resources","swapchains","retail-runtime","lifetime-runtime","device-tail-audit","device"].includes(group), "Unknown Wine device group");
+assert(["compatibility","locking","storage","storage-audit","resources","swapchains","retail-runtime","lifetime-runtime","window-runtime","device-tail-audit","device"].includes(group), "Unknown Wine device group");
 const manifest=JSON.parse(fs.readFileSync(vendor+"manifest.json"));
 for(const file of manifest.files)assert.equal(createHash("sha256").update(fs.readFileSync(vendor+file.path)).digest("hex"),file.sha256,"Modified upstream Wine source: "+file.path);
 fs.mkdirSync(out,{recursive:true});
@@ -38,4 +38,4 @@ try {
             assert.equal(live.stats.snapshot.sessionCleanup.length,1);assert(live.stats.snapshot.sessionCleanup.every(row=>!row.devices&&!row.resources));
         }});
     console.log(JSON.stringify(result));
-} finally {fs.writeFileSync(out+"/live-gpu.json",JSON.stringify(live.stats,null,2)+"\n");live.close();}
+} finally {fs.writeFileSync(out+"/live-gpu.json",JSON.stringify(live.stats,null,2)+"\n");await live.close();}
