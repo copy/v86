@@ -6,6 +6,7 @@ import {execFileSync} from "node:child_process";
 import {createRequire} from "node:module";
 import {fileURLToPath} from "node:url";
 import {site_directory} from "../lib/site.mjs";
+import {create_d3d_live_renderer} from "../lib/d3d_live_renderer.mjs";
 import {run_xp_ram_probe} from "../lib/xp_ram_probe.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const site = site_directory(root);
@@ -41,12 +42,14 @@ const scenes = Array.from({length:4}, () => [
     ...[0xffff0000,0xffff0000,0xff00ff00,0xff00ff00,0xff00ff00].map(color => ({size:8,color})),
 ]).flat();
 let replies = 0;
+const live = process.env.D8WG_LIVE_GPU === "1" ? await create_d3d_live_renderer() : null;
+try {
 const result = await run_xp_ram_probe({root, out, files,
     image:process.env.XP_IMAGE || site + "/windowsxp/windowsxp_multidisk_C_4G.img",
     success:"PASS Device8 frontend", log_files:["DEVICE8.TXT"], capture_graphics:true,
-    expected_releases:1, simulated_host_features:0,
-    rendering:"Actual 97-method Device8 facade, SDK120/220 normal/PURE, API8 scopes and deleted shader retention, Reset/cancel, child GetDevice revival. CPU readback replies are analytic; captured commands are independently replayed on GPU.",
-    observe_batch(message, read, write) {
+    expected_releases:1, simulated_host_features:live ? null : 0, graphics_renderer:live,
+    rendering:live ? "Actual live GPU replies are written back to XP before batch completion. SDK8 checks every returned pixel; no analytic reply injection." : "Actual 97-method Device8 facade, SDK120/220 normal/PURE, API8 scopes and deleted shader retention, Reset/cancel, child GetDevice revival. CPU readback replies are analytic; captured commands are independently replayed on GPU.",
+    observe_batch:live ? null : function(message, read, write) {
         const h = W.readHeader(message.bytes.subarray(8));
         W.checkStream(h.view, h.end, h.commandCount);
         for (let offset = P.STRUCTS.BatchHeader.size; offset < h.end;) {
@@ -64,10 +67,17 @@ const result = await run_xp_ram_probe({root, out, files,
         }
     },
     inspect(r) {
-        assert.equal(replies, 28);
+        if (live) {
+            assert.equal(live.stats.snapshot.stats.readbackRequests,28);
+            assert.equal(live.stats.snapshot.cleanup.length,1);
+            assert(live.stats.snapshot.cleanup.every(v=>!v.devices&&!v.resources));
+        } else assert.equal(replies, 28);
         if (public_entry) assert.match(r.logs["DEVICE8.TXT"], /PUBLIC Direct3DCreate8\/CreateDevice entry/);
         assert.match(r.logs["DEVICE8.TXT"], /PASS Device8 frontend methods=97 devices=4 images=28 checks=\d+ finalRefs=0/);
         assert.equal(r.owners.length, 1); assert.deepEqual(r.releases, r.owners);
     },
 });
 console.log(JSON.stringify(result));
+} finally {
+    if (live) {fs.writeFileSync(out + "/live-gpu.json",JSON.stringify(live.stats,null,2)+"\n");live.close();}
+}

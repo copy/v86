@@ -2684,6 +2684,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 32个SDK EXE、两API零售/诊断构建、站点集成2项及两侧各5文件范围lint通过；发布两份XP验证过的准确零售DLL和同源诊断DLL，DDraw/宿主/协议/着色器包不变。证据：[stage4l3-validation.json](fixtures/d3d-review/stage4l3-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L3.json`。
 > - 继续阶段4共用顶点处理/旧版接口整体验收，以及阶段5系统着色器差分；本批未把注入式错误测试称为真实设备丢失测试，也未宣称完整HAL/游戏/FPS验收完成。
 
+> **阶段 4L4（2026-11-05，功能批次完成）：XP 与真实 WebGPU 双向联机验收。**
+> - 真实浏览器 GPU 的读回直接写入请求所属 XP DMA arena，由客体检查每个像素；不再以解析生成的像素替代联机验收。公开 Device8 的97方法/4设备/2,815项检查、D3D9状态块/Reset、DirectDraw1/2/3/4/7的ROP/GDI/调色板分别接入同一通道。
+> - SwiftShader及Metal各完成三次XP：每种后端 **63张图 / 3,648个像素**，合计6次、126张图、7,296像素。全部客体检查通过，GPU/宿主错误为零，所有设备/资源在会话回收前释放。两种后端另各完成三个冻结轨迹的真实双向传输测试。
+> - 异步通道复制客体命令内存、限制在途批次并保持写入generation；按序处理owner释放。最初联机失败暴露了本地通道共享内存被客体复用的问题，改用remote复制/背压后重跑通过。测试只把实际READBACK请求地址的写入视为像素，主机心跳和能力发布仍完整送回客体。
+> - 新增序列/连接丢失/写入异常/超时/关闭/释放期间非法写入测试；实际virtqueue测试新增DMA复用后命令副本不变断言。原传输、旧D3D9冻结夹具、两项客体原生套件、站点集成2项和11文件范围lint通过；未重跑的401项客体基线明确继承4L3。生产DLL源码、宿主、协议及着色器包不变，本批只修改测试通道和客体探针。
+> - 一次运行完整矩阵：`node tests/glbridge/d3d_live_xp_matrix.mjs`。证据：[stage4l4-validation.json](fixtures/d3d-review/stage4l4-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L4.json`。继续原版Wine及本地3DMark/MapleStory验收，再完成阶段5；这些选定API探针不等同于完整游戏验收。
+
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

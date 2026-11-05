@@ -1,0 +1,59 @@
+<!doctype html><meta charset="utf-8"><title>D9WG live XP renderer</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">STARTING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+/* global D3D9WebGPUExecutor, WebSocket */
+"use strict";
+(async () => {
+    const socket = new WebSocket(new URLSearchParams(location.search).get("ws"));
+    socket.binaryType = "arraybuffer";
+    await new Promise((resolve,reject) => {socket.onopen=resolve;socket.onerror=reject;});
+    const send = (type,value=0,data=new Uint8Array()) => {
+        const packet=new Uint8Array(5+data.length);packet[0]=type;
+        new DataView(packet.buffer).setUint32(1,value,true);packet.set(data,5);socket.send(packet);
+    };
+    const text = (type,value) => socket.send(new Uint8Array([type,...new TextEncoder().encode(value)]));
+    let queue=Promise.resolve(),failed=false;
+    try {
+        const gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false,createSwapChainCanvas:()=>document.createElement("canvas")});
+        const cleanup=[];const end=gpu.onSessionEnd;
+        gpu.onSessionEnd=function(...args){cleanup.push({devices:this.devices.size,resources:this.resources.size});return end.apply(this,args);};
+        await gpu.initialize();
+        socket.onmessage=event => {
+            const packet=new Uint8Array(event.data),view=new DataView(packet.buffer);
+            queue=queue.then(async()=>{
+                if(failed)return;
+                if(packet.length<13||packet[0]!==1)throw new Error("Invalid D9WG remote packet");
+                const seq=view.getUint32(1,true),ownerToken=view.getUint32(5,true),flags=view.getUint32(9,true);
+                if(flags===0xffffffff) {
+                    if(packet.length!==13)throw new Error("Invalid owner release");
+                    await gpu.endOwnerSessions(ownerToken);
+                } else {
+                    if(packet.length<21||view.getUint16(13,true)!==0xffe1||view.getUint32(17,true)!==packet.length-21)
+                        throw new Error("Invalid D9WG carrier");
+                    await gpu.submit(packet.subarray(21),{ownerToken,flags,writeGuestMemory(offset,bytes){send(3,offset,bytes);}});
+                }
+                await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
+                if(gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.batchesFailed)throw new Error("GPU validation failed: "+JSON.stringify({gpu:gpu.gpuErrors.errors,host:gpu.hostErrors}));
+                text(8,JSON.stringify({stats:gpu.stats,cleanup,devices:gpu.devices.size,resources:gpu.resources.size,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors}));
+                send(4,seq);
+            }).catch(error=>{failed=true;text(5,String(error.stack));document.querySelector("#result").textContent=String(error.stack);});
+        };
+        socket.send(new Uint8Array([6]));document.querySelector("#result").textContent="READY";
+    } catch(error) {text(5,String(error.stack));document.querySelector("#result").textContent=String(error.stack);}
+})();
+</script>

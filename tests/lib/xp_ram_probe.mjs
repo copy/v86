@@ -1,5 +1,6 @@
 // Headless real-XP driver/API probe. Graphics batches are acknowledged without
-// rendering. The user's image is read-only; all writes use RAM sector overlays.
+// rendering by default; graphics_renderer supplies actual GPU replies when set.
+// The user's image is read-only; all writes use RAM sector overlays.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { createRequire as create_require } from "node:module";
@@ -8,15 +9,18 @@ import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
     success, log_files = [], binary_files = [], capture_graphics = false, expected_releases = null,
-    rendering = "not exercised", simulated_host_features = null, observe_batch = null, inspect })
+    rendering = "not exercised", simulated_host_features = null, observe_batch = null, graphics_renderer = null, inspect })
 {
+    assert(!graphics_renderer || (!observe_batch && simulated_host_features === null), "A live GPU cannot be combined with simulated replies/capabilities");
+    let graphics_work = Promise.resolve(), graphics_error = null, graphics_active = true;
     const before = fs.statSync(image);
     assert(simulated_host_features === null || (Number.isInteger(simulated_host_features) && simulated_host_features >= 0 && simulated_host_features <= 15));
     const caps_protocol = simulated_host_features === null ? null : create_require(import.meta.url)("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
     const tools = new MemoryDisk(make_fat16(files)), disk = new ReadOnlyOverlayDisk(image);
     const require = create_require(import.meta.url), { createV86GLDevice: create_device } = require("../../src/browser/glbridge/v86gl_device.js");
     const handlers = [null, null];
-    const end = (self, other) => ({ remote: false, post(message) { handlers[other]?.(message); }, listen(handler) { handlers[self] = handler; } });
+    // An asynchronous browser must own a copy before the guest reuses its DMA arena.
+    const end = (self, other) => ({ remote: !!graphics_renderer, post(message) { handlers[other]?.(message); }, listen(handler) { handlers[self] = handler; } });
     const channel = { device: end(0, 1), host: end(1, 0) };
     let batches = 0;const releases = [], owners = new Set();
     const captured = [];let capture_bytes = 0, capture_error;
@@ -33,6 +37,15 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                     captured.push(header, Buffer.from(message.bytes));
                 }
             }
+            if(graphics_renderer) {
+                graphics_work = graphics_work.then(async () => {
+                    await graphics_renderer.submit(message, (offset, bytes) => {
+                        if(graphics_active) channel.host.post({type:"write",generation:message.generation,offset,bytes});
+                    });
+                    if(graphics_active) channel.host.post({type:"done",id:message.id});
+                }).catch(error => {graphics_error = error;});
+                return;
+            }
             if(observe_batch) observe_batch(message, name => read_fat16(tools.bytes, name), (offset, bytes) => {
                 channel.host.post({type: "write", generation: message.generation, offset, bytes});
             });
@@ -42,7 +55,10 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             }
             channel.host.post({ type: "done", id: message.id });
         }
-        else if(message.type === "released") releases.push(message.ownerToken);
+        else if(message.type === "released") {
+            releases.push(message.ownerToken);
+            if(graphics_renderer) graphics_work = graphics_work.then(() => graphics_renderer.release(message.ownerToken)).catch(error => {graphics_error = error;});
+        }
     });
     channel.host.post({ type: "available", value: true });
     const { V86 } = await import("../../src/main.js");
@@ -102,7 +118,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             await vm.keyboard_send_scancodes([28, 156], 30);
             for(let poll = 0; poll < 180; poll++)
             {
-                await delay(1000);const text = result_text();
+                await delay(1000);if(graphics_error) throw graphics_error;const text = result_text();
                 const logs = read_logs();
                 if(text.includes("FAIL ") || Object.values(logs).some(text => text.includes("FAIL ")))
                     throw new Error(JSON.stringify({ text, logs }));
@@ -118,6 +134,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             for(let poll = 0; poll < 50 && releases.length < expected_releases; poll++) await delay(100);
             assert.equal(releases.length, expected_releases, "Guest transport owners did not retire");
         }
+        await graphics_work; if(graphics_error) throw graphics_error;
         const after = fs.statSync(image);assert.equal(after.mtimeMs, before.mtimeMs);assert.equal(after.size, before.size);
         const artifacts = {};
         if(capture_graphics) {
@@ -148,6 +165,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
     }
     finally
     {
+        graphics_active = false;
         await vm.stop();await vm.destroy();fs.closeSync(disk.fd);
     }
 }

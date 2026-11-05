@@ -75,6 +75,10 @@ const { createV86GLDevice } = require("../../src/browser/glbridge/v86gl_device.j
         }
         const gl = latest(0), a = latest(11), b = latest(22);
         assert.equal(new Set([gl.generation, a.generation, b.generation]).size, 3);
+        // The browser consumes asynchronously after the driver reuses DMA RAM.
+        const frozen = Buffer.from(a.bytes);
+        ram.fill(0, arenas[1] + 32, arenas[1] + 44);
+        assert.deepEqual(Buffer.from(a.bytes), frozen, "remote commands own a copy of guest memory");
         write(gl, 10);write(a, 11);write(b, 22);
         assert.deepEqual(arenas.map(at => mem.getUint8(at + 4096)), [10, 11, 22]);
         host({ type: "write", generation: gl.generation, inlineId: gl.id, offset: 4097, bytes: new Uint8Array([37]) });

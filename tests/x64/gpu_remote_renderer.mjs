@@ -72,7 +72,7 @@ function frame_reader(on_message)
  */
 export async function create_remote_renderer(options = {})
 {
-    let socket = null, to_device = null, ready_resolve, ready_reject;
+    let socket = null, to_device = null, ready_resolve, ready_reject, closing = false;
     const ready = new Promise((resolve, reject) => { ready_resolve = resolve; ready_reject = reject; });
     const stats = { batches: 0, bytes: 0, writes: 0 };
 
@@ -94,7 +94,8 @@ export async function create_remote_renderer(options = {})
             if(!message) return;
             const type = message[0];
             if(type === TYPES.ready) { ready_resolve(); return; }
-            if(type === TYPES.log) { console.log("renderer: " + message.subarray(1).toString()); return; }
+            if(type === TYPES.log) { const line = message.subarray(1).toString(); if(options.on_log) options.on_log(line); else console.log("renderer: " + line); return; }
+            if(type === TYPES.lost) ready_reject(new Error(message.subarray(1).toString()));
             if(!to_device) return;
             if(type === TYPES.write)
             {
@@ -105,6 +106,12 @@ export async function create_remote_renderer(options = {})
             else if(type === TYPES.lost) to_device({ "type": "lost", "reason": message.subarray(1).toString() });
         }));
         connection.on("error", () => {});
+        connection.on("close", () => {
+            if(closing) return;
+            const reason = "GPU renderer connection closed";
+            ready_reject(new Error(reason));
+            if(to_device) to_device({type:"lost", reason});
+        });
     });
     await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
     const port = server.address().port;
@@ -113,7 +120,8 @@ export async function create_remote_renderer(options = {})
         "--headless=new", "--enable-unsafe-webgpu", "--no-first-run", "--no-default-browser-check",
         "--disable-background-networking", "--disable-renderer-backgrounding", "--disable-background-timer-throttling",
         `--user-data-dir=${profile}`,
-        `http://127.0.0.1:${port}/tests/glbridge/svga_remote_renderer.html?ws=ws://127.0.0.1:${port}/renderer`,
+        ...(process.env.GL_SWIFTSHADER === "1" ? ["--use-webgpu-adapter=swiftshader", "--use-gpu-in-tests"] : []),
+        `http://127.0.0.1:${port}/tests/glbridge/${options.page || "svga_remote_renderer.html"}?ws=ws://127.0.0.1:${port}/renderer`,
     ], { stdio: ["ignore", "ignore", "pipe"] });
     // A harness stopped by a signal skips close(); Chrome would outlive it
     const kill_browser = () => browser.kill("SIGKILL");
@@ -124,7 +132,7 @@ export async function create_remote_renderer(options = {})
     }
     let stderr = "";
     browser.stderr.on("data", data => { stderr = (stderr + data).slice(-4000); });
-    let closing = false;
+    browser.on("error", error => ready_reject(error));
     browser.on("exit", code => {
         ready_reject(new Error("Chrome exited (" + code + "): " + stderr));
         // after that, the device must not wait for it
@@ -134,6 +142,14 @@ export async function create_remote_renderer(options = {})
     try
     {
         await ready;
+    }
+    catch(error)
+    {
+        closing = true;
+        socket && socket.destroy();
+        kill_browser();process.off("exit", kill_browser);server.close();
+        setTimeout(() => fs.rmSync(profile, {recursive:true,force:true}), 2000).unref();
+        throw error;
     }
     finally
     {
