@@ -11,11 +11,13 @@ const cpu = {
     read_blob_physical(address, size) { return memory.subarray(address, address + size); },
     write_blob_physical(bytes, address) { memory.set(bytes, address); },
 };
-const interrupts = [], sent = [];
+const interrupts = [], sent = [], starts = [];
 const dma = new AppleCDMA(cpu, (channel, level) => {
     if(level) interrupts.push([channel, dma.read(channel * 4096 + 0x14)]);
 });
-const spi = new AppleSPI(cpu, 1, () => {}, byte => { sent.push(byte); return byte ^ 0xff; }, dma);
+const spi = new AppleSPI(cpu, 1, () => {}, (byte, first, length) => {
+    sent.push(byte); if(first) starts.push(length); return byte ^ 0xff;
+}, dma);
 const descriptor = (at, next, flags, address, size) => {
     [next, flags, address, size, 0, 0, 0, 0].forEach((value, i) => view.setUint32(at + 4 * i, value, true));
 };
@@ -37,7 +39,7 @@ function request(size)
 const payload = Uint8Array.from({ length: 70019 }, (_, i) => (i * 17 ^ i >>> 8) & 255);
 for(const early of [false, true])
 {
-    dma.reset(); spi.reset(); sent.length = interrupts.length = 0;
+    dma.reset(); spi.reset(); sent.length = interrupts.length = starts.length = 0;
     memory.set(payload.subarray(0, 19), 0x4000);
     memory.set(payload.subarray(19), 0x8000);
     descriptor(0x100, 0x120, 3, 0x4000, 19);
@@ -46,6 +48,7 @@ for(const early of [false, true])
     request(payload.length);
     if(!early) arm(0x100, 0x40000000);
     assert.deepEqual(Uint8Array.from(sent), payload);
+    assert.deepEqual(starts, [payload.length]);
     assert.deepEqual(interrupts, [[18, 0x140]], "hardware cursor is visible before the callback interrupt");
     assert.equal(dma.read(0x1200C), 0x40000000 - payload.length);
     assert.equal(spi.rx.length, 0, "transmit-only clocks discard the returned bytes");
@@ -56,7 +59,7 @@ for(const early of [false, true])
 }
 console.log("PASS: SPI1 transmit DMA streams a scattered payload in either request order and retires the native callback ring");
 
-dma.reset(); spi.reset(); sent.length = interrupts.length = 0;
+dma.reset(); spi.reset(); sent.length = interrupts.length = starts.length = 0;
 const bytes = Uint8Array.of(7, 19, 31, 43, 59, 71, 83, 97);
 memory.set(bytes.subarray(0, 3), 0x4000);
 memory.set(bytes.subarray(3), 0x8000);
@@ -72,6 +75,7 @@ spi.shift();
 assert.equal(sent.length, 3, "a stopped channel cannot consume the outstanding SPI suffix");
 arm(0x120, 5);
 assert.deepEqual(sent, [...bytes]);
+assert.deepEqual(starts, [bytes.length], "a restored refill continues the same peripheral transaction");
 assert.deepEqual(interrupts, [[18, 0x120], [18, 0x140]]);
 assert.equal(dma.read(0x1200C), 0);
 assert.equal(spi.dma_pending, null);

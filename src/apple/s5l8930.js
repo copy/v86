@@ -10,6 +10,7 @@ import { AppleUART } from "./uart.js";
 import { AppleVIC } from "./vic.js";
 import { AppleI2S } from "./audio.js";
 import { AppleSPI } from "./spi.js";
+import { AppleMultitouch } from "./multitouch.js";
 
 export const N90_BUTTONS = ["home", "power", "volume-up", "volume-down", "mute"];
 
@@ -20,7 +21,7 @@ const spi_controllers = ["apple_spi0", "apple_spi1"];
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers,
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers, "apple_multitouch",
 ];
 
 export function create_n90_devices(cpu, bus, screen, buffer)
@@ -57,6 +58,9 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
     audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i); });
     spi_controllers.forEach((name, i) => { devices[name] = new AppleSPI(cpu, i, level => vic.set_line(29 + i, level), undefined, dma); });
+    const touch = devices.apple_multitouch = new AppleMultitouch();
+    devices.apple_spi1.exchange = (byte, first, length) => touch.exchange(byte, first, length);
+    gpio.outputs.set(20, level => { if(!level) touch.reset(); });
     if(nand) devices.apple_nand = nand;
     return devices;
 }
@@ -91,6 +95,7 @@ export class AppleGPIO
         this.pins = new Uint32Array(22 * 8);
         this.mask = new Uint32Array(6);
         this.pending = new Uint32Array(6);
+        this.outputs = new Map();
         this.reset();
         cpu.io.register_mmio(0xBFA00000, 0x1000, {
             name: "gpio",
@@ -145,7 +150,13 @@ export class AppleGPIO
 
     write(offset, value)
     {
-        if(offset < this.pins.byteLength) { this.pins[offset >>> 2] = value; return; }
+        if(offset < this.pins.byteLength)
+        {
+            const pin = offset >>> 2, changed = (this.pins[pin] ^ value) & 1;
+            this.pins[pin] = value;
+            if(changed) this.outputs.get(pin)?.(!!(value & 1));
+            return;
+        }
         const bank = (offset & 63) >>> 2;
         if(bank >= this.mask.length) return;
         switch(offset & ~63)
