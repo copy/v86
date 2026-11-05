@@ -333,6 +333,13 @@
             };
             if (!channel.remote) {
                 pushAccepted();
+                const pressure = bridge.graphicsJournal && bridge.graphicsJournal.waitForSpace();
+                if (pressure) {
+                    pressure.catch(error => console.error("[v86gl] graphics history failed", error)).then(() => {
+                        if (batchEpoch === epoch) channel.post({ type: "done", id: message.id });
+                    });
+                    return;
+                }
                 channel.post({ type: "done", id: message.id });
                 return;
             }

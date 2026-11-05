@@ -532,6 +532,7 @@
                 else if (executor.idle) await executor.idle();
                 else if (executor.work) await executor.work;
             }
+            await this.graphicsJournal.waitForSpace();
         }
 
         // The checkpoint travels in the snapshot as the device's host state

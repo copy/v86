@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import {read_fat32_file, list_fat32_directory} from "./fat32_reader.mjs";
+// Tiny in-memory FAT32 volume with a partition offset and a fragmented file.
+const bytes=Buffer.alloc(4096),base=512,fat=1024,data=1536;
+bytes.writeUInt32LE(1,454);bytes.write("FAT32   ",base+82);bytes.writeUInt16LE(512,base+11);
+bytes[base+13]=1;bytes.writeUInt16LE(1,base+14);bytes[base+16]=1;
+bytes.writeUInt32LE(1,base+36);bytes.writeUInt32LE(2,base+44);
+bytes.writeUInt32LE(0x0fffffff,fat+8);bytes.writeUInt32LE(5,fat+12);bytes.writeUInt32LE(0x0fffffff,fat+20);
+bytes.write("REPORT  TXT",data);bytes[data+11]=32;bytes.writeUInt16LE(3,data+26);bytes.writeUInt32LE(600,data+28);
+bytes.fill(0x41,data+512,data+1024);bytes.fill(0x42,data+1536,data+1624);
+const disk={byteLength:bytes.length,get(at,size,callback){callback(bytes.subarray(at,at+size));}};
+assert.deepEqual((await list_fat32_directory(disk,"")).map(x=>x.name),["REPORT.TXT"]);
+const report=await read_fat32_file(disk,"report.txt");assert.equal(report.length,600);
+assert.ok(report.subarray(0,512).every(x=>x===0x41));assert.ok(report.subarray(512).every(x=>x===0x42));
+assert.equal(await read_fat32_file(disk,"missing.txt"),null);
+bytes.writeUInt32LE(0x0fffffff,fat+12);await assert.rejects(read_fat32_file(disk,"report.txt"),/Truncated/);
+bytes.writeUInt32LE(3,fat+12);await assert.rejects(read_fat32_file(disk,"report.txt"),/Invalid/);
+bytes.writeUInt32LE(999,fat+12);await assert.rejects(read_fat32_file(disk,"report.txt"),/Invalid|outside/);
+bytes.writeUInt32LE(33*1024*1024,data+28);await assert.rejects(read_fat32_file(disk,"report.txt"),/limit/);
+bytes.writeUInt32LE(0,data+28);assert.equal((await read_fat32_file(disk,"report.txt")).length,0);
+console.log("PASS FAT32 benchmark artifacts: partition, fragmented file, missing/empty files, truncated/cyclic/out-of-range chains and size limit");

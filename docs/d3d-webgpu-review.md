@@ -2917,7 +2917,7 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 
 | 顺序 | 程序 | 本地镜像（相对于retro-gaming-site） | 状态 |
 | --- | --- | --- | --- |
-| 1 | 3DMark99 | `game/3dmarklegacy.img` | 全项验收待完成 |
+| 1 | 3DMark99 | `game/3dmarklegacy.img` | Metal全部26项通过；旧分支性能对齐/跨后端核对仍开放 |
 | 2 | 3DMark2000 | `game/3dmarklegacy.img` | 全项验收待完成 |
 | 3 | 3DMark2001 SE | `game/3dmarklegacy.img` | 全项验收待完成；既有局部场景回放不替代本项 |
 | 4 | 3DMark03 | `game/3dmark03.img` | 全项验收待完成 |
@@ -2932,6 +2932,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 4. **浏览器console零错误**：从启动到结果页记录完整console、页面未捕获异常、Promise拒绝与WebGPU错误；不屏蔽、不清空错误后计为通过。设备丢失、超时及资源清理异常也必须处理。告警保留供复核，不隐藏可能的渲染缺陷。
 5. 新发现的问题按功能合并修复，在能复现问题的最低层补回归，再重跑受影响版本。每完成一个功能批次，在两个仓库的`refactor`分支分别提交实现、回归或相关验收记录；不按单个断言拆提交。
 6. 阶段6关闭需同时满足Wine/API验收与以上六版全项要求。当前只修订范围，不表示上述3DMark已跑完或已通过。
+
+### 阶段6首批修复与99结果（2026-11-06）
+
+修复逐绘制重复扫描ClipStatus造成的客体CPU开销、索引UP上传整个未使用顶点区间的问题，以及宿主压缩队列缺少限流导致的十几GB原始记录积压。缓存逐字比较全部位置（包括未引用顶点），可变位置/视口/非法索引仍被正确处理；屏幕内部顶点使用保守快速路径，边界及异常值保留原计算。队列限流保留全部历史，不丢弃绘图或隐藏错误。
+
+3DMark99 Max build 200在Metal完成全部26项：1605分，赛车22.7 FPS、第一人称12.4 FPS；同为CPU Worker的修复前为189分、6.2/1.1 FPS。18张质量图片已导出；9张完整图扣除元数据后与修复前像素完全一致，另核对了随程序提供的32位软件参考图与场景关键帧。浏览器/宿主/GPU错误、失败命令和丢弃绘制均为零；正常退出后设备/资源为零。客体程序目录内DLL SHA-256与发布DLL一致。
+
+**99的完整Metal运行已通过，旧分支性能对齐仍开放。** 旧分支仅观察到赛车瞬时约42 FPS，随后发生历史队列内存失败，不能把它当作完整平均成绩。此批不声称达到旧分支全部性能，也不声称完成SwiftShader全项比较、其余五版或完整Wine/API验收。详细版本、哈希、设置及证据见 `fixtures/d3d-review/stage6-1-validation.json`；大体积图片/报告仅在本地 `v86/build/d3d-review/stage6-99-scalar` 保存。
 
 ## 附录 A：我本人的核实记录
 

@@ -3,6 +3,31 @@ const assert = require("node:assert/strict");
 const { GraphicsJournal } = require("../../src/browser/glbridge/graphics_journal.js");
 const timeout = setTimeout(() => { throw new Error("journal test timed out"); }, 60000);
 (async () => {
+    const bounded = new GraphicsJournal({ budget: 128, pageBytes: 64, store: null, worker: false });
+    const gates = [];
+    bounded.compressor.compress = (buffer, length) => new Promise(resolve => {
+        gates.push(() => resolve({data:buffer.subarray(0, length),codec:0}));
+    });
+    bounded.append({frameId:1}, new Uint8Array(32).fill(1));
+    assert.equal(bounded.pendingBytes, 64);
+    assert.equal(bounded.waitForSpace(), null, "small queues do not stall the guest");
+    bounded.append({frameId:2}, new Uint8Array(32).fill(2));
+    let released = false;
+    const pressure = bounded.waitForSpace().then(() => { released = true; });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(gates.length, 1);assert.equal(released, false);
+    gates.shift()();await new Promise(resolve => setImmediate(resolve));
+    assert.equal(bounded.pendingBytes, 64);assert.equal(released, false);
+    gates.shift()();await pressure;
+    assert.equal(bounded.pendingBytes, 0);
+    const boundedRecords = [];
+    for await (const record of GraphicsJournal.records(GraphicsJournal.parse(await bounded.snapshot()))) boundedRecords.push(record);
+    assert.deepEqual(boundedRecords.map(record => [record.frameId, record.bytes[0]]), [[1,1],[2,2]], "backpressure retains ordered history");
+    bounded.compressor.compress = async () => { throw new Error("test compressor failure"); };
+    bounded.append({}, new Uint8Array(96));
+    await assert.rejects(bounded.waitForSpace(), /test compressor failure/);
+    assert.equal(bounded.pendingBytes, 0, "failed compression releases queued raw storage accounting");
+    await bounded.destroy();
     const data = new Map();
     let writes = 0, reads = 0;
     const store = {

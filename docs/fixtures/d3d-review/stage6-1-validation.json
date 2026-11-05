@@ -1,0 +1,238 @@
+{
+  "batch": "stage6-1",
+  "date": "2026-11-06",
+  "scope": "DDraw ClipStatus CPU and indexed upload regression; bounded host journal backlog; first complete local 3DMark99 Metal acceptance",
+  "status": "batch validated; stage6 and old-branch performance parity remain open",
+  "baseline": {
+    "same_worker_refactor_before": {
+      "score": 189,
+      "race_fps": 6.2,
+      "first_person_fps": 1.1,
+      "local": "build/d3d-review/stage6-99-refactor-worker"
+    },
+    "core_master": "87d26deb9a77c2e98b4b684f39cc72ba9065d76a",
+    "site_default_main": "43c4d1e58c6808e2fee2e2abac59062467b6942b",
+    "old_branch_observation": "Race instantaneous frame about 42 FPS, then unbounded journal ArrayBuffer allocation failure. Not a completed baseline or average."
+  },
+  "accepted_run": {
+    "directory": "build/d3d-review/stage6-99-scalar",
+    "program": "3DMark99 Max Pro build 200",
+    "tests_completed": 26,
+    "settings": {
+      "resolution": [
+        800,
+        600
+      ],
+      "color_bits": 16,
+      "depth_bits": 16,
+      "buffers": 3,
+      "vsync": false,
+      "cpu": "Pentium III",
+      "cpu_worker": true,
+      "ram_mib": 1024
+    },
+    "browser": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/157.0.8103.38",
+      "revision": "@a733b5afbb3ba618844ff8876b89ad1a774b2f18",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+      "jsVersion": "15.7.112.23"
+    },
+    "gpu": {
+      "vendor": "apple",
+      "architecture": "metal-3",
+      "device": "",
+      "description": ""
+    },
+    "webgpu_bundle": "63e28a608d73eec6a1b2",
+    "score": 1605,
+    "cpu_score": 10100,
+    "race_fps": 22.7,
+    "first_person_fps": 12.4,
+    "errors": {
+      "console": 0,
+      "host": 0,
+      "gpu": 0,
+      "commands_failed": 0,
+      "dropped_draws": 0
+    },
+    "normal_exit": {
+      "devices": 0,
+      "resources": 0
+    },
+    "journal": {
+      "peak_pending_bytes_observed": 66010368,
+      "final_pending_bytes": 0,
+      "raw_bytes_recorded": 14643908076
+    },
+    "quality": {
+      "exported_images": 18,
+      "full_images": 9,
+      "unchanged_rendered_pixels_against_preoptimization": true,
+      "excluded_metadata_rows": 64,
+      "independent_reference": "Bundled Direct3D software 32-bit reference images, visually compared with this 16-bit run. Quantization bands differ as expected; no pixel-equality claim across bit depths.",
+      "scene_frames_reviewed": [
+        26,
+        29,
+        33,
+        36,
+        40,
+        45,
+        50,
+        55,
+        60,
+        65,
+        70,
+        75,
+        80,
+        85,
+        90,
+        95
+      ]
+    },
+    "artifacts": [
+      {
+        "file": "SC99.TXT",
+        "name": "SC99.TXT",
+        "bytes": 4359,
+        "sha256": "696303514665695f8ffde5a3cd369504f15cfd548e9083aaf3ed013dd632f0ef"
+      },
+      {
+        "file": "S6SC99.3DP",
+        "name": "S6SC99.3DP",
+        "bytes": 3802,
+        "sha256": "1b0d3a1b8aab7f067ec6605fda3b824c79d75ef1d5a564998e96771a7906eee3"
+      },
+      {
+        "file": "3DMark 99 Max/ddraw.dll",
+        "name": "3DMark_99_Max_ddraw.dll",
+        "bytes": 145408,
+        "sha256": "c3535275465e2787d9f43f6568d6dc98c3b9564cb6807c9e472d1bcd463744e1"
+      },
+      {
+        "file": "Quality/IQ01I_S6SC99.bmp",
+        "name": "Quality_IQ01I_S6SC99.bmp",
+        "bytes": 249856,
+        "sha256": "b010eb1527157c6bd27d249833060d1e81b3e98fbfe4efa5bd7a8701a092ef96"
+      },
+      {
+        "file": "Quality/IQ01T_S6SC99.bmp",
+        "name": "Quality_IQ01T_S6SC99.bmp",
+        "bytes": 16384,
+        "sha256": "a1d5ae75bd0cb38446437d9a2f988f059c7648b9dfc2cbb71e5a0c607b282348"
+      },
+      {
+        "file": "Quality/IQ02I_S6SC99.bmp",
+        "name": "Quality_IQ02I_S6SC99.bmp",
+        "bytes": 249856,
+        "sha256": "e073e322a024dc775adefce4b908ea25a84f950dc479717d12d5d9be4317e236"
+      },
+      {
+        "file": "Quality/IQ02T_S6SC99.bmp",
+        "name": "Quality_IQ02T_S6SC99.bmp",
+        "bytes": 16384,
+        "sha256": "d2f920990e5e1e245d13b95ba107aa8cc8b12453ccae45cfeca4b881a58002a0"
+      },
+      {
+        "file": "Quality/IQ03I_S6SC99.bmp",
+        "name": "Quality_IQ03I_S6SC99.bmp",
+        "bytes": 249856,
+        "sha256": "2748efd53df08b966976ca94f613898293021687ad54674c7bcb4cd7f18010b2"
+      },
+      {
+        "file": "Quality/IQ03T_S6SC99.bmp",
+        "name": "Quality_IQ03T_S6SC99.bmp",
+        "bytes": 16384,
+        "sha256": "6a0ca677be63687987bf21c15f4937f643242b3bafd88bc17d1f427e7594ca13"
+      },
+      {
+        "file": "Quality/IQ04I_S6SC99.bmp",
+        "name": "Quality_IQ04I_S6SC99.bmp",
+        "bytes": 249856,
+        "sha256": "55393fd1fa089d180361b57df9918fc818929b36fc936164c60aac18642681b5"
+      },
+      {
+        "file": "Quality/IQ04T_S6SC99.bmp",
+        "name": "Quality_IQ04T_S6SC99.bmp",
+        "bytes": 16384,
+        "sha256": "918f791c69dae6569e92e398c5633f0013a165a80c46474240c707771e05728d"
+      },
+      {
+        "file": "Quality/IQ05I_S6SC99.bmp",
+        "name": "Quality_IQ05I_S6SC99.bmp",
+        "bytes": 249856,
+        "sha256": "725c91384282e03db2b505e020ce926ee32fee5440c218d62dcb9f84e8195d4c"
+      },
+      {
+        "file": "Quality/IQ05T_S6SC99.bmp",
+        "name": "Quality_IQ05T_S6SC99.bmp",
+        "bytes": 16384,
+        "sha256": "1de780e57e1e69cbe0212b5210d508584fd3cd6e59b4d306359e130a4342e1a5"
+      },
+      {
+        "file": "Quality/IQ06I_S6SC99.bmp",
+        "name": "Quality_IQ06I_S6SC99.bmp",
+        "bytes": 249856,
+        "sha256": "02d47a2df3ea5c3cf99e3a49dd49f53aacebac3eb279c3aad93d28286e31ee4a"
+      },
+      {
+        "file": "Quality/IQ06T_S6SC99.bmp",
+        "name": "Quality_IQ06T_S6SC99.bmp",
+        "bytes": 16384,
+        "sha256": "f453af8f4048d8996d93325d38d640df1942881e3937fff3805f49f03a110ae3"
+      },
+      {
+        "file": "Quality/IQ07I_S6SC99.bmp",
+        "name": "Quality_IQ07I_S6SC99.bmp",
+        "bytes": 249856,
+        "sha256": "ff472d99c92c1c77d4c4fa74fee298ac5f21606a3ee184885e975dd8eb2cdf70"
+      },
+      {
+        "file": "Quality/IQ07T_S6SC99.bmp",
+        "name": "Quality_IQ07T_S6SC99.bmp",
+        "bytes": 16384,
+        "sha256": "14944ae28fe9721ee6a1c673c151f39f22b59ef7b7f15365d1dae568f0bd9edd"
+      },
+      {
+        "file": "Quality/IQ08I_S6SC99.bmp",
+        "name": "Quality_IQ08I_S6SC99.bmp",
+        "bytes": 1597696,
+        "sha256": "4466e3fb5b8133c4cc2bb8e8ef7d8c73e6104329a27c6e107528efcac809a6e1"
+      },
+      {
+        "file": "Quality/IQ08T_S6SC99.bmp",
+        "name": "Quality_IQ08T_S6SC99.bmp",
+        "bytes": 18496,
+        "sha256": "b2cf7daa65b4259c1d9f2143d965164403d26a383b98a9dc6d2a0de269a8282f"
+      },
+      {
+        "file": "Quality/IQ09I_S6SC99.bmp",
+        "name": "Quality_IQ09I_S6SC99.bmp",
+        "bytes": 1597696,
+        "sha256": "9399f3c5c5f8fc4f59ff6d269abb7a935c8acc1f7825fe2ab82e6a90bad9777e"
+      },
+      {
+        "file": "Quality/IQ09T_S6SC99.bmp",
+        "name": "Quality_IQ09T_S6SC99.bmp",
+        "bytes": 18496,
+        "sha256": "1a9c7e25fc6b60d0dcf916c970d6dea73d099bd47ffa69fe88f173bb51e5d705"
+      }
+    ]
+  },
+  "validation": [
+    "DDraw exact cache: 1000 repeated draws, mutable/unreferenced vertices, viewport/count invalidation, NaN/infinity/subnormal/signed-zero bits, invalid-index atomicity, allocation fallback, transport lock held; ASAN/UBSAN",
+    "Actual indexed UP encoder: 120 rebased spans reproduce every addressed vertex, retain full ClipStatus input, reject invalid ranges; ASAN/UBSAN",
+    "Screen-interior fast path: 250000 vectors against original floating-point conversion, boundaries and extreme inputs; ASAN/UBSAN",
+    "Actual XP native clip-status probe: 100 queries passed with screen-interior path before cache locking/scalar comparison; final DLL additionally validated by full benchmark and cache tests",
+    "Existing clip status/stream/format/user/typed and 22 mutation cases passed",
+    "GraphicsJournal 528 MiB history roundtrip, slow-compressor backpressure, error cleanup; local ACK and bridge route/state tests passed",
+    "FAT32 fragmented-file extraction and corruption/size guards passed; final report/project/DLL/18 images extracted through committed helper"
+  ],
+  "limits": [
+    "The 99 score is not proof of all D3D API correctness or complete stage6.",
+    "Old-branch complete comparable average FPS remains unmeasured; residual performance work stays open.",
+    "No complete 99 SwiftShader run in this batch.",
+    "3DMark2000/2001/03/05/06 and remaining Wine/API suites remain open.",
+    "Original XP/game images were served read-only; no disk images or full benchmark media are committed."
+  ]
+}

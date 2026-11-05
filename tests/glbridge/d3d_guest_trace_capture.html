@@ -7,18 +7,22 @@ const input=await(await fetch("/build/d3d-review/inputs.json")).json(),delay=ms=
 const output=async(name,body)=>{const response=await fetch("/__test_file?name="+name,{method:"POST",body});if(!response.ok)throw new Error("Output failed: "+name);};
 const gzip=blob=>new Response(blob.stream().pipeThrough(new CompressionStream("gzip"))).blob(),errors=[];
 const previousError=console.error;console.error=(...args)=>{errors.push(args.map(String).join(" "));previousError(...args);};
-window.vm=new V86({memory_size:1024<<20,vram_size:16<<20,graphics_adapter:"bochs_vga",graphics_adapter_path:"/build/v86-bochs-vga.js",graphics_proxy:true,cpu_worker:worker,cpu_worker_url:"/build/cpu-worker.js",wasm_path:"/build/v86.wasm",bios:{url:"/bios/seabios.bin"},vga_bios:{url:"/bios/vgabios.bin"},hda:{url:"/build/d3d-review/site/windowsxp/windowsxp_multidisk_C_4G.img",async:true,size:input.images["windowsxp/windowsxp_multidisk_C_4G.img"].size},hdb:{url:"/build/d3d-review/site/game/"+game+".img",async:true,size:input.images["game/"+game+".img"].size},cdrom:{url:"/build/d3d-review/tools.iso"},screen_container:document.querySelector("#screen_container"),acpi:false,net_device:game==="maplestory"?{type:"ne2k",relay_url:"wss://relay.widgetry.org/"}:{type:"none"},boot_order:0x213,autostart:false,disable_speaker:true});
+window.vm=new V86({memory_size:1024<<20,vram_size:16<<20,graphics_adapter:"bochs_vga",graphics_adapter_path:"/build/v86-bochs-vga.js",graphics_proxy:true,cpu_worker:worker,cpu_worker_url:"/build/cpu-worker.js",wasm_path:"/build/v86.wasm",bios:{url:"/bios/seabios.bin"},vga_bios:{url:"/bios/vgabios.bin"},hda:{url:"/build/d3d-review/site/windowsxp/windowsxp_multidisk_C_4G.img",async:true,size:input.images["windowsxp/windowsxp_multidisk_C_4G.img"].size},hdb:{url:"/build/d3d-review/site/game/"+game+".img",async:true,size:input.images["game/"+game+".img"].size},cdrom:{url:params.get("tools")||"/build/d3d-review/tools.iso"},screen_container:document.querySelector("#screen_container"),acpi:false,net_device:game==="maplestory"?{type:"ne2k",relay_url:"wss://relay.widgetry.org/"}:{type:"none"},boot_order:0x213,autostart:false,disable_speaker:true});
 const screenshot=async suffix=>{const blob=await new Promise(r=>document.querySelector("#screen_container canvas").toBlob(r));if(blob)await output(prefix+"-"+suffix+".png",blob);};
 window.command=async text=>{await vm.keyboard_send_scancodes([0xE0,0x5B,19,147,0xE0,0xDB],30);await delay(1200);await vm.keyboard_send_text(text,60);await vm.keyboard_send_scancodes([28,156],30);};
 try {
- await new Promise(r=>vm.add_listener("emulator-ready",r));const bridge=vm.graphics_proxy.bridge,gpu=bridge.d3d9Executor,submit=gpu.submit;let lastHeader,lastOwnerToken=0,packetCount=0;
+ await new Promise((resolve,reject)=>{
+  const timer=setTimeout(()=>reject(new Error("Emulator initialization timed out")),60000);
+  vm.add_listener("emulator-ready",()=>{clearTimeout(timer);resolve();});
+  vm.add_listener("emulator-error",error=>{clearTimeout(timer);reject(error);});
+ });const bridge=vm.graphics_proxy.bridge,gpu=bridge.d3d9Executor,submit=gpu.submit;let lastHeader,lastOwnerToken=0,packetCount=0;
  let bytes=0;gpu.submit=function(data,metadata){bytes+=data.length;++packetCount;lastHeader=data.slice(0,32);lastOwnerToken=metadata?.ownerToken||0;return submit.call(this,data,metadata);};
  await vm.run();log("cold boot "+game+", worker="+worker);await delay(Number(params.get("boot_ms")||150000));
  for(let i=0;i<4;i++){await vm.keyboard_send_scancodes([1,129],30);await delay(1000);}await vm.keyboard_send_scancodes([15,143,28,156],30);await delay(2000);
  await screenshot("desktop");
- const launcher={warcraft3:"war3",gtasa:"gtasa","3dmarklegacy":"mark01",maplestory:"maple"}[game];
+ const launcher=params.get("launcher")||{warcraft3:"war3",gtasa:"gtasa","3dmarklegacy":"mark01",maplestory:"maple"}[game];
  if(!launcher)throw new Error("Unknown game launcher");
- await command("cmd /k for %d in (d e f g h i j k) do @if exist %d:\\"+launcher+".cmd %d:\\"+launcher+".cmd");log("current DLL copied in RAM overlay; game launched");
+ await command("cmd /k for %d in (d e f g h i j k) do @if exist %d:\\"+launcher+".cmd %d:\\"+launcher+".cmd");log("launcher invoked in RAM overlay; verify guest DLL and benchmark UI before acceptance");
  window.captureD9WG=async()=>{
   let sampledPresents=0,finish;const sampled=new Promise(r=>finish=r),previous=gpu.options.onPresent;
   gpu.options.onPresent=(...args)=>{if(previous)previous(...args);if(++sampledPresents>=32)finish();};

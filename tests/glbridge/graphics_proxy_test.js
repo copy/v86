@@ -158,6 +158,15 @@ const placed = layer => [layer.x, layer.y, layer.width, layer.height, layer.visi
     assert.equal(toDevice.length, beforeLate, "an expired inline response is dropped on the local path too");
     pushed[1].writeGuestMemory(0x40, new Uint8Array([7]), true);
     assert.equal(toDevice.at(-1).inlineId, 8, "the device can also reject stale responses across threads");
+    const waitForSpace = plugin.bridge.graphicsJournal.waitForSpace;
+    let releaseHistory;
+    const historyPressure = new Promise(resolve => { releaseHistory = resolve; });
+    plugin.bridge.graphicsJournal.waitForSpace = () => historyPressure;
+    toHost({ type: "batch", id: 9, generation: 3, frameId: 11, bytes });
+    assert.notDeepEqual(toDevice.at(-1), { type: "done", id: 9 }, "local ACK waits for raw journal space");
+    releaseHistory();await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(toDevice.at(-1), { type: "done", id: 9 });
+    plugin.bridge.graphicsJournal.waitForSpace = waitForSpace;
     plugin.bridge.beginStateRestore = () => {};
     plugin.bridge.waitForIdle = async () => {};
     await plugin.before_restore();

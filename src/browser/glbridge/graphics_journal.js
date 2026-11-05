@@ -143,6 +143,7 @@
             this.buffer = null;
             this.view = null;
             this.partBytes = this.partCount = this.rawBytes = this.count = this.residentBytes = 0;
+            this.pendingBytes = 0;
             this.pages = [];
             this.trimCursor = 0;
             this.work = Promise.resolve();
@@ -183,6 +184,8 @@
         seal() {
             if (!this.partCount) return;
             const buffer = this.buffer, rawBytes = this.partBytes, count = this.partCount;
+            const allocatedBytes = buffer.byteLength;
+            this.pendingBytes += allocatedBytes;
             const timing = this["performanceTiming"]?.["page"](rawBytes);
             this.buffer = this.view = null;
             this.partBytes = this.partCount = 0;
@@ -197,7 +200,15 @@
                 this.pages.push(page);
                 this.residentBytes += page.bytes;
                 await this.trim();
-            }).catch(error => { this.error = error; });
+            }).catch(error => { this.error = error; })
+                .finally(() => { this.pendingBytes -= allocatedBytes; });
+        }
+        waitForSpace() {
+            // The compressed cache budget alone does not bound raw pages
+            // queued behind a slower compressor. Hold the transport ACK at
+            // this watermark; preserve every accepted record in order.
+            if (this.pendingBytes < Math.max(this.pageBytes, this.budget) && !this.error) return null;
+            return this.work.then(() => { if (this.error) throw this.error; });
         }
         async trim() {
             if (!this.store || this.cacheError) return;
