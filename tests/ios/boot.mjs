@@ -92,7 +92,12 @@ try
         const instance = Number.parseInt(match[1], 16);
         return kernelWord(instance + 0x64) === 640 && kernelWord(instance + 0x68) === 960;
     }
-    while((!marker.test(serial) || display && (!panel.test(serial) || !pipeline.test(serial) || !adoptedWindow())) && !/panic\(cpu/.test(serial) && performance.now() < deadline)
+    function displayTransport()
+    {
+        const fb = cpu.devices.apple_clcd, base = fb.regs[0x4044 >>> 2];
+        return fb.regs[0x1048 >>> 2] > 0 && base < 0x10000000 && cpu.devices.apple_dart2.translate(base, 0) >= 0;
+    }
+    while((!marker.test(serial) || display && (!panel.test(serial) || !pipeline.test(serial) || !adoptedWindow() || !displayTransport())) && !/panic\(cpu/.test(serial) && performance.now() < deadline)
     {
         cpu.run_cores();
     }
@@ -109,19 +114,25 @@ try
     if(process.argv.includes("--display"))
     {
         const fb = cpu.devices.apple_clcd;
+        assert.ok(fb.regs[0x1048 >>> 2] > 0, "original driver completed a tagged LCD command batch");
+        const base = fb.regs[0x4044 >>> 2];
+        assert.ok(base < 0x10000000, "original driver switched scanout to a DART address");
+        assert.ok(cpu.devices.apple_dart2.translate(base, 0) >= 0, "original driver installed the LCD page table");
         fb.render();
         const first = fb.shown.slice();
         assert.ok(first.some(p => (p & 0xFFFFFF) !== 0), "guest wrote visible pixels");
         assert.ok(first.some(p => (p & 0xFFFFFF) === 0), "guest background");
         const snapshot = await emulator.save_state();
         const addr = fb.regs[0x4044 >>> 2];
-        cpu.write_blob_physical(new Uint8Array(first.byteLength), addr);
+        const pages = fb.surface_pages(addr, first.byteLength);
+        assert.ok(pages);
+        for(const [physical, length] of pages) cpu.write_blob_physical(new Uint8Array(length), physical);
         fb.render();
         assert.ok(fb.shown.every(p => p === 0));
         await emulator.restore_state(snapshot);
         fb.render();
         assert.deepEqual(fb.shown, first);
-        console.log("PASS: guest boot text and framebuffer snapshot");
+        console.log("PASS: original tagged LCD commands, DART scanout pixels and framebuffer snapshot");
     }
 }
 finally

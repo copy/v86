@@ -12,21 +12,20 @@ export class AppleCLCD
         this.backlight = 2047;
         this.rgba = new Uint8ClampedArray(N90_VIDEO.stride * N90_VIDEO.height);
         this.scanout_bytes = null;
+        this.translate = address => address;
         this.shown = new Uint32Array(N90_VIDEO.width * N90_VIDEO.height);
         this.regs = new Uint32Array(0x7000 / 4);
         this.color = new Uint32Array(0x2000 / 4);
         this.dsi = new Uint32Array(0x1000 / 4);
         this.ulps = 0;
+        this.command = null;
+        this.commands = [];
         this.dirty = true;
         this.reset();
         cpu.io.register_mmio(0x89000000, 0x7000, {
             name: "clcd",
             read: offset => this.regs[offset >>> 2],
-            write: (offset, width, value) => {
-                if(offset === 0x102C) this.regs[offset >>> 2] &= ~Number(value);
-                else this.regs[offset >>> 2] = Number(value);
-                if(offset === 0x1028 || offset === 0x102C) this.update_irq();
-            },
+            write: (offset, width, value) => this.write(offset, Number(value)),
         });
         // The second CLCD region in the N90 tree holds the color engine.
         cpu.io.register_mmio(0x89200000, 0x2000, {
@@ -53,6 +52,8 @@ export class AppleCLCD
         this.color[0x50 >>> 2] = 1;
         this.color[0x60 >>> 2] = (N90_VIDEO.width - 1) << 16 | (N90_VIDEO.height - 1);
         this.ulps = 0;
+        this.command = null;
+        this.commands = [];
         this.dsi[0] = 0x10010F;
         this.regs.fill(0);
         this.regs[0x4040 >>> 2] = 1;
@@ -63,6 +64,43 @@ export class AppleCLCD
         this.regs[0x1038 >>> 2] = 0x100;
         this.update_irq();
         this.invalidate();
+    }
+
+    write(offset, value)
+    {
+        if(offset === 0x102C) this.regs[offset >>> 2] &= ~value;
+        else if(offset === 0x103C) this.command_word(value >>> 0);
+        else if(offset === 0x1050 && value & 1) { this.command = null; this.commands = []; }
+        else this.regs[offset >>> 2] = value;
+        if(offset === 0x1028 || offset === 0x102C) this.update_irq();
+    }
+
+    command_word(value)
+    {
+        if(!this.command)
+        {
+            if(!(value & 0x80000000)) return;
+            // A tagged batch contains register runs. Each run supplies its
+            // destination byte offset, word count and successive values.
+            this.command = [value & 0xFFFF, value >>> 16 & 0x3FF, 0, 0, []];
+        }
+        else
+        {
+            const command = this.command;
+            command[1]--;
+            if(command[2])
+            {
+                if(command[3] < this.regs.byteLength && !(command[3] & 3))
+                    command[4].push([command[3], value]);
+                command[3] += 4; command[2]--;
+            }
+            else { command[2] = value >>> 16 & 255; command[3] = value & 0xFFFF; }
+        }
+        if(this.command[1] === 0)
+        {
+            if(!this.command[2]) this.commands.push(this.command);
+            this.command = null;
+        }
     }
 
     write_dsi(offset, value)
@@ -96,6 +134,14 @@ export class AppleCLCD
     {
         if(this.color[0x50 >>> 2] & 1)
         {
+            while(this.commands.length)
+            {
+                const command = this.commands.shift();
+                for(const [offset, value] of command[4]) this.regs[offset >>> 2] = value;
+                this.regs[0x1048 >>> 2] = command[0];
+                this.regs[0x102C >>> 2] |= 0x100;
+                this.invalidate();
+            }
             this.regs[0x102C >>> 2] |= 1;
             this.update_irq();
         }
@@ -119,7 +165,8 @@ export class AppleCLCD
     {
         if(width !== N90_VIDEO.width || height !== N90_VIDEO.height || rgba.length !== this.rgba.length) return;
         const base = this.regs[0x4044 >>> 2];
-        if((base & 3) || this.cpu.ram_offset(base, rgba.length) < 0) return;
+        const pages = this.surface_pages(base, rgba.length);
+        if(!pages || (base & 3)) return;
         const bytes = this.scanout_bytes || (this.scanout_bytes = new Uint8Array(rgba.length));
         for(let i = 0; i < bytes.length; i += 4)
         {
@@ -128,15 +175,51 @@ export class AppleCLCD
             bytes[i + 2] = rgba[i];
             bytes[i + 3] = 0;
         }
-        this.cpu.write_blob_physical(bytes, base);
+        let at = 0;
+        for(const [physical, length] of pages)
+        {
+            this.cpu.write_blob_physical(bytes.subarray(at, at + length), physical);
+            at += length;
+        }
+    }
+
+    surface_pages(base, length)
+    {
+        const pages = [];
+        if(this.cpu.ram_offset(base, length) >= 0) return [[base, length]];
+        for(let at = 0; at < length;)
+        {
+            const address = base + at, size = Math.min(4096 - (address & 4095), length - at);
+            const physical = this.translate(address);
+            if(physical < 0 || this.cpu.ram_offset(physical, size) < 0) return null;
+            pages.push([physical, size]); at += size;
+        }
+        return pages;
+    }
+
+    surface_words(base)
+    {
+        const size = this.rgba.length, offset = this.cpu.ram_offset(base, size);
+        if(offset >= 0 && !(offset & 3))
+            return new Uint32Array(this.cpu.mem8.buffer, this.cpu.mem8.byteOffset + offset, this.shown.length);
+        if(base & 3) return null;
+        const pages = this.surface_pages(base, size);
+        if(!pages) return null;
+        const bytes = this.scanout_bytes || (this.scanout_bytes = new Uint8Array(size));
+        let at = 0;
+        for(const [physical, length] of pages)
+        {
+            const offset = this.cpu.ram_offset(physical, length);
+            bytes.set(this.cpu.mem8.subarray(offset, offset + length), at); at += length;
+        }
+        return new Uint32Array(bytes.buffer, bytes.byteOffset, this.shown.length);
     }
 
     render()
     {
         const base = this.regs[0x4044 >>> 2];
-        const offset = this.cpu.ram_offset(base, this.rgba.length);
-        if(offset < 0 || offset % 4) return;
-        const words = new Uint32Array(this.cpu.mem8.buffer, this.cpu.mem8.byteOffset + offset, this.shown.length);
+        const words = this.surface_words(base);
+        if(!words) return;
         let changed = this.dirty;
         for(let i = 0; i < words.length; i++)
         {
@@ -158,6 +241,17 @@ export class AppleCLCD
         }
     }
 
-    get_state() { return [this.regs.slice(), this.dsi.slice(), this.ulps, this.color.slice()]; }
-    set_state(state) { this.regs.set(state[0]); this.dsi.set(state[1]); this.ulps = state[2]; this.color.set(state[3]); this.update_irq(); this.invalidate(); }
+    copy_command(command) { return command ? [...command.slice(0, 4), command[4].map(pair => pair.slice())] : null; }
+    get_state()
+    {
+        return [this.regs.slice(), this.dsi.slice(), this.ulps, this.color.slice(),
+            this.copy_command(this.command), this.commands.map(command => this.copy_command(command))];
+    }
+    set_state(state)
+    {
+        this.regs.set(state[0]); this.dsi.set(state[1]); this.ulps = state[2]; this.color.set(state[3]);
+        this.command = this.copy_command(state[4]); this.commands = (state[5] || []).map(command => this.copy_command(command));
+        this.regs[0x1044 >>> 2] = 0;
+        this.update_irq(); this.invalidate();
+    }
 }

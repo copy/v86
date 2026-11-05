@@ -264,6 +264,36 @@ panel.on_vblank();
 assert.equal(signals, 1);
 console.log("PASS: CLCD retrace through chained VIC1, guest status acknowledgement and next frame");
 
+panel.reset();
+display.write(0x1028, 4, 1);
+const lcd_fifo = value => display.write(0x103C, 4, value);
+lcd_fifo(0x80050009); // five words, completion tag 9
+lcd_fifo(0x00011038); lcd_fifo(0x200);
+lcd_fifo(0x00024050); lcd_fifo(0x000A0014);
+const partial = panel.get_state(); panel.reset(); panel.set_state(partial);
+assert.equal(display.read(0x1038), 0x100);
+panel.on_vblank();
+assert.equal(display.read(0x1048), 0, "an incomplete command cannot complete at retrace");
+lcd_fifo(0x028003C0);
+const queued = panel.get_state(); panel.reset(); panel.set_state(queued);
+assert.equal(display.read(0x1038), 0x100, "the complete batch waits for retrace");
+panel.on_vblank();
+assert.equal(display.read(0x1038), 0x200);
+assert.equal(display.read(0x4050), 0x000A0014);
+assert.equal(display.read(0x4054), 0x028003C0);
+assert.equal(display.read(0x1048), 9);
+assert.equal(display.read(0x102C), 0x101);
+display.write(0x102C, 4, 1);
+assert.equal(display.read(0x102C), 0x100, "the filter's retrace acknowledgement preserves completion status");
+display.write(0x102C, 4, 0x100);
+assert.equal(display.read(0x102C), 0);
+assert.equal(display.read(0x1044), 0, "the command FIFO has no queued words after synchronous draining");
+lcd_fifo(0x8003000A); lcd_fifo(0x00014044); lcd_fifo(0x40010000); // incomplete final run
+panel.on_vblank(); assert.equal(display.read(0x1048), 9);
+panel.reset(); panel.set_state(queued.slice(0, 4));
+assert.equal(panel.command, null); assert.equal(panel.commands.length, 0);
+console.log("PASS: CLCD tagged register batches, retrace completion, filter/action status and partial/queued snapshots");
+
 // ADC completion arrives through PMU status byte 2, GPIO 13, then VIC3.
 vic.reset();
 const gpio = new AppleGPIO(cpu, vic);

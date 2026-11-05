@@ -11,6 +11,7 @@ import { AppleVIC } from "./vic.js";
 import { AppleI2S } from "./audio.js";
 import { AppleSPI } from "./spi.js";
 import { AppleMultitouch } from "./multitouch.js";
+import { AppleDART } from "./dart.js";
 
 export const N90_BUTTONS = ["home", "power", "volume-up", "volume-down", "mute"];
 
@@ -51,13 +52,14 @@ export function create_n90_devices(cpu, bus, screen, buffer)
         apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true, level => clcd.set_backlight(level), () => gpio.pulse(13)),
         apple_i2c2: new AppleI2C(cpu, 0x83400000, 21, vic, false),
         apple_swi: new AppleSWI(cpu),
-        apple_dart1: new AppleRegisterWindow(cpu, "dart1", 0x88D00000, 0x2000),
-        apple_dart2: new AppleRegisterWindow(cpu, "dart2", 0x89D00000, 0x2000),
+        apple_dart1: new AppleDART(cpu, "dart1", 0x88D00000),
+        apple_dart2: new AppleDART(cpu, "dart2", 0x89D00000),
         apple_sgx: new AppleRegisterWindow(cpu, "sgx", 0x85100000, 0x1000),
     };
     auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
     audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i); });
     spi_controllers.forEach((name, i) => { devices[name] = new AppleSPI(cpu, i, level => vic.set_line(29 + i, level), undefined, dma); });
+    clcd.translate = address => devices.apple_dart2.translate(address, 0);
     const touch = devices.apple_multitouch = new AppleMultitouch(() => gpio.pulse(21), ready => {
         bus.send("mouse-enable", ready);
         bus.send("absolute-pointer", [ready, false]);
