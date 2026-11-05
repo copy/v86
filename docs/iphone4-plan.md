@@ -386,8 +386,8 @@ SGX 的内核驱动保持加载，但没有硬件：它的 MMIO 读回“空闲�
    把自己的 IPSW 拖进向导或选择文件，页面在本地读取和验证。
    - 读出 `BuildManifest.plist`/`Restore.plist`，检查机型与版本和所选的一致；
    - 与目录中的哈希比对。
-2. **Keys。** 粘贴或载入一个密钥文件（JSON，字段为内核缓存、设备树、恢复 ramdisk 的 IV 与 key，以及根文件系统
-   的 key；格式见“复核结论”的“固件与密钥”），内容来自 The Apple Wiki 上该版本的页面。
+2. **Keys。** 从向导打开 The Apple Wiki 对应版本的页面，点击 **JSON** 一行的 **Keys**，保存并选择该文件即可自动验证。
+   也可粘贴完整 JSON 后点击验证。原有 `v86-ios-keys` 格式仍可使用，见“复核结论”的“固件与密钥”。
    - 页面立即试解密逐项验证：内核缓存解开后应是 `complzss` 头，设备树能解析，恢复 ramdisk 在 0x400 处是 HFS+
      卷头，根文件系统有 `encrcdsa` 头、解出的末尾是 UDIF 的 `koly` 尾；
    - 哪一项不对就标在哪一项上；
@@ -868,7 +868,7 @@ CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读�
       `disk image (Apple_HFSX : 5)`，区分大小写的 HFS+，1212 MiB；
     - iBSS/iBEC/iBoot/LLB 是 `iBoot-1537.9.55`；启动图片是 `iBootIm`。
 
-密钥文件的格式（向导第 3 步载入的也是它；`images` 的键用密钥页面上的项名，这里的值是占位）：
+`v86-ios-keys` 的格式（向导也可直接载入 The Apple Wiki 的 JSON；下例的密钥值是占位）：
 
 ```json
 {

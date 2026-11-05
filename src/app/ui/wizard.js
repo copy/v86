@@ -70,7 +70,7 @@ export function open_wizard(options)
             android: { file: null, gsi: null, debug_ramdisk: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB,
                 entry: ANDROID_CATALOG.default_entry, checks: {} },
             ios: { name: unique(IOS_NAME), file: /** @type {File | null} */ (null), library: /** @type {File | null} */ (null),
-                checked: false, keys: "", keys_ok: false, acceleration: true, checking: /** @type {AbortController | null} */ (null),
+                checked: false, keys: "", key_file: "", keys_ok: false, acceleration: true, checking: /** @type {AbortController | null} */ (null),
                 results: /** @type {Array<[string, boolean, string]>} */ ([]) },
             progress: "",
             /** @type {AbortController | null} the import going on (its Cancel) */
@@ -339,7 +339,7 @@ export function open_wizard(options)
             const zone = h("div.drop-zone", null,
                 h("h3", null, `${IOS_NAME} (${N90_RESTORE.build})`),
                 h("p", null, "Choose or drop your own " + N90_RESTORE.file + " (" + format_size(N90_RESTORE.size) + ")."),
-                h("p.note", null, "You’ll also need the firmware keys for this build. Your firmware and keys are processed in this browser."),
+                h("p.note", null, "The next step shows where to get the public firmware keys. The browser processes the firmware and keys locally."),
                 h("p.note", null, "SHA-1: " + N90_RESTORE.sha1), input,
                 i.file ? h("p", null, i.file.name + (i.checked ? " — verified" : "")) : null);
             zone.ondragover = event => { event.preventDefault(); zone.classList.add("over"); };
@@ -357,43 +357,68 @@ export function open_wizard(options)
         {
             const i = state.ios;
             const input = /** @type {HTMLTextAreaElement} */ (h("textarea", { rows: 8, cols: 56, spellcheck: false,
-                autocomplete: "off", "aria-label": "iPhone firmware keys" }));
-            input.value = i.keys;
-            input.oninput = () => {
-                i.checking?.abort(); i.checking = null;
-                i.keys = input.value; i.keys_ok = false; i.results = [];
-                state.error = ""; state.progress = "";
-                const next = /** @type {HTMLButtonElement} */ (element.querySelector(".wizard-footer .primary"));
-                if(next) next.disabled = true;
-                element.querySelector(".ios-key-results")?.replaceChildren();
-            };
-            const load = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".json,application/json", "aria-label": "Key file" }));
-            load.onchange = async () => {
-                if(!load.files?.[0]) return;
-                i.checking?.abort(); i.checking = null;
-                i.keys = await load.files[0].text();
-                i.keys_ok = false; i.results = []; state.error = ""; state.progress = ""; render();
-            };
-            const verify = async () => {
+                autocomplete: "off", placeholder: "Paste the entire keys JSON here", "aria-label": "iPhone firmware keys" }));
+            input.value = i.key_file ? "" : i.keys;
+            const load = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".json,.txt,application/json,text/plain", "aria-label": "Key file" }));
+            /** @param {File | string} source */
+            const verify = async source => {
                 i.checking?.abort();
                 const checking = i.checking = new AbortController();
+                i.key_file = typeof source === "string" ? "" : source.name;
+                i.keys = typeof source === "string" ? source : "";
                 i.keys_ok = false; i.results = []; state.error = ""; state.progress = "Checking the keys…";
                 render();
                 try
                 {
+                    if(typeof source !== "string")
+                    {
+                        const keys = await source.text();
+                        if(checking.signal.aborted) return;
+                        i.keys = keys;
+                    }
                     const failures = await verify_ios_keys(i.file, i.keys, { signal: checking.signal, progress: ios_progress,
                         check: (name, ok, message) => i.results.push([name, ok, message]) });
                     if(i.checking === checking) i.keys_ok = failures === 0;
                 }
-                catch(error) { if(!checking.signal.aborted) state.error = error.message; }
+                catch(error)
+                {
+                    if(!checking.signal.aborted) state.error = error.name === "NotReadableError" ? "Could not read the keys file. Choose it again." : error.message;
+                }
                 finally
                 {
                     if(i.checking === checking) { i.checking = null; state.progress = ""; render(); }
                 }
             };
+            load.onchange = () => { if(load.files?.[0]) void verify(load.files[0]); };
+            const verify_button = /** @type {HTMLButtonElement} */ (h("button", { type: "button", disabled: !input.value.trim(),
+                onclick: () => verify(input.value) }, "Verify keys"));
+            input.oninput = () => {
+                i.checking?.abort(); i.checking = null;
+                i.key_file = ""; i.keys = input.value; i.keys_ok = false; i.results = [];
+                state.error = ""; state.progress = "";
+                verify_button.disabled = !input.value.trim();
+                const next = /** @type {HTMLButtonElement | null} */ (element.querySelector(".wizard-footer .primary"));
+                if(next) next.disabled = true;
+                const status = element.querySelector(".wizard-status");
+                if(status) { status.classList.remove("error"); status.textContent = ready(); }
+                element.querySelector(".ios-key-file")?.remove();
+                element.querySelector(".ios-key-results")?.replaceChildren();
+            };
             return [
-                h("p", null, "Paste or open a v86-ios-keys JSON file for iPhone3,1 build 10B329. The keys stay in this window and are discarded when the wizard closes."),
-                input, h("div", null, load, h("button", { type: "button", onclick: verify }, "Verify keys")),
+                h("div", null,
+                    h("h3", null, "Firmware keys"),
+                    h("p", null, "These public keys let v86 read the iPhone 4 firmware you selected."),
+                    h("ol", null,
+                        h("li", null, h("a", { href: "https://theapplewiki.com/wiki/Keys:" + N90_RESTORE.wiki_keys_title,
+                            target: "_blank", rel: "noopener noreferrer" }, "Open iPhone3,1 (10B329) keys on The Apple Wiki"),
+                        ". In the JSON row, click ", h("strong", null, "Keys"), ". If the JSON opens as text, save it with Ctrl+S or ⌘S."),
+                        h("li", null, "Choose the saved file below. v86 checks it against your IPSW automatically."))),
+                h("label.field", null, h("span", null, "Keys JSON file"), load),
+                i.key_file ? h("p.note.ios-key-file", null, i.key_file + (i.keys_ok ? " — verified" : "")) : null,
+                h("details", { open: !!input.value }, h("summary", null, "Paste JSON instead"),
+                    h("p.note", null, "If the JSON opens as text, copy the entire response and paste it here. Existing v86 keys JSON works too."),
+                    h("label.field", null, h("span", null, "Keys JSON"), input), verify_button),
+                h("p.note", null, "The keys stay in this wizard and are discarded when it closes."),
                 h("ul.ios-key-results", null, i.results.map(([name, ok, message]) =>
                     h("li", { class: ok ? "" : "error" }, name + ": " + message))),
             ];
@@ -690,7 +715,8 @@ export function open_wizard(options)
                 if(state.source !== "later" && !state.image) return "Choose the image";
                 if(state.image && state.image.kind === "url" && !state.image.url) return "Give the image's URL";
             }
-            if(state.step === 1 && state.source === "ios" && !state.ios.keys_ok) return "Verify the firmware keys";
+            if(state.step === 1 && state.source === "ios" && !state.ios.keys_ok)
+                return state.ios.keys ? "Verify the firmware keys" : "Choose the keys JSON file";
             if(state.step === 2 && !(state.source === "ios" ? state.ios.name : state.name).trim()) return "Give the machine a name";
             if(state.step === 3 && state.disk === "new" && state.location === "memory" && state.disk_mb > MAX_ARRAY_BUFFER_SIZE_MB) return "Too large for memory";
             return "";

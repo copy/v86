@@ -10,8 +10,10 @@ results.
 
 1. Open **New virtual machine…** and choose **iPhone 4 (GSM) · iOS 6.1.3 (.ipsw)**
    in **Source**. Choose or drop your original `iPhone3,1_6.1.3_10B329_Restore.ipsw`.
-2. In **Keys**, open or paste a `v86-ios-keys` JSON file and verify it. The
-   [key file schema](iphone4-plan.md#复核结论) lists the required images.
+2. In **Keys**, follow the link to [The Apple Wiki’s iPhone3,1 (10B329) keys page](https://theapplewiki.com/wiki/Keys:BrightonMaps_10B329_(iPhone3,1)).
+   Click **Keys** in the **JSON** row, save the file, and select it in the wizard.
+   The browser verifies it against your IPSW. You can also paste the full JSON
+   and click **Verify keys**. Existing `v86-ios-keys` files are supported.
 3. Name the machine and review its NAND settings and summary. Finish the
    import. The browser verifies the package, builds the data
    volume, and saves a NAND disk in this site's private storage. The keys

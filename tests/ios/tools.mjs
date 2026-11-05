@@ -497,6 +497,26 @@ test("key files: format, hex lengths, the root filesystem's 36-byte key", () =>
     assert.throws(() => keys_parse({ ...good, images: { Kernelcache: { file: "x", iv: "00", key: "11".repeat(32) } } }), /IV/);
 });
 
+test("iPhone 4 keys from The Apple Wiki: row names, IVs and build", () =>
+{
+    const file = (filename, key, iv = []) => ({ filename: [filename], key: [key], iv });
+    const page = "BrightonMaps_10B329_(iPhone3,1)#2304##";
+    const source = {
+        [page + "kernelcache"]: file("kernelcache.release.n90", "12".repeat(32), ["34".repeat(16)]),
+        [page + "rootfs"]: file("root.dmg", "56".repeat(36)),
+        [page + "iboot"]: file("iBoot.img3", "78".repeat(32)),
+    };
+    const keys = keys_parse(JSON.stringify(source));
+    assert.equal(keys.device, "iPhone3,1");
+    assert.equal(keys.build, "10B329");
+    assert.deepEqual(keys.images, {
+        Kernelcache: { file: "kernelcache.release.n90", key: "12".repeat(32), iv: "34".repeat(16) },
+        RootFileSystem: { file: "root.dmg", key: "56".repeat(36), iv: undefined },
+    });
+    assert.throws(() => keys_parse({ [page.replace("iPhone3,1", "iPhone3,3") + "rootfs"]: source[page + "rootfs"] }), /iPhone3,1/);
+    assert.throws(() => keys_parse("<html>"), /not valid JSON/);
+});
+
 // plutil also builds the binary envelopes in the macOS data-volume tool.
 if(process.platform === "darwin") test("N90 systembag: CBC envelope, signature and ten device-wrapped class keys", () =>
 {

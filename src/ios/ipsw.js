@@ -21,8 +21,27 @@ import { udif_trailer, udif_partitions, udif_partition_stream, inflate_zlib, CHU
 import { SHA1 } from "./crypto.js";
 import { dt_parse, dt_property, dt_strings, dt_walk } from "../apple/devicetree.js";
 import { macho_parse, CPU_TYPE_ARM } from "../apple/macho.js";
+import { N90_RESTORE } from "./catalog.js";
 
 export const KEY_FORMAT = "v86-ios-keys";
+
+// The Apple Wiki's JSON names each row after the firmware key page and image.
+function wiki_n90_keys(source)
+{
+    const model = N90_RESTORE;
+    const names = new Map([["kernelcache", "Kernelcache"], ["devicetree", "DeviceTree"],
+        ["restoreramdisk", "RestoreRamdisk"], ["rootfs", "RootFileSystem"], ["applelogo", "AppleLogo"]]);
+    const images = {};
+    for(const [id, row] of Object.entries(source))
+    {
+        if(!id.startsWith(model.wiki_keys_title + "#")) continue;
+        const name = names.get(id.split("##").at(-1));
+        if(!name) continue;
+        if(Object.hasOwn(images, name)) throw new Error(`keys: more than one entry for ${name}`);
+        images[name] = { file: row?.filename?.[0], key: row?.key?.[0], iv: row?.iv?.[0] };
+    }
+    return Object.keys(images).length ? { format: KEY_FORMAT, version: 1, device: model.model, build: model.build, images } : source;
+}
 
 /**
  * A key file, checked
@@ -31,12 +50,16 @@ export const KEY_FORMAT = "v86-ios-keys";
  */
 export function keys_parse(source)
 {
-    const keys = typeof source === "string" ? JSON.parse(source) : source;
-    if(keys?.format !== KEY_FORMAT || keys.version !== 1) throw new Error(`keys: not a ${KEY_FORMAT} version 1 file`);
+    let keys;
+    try { keys = typeof source === "string" ? JSON.parse(source) : source; }
+    catch { throw new Error("The keys file is not valid JSON. Save or paste the full response from JSON → Keys."); }
+    if(keys && typeof keys === "object" && !keys.format) keys = wiki_n90_keys(keys);
+    if(keys?.format !== KEY_FORMAT || keys.version !== 1)
+        throw new Error(`Choose the iPhone3,1 (10B329) keys JSON from The Apple Wiki or a ${KEY_FORMAT} version 1 file.`);
     if(typeof keys.images !== "object" || !keys.images) throw new Error("keys: no images");
     for(const [name, image] of Object.entries(keys.images))
     {
-        if(typeof image.file !== "string") throw new Error(`keys: ${name} has no file`);
+        if(typeof image?.file !== "string") throw new Error(`keys: ${name} has no file`);
         if(name === "RootFileSystem")
         {
             if(!/^[0-9a-fA-F]{72}$/.test(image.key || "")) throw new Error("keys: RootFileSystem's key is not 36 bytes of hexadecimal");
