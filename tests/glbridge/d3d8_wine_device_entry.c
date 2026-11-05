@@ -94,8 +94,20 @@ static void compatibility_group(void)
     UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
 }
 
+static void locking_group(void)
+{
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = DefWindowProcA;
+    wc.lpszClassName = "d3d8_test_wc";
+    RegisterClassA(&wc);
+    test_lockrect_invalid();
+    test_surface_double_unlock();
+    UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
+}
+
 const struct test winetest_testlist[] = {
     { "device", full_device_suite },
     { "compatibility", compatibility_group },
+    { "locking", locking_group },
     { 0, 0 }
 };

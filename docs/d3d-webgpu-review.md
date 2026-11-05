@@ -2715,6 +2715,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **按用户最新要求跳过冒险岛验收**。已观察到登录及人物选择；不再等待进入地图，不记为地图验收通过。后续保留正确的系统目录DLL安装方式。3DMark成功作为本批游戏回归证据，其余Wine兼容性及阶段5仍继续。
 > - 证据：[stage4l7-validation.json](fixtures/d3d-review/stage4l7-validation.json)。本地游戏数据、journal和图像不进入仓库；站点保存同份验收记录。
 
+> **阶段 4L8（2026-11-05，功能批次完成）：D3D8 资源锁定规则与 WRITEONLY 拒绝。**
+> - 按原版Wine要求区分资源：CPU池二维纹理接受越界、空、反向和未对齐矩形，重复Unlock成功；立方体与独立表面失败清空输出，二维纹理重复Lock保留输出。API9及默认池二维纹理继续严格校验。
+> - 宽松Lock只用整数计算返回偏移，内部上传矩形始终限定在自有存储。负数、INT_MIN、超范围和块未对齐组合在ASan/UBSan下逐行读取上传数据通过。二维/立方体创建同时拒绝 WRITEONLY，修复实际Wine测试留下的6个资源引用。
+> - 原版 `test_lockrect_invalid`、`test_surface_double_unlock` 在XP Metal/SwiftShader各 **552项、零失败/todo/flaky/skip**，退出前设备/资源均为零，GPU/宿主错误为零。未修改Wine测试或降低预期。
+> - 二维锁定50,112组、立方体467,712组，构造检查37,017,042项；87个相关变异、渲染目标/私有数据/绑定/诊断回归、32 SDK EXE、四DLL构建、两站点集成及范围lint通过。发布Metal实际验收的8零售DLL及同源8/9零售/诊断包。
+> - 证据：[stage4l8-validation.json](fixtures/d3d-review/stage4l8-validation.json)。完整Wine的压缩图像/体积纹理、窗口Reset及多后缓冲等仍未收尾；本组没有场景像素比较，API9未另跑XP。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
