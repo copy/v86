@@ -46,7 +46,7 @@ try
             for(let x = 0; x < 64; x++)
             {
                 const at = (64 * y + x) * 4;
-                assert.deepEqual([...outs[0].subarray(at, at + 4)], [200, 47 - y, x, 255]);
+                assert.deepEqual([...outs[0].subarray(at, at + 4)], [200, y, x, 255]);
             }
     };
     await verifyCPU();

@@ -225,12 +225,10 @@ const HANDLERS = {
         {
             cb.updates++;
             rc.update_bytes += pixels.length;
-            // IOSurface row zero is the top; emugl texture updates start
-            // at the bottom. Preserve native orientation on the GPU.
-            const bgraRows = new Uint8Array(pixels.length), stride = cb.width * 4;
-            for(let y = 0; y < cb.height; y++)
-                bgraRows.set(pixels.subarray(y * stride, (y + 1) * stride), (cb.height - 1 - y) * stride);
-            rc.events("color_buffer_update", handle, 0, 0, cb.width, cb.height, 0x80e1, 0x1401, bgraRows);
+            // The native non-inverted texture attachment maps its first
+            // texel row to IOSurface row zero. QuartzCore sets its own
+            // texture and projection coordinates for that storage.
+            rc.events("color_buffer_update", handle, 0, 0, cb.width, cb.height, 0x80e1, 0x1401, pixels);
             cb.cpu_seed = seed;
         }
         return 1;

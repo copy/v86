@@ -102,7 +102,8 @@ static int import_pixels(struct binding *b)
                     packet[0] = v86_UploadIOSurface; packet[2] = b->handle;
                     packet[3] = seed; packet[4] = bytes;
                     unsigned char *pixels = (unsigned char *)(packet + 5);
-                    for(unsigned y = 0; y < h; y++) memcpy(pixels + 4 * w * y, base + stride * y, 4 * w);
+                    for(unsigned y = 0; y < h; y++)
+                        memcpy(pixels + 4 * w * y, base + stride * (b->window ? h - 1 - y : y), 4 * w);
                     if(gles_send(b->lease, packet, size)) gles_read(b->lease, &ok, 4);
                     free(packet);
                 }
@@ -125,14 +126,15 @@ static int bind_surface(struct context *ctx, unsigned target, void *surface, str
     b->surface = CFRetain(surface);
     b->name = name;
     b->target = target;
+    b->window = window;
     if(!SEND(b->lease, v86_AcquireIOSurface, IOSurfaceGetID(surface), IOSurfaceGetWidth(surface),
             IOSurfaceGetHeight(surface), IOSurfaceGetPixelFormat(surface)) || !gles_read(b->lease, &b->handle, 4) || !b->handle || !import_pixels(b) ||
         !SEND(ctx->driver.connection, target == 0x0de1 ? rc_rcBindTexture : rc_rcBindRenderbuffer, b->handle))
     {
+        b->window = 0; // the caller owns the window until attachment succeeds
         release_binding(b);
         return 0;
     }
-    b->window = window;
     b->retained = retained;
     replace_binding(ctx->group, target, name, b);
     return 1;
@@ -219,9 +221,10 @@ static int publish_bytes(struct binding *b)
         if(ok)
             for(unsigned j = 0; j < n; j++)
             {
-                // A directly attached color buffer stores GL row zero
-                // first; native IOSurface row zero is the top row.
-                unsigned char *dst = base + (h - 1 - y - j) * stride;
+                // A native texture attachment uses the IOSurface's own
+                // row order; a CAEAGLLayer drawable uses GL window coordinates.
+                unsigned row = y + j;
+                unsigned char *dst = base + (b->window ? h - 1 - row : row) * stride;
                 const unsigned char *src = rgba + j * w * 4;
                 for(unsigned x = 0; x < w; x++, src += 4, dst += 4)
                 {

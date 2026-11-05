@@ -782,11 +782,13 @@ node tests/ios/system.mjs build/ios/10B329 build/ios/gpu/flash.img --debug-kerne
 
 在本机 WebGPU 上，`tests/ios/iosurface-render.mjs` 通过两条独立进程连接验证了宿主像素共享。写方将同一 IOSurface 的颜色缓冲绑作渲染缓冲，另一方将其绑作纹理。64×48 全部像素经第二方帧缓冲读回并与绿底、红角图案比对。快照恢复后，写方把红角改黄，读方观察到更新；写方另行分配普通渲染缓冲再清蓝，读方仍保留黄角和绿底。此测试覆盖宿主渲染器，客体 CAEAGLLayer 的窗口提交仍需验证。
 
-CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读锁内取得内核种子，按实际行跨度读取有效像素。宿主保存最近导入的种子，转换原生顶行与 GL 底行的方向。同一种子的重复绑定保留 GPU 后续绘制的内容。测试逐像素核对了初次 CPU 导入、GPU 更新、重复导入、快照恢复和新种子的 CPU 更新。
+CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读锁内取得内核种子，按实际行跨度读取有效像素。非反转的原版纹理绑定保持 IOSurface 行顺序，QuartzCore 自行设置纹理坐标与投影。CAEAGLLayer 的窗口缓冲仍在复制时转换为 GL 窗口坐标。宿主保存最近导入的种子，同一种子的重复绑定保留 GPU 后续绘制的内容。测试逐像素核对了初次 CPU 导入、GPU 更新、重复导入、快照恢复和新种子的 CPU 更新。
 
 构建客体库时用 `--check-host-surfaces <dyld_shared_cache_armv7>`，完整 NAND 冷启动时用 `system.mjs --surfaces` 验证系统进程。backboardd 和 SpringBoard 均通过原版 EAGL 调用把同一块内核 IOSurface 绑定到两个上下文，在渲染缓冲上绘图，从纹理读回，64×48 的所有像素均匹配。另用 `--check-host-window` 构建和 `system.mjs --windows` 区分两项窗口验收。测试窗口在两个真实内核表面之间轮换，发布回调逐像素验证了连续两帧及行方向。启用保留内容时，第二帧只改左下角，另一个缓冲完整保留首帧背景。在同一次完整冷启动中，backboardd 和 SpringBoard 均在原版 CAEAGLLayer 上执行 renderbufferStorage:fromDrawable: 和 presentRenderbuffer:，发布后核对了内核 IOSurface 全部 64×48 像素。在测试中引用已经领到的缓冲，这个版本的原生窗口每帧只允许领取一次。整屏合成及 SpringBoard 主屏仍待验证。
 
 **S5 原版着色器绘图。** 使用 `--check-host-draw <本地共享缓存>` 构建客体库，用 `system.mjs ... --draw` 完整冷启动。backboardd 与 SpringBoard 均经过原版 glShaderSource 提交多段顶点着色器（含显式长度）和片段着色器，链接程序，查询属性位置，建立并更新顶点缓冲，再从非零偏移绘制三角形。两者在真实 IOSurface 上读回的 64×48 个像素全部为预期的洋红色。当前顶点指针支持绑定顶点缓冲的形式。
+
+原版 backboardd 的一次冷启动已绘制 640×960 锁屏，包含原版壁纸、日期、时间及解锁控件；读回的像素已写入原版 IOSurface，且可在显示 DART 地址空间中定位。重放同一组原版绘制确认了纹理及输出表面应保持原生行顺序，时间与滑块的位置、字形方向均正确。这次运行的面板仍读取开机表面，实际面板呈现和滑动解锁仍需单独验收。
 
 **S5 公开 GL 查询，2026-11-05。** 客体适配层已接通整数、浮点与布尔状态查询，以及着色器、程序状态、信息日志和着色器源码查询。传输按输出的元素数及字节宽度接收结果，压缩纹理格式等列表先查询实际长度，空的可选日志长度指针也会正确排空返回数据。`node tests/ios/gl-query.mjs <本地共享缓存>` 执行八个原版 ARM 入口，逐字节核对十个请求和对应应答，覆盖多值状态、动态长度、日志截断、空长度指针、非法负长度及输出两侧的保护值。
 
