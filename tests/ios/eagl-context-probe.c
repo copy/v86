@@ -24,6 +24,24 @@ static int bind_context(void *cls, void *ctx)
     return ((signed char (*)(void *,void *,void *))objc_msgSend)(cls, sel_registerName("setCurrentContext:"), ctx);
 }
 
+// Core Animation requests these properties when it creates its renderer.
+static void *renderer_context(void *cls, void *group)
+{
+    void *dict = send(objc_getClass("NSMutableDictionary"), "dictionary");
+    void *yes = ((void *(*)(void *,void *,signed char))objc_msgSend)(objc_getClass("NSNumber"),
+        sel_registerName("numberWithBool:"), 1);
+    const char *keys[] = { "EAGLContextPropertyAccelerated", "EAGLContextPropertyClientRetainRelease", "EAGLContextPropertySharegroup" };
+    void *values[] = { yes, yes, group };
+    for(unsigned i = 0; i < 3; i++)
+    {
+        void *key = ((void *(*)(void *,void *,const char *))objc_msgSend)(objc_getClass("NSString"),
+            sel_registerName("stringWithUTF8String:"), keys[i]);
+        ((void (*)(void *,void *,void *,void *))objc_msgSend)(dict, sel_registerName("setObject:forKey:"), values[i], key);
+    }
+    return ((void *(*)(void *,void *,unsigned,void *))objc_msgSend)(send(cls, "alloc"),
+        sel_registerName("initWithAPI:properties:"), 2, dict);
+}
+
 static void *exercise(void *unused)
 {
     void *pool = objc_autoreleasePoolPush();
@@ -36,18 +54,20 @@ static void *exercise(void *unused)
     unsigned (*create_shader)(unsigned) = dlsym((void *)-2, "glCreateShader");
     unsigned char (*is_shader)(unsigned) = dlsym((void *)-2, "glIsShader");
     void (*delete_shader)(unsigned) = dlsym((void *)-2, "glDeleteShader");
+    void *third = group ? renderer_context(cls, group) : 0;
     unsigned shader = 0;
-    int ok = create_shader && is_shader && delete_shader && first && second && first != second && send(second, "sharegroup") == group && get_string;
-    void *both[] = { first, second, first };
-    for(int i = 0; ok && i < 3; i++)
+    int ok = create_shader && is_shader && delete_shader && first && second && third && first != second && first != third && second != third &&
+        send(second, "sharegroup") == group && send(third, "sharegroup") == group && get_string;
+    void *both[] = { first, second, third, first };
+    for(int i = 0; ok && i < 4; i++)
     {
         ok = bind_context(cls, both[i]) && send(cls, "currentContext") == both[i] &&
             (word)send(both[i], "API") == 2;
         const char *renderer = ok ? get_string(0x1f01) : 0;
         ok = renderer && !strcmp(renderer, "v86 GLES (WebGPU)") && get_string(0x1f01) == renderer;
         if(ok && i == 0) { shader = create_shader(0x8b31); ok = shader != 0; }
-        if(ok && i == 1) ok = is_shader(shader);
-        if(ok && i == 2) { delete_shader(shader); ok = !is_shader(shader); }
+        if(ok && (i == 1 || i == 2)) ok = is_shader(shader);
+        if(ok && i == 3) { delete_shader(shader); ok = !is_shader(shader); }
     }
 #ifdef N90_CHECK_SURFACES
     extern int n90_surface_pixels(void *, void *, void *);
@@ -62,6 +82,7 @@ static void *exercise(void *unused)
     syslog(5, "V86 CAEAGLLayer pid %d step %d", getpid(), layer_step);
 #endif
     if(!bind_context(cls, 0) || send(cls, "currentContext")) ok = 0;
+    release_object(third);
     release_object(second);
     release_object(first);
     objc_autoreleasePoolPop(pool);
