@@ -3,7 +3,7 @@
 审查对象：DirectDraw、Direct3D 1–7、Direct3D 8、Direct3D 9 四个客体前端，以及它们共用的 D9WG 协议和宿主执行器。
 基线：v86 `e92fd4f0`（`ios6` 分支，D3D 相关文件与 `master` 相同），retro-gaming-site `43c4d1e`。日期 2026-10-29。
 性质：本文保留修复前的审查基线，已提交；后续实施进度记在第 7 节各阶段的状态块。
-当前实施状态（2026-11-05）：**阶段4由4L15收尾，阶段5由5L7完成**。历史状态块保留各提交当时的范围；阶段6整套Wine/持续验收仍开放，冒险岛按用户要求跳过。
+当前实施状态（2026-11-05）：**阶段4由4L15收尾，阶段5由5L7完成**。历史状态块保留各提交当时的范围；阶段6整套Wine及六版3DMark本地验收仍开放，冒险岛按用户要求跳过。阶段6不要求新增GitHub CI或每晚自动运行，不上传XP/游戏磁盘镜像，最新范围见§8.5。
 OpenGL 路径的审查见姊妹篇 [`opengl-webgpu-review.md`](opengl-webgpu-review.md)。两条路径共用传输层和 `webgpu_host.js`，错误捕获与失败策略（本文 S1-1、S1-4）应一起修。
 
 ## 0. 结论摘要
@@ -2863,9 +2863,9 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
   - 建立一份私有的游戏着色器语料，并以 `D3D9_CORPUS_STRICT=1` 在 Tint（Chrome）下校验。
 - **验证：** 差分测试零差异；语料在 Tint 下零拒绝。
 
-### 阶段 6：客体内验收（持续）
+### 阶段 6：客体内与完整3DMark本地验收
 
-见 §8。
+见 §8，执行范围以2026-11-05用户修订的§8.5为准。
 
 ## 8. 建立成体系的验收
 
@@ -2876,9 +2876,9 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 | L0 协议 | schema 生成的往返测试，逐个 opcode 测截断、版本门控、会话隔离 | schema | 每次 push |
 | L1 纯逻辑单元 | 客体纯函数原生编译；宿主各模块单独测试 | 规范 | 每次 push |
 | L2 严格假 GPU | 现有执行器测试迁到严格假 GPU 上，去掉对 WGSL 文本和私有计数器的断言 | WebGPU 规则 | 每次 push |
-| L3 真 GPU 像素一致性 | 表驱动，按 D3D 特性分表；着色器差分测试 | D3D 文档、Wine `visual.c` 期望值、参考解释器 | CI 用 SwiftShader WebGPU（ubuntu 上 headless Chrome）；每晚在本机 Metal 上跑 |
-| L4 客体 API 一致性 | 在 XP 客体里跑 Wine 的 `dlls/d3d9/tests`、`d3d8/tests`、`ddraw/tests`（device.c、visual.c 等），代理 DLL 放在 EXE 旁边 | Wine 测试自身 | 每晚，在有磁盘镜像的机器上 |
-| L5 游戏冒烟 | 固定的存档状态加脚本输入，截图与黄金图像比对 | 人工确认过的黄金图像 | 每晚或发布前 |
+| L3 真 GPU 像素一致性 | 表驱动，按 D3D 特性分表；着色器差分测试 | D3D 文档、Wine `visual.c` 期望值、参考解释器 | 本机 Metal / SwiftShader；阶段6不要求新增CI或定时任务 |
+| L4 客体 API 一致性 | 在 XP 客体里跑 Wine 的 `dlls/d3d9/tests`、`d3d8/tests`、`ddraw/tests`（device.c、visual.c 等），代理 DLL 放在 EXE 旁边 | Wine 测试自身 | 本机XP镜像，按功能批次验收 |
+| L5 完整3DMark验收 | 六版3DMark全部测试、逐场景画面检查与完整浏览器错误日志 | 测试完成记录、人工核对及独立参考画面 | 本地站点浏览器，见§8.5 |
 
 ### 8.2 L4 已有的基础设施和缺口
 
@@ -2887,14 +2887,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 - `tests/lib/xp_ram_probe.mjs` 只读启动XP，写入只留在RAM覆盖层；当前DLL与MinGW测试EXE一起放入工具盘。
 - `tests/lib/d3d_live_renderer.mjs` 连接真实Chrome WebGPU，返回实际GPU读回；`tests/glbridge/d3d_live_xp_matrix.mjs` 串行验收8/9/DDraw和两个GPU后端。
 - `tests/glbridge/d3d_wine_stateblock_xp.mjs` 与 `d3d_wine_device_xp.mjs` 运行固定哈希的未修改Wine源码，严格解析完成记录、失败/todo/flaky/skip、进程退出及owner清理。选定组通过与完整套件通过分开记录。
-- **阶段6仍待完成：** 扩展D3D8/9 visual、其余device及DDraw原版套件，处理完整审计的skip/上游寿命问题，形成每晚/发布前运行及游戏截图基线。当前不把未实现的可选能力或上游漏释放静默豁免为通过。
+- **阶段6仍待完成：** 扩展D3D8/9 visual、其余device及DDraw原版套件，处理完整审计的skip/上游寿命问题，并完成§8.5六版3DMark本地全项验收。当前不把未实现的可选能力或上游漏释放静默豁免为通过；新增线上CI/每晚运行已按用户要求移出范围。
 - Linux/Wine加socket垫片仍是可选的加速方案，本机未以此替代XP验收。
 
 ### 8.3 规则
 
 1. **能力宣称必须有测试覆盖。** 客体 caps 和 `CheckDeviceFormat` 的每一个“yes”，都要在 L3 或 L4 有对应的用例；没有用例的能力不宣称。
 2. **每个 bug 修复都要在能暴露它的最低一层加回归用例。** 只能在 L5 暴露的问题，要补一个 L3 用例。
-3. **SKIP 不算通过。** CI 缺工具就失败。
+3. **SKIP 不算通过。** 验收缺工具、能力或镜像时记录未完成，不记为通过；本地镜像不上传GitHub。
 4. **偏差表即契约。** README 偏差表里的每一行都要对应一个 L3 用例，断言的就是这种偏差的具体表现；不在表里的偏差就是 bug。
 5. **删除：**
    - 退役 D3D8 执行器的测试（视阶段 2 的存档审计结果而定）；
@@ -2910,6 +2910,28 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 | 是否下载 Wine 源码 | 同意（已完成） | 已用于核对本文的语义条目（附录 C）；之后用于移植 `visual.c` 期望值、在 XP 客体里运行。Wine 测试是 LGPL，只用于测试，不打进发布的 bundle |
 | 退役 D3D8 执行器是否支持旧存档 | 不需要兼容旧存档 | 不做存档审计；直接删除 `d3d8_executor.js`、0xFFE0 路由和旧存档的 D3D8 分支（阶段 2，可提前） |
 | 阶段 0 的 MSAA | 直接实现 resolve | 阶段 0 实现多采样附件加 `resolveTarget`，不先撤销 4x 的宣称 |
+
+### 8.5 阶段6范围修订（2026-11-05，用户确认）
+
+保留完整Wine/API验收和缺陷修复，增加下列本地3DMark全项验收。移除新增GitHub线上CI、每晚调度与发布自动化工作包；不要求上传XP或3DMark镜像。保留本地运行脚本、测试清单、截图和日志，便于复现与复核。冒险岛继续跳过。
+
+| 顺序 | 程序 | 本地镜像（相对于retro-gaming-site） | 状态 |
+| --- | --- | --- | --- |
+| 1 | 3DMark99 | `game/3dmarklegacy.img` | 全项验收待完成 |
+| 2 | 3DMark2000 | `game/3dmarklegacy.img` | 全项验收待完成 |
+| 3 | 3DMark2001 SE | `game/3dmarklegacy.img` | 全项验收待完成；既有局部场景回放不替代本项 |
+| 4 | 3DMark03 | `game/3dmark03.img` | 全项验收待完成 |
+| 5 | 3DMark05 | `game/3dmark05.img` | 全项验收待完成 |
+| 6 | 3DMark06 | `game/3dmark06.img` | 全项验收待完成；用户已确认最后重复的05指06 |
+
+验收要求：
+
+1. 使用本地站点浏览器与当前代理DLL实际运行，按上述顺序逐版完成。先记录镜像内实际版本、全部子测试清单、运行设置、浏览器/GPU后端及DLL/宿主版本；每次只运行一个XP虚拟机。
+2. **全部子测试完成**：包括各版提供的游戏、CPU和功能测试，逐项记录完成状态与结果。只运行默认计分子集、演示、单个场景或旧命令回放均不足以通过。因能力不足、崩溃、挂起、授权限制或其他原因未运行的项目，明确记录为未完成，不跳过后宣称全项通过。
+3. **画面正确**：逐场景检查并保留关键帧/必要的视频证据，核对纹理、几何、光照、阴影、透明、特效及场景切换；不能用完成分数或无崩溃代替画面验证。参考图需独立核对，不能直接把当前输出指定为正确答案。Metal与SwiftShader发现的差异须定位，不能以同后端自回放一致替代跨后端核对。
+4. **浏览器console零错误**：从启动到结果页记录完整console、页面未捕获异常、Promise拒绝与WebGPU错误；不屏蔽、不清空错误后计为通过。设备丢失、超时及资源清理异常也必须处理。告警保留供复核，不隐藏可能的渲染缺陷。
+5. 新发现的问题按功能合并修复，在能复现问题的最低层补回归，再重跑受影响版本。每完成一个功能批次，在两个仓库的`refactor`分支分别提交实现、回归或相关验收记录；不按单个断言拆提交。
+6. 阶段6关闭需同时满足Wine/API验收与以上六版全项要求。当前只修订范围，不表示上述3DMark已跑完或已通过。
 
 ## 附录 A：我本人的核实记录
 
