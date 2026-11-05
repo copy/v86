@@ -70,7 +70,7 @@ static int check_cpu(unsigned red)
         for(unsigned x = 0; x < 64; x++)
         {
             const unsigned char *p = pixels + (64 * y + x) * 4;
-            if(p[0] != red || p[1] != 47 - y || p[2] != x || p[3] != 255) return 0;
+            if(p[0] != red || p[1] != y || p[2] != x || p[3] != 255) return 0;
         }
     return 1;
 }
