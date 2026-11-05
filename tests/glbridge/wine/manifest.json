@@ -32,6 +32,12 @@
       "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/COPYING.LIB",
       "sha256": "e237fa56668030e928551ddd60f05df5fe957f75eab874bbd017e085ed722e7c",
       "gitBlob": "732811e4f1faf71870b7350f211b26e00d7bfbe9"
+    },
+    {
+      "path": "d3d8_device.c",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
+      "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+      "gitBlob": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
     }
   ]
 }

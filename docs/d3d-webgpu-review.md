@@ -2700,6 +2700,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 
 
 
+> **阶段 4L6（2026-11-05，功能批次完成）：Wine 驱动的验证导出、模式枚举与 DXT 创建边界。**
+> - 修复完整设备测试最初在 `ValidateVertexShader` 的空错误字符串上崩溃：两个导出检查版本/能力，调用共用字节码校验，验证声明输入和常量范围；错误字符串使用进程堆，成功/静默失败返回可释放的空字符串，NULL像素程序保持输出不变。诊断版本记录失败。
+> - D3D8 从真实驱动枚举16/32位显示模式，取消硬编码九项及虚构15位模式；CheckDeviceType限制显示/后缓冲格式组合。共用8/9二维/立方体构造拒绝顶层DXT尺寸未按4×4块对齐的请求，所有池一致；合法2×2/1×1 mip仍可创建、锁定、上传。
+> - 固定上游完整 `d3d8/tests/device.c` 原始字节。默认验收调用未修改的四个Wine函数（VS/PS验证、显示格式、显示模式），再执行明确标注为项目自有的DXT矩阵。SwiftShader/Metal各 **2,996项、零失败/todo/flaky/skip**；266条命令、125个纹理（含40个立方体）、10次tiny-mip上传，owner退出前资源和设备为零，无GPU/宿主错误。此组没有图像比较。
+> - 403项独立客体套件完成验证：一次402项全量运行有两个旧构造期望和一个诊断规则失败，修正后全部定向重跑通过，并新增8/8导出变异。纹理/立方体原生检查27,774,923项；模式、格式、导出检查293,099项；相关93个严格编译后运行变异、ASan/UBSan、32 SDK EXE、四DLL构建、两站点集成和范围lint通过。
+> - **完整设备套件仍失败**：原验证崩溃和压缩纹理GPU错误已消除，但后续观察到805次失败、78个源码位置，最后在缺失的压缩体积纹理上崩溃；退出前有3设备/9资源依赖强制回收。窗口/Reset、多后缓冲、锁定和体积纹理等继续保留为待办，未把选定组成功称为完整Wine通过。
+> - 发布准确Metal验收的8零售DLL及同源诊断包；9的共用构造更新通过原生矩阵，本批未另跑XP9。运行 `node tests/glbridge/d3d_wine_device_xp.mjs`；完整失败审计使用 `D3D_WINE_DEVICE_GROUP=device`。证据：[stage4l6-validation.json](fixtures/d3d-review/stage4l6-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L6.json`。继续阶段4游戏回归与剩余兼容性，再完成阶段5。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
