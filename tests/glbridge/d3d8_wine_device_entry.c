@@ -197,8 +197,44 @@ static void swapchain_group(void)
     UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
 }
 
+/* Independent tail audit: lets later upstream tests run even when an earlier
+ * full-suite test terminates the process. Never substitutes for the full run. */
+static void device_tail_audit_group(void)
+{
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = DefWindowProcA;
+    wc.lpszClassName = "d3d8_test_wc";
+    RegisterClassA(&wc);
+    registry_mode.dmSize = sizeof(registry_mode);
+    ok(EnumDisplaySettingsW(NULL, ENUM_REGISTRY_SETTINGS, &registry_mode), "Missing registry mode.\n");
+    test_check_device_format();
+    test_miptree_layout();
+    test_render_target_device_mismatch();
+    test_format_unknown();
+    test_destroyed_window();
+    test_lockable_backbuffer();
+    test_clip_planes_limits();
+    test_swapchain_multisample_reset();
+    test_device_caps();
+    test_get_info();
+    test_resource_access();
+    test_multiply_transform();
+    test_draw_primitive();
+    test_get_display_mode();
+    test_multi_adapter();
+    test_creation_parameters();
+    test_cursor_clipping();
+    test_window_position();
+    test_filter();
+    UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
+}
+
+#include "d3d8_retail_runtime.h"
+
 const struct test winetest_testlist[] = {
+    { "retail-runtime", retail_runtime_group },
     { "device", full_device_suite },
+    { "device-tail-audit", device_tail_audit_group },
     { "compatibility", compatibility_group },
     { "locking", locking_group },
     { "storage", storage_group },

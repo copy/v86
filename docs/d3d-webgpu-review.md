@@ -2740,6 +2740,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 两个未修改 Wine 函数及 14 组项目像素场景在 XP Metal/SwiftShader 各 **816 项、零失败/todo/flaky/skip**；各完成 82 次 GPU blit、69 次像素读回，GPU/宿主错误、结束后的设备/资源均为零。覆盖逐像素 FLIP 循环、附加链不影响主链、对象/绑定身份、先释放链再释放表面、持有末缓冲阻止 Reset 与释放后尺寸更新。
 > - 相关生命周期、私有数据重入、资源/Reset、参数/节奏/目标绑定矩阵和变异检查、32 SDK EXE、四 DLL、范围 lint 与两项站点集成通过。发布准确 Metal 验收的 D3D8 DLL；本批未单独运行 XP9。证据：[stage4l11-validation.json](fixtures/d3d-review/stage4l11-validation.json)。全屏只覆盖原版参数检查，新增像素场景为窗口化非 MSAA；完整 Wine 窗口/Reset/visual/DDraw 及阶段5仍未关闭。
 
+
+> **阶段 4L12（2026-11-05，功能批次完成）：零售设备调用与连续 mip 存储。**
+> - 修复 GetInfo 返回值/输出保留、UNKNOWN 格式失败输出、格式查询及 D32 深度匹配、资源用途/池和锁权限。MultiplyTransform 按输入矩阵×实时矩阵执行，录制期间也只改实时状态；UP 绘制清理实时 BaseVertexIndex，零图元调用保持原状态，缺失顶点流的 API8 索引绘制成功但不提交。
+> - API8 CPU 池二维/立方体纹理采用连续 mip 存储，各面起点16字节对齐；分配失败和溢出不改变指针，析构只释放整个块。未压缩 scratch volume 可绑定并正确销毁 GPU 资源，压缩 scratch volume 保留纯 CPU 路径。Present 在提交前检查已销毁窗口。
+> - 原版四个 Wine 函数与项目矩阵在 Metal/SwiftShader 各 **6,816项、零失败/todo/flaky/skip**。五格式×三池×二维/立方体×九级，逐字节重锁验证不串写；947次上传、24,902,768字节，零GPU/宿主错误，owner清理前设备/资源为空。重锁数据来自CPU影子，本批不冒充新增GPU像素比较。
+> - 实际分配器通过 ASan/UBSan 的103组布局/OOM/溢出检查；实际 C 状态录制、非交换矩阵、资源寿命/重入、格式/锁/构造矩阵、旧实现反例与严格变异检查、32 SDK EXE、四DLL、范围lint和两站点集成通过。同步准确 Metal 验收的8零售DLL及同源诊断、共用9构建，宿主包保持 `6018289b1abb163f6620`。
+> - 原版后半段审计从925次失败降至 **1次**：11036行 SetForegroundWindow(GetDesktopWindow())；保留5个可选能力分支skip，未计作通过。完整套件前段的重复Release/缓冲锁问题仍待处理；本批不是完整Wine验收。证据：[stage4l12-validation.json](fixtures/d3d-review/stage4l12-validation.json)。阶段5已完成，阶段4继续；冒险岛按用户要求跳过。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
