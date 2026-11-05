@@ -824,6 +824,8 @@ CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读�
 }
 ```
 
+**S6 按键硬件输入，2026-11-05。** N90 设备树的五个按键连接 GPIO 0–4。它们是低电平有效，未按下时现在返回高电平。此前全零初值会让原版驱动读到持续按下。GPIO 配置写入和外部电平分开，按下、松开各锁存一次中断，重复状态不产生新边沿。宿主可用 `emulator.ios_send_button("home", true)` 按下，再用 `false` 松开；另支持 `power`、`volume-up`、`volume-down`、`mute`。设备测试覆盖电平、中断确认、按住时恢复快照和旧快照默认状态。原版系统中的操作效果仍待验收。按键极性另与 [openiBoot 的 A4 按键实现](https://github.com/iDroid-Project/openiBoot/blob/master/plat-a4/buttons.c) 核对。
+
 ## 待所有者决定
 
 1. 机器名 `s5l8930`、型号字段 `apple_model` 是否合适。

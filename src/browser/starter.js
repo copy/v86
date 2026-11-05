@@ -2711,6 +2711,23 @@ function root_port_of(emulator, port, caller)
 }
 
 /**
+ * Change one N90 physical button or the mute switch. The guest receives
+ * its normal GPIO edge through AppleM68Buttons.
+ * @param {string} button "home", "power", "volume-up", "volume-down", or "mute"
+ * @param {boolean} pressed
+ */
+V86.prototype.ios_send_button = function(button, pressed)
+{
+    if(!["home", "power", "volume-up", "volume-down", "mute"].includes(button) || typeof pressed !== "boolean")
+    {
+        throw new Error("ios_send_button: expected a button name and a boolean state");
+    }
+    this.bus.send("ios-button", [button, pressed]);
+};
+// eslint-disable-next-line no-self-assign -- Keep the public name through Closure compilation.
+V86.prototype["ios_send_button"] = V86.prototype.ios_send_button;
+
+/**
  * Send a sequence of scan codes to the emulated PS2 controller. A list of
  * codes can be found at http://stanislavs.org/helppc/make_codes.html.
  * Do nothing if there is no keyboard controller.

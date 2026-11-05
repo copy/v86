@@ -9,6 +9,8 @@ import { AppleTimer } from "./timer.js";
 import { AppleUART } from "./uart.js";
 import { AppleVIC } from "./vic.js";
 
+export const N90_BUTTONS = ["home", "power", "volume-up", "volume-down", "mute"];
+
 const auxiliary_uarts = ["apple_uart1", "apple_uart2", "apple_uart3", "apple_uart4", "apple_uart5", "apple_uart6"];
 
 // Append new devices to preserve the order in snapshots.
@@ -22,6 +24,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     const display = new DisplayHub(bus, screen);
     const vic = new AppleVIC(cpu);
     const gpio = new AppleGPIO(cpu, vic);
+    bus.register("ios-button", event => gpio.set_button(event[0], event[1]));
     const clcd = new AppleCLCD(cpu, display, vic);
     const nand = buffer ? new AppleNAND(cpu, buffer) : null;
     const iop = new AppleIOP(cpu);
@@ -78,6 +81,7 @@ export class AppleGPIO
     constructor(cpu, vic)
     {
         this.vic = vic;
+        this.buttons = 0;
         this.pins = new Uint32Array(22 * 8);
         this.mask = new Uint32Array(6);
         this.pending = new Uint32Array(6);
@@ -105,9 +109,26 @@ export class AppleGPIO
         this.update_irq();
     }
 
+    set_button(name, pressed)
+    {
+        const pin = N90_BUTTONS.indexOf(name);
+        if(pin < 0 || typeof pressed !== "boolean") return;
+        const bit = 1 << pin;
+        if(!!(this.buttons & bit) === pressed) return;
+        this.buttons ^= bit;
+        this.pulse(pin);
+    }
+
     read(offset)
     {
-        if(offset < this.pins.byteLength) return this.pins[offset >>> 2];
+        if(offset < this.pins.byteLength)
+        {
+            const pin = offset >>> 2;
+            // These five active-low wires are inputs. Programming a pin's
+            // mode does not press a physical button.
+            const level = this.buttons & 1 << pin ? 0 : 1;
+            return pin < N90_BUTTONS.length ? (this.pins[pin] & ~1) | level : this.pins[pin];
+        }
         if(offset === 0xC00) return this.groups();
         const bank = (offset & 63) >>> 2;
         if(bank >= this.mask.length) return 0;
@@ -131,10 +152,11 @@ export class AppleGPIO
         this.update_irq();
     }
 
-    reset() { this.pins.fill(0); this.mask.fill(0xFFFFFFFF); this.pending.fill(0); this.update_irq(); }
-    get_state() { return [this.pins.slice(), this.mask.slice(), this.pending.slice()]; }
+    reset() { this.buttons = 0; this.pins.fill(0); this.mask.fill(0xFFFFFFFF); this.pending.fill(0); this.update_irq(); }
+    get_state() { return [this.pins.slice(), this.mask.slice(), this.pending.slice(), this.buttons]; }
     set_state(state)
     {
+        this.buttons = (state[3] || 0) & 31;
         this.pins.set(state[0]);
         this.mask.fill(0xFFFFFFFF);
         this.pending.fill(0);

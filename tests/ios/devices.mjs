@@ -6,7 +6,7 @@ import { AppleCLCD } from "../../src/apple/clcd.js";
 import { AppleCDMA } from "../../src/apple/cdma.js";
 import { AppleI2C } from "../../src/apple/i2c.js";
 import { AppleIOP } from "../../src/apple/iop.js";
-import { AppleGPIO } from "../../src/apple/s5l8930.js";
+import { AppleGPIO, N90_BUTTONS } from "../../src/apple/s5l8930.js";
 import { AppleUART } from "../../src/apple/uart.js";
 
 let now = 0, signals = 0;
@@ -154,6 +154,32 @@ assert.equal(adc.fifo[1], 0x20);
 adc.write(0x24, 4);
 assert.equal(adc.fifo[1], 0);
 console.log("PASS: PMU ADC status, masked GPIO event, VIC3 delivery and snapshot restore");
+
+// Button state is external to writable GPIO configuration. Both
+// transitions latch events, with held keys preserved by a snapshot.
+for(const [pin, name] of N90_BUTTONS.entries())
+{
+    gpio.reset();
+    assert.equal(gpio.read(pin * 4) & 1, 1);
+    gpio.write(pin * 4, 0);
+    assert.equal(gpio.read(pin * 4) & 1, 1);
+    gpio.write(0x840, 1 << pin);
+    gpio.set_button(name, true);
+    assert.equal(gpio.read(pin * 4) & 1, 0);
+    assert.equal(signals, 1);
+    const held = gpio.get_state();
+    gpio.write(0x880, 1 << pin);
+    gpio.set_button(name, true);
+    assert.equal(signals, 0);
+    gpio.set_button(name, false);
+    assert.equal(gpio.read(pin * 4) & 1, 1);
+    assert.equal(signals, 1);
+    gpio.set_state(held);
+    assert.equal(gpio.read(pin * 4) & 1, 0);
+    gpio.set_state(held.slice(0, 3));
+    assert.equal(gpio.read(pin * 4) & 1, 1);
+}
+console.log("PASS: five N90 active-low button inputs, both GPIO edges and old/new snapshots");
 
 const { AppleH2FMI } = await import("../../src/apple/h2fmi.js");
 // Shorten only slices following an actual firmware poll of outstanding
