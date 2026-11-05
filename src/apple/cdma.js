@@ -126,7 +126,7 @@ export class AppleCDMA
             // The raw medium currently stores bytes before NAND encryption.
             if((this.channel[i] & 0xF00) && (flags & 3) === 2) continue;
             if(!(flags & 1) || !size || size > count - total || this.cpu.ram_offset(addr, size) < 0) break;
-            segments.push([addr, size]);
+            segments.push([addr, size, descriptor]);
             total += size;
             if(flags & 0x100) return allow_refill || total === count ? segments : null;
         }
@@ -158,6 +158,14 @@ export class AppleCDMA
             }
             const used = this.copy_segments(position, bytes, to_ram);
             this.channel[i + 3] -= used;
+            // The application CPU's driver retires callbacks by comparing
+            // this hardware cursor with its descriptor ring. An interrupt
+            // alone leaves those callbacks pending forever.
+            if((this.channel[i] & 0x10) && position[1])
+            {
+                const next = position[0][position[1] - 1][2];
+                if(next !== undefined) this.channel[i + 5] = next;
+            }
             const batch_done = position[1] === position[0].length;
             if(batch_done)
             {

@@ -2057,6 +2057,7 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 .PHONY: ios-tests
 ios-tests:
 	node tests/ios/boot-tree.mjs
+	node tests/ios/spi-dma.mjs
 	node tests/ios/nand-volumes.mjs
 	node tests/ios/nand.mjs
 	node tests/ios/tools.mjs
