@@ -442,6 +442,7 @@ export function validate_config(config)
         }
         if(cpu.type !== "arm32" || cpu.cores !== 1 || cpu.parallel || cpu.profile !== "cortex-a8" || config.memory.mb !== 512)
             problem("ios", "iPhone 4 has one Cortex-A8 CPU and 512 MB of memory");
+        bool(cpu.jit, "cpu.jit");
         if(machine.acpi || machine.hpet || machine.smbus || machine.pcie_root_ports || machine.bios || machine.vga_bios ||
             machine.firmware !== "seabios" || machine.uefi_vars || machine.secure_boot || machine.boot_order || machine.fastboot || machine.bootmenu)
             problem("ios", "iPhone 4 uses its built-in boot configuration");
@@ -888,6 +889,7 @@ export function config_to_options(config, env)
         return {
             machine_type: "s5l8930", apple_model: ios.model, cpu_type: "arm32", cpu_profile: "cortex-a8",
             cpu_cores: 1, memory_size: 512 * MB, cpu_worker: true,
+            "jit_switches": { "a64_page": cpu.jit ? 1 : 0 },
             cpu_worker_url: "build/cpu-worker.js" + env.query_append,
             wasm_path: "build/" + (env.debug ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") + env.query_append,
             screen: { container: env.screen_container }, graphics_adapter: "none", net_device: { type: "none" },
