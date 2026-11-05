@@ -1,0 +1,1003 @@
+{
+  "batch": "stage6-9",
+  "date": "2026-11-06",
+  "scope": "Shader declaration validation, final device resource submission, independent legacy scalar verification and XP audit startup",
+  "status": "Functional batch complete; full conformance FAIL, stage6 remains open",
+  "changes": [
+    "API8 rejects shader source input registers absent from its declaration before allocating layout or shader storage. Literal constant/comment tokens are not interpreted as register reads. API9 independent shader creation retains its rules.",
+    "Device teardown retires raw8 shader metadata before queuing device destruction and submitting the final batch. Pixel shader storage no longer depends on a later operation or owner release to be destroyed.",
+    "Corrects stage6-8 LOGP overcorrection: LOGP replicates log2(abs(scalar)) across all components. VS1.x selects w after swizzling; its EXPP tuple semantics remain separate. Non-unit inputs and non-replicated swizzles distinguish these cases.",
+    "Full Wine harness targets PSAPI_VERSION=1 for XP GetModuleInformation instead of Win7+ K32 aliases, records the renderer HTML hash, and saves periodic guest screenshots/batch counts to diagnose stalled loader dialogs."
+  ],
+  "logpReferences": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/logp---vs",
+    "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/wined3d/glsl_shader.c"
+  ],
+  "checks": {
+    "shaderPairAssertions": 1043,
+    "shaderPairCases": 494,
+    "shaderPairMutantsKilled": 23,
+    "deviceCleanupAssertions": 1940563,
+    "deviceCleanupMutantsKilled": 19,
+    "targetLifetimeAssertions": 2000,
+    "targetLifetimeGroups": 361,
+    "frontendLifetimeAssertions": 63308,
+    "shaderPipeline": 52,
+    "independentCpuShaderExecutions": 23392,
+    "actualGpuShaderDifferential": {
+      "metal": {
+        "result": {
+          "programs": 731,
+          "components": 93568,
+          "inputCount": 32,
+          "maximumRelativeError": 2.980232238769531e-07,
+          "failures": [],
+          "gpuErrors": []
+        },
+        "sha256": "d0fb97d13a8802eb40b2eea0c40284aa43b2dce9288c9e87fb19f9d008d2a845"
+      },
+      "swiftshader": {
+        "result": {
+          "programs": 731,
+          "components": 93568,
+          "inputCount": 32,
+          "maximumRelativeError": 0.00018918514251708984,
+          "failures": [],
+          "gpuErrors": []
+        },
+        "sha256": "b6022c0841677736e07593cadeebf4f16623e75ef662dc1556dc70e29782fcbc"
+      }
+    },
+    "swiftshaderTiming": "First attempt hit the default 60-second limit. Identical checks passed with a 240-second limit; no tolerance change.",
+    "siteGraphicsIntegration": "2/2 passed",
+    "shippingBuild": "Six DLLs, WebGPU bundle and local shipping tools image rebuilt. Original XP/game disk images remain unchanged.",
+    "xpImportTable": "Rebuilt d3d9_device imports GetModuleInformation from PSAPI.DLL; no K32 alias. Runtime rerun in progress when this batch was recorded."
+  },
+  "audits": [
+    {
+      "directory": "stage6-wine8-input-declarations",
+      "status": "FAIL",
+      "summary": {
+        "checks": 143568,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 52,
+        "skipped": 15
+      },
+      "exit": 52,
+      "source": {
+        "suite": "d3d8_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d8_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+          "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+          "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+        },
+        "dllSha256": "e4aff44edaafbff7f46fece56d72237020d8a1cefe100b789d4f915364271ac8",
+        "executableSha256": "10fe252f7d02944e1e188c5ad464bd2ace2e8d8390827cb85ec25f4b6628d9a4",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db891800a1d2ac0b177fb929c711acc2a0d90423177cf9144e6aeb65d206ebef",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "59ace238bd9aa45e89899528c6eac6366f4d50e6944d8ba051112866c36227c8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "28a491c08da677d660f2cfd3afd0d66ffcdf9538d78e694d08c0426218c92682",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "578e35427c3079ef2d76cf8b177fdbdd18f46a9f9f213b5fc66fdbfd74f2c932",
+      "groups": {
+        "depth_clamp_test": [
+          {
+            "line": 3440,
+            "message": "Test failed: SetViewport failed, hr 0x8876086c."
+          }
+        ],
+        "lighting_test": [
+          {
+            "line": 666,
+            "message": "Test failed: Lit quad with non-affine matrix has color 0x000000ff."
+          }
+        ],
+        "offscreen_test": [
+          {
+            "line": 2802,
+            "message": "Test failed: Offscreen failed: Got color 0x00ff00ff, expected 0x00ffffff."
+          }
+        ],
+        "test_blend": [
+          {
+            "line": 2977,
+            "message": "Test failed: DSTALPHA on texture returned color 007f0080, expected 0x000000ff"
+          }
+        ],
+        "depth_buffer_test": [
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 80,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 240,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,300, got 0x00ff0000."
+          }
+        ],
+        "intz_test": [
+          {
+            "line": 3902,
+            "message": "Tests skipped: No INTZ support, skipping INTZ test."
+          }
+        ],
+        "multisample_copy_rects_test": [
+          {
+            "line": 4404,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisampled CopyRects test."
+          }
+        ],
+        "zenable_test": [
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 420, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 420, got 0x00ff0000."
+          }
+        ],
+        "resz_test": [
+          {
+            "line": 4530,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping RESZ test."
+          }
+        ],
+        "fog_special_test": [
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 0."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 0."
+          },
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 1."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 1."
+          }
+        ],
+        "volume_dxtn_test": [
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT1 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT3 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT5 volume textures are not supported, skipping test."
+          }
+        ],
+        "add_dirty_rect_test": [
+          {
+            "line": 5680,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5693,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5705,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5722,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5744,
+            "message": "Test failed: Expected color 0x0000ff00, got 0x00000080."
+          },
+          {
+            "line": 5765,
+            "message": "Test failed: Got unexpected colour 0x000000ff."
+          },
+          {
+            "line": 5878,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5885,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5932,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          },
+          {
+            "line": 5939,
+            "message": "Test failed: Got unexpected color 0x000000ff."
+          },
+          {
+            "line": 5954,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          }
+        ],
+        "test_3dc_formats": [
+          {
+            "line": 6273,
+            "message": "Tests skipped: ATI1N textures are not supported, skipping test."
+          }
+        ],
+        "test_negative_fixedfunction_fog": [
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 0."
+          },
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 1."
+          }
+        ],
+        "test_updatetexture": [
+          {
+            "line": 7217,
+            "message": "Tests skipped: 2D mipmapped ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 11."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Cube ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Volume ATI2N textures are not supported, skipping some tests."
+          }
+        ],
+        "test_multisample_mismatch": [
+          {
+            "line": 7980,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample mismatch test."
+          }
+        ],
+        "test_flip": [
+          {
+            "line": 8777,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample flip test."
+          }
+        ],
+        "test_multisample_init": [
+          {
+            "line": 9274,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample init test."
+          }
+        ],
+        "test_max_index16": [
+          {
+            "line": 10320,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          },
+          {
+            "line": 10322,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          }
+        ],
+        "test_map_synchronisation": [
+          {
+            "line": 10691,
+            "message": "Tests skipped: Would need to draw 4293981962 triangles, but the device only supports 1048575 primitives."
+          }
+        ],
+        "test_sample_mask": [
+          {
+            "line": 11507,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8."
+          }
+        ],
+        "test_mipmap_upload": [
+          {
+            "line": 12242,
+            "message": "Test failed: level 1: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 2: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 3: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 4: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 5: Got unexpected color 0x00000000."
+          }
+        ]
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "sessionCleanupBeforeRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 1,
+          "remainingResources": [
+            {
+              "handle": 1073741977,
+              "kind": 8
+            }
+          ]
+        }
+      ],
+      "afterRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine8-retirement",
+      "status": "FAIL",
+      "summary": {
+        "checks": 143648,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 54,
+        "skipped": 14
+      },
+      "exit": 54,
+      "source": {
+        "suite": "d3d8_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d8_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+          "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+          "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+        },
+        "dllSha256": "a6a64c366fbca0dc6b1c4333e24057663e83b81cff2d96793914d5b52bf1274b",
+        "executableSha256": "cd93dd1af9aeb3b47dcc25ed9ba58a82ff9362ea771c14eba5ef78364658eb5b",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db891800a1d2ac0b177fb929c711acc2a0d90423177cf9144e6aeb65d206ebef",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "59ace238bd9aa45e89899528c6eac6366f4d50e6944d8ba051112866c36227c8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "28a491c08da677d660f2cfd3afd0d66ffcdf9538d78e694d08c0426218c92682",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "c094b9912e4382d07496a27f8a26e6fbad330711082e0250636628668809f19e",
+      "groups": {
+        "depth_clamp_test": [
+          {
+            "line": 3440,
+            "message": "Test failed: SetViewport failed, hr 0x8876086c."
+          }
+        ],
+        "lighting_test": [
+          {
+            "line": 666,
+            "message": "Test failed: Lit quad with non-affine matrix has color 0x000000ff."
+          }
+        ],
+        "offscreen_test": [
+          {
+            "line": 2802,
+            "message": "Test failed: Offscreen failed: Got color 0x00ff00ff, expected 0x00ffffff."
+          }
+        ],
+        "test_blend": [
+          {
+            "line": 2977,
+            "message": "Test failed: DSTALPHA on texture returned color 007f0080, expected 0x000000ff"
+          }
+        ],
+        "depth_buffer_test": [
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 80,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 240,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,300, got 0x00ff0000."
+          }
+        ],
+        "intz_test": [
+          {
+            "line": 3902,
+            "message": "Tests skipped: No INTZ support, skipping INTZ test."
+          }
+        ],
+        "multisample_copy_rects_test": [
+          {
+            "line": 4404,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisampled CopyRects test."
+          }
+        ],
+        "zenable_test": [
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 420, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 420, got 0x00ff0000."
+          }
+        ],
+        "resz_test": [
+          {
+            "line": 4530,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping RESZ test."
+          }
+        ],
+        "fog_special_test": [
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 0."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 0."
+          },
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 1."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 1."
+          }
+        ],
+        "volume_dxtn_test": [
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT1 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT3 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT5 volume textures are not supported, skipping test."
+          }
+        ],
+        "add_dirty_rect_test": [
+          {
+            "line": 5680,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5693,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5705,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5722,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5744,
+            "message": "Test failed: Expected color 0x0000ff00, got 0x00000080."
+          },
+          {
+            "line": 5765,
+            "message": "Test failed: Got unexpected colour 0x000000ff."
+          },
+          {
+            "line": 5878,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5885,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5932,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          },
+          {
+            "line": 5939,
+            "message": "Test failed: Got unexpected color 0x000000ff."
+          },
+          {
+            "line": 5954,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          }
+        ],
+        "test_3dc_formats": [
+          {
+            "line": 6273,
+            "message": "Tests skipped: ATI1N textures are not supported, skipping test."
+          }
+        ],
+        "test_negative_fixedfunction_fog": [
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 0."
+          },
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 1."
+          }
+        ],
+        "test_updatetexture": [
+          {
+            "line": 7217,
+            "message": "Tests skipped: 2D mipmapped ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 11."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Cube ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Volume ATI2N textures are not supported, skipping some tests."
+          }
+        ],
+        "test_multisample_mismatch": [
+          {
+            "line": 7980,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample mismatch test."
+          }
+        ],
+        "test_flip": [
+          {
+            "line": 8777,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample flip test."
+          }
+        ],
+        "test_multisample_init": [
+          {
+            "line": 9274,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample init test."
+          }
+        ],
+        "test_max_index16": [
+          {
+            "line": 10320,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          },
+          {
+            "line": 10322,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          }
+        ],
+        "test_map_synchronisation": [
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x1000."
+          },
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x3000."
+          }
+        ],
+        "test_sample_mask": [
+          {
+            "line": 11507,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8."
+          }
+        ],
+        "test_mipmap_upload": [
+          {
+            "line": 12242,
+            "message": "Test failed: level 1: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 2: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 3: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 4: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 5: Got unexpected color 0x00000000."
+          }
+        ]
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "sessionCleanupBeforeRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 0,
+          "remainingResources": []
+        }
+      ],
+      "afterRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine-ddraw1-first",
+      "status": "CRASH",
+      "summary": null,
+      "exit": -1073741819,
+      "source": {
+        "suite": "ddraw_ddraw1",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw1.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw1.c",
+          "sha256": "d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a",
+          "gitBlob": "ca595964df2cd916460444fe6da7000ad2888b27"
+        },
+        "dllSha256": "ce2a26f8873c5bbb9849870dfa31ff24e93a71ceaab15fefb03af155cc7e3d6b",
+        "executableSha256": "a8667a3711cfd60c22faad8f51ac412c02fc1356e152fa6d7b9c712d39a7f0ed",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db891800a1d2ac0b177fb929c711acc2a0d90423177cf9144e6aeb65d206ebef",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "59ace238bd9aa45e89899528c6eac6366f4d50e6944d8ba051112866c36227c8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "28a491c08da677d660f2cfd3afd0d66ffcdf9538d78e694d08c0426218c92682",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "cf3ae4d36049cdcea6a6e571833a023c0951198d5f7588be9be889847803e723",
+      "groups": {
+        "test_coop_level_create_device_window": [
+          {
+            "line": 1007,
+            "message": "Test failed: Got unexpected hr 0."
+          },
+          {
+            "line": 1011,
+            "message": "Test failed: Got unexpected hr 0."
+          },
+          {
+            "line": 1015,
+            "message": "Test failed: Got unexpected hr 0."
+          },
+          {
+            "line": 1026,
+            "message": "Tests skipped: DDSCL_CREATEDEVICEWINDOW not supported, skipping test."
+          }
+        ],
+        "test_clipper_blt": [
+          {
+            "line": 1165,
+            "message": "Test failed: Got unexpected bounding rect (0,0)-(632,453), expected (14,33)-(646,486)."
+          },
+          {
+            "line": 1240,
+            "message": "Test failed: Expected color 0x00ff0000 at 400,300, got 0x00000000."
+          },
+          {
+            "line": 1240,
+            "message": "Test failed: Expected color 0x00ffffff at 560,300, got 0x00000000."
+          },
+          {
+            "line": 1240,
+            "message": "Test failed: Expected color 0x00ff0000 at 400,420, got 0x00000000."
+          },
+          {
+            "line": 1240,
+            "message": "Test failed: Expected color 0x00ffffff at 560,420, got 0x00000000."
+          },
+          {
+            "line": 1262,
+            "message": "Test failed: Got unexpected hr 0."
+          },
+          {
+            "line": 1270,
+            "message": "Test failed: Got unexpected hr 0."
+          },
+          {
+            "line": 1274,
+            "message": "Test failed: Failed to get clip list size, hr 0x887600cd."
+          },
+          {
+            "line": 1280,
+            "message": "Test failed: Got unexpected hr 0."
+          }
+        ],
+        "test_coop_level_d3d_state": [
+          {
+            "line": 1319,
+            "message": "Test failed: Got unexpected hr 0x80004002."
+          }
+        ]
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "sessionCleanupBeforeRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 0
+        }
+      ],
+      "afterRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine9-device-first",
+      "status": "LOADER_FAILURE",
+      "summary": null,
+      "exit": -1073741511,
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "6da9d5f660c3e5d75431ed7e34512f2b6b3c373ccd3e474a484c9ac551ed4b63",
+        "executableSha256": "6e6470e773866b8e89b3a4cc238aa2c26e54be1d0e7a4643a408113b0e584a83",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db891800a1d2ac0b177fb929c711acc2a0d90423177cf9144e6aeb65d206ebef",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "59ace238bd9aa45e89899528c6eac6366f4d50e6944d8ba051112866c36227c8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "28a491c08da677d660f2cfd3afd0d66ffcdf9538d78e694d08c0426218c92682",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "907d2e5b8c83e2dfd9cfa17014ad26917e7655b5c2be27aec4a1965c17553fd0",
+      "groups": {},
+      "gpuErrors": null,
+      "hostErrors": null,
+      "commandsFailed": null,
+      "sessionCleanupBeforeRelease": null,
+      "afterRelease": null
+    }
+  ],
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw.dll": {
+      "bytes": 145408,
+      "sha256": "bdcf77d7cd6821bc827f1a736577120eb8dfb4d3dc4f31a8e11e99c1d85d749f"
+    },
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": {
+      "bytes": 177664,
+      "sha256": "3bb77f639a7b93c4b0046a6e84c5ba2f565ebb71444191f79137f0bec54210ca"
+    },
+    "glbridge/d3d8proxy/d3d8.dll": {
+      "bytes": 202240,
+      "sha256": "a6a64c366fbca0dc6b1c4333e24057663e83b81cff2d96793914d5b52bf1274b"
+    },
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": {
+      "bytes": 253952,
+      "sha256": "06681ab544fe94529adad745fe8269126ad06b347a8ce78f6fb0019ece2e0b4d"
+    },
+    "glbridge/d3d9proxy/d3d9.dll": {
+      "bytes": 159232,
+      "sha256": "62271a83ab0cc08fdd19393b3b0b7c62a39fbfdf5fb2949f3a7d7499682671cc"
+    },
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": {
+      "bytes": 207872,
+      "sha256": "393d3fb37101695f48df5d5aa75a3c0b1d65fcfbf2332a37ff23111294a44f78"
+    }
+  },
+  "webgpuRevision": "560cc857c38792ddb3bd",
+  "remaining": [
+    "Latest complete D3D8 visual: 54 failures and 14 skips. Exactly three shader-input failures fixed versus batch8. The intermediate 52-failure run skipped map_synchronisation due to an upstream timing calculation; its two assertions are NOT considered fixed.",
+    "Both D3D8 audits used the prior host LOGP implementation. The corrected host has CPU and actual Metal/SwiftShader differential evidence, but a complete Wine/benchmark rerun with the published combination remains outstanding.",
+    "DirectDraw1 crashes after failed legacy device-to-surface QueryInterface; no complete summary. D3D9 visual depth readback crash remains open. D3D9 device first run never loaded due to K32GetModuleInformation and has no API coverage; corrected-ABI rerun remains pending.",
+    "Other full DirectDraw suites, dirty/mip upload, depth/viewport, blend/fog/lighting failures, current full cross-backend comparisons and affected six-benchmark reruns remain open.",
+    "3DMark03 hardware-3D audio and inapplicable Wine branch handling await user response. No failures/skips are waived. 3DMark99 Race remains 6.1% below the measured old baseline."
+  ]
+}

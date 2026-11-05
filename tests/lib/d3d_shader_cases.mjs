@@ -57,6 +57,12 @@ export function numerical_cases() {
         [1,dst(0,0),src(2,3)],[2,dst(0,0,mask,1,shift),src(2,0),src(2,1)]
     ],4)});
     for(const kind of ["vertex","pixel"])for(const major of [2,3])cases.push({name:`${kind}${major}/pow-zero-exponent`,tokens:shader(kind,major,[[32,dst(0,0),src(2,0,0),src(2,0,0)]])});
+    // Non-replicated legacy operands distinguish x from w. Non-unit inputs
+    // also distinguish LOGP's replicated logarithm from a mantissa/exponent
+    // tuple, which Wine visual's input w=2 cannot distinguish.
+    for(const code of [6,7,14,15,78,79])for(const swizzle of [0xe4,0x1b])for(const mask of [15,5])
+        cases.push({name:`vs1/scalar${code}/sw${swizzle}/mask${mask}`,tokens:shader("vertex",1,[
+            [1,dst(0,0),src(2,3)],[code,dst(0,0,mask),src(2,0,swizzle)]])});
     return cases;
 }
 export function numerical_inputs(count=32) {

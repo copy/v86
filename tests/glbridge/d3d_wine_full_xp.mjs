@@ -22,7 +22,9 @@ for(const file of manifest.files)assert.equal(createHash("sha256").update(fs.rea
 fs.mkdirSync(out,{recursive:true});
 const cc=process.env.D9WG_CC||"i686-w64-mingw32-gcc";
 execFileSync(cc,["-std=gnu99","-O1","-g","-DDECLSPEC_EXPORT=","-I"+vendor+"include","-c",root+"tests/glbridge/wine_debug_standalone.c","-o",out+"/debug.o"],{stdio:"inherit"});
-execFileSync(cc,["-std=gnu99","-O1","-g","-DSTANDALONE","-DDECLSPEC_EXPORT=","-I"+vendor+"include","-I"+root+"tests/glbridge/wine-compat",
+// XP provides the PSAPI exports, not the Win7+ K32 aliases selected by newer
+// SDK defaults. Keep the original tests while targeting their actual guest ABI.
+execFileSync(cc,["-std=gnu99","-O1","-g","-DSTANDALONE","-DPSAPI_VERSION=1","-DDECLSPEC_EXPORT=","-I"+vendor+"include","-I"+root+"tests/glbridge/wine-compat",
     ...(suite==="d3d8_visual"?["-include",root+"tests/glbridge/wine_mingw_teb.h"]:[]),
     ...(api==="ddraw"?["-DCOBJMACROS=","-D__WINESRC__","-include","windows.h","-include","initguid.h"]:[]),
     vendor+suite+".c",out+"/debug.o","-o",out+"/WINE.EXE","-l"+api,"-ldxguid","-luser32","-lgdi32","-lole32","-lpsapi"],{stdio:"inherit"});
@@ -32,7 +34,7 @@ const rendererPage=root+"tests/glbridge/d3d_remote_renderer.html";
 const rendererSources=Object.fromEntries([...fs.readFileSync(rendererPage,"utf8").matchAll(/<script src="([^"]+)"/g)]
     .map(([,relative])=>{const file=path.resolve(path.dirname(rendererPage),relative);return [path.relative(root,file),sha256(file)];}));
 fs.writeFileSync(out+"/source.json",JSON.stringify({suite,commit:manifest.commit,source:manifest.files.find(f=>f.path===suite+".c"),
-    dllSha256:sha256(out+"/"+api+".dll"),executableSha256:sha256(out+"/WINE.EXE"),rendererSources},null,2)+"\n");
+    dllSha256:sha256(out+"/"+api+".dll"),executableSha256:sha256(out+"/WINE.EXE"),rendererPageSha256:sha256(rendererPage),rendererSources},null,2)+"\n");
 if(process.env.D3D_WINE_BUILD_ONLY==="1")process.exit(0);
 
 const files={"V86GL.SYS":fs.readFileSync(site+"/glbridge/v86gl_driver/v86gl.sys"),

@@ -134,6 +134,8 @@ export function execute_shader(parsed, input = {}, limit = 100000) {
             continue;
         }
         const s = op.sources.map(source), a = s[0], b = s[1], c = s[2];
+        // Native VS1.x scalar operands select w after the source swizzle.
+        const scalar = a?.[parsed.kind === "vertex" && parsed.major === 1 ? 3 : 0];
         const each = fn => Array.from({length:4}, (_, n) => fn(n));
         const dot = (x,y,n) => {let sum=0;for(let j=0;j<n;j++) sum=f32(sum+f32(x[j]*y[j]));return sum;};
         let value;
@@ -143,15 +145,15 @@ export function execute_shader(parsed, input = {}, limit = 100000) {
         case 3: value=each(n=>a[n]-b[n]);break;
         case 4: value=each(n=>f32(a[n]*b[n])+c[n]);break;
         case 5: value=each(n=>a[n]*b[n]);break;
-        case 6: value=vector(a[0]===0?maximum:1/a[0]);break;
-        case 7: value=vector(a[0]===0?maximum:1/Math.sqrt(Math.abs(a[0])));break;
+        case 6: value=vector(scalar===0?maximum:1/scalar);break;
+        case 7: value=vector(scalar===0?maximum:1/Math.sqrt(Math.abs(scalar)));break;
         case 8: case 9: value=vector(dot(a,b,code===8?3:4));break;
         case 10: value=each(n=>Math.min(a[n],b[n]));break;
         case 11: value=each(n=>Math.max(a[n],b[n]));break;
         case 12: value=each(n=>Number(a[n]<b[n]));break;
         case 13: value=each(n=>Number(a[n]>=b[n]));break;
-        case 14: value=vector(2**a[0]);break;
-        case 15: case 79: value=vector(a[0]===0?-maximum:Math.log2(Math.abs(a[0])));break;
+        case 14: value=vector(2**scalar);break;
+        case 15: case 79: value=vector(scalar===0?-maximum:Math.log2(Math.abs(scalar)));break;
         case 16: value=[1,Math.max(0,a[0]),a[0]>0&&a[1]>0?Math.pow(a[1],clamp(a[3],-127.9961,127.9961)):0,1];break;
         case 17: value=[1,a[1]*b[1],a[2],b[3]];break;
         case 18: value=each(n=>f32(a[n]*b[n])+f32((1-a[n])*c[n]));break;
@@ -168,7 +170,7 @@ export function execute_shader(parsed, input = {}, limit = 100000) {
         case 36: {const len=Math.hypot(...a.slice(0,3));value=len?[a[0]/len,a[1]/len,a[2]/len,0]:vector();break;}
         case 37: value=[Math.cos(a[0]),Math.sin(a[0]),0,0];break;
         case 65: if(raw(op.dest).slice(0,3).some(x=>x<0))killed=true;continue;
-        case 78: value=parsed.major===1?[2**Math.floor(a[0]),a[0]-Math.floor(a[0]),2**a[0],1]:vector(2**a[0]);break;
+        case 78: value=parsed.major===1?[2**Math.floor(scalar),scalar-Math.floor(scalar),2**scalar,1]:vector(2**scalar);break;
         case 80: value=each(n=>a[n]>0.5?b[n]:c[n]);break;
         case 88: value=each(n=>a[n]>=0?b[n]:c[n]);break;
         case 90: value=vector(f32(dot(a,b,2)+c[0]));break;

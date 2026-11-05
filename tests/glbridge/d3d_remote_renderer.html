@@ -32,7 +32,9 @@
         const gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false,createSwapChainCanvas:()=>document.createElement("canvas")});
         const cleanup=[],sessionCleanup=[];const end=gpu.onSessionEnd;
         const release=gpu.releaseActiveSession;
-        gpu.releaseActiveSession=function(reason){sessionCleanup.push({reason,devices:this.devices.size,resources:this.resources.size});return release.call(this,reason);};
+        gpu.releaseActiveSession=function(reason){sessionCleanup.push({reason,devices:this.devices.size,resources:this.resources.size,
+            remainingResources:Array.from(this.resources,([handle,resource])=>({handle,kind:resource.kind,
+                deviceHandle:resource.deviceHandle,format:resource.format,width:resource.width,height:resource.height}))});return release.call(this,reason);};
         gpu.onSessionEnd=function(...args){cleanup.push({devices:this.devices.size,resources:this.resources.size});return end.apply(this,args);};
         await gpu.initialize();
         socket.onmessage=event => {

@@ -129,7 +129,11 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                     throw new Error(JSON.stringify({ text, logs }));
                 if(poll === 29 && !text && Object.values(logs).every(text => !text)) break;
                 if(completed(text, logs)) break;
-                if(poll % 10 === 9) console.log("waiting", elapsed(), "s", JSON.stringify({ text: text.trim(),
+                // A loader/modal error can leave a redirected log unchanged.
+                // Preserve a current guest picture so a long suite cannot hide
+                // that failure behind an apparently active timeout loop.
+                if(poll % 30 === 29) save_frame("probe-progress.png", frame());
+                if(poll % 10 === 9) console.log("waiting", elapsed(), "s", JSON.stringify({ text: text.trim(), batches,
                     logs: Object.fromEntries(Object.entries(logs).map(([name,log]) => [name,log.slice(-4096)])) }));
             }
             // Retry only a missed launch. Starting another process after an
