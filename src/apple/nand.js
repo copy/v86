@@ -64,6 +64,9 @@ export class AppleNAND
         this.backend = new BlockBackend(cpu, buffer);
         this.read_cache = new Array(4).fill(null);
         this.queues = Array.from({ length: 4 }, () => []);
+        // Session counters for guest page transfers, excluding OOB, host prefetch and erase.
+        this.bytes_read = 0;
+        this.bytes_written = 0;
     }
 
     // Program and erase are read/modify/write host operations. A native
@@ -119,6 +122,7 @@ export class AppleNAND
                     table.setUint32(entry + 12, NAND_PARTITION_BLOCK_MAPPED, true);
                 }
             }
+            this.bytes_read += NAND_DATA;
             done(page);
         };
         // A native scattered read streams adjacent rows from all four
@@ -160,7 +164,10 @@ export class AppleNAND
             if(old.length !== NAND_SLOT) { err(new Error("short NAND page")); return; }
             const slot = new Uint8Array(old);
             for(let i = 0; i < page.length; i++) slot[i] |= ~page[i];
-            this.write(bus, ce, offset, slot, ok, err);
+            this.write(bus, ce, offset, slot, () => {
+                this.bytes_written += NAND_DATA;
+                ok();
+            }, err);
         }, err), done, fail);
     }
 

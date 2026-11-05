@@ -1,4 +1,6 @@
 /* The VM manager's page (docs/vm-manager-plan.md); v86.css stays the old page's */
+@import url("./xterm.css");
+
 :root {
     --bg: #111;
     --panel: #1a1a1a;

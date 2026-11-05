@@ -231,7 +231,8 @@ const parts = {
 
         // drawers
         $("#drawer_terminal").click();
-        await until(() => $(".console-drawer .terminal .xterm"), "the serial terminal (xterm)", 20000);
+        const viewport = await until(() => $(".console-drawer .terminal .xterm-viewport"), "the serial terminal (xterm)", 20000);
+        check(w.getComputedStyle(viewport).position === "absolute", "the terminal viewport overlays the rows instead of pushing them below the scroll area");
         const icon = new w.Image();
         await new Promise((resolve, reject) =>
         {

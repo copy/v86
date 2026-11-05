@@ -476,6 +476,7 @@ function console_ui(layout, emulator, ctx)
     const options = ctx.options;
     const tag = ctx.profile?.id || (ctx.config ? ctx.config.name.replace(/[^\w.-]+/g, "_") : "v86");
     const ios = ctx.config?.ios;
+    const iphone = options.machine_type === "s5l8930";
     const virt = options.cpu_type === "arm64";
     const written_back = [options.hda, options.hdb, options.fda, options.fdb, options.ios?.nand,
         ...(options.virtio_disks || [])].some(d => d && d.disk_option === "read_write");
@@ -1019,19 +1020,22 @@ function console_ui(layout, emulator, ctx)
     // (the cards of the options: the library's defaults where they name none)
     const network_card = options.net_device && options.net_device.type || (virt ? "virtio" : "ne2k");
     const sound_card = virt ? (options.virtio_sound ? "virtio" : "none") : options.audio_device || "sb16";
+    const storage_bus = iphone ? "NAND" : virt ? "virtio-blk" : options.machine_type === "q35" ? "AHCI" : "IDE";
+    let nand_usage = "Waiting for NAND counters…";
     const render_details = () =>
     {
+        const storage = h("span", null, iphone ? nand_usage : format_size(stats.disk_read) + " read, " +
+            format_size(stats.disk_written) + " written" + (stats.disk_busy ? ", busy" : ""));
         const rows = [
             ["Machine", (options.machine_type || "i440fx") + ", " + options.cpu_type + ", " + options.cpu_cores + (options.cpu_cores === 1 ? " core" : " cores")],
             ["Memory", format_size((options.memory_size || 0) + (options.extended_memory_size || 0))],
             ["Running", stats.running_ms ? format_time(stats.running_ms / 1000 | 0) : "-"],
             ["Speed", stats.running_ms ? (stats.ips / 1000).toFixed(1) + " MIPS now, " + (stats.total / 1000 / stats.running_ms).toFixed(1) + " on average" : "-"],
             ["Instructions", String(stats.total)],
-            ["Storage (" + (virt ? "virtio-blk" : options.machine_type === "q35" ? "AHCI" : "IDE") + ")", format_size(stats.disk_read) + " read, " +
-                format_size(stats.disk_written) + " written" + (stats.disk_busy ? ", busy" : "")],
+            ["Storage (" + storage_bus + ")", storage],
             ["Network", (NIC_LABELS[network_card] || network_card) + (network_card === "none" ? "" :
                 ": " + format_size(stats.net_in) + " received, " + format_size(stats.net_out) + " sent")],
-            ["Sound", (SOUND_LABELS[sound_card] || sound_card) + (options.disable_speaker ? ", muted" : "")],
+            ["Sound", iphone ? "CS42L61, PCM output unavailable" : (SOUND_LABELS[sound_card] || sound_card) + (options.disable_speaker ? ", muted" : "")],
             ["Shared folder", stats.fs_file ? format_size(stats.fs_read) + " read, " + format_size(stats.fs_written) + " written, last " + stats.fs_file : "-"],
             ["Display", stats.mode ? stats.mode + ", " + stats.resolution : "-"],
             ["Mouse", stats.usb_tablet ? "the USB tablet (absolute)" + (stats.pointer_locked ? "; locked: PS/2" : "") :
@@ -1050,6 +1054,12 @@ function console_ui(layout, emulator, ctx)
         }, () => {});
         emulator.get_diagnostics().then(diagnostics =>
         {
+            if(iphone)
+            {
+                const nand = diagnostics?.nand;
+                nand_usage = nand ? format_size(nand.bytes_read) + " read, " + format_size(nand.bytes_written) + " written" : "Counters unavailable";
+                storage.textContent = nand_usage;
+            }
             const execution = diagnostics && diagnostics.execution;
             const fallback = execution && execution.fallback;
             const text = options.cpu_cores === 1 ? "1 core" : execution && execution.mode === "parallel" ? options.cpu_cores + " cores, each in a host thread" :

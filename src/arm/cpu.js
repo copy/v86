@@ -1402,6 +1402,7 @@ A64CPU.prototype.zstd_read_free = function(ptr, length) { return this.wm.exports
 A64CPU.prototype.get_diagnostics = function()
 {
     const exports = this.wm.exports;
+    const nand = this.devices?.apple_nand;
     const power = ["on", "off", "on-pending"];
     const psci = this.machine_state_bytes(1);
     const cores = this.each_core(core => {
@@ -1432,6 +1433,7 @@ A64CPU.prototype.get_diagnostics = function()
         "retired": exports["core_statistics_get"] ? exports["core_statistics_get"](0, 0) : 0,
         "undefined": this.undefined_instructions(),
         "page_tier": this.page_tier_stats(),
+        ...(nand ? { "nand": { "bytes_read": nand.bytes_read, "bytes_written": nand.bytes_written } } : {}),
     };
 };
 

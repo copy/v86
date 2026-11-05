@@ -1038,7 +1038,7 @@ build/capstone-x86.min.js:
 	mkdir -p build
 	wget -nv -P build https://github.com/AlexAltea/capstone.js/releases/download/v3.0.5-rc1/capstone-x86.min.js
 
-# The page always loads the serial terminal; its CSS is included in v86.css.
+# The page loads the serial terminal with the shared src/app/xterm.css styles.
 # Never leave an empty/partial target behind when a download fails.
 build/xterm.js:
 	mkdir -p build

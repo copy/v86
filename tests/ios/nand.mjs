@@ -1,6 +1,6 @@
 // Inspect the published file independently of the builder's offset, page
 // decoding and checksum helpers. No Apple firmware required.
-import { AppleNAND, NAND_BYTES, NAND_PAGE, NAND_SLOT } from "../../src/apple/nand.js";
+import { AppleNAND, NAND_BYTES, NAND_DATA, NAND_PAGE, NAND_SLOT } from "../../src/apple/nand.js";
 import { crc32 } from "node:zlib";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -126,6 +126,8 @@ assert.equal(result[8192], 0);
 await new Promise((ok, fail) => medium.erase(0, 0, 127, ok, fail));
 assert.ok((await read(127)).every(b => b === 255));
 assert.equal((await read(128))[0], 0xAC);
+assert.equal(medium.bytes_written, 3 * NAND_DATA, "only guest page programs count as writes");
+assert.equal(medium.bytes_read, 3 * NAND_DATA, "internal reads for programs and erase are excluded");
 console.log("PASS: NAND programs clear bits, block erase restores them and preserves the next block");
 const afterErase = writes;
 await new Promise((ok, fail) => medium.erase(0, 0, 127, ok, fail));
@@ -151,6 +153,7 @@ const rangeRead = row => new Promise((ok, fail) => rangeMedium.read(0, 0, row, o
 await rangeRead(1);
 await rangeRead(2);
 assert.equal(reads, 1, "adjacent pages share one host read");
+assert.equal(rangeMedium.bytes_read, 2 * NAND_DATA, "count guest pages even when one host prefetch serves both");
 rangeMedium.reset();
 rangeDisk.get = (at, length, done) => {
     reads++;
