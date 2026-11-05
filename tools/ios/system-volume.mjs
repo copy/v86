@@ -4,8 +4,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { prepare_system_volume } from "../../src/ios/system_volume.js";
 
-const [source, output, mode, ...extra] = process.argv.slice(2);
-if(!source || !output || extra.length || mode && mode !== "--gles") throw new Error("usage: system-volume.mjs rootfs.hfs new-system.hfs [--gles]");
+const [source, output, ...options] = process.argv.slice(2);
+if(!source || !output || options.some(option => !["--gles", "--offline"].includes(option)))
+    throw new Error("usage: system-volume.mjs rootfs.hfs new-system.hfs [--gles] [--offline]");
 const dir = fs.mkdtempSync(path.join(path.dirname(path.resolve(output)), ".n90-system-")), temp = path.join(dir, "volume");
 try
 {
@@ -19,7 +20,7 @@ try
             return bytes;
         }, (at, bytes) => {
             assert.equal(fs.writeSync(fd, bytes, 0, bytes.length, at), bytes.length);
-        }, mode === "--gles");
+        }, options.includes("--gles"), undefined, options.includes("--offline"));
     }
     finally { fs.closeSync(fd); }
     fs.linkSync(temp, output);

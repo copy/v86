@@ -9,6 +9,7 @@ const require_layout = (condition, message = "Unexpected N90 Mach-O layout") => 
 const hash = (algorithm, bytes) => (algorithm === "sha1" ? new SHA1() : new SHA256()).update(bytes).digest();
 const equal = (a, b) => a.length === b.length && a.every((byte, i) => byte === b[i]);
 export const DISPLAY_DAEMONS = ["/usr/libexec/backboardd", "/System/Library/CoreServices/SpringBoard.app/SpringBoard"];
+export const LOCKDOWN_DAEMON = "/usr/libexec/lockdownd";
 
 export const GUEST_GL_LIBRARY = "/private/var/v86/libv86gles.dylib";
 
@@ -58,6 +59,38 @@ export function cdhashes(bytes)
         hash(algorithm, bytes.subarray(dir, stop)).subarray(0, 20));
 }
 
+function resign_pages(original, bytes, first, last)
+{
+    for(const { dir, limit, page, hashes, hashSize, algorithm } of code_directories(original))
+    {
+        require_layout(view(original).getUint32(dir + 12) & 2, "expected ad-hoc CodeDirectory");
+        for(let start = Math.floor(first / page) * page; start < last; start += page)
+            bytes.set(hash(algorithm, bytes.subarray(start, Math.min(start + page, limit))), hashes + start / page * hashSize);
+    }
+}
+
+const LOCKDOWN_BRANCH = 0xE22C; // Thumb code at 0xF22C in 10B329 lockdownd
+
+export function offline_lockdown(original)
+{
+    const bytes = new Uint8Array(original), v = view(bytes), at = LOCKDOWN_BRANCH;
+    require_layout(new SHA256().update(original).hex() ===
+        "04d029e707cae62d09029a87ac9051b911a484870a0dc172d070bb42e631433f" &&
+        v.getUint32(at, true) === 0x8128F000, "Expected stock N90 10B329 lockdownd");
+    // dealwith_activation: use the existing local Activated path, while
+    // preserving the separate DisableHactivation preference check.
+    v.setUint16(at, 0xE128, true); // b 0xF480
+    v.setUint16(at + 2, 0xBF00, true);
+    resign_pages(original, bytes, at, at + 4);
+    return bytes;
+}
+
+export function has_offline_lockdown(bytes)
+{
+    return bytes.length === 583136 && view(bytes).getUint32(LOCKDOWN_BRANCH, true) === 0xBF00E128 &&
+        new SHA256().update(bytes).hex() === "78bdb383289ce3e44077bdad28481d4ab8bd674661380cf96daca5e047024090";
+}
+
 export function link_guest_gles(original)
 {
     const macho = macho_parse(original);
@@ -76,12 +109,7 @@ export function link_guest_gles(original)
     view(bytes).setUint32(16, ncmds + 1, true);
     view(bytes).setUint32(20, size + cmd.length, true);
 
-    for(const { dir, limit, page, hashes, hashSize, algorithm } of code_directories(original))
-    {
-        require_layout(view(original).getUint32(dir + 12) & 2, "expected ad-hoc CodeDirectory");
-        for(let start = 0; start < end + cmd.length; start += page)
-            bytes.set(hash(algorithm, bytes.subarray(start, Math.min(start + page, limit))), hashes + start / page * hashSize);
-    }
+    resign_pages(original, bytes, 0, end + cmd.length);
     require_layout(macho_parse(bytes).dylibs.includes(GUEST_GL_LIBRARY));
     return bytes;
 }
@@ -93,13 +121,24 @@ export function check_guest_library(library)
         info.id === GUEST_GL_LIBRARY, "Expected the N90 guest GLES library");
 }
 
-export function graphics_kernel(original, linkedDaemons, library)
+export function graphics_kernel(original, linkedDaemons, library, lockdown = null)
 {
+    const trusted = [];
+    if(library)
+    {
+        check_guest_library(library);
+        for(const bytes of linkedDaemons) require_layout(macho_parse(bytes).dylibs.includes(GUEST_GL_LIBRARY));
+        trusted.push(...linkedDaemons, library);
+    }
+    if(lockdown)
+    {
+        require_layout(has_offline_lockdown(lockdown), "Expected local offline lockdownd");
+        trusted.push(lockdown);
+    }
+    if(!trusted.length) return original;
     require_layout(new SHA256().update(original).hex() ===
         "82127c1ea84dbc1b55f423a4d60cdfe6a3baaabc117d4a891af0b502e57a2c47", "Expected the stock N90 10B329 kernel");
-    check_guest_library(library);
-    for(const bytes of linkedDaemons) require_layout(macho_parse(bytes).dylibs.includes(GUEST_GL_LIBRARY));
-    const hashes = [...linkedDaemons.flatMap(cdhashes), ...cdhashes(library)];
+    const hashes = trusted.flatMap(cdhashes);
     hashes.sort((a, b) => {
         for(let i = 0; i < a.length; i++) if(a[i] !== b[i]) return a[i] - b[i];
         return 0;
@@ -115,7 +154,7 @@ export function graphics_kernel(original, linkedDaemons, library)
     require_layout(head >= 0 && v.getUint32(head, true) === 0 && at >= 0 && address + node.length <= 0x80425000 &&
         kernel.subarray(at, at + node.length).every(b => b === 0) && clear >= 0 && v.getUint16(clear, true) === 0x60E5,
         "Unexpected N90 AMFI trust cache layout");
-    // Keep AMFI's native trust checks; trust only the three local binaries.
+    // Keep AMFI's native checks and trust only the validated local binaries.
     v.setUint16(clear, 0xBF00, true);
     v.setUint32(head, address, true);
     kernel.set(node, at);

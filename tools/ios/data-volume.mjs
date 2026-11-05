@@ -5,8 +5,8 @@ import path from "node:path";
 import { open_volume } from "./hfs_edit.mjs";
 import { write_hfsx_data } from "../../src/ios/hfsx_data.js";
 import { data_capacity } from "../../src/ios/nand_volumes.js";
-import { check_guest_library } from "../../src/ios/guest_load.js";
-import { systembag } from "../../src/ios/provision.js";
+import { check_guest_library, has_offline_lockdown, LOCKDOWN_DAEMON } from "../../src/ios/guest_load.js";
+import { offline_setup_file, systembag } from "../../src/ios/provision.js";
 
 const [source, output, option, library, ...extra] = process.argv.slice(2);
 if(!source || !output || extra.length || option && (option !== "--gles-library" || !library))
@@ -26,6 +26,8 @@ try
     try
     {
         const system = await open_volume(sourceFD), capacity = data_capacity(system.block_size * system.total_blocks);
+        const lockdownd = await system.lookup(LOCKDOWN_DAEMON);
+        if(lockdownd && has_offline_lockdown(await system.contents(lockdownd))) files.push(offline_setup_file());
         const fd = fs.openSync(temp, "wx+");
         try
         {
@@ -44,7 +46,7 @@ try
             await system.walk_tree("/private/var", async (p, entry) =>
                 verify(p.slice("/private/var".length), entry, entry.type === "directory" ? null : await system.contents(entry)));
             for(const f of files)
-                await verify(f.path, { type: "file", uid: 0, gid: 0, mode: 0o100000 | f.mode }, f.bytes);
+                await verify(f.path, { type: "file", uid: f.uid || 0, gid: f.gid || 0, mode: 0o100000 | f.mode }, f.bytes);
             console.log("Prepared " + capacity + " bytes of HFSX data with " + count + " catalog entries");
         }
         finally { fs.closeSync(fd); }

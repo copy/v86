@@ -25,10 +25,17 @@ make ios-guest IPHONE4_DYLD_CACHE=/path/to/dyld_shared_cache_armv7
 ```
 
 The importer reads `build/ios-guest/libv86gles.dylib` or a copy you select
-in the wizard. It patches only local copies of the two display daemons
-and adds their hashes and the adapter's to the kernel's trust cache.
+in the wizard. It links the two local display daemons to the adapter and
+adds their hashes and the adapter's to the kernel's trust cache.
 The graphics path needs WebGPU and the `make glbridge` assets. Boot
 without the graphics adapter only for serial diagnostics.
+
+The browser prepares the simulated phone for offline use. It selects
+10B329 lockdownd's existing local activation path and seeds the Setup
+Assistant preferences on the new data volume. The original phone's
+activation service, SIM and credentials are unnecessary. This changes
+only the copy of the supplied firmware and retains native code signature
+checks.
 
 The console has Home, Lock, volume, Silent and Rotate controls. Esc is
 Home; Command-L sends Lock when the browser delivers it to the page.
@@ -50,7 +57,9 @@ exports contain Apple system files and are for personal backup.
 `nand_build.mjs volumes` writes a raw sparse NAND image. The data volume
 builder also runs without macOS utilities. With graphics, pass `--gles`
 to the system builder, `--gles-library` to the data builder and prepare
-the matching kernel with `graphics-kernel.mjs`.
+the matching kernel with `graphics-kernel.mjs`. Add `--offline` to
+`system-volume.mjs` and `graphics-kernel.mjs` for the browser's offline
+setup behavior; the data builder detects that prepared system.
 
 Run `make ios-tests` without Apple files. Original kernel and system
 tests in `tests/ios` take the owner's locally prepared firmware and NAND.

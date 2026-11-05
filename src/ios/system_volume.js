@@ -1,7 +1,7 @@
 // Prepare the supplied 10B329 system volume in place. It is already a
 // private copy. No files from the IPSW are needed by the emulator build.
 import { HFSPlus } from "./hfsplus.js";
-import { DISPLAY_DAEMONS, link_guest_gles } from "./guest_load.js";
+import { DISPLAY_DAEMONS, LOCKDOWN_DAEMON, link_guest_gles, offline_lockdown } from "./guest_load.js";
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 const expect = (condition, message) => { if(!condition) throw new Error(message); };
@@ -70,13 +70,14 @@ async function fix_fstab(volume, write, compress)
     throw new Error("Could not locate the fstab attribute leaf");
 }
 
-async function link_display_daemon(volume, write, path, compress)
+async function rewrite_daemon(volume, write, path, compress, patch)
 {
     const file = await volume.lookup(path);
-    expect(file?.compressed && file.resource.size, "Expected compressed display daemon: " + path);
+    expect(file?.compressed && file.resource.size, "Expected compressed daemon: " + path);
     const attr = await volume.attribute(file.id, "com.apple.decmpfs");
     expect(attr && view(attr).getUint32(4, true) === 4, "Expected a compressed resource fork: " + path);
-    const original = await volume.contents(file), patched = link_guest_gles(original);
+    const original = await volume.contents(file), patched = patch(original);
+    expect(original.length === patched.length, "A daemon patch changed its uncompressed size: " + path);
     const source = await volume.read_fork(file.id, file.resource, 0, file.resource.size, 255);
     const src = view(source), base = src.getUint32(0), table = base + 4;
     const capacity = src.getUint32(base), count = src.getUint32(table, true);
@@ -115,10 +116,9 @@ async function link_display_daemon(volume, write, path, compress)
         const oldMap = src.getUint32(4), mapLength = src.getUint32(12), newMap = table + used;
         const size = newMap + mapLength;
         expect(oldMap === table + capacity && oldMap + mapLength === source.length &&
-            src.getUint32(8) === 4 + capacity && size <= file.resource.blocks * volume.block_size,
-            "Compressed display daemon has no room: " + path);
+            src.getUint32(8) === 4 + capacity, "Unexpected compressed resource map: " + path);
         resource = new Uint8Array(size);
-        resource.set(source.subarray(0, table));
+        resource.set(source.subarray(0, table + 4)); // resource header and little-endian block count
         resource.set(source.subarray(oldMap), newMap);
         const dst = view(resource);
         dst.setUint32(4, newMap);
@@ -126,7 +126,9 @@ async function link_display_daemon(volume, write, path, compress)
         dst.setUint32(base, used);
         if(equals(source.subarray(oldMap, oldMap + 16), source.subarray(0, 16)))
             resource.set(resource.subarray(0, 16), newMap);
-        await resize_resource(volume, write, file, size);
+        const fork = size <= file.resource.blocks * volume.block_size ? { ...file.resource, size } :
+            await relocate_resource(volume, write, file.resource, size);
+        await resize_resource(volume, write, file, fork);
     }
     const dst = view(resource);
     used = 4 + count * 8;
@@ -139,11 +141,55 @@ async function link_display_daemon(volume, write, path, compress)
         used += chunk.length;
     }
     await write_fork(write, volume, file.id, file.resource, 255, 0, resource);
-    expect(equals(await volume.contents(file), patched), "Display daemon verification failed: " + path);
+    expect(equals(await volume.contents(file), patched), "Patched daemon verification failed: " + path);
     return patched;
 }
 
-async function resize_resource(volume, write, file, size)
+async function relocate_resource(volume, write, fork, size)
+{
+    // This restore's HFSX is packed with no free blocks. Grow the private
+    // copy by one extent plus its new alternate volume header. Leave all
+    // other forks in place and release the old, directly mapped extent(s).
+    const block = volume.block_size, start = volume.total_blocks;
+    const count = Math.ceil(size / block), total = start + count + 1;
+    const allocation = volume.forks[6];
+    expect(total <= allocation.size * 8 && fork.extents.reduce((n, e) => n + e.count, 0) === fork.blocks,
+        "Cannot extend the N90 system volume");
+    const bitmap = await volume.read_fork(6, allocation, 0, allocation.size);
+    // HFSX reserves the old last allocation block for its alternate
+    // header, even on this restore where the header lives in partition padding.
+    const oldTail = await volume.read((start - 1) * block, block);
+    const oldAlt = view(oldTail.subarray(block - 1024, block - 512));
+    expect(oldTail.length === block && oldTail.subarray(0, block - 1024).every(b => b === 0) &&
+        oldTail.subarray(block - 512).every(b => b === 0) &&
+        (oldTail.subarray(block - 1024, block - 512).every(b => b === 0) ||
+            oldAlt.getUint16(0) === view(volume.header).getUint16(0) && oldAlt.getUint32(44) === start),
+        "Unexpected final N90 system allocation block");
+    const release = b => {
+        const bit = 128 >>> (b & 7);
+        expect(b < start && bitmap[b >>> 3] & bit, "Invalid old resource allocation");
+        bitmap[b >>> 3] &= ~bit;
+    };
+    release(start - 1);
+    for(const e of fork.extents)
+        for(let b = e.start; b < e.start + e.count; b++) release(b);
+    for(let b = start; b < total; b++) bitmap[b >>> 3] |= 128 >>> (b & 7);
+    await write_fork(write, volume, 6, allocation, 0, 0, bitmap);
+
+    const header = volume.header.slice(), v = view(header), free = volume.free_blocks + fork.blocks + 1;
+    v.setUint32(44, total);
+    v.setUint32(48, free);
+    const tail = new Uint8Array(block);
+    tail.set(header, block - 1024);
+    await write((total - 1) * block, tail);
+    await write(1024, header);
+    volume.header = header;
+    volume.total_blocks = total;
+    volume.free_blocks = free;
+    return { size, blocks: count, extents: [{ start, count }] };
+}
+
+async function resize_resource(volume, write, file, fork)
 {
     const tree = volume.catalog;
     for(const [n, leaf] of tree.cache)
@@ -154,22 +200,34 @@ async function resize_resource(volume, write, file, size)
         const at = n * tree.node_size, node = await volume.read_fork(tree.file_id, tree.fork, at, tree.node_size);
         const v = view(node), start = v.getUint16(tree.node_size - 2 * (index + 1));
         const data = start + 2 + ((v.getUint16(start) + 1) & ~1);
-        v.setBigUint64(data + 168, BigInt(size));
+        const resource = data + 168;
+        v.setBigUint64(resource, BigInt(fork.size));
+        if(fork.extents !== file.resource.extents)
+        {
+            v.setUint32(resource + 12, fork.blocks);
+            node.fill(0, resource + 16, resource + 80);
+            for(const [i, extent] of fork.extents.entries())
+            {
+                v.setUint32(resource + 16 + 8 * i, extent.start);
+                v.setUint32(resource + 20 + 8 * i, extent.count);
+            }
+        }
         await write_fork(write, volume, tree.file_id, tree.fork, 0, at, node);
         tree.cache.delete(n);
-        file.resource.size = size;
+        file.resource = fork;
         return;
     }
     throw new Error("Could not locate the display daemon's resource fork record");
 }
 
-export async function prepare_system_volume(read, write, graphics, compress = deflate)
+export async function prepare_system_volume(read, write, graphics, compress = deflate, offline = false)
 {
     const volume = await new HFSPlus(read).open(), daemons = [];
     await fix_fstab(volume, write, compress);
     expect(text.decode(await volume.contents(await volume.lookup("/private/etc/fstab"))) === V86_FSTAB,
         "Patched fstab could not be read back");
     if(graphics)
-        for(const path of DISPLAY_DAEMONS) daemons.push(await link_display_daemon(volume, write, path, compress));
-    return { volume, daemons };
+        for(const path of DISPLAY_DAEMONS) daemons.push(await rewrite_daemon(volume, write, path, compress, link_guest_gles));
+    const lockdown = offline ? await rewrite_daemon(volume, write, LOCKDOWN_DAEMON, compress, offline_lockdown) : null;
+    return { volume, daemons, lockdown };
 }

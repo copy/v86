@@ -11,6 +11,19 @@ const derive = label => new SHA256().update(ascii("v86/N90/10B329/" + label)).di
 const deviceKey = new Uint8Array(16).fill(1);
 new AES(N90_UID).block(deviceKey, 0, false);
 
+// The emulated phone has neither a cellular modem nor a SIM. Native
+// SpringBoard reads these booleans before launching Setup Assistant.
+export function offline_setup_file()
+{
+    return {
+        path: "/mobile/Library/Preferences/com.apple.purplebuddy.plist",
+        uid: 501, gid: 501, mode: 0o600, dir_mode: 0o755,
+        bytes: ascii('<?xml version="1.0" encoding="UTF-8"?>\n' +
+            '<plist version="1.0"><dict><key>SetupDone</key><true/>' +
+            '<key>SetupFinishedAllSteps</key><true/></dict></plist>\n'),
+    };
+}
+
 function join(parts)
 {
     const out = new Uint8Array(parts.reduce((length, bytes) => length + bytes.length, 0));

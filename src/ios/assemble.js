@@ -2,8 +2,8 @@
 import { check_payload, extract_system_partition, ipsw_check, ipsw_image, ipsw_open, ipsw_sha1, keys_parse } from "./ipsw.js";
 import { complzss_decompress } from "./lzss.js";
 import { prepare_system_volume } from "./system_volume.js";
-import { check_guest_library, graphics_kernel } from "./guest_load.js";
-import { systembag } from "./provision.js";
+import { check_guest_library, graphics_kernel, has_offline_lockdown, LOCKDOWN_DAEMON } from "./guest_load.js";
+import { offline_setup_file, systembag } from "./provision.js";
 import { write_hfsx_data } from "./hfsx_data.js";
 import { HFSPlus } from "./hfsplus.js";
 import { write_bootstrap_pages } from "./nand_layout.js";
@@ -99,8 +99,8 @@ export async function assemble_n90(ipsw, keySource, scratch, nand, library, prog
         progress(stage === "check" ? "Checking root filesystem" : "Extracting system volume", done, entry.compressed_size));
     scratch.resize(system.size);
     progress("Preparing system and data volumes", 0, 1);
-    const { volume, daemons } = await prepare_system_volume(scratch.read, scratch.write, !!library);
-    if(library) kernel = graphics_kernel(kernel, daemons, library);
+    const { volume, daemons, lockdown } = await prepare_system_volume(scratch.read, scratch.write, !!library, undefined, true);
+    kernel = graphics_kernel(kernel, daemons, library, lockdown);
     await write_prepared_n90(scratch.read, nand, { kernel, tree, logo, library }, progress, volume);
 }
 
@@ -110,6 +110,8 @@ export async function write_prepared_n90(read, nand, boot, progress, volume = nu
     const { kernel, tree, logo, library } = boot;
     const files = [{ path: "/keybags/systembag.kb", bytes: systembag(), dir_mode: 0o700, mode: 0o600 }];
     if(library) files.push({ path: "/v86/libv86gles.dylib", bytes: library, dir_mode: 0o755, mode: 0o755 });
+    const lockdownd = await volume.lookup(LOCKDOWN_DAEMON);
+    if(lockdownd && has_offline_lockdown(await volume.contents(lockdownd))) files.push(offline_setup_file());
     const data = sparse_data();
     await write_hfsx_data(volume, data_capacity(volume.block_size * volume.total_blocks), data.write, files);
     nand.resize(NAND_BYTES);

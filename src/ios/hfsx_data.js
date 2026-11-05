@@ -115,7 +115,7 @@ function tree(records, size, maxKey, compare, attributes)
  * @param {!Object} system an open HFSPlus system volume
  * @param {number} capacity data partition size in bytes
  * @param {function(number, !Uint8Array): *} write
- * @param {!Array<{path: string, bytes: !Uint8Array, dir_mode: number, mode: number}>} files
+ * @param {!Array<{path: string, bytes: !Uint8Array, dir_mode: number, mode: number, uid: (number|undefined), gid: (number|undefined)}>} files
  */
 export async function write_hfsx_data(system, capacity, write, files)
 {
@@ -155,8 +155,9 @@ export async function write_hfsx_data(system, capacity, write, files)
     for(const file of files)
     {
         const directory = file.path.slice(0, file.path.lastIndexOf("/"));
-        if(directory && !entries.has(directory)) add(directory, { type: "directory", mode: 0o40000 | file.dir_mode });
-        add(file.path, { type: "file", mode: 0o100000 | file.mode }, file.bytes);
+        if(directory && !entries.has(directory))
+            add(directory, { type: "directory", mode: 0o40000 | file.dir_mode, uid: file.uid, gid: file.gid });
+        add(file.path, { type: "file", mode: 0o100000 | file.mode, uid: file.uid, gid: file.gid }, file.bytes);
     }
 
     const allocationBytes = Math.ceil(blocks / 8 / BLOCK) * BLOCK, allocation = new Uint8Array(allocationBytes);
