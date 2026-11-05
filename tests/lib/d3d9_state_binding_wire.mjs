@@ -4,7 +4,8 @@ import {shader_binding_vertex_code, shader_binding_pixel_code, shader_binding_sc
 const require = createRequire(import.meta.url), P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"), W = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js");
 export const state_binding_scenes = shader_binding_scenes;
 function token_hash(tokens) {let h = 0xcbf29ce484222325n; for (const token of tokens) for (let n = 0; n < 4; n++) h = BigInt.asUintN(64, (h ^ BigInt(token >>> (n * 8) & 255)) * 0x1000001b3n); return [Number(h & 0xffffffffn), Number(h >> 32n)];}
-export function inspect_state_binding_wire(bytes, result) {
+export function inspect_state_binding_wire(bytes, result, {fvfCache = false} = {}) {
+    const cachedFvf = {handle:0, retired:false};
     assert.equal(result.owners.length, 1); assert(result.owners[0]); assert.deepEqual(result.releases, result.owners);
     const owner = result.owners[0], specs = state_binding_scenes(), objects = [], frames = [], retired = [], bindings = [], expectedKinds = [3, 4, 5, 1, 2, 6, 7, 8], uploadsWanted = [[3,16,80,0], [4,0,12,0], [3,16,80,1], [11,16,80,2], [12,0,12,0], [11,16,80,3]];
     let device = 0, initialDevice = 0, created = 0, destroyed = 0, hello = 0, draws = 0, clears = 0, resets = 0, uploads = 0, decl = 0, vs = 0, ps = 0, vb = 0, ib = 0, offset = 0, stride = 0;
@@ -18,6 +19,21 @@ export function inspect_state_binding_wire(bytes, result) {
             const op = h.view.getUint16(x, true), length = h.view.getUint32(x + 4, true), decode = name => P.decode(name, h.view, x + 16, length - 16);
             if (op === P.OP.HELLO) assert.equal(hello++, 0);
             if (op === P.OP.CREATE_DEVICE) {const q = decode("CreateDevice"); assert.equal(created++, 0); dimensions(q); device = initialDevice = q.device_handle; assert(device);}
+            if (fvfCache && op === P.OP.CREATE_VERTEX_DECLARATION && objects.length === 8 && !cachedFvf.handle) {
+                const q = decode("CreateVertexDeclaration");
+                assert.equal(q.device_handle, device); assert(q.resource_handle && !objects.some(o => o.handle === q.resource_handle));
+                assert.equal(q.element_count, 2); assert.equal(q.reserved, 0); assert.equal(frames.length, 0);
+                const expected = Buffer.from([0,0,0,0,3,0,9,0,0,0,16,0,4,0,10,0]);
+                assert.deepEqual(packet.subarray(x + 16 + P.STRUCTS.CreateVertexDeclaration.size, x + 16 + P.STRUCTS.CreateVertexDeclaration.size + 16), expected);
+                cachedFvf.handle = q.resource_handle; x += length; continue;
+            }
+            if (fvfCache && op === P.OP.DESTROY_RESOURCE) {
+                const q = decode("DestroyResource");
+                if (q.resource_handle === cachedFvf.handle) {
+                    assert.equal(q.resource_kind, 6); assert(!cachedFvf.retired); assert.equal(frames.length, 5);
+                    assert(objects.every(o => o.retired)); cachedFvf.retired = true; x += length; continue;
+                }
+            }
             if ([P.OP.CREATE_TEXTURE_2D, P.OP.CREATE_TEXTURE_CUBE, P.OP.CREATE_TEXTURE_VOLUME, P.OP.CREATE_BUFFER, P.OP.CREATE_VERTEX_DECLARATION, P.OP.CREATE_VERTEX_SHADER, P.OP.CREATE_PIXEL_SHADER].includes(op)) {
                 const i = objects.length, kind = expectedKinds[i % 8]; assert(i < 16); let q;
                 if (kind >= 3 && kind <= 5) {assert.equal(op, [P.OP.CREATE_TEXTURE_2D, P.OP.CREATE_TEXTURE_CUBE, P.OP.CREATE_TEXTURE_VOLUME][kind - 3]); q = decode(kind === 3 ? "CreateTexture2D" : kind === 4 ? "CreateTextureCube" : "CreateTextureVolume"); assert.equal(q.format, 21); assert.equal(q.usage, 0); assert.equal(q.pool, 0); assert.equal(q.level_count, 1); if (kind === 4) assert.equal(q.edge_length, 2); else {assert.equal(q.width, 2); assert.equal(q.height, 2); if (kind === 5) assert.equal(q.depth, 2);}}
@@ -45,5 +61,6 @@ export function inspect_state_binding_wire(bytes, result) {
     for (const [order, group, frame, reset, unbind] of [[[0, 1, 2, 6, 7, 5, 3, 4], 0, 0, 0, false], [[0, 1, 2, 3, 4, 5, 6, 7], 0, 1, 0, true], [[0, 1, 2, 6, 7, 5, 3, 4], 0, 1, 1, false], [[0, 1, 2, 3, 4, 5, 6, 7], 8, 2, 1, false], [[0, 1, 2, 3, 4, 5, 6, 7], 8, 4, 1, true]]) for (const i of order) wantedBindings.push({kind: expectedKinds[i], handle: unbind ? 0 : objects[group + i].handle, frame, resets: reset});
     assert.deepEqual(bindings, wantedBindings);
     const lines = specs.map(s => `STATE FRAME step=${s.index} color=${s.color.toString(16).toUpperCase()} readback=1`); lines.push("STATE STATUS groups=2 resourceFamilies=8 resources=16 captures=65 getterQueries=528 metadataRounds=64 applies=2 recordingRefusals=2 resetSuccesses=2 frames=5 readbacks=5 factoryRefs=0", "PASS D3D9 stateblock bindings"); assert.equal(result.logs["STATE9.TXT"].replace(/\r/g, "").trim(), lines.join("\n"));
-    return {owners: result.owners, ownerReleases: result.releases, initialDevice, objects: objects.map(({bytes, ...o}) => o), frames, bindings, retired, explicitObjectDestroys: 16, implicitGuestLeaks: 0, uploads, draws, clears, resets, readbacks: 5, pixels: 320};
+    if (fvfCache) assert(cachedFvf.handle && cachedFvf.retired, "FVF cache must be explicitly retired");
+    return {...(fvfCache ? {cachedFvf} : {}), owners: result.owners, ownerReleases: result.releases, initialDevice, objects: objects.map(({bytes, ...o}) => o), frames, bindings, retired, explicitObjectDestroys: 16, implicitGuestLeaks: 0, uploads, draws, clears, resets, readbacks: 5, pixels: 320};
 }

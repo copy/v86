@@ -1,0 +1,156 @@
+{
+  "stage": "4L3",
+  "date": "2026-11-05",
+  "scope": "Fallible shared stateblock replay, exact accepted API8 raw-state prefix and detached snapshot lifetime during reentrant block deletion.",
+  "baseline": {
+    "core": "3a9ccf8a",
+    "site": "5cd07a2"
+  },
+  "production": {
+    "sharedReplayStopsAtFirstFailure": true,
+    "api8RawSettersAtReplayBoundaries": true,
+    "rawShaderBindingUsesRetainedDeletedObjects": true,
+    "snapshotAndDevicePinnedAcrossCallbacks": true,
+    "hostProtocolShaderUnchanged": true
+  },
+  "validation": {
+    "guestSuites": 401,
+    "fullRunSuites": 400,
+    "additionalMutationSuite": 1,
+    "failed": 0,
+    "nativeSharedReplay": {
+      "checks": 1532,
+      "injectedFailures": 352,
+      "asan": true
+    },
+    "nativeRaw8Replay": {
+      "checks": 208400,
+      "scenarios": 400,
+      "asan": true
+    },
+    "mutations": 38,
+    "realGpuImagesPerBackend": 33,
+    "realGpuPixelsPerBackend": 1728,
+    "builds": {
+      "sdkExecutables": 32,
+      "retail8And9": true,
+      "diagnostic8And9": true
+    },
+    "siteIntegration": 2,
+    "lint": {
+      "siteFiles": 5,
+      "coreFiles": 5,
+      "newProblems": 0
+    },
+    "inherited": "Existing core fixtures/GPU baseline inherited; new8/new9 fixtures and retained old9 statebinding fixture were actually rerun."
+  },
+  "runs": {
+    "8": {
+      "xp": {
+        "seconds": 173,
+        "batches": 37,
+        "logs": {
+          "DEVICE8.TXT": "PUBLIC Direct3DCreate8/CreateDevice entry\r\nDEVICE8 CHECK pure=0 images=7 checks=682 reset=1 shaderDeletion=1 stateScopes=3 childRevival=1\r\nDEVICE8 CHECK pure=1 images=14 checks=1358 reset=1 shaderDeletion=1 stateScopes=3 childRevival=1\r\nDEVICE8 CHECK pure=0 images=21 checks=2037 reset=1 shaderDeletion=1 stateScopes=3 childRevival=1\r\nDEVICE8 CHECK pure=1 images=28 checks=2713 reset=1 shaderDeletion=1 stateScopes=3 childRevival=1\r\nPASS Device8 frontend methods=97 devices=4 images=28 checks=2815 finalRefs=0\r\n"
+        },
+        "readbackReplies": "Analytic CPU replies, independently validated by real GPU replay."
+      },
+      "gpu": {
+        "swift": {
+          "frames": 28,
+          "pixels": 1408,
+          "maximumError": 0,
+          "reportSha256": "e3a9f75f6a547bbb290ce3af9bc3f2d817e417e23ab35bce4774491df1447c1d"
+        },
+        "metal": {
+          "frames": 28,
+          "pixels": 1408,
+          "maximumError": 0,
+          "reportSha256": "e3a9f75f6a547bbb290ce3af9bc3f2d817e417e23ab35bce4774491df1447c1d"
+        }
+      },
+      "wireCorruptions": 2178,
+      "sourceSha256": {
+        "glbridge/d3d8proxy/d3d8_proxy.c": "77c3edfeb15b27b853dd853bd5001207e7d63affb69c1de4d7c3f93b1869f5ae",
+        "glbridge/d3d8proxy/d3d8_core_view.h": "85cc57aacfa9c68fda3bc0d0131eb0ce32d0f313d6b9e139555810eac0b929ae",
+        "glbridge/d3d8proxy/build.sh": "984300c37e89c265c1029d5a1f3bfaaa14ebfcf81477bbeebacb7eb9c3d26052",
+        "glbridge/d3d9proxy/d3d9_proxy.c": "cadd5e92b66262b1962839293cb1a7496c1f2fb44874dbd2f3e0e93a585fe48f",
+        "glbridge/d3d9proxy/d3d9_core.h": "5f235a56bd0ecbbd9042547fc2b60083e1913656998fb4f39d9ea27a1037b89e",
+        "glbridge/d3d8proxy/d3d8_core_buffer.c": "dbd116fef6acc13f1822bf471e944250c9a71399a76342435a56728696b0288c",
+        "glbridge/d3d8proxy/d3d8_core_buffer.h": "3d42359b13986025da71e73d072a0dbc365feb674fecdea9f657c50ffffc64b7",
+        "glbridge/d3d8proxy/d3d8_core_cube_texture.c": "5be49476ea6132b5054c18d128c2333b36aaae28a0e9785666ba8b945ecfcab2",
+        "glbridge/d3d8proxy/d3d8_core_cube_texture.h": "108052e507363344b78cc5f546b46fc501f274f8b4f041799e8ece1e8e4d34b7",
+        "glbridge/d3d8proxy/d3d8_core_device.c": "58bd654c8f556b56dbb307f265784a7e0b80dddb74e17445816f206d0646674a",
+        "glbridge/d3d8proxy/d3d8_core_device.h": "681e8b293f4d91dee1814659f6aaab70c96b5027a70615d32e12d5be21850a8f",
+        "glbridge/d3d8proxy/d3d8_core_surface.c": "d612a31aeb37f78201c006f0f657bad321bb7804343e5082a1e086b27b92c019",
+        "glbridge/d3d8proxy/d3d8_core_surface.h": "04ed2e3a17bad37117260e40acbbd4ce1907ed4b920463ed74c32143f062b811",
+        "glbridge/d3d8proxy/d3d8_core_swap_chain.c": "5b62c48ef5f236426648ac1d1bb94069805ab997b79bb345c367b750691931c2",
+        "glbridge/d3d8proxy/d3d8_core_swap_chain.h": "a22b7abe2d1804d48f77ea534b7385f37bd643b77550183f05988580321310ed",
+        "glbridge/d3d8proxy/d3d8_core_texture.c": "54458dc44210e468835918baa87747232c045627200392dd90ee393454e10b76",
+        "glbridge/d3d8proxy/d3d8_core_texture.h": "064ba0ce7ed5048dd301a958e3c75a10fac47d61ac3d34c200be24e82045620d",
+        "glbridge/d3d8proxy/d3d8_core_volume.c": "211ab5fcc84a7a101e714b82dbf7e896684a07f8fbe97e514d409869735d7cd3",
+        "glbridge/d3d8proxy/d3d8_core_volume.h": "9a7e523868efa4cccbd367472d1786ce4c88db566830fccb2ca33cbdd176ba15",
+        "glbridge/d3d8proxy/d3d8_core_volume_texture.c": "5437e3d311ad103cfa9b2c192671753a3361fb6d59638b07ee0abbe6dbce7e01",
+        "glbridge/d3d8proxy/d3d8_core_volume_texture.h": "82bb38aec6abb95a5312e6d0c5e9f8c1dce84496a50f0ee469e76a6a1dd92cd1",
+        "glbridge/sample/d3d8_frontend_device_consumer.c": "4c91e34f7315c2ccd1ceec975a0bc902f8b039400e4810ca8f49817e723112dc",
+        "glbridge/sample/d3d8_frontend_device_consumer.def": "6f51fc152a8dd151f8c96fd25fa40c6b72720213bcd18f2b336fc33f0f902925",
+        "glbridge/sample/d3d8_frontend_device_test.c": "6a26d633782d6a942bf75d4834ba6ea350a202ac14a6619c8d05a86c762f8711"
+      },
+      "captureBuild": {
+        "d3d8.dll": "c4f5fa48fd4bc1cf67e1b89b08e3aeccd34fa8f5bb0ad0b7bc0020ab075ac4f0",
+        "CORE8.DLL": "d10874c8013a8e8a03f0a9a2c5bc1e025edb7e13d13e4d2c851c31c6696430f4",
+        "DEVICE8.EXE": "8b720fb7202cf47e06e8565d25845222756fe282d64501f6a0277044bf7db317",
+        "libd9wg_d3d9.a": "d56247f9e534ffd44852ca2fcfdbebee8f0050d8bcaa855eac9de752e082c9e1"
+      },
+      "traceSha256": "04cd4814c2b4e40ec920981d3be0ae256c6c9165aea05ecc25f50665c20aa33e",
+      "referenceSha256": "04196dd1feeadc53357c8b1e0a529619a0d5b1335da6c718407c3082e667b901",
+      "publishedDiagnosticSha256": "8dc9e5e4f9121df65bcf3eff9fa60f73752c84d4693e61ee54cf17af757a6bf5"
+    },
+    "9": {
+      "xp": {
+        "seconds": 119,
+        "batches": 7,
+        "logs": {
+          "STATE9.TXT": "STATE FRAME step=0 color=FFB02010 readback=1\r\nSTATE FRAME step=1 color=FF1040C0 readback=1\r\nSTATE FRAME step=2 color=FF20A040 readback=1\r\nSTATE FRAME step=3 color=FFC0A020 readback=1\r\nSTATE FRAME step=4 color=FF304050 readback=1\r\nSTATE STATUS groups=2 resourceFamilies=8 resources=16 captures=65 getterQueries=528 metadataRounds=64 applies=2 recordingRefusals=2 resetSuccesses=2 frames=5 readbacks=5 factoryRefs=0\r\nPASS D3D9 stateblock bindings\r\n"
+        },
+        "readbackReplies": "Analytic CPU replies, independently validated by real GPU replay."
+      },
+      "gpu": {
+        "swift": {
+          "frames": 5,
+          "pixels": 320,
+          "maximumError": 0,
+          "reportSha256": "ee3a417c61c8c5c1de58645dc1e908a0025b1336b278b05ae67450709436a79c"
+        },
+        "metal": {
+          "frames": 5,
+          "pixels": 320,
+          "maximumError": 0,
+          "reportSha256": "ee3a417c61c8c5c1de58645dc1e908a0025b1336b278b05ae67450709436a79c"
+        }
+      },
+      "wireCorruptions": 110,
+      "sourceSha256": {
+        "glbridge/d3d9proxy/d3d9_proxy.c": "cadd5e92b66262b1962839293cb1a7496c1f2fb44874dbd2f3e0e93a585fe48f",
+        "glbridge/d3d9proxy/d3d9_core.h": "5f235a56bd0ecbbd9042547fc2b60083e1913656998fb4f39d9ea27a1037b89e",
+        "glbridge/sample/d3d9_state_binding_test.c": "faac5c5b47b45923948dc7061efc4c7e91fb2542e27364eed5e71a65f3e8303b"
+      },
+      "captureBuild": {
+        "d3d9.dll": "ad130a6c58833f01e7a514feabdb85b9dacaed7446feb391d8d57ef30205551d",
+        "STATE9.EXE": "a4309e709ef8c14abcf1656dbc6ff16283add3767837dd14cbda9cd5406ceb21"
+      },
+      "traceSha256": "af46cb679c4e6cf20282d64a2d64fd60f3d50ea9d99617e039754660a950d083",
+      "referenceSha256": "de40f4216c8561c8fe2835c0ffa1a35e2b8b3375266da55edb7e2ac1f839efb9",
+      "publishedDiagnosticSha256": "32d46db0f1328c0fdaa4bd134bcdec45cae15bc8e0d327861db270e3d1cd21fb"
+    }
+  },
+  "failuresResolved": [
+    "Initial mutation removing the only capture call caused an unused-function compile error; retained a dead call so all 38 mutations require actual native runtime assertion failures.",
+    "First ordinary9 XP probe failed before any Apply: its pre-End reference expectation predated 4J7 recording ownership. Corrected +9 to +8 during recording and added +9 after End; production allocation/Begin/End functions unchanged.",
+    "Ordinary9 wire reference now explicitly validates the later 4J9 private FVF cache declaration and its final retirement, without weakening the old frozen fixture."
+  ],
+  "limitations": [
+    "Failure injection is performed in native C with controlled setter providers; XP runs validate normal execution with real COM resources.",
+    "API8 follows common-core replay ordering; no new claim of Windows HAL failure-order equivalence.",
+    "Phase4 remaining integration/acceptance and phase5 shader work remain open."
+  ]
+}
