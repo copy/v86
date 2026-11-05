@@ -2728,6 +2728,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 图像/体积/锁定合计 51,557,191 项原生检查及 ASan/UBSan 通过，67 个变异检出；格式、生命周期、绑定、状态块、回缓冲等回归、32 SDK EXE、四 DLL、两站点集成通过。发布准确 Metal 验收的 D3D8 零售 DLL 和同源诊断/9包。
 > - 证据：[stage4l9-validation.json](fixtures/d3d-review/stage4l9-validation.json)。完整 Wine 窗口/Reset/多后缓冲及阶段5仍开放；本组没有场景像素比较，不代表完整 Wine 验收。
 
+> **阶段 4L10（2026-11-05，功能批次完成）：Wine 资源 API 和复制兼容性。**
+> - API8 仅 MANAGED 池保存优先级；无效深度格式清空输出；全屏设备拒绝额外交换链。纹理/立方体/体积包装以内部身份校验，应用替换或清空 COM vtable 后仍能 SetTexture，保持容器、父设备和引用规则。
+> - 共用复制循环增加 API8 策略：容器锁定不阻止 UpdateTexture；体积尺寸/格式不同时复制合法内存范围内的原始字节前缀。Windows 越界读取部分没有定义，本实现保留目标余下内容，不模拟越界或宣称这部分像素等价；普通API9严格规则保留。
+> - 7个未修改 Wine 函数在实际XP Metal/SwiftShader各 **431项、零失败/todo/flaky/skip**，设备/资源释放为零，GPU/宿主错误为零。244组真实复制矩阵及ASan/UBSan、资源优先级/深度/包装/绑定/生命周期检查、207个相关变异、32 SDK EXE、四DLL和两站点集成通过。
+> - 4L9后的完整审计已越过体积崩溃点，在多后缓冲测试8827行再次崩溃，之前记录89次断言失败/64个位置；保留失败日志和哈希，尚未宣称完整Wine通过。下一批继续多后缓冲及窗口/Reset。发布准确Metal验收8零售DLL，证据：[stage4l10-validation.json](fixtures/d3d-review/stage4l10-validation.json)。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

@@ -165,11 +165,28 @@ static void storage_group(void)
     UnregisterClassA(wc.lpszClassName,GetModuleHandleA(NULL));
 }
 
+static void resource_contract_group(void)
+{
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = DefWindowProcA;
+    wc.lpszClassName = "d3d8_test_wc";
+    RegisterClassA(&wc);
+    test_get_set_texture();
+    test_create_rt_ds_fail();
+    test_update_texture_pool();
+    test_update_volumetexture();
+    test_mipmap_lock();
+    test_writeonly_resource();
+    test_resource_priority();
+    UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
+}
+
 const struct test winetest_testlist[] = {
     { "device", full_device_suite },
     { "compatibility", compatibility_group },
     { "locking", locking_group },
     { "storage", storage_group },
+    { "resources", resource_contract_group },
     { "storage-audit", storage_audit_group },
     { 0, 0 }
 };
