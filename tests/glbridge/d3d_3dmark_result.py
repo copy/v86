@@ -21,6 +21,9 @@ SETTINGS = {
     "Invalid Score", "VS Profile", "PS Profile", "Force Full Precision",
     "Disable DST", "Disable Post-Processing", "Force Software Vertex Shaders",
     "Force Software Vertex Shader", "Color Mipmaps",
+    "Anisotropic Level", "Force full precision", "Disable HW shadow mapping",
+    "Disable post-processing", "Force software vertex shader", "Color mipmaps",
+    "Force software FP filtering", "Repeat tests", "Fixed framerate",
 }
 
 

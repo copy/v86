@@ -1,0 +1,399 @@
+{
+  "batch": "stage6-6",
+  "date": "2026-11-06",
+  "scope": "Complete 3DMark06 Metal acceptance including targeted Shader Particles visual inspection",
+  "status": "19 selected tests completed; stage6 remains open",
+  "run": {
+    "directory": "build/d3d-review/stage6-06-first",
+    "program": "3DMark06 Advanced Edition 1.2.0",
+    "tests_completed": 19,
+    "test_groups": {
+      "SM2_game": 2,
+      "HDR_SM3_game": 2,
+      "CPU": 2,
+      "features": 7,
+      "batch_sizes": 6
+    },
+    "settings": {
+      "Width": "1280",
+      "Height": "1024",
+      "Anti-Aliasing": "None",
+      "Anti-Aliasing Quality": "0",
+      "Texture Filtering": "Optimal",
+      "Anisotropic Level": "1",
+      "VS Profile": "3_0",
+      "PS Profile": "3_0",
+      "Force full precision": "No",
+      "Disable HW shadow mapping": "No",
+      "Disable post-processing": "No",
+      "Force software vertex shader": "No",
+      "Color mipmaps": "No",
+      "Force software FP filtering": "No",
+      "Repeat tests": "Off",
+      "Fixed framerate": "Off",
+      "Display Changed": "No",
+      "NullPS": "No",
+      "Invalid Score": "No"
+    },
+    "cpu_worker": true,
+    "backend": "Apple Metal",
+    "browser": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/157.0.8103.38",
+      "revision": "@a733b5afbb3ba618844ff8876b89ad1a774b2f18",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+      "jsVersion": "15.7.112.23"
+    },
+    "core_assets": {
+      "libv86.js": {
+        "bytes": 842704,
+        "sha256": "6eca83bb632e2e132e89a35e868c6b3fc59c67d74232d4c517c6104d5bc6f327"
+      },
+      "v86.wasm": {
+        "bytes": 3011563,
+        "sha256": "15a39f2f07c9d40f9c4d5bae1fb720dd410d91d1a3d05a541f2d92cf584a8d9f"
+      },
+      "cpu-worker.js": {
+        "bytes": 851766,
+        "sha256": "0e93acfc901408b4f1380f7c25560456e1d8c55ecb225c124a5d69bbe0f01877"
+      },
+      "v86-bochs-vga.js": {
+        "bytes": 44376,
+        "sha256": "ce8415006ca38dc53bd807323fc01fcfc47e9d3c31b7aad3934636e4408d1984"
+      }
+    },
+    "webgpu_revision": "f95489b0bdfbfc0030ee",
+    "results": [
+      {
+        "test": "3DMark Score",
+        "value": "1961.000000000",
+        "unit": "3DMarks",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "SM2.0 Score",
+        "value": "900.000000000",
+        "unit": "",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "HDR/SM3.0 Score",
+        "value": "1197.000000000",
+        "unit": "",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "CPU Score",
+        "value": "323.000000000",
+        "unit": "",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Game Score",
+        "value": "0.000000000",
+        "unit": "points",
+        "base": 10,
+        "exp": 0,
+        "status": "1",
+        "status_text": "N/A"
+      },
+      {
+        "test": "GT1 - Return To Proxycon",
+        "value": "7.617614269",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "GT2 - Firefly Forest",
+        "value": "7.377220154",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "CPU1 - Red Valley",
+        "value": "0.107532658",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "CPU2 - Red Valley",
+        "value": "0.155583486",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "HDR1 - Canyon Flight",
+        "value": "15.188236237",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "HDR2 - Deep Freeze",
+        "value": "8.748237610",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Fill Rate - Single-Texturing",
+        "value": "51703.816406250",
+        "unit": "texels/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Fill Rate - Multi-Texturing",
+        "value": "106470.148437500",
+        "unit": "texels/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Pixel Shader",
+        "value": "567.186523438",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Vertex Shader - Simple",
+        "value": "713.089477539",
+        "unit": "vertices/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Vertex Shader - Complex",
+        "value": "84.882675171",
+        "unit": "vertices/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Shader Particles (SM3.0)",
+        "value": "266.524536133",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Perlin Noise (SM3.0)",
+        "value": "1187.307495117",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "8 Triangles",
+        "value": "0.664391518",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "32 Triangles",
+        "value": "2.759289503",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "128 Triangles",
+        "value": "11.003857613",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "512 Triangles",
+        "value": "40.044551849",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "2048 Triangles",
+        "value": "151.515609741",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "32768 Triangles",
+        "value": "1295.296508789",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      }
+    ],
+    "unselected_result": "Game Score N/A refers to the separate interactive minigame, not one of the 19 selected benchmark tests.",
+    "error_counts": {
+      "browser_console": 0,
+      "monitor": 0,
+      "host": 0,
+      "gpu": 0,
+      "commands_failed": 0,
+      "draws_dropped": 0,
+      "shader_compile": 0,
+      "shader_translation": 0
+    },
+    "normal_exit": {
+      "devices": 0,
+      "resources": 0
+    },
+    "journal_full_run": {
+      "rawBytes": 29368112028,
+      "pendingBytes": 0,
+      "residentBytes": 67051512
+    },
+    "artifacts": [
+      {
+        "file": "S6MK06.3DR",
+        "name": "S6MK06.3DR",
+        "bytes": 67912,
+        "sha256": "36fbed10fe06b66f7484694c4912840e938332e743b4955a6cb6e8059232ceea"
+      },
+      {
+        "file": "MARK06/d3d9.dll",
+        "name": "MARK06_d3d9.dll",
+        "bytes": 159232,
+        "sha256": "08835a09e9531cf5863ab3c4988ca38e44886179da44b1e7bb98afff207f83d9"
+      }
+    ],
+    "visual_review": {
+      "frames": [
+        283,
+        300,
+        310,
+        333,
+        390,
+        407,
+        478,
+        496,
+        507,
+        518,
+        524,
+        528,
+        534,
+        540,
+        543,
+        548,
+        552,
+        556,
+        564,
+        565,
+        568,
+        571,
+        574,
+        577,
+        580,
+        582
+      ],
+      "reference": "Independent bundled Help images for GT1..4, CPU, fill, pixel, vertex simple/complex, shader particles, Perlin noise and batch tests. Qualitative comparison, not pixel equality.",
+      "observations": "Lighting, shadows, forest, Red Valley CPU scenes, canyon water/monster/HDR, snow/long shadows, fill layers, pixel shader, high-poly models, grass, particles, Perlin noise and batch grids inspected.",
+      "particle_investigation": "Initial 5-second screenshots missed the short 250-frame particle test. The earlier full-run-state.json therefore preserved an unresolved black-screen suspicion. A targeted rerun captured the visible paused frame 11 and direct GPU back-buffer frames 1,16,32,64,100,150,200,240,249, showing evolving particles throughout; six float position/velocity textures were nonzero with no NaN/Infinity. Synchronous canvas reads inside onPresent preceded compositor update and were stale desktop images, so they are excluded. No production shader/rendering change was required.",
+      "particle_targets": [
+        {
+          "frame": 1,
+          "sha256": "fdf8f6565815818ed10cba8e4d904358ff7b4f49b8b54effec16e2fa15b7a2b6"
+        },
+        {
+          "frame": 16,
+          "sha256": "e0e75403a954177287b63639a86f59e34ad25b03b9905dc4b40dd681aa969a5e"
+        },
+        {
+          "frame": 32,
+          "sha256": "a3c9a16ecae6afb69b5a2c4ccb83e7d4945e5a9cbd1e0b6a0df16125ef888586"
+        },
+        {
+          "frame": 64,
+          "sha256": "e07885dff43ef9f4c8e949f692ace6de9741e51a7573f4b10dc4ec9b821bcb93"
+        },
+        {
+          "frame": 100,
+          "sha256": "55041e67e2c3ab75a303946a5abc299de1e1cd37af0af726bfaa7d8052092630"
+        },
+        {
+          "frame": 150,
+          "sha256": "04db517423f31ce5993340877b23e9067bdeb0842e0694aa62bedb8a4773c044"
+        },
+        {
+          "frame": 200,
+          "sha256": "2ff9e1b48ef5b4b1a9caa0894d8748af41e1869b5f0f60d13a29342c301c72e0"
+        },
+        {
+          "frame": 240,
+          "sha256": "c18250ae3b647dcef46cfe3b76e67b0040bca58d362eac4b56318e6590cb42ec"
+        },
+        {
+          "frame": 249,
+          "sha256": "ef346786fd0c125ae0c36821441b14e6c0d4d24f8680a52ad03d22286fcf1954"
+        }
+      ]
+    },
+    "performance_caveat": "Full run included occasional read-only inspection and low-priority suite preparation. Scores establish completion, not controlled branch performance parity; the 99 comparison is separate."
+  },
+  "tool_validation": {
+    "parser": "Allowlisted 06-specific setting names added; original result contains 19 tests, four scores and one unselected interactive Game Score. Registration and SI data excluded."
+  },
+  "remaining": [
+    "3DMark03 sound tests remain incomplete pending scope clarification.",
+    "Matched old-branch 3DMark99 performance comparison.",
+    "Cross-backend comparison and remaining complete Wine/API suites."
+  ]
+}
