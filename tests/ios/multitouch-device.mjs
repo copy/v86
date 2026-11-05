@@ -76,3 +76,76 @@ gpio.outputs.set(20, level => { if(!level) touch.reset(); });
 gpio.write(20 * 4, 1); assert.equal(touch.running, true);
 gpio.write(20 * 4, 0); assert.equal(touch.running, false); assert.equal(touch.loaded, false);
 console.log("PASS: N1 version, report geometry, both report phases, checksums, unsupported ID and reset");
+
+transact(packet); transact([0x1F, 1]);
+let interrupts = 0; touch.interrupt = () => interrupts++;
+function frame_request(sequence, size = 16)
+{
+    const bytes = new Array(size).fill(0);
+    bytes[0] = 0xEB; bytes[1] = sequence; bytes[2] = size === 16 ? 0 : 1;
+    const check = bytes.slice(0, 14).reduce((a, b) => a + b, 0);
+    bytes[size - 2] = check & 255; bytes[size - 1] = check >>> 8;
+    return bytes;
+}
+const idle = transact(frame_request(1));
+assert.equal(idle[1] | idle[2] << 8, 0);
+touch.set_contacts([[1, 160, 240]], 100);
+touch.set_contacts([[1, 320, 480]], 120);
+touch.set_contacts([], 140);
+assert.equal(interrupts, 3);
+for(const [i, event] of [3, 4, 7].entries())
+{
+    const sequence = i % 2 + 1, header = transact(frame_request(sequence));
+    const size = header[1] | header[2] << 8;
+    assert.equal(size, 54);
+    const request = frame_request(sequence, size + 5);
+    if(i === 0)
+    {
+        const bad = request.slice(); bad[bad.length - 1] ^= 1; transact(bad);
+        assert.equal(touch.frames.length, 3, "a corrupt request cannot consume the contact");
+    }
+    for(let j = 0; j < 17; j++) touch.exchange(request[j], j === 0, request.length);
+    const saved = touch.get_state(); touch.reset(); touch.set_state(saved);
+    const response = [...request.slice(17)].map(byte => touch.exchange(byte, false, request.length));
+    assert.equal(response.length, size - 12);
+    const before = touch.frames.length, full = transact(request);
+    assert.equal(touch.frames.length, before, "retrying one sequence does not consume the next frame");
+    assert.equal(full.slice(0, 5).reduce((a, b) => a + b, 0) & 255, 0);
+    assert.equal(full[2] | full[3] << 8, size);
+    assert.equal(full[full.length - 2] | full[full.length - 1] << 8,
+        full.slice(5, -2).reduce((a, b) => a + b, 0));
+    assert.deepEqual([...full.slice(5, 9)], [0x44, i, 24, 1]);
+    assert.equal(full[5 + 24 + 1], event);
+}
+assert.equal(touch.frames.length, 0);
+assert.equal(transact(frame_request(2))[1], 0, "the following sequence acknowledges the final frame");
+touch.set_contacts([[2, -10, 2000], [3, 1, 2]], 200);
+const two = touch.frames[0];
+assert.equal(two[16], 2);
+assert.deepEqual(two.slice(28, 32), [0, 0, 0xBF, 3]);
+assert.equal(touch.get_state()[11][0].length, 80);
+touch.reset(); assert.equal(touch.frames.length, 0); assert.equal(touch.contacts.size, 0);
+console.log("PASS: N1 down/move/up frames, two contacts, clipping, CRC, retry, queued IRQs and partial-frame snapshots");
+
+const enabled = [];
+const input = new AppleMultitouch(() => {}, ready => enabled.push(ready), () => 123456);
+input.loaded = true;
+for(const [i, byte] of [0x1F, 1].entries()) input.exchange(byte, i === 0, 2);
+input.absolute([80, 120, 320, 480]); input.click([true, false, false]);
+input.absolute([160, 240, 320, 480]); input.click([false, false, false]);
+assert.deepEqual(input.frames.map(frame => frame[25]), [3, 4, 7]);
+assert.deepEqual(input.frames[1].slice(28, 32), [0x40, 1, 0xE0, 1]);
+const count = input.frames.length;
+input.absolute([NaN, 2, 320, 480]); input.absolute([1, 2, 0, 480]);
+input.click([false, false, false]); assert.equal(input.frames.length, count);
+input.touch_input({ touches: [[5000, 80, 120], [8000, 160, 240]], width: 320, height: 480 });
+const ids = [...input.host_ids.values()];
+input.touch_input({ touches: [[8000, 240, 360]], width: 320, height: 480 });
+assert.equal(input.host_ids.get(8000), ids[1], "browser touch identities survive reorder and removal");
+const host = input.get_state(); input.reset(); input.set_state(host);
+assert.equal(enabled[enabled.length - 1], true);
+input.touch_input({ touches: [], width: 320, height: 480 });
+assert.equal(input.frames[input.frames.length - 1][25], 7);
+input.reset(); assert.equal(enabled[enabled.length - 1], false);
+assert.equal(input.host_ids.size, 0); assert.equal(input.pointer[2], false);
+console.log("PASS: scaled browser mouse and multi-touch input, stable IDs, restore readiness and reset release");

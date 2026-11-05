@@ -58,9 +58,15 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
     audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i); });
     spi_controllers.forEach((name, i) => { devices[name] = new AppleSPI(cpu, i, level => vic.set_line(29 + i, level), undefined, dma); });
-    const touch = devices.apple_multitouch = new AppleMultitouch();
+    const touch = devices.apple_multitouch = new AppleMultitouch(() => gpio.pulse(21), ready => {
+        bus.send("mouse-enable", ready);
+        bus.send("absolute-pointer", [ready, false]);
+    }, () => Math.floor(cpu.clock.now() * 1000));
     devices.apple_spi1.exchange = (byte, first, length) => touch.exchange(byte, first, length);
     gpio.outputs.set(20, level => { if(!level) touch.reset(); });
+    bus.register("mouse-absolute", data => touch.absolute(data));
+    bus.register("mouse-click", data => touch.click(data));
+    bus.register("touch", event => touch.touch_input(event));
     if(nand) devices.apple_nand = nand;
     return devices;
 }

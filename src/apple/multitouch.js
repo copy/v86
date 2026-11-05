@@ -14,8 +14,20 @@ const reports = new Map([
 
 export class AppleMultitouch
 {
-    constructor()
+    constructor(interrupt = () => {}, ready = () => {}, timestamp = () => 0)
     {
+        this.interrupt = interrupt;
+        this.ready = ready;
+        this.timestamp = timestamp;
+        this.pointer = [0, 0, false];
+        this.host_ids = new Map();
+        this.frames = [];
+        this.contacts = new Map();
+        this.frame_number = 0;
+        this.last_frame = null;
+        this.last_sequence = 0;
+        this.frame = null;
+        this.frame_replay = false;
         this.running = false;
         this.loaded = false;
         this.status = 0x18E1;
@@ -32,6 +44,14 @@ export class AppleMultitouch
 
     reset()
     {
+        this.pointer = [0, 0, false];
+        this.host_ids.clear();
+        this.ready(false);
+        this.frames = [];
+        this.contacts.clear();
+        this.frame_number = 0;
+        this.last_frame = null;
+        this.last_sequence = 0;
         this.running = false;
         this.loaded = false;
         this.status = 0x18E1;
@@ -48,11 +68,36 @@ export class AppleMultitouch
         this.bulk = false;
         this.payload_sum = 0;
         this.footer = [];
+        this.frame = null;
+        this.frame_replay = false;
     }
 
     reply()
     {
         const command = this.packet[0], id = this.packet[1];
+        if(this.running && command === 0xEB)
+        {
+            const frame = this.frame, size = frame ? frame.length + 2 : 0;
+            if(this.length !== 16)
+            {
+                const bytes = new Array(this.length).fill(0);
+                bytes[0] = command; bytes[1] = id || 1;
+                bytes[2] = size & 255; bytes[3] = size >>> 8;
+                bytes[4] = -sum(bytes.slice(0, 4)) & 255;
+                if(frame && bytes.length === size + 5)
+                {
+                    bytes.splice(5, frame.length, ...frame);
+                    const check = sum(frame);
+                    bytes[bytes.length - 2] = check & 255; bytes[bytes.length - 1] = check >>> 8;
+                }
+                return bytes;
+            }
+            const bytes = new Array(16).fill(0);
+            bytes[0] = command; bytes[1] = size & 255; bytes[2] = size >>> 8;
+            const check = sum(bytes.slice(0, 14));
+            bytes[14] = check & 255; bytes[15] = check >>> 8;
+            return bytes;
+        }
         if(this.running && (command === 0xE2 || command === 0xE3 || command === 0xE6))
         {
             const bytes = new Array(16).fill(0);
@@ -91,6 +136,17 @@ export class AppleMultitouch
         if(this.position >= this.length) return 0xFF;
         const at = this.position;
         if(!this.bulk || at < 12) this.packet.push(byte & 255);
+        if(at === 0 && byte === 0xEB) this.frame = this.frames[0] || null;
+        if(at === 1 && this.packet[0] === 0xEB && byte === this.last_sequence)
+        {
+            this.frame = this.last_frame;
+            this.frame_replay = true;
+        }
+        else if(at === 1 && this.packet[0] === 0xEB && this.length === 16)
+        {
+            this.last_frame = null;
+            this.last_sequence = 0;
+        }
         if(at === 3 && this.packet[0] === 0x18 && this.packet[1] === 0xE1 &&
             this.packet[2] === 0x30 && this.packet[3] === 1) this.bulk = true;
         if(this.bulk)
@@ -107,6 +163,21 @@ export class AppleMultitouch
     finish()
     {
         const packet = this.packet;
+        if(this.running && packet[0] === 0xEB && packet[2] === 1 && this.frame &&
+            this.length === this.frame.length + 7)
+        {
+            const check = sum(packet.slice(0, 14));
+            if((packet[packet.length - 2] | packet[packet.length - 1] << 8) === check)
+            {
+                if(!this.frame_replay)
+                {
+                    this.last_frame = this.frames.shift();
+                    this.last_sequence = packet[1];
+                }
+                if(this.frames.length) this.interrupt();
+            }
+            return;
+        }
         if(this.bulk)
         {
             const size = (packet[4] << 8 | packet[5]) * 4;
@@ -136,13 +207,88 @@ export class AppleMultitouch
             this.running = true;
             this.status = 0x1AA1;
             this.pending_read = null;
+            this.ready(true);
         }
+    }
+
+    absolute(data)
+    {
+        if(!this.running || !data.every(Number.isFinite) || data[2] <= 0 || data[3] <= 0) return;
+        const x = data[0] * 640 / data[2], y = data[1] * 960 / data[3];
+        if(x === this.pointer[0] && y === this.pointer[1]) return;
+        this.pointer[0] = x; this.pointer[1] = y;
+        if(this.pointer[2] && !this.host_ids.size) this.set_contacts([[0, x, y]], this.timestamp());
+    }
+
+    click(data)
+    {
+        if(!this.running || this.host_ids.size || !!data[0] === this.pointer[2]) return;
+        this.pointer[2] = !!data[0];
+        this.set_contacts(data[0] ? [[0, this.pointer[0], this.pointer[1]]] : [], this.timestamp());
+    }
+
+    touch_input(event)
+    {
+        const width = event["width"], height = event["height"];
+        if(!this.running || !Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return;
+        const points = (event["touches"] || []).slice(0, 5), next = new Map(), contacts = [];
+        for(const [id, x, y] of points)
+        {
+            if(!Number.isFinite(x) || !Number.isFinite(y) || next.has(id)) continue;
+            let wire_id = this.host_ids.get(id);
+            if(wire_id === undefined)
+            {
+                wire_id = 0;
+                while([...this.host_ids.values(), ...next.values()].includes(wire_id)) wire_id++;
+            }
+            next.set(id, wire_id); contacts.push([wire_id, x * 640 / width, y * 960 / height]);
+        }
+        this.host_ids = next;
+        this.set_contacts(contacts, this.timestamp());
+    }
+
+    // Contact coordinates use the D9 report's 640 by 960 panel units.
+    set_contacts(contacts, timestamp)
+    {
+        if(!this.running) return;
+        const next = new Map(), points = [];
+        for(const contact of contacts.slice(0, 5))
+        {
+            const id = contact[0];
+            if(next.has(id) || !Number.isInteger(id) || id < 0 || id > 255 ||
+                !Number.isFinite(contact[1]) || !Number.isFinite(contact[2])) continue;
+            const x = Math.max(0, Math.min(639, Math.round(contact[1])));
+            const y = Math.max(0, Math.min(959, Math.round(contact[2])));
+            const old = this.contacts.get(id);
+            next.set(id, [x, y]);
+            points.push([id, old ? 4 : 3, x, y]);
+        }
+        for(const [id, xy] of this.contacts)
+            if(!next.has(id)) points.push([id, 7, ...xy]);
+        if(!points.length) return;
+        this.contacts = next;
+        const frame = new Array(24 + 28 * points.length).fill(0);
+        frame[0] = 0x44; frame[1] = this.frame_number++ & 255; frame[2] = 24; frame[3] = 1;
+        for(let i = 0; i < 4; i++) frame[4 + i] = timestamp >>> (8 * i) & 255;
+        frame[16] = points.length; frame[17] = 28;
+        points.forEach(([id, event, x, y], i) => {
+            const at = 24 + i * 28;
+            frame[at] = id; frame[at + 1] = event;
+            frame[at + 4] = x & 255; frame[at + 5] = x >>> 8;
+            frame[at + 6] = y & 255; frame[at + 7] = y >>> 8;
+            for(const offset of [12, 14, 18, 20]) frame[at + offset] = event === 7 ? 0 : 8;
+        });
+        this.frames.push(frame);
+        this.interrupt();
     }
 
     get_state()
     {
         return [this.running, this.loaded, this.status, Array.from(this.registers), this.pending_read,
-            this.length, this.position, this.packet.slice(), this.bulk, this.payload_sum, this.footer.slice()];
+            this.length, this.position, this.packet.slice(), this.bulk, this.payload_sum, this.footer.slice(),
+            this.frames.map(frame => frame.slice()), Array.from(this.contacts, ([id, xy]) => [id, xy.slice()]), this.frame_number,
+            this.last_frame?.slice() || null, this.last_sequence, this.frame?.slice() || null, this.frame_replay,
+            this.pointer.slice(), Array.from(this.host_ids)];
     }
     set_state(state)
     {
@@ -150,5 +296,11 @@ export class AppleMultitouch
         this.registers = new Map(state[3]); this.pending_read = state[4];
         this.length = state[5]; this.position = state[6]; this.packet = state[7].slice();
         this.bulk = state[8]; this.payload_sum = state[9]; this.footer = state[10].slice();
+        this.frames = (state[11] || []).map(frame => frame.slice());
+        this.contacts = new Map(state[12] || []); this.frame_number = state[13] || 0;
+        this.last_frame = state[14]?.slice() || null; this.last_sequence = state[15] || 0;
+        this.frame = state[16]?.slice() || null; this.frame_replay = !!state[17];
+        this.pointer = state[18]?.slice() || [0, 0, false]; this.host_ids = new Map(state[19] || []);
+        this.ready(this.running);
     }
 }
