@@ -82,7 +82,8 @@ export class AppleCLCD
             if(!(value & 0x80000000)) return;
             // A tagged batch contains register runs. Each run supplies its
             // destination byte offset, word count and successive values.
-            this.command = [value & 0xFFFF, value >>> 16 & 0x3FF, 0, 0, []];
+            // Bit 29 interprets the tag as the target retrace counter.
+            this.command = [value & 0xFFFF, value >>> 16 & 0x3FF, 0, 0, [], !!(value & 0x20000000)];
         }
         else
         {
@@ -134,9 +135,12 @@ export class AppleCLCD
     {
         if(this.color[0x50 >>> 2] & 1)
         {
+            const frame = this.regs[0x1034 >>> 2] = (this.regs[0x1034 >>> 2] + 1) & 0xFFFF;
             while(this.commands.length)
             {
-                const command = this.commands.shift();
+                const command = this.commands[0];
+                if(command[5] && (frame - command[0] & 0x8000)) break;
+                this.commands.shift();
                 for(const [offset, value] of command[4]) this.regs[offset >>> 2] = value;
                 this.regs[0x1048 >>> 2] = command[0];
                 this.regs[0x102C >>> 2] |= 0x100;
@@ -241,7 +245,7 @@ export class AppleCLCD
         }
     }
 
-    copy_command(command) { return command ? [...command.slice(0, 4), command[4].map(pair => pair.slice())] : null; }
+    copy_command(command) { return command ? [...command.slice(0, 4), command[4].map(pair => pair.slice()), !!command[5]] : null; }
     get_state()
     {
         return [this.regs.slice(), this.dsi.slice(), this.ulps, this.color.slice(),

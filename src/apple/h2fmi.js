@@ -121,14 +121,21 @@ export class AppleH2FMI
     commit(run, erase)
     {
         const ce = this.chip(), token = this.begin_operation(ce);
-        const finish = failed => { this.complete_operation(ce, token, failed); };
+        const finish = failed => {
+            if(this.complete_operation(ce, token, failed) && erase)
+            {
+                this.regs[0x1044 >>> 2] |= run & 15;
+                this.update_irq();
+            }
+        };
         const page = this.program, address = this.program_address, pioComplete = !this.pio_left;
         this.pio_left = 0;
         this.program = this.program_address = null;
-        // The sequencer finishes sending PROGRAM/ERASE CONFIRM while the
-        // NAND chip is still busy. The IOP waits for this bit with IRQs
-        // masked, then checks the individual NAND chip's ready status.
-        this.regs[0x1044 >>> 2] |= run & 15;
+        // PROGRAM CONFIRM is a command phase; the IOP then polls chip
+        // status. For erase, the native recovery path uses the sequencer
+        // bit as its completion gate. Keep the next erase behind the one
+        // the chip is still doing.
+        if(!erase) this.regs[0x1044 >>> 2] |= run & 15;
         if(!this.nand || !this.chips.has(ce)) finish(true);
         else if(erase)
             this.nand.erase(this.bus, ce, this.regs[0x1018 >>> 2] & 0xFFFFFF, () => finish(false), () => finish(true));

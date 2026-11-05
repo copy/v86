@@ -10,6 +10,21 @@ export { NAND_DATA, NAND_SPARE, NAND_PAGE, NAND_SLOT, NAND_BLOCK_PAGES, NAND_BLO
 
 const READ_SPAN = 16 * NAND_SLOT;
 
+function all_zero(bytes)
+{
+    // YAFTL recovery can erase thousands of already empty 1 MiB blocks.
+    // Scan machine words and avoid a callback for every byte of every block.
+    let at = 0;
+    if(!(bytes.byteOffset & 3))
+    {
+        const words = new Uint32Array(bytes.buffer, bytes.byteOffset, bytes.length >>> 2);
+        for(let i = 0; i < words.length; i++) if(words[i]) return false;
+        at = words.length * 4;
+    }
+    for(; at < bytes.length; at++) if(bytes[at]) return false;
+    return true;
+}
+
 export function configure_nand_tree(tree)
 {
     const flash = dt_find(tree, "/arm-io/flash-controller0/disk"), io = dt_find(tree, "/arm-io");
@@ -142,7 +157,7 @@ export class AppleNAND
             // Sparse holes already contain complemented erased flash. Native
             // recovery may erase thousands of free blocks: don't materialize
             // gigabytes of identical zeroes in the disk overlay.
-            if(bytes.every(byte => byte === 0))
+            if(all_zero(bytes))
             {
                 this.read_cache[bus * 2 + ce] = null;
                 ok();
