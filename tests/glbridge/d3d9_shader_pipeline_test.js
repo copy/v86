@@ -967,6 +967,62 @@ test("generated WGSL is brace-balanced and declares every register it reads", ()
 // in d3d_shader_texture_browser_test.html, replacing the old assertions that
 // required hoisting and its zero/LOD-zero fallbacks.
 
+test("SM3 semantic linking preserves every declared packed component", () => {
+    const vs = {version: {major: 3}, outputDeclarations: [
+        {register: 2, usage: 3, usageIndex: 4, mask: 7},
+        {register: 2, usage: 10, usageIndex: 0, mask: 8},
+        {register: 9, usage: 5, usageIndex: 15, mask: 15}]};
+    const ps = {version: {major: 3}, inputDeclarations: [
+        {register: 0, usage: 5, usageIndex: 15, mask: 5},
+        {register: 7, usage: 3, usageIndex: 4, mask: 7},
+        {register: 7, usage: 10, usageIndex: 0, mask: 8}]};
+    const pair = pipeline.linkShaderSemantics(vs, ps);
+    assert.ok(pair.ok, pair.error);
+    const outputs = {2: [.1, .2, .3, .4], 9: [.5, .6, .7, .8]}, stage = {}, inputs = {};
+    for (const item of pair.link.vertex) stage[item.slot * 4 + item.channel] = outputs[item.register][item.component];
+    for (const item of pair.link.pixel) (inputs[item.register] ||= [0, 0, 0, 0])[item.component] = stage[item.slot * 4 + item.channel];
+    assert.deepStrictEqual(inputs, {0: [.5, 0, .7, 0], 7: [.1, .2, .3, .4]});
+    assert.deepStrictEqual(pair.link.flatSlots, [2]);
+    assert.strictEqual(pair.key, pipeline.linkShaderSemantics(vs, ps).key);
+    assert.notStrictEqual(pair.key, pipeline.linkShaderSemantics(vs, {...ps, inputDeclarations: ps.inputDeclarations.slice(1)}).key);
+});
+
+test("SM3 semantic linking rejects incompatible declarations before GPU pipeline creation", () => {
+    const item = {register: 0, usage: 3, usageIndex: 0, mask: 7};
+    const vertex = outputDeclarations => ({version: {major: 3}, outputDeclarations});
+    const pixel = inputDeclarations => ({version: {major: 3}, inputDeclarations});
+    for (const [outputs, inputs] of [
+        [[item], [{...item, usageIndex: 1}]], [[item], [{...item, mask: 15}]],
+        [[item, {...item, register: 1}], [item]], [[item], [item, {...item, register: 1}]],
+        [[item, {...item, usageIndex: 1}], [item]],
+        [[item, {...item, usageIndex: 1, register: 1}], [item, {...item, usageIndex: 1}]],
+        [[{...item, register: 12}], [item]], [[item], [{...item, register: 10}]],
+    ]) assert.strictEqual(pipeline.linkShaderSemantics(vertex(outputs), pixel(inputs)).ok, false);
+    assert.strictEqual(pipeline.linkShaderSemantics(null, pixel([item])).ok, false);
+    const legacy = pipeline.linkShaderSemantics(null, pixel([{...item, usage: 10, mask: 15}]));
+    assert.ok(legacy.ok);
+    assert.strictEqual(legacy.link.vertex, null);
+    assert.deepStrictEqual(legacy.link.flatSlots, [0, 1]);
+    assert.deepStrictEqual(legacy.link.pixel.map(entry => entry.slot), [0, 0, 0, 0]);
+});
+
+test("SM3 reflection retains multiple declarations on one physical register", () => {
+    const make = kind => pipeline.compileShader([
+        kind === "vertex" ? VS(3, 0) : PS(3, 0),
+        instruction(OP.DCL, {length: 2}), dclToken(USAGE.NORMAL), dst(kind === "vertex" ? REG.OUTPUT : REG.INPUT, 3, {mask: 7}),
+        instruction(OP.DCL, {length: 2}), dclToken(USAGE.COLOR, 2), dst(kind === "vertex" ? REG.OUTPUT : REG.INPUT, 3, {mask: 8}),
+        instruction(OP.MOV, {length: 2}), dst(kind === "vertex" ? REG.OUTPUT : REG.COLOROUT, kind === "vertex" ? 3 : 0),
+        src(kind === "vertex" ? REG.CONST : REG.INPUT, kind === "vertex" ? 0 : 3), END]);
+    const vs = make("vertex"), ps = make("pixel");
+    assert.ok(vs.ok && ps.ok, vs.error || ps.error);
+    assert.strictEqual(vs.reflection.outputDeclarations.length, 2);
+    assert.strictEqual(ps.reflection.inputDeclarations.length, 2);
+    const pair = pipeline.linkShaderSemantics(vs.reflection, ps.reflection);
+    assert.ok(pair.ok, pair.error);
+    assert.strictEqual(pair.link.vertex.length, 4);
+    assert.strictEqual(pair.link.pixel.length, 4);
+});
+
 // ---- report ----
 
 if (failures.length) {

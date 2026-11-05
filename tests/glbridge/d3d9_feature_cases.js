@@ -801,5 +801,100 @@
         body: dev => [...outputBindings(dev, 3, pm, "interpolated"), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))],
         probes: [{at: [16, 32], expect: Array(4).fill(pm === 3 ? 0 : 64), tolerance: 1},
             {at: [48, 32], expect: Array(4).fill(pm === 3 ? 255 : 191), tolerance: 1}] });
+    // SM3 links by semantic/mask, never by register number or a small fixed
+    // semantic whitelist. All expected colours below come from constants.
+    const semanticDcl = (usage, index, type, register, mask = 15) =>
+        [S.DCL, (0x80000000 | index << 16 | usage) >>> 0, dst(type, register, mask)];
+    const semanticVS = declarations => legacyShader("vertex", 3, [
+        semanticDcl(0, 0, R.INPUT, 0), semanticDcl(0, 0, R.OUTPUT, 11),
+        ...declarations.map(item => semanticDcl(item.usage, item.index, R.OUTPUT, item.register, item.mask)),
+        [S.MOV, dst(R.OUTPUT, 11), src(R.INPUT, 0)],
+        ...declarations.flatMap((item, i) => [[S.DEF, dst(R.CONST, i), ...item.value.map(f)],
+            [S.MOV, dst(R.OUTPUT, item.register, item.mask), src(R.CONST, i)]])]);
+    const semanticPS = (declarations, instructions) => legacyShader("pixel", 3, [
+        ...declarations.map(item => semanticDcl(item.usage, item.index, R.INPUT, item.register, item.mask)),
+        ...instructions]);
+    const bindSemanticPair = (dev, vsTokens, psTokens) => {
+        const vs = dev + 0x600000, ps = vs + 1;
+        return [vertexShader(dev, vs, vsTokens), pixelShader(dev, ps, psTokens),
+            cmd(P.OP.SET_VERTEX_SHADER, P.encode("SetShader", {device_handle: dev, shader_handle: vs})), bindPS(dev, ps), rs(dev, 137, 0)];
+    };
+    const bindSemanticVS = (dev, handle) => cmd(P.OP.SET_VERTEX_SHADER,
+        P.encode("SetShader", {device_handle: dev, shader_handle: handle}));
+    const semanticCases = [[3, 0], [3, 7], [6, 0], [7, 0], [5, 8], [5, 9], [5, 15],
+        [10, 2], [10, 7], [10, 15], [0, 1], [11, 1], [1, 3], [2, 4]];
+    for (const [usage, index] of semanticCases) for (const [output, input] of [[0, 9], [7, 0], [3, 4]])
+        for (const mask of usage === 0 ? [15] : [15, 5, 10]) add("shader-semantics", {
+            name: "SM3 semantic " + usage + ":" + index + " o" + output + " to v" + input + " mask " + mask,
+            body: dev => {
+                const value = [.2, .4, .6, .8], item = {usage, index, mask, value};
+                const commands = bindSemanticPair(dev, semanticVS([{...item, register: output}]),
+                    semanticPS([{...item, register: input}], [
+                        [S.DEF, dst(R.CONST, 0), f(.1), f(.1), f(.1), f(1)],
+                        [S.MOV, dst(R.COLOROUT, 0), src(R.CONST, 0)],
+                        [S.MOV, dst(R.COLOROUT, 0, mask), src(R.INPUT, input)]]));
+                return [...commands, ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+            }, probes: [{at: [32, 32], expect: [.2, .4, .6, .8].map((v, i) => clamp(mask & 1 << i ? v : i === 3 ? 1 : .1)), tolerance: 1}],
+        });
+    for (const flat of [false, true]) add("shader-semantics", {
+        name: "SM3 four packed semantics preserve separate components flat=" + flat,
+        body: dev => {
+            const values = [.2, .4, .6, .8];
+            const declarations = [[3, 0], [5, 8], [10, 0], [7, 0]].map(([usage, index], i) =>
+                ({usage, index, register: 3, mask: 1 << i, value: values}));
+            const commands = bindSemanticPair(dev, semanticVS(declarations), semanticPS(
+                declarations.map(item => ({...item, register: 7})), [[S.MOV, dst(R.COLOROUT, 0), src(R.INPUT, 7)]]));
+            return [...commands, rs(dev, 9, flat ? 1 : 2), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: [51, 102, 153, 204], tolerance: 1}],
+    });
+    for (const flat of [false, true]) add("shader-semantics", {
+        name: "SM3 forty consumed components with mixed flat and smooth packing flat=" + flat,
+        body: dev => {
+            const declarations = [];
+            for (let i = 0; i < 10; ++i) {
+                const item = {usage: 3, index: i, register: i, mask: i ? 15 : 14, value: [i / 10, .25, .5, .75]};
+                declarations.push(item);
+                if (!i) declarations.push({...item, usage: 10, index: 0, mask: 1});
+            }
+            const body = [[S.MOV, dst(R.TEMP, 0), src(R.INPUT, 9)]];
+            for (let i = 0; i < 9; ++i) body.push([S.ADD, dst(R.TEMP, 0), src(R.TEMP, 0), src(R.INPUT, i)]);
+            body.push([S.DEF, dst(R.CONST, 0), f(.1), f(.1), f(.1), f(.1)],
+                [S.MUL, dst(R.COLOROUT, 0), src(R.TEMP, 0), src(R.CONST, 0)]);
+            const commands = bindSemanticPair(dev, semanticVS(declarations), semanticPS(
+                declarations.map(item => ({...item, register: 9 - item.register})), body));
+            return [...commands, rs(dev, 9, flat ? 1 : 2), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: [.45, .25, .5, .75].map(clamp), tolerance: 1}],
+    });
+    add("shader-semantics", {name: "SM3 vertex wrapper follows pixel partner on repeated same-frame switches", body: dev => {
+        const vs = dev + 0x600000, psA = vs + 1, psB = vs + 2;
+        const declarations = [{usage: 3, index: 0, register: 2, mask: 15, value: [1, 0, 0, 1]},
+            {usage: 10, index: 2, register: 7, mask: 15, value: [0, 0, 1, 1]}];
+        const commands = [vertexShader(dev, vs, semanticVS(declarations)), bindSemanticVS(dev, vs), rs(dev, 174, 1)];
+        for (const [i, ps] of [[0, psA], [1, psB]]) commands.push(pixelShader(dev, ps,
+            semanticPS([{...declarations[i], register: 4}], [[S.MOV, dst(R.COLOROUT, 0), src(R.INPUT, 4)]])));
+        for (const [left, right, ps] of [[0, 21, psA], [21, 43, psB], [43, 64, psA]])
+            commands.push(bindPS(dev, ps), wire("SetScissorRect", {device_handle: dev, left, top: 0, right, bottom: 64}),
+                ...drawXYZ(dev, fullXYZ(.5, 0xffffffff)));
+        return commands;
+    }, probes: [{at: [10, 32], expect: [255, 0, 0, 255]}, {at: [32, 32], expect: [0, 0, 255, 255]},
+        {at: [54, 32], expect: [255, 0, 0, 255]}]});
+
+    for (const flat of [false, true]) add("shader-semantics", {
+        name: "SM3 packed color stays flat while neighbouring normal interpolates flat=" + flat,
+        body: dev => {
+            const declarations = [{usage: 10, index: 0, register: 3, mask: 1},
+                {usage: 3, index: 0, register: 3, mask: 2}];
+            const vs = legacyShader("vertex", 3, [semanticDcl(0, 0, R.INPUT, 0), semanticDcl(0, 0, R.OUTPUT, 11),
+                ...declarations.map(item => semanticDcl(item.usage, item.index, R.OUTPUT, item.register, item.mask)),
+                [S.DEF, dst(R.CONST, 0), f(.5), f(.5), f(.5), f(.5)],
+                [S.MOV, dst(R.OUTPUT, 11), src(R.INPUT, 0)],
+                [S.MAD, dst(R.OUTPUT, 3, 3), src(R.INPUT, 0, 0), src(R.CONST, 0), src(R.CONST, 0)]]);
+            const ps = semanticPS(declarations, [[S.DEF, dst(R.CONST, 0), 0, 0, 0, f(1)],
+                [S.MOV, dst(R.COLOROUT, 0), src(R.CONST, 0)], [S.MOV, dst(R.COLOROUT, 0, 3), src(R.INPUT, 3)]]);
+            return [...bindSemanticPair(dev, vs, ps), rs(dev, 9, flat ? 1 : 2), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [16, 16], expect: [flat ? 0 : 64, 64, 0, 255], tolerance: 1},
+            {at: [48, 48], expect: [flat ? 255 : 191, 191, 0, 255], tolerance: 1}],
+    });
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

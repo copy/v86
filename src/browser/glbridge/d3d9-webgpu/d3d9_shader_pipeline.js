@@ -179,13 +179,8 @@
     // 0x1.fffffep+127 is f32 max exactly.
     const FLOAT_MAX = "0x1.fffffep+127";
 
-    // Canonical vertex-output/pixel-input varying slots. Vertex and pixel
-    // shaders are compiled into separate GPUShaderModules and only meet
-    // inside a GPURenderPipeline, so their @location numbering has to be
-    // fixed by semantic rather than negotiated per pair. Every translated
-    // vertex shader emits all of these (WebGPU allows a vertex stage to
-    // produce outputs the fragment stage ignores, but not the reverse), so
-    // no VS/PS combination can ever fail to link.
+    // Legacy shaders and fixed-function stages share canonical varying slots.
+    // SM3 shader pairs remap semantic components in their entry wrappers.
     // Identifies *this build of the translator* to the persistent shader
     // cache. The cache's own `version` field describes the storage format, so
     // it stayed at 1 while the translator changed underneath it -- and every
@@ -264,8 +259,80 @@
             return VARYING_COLOR0 + usageIndex;
         if (usage === DECLUSAGE_TEXCOORD && usageIndex < 8)
             return VARYING_TEXCOORD0 + usageIndex;
-        if (usage === DECLUSAGE_FOG) return VARYING_FOG;
+        if (usage === DECLUSAGE_FOG && usageIndex === 0) return VARYING_FOG;
         return -1;
+    }
+
+    // Match semantic components at link time, then pack only consumed values
+    // into WebGPU locations. A PS3 has at most forty input components; splitting
+    // flat colours from interpolated values still fits eleven vec4 locations.
+    function linkShaderSemantics(vertex, pixel) {
+        try {
+            if (!pixel || pixel.version.major < 3) return {ok: true, link: null, key: ""};
+            const programmable3 = vertex && vertex.version.major >= 3;
+            const declarations = programmable3 ? vertex.outputDeclarations || [] :
+                [{usage: DECLUSAGE_COLOR, usageIndex: 0, slot: 0, mask: 15},
+                    {usage: DECLUSAGE_COLOR, usageIndex: 1, slot: 1, mask: 15},
+                    ...Array.from({length: 8}, (_, index) =>
+                        ({usage: DECLUSAGE_TEXCOORD, usageIndex: index, slot: index + 2, mask: 15})),
+                    {usage: DECLUSAGE_FOG, usageIndex: 0, slot: 10, mask: 1}];
+            const bySemantic = new Map(), outputComponents = new Set();
+            for (const item of declarations) {
+                if (programmable3) for (let component = 0; component < 4; ++component) if (item.mask & 1 << component) {
+                    const address = item.register * 4 + component;
+                    if (item.register >= 12 || outputComponents.has(address))
+                        throw new Error("overlapping or out-of-range vertex output declaration");
+                    outputComponents.add(address);
+                }
+                const key = item.usage + ":" + item.usageIndex;
+                if (bySemantic.has(key)) throw new Error("duplicate vertex output semantic " + key);
+                bySemantic.set(key, item);
+            }
+            const inputs = pixel.inputDeclarations || pixel.inputs.map(item => ({...item, mask: 15}));
+            const matched = [], occupied = new Set(), semantics = new Set();
+            for (const input of inputs) {
+                const key = input.usage + ":" + input.usageIndex;
+                if (semantics.has(key)) throw new Error("duplicate pixel input semantic " + key);
+                semantics.add(key);
+                const output = bySemantic.get(key);
+                if (!output || input.mask & ~output.mask)
+                    throw new Error("unmatched pixel input semantic " + key + " mask " + input.mask);
+                for (let component = 0; component < 4; ++component) if (input.mask & 1 << component) {
+                    const address = input.register * 4 + component;
+                    if (input.register >= 10 || occupied.has(address))
+                        throw new Error("overlapping or out-of-range pixel input declaration");
+                    occupied.add(address);
+                    matched.push({input, output, component,
+                        flat: input.usage === DECLUSAGE_COLOR && input.usageIndex < 2});
+                }
+            }
+            const link = {vertex: programmable3 ? [] : null, pixel: [], flatSlots: []};
+            let cursor = 0;
+            for (const flat of [false, true]) {
+                cursor = Math.ceil(cursor / 4) * 4;
+                for (const item of matched.filter(item => item.flat === flat)) {
+                    const slot = programmable3 ? cursor >> 2 : item.output.slot;
+                    const channel = programmable3 ? cursor & 3 : item.component;
+                    if (slot >= VARYING_COUNT) throw new Error("inter-stage component budget exceeded");
+                    if (flat && !link.flatSlots.includes(slot)) link.flatSlots.push(slot);
+                    link.pixel.push({register: item.input.register, component: item.component, slot, channel});
+                    if (programmable3) link.vertex.push({register: item.output.register,
+                        component: item.component, slot, channel,
+                        usage: item.input.usage, usageIndex: item.input.usageIndex});
+                    ++cursor;
+                }
+            }
+            // Fixed-function/legacy vertex modules always mark both canonical
+            // colour slots flat, including an unconsumed one.
+            if (!programmable3) link.flatSlots = [VARYING_COLOR0, VARYING_COLOR1];
+            const encode = item => (item.register | item.component << 4 | item.slot << 6 |
+                item.channel << 10 | (item.usage || 0) << 12 | (item.usageIndex || 0) << 16).toString(36);
+            const key = (link.vertex ? link.vertex.map(encode).join(".") : "legacy") + "/" +
+                link.pixel.map(encode).join(".") + "/" + link.flatSlots.join(".");
+            return {ok: true, link, key};
+        } catch (error) {
+            return {ok: false, error: error.message};
+        }
     }
 
     // ---- bytecode parsing ----
@@ -435,6 +502,8 @@
             this.temps = new Set();
             this.usedInputs = new Map();       // register -> {usage, usageIndex}
             this.outputSemantics = new Map();  // vs_3_0 o# -> {usage, usageIndex}
+            this.outputDeclarations = [];
+            this.inputDeclarations = [];
             this.samplers = new Map();         // index -> "2d"|"cube"|"3d"
             // Stages the caller has a D3D9 depth texture bound to. D3D9 has no
             // syntax for a shadow sample: `tex2D`/`tex2Dproj` on a sampler
@@ -511,8 +580,9 @@
         // with flat shading the colour slots are flat (texture coordinates
         // and fog keep interpolating, as in D3D9)
         varyingDeclaration(slot) {
-            const flat = this.flatShading &&
-                (slot === VARYING_COLOR0 || slot === VARYING_COLOR1);
+            const flat = this.flatShading && (this.options.semanticLink
+                ? this.options.semanticLink.flatSlots.includes(slot)
+                : slot === VARYING_COLOR0 || slot === VARYING_COLOR1);
             return "    @location(" + slot + ")" +
                 (flat ? " @interpolate(flat)" : "") +
                 " varying" + slot + ": vec4<f32>,";
@@ -704,17 +774,11 @@
                     if (!semantic)
                         throw new Error("vs_3_0 output o" + dest.index +
                             " was written without a dcl semantic");
-                    if (semantic.usage === DECLUSAGE_POSITION) return "o_position";
-                    if (semantic.usage === DECLUSAGE_PSIZE) {
-                        this.usesPointSize = true;
-                        return "o_pointsize";
+                    for (const declaration of this.outputDeclarations.filter(item => item.register === dest.index)) {
+                        const slot = varyingForSemantic(declaration.usage, declaration.usageIndex);
+                        if (slot >= 0) this.writtenVaryings.add(slot);
                     }
-                    const slot = varyingForSemantic(semantic.usage, semantic.usageIndex);
-                    if (slot < 0)
-                        throw new Error("vs_3_0 output semantic " + semantic.usage +
-                            "[" + semantic.usageIndex + "] has no varying slot");
-                    this.writtenVaryings.add(slot);
-                    return "o_varying" + slot;
+                    return "o_raw" + dest.index;
                 }
                 const slot = VARYING_TEXCOORD0 + dest.index;
                 if (dest.index > 7)
@@ -831,6 +895,12 @@
                 return;
             }
             if (this.kind === "vertex" && dest.type === REG_OUTPUT && this.major >= 3) {
+                if (dest.index >= 12) throw new Error("vs_3_0 output register exceeds o11");
+                const item = { register: dest.index, usage: declaration.usage,
+                    usageIndex: declaration.usageIndex, mask: dest.writeMask };
+                this.outputDeclarations.push(item);
+                if (item.usage === DECLUSAGE_PSIZE && item.usageIndex === 0)
+                    this.usesPointSize = true;
                 this.outputSemantics.set(dest.index, {
                     usage: declaration.usage, usageIndex: declaration.usageIndex });
                 return;
@@ -842,6 +912,11 @@
                 else if (dest.type === REG_INPUT) {
                     this.usedInputs.set(dest.index, {
                         usage: declaration.usage, usageIndex: declaration.usageIndex });
+                    if (this.major >= 3) {
+                        if (dest.index >= 10) throw new Error("ps_3_0 input register exceeds v9");
+                        this.inputDeclarations.push({register: dest.index, usage: declaration.usage,
+                            usageIndex: declaration.usageIndex, mask: dest.writeMask});
+                    }
                     this.psColorInputs.add(dest.index);
                 }
 
@@ -1755,6 +1830,9 @@
             }
 
             if (kind === "vertex") {
+                if (this.major >= 3)
+                    for (const index of this.outputSemantics.keys())
+                        out.push("var<private> o_raw" + index + ": vec4<f32> = vec4<f32>(0.0);");
                 out.push("var<private> o_position: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 1.0);");
                 if (this.usesPointSize)
                     out.push("var<private> o_pointsize: vec4<f32> = vec4<f32>(1.0);");
@@ -1857,6 +1935,20 @@
                 out.push("    vin" + entry[0] + " = " +
                     inputValue(entry[0]) + ";");
             out.push("    d9_body();");
+            if (this.major >= 3) {
+                for (const item of this.outputDeclarations) {
+                    const slot = varyingForSemantic(item.usage, item.usageIndex);
+                    const target = item.usage === DECLUSAGE_POSITION && item.usageIndex === 0 ? "o_position"
+                        : item.usage === DECLUSAGE_PSIZE && item.usageIndex === 0 ? "o_pointsize"
+                            : slot >= 0 ? "o_varying" + slot : null;
+                    if (!target) continue;
+                    if (item.mask === 15) out.push("    " + target + " = o_raw" + item.register + ";");
+                    else for (let component = 0; component < 4; ++component) if (item.mask & 1 << component) {
+                        const channel = "xyzw"[component];
+                        out.push("    " + target + "." + channel + " = o_raw" + item.register + "." + channel + ";");
+                    }
+                }
+            }
             out.push("    var result: D9VertexOutput;");
             // D3D9 clip space is z in [0, w]; WebGPU's is identical, so the
             // position needs no depth-range remap (unlike an OpenGL target,
@@ -1912,6 +2004,17 @@
                     }
                 }
             }
+            // Link only at the entry boundary; the SM3 instruction body writes
+            // physical o# registers independently of its pixel-shader partner.
+            if (this.options.semanticLink && this.options.semanticLink.vertex) {
+                for (const binding of this.options.semanticLink.vertex) {
+                    let value = "o_raw" + binding.register + "." + "xyzw"[binding.component];
+                    if (this.options.pointExpansion && this.options.pointSprite &&
+                            binding.usage === DECLUSAGE_TEXCOORD && binding.usageIndex < 8)
+                        value = ["d9_point_uv.x", "d9_point_uv.y", "0.0", "1.0"][binding.component];
+                    out.push("    result.varying" + binding.slot + "." + "xyzw"[binding.channel] + " = " + value + ";");
+                }
+            }
             out.push("    return result;");
             out.push("}");
         }
@@ -1926,18 +2029,22 @@
                     declared.push({ slot: VARYING_TEXCOORD0 + index, register: "t" + index });
                 for (const index of this.psColorInputs)
                     declared.push({ slot: VARYING_COLOR0 + index, register: "v" + index });
+            } else if (this.options.semanticLink) {
+                for (const item of this.options.semanticLink.pixel)
+                    declared.push({slot: item.slot, register: "v" + item.register + "." + "xyzw"[item.component],
+                        channel: "xyzw"[item.channel]});
             } else {
-                for (const index of this.psColorInputs) {
-                    const semantic = this.usedInputs.get(index);
-                    if (!semantic)
-                        throw new Error("ps_3_0 input v" + index +
-                            " was read without a dcl semantic");
-                    const slot = varyingForSemantic(semantic.usage, semantic.usageIndex);
-                    if (slot < 0)
-                        throw new Error("pixel shader input semantic " + semantic.usage +
-                            "[" + semantic.usageIndex + "] has no varying slot");
-                    declared.push({ slot, register: "v" + index });
+                // The unlinked module supplies reflection for pair linking.
+                // Legacy semantics retain their standalone canonical mapping.
+                for (const item of this.inputDeclarations) {
+                    const slot = varyingForSemantic(item.usage, item.usageIndex);
+                    if (slot < 0) continue;
+                    for (let component = 0; component < 4; ++component) if (item.mask & 1 << component)
+                        declared.push({slot, register: "v" + item.register + "." + "xyzw"[component],
+                            channel: "xyzw"[component]});
                 }
+                for (const index of this.psColorInputs) if (!this.usedInputs.get(index))
+                    throw new Error("ps_3_0 input v" + index + " was read without a dcl semantic");
             }
             for (const entry of declared) {
                 if (entry.slot < 0 || entry.slot >= VARYING_COUNT)
@@ -1980,7 +2087,8 @@
                 out.push("    if (stage_in.clip" + Math.floor(plane / 4) +
                     "." + "xyzw"[plane & 3] + " < 0.0) { discard; }");
             for (const entry of declared)
-                out.push("    " + entry.register + " = stage_in.varying" + entry.slot + ";");
+                out.push("    " + entry.register + " = stage_in.varying" + entry.slot +
+                    (entry.channel ? "." + entry.channel : "") + ";");
             if (this.usesFragPosition)
                 out.push("    d9_frag_position = stage_in.position;");
             if (this.usesFrontFacing)
@@ -2075,6 +2183,8 @@
                 version: { major: this.major, minor: this.minor },
                 entryPoint: this.kind === "vertex" ? "d9_vs_main" : "d9_ps_main",
                 inputs,
+                outputDeclarations: this.outputDeclarations.map(item => ({...item})),
+                inputDeclarations: this.inputDeclarations.map(item => ({...item})),
                 samplers,
                 floatConstCount: floatCount,
                 intConstCount: intCount,
@@ -2343,7 +2453,7 @@
     }
 
     const api = {
-        compileShader, parseShader, hashTokens, D3D9ShaderCache, sampleSwizzleExpression,
+        compileShader, parseShader, hashTokens, D3D9ShaderCache, sampleSwizzleExpression, linkShaderSemantics,
         vertexInputConversion, vertexInputType, vertexInputValue, vertexInputHelpers,
         TRANSLATOR_REVISION,
         VARYING_COLOR0, VARYING_COLOR1, VARYING_TEXCOORD0, VARYING_FOG,

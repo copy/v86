@@ -2793,6 +2793,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新增129场景，覆盖版本配对、缺失颜色、插值前夹取、四种顶点雾模式与显式/高光/table来源。完整 **662场景在Metal/SwiftShader全部通过**，使用明确UNORM8±1预算，零GPU/宿主错误、失败命令或丢弃draw；旧版本在最初124个新场景中失败48个。
 > - 43翻译器单测、178执行器、190Naga程序、12私有shader严格Naga+Chrome Tint、范围lint和两站点集成通过。发布bundle `f85e1b4608acc142f6c0`。证据：[stage5l3-validation.json](fixtures/d3d-review/stage5l3-validation.json)。语义链接、主体一次翻译、旧版投影/深度采样及相对输入/输出寻址继续，阶段5尚未关闭。
 
+> **阶段 5L4（2026-11-05，功能批次完成）：SM3 语义/分量链接，修复 S2-12。**
+> - VS3 指令主体写入物理 o# 寄存器，入口包装按语义映射；只有 POSITION0 驱动光栅位置，POSITION1 不再覆盖它。保留同一寄存器上多个 DCL 的语义与掩码，支持 NORMAL/TANGENT/BINORMAL、TEXCOORD8/9/15、COLOR2+ 等。
+> - 在 draw 链接时匹配语义、索引与分量，将实际消费的值打包到最多11个 vec4 位置；同一原寄存器中的平面颜色和平滑分量分别插值。VS/PS 变体缓存均包含紧凑的配对键；缺失、重叠或重复声明在创建 GPU 管线前拒绝，旧版/固定管线保留兼容映射。
+> - 新增 **127 个实际像素场景**：寄存器重排、部分掩码、多个语义共用寄存器、40分量满输入、平面/平滑混合及同帧重复切换伙伴。全套 **789 场景 Metal/SwiftShader 全通过**，UNORM8±1预算，零 GPU/宿主错误或丢弃 draw；改动前版本在新组中失败118场景。
+> - 46翻译器单测、178执行器、190Naga程序、12私有shader严格Naga+Chrome Tint、范围lint和两项站点集成通过。发布bundle `a75587607e9ccd7fa1c0`。证据：[stage5l4-validation.json](fixtures/d3d-review/stage5l4-validation.json)。本批完成入口链接；每个变体仍会遍历指令，主体一次翻译、相对输入/输出寻址及旧版投影/深度采样继续，阶段5尚未关闭。
+
 - **目标：** 翻译的正确性由差分测试保证。
 - **改动：**
   - 写一个 SM1–3 的 CPU 参考解释器（JS），按 D3D9 文档的伪代码实现。

@@ -1,0 +1,98 @@
+{
+  "stage": "5L4 SM3 semantic/component linking at entry boundaries",
+  "date": "2026-11-05",
+  "baseline": {
+    "core": "518f4b07",
+    "site": "ee25ba2"
+  },
+  "changes": [
+    "SM3 bodies write physical o# registers; only POSITION0 drives rasterizer position. Multiple DCL semantics/masks on a register are retained in reflection.",
+    "At draw-time link semantic/index/mask components, pack consumed values into at most eleven vec4 locations and separate flat COLOR0/1 channels from interpolated channels.",
+    "Both shader variant caches include compact pair-link keys; fixed-function and older stages preserve canonical mappings. Reject missing, duplicate, overlapping and out-of-range pair declarations before GPU pipeline creation."
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dcl-usage---ps",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dcl-usage-outut-register---vs",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx9-graphics-reference-asm-vs-registers-vs-3-0"
+  ],
+  "runs": {
+    "metal": {
+      "status": "PASS",
+      "cases": 789,
+      "newSemanticCases": 127,
+      "logSha256": "d881b001168b43b84922de0d2ef5210f57c5e086f997057312392fecae1dbdbc",
+      "validation": "Real executor commands and guest READBACK; explicit UNORM8 tolerance <=1; zero GPU/host errors, failed commands and dropped draws required by harness."
+    },
+    "swift": {
+      "status": "PASS",
+      "cases": 789,
+      "newSemanticCases": 127,
+      "logSha256": "d881b001168b43b84922de0d2ef5210f57c5e086f997057312392fecae1dbdbc",
+      "validation": "Real executor commands and guest READBACK; explicit UNORM8 tolerance <=1; zero GPU/host errors, failed commands and dropped draws required by harness."
+    }
+  },
+  "negativeControl": {
+    "status": "FAIL as expected",
+    "oldSource": "518f4b07",
+    "cases": 127,
+    "failedCases": 118,
+    "logSha256": "c82548ebf0e24367059014688af6a72c1b03a0bacaf32c0728302524d8ee4164"
+  },
+  "validation": {
+    "shaderUnit": 46,
+    "executorUnit": 178,
+    "nagaPrograms": 190,
+    "strictPrivateCorpus": {
+      "translated": 12,
+      "naga": 12,
+      "chromeTint": 12
+    },
+    "siteIntegration": 2,
+    "lintFiles": 4,
+    "newLintProblems": 0
+  },
+  "sourceSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "595222740e7e33f49bcb8917966a35c4e1ec7f22d85aec0fd5a33fef93c4ac7e",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "8abad2c97bce57ee39fc0434ba4e7d0f711fb288c93046fcee74ae6436fa55a0",
+    "tests/glbridge/d3d9_feature_cases.js": "e71a8e1d68cf3a4e1d1b5376cb9493a3820066da8d643e48b1db8209edad7f18",
+    "tests/glbridge/d3d9_shader_pipeline_test.js": "fa001775a82d5423402c5115b472561e44d0ef62f662be4831146a884e5386db"
+  },
+  "logs": {
+    "unit": "7870f1374f7dfad973f8a740343272119cbc1c016cf70e2374f6ffae52a15b1d",
+    "executor": "841531d8dd8481e4b83ac863a606486a949fac780aa0d72f1c1687b9ef6fbe79",
+    "naga": "dbbe0c76332e182c9f842703842e2bd6033303d4ed68c5cc402409521890693a",
+    "corpus": "82c5eca04fa67349e85bebc25e312777914ca75cf9f4bb998a76a162089d349f",
+    "lint": "e959fc3cc32615f04dc04fbabc5397bc650c0fbab74eedcc786c2172b97d87c4",
+    "site": "4eaeebcc238d6e176893626c2da355d7b41c99656527563ddb9bcf5471dbe7a6",
+    "build": "548f9a9dd6b632116991d082d00294cc3759be9d6c02479d9fe9784293f9a79b"
+  },
+  "bundle": {
+    "revision": "a75587607e9ccd7fa1c0",
+    "files": [
+      "libv86-webgpu.js",
+      "d3d9_shader_worker.js",
+      "d3d9_shader_pipeline.js",
+      "graphics_journal_worker.js",
+      "d9wg_diagnostics.js",
+      "v86gl-device.js",
+      "glslang.wasm",
+      "vx_naga.wasm"
+    ]
+  },
+  "publishedSha256": {
+    "libv86-webgpu.js": "7089f18d4b80f3c9c1f2d7a3b6fd398e0b3e42c7a712631cec1407d7a5a05401",
+    "d3d9_shader_worker.js": "c93da6cd93595ebce37c8b58ce6db4398f3c2b780a61ddd273e530401c32bf99",
+    "d3d9_shader_pipeline.js": "d3802b59a77fa9fb46410a58ea311308291d23074eddf29892de7c4d1fa60df2",
+    "graphics_journal_worker.js": "28e53be3de9012efea55f2372bd9c1a5ad770791e188cbbb7a29d973a545b87a",
+    "d9wg_diagnostics.js": "7dcb44616b57b0aa3364aaa392713e03b3a5d8d7ebe1d209d2984011cac2da7f",
+    "v86gl-device.js": "89e6f06cfabf94578e967c67e2720bac75d56fe946f4b384eec577a9889a92ba",
+    "glslang.wasm": "bf04f3f1aa510afd7e461ccb75c929e9498684b3186768c00804ffecc8bdbd16",
+    "vx_naga.wasm": "8a0e51ee1698ff84d14a125d00241fc57fa33f17123cc3d6850d742bf41f5641",
+    "manifest.json": "e5a28e76aa5451b45680579d4c9746319b5ca26625b748989a29267368595e2a"
+  },
+  "limitations": [
+    "This is entry-boundary linkage; compileShader still walks the instruction body for each requested variant. Body-once translation remains open.",
+    "Relative input/output addressing and remaining ps_1_x projected/depth/matrix instructions remain open.",
+    "Stage 4 full Wine compatibility and stage 5 completion are not claimed. MapleStory remains user-skipped."
+  ]
+}

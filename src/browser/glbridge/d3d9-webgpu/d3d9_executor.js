@@ -4502,6 +4502,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // ps_3_0 owns fog; the legacy post-shader blend is only ps<3.
             if (psResource && psResource.translated.ok && psResource.translated.reflection.version.major >= 3) { fogMode = 0;tableFog = false; }
 
+            const semanticPair = shaderPipeline.linkShaderSemantics(
+                vsResource && vsResource.translated.ok ? vsResource.translated.reflection : null,
+                psResource && psResource.translated.ok ? psResource.translated.reflection : null);
+            if (!semanticPair.ok) return {error: "shader semantic link failed: " + semanticPair.error, shaderError: true};
+            const semanticLink = semanticPair.link;
+            const semanticKey = semanticPair.key ? "|link:" + semanticPair.key : "";
+
             // ---- pixel stage ----
             //
             // Resolved before the vertex stage because how many texture
@@ -4586,10 +4593,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 }
                 const fogBlend = ffp.fogBlendSource({ fogMode, tableFog }, "d9c", "result.color0");
                 const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") : "";
-                const pixelVariantKey = fogKey + alphaTestKey + clipKey + depthKey +
+                const pixelVariantKey = semanticKey + fogKey + alphaTestKey + clipKey + depthKey +
                     lodBiasKey + mirrorOnceKey + legacySamplerKey + swizzleKey +
                     (flatShading ? "_flat" : "");
-                if (alphaTest.enabled || clipPlaneCount || depthSamplers.length
+                if (semanticLink || alphaTest.enabled || clipPlaneCount || depthSamplers.length
                         || lodBiasKey || mirrorOnceKey || legacySamplerKey || swizzleKey ||
                         flatShading || fogBlend) {
                     variant = psResource.variants.get(pixelVariantKey);
@@ -4604,7 +4611,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             samplerLodBiasUniform, samplerSwizzles,
                             samplerMirrorOnce,
                             legacySamplerTypes,
-                            flatShading, fogBlend,
+                            flatShading, fogBlend, semanticLink,
                         });
                         psResource.variants.set(pixelVariantKey, variant);
                         if (variant.ok) ++this.stats.shaderVariantsTranslated;
@@ -4754,12 +4761,12 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const legacyColorClamp = vsResource.translated.reflection.version.major >= 3 &&
                     (!pixelReflection || pixelReflection.version.major < 3);
                 const variantKey = "b:" + bgra.join(",") + "|c:" +
-                    conversionKey + pointKey + clipKey + vertexSwizzleKey +
+                    conversionKey + pointKey + clipKey + vertexSwizzleKey + semanticKey +
                     (legacyColorClamp ? "|legacy-color" : "") +
                     (flatShading ? "|flat" : "");
                 const needsVariant = bgra.length || conversionKey.length ||
                     !!drawOptions.pointExpansion || !!clipPlaneCount ||
-                    !!vertexSwizzleKey || flatShading || legacyColorClamp;
+                    !!vertexSwizzleKey || flatShading || legacyColorClamp || !!semanticLink;
                 let variant = vsResource.variants.get(variantKey);
                 if (!variant) {
                     variant = needsVariant
@@ -4767,7 +4774,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             { bgraInputLocations: bgra, inputConversions, samplerSwizzles: vertexSwizzles,
                               pointExpansion: !!drawOptions.pointExpansion,
                               pointSprite: !!drawOptions.pointSprite,
-                              clipPlaneCount, flatShading, legacyColorClamp })
+                              clipPlaneCount, flatShading, legacyColorClamp, semanticLink })
                         : vsResource.translated;
                     vsResource.variants.set(variantKey, variant);
                     if (needsVariant && variant.ok)
