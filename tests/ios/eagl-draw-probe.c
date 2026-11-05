@@ -16,6 +16,7 @@ extern void glBufferData(unsigned, int, const void *, unsigned), glBufferSubData
 extern void glEnableVertexAttribArray(unsigned), glDisableVertexAttribArray(unsigned);
 extern void glVertexAttribPointer(unsigned, int, unsigned, unsigned char, int, const void *);
 extern void glDrawArrays(unsigned, int, int), glViewport(int, int, int, int), glDisable(unsigned);
+extern void glDrawElements(unsigned, int, unsigned, const void *);
 extern void glReadPixels(int, int, int, int, unsigned, unsigned, void *);
 extern void glGetIntegerv(unsigned, int *), glGetFloatv(unsigned, float *), glGetBooleanv(unsigned, unsigned char *);
 extern void glGetShaderiv(unsigned, unsigned, int *), glGetProgramiv(unsigned, unsigned, int *);
@@ -103,6 +104,22 @@ int n90_triangle_pixels(void)
     if(glGetError()) goto done;
     for(unsigned i = 0; i < sizeof(pixels); i += 4)
         if(pixels[i] != 255 || pixels[i+1] || pixels[i+2] != 255 || pixels[i+3] != 255) goto done;
+    // Core Animation draws with client arrays as well as GPU buffers.
+    // A second draw changes the visible color, using sparse client indices
+    // and a vertex stride with padding between elements.
+    const float client[] = { -1,-1,17, 0,0,17, 3,-1,17, 0,0,17, -1,3,17 };
+    const unsigned short indices[] = { 4,0,2 };
+    const float cyan[] = { 0,1,1,1 };
+    glUniform4fv(uniforms[3], 1, cyan);
+    glBindBuffer(0x8892, 0);
+    glVertexAttribPointer(location, 2, 0x1406, 0, 12, client);
+    glDrawElements(4, 3, 0x1403, indices);
+    step = 5;
+    if(glGetError()) goto done;
+    glReadPixels(0, 0, 64, 48, 0x1908, 0x1401, pixels);
+    if(glGetError()) goto done;
+    for(unsigned i = 0; i < sizeof(pixels); i += 4)
+        if(pixels[i] || pixels[i+1] != 255 || pixels[i+2] != 255 || pixels[i+3] != 255) goto done;
     step = 0;
 done:
     if(location >= 0) glDisableVertexAttribArray(location);

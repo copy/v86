@@ -21,12 +21,21 @@ extern int dladdr(const void *, struct image_info *);
 extern void *dlsym(void *, const char *);
 extern void OSSpinLockLock(volatile int *), OSSpinLockUnlock(volatile int *);
 
+#define N90_ATTRIBS 16
+struct client_attrib {
+    const void *data;
+    unsigned type;
+    int size, stride;
+    unsigned char normalized, enabled, client;
+};
+
 struct context {
     struct n90_driver driver;    // also the opaque argument of public GL calls
     struct context *next;
     struct group *group;
     unsigned handle, error;
     char *strings[5];
+    struct client_attrib attribs[N90_ATTRIBS];
 };
 struct group {
     struct group *next;
