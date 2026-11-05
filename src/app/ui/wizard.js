@@ -339,7 +339,6 @@ export function open_wizard(options)
             const zone = h("div.drop-zone", null,
                 h("h3", null, `${IOS_NAME} (${N90_RESTORE.build})`),
                 h("p", null, "Choose or drop your own " + N90_RESTORE.file + " (" + format_size(N90_RESTORE.size) + ")."),
-                h("p.note", null, "The next step shows where to get the public firmware keys. The browser processes the firmware and keys locally."),
                 h("p.note", null, "SHA-1: " + N90_RESTORE.sha1), input,
                 i.file ? h("p", null, i.file.name + (i.checked ? " — verified" : "")) : null);
             zone.ondragover = event => { event.preventDefault(); zone.classList.add("over"); };
