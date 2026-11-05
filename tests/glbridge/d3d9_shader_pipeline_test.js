@@ -1023,6 +1023,47 @@ test("SM3 reflection retains multiple declarations on one physical register", ()
     assert.strictEqual(pair.link.pixel.length, 4);
 });
 
+test("relative input/output addressing rejects unsupported register files and index kinds", () => {
+    const relative = token => (token | 0x2000) >>> 0;
+    const declarations = [instruction(OP.DCL, {length: 2}), dclToken(USAGE.POSITION), dst(REG.OUTPUT, 0),
+        instruction(OP.DCL, {length: 2}), dclToken(USAGE.TEXCOORD), dst(REG.OUTPUT, 2)];
+    for (const [version, destination, source, index] of [
+        [VS(2, 0), dst(REG.TEMP, 0), relative(src(REG.INPUT, 0)), src(REG.ADDR, 0)],
+        [PS(3, 0), dst(REG.COLOROUT, 0), relative(src(REG.INPUT, 0)), src(REG.ADDR, 0)],
+        [VS(3, 0), dst(REG.TEMP, 0), relative(src(REG.INPUT, 0)), src(REG.ADDR, 1)],
+        [VS(3, 0), dst(REG.TEMP, 0), relative(src(REG.TEMP, 0)), src(REG.LOOP, 0)],
+    ]) {
+        const result = pipeline.compileShader([version, instruction(OP.MOV, {length: 3}), destination, source, index, END]);
+        assert.strictEqual(result.ok, false);
+        assert.match(result.error, /relative|shader model 3/);
+    }
+    for (const [destination, index] of [[relative(dst(REG.OUTPUT, 0)), src(REG.ADDR, 0)],
+        [relative(dst(REG.TEMP, 0)), src(REG.LOOP, 0)]]) {
+        const result = pipeline.compileShader([VS(3, 0), ...declarations,
+            instruction(OP.MOV, {length: 3}), destination, index, src(REG.CONST, 0), END]);
+        assert.strictEqual(result.ok, false);
+        assert.match(result.error, /relative|requires aL/);
+    }
+    const readableOutput = pipeline.compileShader([VS(3, 0), ...declarations,
+        instruction(OP.MOV, {length: 2}), dst(REG.TEMP, 0), src(REG.OUTPUT, 2), END]);
+    assert.strictEqual(readableOutput.ok, false);
+    assert.match(readableOutput.error, /write-only/);
+});
+
+test("indexed outputs require fixed position and point size registers", () => {
+    for (const [usage, register] of [[USAGE.POSITION, 3], [USAGE.PSIZE, 4]]) {
+        const result = pipeline.compileShader([VS(3, 0), instruction(OP.DCL, {length: 2}),
+            dclToken(usage), dst(REG.OUTPUT, register), instruction(OP.MOV, {length: 3}),
+            (dst(REG.OUTPUT, 2) | 0x2000) >>> 0, src(REG.LOOP, 0), src(REG.CONST, 0), END]);
+        assert.strictEqual(result.ok, false);
+        assert.match(result.error, /POSITION0 at o0 and PSIZE0 at o1/);
+    }
+    const result = pipeline.compileShader([VS(3, 0), instruction(OP.DCL, {length: 2}),
+        dclToken(USAGE.POSITION), dst(REG.INPUT, 16), END]);
+    assert.strictEqual(result.ok, false);
+    assert.match(result.error, /exceeds v15/);
+});
+
 // ---- report ----
 
 if (failures.length) {

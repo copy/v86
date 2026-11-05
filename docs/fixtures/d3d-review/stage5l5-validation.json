@@ -1,0 +1,100 @@
+{
+  "stage": "5L5 SM3 relative input/output addressing",
+  "date": "2026-11-05",
+  "baseline": {
+    "core": "4cdf3be9",
+    "site": "f3d0750"
+  },
+  "changes": [
+    "VS3 inputs support a0.xyzw and aL indices; PS3 inputs support aL. Apply input conversion and semantic linkage before filling indexed input storage.",
+    "VS3 outputs share physical array storage across static and aL-indexed writes. Preserve write masks, predicates, and nested-loop restoration. Reject unsupported relative register kinds and reads of write-only outputs.",
+    "Conformance cases now send SESSION_END after readback and require empty device/resource/session tables. The former runner retained one process upload/uniform arena per case and exhausted ArrayBuffer memory in the enlarged suite."
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/shader-model-3",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx9-graphics-reference-asm-vs-registers-vs-3-0",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx9-graphics-reference-asm-ps-registers-ps-3-0"
+  ],
+  "runs": {
+    "metal": {
+      "status": "PASS",
+      "cases": 993,
+      "newAddressingCases": 204,
+      "logSha256": "3ad09aaf5bd2dd92b572844a362af5323921a84389ceae28cabbefb89050d393",
+      "validation": "Executor wire commands and READBACK; UNORM8 tolerance <=1, zero GPU/host errors, failed commands and dropped draws; zero remaining device/resource/session entries per case."
+    },
+    "swift": {
+      "status": "PASS",
+      "cases": 993,
+      "newAddressingCases": 204,
+      "logSha256": "3ad09aaf5bd2dd92b572844a362af5323921a84389ceae28cabbefb89050d393",
+      "validation": "Executor wire commands and READBACK; UNORM8 tolerance <=1, zero GPU/host errors, failed commands and dropped draws; zero remaining device/resource/session entries per case."
+    }
+  },
+  "negativeControl": {
+    "status": "FAIL as expected",
+    "oldSource": "4cdf3be9",
+    "cases": 204,
+    "failedCases": 171,
+    "sameSessionCleanup": true,
+    "logSha256": "14ca675dc14551765667edac54ea5c7829f10bb377f3ea23601a56fb1637aef2"
+  },
+  "validation": {
+    "shaderUnit": 48,
+    "executorUnit": 178,
+    "nagaPrograms": 190,
+    "strictPrivateCorpus": {
+      "translated": 12,
+      "naga": 12,
+      "chromeTint": 12
+    },
+    "siteIntegration": 2,
+    "lintFiles": 6,
+    "newLintProblems": 0
+  },
+  "sourceSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "3444abc875811a0a1e4fea7aa69409cacbed3fae5ede9d40ed905982e4b683a8",
+    "tests/glbridge/d3d9_feature_cases.js": "8db07f336b5120d3dcb64477fed364b8ec67180da2386ebfe33652bc4b7fd7b2",
+    "tests/glbridge/d3d9_shader_pipeline_test.js": "479a43919c4142d84124627950756b32d6731180ef7e401d96d2488fdaa36da8",
+    "tests/glbridge/d3d9_conformance.js": "f0f111f022d8771c6ba6480fb52c080986fd6644ca07ae643f0b57c9da083371",
+    "tests/glbridge/d3d9_conformance_browser_test.html": "377ac45dc9676ad34a5e1719dd5516e7e25980c0691cf4f2e42005de17a7d38a"
+  },
+  "logs": {
+    "unit": "cbdca28f1dd3772f4aa3e8c6ebed46a7a7c7f0f6790fa59e217cf97f0780fd61",
+    "executor": "5c7ef98a5766a0c244078f6faca00b5c48ce89726c33496b5a564d3332545500",
+    "naga": "dbbe0c76332e182c9f842703842e2bd6033303d4ed68c5cc402409521890693a",
+    "corpus": "82c5eca04fa67349e85bebc25e312777914ca75cf9f4bb998a76a162089d349f",
+    "lint": "708b766e2e21b2dd77fb7798ac774b5ffe7ec933aa411b26c594169901c56af7",
+    "site": "a7e5169b9926a8f512a863c64d127a91ff8b01e4d6f27f7d168f4bd329da80fd",
+    "build": "67375867b85081eec4b9db917ac3772345f42de49ffa75f680b0d24ae91a6312"
+  },
+  "bundle": {
+    "revision": "fd0a2a95df0b43356bd8",
+    "files": [
+      "libv86-webgpu.js",
+      "d3d9_shader_worker.js",
+      "d3d9_shader_pipeline.js",
+      "graphics_journal_worker.js",
+      "d9wg_diagnostics.js",
+      "v86gl-device.js",
+      "glslang.wasm",
+      "vx_naga.wasm"
+    ]
+  },
+  "publishedSha256": {
+    "libv86-webgpu.js": "bb504da9db5083b91a4c49ab284aa22614bba6bb9f27c278b018bd79aa5d1cd1",
+    "d3d9_shader_worker.js": "5791bcf6a761c122b23f8837b1a0bb3fb6a1b064a4de2c4749d723a126488f8e",
+    "d3d9_shader_pipeline.js": "f1c1dc2134e308815d608ef0744ddc70df164855b75ae9da235e538781349b55",
+    "graphics_journal_worker.js": "6aeb739a044cc7d02e78f62be6cd68aa48ac202cdd62657f6bc3981056981ecb",
+    "d9wg_diagnostics.js": "5fac17f698944145a5f31a4a6eb8611e1eab48f881cf436fb0c2e39660b58240",
+    "v86gl-device.js": "8e997030622988ad10da3d6272b2dd1eac4cea08f031a40c5f3466dff8f0b05e",
+    "glslang.wasm": "bf04f3f1aa510afd7e461ccb75c929e9498684b3186768c00804ffecc8bdbd16",
+    "vx_naga.wasm": "8a0e51ee1698ff84d14a125d00241fc57fa33f17123cc3d6850d742bf41f5641",
+    "manifest.json": "f51182b03957a01adcefe602cd0ecb7f13d2d7e2d09f8ff4f91cece92c9e2d50"
+  },
+  "limitations": [
+    "Bounds guards return zero for out-of-range inputs and ignore out-of-range or POSITION/PSIZE indexed output writes; these undefined-program policies are not native-D3D equivalence claims. Pixel acceptance uses declared, valid indices.",
+    "Remaining ps_1_x projected/depth/matrix instructions and body-once translation remain open.",
+    "Stage 4 full Wine compatibility and stage 5 completion are not claimed. MapleStory remains user-skipped."
+  ]
+}

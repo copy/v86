@@ -2799,6 +2799,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新增 **127 个实际像素场景**：寄存器重排、部分掩码、多个语义共用寄存器、40分量满输入、平面/平滑混合及同帧重复切换伙伴。全套 **789 场景 Metal/SwiftShader 全通过**，UNORM8±1预算，零 GPU/宿主错误或丢弃 draw；改动前版本在新组中失败118场景。
 > - 46翻译器单测、178执行器、190Naga程序、12私有shader严格Naga+Chrome Tint、范围lint和两项站点集成通过。发布bundle `a75587607e9ccd7fa1c0`。证据：[stage5l4-validation.json](fixtures/d3d-review/stage5l4-validation.json)。本批完成入口链接；每个变体仍会遍历指令，主体一次翻译、相对输入/输出寻址及旧版投影/深度采样继续，阶段5尚未关闭。
 
+> **阶段 5L5（2026-11-05，功能批次完成）：SM3 输入/输出相对寻址。**
+> - VS3 输入支持 a0 四分量及 aL 索引，PS3 输入支持 aL；入口先完成属性转换及语义链接，再填充输入数组。VS3 静态和相对输出共用物理寄存器数组，保留分量掩码、条件写入、循环步长和嵌套循环恢复。
+> - 新增 **204 个实际像素场景**，覆盖16个顶点输入、10个像素输入、可索引输出o2–o11、正负偏移、顺逆循环、嵌套及谓词分量。全套 **993 场景 Metal/SwiftShader 全通过**；原实现在新组中失败171场景。有效索引按文档验证；越界防护不宣称等同原生未定义行为。
+> - 测试程序此前每个场景保留独立会话，扩容后耗尽ArrayBuffer；现通过协议发送SESSION_END，每例核对设备、资源、会话表为空。未改变像素期望或错误门槛。
+> - 48翻译器单测、178执行器、190Naga程序、12私有shader严格Naga+Chrome Tint、6文件范围lint及两项站点集成通过。发布bundle `fd0a2a95df0b43356bd8`。证据：[stage5l5-validation.json](fixtures/d3d-review/stage5l5-validation.json)。主体一次翻译和旧版投影/深度/矩阵采样仍待完成，阶段5尚未关闭。
+
 - **目标：** 翻译的正确性由差分测试保证。
 - **改动：**
   - 写一个 SM1–3 的 CPU 参考解释器（JS），按 D3D9 文档的伪代码实现。

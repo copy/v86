@@ -410,6 +410,10 @@
         }))], false);
     }
 
-    global.D3D9Conformance = { CASES, KNOWN_FAILURES, caseBatch, readbackBatch, W,
+    function endCaseBatch(session) {
+        return batch(session, [cmd(OP.SESSION_END, P.encode("SessionEnd", {session_id_low: session}))], false);
+    }
+
+    global.D3D9Conformance = { CASES, KNOWN_FAILURES, caseBatch, readbackBatch, endCaseBatch, W,
         builders: { cmd, draw, quad, rs, tss, drawXYZ, fullXYZ, f, cat, element, pixelShader, vertexShader, asm } };
 })(typeof globalThis !== "undefined" ? globalThis : this);

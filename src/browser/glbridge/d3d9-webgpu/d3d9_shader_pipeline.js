@@ -549,6 +549,7 @@
             this.usesFragPosition = false;
             this.usesFrontFacing = false;
             this.usesRelativeConstants = false;
+            this.usesRelativeInputs = false;
             this.maxFloatConst = -1;
             this.maxIntConst = -1;
             this.maxBoolConst = -1;
@@ -623,12 +624,34 @@
                 (this.constantCapacity() - 1) + ")";
         }
 
+        relativeRegisterIndex(operand, output) {
+            if (this.major !== 3 || !operand.relativeToken)
+                throw new Error("relative input/output addressing requires shader model 3");
+            const relative = decodeSource(operand.relativeToken, 0);
+            if (relative.index || relative.modifier || relative.relative)
+                throw new Error("invalid relative input/output index register");
+            let index;
+            if (relative.type === REG_LOOP) {
+                this.usesLoopCounter = true;
+                index = "aL";
+            } else if (!output && this.kind === "vertex" && relative.type === REG_ADDR) {
+                this.usesAddress = true;
+                index = "a0." + SWIZZLE_CHARS[relative.swizzle & 3];
+            } else {
+                throw new Error("relative input/output index requires " +
+                    (!output && this.kind === "vertex" ? "a0 or aL" : "aL"));
+            }
+            return "(" + index + " + " + operand.index + ")";
+        }
+
         constantCapacity() {
             return this.kind === "vertex" ? 256 : 224;
         }
 
         // Raw (unswizzled, unmodified) vec4<f32> read of a source register.
         rawSource(source) {
+            if (source.relative && ![REG_CONST, REG_CONST2, REG_CONST3, REG_CONST4, REG_INPUT].includes(source.type))
+                throw new Error("source register does not support relative addressing");
             switch (source.type) {
             case REG_TEMP:
                 this.temps.add(source.index);
@@ -667,6 +690,11 @@
                 this.psTexcoordInputs.add(source.index);
                 return "t" + source.index;
             case REG_INPUT:
+                if (source.relative) {
+                    const index = this.relativeRegisterIndex(source, false);
+                    this.usesRelativeInputs = true;
+                    return "d9_read_input(" + index + ")";
+                }
                 if (this.kind === "vertex") {
                     if (!this.usedInputs.has(source.index))
                         this.usedInputs.set(source.index, null);
@@ -685,10 +713,8 @@
                     return "vec4<f32>(d9_face)";
                 }
                 throw new Error("unsupported misc register index " + source.index);
-            case REG_OUTPUT: // readable in vs_3_0 (o# behaves like a temp)
-                if (this.kind === "vertex" && this.major >= 3)
-                    return "o" + source.index;
-                throw new Error("output register is not readable in this shader model");
+            case REG_OUTPUT:
+                throw new Error("output registers are write-only");
             default:
                 throw new Error("unsupported source register type " + source.type);
             }
@@ -739,6 +765,8 @@
         // Name of the lvalue a destination register writes through, plus the
         // bookkeeping that makes it exist in the prologue/epilogue.
         destTarget(dest) {
+            if (dest.relative && !(this.kind === "vertex" && this.major === 3 && dest.type === REG_OUTPUT))
+                throw new Error("destination register does not support relative addressing");
             switch (dest.type) {
             case REG_TEMP:
                 this.temps.add(dest.index);
@@ -770,6 +798,18 @@
             }
             case REG_OUTPUT: {
                 if (this.kind === "vertex" && this.major >= 3) {
+                    if (dest.relative) {
+                        const index = this.relativeRegisterIndex(dest, true);
+                        for (const declaration of this.outputDeclarations) {
+                            if (declaration.usageIndex === 0 &&
+                                    ((declaration.usage === DECLUSAGE_POSITION && declaration.register !== 0) ||
+                                     (declaration.usage === DECLUSAGE_PSIZE && declaration.register !== 1)))
+                                throw new Error("indexed outputs require POSITION0 at o0 and PSIZE0 at o1");
+                            const slot = varyingForSemantic(declaration.usage, declaration.usageIndex);
+                            if (slot >= 0) this.writtenVaryings.add(slot);
+                        }
+                        return "o_raw[" + index + "]";
+                    }
                     const semantic = this.outputSemantics.get(dest.index);
                     if (!semantic)
                         throw new Error("vs_3_0 output o" + dest.index +
@@ -778,7 +818,7 @@
                         const slot = varyingForSemantic(declaration.usage, declaration.usageIndex);
                         if (slot >= 0) this.writtenVaryings.add(slot);
                     }
-                    return "o_raw" + dest.index;
+                    return "o_raw[" + dest.index + "]";
                 }
                 const slot = VARYING_TEXCOORD0 + dest.index;
                 if (dest.index > 7)
@@ -822,16 +862,28 @@
             }
             this.emit("let " + name + " = " + value + ";");
             const gate = this.predicateGate;
+            if (dest.relative) {
+                const index = this.relativeRegisterIndex(dest, true);
+                // Undefined accesses must not alias an unrelated output, nor
+                // alter POSITION/PSIZE. Keep value evaluation outside the guard.
+                const excluded = [...new Set(this.outputDeclarations.filter(item =>
+                    item.usage === DECLUSAGE_POSITION || item.usage === DECLUSAGE_PSIZE).map(item => item.register))];
+                this.emit("if (" + index + " >= 0 && " + index + " < 12" +
+                    excluded.map(register => " && " + index + " != " + register).join("") + ") {");
+                this.indent += 2;
+            }
             if (dest.writeMask === 0xf && !gate) {
                 this.emit(target + " = " + name + ";");
-                return;
-            }
-            for (let i = 0; i < 4; ++i) {
+            } else for (let i = 0; i < 4; ++i) {
                 if (!(dest.writeMask & (1 << i))) continue;
                 const component = WRITEMASK_NAMES[i];
                 this.emit(target + "." + component + " = " + (gate
                     ? "select(" + target + "." + component + ", " + name + "." + component + ", " + gate[i] + ")"
                     : name + "." + component) + ";");
+            }
+            if (dest.relative) {
+                this.indent -= 2;
+                this.emit("}");
             }
         }
 
@@ -890,6 +942,7 @@
                 return;
             }
             if (this.kind === "vertex" && dest.type === REG_INPUT) {
+                if (dest.index >= 16) throw new Error("vertex input register exceeds v15");
                 this.usedInputs.set(dest.index, {
                     usage: declaration.usage, usageIndex: declaration.usageIndex });
                 return;
@@ -1831,8 +1884,7 @@
 
             if (kind === "vertex") {
                 if (this.major >= 3)
-                    for (const index of this.outputSemantics.keys())
-                        out.push("var<private> o_raw" + index + ": vec4<f32> = vec4<f32>(0.0);");
+                    out.push("var<private> o_raw: array<vec4<f32>, 12>;");
                 out.push("var<private> o_position: vec4<f32> = vec4<f32>(0.0, 0.0, 0.0, 1.0);");
                 if (this.usesPointSize)
                     out.push("var<private> o_pointsize: vec4<f32> = vec4<f32>(1.0);");
@@ -1872,6 +1924,14 @@
             }
             out.push("");
 
+            if (this.usesRelativeInputs) {
+                const count = kind === "vertex" ? 16 : 10;
+                out.push("var<private> d9_inputs: array<vec4<f32>, " + count + ">;");
+                out.push("fn d9_read_input(index: i32) -> vec4<f32> {");
+                out.push("    if (index < 0 || index >= " + count + ") { return vec4<f32>(0.0); }");
+                out.push("    return d9_inputs[index];");
+                out.push("}");
+            }
             for (const routine of routines.subroutines) {
                 out.push("fn d9_sub" + routine.label + "() {");
                 out.push(...bodies.get(routine.label));
@@ -1934,6 +1994,8 @@
             for (const entry of inputs)
                 out.push("    vin" + entry[0] + " = " +
                     inputValue(entry[0]) + ";");
+            if (this.usesRelativeInputs)
+                for (const entry of inputs) out.push("    d9_inputs[" + entry[0] + "] = vin" + entry[0] + ";");
             out.push("    d9_body();");
             if (this.major >= 3) {
                 for (const item of this.outputDeclarations) {
@@ -1942,10 +2004,10 @@
                         : item.usage === DECLUSAGE_PSIZE && item.usageIndex === 0 ? "o_pointsize"
                             : slot >= 0 ? "o_varying" + slot : null;
                     if (!target) continue;
-                    if (item.mask === 15) out.push("    " + target + " = o_raw" + item.register + ";");
+                    if (item.mask === 15) out.push("    " + target + " = o_raw[" + item.register + "];");
                     else for (let component = 0; component < 4; ++component) if (item.mask & 1 << component) {
                         const channel = "xyzw"[component];
-                        out.push("    " + target + "." + channel + " = o_raw" + item.register + "." + channel + ";");
+                        out.push("    " + target + "." + channel + " = o_raw[" + item.register + "]." + channel + ";");
                     }
                 }
             }
@@ -2008,7 +2070,7 @@
             // physical o# registers independently of its pixel-shader partner.
             if (this.options.semanticLink && this.options.semanticLink.vertex) {
                 for (const binding of this.options.semanticLink.vertex) {
-                    let value = "o_raw" + binding.register + "." + "xyzw"[binding.component];
+                    let value = "o_raw[" + binding.register + "]." + "xyzw"[binding.component];
                     if (this.options.pointExpansion && this.options.pointSprite &&
                             binding.usage === DECLUSAGE_TEXCOORD && binding.usageIndex < 8)
                         value = ["d9_point_uv.x", "d9_point_uv.y", "0.0", "1.0"][binding.component];
@@ -2089,6 +2151,8 @@
             for (const entry of declared)
                 out.push("    " + entry.register + " = stage_in.varying" + entry.slot +
                     (entry.channel ? "." + entry.channel : "") + ";");
+            if (this.usesRelativeInputs)
+                for (const index of this.usedInputs.keys()) out.push("    d9_inputs[" + index + "] = v" + index + ";");
             if (this.usesFragPosition)
                 out.push("    d9_frag_position = stage_in.position;");
             if (this.usesFrontFacing)

@@ -896,5 +896,103 @@
             {at: [48, 48], expect: [flat ? 255 : 191, 191, 0, 255], tolerance: 1}],
     });
 
+    // SM3 indexed registers: independent colour constants, real vertex input
+    // conversion, and loops visiting every legal input/output register.
+    const relativeToken = token => (token | 0x2000) >>> 0;
+    const loopDef = (register, count, start, step) => [S.DEFI, dst(R.CONSTINT, register), count, start, step, 0];
+    const loopBegin = register => [S.LOOP, src(R.LOOP, 0), src(R.CONSTINT, register)];
+    const relativePS = semanticPS([{usage: 5, index: 0, register: 0, mask: 15}],
+        [[S.MOV, dst(R.COLOROUT, 0), src(R.INPUT, 0)]]);
+    for (let input = 0; input < 16; ++input) for (const component of [0, 1, 2, 3, "loop"]) {
+        add("shader-addressing", {name: "VS3 relative input v" + input + " via " + component, body: dev => {
+            const position = input === 0 ? 1 : 0, offset = input === 0 ? 1 : 0, index = input - offset;
+            const instructions = [semanticDcl(0, 0, R.INPUT, position), semanticDcl(10, 0, R.INPUT, input),
+                semanticDcl(0, 0, R.OUTPUT, 0), semanticDcl(5, 0, R.OUTPUT, 2),
+                [S.MOV, dst(R.OUTPUT, 0), src(R.INPUT, position)]];
+            if (component === "loop") instructions.push(loopDef(0, 1, index, 1), loopBegin(0));
+            else instructions.push([S.DEF, dst(R.CONST, 0), ...[0, 1, 2, 3].map(c => f(c === component ? index : 13))],
+                [S.MOVA, dst(R.ADDR, 0), src(R.CONST, 0)]);
+            instructions.push([S.MOV, dst(R.OUTPUT, 2), relativeToken(src(R.INPUT, offset)),
+                src(component === "loop" ? R.LOOP : R.ADDR, 0, component === "loop" ? 0xe4 : component * 0x55)]);
+            if (component === "loop") instructions.push([S.ENDLOOP]);
+            return [...bindSemanticPair(dev, legacyShader("vertex", 3, instructions), relativePS),
+                ...drawXYZ(dev, fullXYZ(.5, 0xcc336699))];
+        }, probes: [{at: [32, 32], expect: [51, 102, 153, 204], tolerance: 1}]});
+    }
+    const indexedValues = Array.from({length: 10}, (_, i) => [(i + 1) / 16, (10 - i) / 16, .25, .75]);
+    const indexedDeclarations = indexedValues.map((value, i) => ({usage: 5, index: i, register: i, mask: 15, value}));
+    for (let input = 0; input < 10; ++input) for (const offset of [0, input + 1]) {
+        add("shader-addressing", {name: "PS3 relative input v" + input + " offset " + offset, body: dev => {
+            const ps = semanticPS(indexedDeclarations, [loopDef(0, 1, input - offset, 1), loopBegin(0),
+                [S.MOV, dst(R.COLOROUT, 0), relativeToken(src(R.INPUT, offset)), src(R.LOOP, 0)], [S.ENDLOOP]]);
+            return [...bindSemanticPair(dev, semanticVS(indexedDeclarations), ps), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: indexedValues[input].map(clamp), tolerance: 1}]});
+    }
+    for (let output = 2; output < 12; ++output) for (const offset of [0, output, output + 1]) for (const mask of [15, 5, 10]) {
+        add("shader-addressing", {name: "VS3 relative output o" + output + " offset " + offset + " mask " + mask, body: dev => {
+            const instructions = [semanticDcl(0, 0, R.INPUT, 0), semanticDcl(0, 0, R.OUTPUT, 0),
+                ...indexedDeclarations.map(item => semanticDcl(item.usage, item.index, R.OUTPUT, item.register + 2)),
+                [S.DEF, dst(R.CONST, 0), f(.1), f(.1), f(.1), f(1)],
+                [S.DEF, dst(R.CONST, 1), f(.2), f(.4), f(.6), f(.8)],
+                [S.MOV, dst(R.OUTPUT, 0), src(R.INPUT, 0)],
+                ...indexedDeclarations.map(item => [S.MOV, dst(R.OUTPUT, item.register + 2), src(R.CONST, 0)]),
+                loopDef(0, 1, output - offset, 1), loopBegin(0),
+                [S.MOV, relativeToken(dst(R.OUTPUT, offset, mask)), src(R.LOOP, 0), src(R.CONST, 1)], [S.ENDLOOP]];
+            const ps = semanticPS([{usage: 5, index: output - 2, register: 0, mask: 15}],
+                [[S.MOV, dst(R.COLOROUT, 0), src(R.INPUT, 0)]]);
+            return [...bindSemanticPair(dev, legacyShader("vertex", 3, instructions), ps), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: [.2, .4, .6, .8].map((v, c) => clamp(mask & 1 << c ? v : c === 3 ? 1 : .1)), tolerance: 1}]});
+    }
+    for (const reverse of [false, true]) for (const nested of [false, true]) {
+        add("shader-addressing", {name: "PS3 indexed fold reverse=" + reverse + " nested=" + nested, body: dev => {
+            const instructions = [[S.DEF, dst(R.CONST, 0), 0, 0, 0, 0],
+                [S.DEF, dst(R.CONST, 1), f(.5), f(.5), f(.5), f(.5)],
+                [S.MOV, dst(R.TEMP, 0), src(R.CONST, 0)], loopDef(0, 10, reverse ? 9 : 0, reverse ? -1 : 1),
+                loopDef(1, 2, 7, -3), loopBegin(0)];
+            if (nested) instructions.push(loopBegin(1), [S.MOV, dst(R.TEMP, 1), relativeToken(src(R.INPUT, 0)), src(R.LOOP, 0)], [S.ENDLOOP]);
+            instructions.push([S.MUL, dst(R.TEMP, 0), src(R.TEMP, 0), src(R.CONST, 1)],
+                [S.ADD, dst(R.TEMP, 0), src(R.TEMP, 0), relativeToken(src(R.INPUT, 0)), src(R.LOOP, 0)],
+                [S.ENDLOOP], [S.MUL, dst(R.COLOROUT, 0), src(R.TEMP, 0), src(R.CONST, 1)]);
+            return [...bindSemanticPair(dev, semanticVS(indexedDeclarations), semanticPS(indexedDeclarations, instructions)),
+                ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: (reverse ? [...indexedValues].reverse() : indexedValues)
+            .reduce((sum, value) => sum.map((x, c) => x * .5 + value[c]), [0, 0, 0, 0]).map(x => clamp(x * .5)), tolerance: 1}]});
+    }
+
+    for (const reverse of [false, true]) for (const nested of [false, true]) {
+        add("shader-addressing", {name: "VS3 indexed output sweep reverse=" + reverse + " nested=" + nested, body: dev => {
+            const instructions = [semanticDcl(0, 0, R.INPUT, 0), semanticDcl(0, 0, R.OUTPUT, 0),
+                ...indexedDeclarations.map(item => semanticDcl(item.usage, item.index, R.OUTPUT, item.register + 2)),
+                ...indexedValues.map((value, i) => [S.DEF, dst(R.CONST, i + 2), ...value.map(f)]),
+                [S.MOV, dst(R.OUTPUT, 0), src(R.INPUT, 0)], loopDef(0, 10, reverse ? 11 : 2, reverse ? -1 : 1),
+                loopDef(1, 2, 3, 2), loopBegin(0)];
+            if (nested) instructions.push(loopBegin(1), [S.MOV, dst(R.TEMP, 1), relativeToken(src(R.CONST, 0)), src(R.LOOP, 0)], [S.ENDLOOP]);
+            instructions.push([S.MOV, relativeToken(dst(R.OUTPUT, 0)), src(R.LOOP, 0), relativeToken(src(R.CONST, 0)), src(R.LOOP, 0)], [S.ENDLOOP]);
+            const psBody = [[S.DEF, dst(R.CONST, 0), 0, 0, 0, 0], [S.DEF, dst(R.CONST, 1), f(.5), f(.5), f(.5), f(.5)],
+                [S.MOV, dst(R.TEMP, 0), src(R.CONST, 0)], loopDef(0, 10, 0, 1), loopBegin(0),
+                [S.MAD, dst(R.TEMP, 0), src(R.TEMP, 0), src(R.CONST, 1), relativeToken(src(R.INPUT, 0)), src(R.LOOP, 0)],
+                [S.ENDLOOP], [S.MUL, dst(R.COLOROUT, 0), src(R.TEMP, 0), src(R.CONST, 1)]];
+            return [...bindSemanticPair(dev, legacyShader("vertex", 3, instructions), semanticPS(indexedDeclarations, psBody)),
+                ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: indexedValues.reduce((sum, value) => sum.map((x, c) => x * .5 + value[c]), [0, 0, 0, 0])
+            .map(x => clamp(x * .5)), tolerance: 1}]});
+    }
+    for (const mask of [15, 5, 10]) for (const swizzle of [0xe4, 0x1b]) {
+        add("shader-addressing", {name: "VS3 predicated relative output mask=" + mask + " swizzle=" + swizzle, body: dev => {
+            const vs = legacyShader("vertex", 3, [semanticDcl(0, 0, R.INPUT, 0), semanticDcl(0, 0, R.OUTPUT, 0),
+                semanticDcl(5, 0, R.OUTPUT, 2), [S.MOV, dst(R.OUTPUT, 0), src(R.INPUT, 0)],
+                [S.DEF, dst(R.CONST, 0), f(.2), f(.7), f(.4), f(.9)],
+                [S.DEF, dst(R.CONST, 1), f(.5), f(.5), f(.5), f(.5)],
+                [S.DEF, dst(R.CONST, 2), f(.1), f(.1), f(.1), f(1)],
+                [S.MOV, dst(R.OUTPUT, 2), src(R.CONST, 2)], loopDef(0, 1, 2, 1)]).slice(0, -1);
+            vs.push(ins(S.SETP, 3, {control: 1}), dst(R.PREDICATE, 0), src(R.CONST, 0), src(R.CONST, 1),
+                ins(S.LOOP, 2), src(R.LOOP, 0), src(R.CONSTINT, 0),
+                ins(S.MOV, 4, {predicated: true}), relativeToken(dst(R.OUTPUT, 0, mask)), src(R.LOOP, 0),
+                src(R.PREDICATE, 0, swizzle), src(R.CONST, 0), ins(S.ENDLOOP, 0), 0xffff);
+            return [...bindSemanticPair(dev, vs, relativePS), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: [.2, .7, .4, .9].map((v, c) =>
+            clamp((mask & 1 << c) && (((swizzle >> (c * 2)) & 3) % 2) ? v : c === 3 ? 1 : .1)), tolerance: 1}]});
+    }
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

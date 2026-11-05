@@ -27,7 +27,7 @@
 //   node tests/glbridge/gl_multipass_browser_runner.js d3d9_conformance_browser_test.html
 (async () => {
     "use strict";
-    const { CASES, KNOWN_FAILURES, caseBatch, readbackBatch } = D3D9Conformance;
+    const { CASES, KNOWN_FAILURES, caseBatch, readbackBatch, endCaseBatch } = D3D9Conformance;
     const lines = [];
     let failed = 0;
     try {
@@ -69,6 +69,15 @@
                     throw new Error(c.name + ": guest READBACK failed");
                 pictures.set(target, reply.subarray(16));
             }
+            // Each case is a separate guest process. End it through the wire
+            // after readback so hundreds of cases do not retain hundreds of
+            // upload/uniform arenas and eventually exhaust ArrayBuffer memory.
+            await executor.submit(endCaseBatch(i + 1), {writeGuestMemory() {}});
+            await executor.idle();
+            await device.queue.onSubmittedWorkDone();
+            for (let k = 0; k < 4; ++k) await new Promise(resolve => setTimeout(resolve, 0));
+            if (executor.devices.size || executor.resources.size || executor.sessionStates.size)
+                throw new Error(c.name + ": case session was not released");
             const problems = [
                 ...executor.gpuErrors.errors.slice(errorsBefore).map(e => "WebGPU " + e.source + ": " + e.message),
                 ...executor.hostErrors.slice(hostErrorsBefore).map(e => "host: " + e.message),
