@@ -9,16 +9,18 @@ import { AppleTimer } from "./timer.js";
 import { AppleUART } from "./uart.js";
 import { AppleVIC } from "./vic.js";
 import { AppleI2S } from "./audio.js";
+import { AppleSPI } from "./spi.js";
 
 export const N90_BUTTONS = ["home", "power", "volume-up", "volume-down", "mute"];
 
 const auxiliary_uarts = ["apple_uart1", "apple_uart2", "apple_uart3", "apple_uart4", "apple_uart5", "apple_uart6"];
 const audio_controllers = ["apple_i2s0", "apple_i2s1", "apple_i2s2"];
+const spi_controllers = ["apple_spi0", "apple_spi1"];
 
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers,
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers,
 ];
 
 export function create_n90_devices(cpu, bus, screen, buffer)
@@ -54,6 +56,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     };
     auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
     audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i); });
+    spi_controllers.forEach((name, i) => { devices[name] = new AppleSPI(cpu, i, level => vic.set_line(29 + i, level)); });
     if(nand) devices.apple_nand = nand;
     return devices;
 }

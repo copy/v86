@@ -60,6 +60,16 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
         dt_set(cpu, name, cells(hz));
     }
     dt_set(tree, "clock-frequency", cells(24000000));
+    // iBoot fills these device-clock slots. A zero pclk/nclk makes the
+    // original Samsung SPI driver reject the controller before mapping it.
+    const clock_property = dt_property(io, "clock-frequencies");
+    if(clock_property && clock_property.value.length >= 0x31 * 4)
+    {
+        const clocks = clock_property.value.slice(), view = new DataView(clocks.buffer, clocks.byteOffset);
+        for(const [slot, hz] of [[0x22, 100000000], [0x2f, 24000000], [0x30, 24000000]])
+            if(!view.getUint32(slot * 4, true)) view.setUint32(slot * 4, hz, true);
+        dt_set(io, "clock-frequencies", clocks);
+    }
 
     // IODTNVRAM walks 16-byte units in the 8 KiB iBoot proxy. The zero
     // placeholder has a zero-length partition and the walk never advances.

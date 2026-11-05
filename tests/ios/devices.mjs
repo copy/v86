@@ -9,6 +9,7 @@ import { AppleIOP } from "../../src/apple/iop.js";
 import { AppleGPIO, N90_BUTTONS } from "../../src/apple/s5l8930.js";
 import { AppleUART } from "../../src/apple/uart.js";
 import { AppleI2S } from "../../src/apple/audio.js";
+import { AppleSPI } from "../../src/apple/spi.js";
 
 let now = 0, signals = 0;
 const ports = new Map(), output = [], inputs = new Map();
@@ -18,6 +19,47 @@ const cpu = {
     io: { register_mmio: (address, size, port) => ports.set(address, port) },
 };
 const bus = { register: (event, receive) => inputs.set(event, receive), send: (_, byte) => output.push(byte) };
+const spiLevels = [false, false], shifted = [];
+const spi0 = new AppleSPI(cpu, 0, level => spiLevels[0] = level);
+const spi1 = new AppleSPI(cpu, 1, level => spiLevels[1] = level, byte => { shifted.push(byte); return byte ^ 0x55; });
+const spiPort = ports.get(0x82100000);
+spiPort.write(0, 4, 0x0d); // enabled, both FIFOs reset
+spiPort.write(4, 4, 0x4018); // configured, transfer disabled
+for(let i = 0; i < 16; i++) spiPort.write(0x10, 4, i);
+assert.equal(spiPort.read(8), 16 << 6);
+assert.deepEqual(shifted, []);
+spiPort.write(4, 4, 0x4038); // PIO transfer, interrupts masked
+assert.equal(spiPort.read(8), 16 << 11);
+assert.equal(spiLevels[1], false);
+spiPort.write(4, 4, 0x21c1b8); // native receive/transmit interrupt enables
+assert.equal(spiLevels[1], true);
+for(let i = 0; i < 16; i++) assert.equal(spiPort.read(0x20), i ^ 0x55);
+assert.equal(spiLevels[1], false);
+assert.deepEqual(shifted, Array.from({ length: 16 }, (_, i) => i));
+// More than one FIFOful, with receive-side backpressure and a snapshot.
+for(let i = 0; i < 32; i++) spiPort.write(0x10, 4, i + 16);
+assert.equal(spiPort.read(8), (16 << 6) | (16 << 11));
+spiPort.write(8, 4, 0x40000f);
+assert.equal(spiPort.read(8), (16 << 6) | (16 << 11)); // status acknowledgement is not a FIFO reset
+const spiSaved = spi1.get_state();
+for(let i = 0; i < 32; i++) assert.equal(spiPort.read(0x20), (i + 16) ^ 0x55);
+assert.equal(spiLevels[1], false);
+spi1.set_state(spiSaved);
+assert.equal(spiLevels[1], true);
+for(let i = 0; i < 32; i++) assert.equal(spiPort.read(0x20), (i + 16) ^ 0x55);
+spiPort.write(0x10, 4, 9);
+spiPort.write(0, 4, 0);
+assert.equal(spiLevels[1], false);
+assert.equal(spiPort.read(8), 1 << 11);
+spiPort.write(0, 4, 0x0d);
+assert.equal(spiPort.read(8), 0);
+assert.equal(spiPort.read(0x20), 0xff);
+assert.equal(spi0.read(0), 0);
+spi0.write(0, 1); spi0.write(4, 0x1b8); spi0.write(0x10, 0x12);
+assert.equal(spi0.read(0x20), 0xff); // unconnected slave
+spi1.reset();
+assert.deepEqual(spiLevels, [false, false]);
+console.log("PASS: independent SPI FIFOs, full-duplex PIO, masked/level interrupts, backpressure and in-flight snapshot");
 const vic = new AppleVIC(cpu), timer = new AppleTimer(cpu, vic);
 new AppleUART(cpu, bus);
 const uart = ports.get(0x82500000), pmgr = ports.get(0xBF100000), intc = ports.get(0xBF200000);
