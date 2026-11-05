@@ -244,10 +244,22 @@ assert.equal(audioPorts[0].read(0x404), 0x3000081);
 console.log("PASS: three isolated I2S control banks, clock stop acknowledgement and snapshots");
 
 
-const hub = { add_source() {}, set_mode() {}, set_size_graphical() {} };
+const hub = { add_source() {}, set_mode() {}, set_size_graphical() {}, update_buffer() {} };
 cpu.ram_offset = () => -1;
 const panel = new AppleCLCD(cpu, hub, vic);
 const display = ports.get(0x89000000);
+const dsim = ports.get(0x89500000);
+assert.equal(dsim.read(0x10) & 0x7F, 0x7F);
+dsim.write(0x18, 4, 0); // stop video before the panel's short DCS display-off packet
+dsim.write(0x34, 4, 0x2805);
+assert.equal(dsim.read(0) & 0x10F, 0x10F, "the enabled lanes return to their stop state");
+dsim.write(0x14, 4, 0x8A);
+assert.equal(dsim.read(0) & 0x3FF, 0x2F0, "all five lanes acknowledge ULPS entry");
+dsim.write(0x14, 4, 0x8F);
+assert.equal(dsim.read(0) & 0x3FF, 0x10F, "exit is acknowledged even while entry is asserted");
+dsim.write(0x14, 4, 0x8A);
+dsim.write(0x14, 4, 0x80);
+assert.equal(dsim.read(0) & 0x3FF, 0x10F, "all five lanes leave ULPS and return to stop");
 vic.reset();
 intc.write(0x10010, 4, 1 << 10);
 intc.write(0x10128, 4, 0x8000002A);
@@ -440,6 +452,19 @@ backlight.write(0x24, 5);
 panel.render();
 assert.deepEqual(Array.from(presented.subarray(0, 4)), [128, 64, 32, 255]);
 console.log("PASS: PMU backlight off/on changes displayed pixels and preserves guest VRAM");
+
+dsim.write(0x34, 4, 0x2805);
+const sleepingPanel = panel.get_state();
+panel.reset(); panel.set_state(sleepingPanel);
+cpu.ram_offset = () => -1; // iOS tears down the scanout window during sleep
+panel.render();
+assert.deepEqual(Array.from(presented.subarray(0, 4)), [0, 0, 0, 255]);
+cpu.ram_offset = () => 0;
+displayRAM.set([0x64, 0x52, 0x38, 0]);
+dsim.write(0x34, 4, 0x2905);
+panel.render();
+assert.deepEqual(Array.from(presented.subarray(0, 4)), [0x38, 0x52, 0x64, 255]);
+console.log("PASS: DSI display-off clears the unmapped panel after restore and display-on repaints it");
 
 // The real IOP starts CDMA before the boot-page transfer but after the
 // full-page transfer request. Both orders see the same descriptor/data.

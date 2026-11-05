@@ -52,8 +52,12 @@ export class AppleCLCD
         this.color[0x50 >>> 2] = 1;
         this.color[0x60 >>> 2] = (N90_VIDEO.width - 1) << 16 | (N90_VIDEO.height - 1);
         this.ulps = 0;
+        this.panel_on = true;
         this.command = null;
         this.commands = [];
+        // iBoot leaves the clock lane and all four N90 data lanes enabled.
+        // Pinot sends short DCS packets before the first DSIM reconfiguration.
+        this.dsi[0x10 >>> 2] = 0x7F;
         this.dsi[0] = 0x10010F;
         this.regs.fill(0);
         this.regs[0x4040 >>> 2] = 1;
@@ -107,16 +111,25 @@ export class AppleCLCD
     write_dsi(offset, value)
     {
         if(offset === 0 || offset === 0x3C) return;
+        const previous = this.dsi[offset >>> 2];
         if(offset === 0x2C) this.dsi[11] &= ~value;
         else this.dsi[offset >>> 2] = value;
-        // The clock and data lanes enter ULPS on request and stay there
-        // until the matching exit request. FIFO transfers drain immediately.
+        // ULPS requests are triggered by rising edges. Apple's wake sequence
+        // asserts exit while entry is still set, then drops exit first.
         if(offset === 0x14)
         {
-            if(value & 2) this.ulps |= 0x200;
-            if(value & 8) this.ulps |= (this.dsi[4] >>> 1 & 15) << 4;
-            if(value & 1) this.ulps &= ~0x200;
-            if(value & 4) this.ulps &= ~0xF0;
+            const request = value & ~previous;
+            if(request & 2) this.ulps |= 0x200;
+            if(request & 8) this.ulps |= (this.dsi[4] >>> 1 & 15) << 4;
+            if(request & 1) this.ulps &= ~0x200;
+            if(request & 4) this.ulps &= ~0xF0;
+        }
+        // Pinot sends Display Off/On as short DCS packets without arguments.
+        const packet = value & 0xFF3F;
+        if(offset === 0x34 && (packet === 0x2805 || packet === 0x2905))
+        {
+            this.panel_on = packet === 0x2905;
+            this.invalidate();
         }
         const lanes = this.dsi[4] >>> 1 & 15;
         this.dsi[0] = 0x100000 | this.ulps | (this.ulps & 0x200 ? 0 : 0x100) |
@@ -221,6 +234,15 @@ export class AppleCLCD
 
     render()
     {
+        if(!this.panel_on)
+        {
+            if(!this.dirty) return;
+            this.rgba.fill(0);
+            for(let i = 3; i < this.rgba.length; i += 4) this.rgba[i] = 255;
+            this.dirty = false;
+            this.update_display();
+            return;
+        }
         const base = this.regs[0x4044 >>> 2];
         const words = this.surface_words(base);
         if(!words) return;
@@ -237,24 +259,27 @@ export class AppleCLCD
             this.rgba[i * 4 + 3] = 255;
         }
         this.dirty = false;
-        if(changed)
-        {
-            const { width, height } = N90_VIDEO;
-            this.hub.update_buffer([{ pixels: { data: this.rgba, width, height }, screen_x: 0, screen_y: 0,
-                buffer_x: 0, buffer_y: 0, buffer_width: width, buffer_height: height }]);
-        }
+        if(changed) this.update_display();
+    }
+
+    update_display()
+    {
+        const { width, height } = N90_VIDEO;
+        this.hub.update_buffer([{ pixels: { data: this.rgba, width, height }, screen_x: 0, screen_y: 0,
+            buffer_x: 0, buffer_y: 0, buffer_width: width, buffer_height: height }]);
     }
 
     copy_command(command) { return command ? [...command.slice(0, 4), command[4].map(pair => pair.slice()), !!command[5]] : null; }
     get_state()
     {
         return [this.regs.slice(), this.dsi.slice(), this.ulps, this.color.slice(),
-            this.copy_command(this.command), this.commands.map(command => this.copy_command(command))];
+            this.copy_command(this.command), this.commands.map(command => this.copy_command(command)), this.panel_on];
     }
     set_state(state)
     {
         this.regs.set(state[0]); this.dsi.set(state[1]); this.ulps = state[2]; this.color.set(state[3]);
         this.command = this.copy_command(state[4]); this.commands = (state[5] || []).map(command => this.copy_command(command));
+        this.panel_on = state[6] !== false;
         this.regs[0x1044 >>> 2] = 0;
         this.update_irq(); this.invalidate();
     }
