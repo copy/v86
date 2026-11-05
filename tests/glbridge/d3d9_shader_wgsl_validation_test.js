@@ -496,6 +496,18 @@ for (const minor of [1, 4]) {
     }
 }
 
+CORPUS.push(["ps_1_4 texdepth", [PS(1, 4), OP.TEXCOORD, dst(REG.TEMP, 5, {mask: 7}), src(REG.TEXTURE, 0),
+    OP.PHASE, OP.TEXDEPTH, dst(REG.TEMP, 5), OP.MOV, dst(REG.TEMP, 0), src(REG.CONST, 0), END]]);
+CORPUS.push(["ps_1_3 texm3x2depth", [PS(1, 3), OP.TEXM3x2PAD, dst(REG.TEXTURE, 1), src(REG.TEXTURE, 0),
+    OP.TEXM3x2DEPTH, dst(REG.TEXTURE, 2), src(REG.TEXTURE, 0), OP.MOV, dst(REG.TEMP, 0), src(REG.CONST, 0), END]]);
+CORPUS.push(["ps_1_3 texm3x3", [PS(1, 3), OP.TEXM3x3PAD, dst(REG.TEXTURE, 1), src(REG.TEXTURE, 0),
+    OP.TEXM3x3PAD, dst(REG.TEXTURE, 2), src(REG.TEXTURE, 0), OP.TEXM3x3, dst(REG.TEXTURE, 3), src(REG.TEXTURE, 0),
+    OP.MOV, dst(REG.TEMP, 0), src(REG.TEXTURE, 3), END]]);
+for (const fetch of [false, true]) for (const component of ["y", "z", "w"])
+    CORPUS.push(["ps_1_1 projected depth " + component + " fetch=" + fetch,
+        [PS(1, 1), OP.TEX, dst(REG.TEXTURE, 0), OP.MOV, dst(REG.TEMP, 0), src(REG.TEXTURE, 0), END],
+        {depthSamplers: [0], depthFetchSamplers: fetch ? [0] : [], legacyProjection: {0: component}}]);
+
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), "d9wgsl-"));
 const failures = [];
 let validated = 0;

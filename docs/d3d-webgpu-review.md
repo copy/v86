@@ -2805,6 +2805,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 测试程序此前每个场景保留独立会话，扩容后耗尽ArrayBuffer；现通过协议发送SESSION_END，每例核对设备、资源、会话表为空。未改变像素期望或错误门槛。
 > - 48翻译器单测、178执行器、190Naga程序、12私有shader严格Naga+Chrome Tint、6文件范围lint及两项站点集成通过。发布bundle `fd0a2a95df0b43356bd8`。证据：[stage5l5-validation.json](fixtures/d3d-review/stage5l5-validation.json)。主体一次翻译和旧版投影/深度/矩阵采样仍待完成，阶段5尚未关闭。
 
+> **阶段 5L6（2026-11-05，功能批次完成）：旧版投影/深度/矩阵采样。**
+> - 实现ps_1_4 texdepth、ps_1_3 texm3x2depth及ps_1_2/1_3 texm3x3；前两者接入片元深度并处理文档规定的除零结果1。ps_1_1～1_3普通tex按PROJECTED和COUNT选择除数，ps_1_4忽略该标志，缓存键覆盖状态切换。
+> - 旧版普通tex/texld支持硬件深度比较与INTZ/DF24原始深度读取；texreg2rgb和三行矩阵采样按实际绑定选择2D/cube/volume。修复无采样器时纯纹理坐标运算没有被固定顶点管线传出的缺口。
+> - 新增 **130 个实际像素场景**，包含单采样/4xMSAA深度比较和写入、正负/零除数、矩阵修饰符、投影及同帧状态/纹理维度切换。全套 **1123场景 Metal/SwiftShader 全通过**；旧实现失败114个新场景。独立纹理/深度数值参考扩至 **52程序、13,312分量**，两后端绝对误差≤1e-5。
+> - 49翻译器单测、178执行器、199Naga程序、12私有shader严格Naga+Chrome Tint、9文件范围lint、两项站点集成通过。发布bundle `3cda04417fadd87ee619`。证据：[stage5l6-validation.json](fixtures/d3d-review/stage5l6-validation.json)。未将未定义深度范围或全部依赖深度采样组合宣称为原生等价；主体一次翻译仍待完成，阶段5尚未关闭。
+
 - **目标：** 翻译的正确性由差分测试保证。
 - **改动：**
   - 写一个 SM1–3 的 CPU 参考解释器（JS），按 D3D9 文档的伪代码实现。

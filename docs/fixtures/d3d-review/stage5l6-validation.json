@@ -1,0 +1,116 @@
+{
+  "stage": "5L6 legacy pixel projection, depth and matrix instructions",
+  "date": "2026-11-05",
+  "baseline": {
+    "core": "91cd4832",
+    "site": "8537858"
+  },
+  "changes": [
+    "Implement ps_1_4 texdepth and ps_1_3 texm3x2depth through fragment-depth output, including defined zero-divisor result 1. Implement ps_1_2/1_3 texm3x3 without sampling.",
+    "Apply ps_1_1 through ps_1_3 D3DTTFF_PROJECTED count-selected divisor to tex coordinates; keep ps_1_4 flag ignored. Variant keys include projection.",
+    "Enable legacy hardware shadow comparison and raw depth-format sampling. Resolve texreg2rgb/texm3x3tex/spec/vspec sampler dimensions from actual 2D/cube/volume bindings.",
+    "Reflect coordinate reads even when the pixel shader samples no texture; fixed-function vertex emission now supplies arithmetic-only texcoord/depth/matrix inputs."
+  ],
+  "references": [
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/texdepth---ps",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/texm3x2depth---ps",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/texm3x3---ps",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dtexturetransformflags",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/texld---ps-1-4"
+  ],
+  "runs": {
+    "metal": {
+      "status": "PASS",
+      "cases": 1123,
+      "newLegacyCases": 130,
+      "logSha256": "e1a5f665f5af894829d587702b12b640bc603746a824fa0d191761f83dac3918",
+      "validation": "Wire READBACK; independent colour/depth comparisons, MSAA and single-sample depth output, forward/negative divisors, same-frame projection and sampler-dimension switches; zero GPU/host errors, failed commands and dropped draws; empty case resource/session tables.",
+      "textureDifferential": {
+        "programs": 52,
+        "components": 13312,
+        "absoluteTolerance": 1e-05,
+        "logSha256": "5ec07f1223e40f00a85d72ac42316ae5f5a76d57fbd9e1f81bcfb8124331fd25"
+      }
+    },
+    "swift": {
+      "status": "PASS",
+      "cases": 1123,
+      "newLegacyCases": 130,
+      "logSha256": "e1a5f665f5af894829d587702b12b640bc603746a824fa0d191761f83dac3918",
+      "validation": "Wire READBACK; independent colour/depth comparisons, MSAA and single-sample depth output, forward/negative divisors, same-frame projection and sampler-dimension switches; zero GPU/host errors, failed commands and dropped draws; empty case resource/session tables.",
+      "textureDifferential": {
+        "programs": 52,
+        "components": 13312,
+        "absoluteTolerance": 1e-05,
+        "logSha256": "5ec07f1223e40f00a85d72ac42316ae5f5a76d57fbd9e1f81bcfb8124331fd25"
+      }
+    }
+  },
+  "negativeControl": {
+    "status": "FAIL as expected",
+    "oldSource": "91cd4832",
+    "cases": 130,
+    "failedCases": 114,
+    "logSha256": "ab98e26b65de5837c5eb6c84359f54c74962d36cb87a258d822a39043ac91e3e"
+  },
+  "validation": {
+    "shaderUnit": 49,
+    "executorUnit": 178,
+    "nagaPrograms": 199,
+    "strictPrivateCorpus": {
+      "translated": 12,
+      "naga": 12,
+      "chromeTint": 12
+    },
+    "siteIntegration": 2,
+    "lintFiles": 9,
+    "newLintProblems": 0
+  },
+  "sourceSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "a47fa8dce510c4a17af2c8c5b5e4b4b95ca6e024a859f823fc3b8043d71b0b9f",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "3249c071c7f157277af32790b117715df73192fba8a061e5e43d7d55cccd203a",
+    "tests/glbridge/d3d9_feature_cases.js": "f5649d4b393e870203c7cb349458781ef0620b9a6e9dece72611a0972c783c52",
+    "tests/glbridge/d3d9_shader_pipeline_test.js": "4ce3d82159b65f0f1a2fe4c259d521506877b17ad6af290cf714740f3c075724",
+    "tests/glbridge/d3d9_shader_wgsl_validation_test.js": "228072fc6f0194505b9a4e9fcca8485a816a03b156cfaa12d232e3fb8fcb819e",
+    "tests/glbridge/d3d_shader_texture_browser_test.html": "42c640640414da11f4fedfaa046d3e9431751b6ef541c5e49d5987848809f44c",
+    "tests/lib/d3d_shader_texture_cases.mjs": "d00f56152b5c15ebd4c83f47358123f552c540eb71167dbdcb96d16465fa3b4f"
+  },
+  "logs": {
+    "unit": "f6fc4e9b14ccda0d5a53a96490ebdf0fa74ce0e3479053bcb68ce4a799c7a30d",
+    "executor": "ac027f4ccdd0f4e926c42486044348f6937ce14ddeae3b72df7713a9d1954b4a",
+    "naga": "643316e51bf3c8a14b1a40d5f2defff2673de0f863fb969e54c6d90961f954fd",
+    "corpus": "82c5eca04fa67349e85bebc25e312777914ca75cf9f4bb998a76a162089d349f",
+    "lint": "5edfb32c180290b0920c18522895bcaf3365e34d636bcf45e82a69bcd5be2f05",
+    "site": "b3bade0305a74ad2785de1e074ed2998b4adbb4c911537264a0a7a5d1c00d292",
+    "build": "f41f550d0208047eff13be080969296a867b6d3260fb41a4ebb0a1abc97fea44"
+  },
+  "bundle": {
+    "revision": "3cda04417fadd87ee619",
+    "files": [
+      "libv86-webgpu.js",
+      "d3d9_shader_worker.js",
+      "d3d9_shader_pipeline.js",
+      "graphics_journal_worker.js",
+      "d9wg_diagnostics.js",
+      "v86gl-device.js",
+      "glslang.wasm",
+      "vx_naga.wasm"
+    ]
+  },
+  "publishedSha256": {
+    "libv86-webgpu.js": "6ef65e2e4b15af75e5982b442f3ca32a76c9b1d4ce6896e257342893dfdc9b5a",
+    "d3d9_shader_worker.js": "445aeca376241cf951009506dbcc9181bc27e5ce3414c35268714174d18388c9",
+    "d3d9_shader_pipeline.js": "e6f04413b5a4f7dfa7d8a267b41eb349f77ad92ccd0a0f3940a828888154f86f",
+    "graphics_journal_worker.js": "a4a9cc47aab63bfa60ec2ce12c0ba0ff67a230cf8b736c2d37f013cc2ab86b0d",
+    "d9wg_diagnostics.js": "e73da140482f5210942b4dcd7d84186e833f1f6c6eb304ea0d3d672dd1531365",
+    "v86gl-device.js": "7463de3f79c6113f0e4d659e730a6736e6499338a82b21024514d5683b14b7e8",
+    "glslang.wasm": "bf04f3f1aa510afd7e461ccb75c929e9498684b3186768c00804ffecc8bdbd16",
+    "vx_naga.wasm": "8a0e51ee1698ff84d14a125d00241fc57fa33f17123cc3d6850d742bf41f5641",
+    "manifest.json": "c4bb0139ecd866d006c831b39def23c60e52186ccf45642510c5316aec2e5113"
+  },
+  "limitations": [
+    "Depth quotients outside [0,1] are undefined in D3D and defensively clamped; equivalence is claimed only for defined tested quotients and the documented zero divisor.",
+    "Tests cover ordinary legacy shadow/raw depth sampling; they are not a complete native-driver conformance claim for every dependent-depth/filter combination.",
+    "Body-once translation remains open; stage 4 full Wine compatibility and stage 5 completion are not claimed. MapleStory remains user-skipped."
+  ]
+}

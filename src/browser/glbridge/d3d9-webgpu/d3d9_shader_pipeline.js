@@ -19,9 +19,7 @@
 // to keep alive, no LGPL redistribution obligation (plan section 25 flags
 // this as unresolved for vkd3d), and a translator that is unit-testable
 // directly in Node. What it costs: correctness rests on this file's own test
-// suite instead of Wine's decades of game coverage, and the few ps_1_x
-// texture-addressing forms with no honest translation are refused (see
-// UNSUPPORTED_OPS) rather than approximated. compileShader() is the seam: it takes raw
+// suite instead of Wine's decades of game coverage. compileShader() takes raw
 // bytecode and returns WGSL + reflection, so swapping in a WASM backend later
 // changes only this file.
 //
@@ -115,22 +113,6 @@
         for (const key of Object.keys(OP)) names[OP[key]] = key.toLowerCase();
         return names;
     })();
-
-    // What remains of the ps_1_x texture-addressing family after the bump and
-    // matrix forms were implemented (see the TEXBEM/TEXM3x*/BEM cases in
-    // emit()).
-    //
-    // These three are the ones with no honest translation. TEXDEPTH and
-    // TEXM3x2DEPTH replace the fragment's depth from a texture-addressing
-    // result, which needs a frag_depth output the surrounding pipeline is not
-    // built for; TEXM3x3 is the Radeon-era variant that writes a 3x3 result
-    // without sampling, and nothing that reaches this translator emits it.
-    // Refusing keeps the "no pretending" discipline: the shader is marked
-    // unusable and draws that bind it are counted and skipped, rather than
-    // silently rendering something wrong.
-    const UNSUPPORTED_OPS = new Set([
-        OP.TEXM3x2DEPTH, OP.TEXM3x3, OP.TEXDEPTH,
-    ]);
 
     // Operand shape per opcode: [destCount, sourceCount]. SM2.0+ instruction
     // tokens also carry a length field, which parseShader() uses as the
@@ -902,10 +884,7 @@
                     this.intDefaults.set(instruction.dest.index, instruction.literals);
                 else if (instruction.opcode === OP.DEFB)
                     this.boolDefaults.set(instruction.dest.index, instruction.literals[0]);
-                else if (UNSUPPORTED_OPS.has(instruction.opcode))
-                    throw new Error("unsupported instruction '" +
-                        (OP_NAMES[instruction.opcode] || instruction.opcode) +
-                        "' (ps_1_x bump-environment/matrix texture addressing)");
+
             }
             for (const [register, literals] of this.floatDefaults)
                 this.maxFloatConst = Math.max(this.maxFloatConst, register);
@@ -1220,6 +1199,13 @@
                 }
                 return;
             }
+            case OP.TEXDEPTH: {
+                if (this.kind !== "pixel" || this.major !== 1 || this.minor !== 4 || dest.type !== REG_TEMP || dest.index !== 5)
+                    throw new Error("texdepth requires ps_1_4 r5");
+                this.temps.add(5);
+                this.emitLegacyDepth("r5.x", "r5.y");
+                return;
+            }
             case OP.TEX: this.textureLoad(instruction); return;
             case OP.TEXLDL: this.textureLoad(instruction, { explicitLod: true }); return;
             case OP.TEXLDD: this.textureLoad(instruction, { gradients: true }); return;
@@ -1326,6 +1312,25 @@
                 this.matrixRows.push(row);
                 return;
             }
+            case OP.TEXM3x2DEPTH: {
+                if (this.kind !== "pixel" || this.major !== 1 || this.minor !== 3)
+                    throw new Error("texm3x2depth requires ps_1_3");
+                this.psTexcoordInputs.add(dest.index);
+                const last = this.fresh("m3depth");
+                this.emit("let " + last + " = dot(t" + dest.index + ".xyz, (" + s(0) + ").xyz);");
+                const rows = this.takeMatrixRows(1, last);
+                this.emitLegacyDepth(rows[0], rows[1]);
+                return;
+            }
+            case OP.TEXM3x3: {
+                if (this.kind !== "pixel" || this.major !== 1 || this.minor < 2 || this.minor > 3)
+                    throw new Error("texm3x3 requires ps_1_2 or ps_1_3");
+                this.psTexcoordInputs.add(dest.index);
+                const last = this.fresh("m3row");
+                this.emit("let " + last + " = dot(t" + dest.index + ".xyz, (" + s(0) + ").xyz);");
+                this.store(dest, "vec4<f32>(" + this.takeMatrixRows(2, last).join(", ") + ", 1.0)");
+                return;
+            }
             case OP.TEXM3x2TEX: {
                 const index = dest.index;
                 if (!this.samplers.has(index)) this.samplers.set(index, "2d");
@@ -1344,10 +1349,9 @@
             case OP.TEXM3x3SPEC:
             case OP.TEXM3x3VSPEC: {
                 const index = dest.index;
-                // The 3x3 forms address a cube map or a volume; both take a
-                // three-component coordinate, and a cube is what environment
-                // mapping actually binds.
-                if (!this.samplers.has(index)) this.samplers.set(index, "cube");
+                // These forms also accept 2D textures. Bindings decide the
+                // dimension; three computed coordinates do not imply a cube.
+                if (!this.samplers.has(index)) this.samplers.set(index, this.legacySamplerType(index));
                 this.psTexcoordInputs.add(index);
                 const last = this.fresh("m3row");
                 this.emit("let " + last + " = dot(t" + index + ".xyz, (" +
@@ -1372,7 +1376,7 @@
                     coord = reflected;
                 }
                 this.store(dest, this.sampleExpression(index,
-                    { coord, ref: null }, {}));
+                    this.coordinateFor(index, "vec4<f32>(" + coord + ", 1.0)", false), {}));
                 return;
             }
             case OP.TEXREG2AR:
@@ -1543,9 +1547,6 @@
         //  - Only 2D. A cube or volume depth texture cannot be created here at
         //    all (the protocol's render target binding carries no face index),
         //    so a request for one is a caller bug, not a shader to translate.
-        //  - Not ps_1_x. Its texreg2* forms build coordinates out of a
-        //    previously sampled register and have no z to compare against, and
-        //    hardware shadow maps postdate that shader model entirely.
         //  - Pixel stage only. vs_3_0 vertex texture fetch on a shadow map is
         //    legal in principle but has no caller, and supporting it would mean
         //    a second binding-type path through the vertex sampler layout.
@@ -1556,7 +1557,7 @@
         // validation error that takes down the whole submit, not one draw.
         isDepthSampler(index) {
             return this.requestedDepthSamplers.has(index)
-                && this.kind === "pixel" && this.major >= 2
+                && this.kind === "pixel"
                 && (this.samplers.get(index) || "2d") === "2d";
         }
 
@@ -1583,8 +1584,10 @@
             // the non-projected and non-depth forms have to keep producing
             // exactly the expression they produced before, and `a / b * c` does
             // not reassociate to `a * (c / b)` in floating point.
-            const project = value => "(" + value + " / max(abs(" + name +
-                ".w), 1e-8) * sign(" + name + ".w + 1e-20))";
+            const component = typeof projected === "string" ? projected : "w";
+            const divisor = name + "." + component;
+            const project = value => "(" + value + " / select(-max(abs(" + divisor +
+                "), 1e-8), max(abs(" + divisor + "), 1e-8), " + divisor + " >= 0.0))";
             if (projected)
                 return { coord: project(name + "." + swizzle),
                     ref: wantsDepth ? project(name + ".z") : null };
@@ -1601,9 +1604,9 @@
             const texture = "d9_tex" + index;
             const sampler = "d9_smp" + index;
             const coord = this.mirrorOnceCoord(index, coordinate.coord);
-            if (coordinate.ref !== null && coordinate.ref !== undefined)
+            if (this.isDepthSampler(index) && !this.isDepthFetchSampler(index))
                 return this.compareExpression(texture, sampler, coord,
-                    coordinate.ref, options);
+                    coordinate.ref === null || coordinate.ref === undefined ? "0.0" : coordinate.ref, options);
             if (this.isDepthFetchSampler(index))
                 return this.depthFetchExpression(texture, sampler, coord,
                     options);
@@ -1712,6 +1715,14 @@
             return rows;
         }
 
+        emitLegacyDepth(numerator, denominator) {
+            this.usesDepthOutput = true;
+            // Both legacy depth instructions define a zero divisor as 1.
+            // D3D leaves out-of-range quotients undefined; clamp defensively.
+            this.emit("o_depthv.x = clamp(select(" + numerator + " / " + denominator +
+                ", 1.0, " + denominator + " == 0.0), 0.0, 1.0);");
+        }
+
         legacySamplerType(index) {
             // ps_1_x tex/texld have no sampler declaration. SetTexture selects
             // the dimension at draw time; default to 2D only for the base
@@ -1723,7 +1734,7 @@
         textureLoad(instruction, options) {
             const dest = instruction.dest;
             const sources = instruction.sources;
-            const projected = (instruction.control & 0x1) !== 0;
+            let projected = (instruction.control & 0x1) !== 0;
             const biased = (instruction.control & 0x2) !== 0;
             let index, coordinateExpression;
             if (this.kind === "pixel" && this.major === 1 && this.minor < 4) {
@@ -1734,6 +1745,7 @@
                     this.samplers.set(index, this.legacySamplerType(index));
                 this.psTexcoordInputs.add(index);
                 coordinateExpression = "t" + index;
+                projected = (this.options.legacyProjection || {})[index] || false;
             } else if (this.kind === "pixel" && this.major === 1) {
                 // ps_1_4 `texld r#, t#`: sampler comes from the destination.
                 index = dest.index;
@@ -1769,12 +1781,10 @@
             const dest = instruction.dest;
             const index = dest.index;
             if (!this.samplers.has(index))
-                this.samplers.set(index, components.length === 3 ? "3d" : "2d");
-            // ps_1_x only, and isDepthSampler() excludes ps_1_x, so this form
-            // never carries a comparison reference.
-            const coordinate = { coord: "(" +
-                this.sourceExpression(instruction.sources[0]) + ")." + components,
-                ref: null };
+                this.samplers.set(index, this.legacySamplerType(index));
+            const value = "(" + this.sourceExpression(instruction.sources[0]) + ")." + components;
+            const coordinate = this.coordinateFor(index, "vec4<f32>(" + value +
+                (components.length === 3 ? ", 1.0)" : ", 0.0, 1.0)"), false);
             this.store(dest, this.sampleExpression(index, coordinate, {}));
         }
 
@@ -2196,6 +2206,13 @@
                 inputs.push({ register, usage: semantic.usage,
                     usageIndex: semantic.usageIndex, location: register });
             }
+            // Coordinates may be read by texcoord/matrix/depth arithmetic
+            // without any texture sample. The fixed vertex stage still must
+            // export them; sampler count is not an input-usage description.
+            if (this.kind === "pixel" && this.major < 3)
+                for (const register of this.psTexcoordInputs)
+                    inputs.push({register, usage: DECLUSAGE_TEXCOORD, usageIndex: register,
+                        location: VARYING_TEXCOORD0 + register});
             inputs.sort((a, b) => a.register - b.register);
             const samplerBindingBase = this.kind === "vertex" ? 34 : 2;
             const samplers = Array.from(this.samplers.entries())

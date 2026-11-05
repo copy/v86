@@ -994,5 +994,126 @@
             clamp((mask & 1 << c) && (((swizzle >> (c * 2)) & 3) % 2) ? v : c === 3 ? 1 : .1)), tolerance: 1}]});
     }
 
+    const ps1 = (minor, body) => { const tokens = legacyShader("pixel", 1, body);tokens[0] = 0xffff0100 | minor;return tokens; };
+    function legacyCoordinates(dev, coordinates, z = .5) {
+        const stride = 20 + coordinates.length * 16, list = quad(0, 0, 64, 64, z, 0xffffffff);
+        const data = new Uint8Array(list.length * stride), view = new DataView(data.buffer);
+        list.forEach((v, i) => {
+            [v[0], v[1], v[2], 1].forEach((value, j) => view.setFloat32(i * stride + j * 4, value, true));
+            view.setUint32(i * stride + 16, 0xffffffff, true);
+            coordinates.forEach((value, n) => value.forEach((x, c) => view.setFloat32(i * stride + 20 + n * 16 + c * 4, x, true)));
+        });
+        return [bindSemanticVS(dev, 0),
+            cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", {device_handle: dev, fvf: 0x44 | coordinates.length << 8,
+                element_count: 2 + coordinates.length}), element(0, 3, 9), element(16, 4, 10),
+            ...coordinates.map((_, i) => element(20 + i * 16, 3, 5, i))])),
+            wire("DrawPrimitiveUP", {device_handle: dev, primitive_type: 4, primitive_count: 2, stride, vertex_count: 6, vertex_bytes: data.length},
+                [blob("DrawPrimitiveUP", "vertex_data_offset", data)])];
+    }
+    const bindLegacyPS = (dev, tokens) => [pixelShader(dev, dev + 0x600000, tokens), bindPS(dev, dev + 0x600000)];
+    const clearDepth = (dev, depth) => wire("Clear", {device_handle: dev, clear_flags: 3, color: 0xff000000, depth});
+    for (const kind of ["texdepth", "texm3x2depth"]) for (const [n, d] of [[.25, 1], [.75, 1], [0, 0], [.5, 0], [-.25, -1], [.125, .5]])
+        for (const msaa of [0, 4]) for (const write of [false, true]) {
+            const value = d === 0 ? 1 : n / d;
+            add("shader-legacy-sampling", {name: kind + " " + n + "/" + d + " msaa=" + msaa + " write=" + write, msaa, body: dev => {
+                const body = kind === "texdepth" ? [[S.TEXCOORD, dst(R.TEMP, 5, 7), src(R.TEXTURE, 0)], [S.PHASE], [S.TEXDEPTH, dst(R.TEMP, 5)]]
+                    : [[S.TEXCOORD, dst(R.TEXTURE, 0)], [S.TEXM3x2PAD, dst(R.TEXTURE, 1), src(R.TEXTURE, 0)],
+                        [S.TEXM3x2DEPTH, dst(R.TEXTURE, 2), src(R.TEXTURE, 0)]];
+                body.push([S.DEF, dst(R.CONST, 0), f(1), 0, 0, f(1)], [S.MOV, dst(R.TEMP, 0), src(R.CONST, 0)]);
+                const coordinates = kind === "texdepth" ? [[n, d, .8, 1]] : [[1, 0, 0, 1], [n, .8, .5, 1], [d, .4, .7, 1]];
+                const commands = [clearDepth(dev, write ? 1 : .5), rs(dev, 7, 1), rs(dev, 14, 1), rs(dev, 23, write ? 8 : 2),
+                    ...bindLegacyPS(dev, ps1(kind === "texdepth" ? 4 : 3, body)), ...legacyCoordinates(dev, coordinates, .6)];
+                if (write) commands.push(bindPS(dev, 0), rs(dev, 23, 2), ...drawXYZ(dev, fullXYZ(.5, 0xff00ff00)));
+                return commands;
+            }, probes: [{at: [32, 32], expect: write ? value < .5 ? [255, 0, 0, 255] : [0, 255, 0, 255]
+                : value < .5 ? [255, 0, 0, 255] : [0, 0, 0, 255]}]});
+        }
+    for (const minor of [2, 3]) for (const modifier of [0, 4]) for (const vector of [[.2, .4, .6, .8], [.8, .1, .3, .2]]) {
+        const rows = [[.5, .25, .125, .9], [.125, .5, .25, .8], [.25, .125, .5, .7]];
+        const value = vector.slice(0, 3).map(x => modifier ? 2 * x - 1 : x);
+        add("shader-legacy-sampling", {name: "ps1." + minor + " texm3x3 arithmetic modifier=" + modifier + " vector=" + vector, body: dev => [
+            ...bindLegacyPS(dev, ps1(minor, [[S.TEXCOORD, dst(R.TEXTURE, 0)],
+                [S.TEXM3x3PAD, dst(R.TEXTURE, 1), (src(R.TEXTURE, 0) | modifier << 24) >>> 0],
+                [S.TEXM3x3PAD, dst(R.TEXTURE, 2), (src(R.TEXTURE, 0) | modifier << 24) >>> 0],
+                [S.TEXM3x3, dst(R.TEXTURE, 3), (src(R.TEXTURE, 0) | modifier << 24) >>> 0],
+                [S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, 3)]])), ...legacyCoordinates(dev, [vector, ...rows])],
+        probes: [{at: [32, 32], expect: [...rows.map(row => clamp(value.reduce((sum, x, c) => sum + row[c] * x, 0))), 255], tolerance: 1}]});
+    }
+    function legacyPattern(dev, handle, type = "2d", stage = 0) {
+        const commands = [wire(type === "cube" ? "CreateTextureCube" : type === "3d" ? "CreateTextureVolume" : "CreateTexture2D",
+            {device_handle: dev, resource_handle: handle, ...(type === "cube" ? {edge_length: 4} : {width: 4, height: 4, ...(type === "3d" ? {depth: 4} : {})}), level_count: 1, format: 21})];
+        for (let layer = 0; layer < (type === "cube" ? 6 : type === "3d" ? 4 : 1); ++layer) {
+            const data = Uint8Array.from(Array.from({length: 16}, (_, i) => type === "cube" ? [0, 0, (layer + 1) * 32, 255]
+                : [type === "3d" ? (layer + 1) * 48 : 32, (Math.floor(i / 4) + 1) * 48, (i % 4 + 1) * 48, 255]).flat());
+            commands.push(wire("UpdateTexture", {resource_handle: handle, z: layer, width: 4, height: 4, depth: 1,
+                row_pitch: 16, slice_pitch: 64, data_bytes: 64}, [blob("UpdateTexture", "data_offset", data)]));
+        }
+        commands.push(wire("SetTexture", {device_handle: dev, stage, texture_handle: handle}));
+        for (const state of [1, 2, 3]) commands.push(wire("SetSamplerState", {device_handle: dev, sampler: stage, state, value: 3}));
+        return commands;
+    }
+    for (const minor of [1, 2, 3, 4]) for (const count of [2, 3, 4]) for (const sign of [1, -1]) {
+        const coord = [.75 * sign, .625 * sign, .25 * sign, 2 * sign];coord[count - 1] = 2 * sign;
+        const uv = minor === 4 ? coord : coord.map(x => x / coord[count - 1]);
+        add("shader-legacy-sampling", {name: "ps1." + minor + " projected count=" + count + " sign=" + sign, body: dev => [
+            ...legacyPattern(dev, dev + 0x500000), tss(dev, 0, 24, 0x100 | count),
+            ...bindLegacyPS(dev, ps1(minor, minor === 4 ? [[S.TEX, dst(R.TEMP, 0), src(R.TEXTURE, 0)]]
+                : [[S.TEX, dst(R.TEXTURE, 0)], [S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, 0)]])), ...legacyCoordinates(dev, [coord])],
+        probes: [{at: [32, 32], expect: [...uv.slice(0, 2).map(x => (Math.min(3, Math.max(0, Math.floor(x * 4))) + 1) * 48), 32, 255]}]});
+    }
+    for (const kind of ["texreg2rgb", "texm3x3tex", "texm3x3spec", "texm3x3vspec"]) for (const type of ["2d", "cube", "3d"]) {
+        const vector = [.625, .375, .875, 1], rows = [[1, 0, 0, 1], [0, 1, 0, 1], [0, 0, 1, 1]];
+        let coord = vector.slice(0, 3);
+        if (kind.endsWith("spec")) {const dot = coord.reduce((a, x) => a + x, 0), norm = coord.reduce((a, x) => a + x * x, 0);coord = coord.map(x => 2 * x * dot / norm - 1);}
+        const axis = coord.map(Math.abs).indexOf(Math.max(...coord.map(Math.abs))), face = axis * 2 + Number(coord[axis] < 0);
+        const expected = type === "cube" ? [(face + 1) * 32, 0, 0, 255]
+            : [...coord.slice(0, 2).map(x => (Math.min(3, Math.max(0, Math.floor(x * 4))) + 1) * 48),
+                type === "3d" ? (Math.min(3, Math.max(0, Math.floor(coord[2] * 4))) + 1) * 48 : 32, 255];
+        add("shader-legacy-sampling", {name: kind + " bound " + type, body: dev => {
+            const stage = kind === "texreg2rgb" ? 1 : 3;
+            const body = [[S.TEXCOORD, dst(R.TEXTURE, 0)]];
+            if (stage === 3) body.push([S.TEXM3x3PAD, dst(R.TEXTURE, 1), src(R.TEXTURE, 0)], [S.TEXM3x3PAD, dst(R.TEXTURE, 2), src(R.TEXTURE, 0)]);
+            if (kind === "texm3x3spec") body.unshift([S.DEF, dst(R.CONST, 0), f(1), f(1), f(1), f(1)]);
+            body.push([S[{texreg2rgb: "TEXREG2RGB", texm3x3tex: "TEXM3x3TEX", texm3x3spec: "TEXM3x3SPEC", texm3x3vspec: "TEXM3x3VSPEC"}[kind]],
+                dst(R.TEXTURE, stage), src(R.TEXTURE, 0), ...(kind === "texm3x3spec" ? [src(R.CONST, 0)] : [])],
+            [S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, stage)]);
+            return [...legacyPattern(dev, dev + 0x500000, type, stage), ...bindLegacyPS(dev, ps1(3, body)), ...legacyCoordinates(dev, [vector, ...rows])];
+        }, probes: [{at: [32, 32], expect: expected, tolerance: 1}]});
+    }
+    for (const format of [75, fourcc("INTZ"), fourcc("DF24")]) for (const minor of [1, 3, 4])
+        for (const projected of [false, true]) for (const reference of [.25, .75]) {
+            const raw = format !== 75, projectionApplies = projected && minor < 4, coord = [.5, .5, reference * 2, 2];
+            const expected = raw ? 128 : (projectionApplies ? reference : reference * 2) <= .5 ? 255 : 0;
+            add("shader-legacy-sampling", {name: "ps1." + minor + " depth format=" + format + " projected=" + projected + " reference=" + reference, body: dev => {
+                const depth = dev + 0x500000;
+                return [wire("CreateTexture2D", {device_handle: dev, resource_handle: depth, width: 64, height: 64, level_count: 1, format, usage: 2}),
+                    wire("SetDepthStencilSurfaceLevel", {device_handle: dev, depth_texture_handle: depth, width: 64, height: 64}), clearDepth(dev, .5),
+                    wire("SetDepthStencilSurfaceLevel", {device_handle: dev, depth_texture_handle: 0, width: 64, height: 64}), rs(dev, 7, 0),
+                    wire("SetTexture", {device_handle: dev, texture_handle: depth}), tss(dev, 0, 24, projected ? 0x104 : 0),
+                    ...bindLegacyPS(dev, ps1(minor, minor === 4 ? [[S.TEX, dst(R.TEMP, 0), src(R.TEXTURE, 0)]]
+                        : [[S.TEX, dst(R.TEXTURE, 0)], [S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, 0)]])), ...legacyCoordinates(dev, [coord])];
+            }, probes: [{at: [32, 32], expect: [expected, expected, expected, expected], tolerance: 1}]});
+        }
+
+    add("shader-legacy-sampling", {name: "ps1 projected state switches within one frame", body: dev => {
+        const commands = [...legacyPattern(dev, dev + 0x500000), ...bindLegacyPS(dev, ps1(1,
+            [[S.TEX, dst(R.TEXTURE, 0)], [S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, 0)]])), rs(dev, 174, 1)];
+        for (const [left, right, flags] of [[0, 21, 0], [21, 43, 0x104], [43, 64, 0]]) commands.push(
+            tss(dev, 0, 24, flags), wire("SetScissorRect", {device_handle: dev, left, top: 0, right, bottom: 64}),
+            ...legacyCoordinates(dev, [[.75, .625, .25, 2]]));
+        return commands;
+    }, probes: [{at: [10, 32], expect: [192, 144, 32, 255]}, {at: [32, 32], expect: [96, 96, 32, 255]},
+        {at: [54, 32], expect: [192, 144, 32, 255]}]});
+    add("shader-legacy-sampling", {name: "ps1 dependent lookup changes sampler dimension within one frame", body: dev => {
+        const commands = [...bindLegacyPS(dev, ps1(3, [[S.TEXCOORD, dst(R.TEXTURE, 0)],
+            [S.TEXREG2RGB, dst(R.TEXTURE, 1), src(R.TEXTURE, 0)], [S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, 1)]])), rs(dev, 174, 1)];
+        for (const [i, type] of ["2d", "cube", "3d", "2d"].entries()) commands.push(
+            ...legacyPattern(dev, dev + 0x500000 + i, type, 1),
+            wire("SetScissorRect", {device_handle: dev, left: i * 16, top: 0, right: (i + 1) * 16, bottom: 64}),
+            ...legacyCoordinates(dev, [[.625, .375, .875, 1]]));
+        return commands;
+    }, probes: [{at: [8, 32], expect: [144, 96, 32, 255]}, {at: [24, 32], expect: [160, 0, 0, 255]},
+        {at: [40, 32], expect: [144, 96, 192, 255]}, {at: [56, 32], expect: [144, 96, 32, 255]}]});
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

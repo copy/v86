@@ -590,20 +590,17 @@ test("ps_1_x texm3x3 forms build their coordinate from the preceding pads", () =
         instruction(OP.TEXM3x3TEX), dst(REG.TEXTURE, 3), src(REG.TEXTURE, 0),
         END,
     ]);
-    // Three dot products, assembled into one vec3 that samples a cube map --
-    // the shape tangent-space environment mapping needs.
+    // Three dot products, assembled into a coordinate. The bound resource
+    // selects the sampler dimension; the base translation defaults to 2D.
     assert.strictEqual((result.wgsl.match(/let _m3row\d+ = dot\(/g) || []).length, 3,
         "each pad plus the tex should contribute one row: " + result.wgsl);
     assert.match(result.wgsl, /let _m3x3\d+ = vec3<f32>\(_m3row\d+, _m3row\d+, _m3row\d+\)/,
         "the three rows should assemble into a vec3 coordinate");
     assert.strictEqual(result.reflection.samplers.find(s => s.index === 3).type,
-        "cube", "a texm3x3tex addresses a cube map");
+        "2d", "base translation has no bound texture dimension");
 });
 
-test("ps_1_x instructions with no honest translation are still refused", () => {
-    // TEXDEPTH replaces the fragment's depth from a texture-addressing result,
-    // which this pipeline has no frag_depth path for. Refusing keeps it out of
-    // the "renders something plausible but wrong" category.
+test("texdepth rejects registers other than r5", () => {
     const result = pipeline.compileShader(tokens([
         PS(1, 4),
         instruction(OP.TEXDEPTH), dst(REG.TEMP, 0),
@@ -1062,6 +1059,17 @@ test("indexed outputs require fixed position and point size registers", () => {
         dclToken(USAGE.POSITION), dst(REG.INPUT, 16), END]);
     assert.strictEqual(result.ok, false);
     assert.match(result.error, /exceeds v15/);
+});
+
+test("legacy arithmetic reflects coordinate inputs without inventing samplers", () => {
+    for (const stream of [[PS(1, 4), OP.TEXCOORD, dst(REG.TEMP, 5, {mask: 7}), src(REG.TEXTURE, 3), OP.PHASE, OP.TEXDEPTH, dst(REG.TEMP, 5), END],
+        [PS(1, 3), OP.TEXM3x2PAD, dst(REG.TEXTURE, 1), src(REG.TEXTURE, 0), OP.TEXM3x2DEPTH, dst(REG.TEXTURE, 2), src(REG.TEXTURE, 0), END]]) {
+        const result = compileOk(stream);
+        assert.ok(result.reflection.writesDepth);
+        assert.deepStrictEqual(result.reflection.samplers, []);
+        assert.ok(result.reflection.inputs.some(input => input.usage === USAGE.TEXCOORD));
+        assert.match(result.wgsl, /@builtin\(frag_depth\)/);
+    }
 });
 
 // ---- report ----

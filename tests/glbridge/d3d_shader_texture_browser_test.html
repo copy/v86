@@ -8,12 +8,12 @@ try {
     device.addEventListener("uncapturederror",event=>gpuErrors.push(event.error.message));
     const vertex=device.createShaderModule({code:`@vertex fn main(@builtin(vertex_index) i:u32)->@builtin(position) vec4<f32> {let p=array<vec2<f32>,3>(vec2<f32>(-1,-1),vec2<f32>(3,-1),vec2<f32>(-1,3));return vec4<f32>(p[i],0,1);}`});
     for(const test of texture_cases()) {
-        const translated=D3D9ShaderPipeline.compileShader(test.tokens);
+        const translated=D3D9ShaderPipeline.compileShader(test.tokens,test.options);
         if(!translated.ok){failures.push({name:test.name,translation:translated.error});continue;}
         const ref=translated.reflection,start=translated.wgsl.indexOf("fn d9_body() {");let end=translated.wgsl.indexOf("{",start)+1,depth=1;
         for(;depth&&end<translated.wgsl.length;end++){if(translated.wgsl[end]==="{")depth++;if(translated.wgsl[end]==="}")depth--;}
         if(start<0||depth)throw Error("Missing generated body");
-        const module=device.createShaderModule({code:translated.wgsl.slice(0,end)+`\n@fragment fn test_main(@builtin(position) p:vec4<f32>)->@location(0) vec4<f32> {${test.init}\nd9_body();return r0;}`});
+        const module=device.createShaderModule({code:translated.wgsl.slice(0,end)+`\n@fragment fn test_main(@builtin(position) p:vec4<f32>)->@location(0) vec4<f32> {${test.init}\nd9_body();return ${test.result||"r0"};}`});
         const errors=(await module.getCompilationInfo()).messages.filter(m=>m.type==="error");
         if(errors.length){failures.push({name:test.name,compile:errors.map(m=>m.message)});continue;}
         device.pushErrorScope("validation");

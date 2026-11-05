@@ -4534,8 +4534,16 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // SM2+ dcl_* types remain authoritative and are checked below.
                 const legacySamplerTypes = {};
                 let legacySamplerKey = "";
+                const legacyProjection = {};
+                let legacyProjectionKey = "";
                 if (variant.reflection.version.major === 1) {
                     for (const sampler of variant.reflection.samplers) {
+                        const flags = state.textureStageStates.get(sampler.index * 64 + D3DTSS_TEXTURETRANSFORMFLAGS) || 0;
+                        if (variant.reflection.version.minor < 4 && (flags & D3DTTFF_PROJECTED)) {
+                            const count = flags & 0xff;
+                            legacyProjection[sampler.index] = ["w", "x", "y", "z", "w"][count] || "w";
+                            legacyProjectionKey += "_q" + sampler.index + legacyProjection[sampler.index];
+                        }
                         const texture = this.resources.get(state.textures.get(sampler.index));
                         const type = texture && (texture.textureType || "2d");
                         if (type && type !== sampler.type) {
@@ -4594,10 +4602,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const fogBlend = ffp.fogBlendSource({ fogMode, tableFog }, "d9c", "result.color0");
                 const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") : "";
                 const pixelVariantKey = semanticKey + fogKey + alphaTestKey + clipKey + depthKey +
-                    lodBiasKey + mirrorOnceKey + legacySamplerKey + swizzleKey +
+                    lodBiasKey + mirrorOnceKey + legacySamplerKey + legacyProjectionKey + swizzleKey +
                     (flatShading ? "_flat" : "");
                 if (semanticLink || alphaTest.enabled || clipPlaneCount || depthSamplers.length
-                        || lodBiasKey || mirrorOnceKey || legacySamplerKey || swizzleKey ||
+                        || lodBiasKey || mirrorOnceKey || legacySamplerKey || legacyProjectionKey || swizzleKey ||
                         flatShading || fogBlend) {
                     variant = psResource.variants.get(pixelVariantKey);
                     if (!variant) {
@@ -4610,7 +4618,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             depthFetchSamplers,
                             samplerLodBiasUniform, samplerSwizzles,
                             samplerMirrorOnce,
-                            legacySamplerTypes,
+                            legacySamplerTypes, legacyProjection,
                             flatShading, fogBlend, semanticLink,
                         });
                         psResource.variants.set(pixelVariantKey, variant);
