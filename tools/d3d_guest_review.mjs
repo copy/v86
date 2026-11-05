@@ -10,7 +10,11 @@ import { site_directory } from "../tests/lib/site.mjs";
 const root = file_url_to_path(new URL("../", import.meta.url)), site = site_directory(root), out = root + "build/d3d-review/";
 fs.mkdirSync(out, { recursive: true });
 if(!fs.existsSync(out + "site")) fs.symlinkSync(site, out + "site");
-for(const api of ["d3d9", "d3d8", "ddraw"]) run("sh", [site + "/glbridge/" + api + "proxy/build.sh", out + api.toUpperCase() + ".DLL"], { stdio: "inherit" });
+for(const api of ["d3d9", "d3d8", "ddraw"]) {
+    if(process.env.D3D_REVIEW_USE_SHIPPING === "1")
+        fs.copyFileSync(site + "/glbridge/" + api + "proxy/" + api + ".dll", out + api.toUpperCase() + ".DLL");
+    else run("sh", [site + "/glbridge/" + api + "proxy/build.sh", out + api.toUpperCase() + ".DLL"], { stdio: "inherit" });
+}
 run(process.env.D9WG_CC || "i686-w64-mingw32-gcc", ["-Os", "-Wall", "-Wextra", "-Werror", root + "tests/glbridge/d3d_game_input.c", "-o", out + "GINPUT.EXE", "-luser32"], {stdio:"inherit"});
 run(process.env.D9WG_CC || "i686-w64-mingw32-gcc", ["-Os", "-Wall", "-Wextra", "-Werror", root + "tests/glbridge/d3d_benchmark_ui.c", "-o", out + "BENCHUI.EXE", "-luser32"], {stdio:"inherit"});
 const commands = {
@@ -18,7 +22,7 @@ const commands = {
     GTASA: ["copy /y %~d0\\D3D9.DLL \"D:\\GTA San Andreas\\d3d9.dll\"", "cd /d \"D:\\GTA San Andreas\"", "start gta_sa.exe"],
     MARK99: ['for %%g in (d e f g h i j k) do @if exist "%%g:\\3DMark 99 Max\\3dmark.exe" set GAME=%%g:\\3DMark 99 Max', 'if not defined GAME goto fail', 'copy /y %~d0\\DDRAW.DLL "%GAME%\\ddraw.dll"', 'if errorlevel 1 goto fail', 'cd /d "%GAME%"', '"%GAME%\\3dmark.exe"'],
     MARK00: ['for %%g in (d e f g h i j k) do @if exist %%g:\\3dmark2000\\3DMark2000.exe set GAME=%%g:\\3dmark2000', 'if not defined GAME goto fail', 'copy /y %~d0\\DDRAW.DLL "%GAME%\\ddraw.dll"', 'if errorlevel 1 goto fail', 'cd /d "%GAME%"', '"%GAME%\\3DMark2000.exe"'],
-    MARK01: ["for %%g in (d e f g h i j k) do @if exist %%g:\\3DMARK01\\3DMark2001SE.exe set GAME=%%g:\\3DMARK01", "if not defined GAME goto fail", "copy /y %~d0\\D3D8.DLL %GAME%\\d3d8.dll", "if errorlevel 1 goto fail", "cd /d %GAME%", "3DMark2001SE.exe /benchmark"],
+    MARK01: ["for %%g in (d e f g h i j k) do @if exist %%g:\\3DMARK01\\3DMark2001SE.exe set GAME=%%g:\\3DMARK01", "if not defined GAME goto fail", "copy /y %~d0\\D3D8.DLL %GAME%\\d3d8.dll", "if errorlevel 1 goto fail", "cd /d %GAME%", "3DMark2001SE.exe"],
     MAPLE: ["copy /y %~d0\\D3D8.DLL C:\\WINDOWS\\system32\\dllcache\\d3d8.dll", "if errorlevel 1 goto fail", "copy /y %~d0\\D3D8.DLL C:\\WINDOWS\\system32\\d3d8.dll", "if errorlevel 1 goto fail", "for %%g in (d e f g h i j k) do @if exist %%g:\\maplestory\\mapleStory-client\\HeavenMS-localhost-WINDOW.exe set GAME=%%g:\\maplestory\\mapleStory-client", "if not defined GAME goto fail", "cd /d %GAME%", "HeavenMS-localhost-WINDOW.exe"],
 };
 for(const version of ["03", "05", "06"]) commands["MARK" + version] = [

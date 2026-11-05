@@ -1,0 +1,337 @@
+{
+  "batch": "stage6-2",
+  "date": "2026-11-06",
+  "scope": "Complete local 3DMark2000 Metal run and direct extraction of guest result table",
+  "status": "22 tests completed; stage6 remains open",
+  "run": {
+    "directory": "build/d3d-review/stage6-2000-first",
+    "program": "3DMark2000 Pro build 340 (actual Details window)",
+    "tests_completed": 22,
+    "settings": {
+      "resolution": [
+        1024,
+        768
+      ],
+      "color_bits": 16,
+      "texture_bits": 16,
+      "depth_bits": 16,
+      "buffers": 3,
+      "vsync": false,
+      "pipeline": "D3D Hardware T&L",
+      "cpu_worker": true
+    },
+    "browser": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/157.0.8103.38",
+      "revision": "@a733b5afbb3ba618844ff8876b89ad1a774b2f18",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+      "jsVersion": "15.7.112.23"
+    },
+    "gpu": {
+      "vendor": "apple",
+      "architecture": "metal-3",
+      "device": "",
+      "description": ""
+    },
+    "core_assets": {
+      "libv86.js": {
+        "bytes": 842704,
+        "sha256": "6eca83bb632e2e132e89a35e868c6b3fc59c67d74232d4c517c6104d5bc6f327"
+      },
+      "v86.wasm": {
+        "bytes": 3011563,
+        "sha256": "15a39f2f07c9d40f9c4d5bae1fb720dd410d91d1a3d05a541f2d92cf584a8d9f"
+      },
+      "cpu-worker.js": {
+        "bytes": 851766,
+        "sha256": "0e93acfc901408b4f1380f7c25560456e1d8c55ecb225c124a5d69bbe0f01877"
+      },
+      "v86-bochs-vga.js": {
+        "bytes": 44376,
+        "sha256": "ce8415006ca38dc53bd807323fc01fcfc47e9d3c31b7aad3934636e4408d1984"
+      }
+    },
+    "webgpu_revision": "63e28a608d73eec6a1b2",
+    "results": [
+      {
+        "test": "3DMark Result",
+        "value": 2799.0,
+        "unit": "3D marks"
+      },
+      {
+        "test": "CPU Speed",
+        "value": 161.0,
+        "unit": "CPU 3D marks"
+      },
+      {
+        "test": "Game 1 - Helicopter - Low Detail",
+        "value": 71.1,
+        "unit": "FPS"
+      },
+      {
+        "test": "Game 1 - Helicopter - Medium Detail",
+        "value": 47.0,
+        "unit": "FPS"
+      },
+      {
+        "test": "Game 1 - Helicopter - High Detail",
+        "value": 15.0,
+        "unit": "FPS"
+      },
+      {
+        "test": "Game 2 - Adventure - Low Detail",
+        "value": 51.0,
+        "unit": "FPS"
+      },
+      {
+        "test": "Game 2 - Adventure - Medium Detail",
+        "value": 29.6,
+        "unit": "FPS"
+      },
+      {
+        "test": "Game 2 - Adventure - High Detail",
+        "value": 19.6,
+        "unit": "FPS"
+      },
+      {
+        "test": "Fill Rate (Single-Texturing)",
+        "value": 6566.0,
+        "unit": "MTexels/s"
+      },
+      {
+        "test": "Fill Rate (Multi-Texturing)",
+        "value": 3465.7,
+        "unit": "MTexels/s"
+      },
+      {
+        "test": "High Polygon Count (1 Light)",
+        "value": 2048.0,
+        "unit": "KTriangles/s"
+      },
+      {
+        "test": "High Polygon Count (4 Lights)",
+        "value": 2048.0,
+        "unit": "KTriangles/s"
+      },
+      {
+        "test": "High Polygon Count (8 Lights)",
+        "value": 2096.0,
+        "unit": "KTriangles/s"
+      },
+      {
+        "test": "8MB Texture Rendering Speed",
+        "value": 293.9,
+        "unit": "FPS"
+      },
+      {
+        "test": "16MB Texture Rendering Speed",
+        "value": 165.5,
+        "unit": "FPS"
+      },
+      {
+        "test": "32MB Texture Rendering Speed",
+        "value": 88.8,
+        "unit": "FPS"
+      },
+      {
+        "test": "64MB Texture Rendering Speed",
+        "value": 46.0,
+        "unit": "FPS"
+      },
+      {
+        "test": "Bump Mapping (Emboss, 3-pass)",
+        "value": 222.5,
+        "unit": "FPS"
+      },
+      {
+        "test": "Bump Mapping (Emboss, 2-pass)",
+        "value": 321.2,
+        "unit": "FPS"
+      },
+      {
+        "test": "Bump Mapping (Emboss, 1-pass)",
+        "value": 560.4,
+        "unit": "FPS"
+      },
+      {
+        "test": "Bump Mapping (Environment)",
+        "value": 662.9,
+        "unit": "FPS"
+      }
+    ],
+    "error_counts": {
+      "browser_console": 0,
+      "host": 0,
+      "gpu": 0,
+      "commands_failed": 0,
+      "draws_dropped": 0
+    },
+    "warnings_reviewed": [
+      "Window temporarily hidden while changing test display mode",
+      "Missing coordinate diagnostic captured pure-color draws with no textures bound"
+    ],
+    "normal_exit": {
+      "devices": 0,
+      "resources": 0
+    },
+    "journal": {
+      "peak_pending_bytes_observed": 67108864,
+      "final_pending_bytes": 0,
+      "raw_bytes_recorded": 13900465124
+    },
+    "quality": {
+      "images_exported": 18,
+      "full_images_reviewed": 9,
+      "reference": "Bundled Help/html/imagequality.htm and Help/images/iq*.jpg; independent engineering patterns and documented software/hardware specular difference. No full-resolution reference or byte equality claim.",
+      "scene_frames_reviewed": [
+        30,
+        38,
+        46,
+        54,
+        62,
+        70,
+        78,
+        86,
+        94,
+        102,
+        110,
+        118
+      ],
+      "review": "Helicopter terrain/foliage/fog/explosions, Adventure geometry/materials/lamps, fill, light-count toruses, texture tunnel, bump panels and all quality outputs checked."
+    },
+    "artifacts": [
+      {
+        "file": "RESULT00.TXT",
+        "name": "RESULT00.TXT",
+        "bytes": 5581,
+        "sha256": "142ff0cbe4e9014e0a4455065b1810c3218c3cf0e8c23018aa98bfa1b9191349"
+      },
+      {
+        "file": "S6MK00.3DP",
+        "name": "S6MK00.3DP",
+        "bytes": 2942,
+        "sha256": "6b2fc858475e1e87a3928e9db0aa2e3605a0b0815aae2cec40077b79ad17f3c0"
+      },
+      {
+        "file": "3dmark2000/ddraw.dll",
+        "name": "3dmark2000_ddraw.dll",
+        "bytes": 145408,
+        "sha256": "c3535275465e2787d9f43f6568d6dc98c3b9564cb6807c9e472d1bcd463744e1"
+      },
+      {
+        "file": "Quality/IQ01I_S6MK00.bmp",
+        "name": "Quality_IQ01I_S6MK00.bmp",
+        "bytes": 249856,
+        "sha256": "0da313c8b34fc7c4e08beb9cefa5a7c332d98086dc719abef4fe80f1a4c8d520"
+      },
+      {
+        "file": "Quality/IQ01T_S6MK00.bmp",
+        "name": "Quality_IQ01T_S6MK00.bmp",
+        "bytes": 16384,
+        "sha256": "73f01bc478ad38f5072245abb106b84a8211bc024aaafed0121a53d9b14cf8e3"
+      },
+      {
+        "file": "Quality/IQ02I_S6MK00.bmp",
+        "name": "Quality_IQ02I_S6MK00.bmp",
+        "bytes": 249856,
+        "sha256": "c0f3de49a85e1e2b03e30140292cdc5a831cd5090d52da0ba186c017f3bd1bb9"
+      },
+      {
+        "file": "Quality/IQ02T_S6MK00.bmp",
+        "name": "Quality_IQ02T_S6MK00.bmp",
+        "bytes": 16384,
+        "sha256": "61b644dcb080a9fdaae1ba27248edab7b1a6752671989d8671a6d83397d6358a"
+      },
+      {
+        "file": "Quality/IQ03I_S6MK00.bmp",
+        "name": "Quality_IQ03I_S6MK00.bmp",
+        "bytes": 249856,
+        "sha256": "2c6b591c0d5ea4d299b7c5a63348502a82306cbcf5fa8af4ed34e6ed956d6d7d"
+      },
+      {
+        "file": "Quality/IQ03T_S6MK00.bmp",
+        "name": "Quality_IQ03T_S6MK00.bmp",
+        "bytes": 16384,
+        "sha256": "dfd41c478700c67a4e742b4d165626dafa304edc1d233894688192fdd232c5f7"
+      },
+      {
+        "file": "Quality/IQ04I_S6MK00.bmp",
+        "name": "Quality_IQ04I_S6MK00.bmp",
+        "bytes": 249856,
+        "sha256": "a5951c3c965c18c8dec33342d5414ca65deea79fbe1aef8deaadfb02307c451c"
+      },
+      {
+        "file": "Quality/IQ04T_S6MK00.bmp",
+        "name": "Quality_IQ04T_S6MK00.bmp",
+        "bytes": 16384,
+        "sha256": "4b30cdca46451b81852149f49046b63f85ab6699d8fe472f2c495ea94a8f8227"
+      },
+      {
+        "file": "Quality/IQ05I_S6MK00.bmp",
+        "name": "Quality_IQ05I_S6MK00.bmp",
+        "bytes": 249856,
+        "sha256": "621317632376c082714ca4117bcd6181ca161f3a2a5c9f591e463b705a41dd83"
+      },
+      {
+        "file": "Quality/IQ05T_S6MK00.bmp",
+        "name": "Quality_IQ05T_S6MK00.bmp",
+        "bytes": 16384,
+        "sha256": "8c11eb73c09bfc9959e46dd013d1e5620c3c9708c72145aaa99647531c805e3e"
+      },
+      {
+        "file": "Quality/IQ06I_S6MK00.bmp",
+        "name": "Quality_IQ06I_S6MK00.bmp",
+        "bytes": 249856,
+        "sha256": "d324ed6b6e7281769a857904bb2457ed92cc5fc01338cde89a9f2e0d97df9e77"
+      },
+      {
+        "file": "Quality/IQ06T_S6MK00.bmp",
+        "name": "Quality_IQ06T_S6MK00.bmp",
+        "bytes": 16384,
+        "sha256": "24c26738af9d5ab47a120e03c3779c9f0060e1d1e92634bf7c433580491c3a36"
+      },
+      {
+        "file": "Quality/IQ07I_S6MK00.bmp",
+        "name": "Quality_IQ07I_S6MK00.bmp",
+        "bytes": 249856,
+        "sha256": "77d76eb60967406651b15c61a2e459ded9f5ac0d0aa5f186c72c73b2577c0d6b"
+      },
+      {
+        "file": "Quality/IQ07T_S6MK00.bmp",
+        "name": "Quality_IQ07T_S6MK00.bmp",
+        "bytes": 16384,
+        "sha256": "d562147953d343958c19e021c00bfc775939d449964215aa83c121dcca229b43"
+      },
+      {
+        "file": "Quality/IQ08I_S6MK00.bmp",
+        "name": "Quality_IQ08I_S6MK00.bmp",
+        "bytes": 2560000,
+        "sha256": "fb969ac1941880a20d186f2ef8e392365f995460f2c2cccb943caf7014fa85af"
+      },
+      {
+        "file": "Quality/IQ08T_S6MK00.bmp",
+        "name": "Quality_IQ08T_S6MK00.bmp",
+        "bytes": 18496,
+        "sha256": "ef04d78dd3c758c127d5d6641f8c6d9d6cf634f3168c2ddba48401e0a0bf9eb0"
+      },
+      {
+        "file": "Quality/IQ09I_S6MK00.bmp",
+        "name": "Quality_IQ09I_S6MK00.bmp",
+        "bytes": 2560000,
+        "sha256": "16d5837ce7630b87f7bb9c9f9208bd7de01dc7886cf62c4287fb866710a56866"
+      },
+      {
+        "file": "Quality/IQ09T_S6MK00.bmp",
+        "name": "Quality_IQ09T_S6MK00.bmp",
+        "bytes": 18496,
+        "sha256": "3b936b1dac0fb62f3a9d576343629e04e1283cbc2eb8ee3c6f939d9abf81c5a9"
+      }
+    ]
+  },
+  "tool_validation": "BENCHUI --list Details built with -Wall -Wextra -Werror and read the actual XP SysListView table. Report contains all 20 measured sub-results plus overall score; two image-quality categories produced all 18 BMP files. UI is observed through bounded Win32 messages, no test result is synthesized.",
+  "remaining": [
+    "No complete SwiftShader run in this batch.",
+    "3DMark2001 SE/03/05/06 and remaining Wine/API suites are open.",
+    "3DMark99 old-branch complete performance comparison remains open."
+  ]
+}

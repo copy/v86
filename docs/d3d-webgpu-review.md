@@ -2918,7 +2918,7 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 | 顺序 | 程序 | 本地镜像（相对于retro-gaming-site） | 状态 |
 | --- | --- | --- | --- |
 | 1 | 3DMark99 | `game/3dmarklegacy.img` | Metal全部26项通过；旧分支性能对齐/跨后端核对仍开放 |
-| 2 | 3DMark2000 | `game/3dmarklegacy.img` | 全项验收待完成 |
+| 2 | 3DMark2000 | `game/3dmarklegacy.img` | Metal全部22项通过；跨后端核对仍开放 |
 | 3 | 3DMark2001 SE | `game/3dmarklegacy.img` | 全项验收待完成；既有局部场景回放不替代本项 |
 | 4 | 3DMark03 | `game/3dmark03.img` | 全项验收待完成 |
 | 5 | 3DMark05 | `game/3dmark05.img` | 全项验收待完成 |
@@ -2940,6 +2940,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 3DMark99 Max build 200在Metal完成全部26项：1605分，赛车22.7 FPS、第一人称12.4 FPS；同为CPU Worker的修复前为189分、6.2/1.1 FPS。18张质量图片已导出；9张完整图扣除元数据后与修复前像素完全一致，另核对了随程序提供的32位软件参考图与场景关键帧。浏览器/宿主/GPU错误、失败命令和丢弃绘制均为零；正常退出后设备/资源为零。客体程序目录内DLL SHA-256与发布DLL一致。
 
 **99的完整Metal运行已通过，旧分支性能对齐仍开放。** 旧分支仅观察到赛车瞬时约42 FPS，随后发生历史队列内存失败，不能把它当作完整平均成绩。此批不声称达到旧分支全部性能，也不声称完成SwiftShader全项比较、其余五版或完整Wine/API验收。详细版本、哈希、设置及证据见 `fixtures/d3d-review/stage6-1-validation.json`；大体积图片/报告仅在本地 `v86/build/d3d-review/stage6-99-scalar` 保存。
+
+### 3DMark2000完整Metal验收（2026-11-06）
+
+Pro build 340在1024×768、16位颜色/纹理/深度、三缓冲、硬件T&L与CPU Worker下完成全部22项，得分2799、CPU分161。直升机低/中/高为71.1/47.0/15.0 FPS，Adventure为51.0/29.6/19.6 FPS；其余填充率、1/4/8光源、8/16/32/64MB纹理、四种凹凸映射均有实际成绩。两类画质测试输出18张图片，9张完整图与关键场景已检查，并核对自带帮助中的独立图例和高光差异说明。
+
+浏览器console错误、宿主/GPU错误、失败命令和丢弃绘制均为零，正常退出后设备/资源为零。保留两类告警：测试切换时客体窗口暂时隐藏；坐标诊断样本为未绑定纹理的纯颜色绘制。没有隐藏告警或把它们改成通过条件。原始详情表由`BENCHUI --list Details`读取，项目、DLL、成绩表和18张图片通过RAM磁盘导出核验。详见 `fixtures/d3d-review/stage6-2-validation.json`。SwiftShader比较、其余四版及完整Wine/API验收继续开放。
 
 ## 附录 A：我本人的核实记录
 
