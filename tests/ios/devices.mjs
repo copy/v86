@@ -323,6 +323,26 @@ adc.write(0x24, 4);
 assert.equal(adc.fifo[1], 0);
 console.log("PASS: PMU ADC status, masked GPIO event, VIC3 delivery and snapshot restore");
 
+let rtc_seconds = 0x12345678;
+const rtc = new AppleI2C({ ...cpu, clock: { wall_time: () => rtc_seconds * 1000 } },
+    0x83700000, 19, vic, true);
+const rtc_port = ports.get(0x83700000);
+const rtc_transfer = (reg, bytes) => {
+    rtc.write(0, 0x74); rtc.write(0x10, reg); rtc.write(0x18, 4);
+    if(bytes) bytes.forEach(byte => rtc.write(0x20, byte));
+    rtc.write(0x24, bytes ? 5 : 4);
+    if(!bytes) return Array.from({ length: 4 }, () => rtc_port.read(0x20));
+};
+assert.deepEqual(rtc_transfer(0x4C), [0x78, 0x56, 0x34, 0x12]);
+rtc_seconds++;
+assert.deepEqual(rtc_transfer(0x4C), [0x79, 0x56, 0x34, 0x12]);
+rtc_transfer(0x84, [5, 4, 3, 2]);
+const rtc_state = rtc.get_state();
+rtc.reset(); assert.deepEqual(rtc_transfer(0x84), [5, 4, 3, 2]);
+rtc_transfer(0x84, [0, 0, 0, 0]);
+rtc.set_state(rtc_state); assert.deepEqual(rtc_transfer(0x84), [5, 4, 3, 2]);
+console.log("PASS: D1815 seconds counter, persistent clock offset, reset and restore");
+
 // Button state is external to writable GPIO configuration. Both
 // transitions latch events, with held keys preserved by a snapshot.
 for(const [pin, name] of N90_BUTTONS.entries())

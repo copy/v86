@@ -2,6 +2,8 @@
 // a FIFO transfer. The status is latched until the guest acknowledges it.
 import { AppleCS42L61, AppleMikey } from "./audio.js";
 
+const D1815_RTC = 0x4C, D1815_RTC_OFFSET = 0x84;
+
 export class AppleI2C
 {
     constructor(cpu, base, irq, vic, pmu, backlight = null, pmu_irq = null, slaves = null)
@@ -11,6 +13,7 @@ export class AppleI2C
         this.slaves = slaves;
         this.irq = irq;
         this.vic = vic;
+        this.clock = cpu.clock;
         this.pmu = pmu ? new Uint8Array(256) : null;
         this.mikey = pmu ? new AppleMikey() : null;
         this.codec = pmu ? new AppleCS42L61() : null;
@@ -32,7 +35,9 @@ export class AppleI2C
         this.codec?.reset();
         if(this.pmu)
         {
+            const offset = this.pmu.slice(D1815_RTC_OFFSET, D1815_RTC_OFFSET + 4);
             this.pmu.fill(0);
+            this.pmu.set(offset, D1815_RTC_OFFSET);
             this.pmu[0x66] = 255;
             this.pmu[0x67] = 7;
             this.pmu[0x68] = 0x15;
@@ -69,6 +74,7 @@ export class AppleI2C
                     for(let i = 0; i < Math.min(count, this.fifo.length); i++)
                     {
                         const reg = subaddress + i & 255;
+                        if(reg >= D1815_RTC && reg < D1815_RTC + 4) continue;
                         const before = this.pmu[reg];
                         this.pmu[reg] = this.fifo[i];
                         // D1815 software-start conversion. Unconnected analog
@@ -84,11 +90,20 @@ export class AppleI2C
                     this.update_backlight();
                     this.fifo = [];
                 }
-                else this.fifo = Array.from({ length: count }, (_, i) => {
-                    const reg = subaddress + i & 255, byte = this.pmu[reg];
-                    if(reg === 2) this.pmu[reg] &= ~0x20; // read-to-clear conversion event
-                    return byte;
-                });
+                else
+                {
+                    // A single burst is one little-endian seconds sample.
+                    // The native driver applies its persistent offset itself.
+                    const seconds = Math.floor((this.clock?.wall_time?.() ?? 0) / 1000) >>> 0;
+                    this.fifo = Array.from({ length: count }, (_, i) => {
+                        const reg = subaddress + i & 255;
+                        if(reg >= D1815_RTC && reg < D1815_RTC + 4)
+                            return seconds >>> ((reg - D1815_RTC) * 8) & 255;
+                        const byte = this.pmu[reg];
+                        if(reg === 2) this.pmu[reg] &= ~0x20; // read-to-clear conversion event
+                        return byte;
+                    });
+                }
                 this.regs[3] |= 0x10;
             }
             else if(device && count <= 256)
