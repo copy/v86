@@ -2595,6 +2595,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 四个深度切片分别采样red/green/blue/yellow，Reset后改白，新增10图像；累计 **48完整图像 / 3,072像素**，SwiftShader与Metal均零误差。mip1 magenta核对CPU/上传，本探针未采样该mip。独立wire **35317项篡改检出**，核对44次逐片上传/7,168字节；12纹理/4cube/2volume、20可编程+28固定管线draw、35shader translations、2交换链创建/0拒绝/2销毁，0 Present/GPU/host错误，资源在兜底前为空。CPU帧缓冲回复明确为解析注入，区别于实际CPU影子与GPU图像。AddDirtyBox沿用核心现有no-op政策，原生HAL一致性仍待验证。
 > - **381客体 / 89核心最终回归**、32标准EXE/四严格DLL/21成员核心/独立消费者及SDK8边界、两项站点集成/范围lint通过；发布准确最终XP零售8/9及同源diagnostic。证据 [stage4k43-validation.json](fixtures/d3d-review/stage4k43-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K43.json`。继续VB/IB/SwapChain8/Device8、状态块范围与默认工厂，及其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
 
+> **4K44（2026-11-05，已完成）：VB8/IB8真实接口，共用一份前端实现。**
+> - 新增 `d3d8_core_buffer.c/.h`，为VB8和IB8生成各自真实14方法表，共用QI、构造、弱缓存、引用计数和转发逻辑。核心提供SDK中立10方法表及对象/预期类型选择器；复用现有9的private/priority/PreLoad/type/Lock/Unlock/GetDesc，24字节VB及20字节IB描述直接沿用一致布局，SDK差异只在薄边界转换。输入引用在所有构造路径消费，public-zero复活/缓存命中不重复分配或增加核心持有。
+> - **678个既有核心9函数、十种存储结构、十一份完整旧8/运行策略/已有资源适配器文件逐字节一致**；8构建只增加一份缓冲区适配器源，公开默认工厂尚未切换。两个资源类没有再复制构造和生命周期政策。
+> - 原生 **24,373检查 / 536用例**，512组双资源类×四种释放顺序及全部GUID字节、IUnknown/Resource8/具体类/设备同一性、方法参数/HRESULT、描述、弱缓存/public-zero、输入消费/OOM/竞争/父对象先释放；后端明确为COM/元数据shim。**36严格语义变异与ASAN**通过。首次严格编译检出SDK IUnknownVtbl的const差异；首次原生夹具错误提供了NULL方法表却要求消费其COM引用，修正为有效的外部IUnknown方法表。变异定位和unused参数编译失败均修正后重跑，编译失败/普通信号未计作检出。
+> - 首次实际XP **125秒 / 74批 / 一次运行**：保留4K43十一设备，新增SDK120/220两设备，共 **十三设备/十三Reset/104句柄/23声明/35shader**。真实SDK8核对 **2个VB8、4个IB8** 的14方法、24/20字节描述、raw FVF 0x44、private/priority/PreLoad/type/QI/前端设备、零长度整段锁定/只读/双锁拒绝/错误输出原子性、16/32位索引数据、public-zero缓存复活、Reset与最终引用0；新增138 DWORD，累计 **1,962 DWORD实际CPU影子**。新Device8父接口仍为IUnknown夹具。
+> - 实际SDK8写入由SDK9参考绘制消费：新增2次普通绑定绘制及6次索引绘制（含Reset后blue），累计 **56完整图像 / 3,584像素**，SwiftShader与Metal均零误差。独立wire核对8次buffer上传/552字节、全部顶点和两种索引字节，**40,748项篡改检出**。共48 UP、2次普通绑定、6次索引draw；宿主计数drawCalls=50记录非索引，另indexedDrawCalls=6。保留44次纹理上传/7,168字节、12纹理/4cube/2volume、35shader translations、2交换链创建/0拒绝/2销毁、0 Present/GPU/host错误，资源在兜底前为空。CPU帧缓冲回复明确为解析注入。参考绘制的9 NULL stream保留stride20，不据此声称Device8 SetStream政策已实现。
+> - **383客体 / 90核心完整回归**、32标准EXE/四严格DLL/21成员核心/独立消费者与SDK8边界、两项站点集成/范围lint通过；发布准确XP零售8/9和同源diagnostic。证据 [stage4k44-validation.json](fixtures/d3d-review/stage4k44-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K44.json`。继续SwapChain8/Device8、状态块范围与默认工厂，及其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
