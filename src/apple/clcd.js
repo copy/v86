@@ -115,6 +115,14 @@ export class AppleCLCD
         const previous = this.dsi[offset >>> 2];
         if(offset === 0x2C) this.dsi[11] &= ~value;
         else this.dsi[offset >>> 2] = value;
+        if(offset === 4 && value & 1)
+        {
+            // A DSIM reset releases the lanes even after a full power-down
+            // left them in ULPS with the request bits cleared.
+            this.ulps = 0;
+            this.dsi[0x14 >>> 2] &= ~15;
+            this.dsi[1] = 0;
+        }
         // ULPS requests are triggered by rising edges. Apple's wake sequence
         // asserts exit while entry is still set, then drops exit first.
         if(offset === 0x14)
@@ -136,7 +144,6 @@ export class AppleCLCD
         this.dsi[0] = 0x100000 | this.ulps | (this.ulps & 0x200 ? 0 : 0x100) |
             (lanes & ~(this.ulps >>> 4)) | (this.dsi[2] >>> 31) << 10 |
             (this.dsi[0x4C >>> 2] & 1 << 23 ? 0x80000000 : 0);
-        if(offset === 4 && value & 1) this.dsi[1] = 0;
     }
 
     vblank_period() { return 1000 / 60; }

@@ -260,6 +260,11 @@ assert.equal(dsim.read(0) & 0x3FF, 0x10F, "exit is acknowledged even while entry
 dsim.write(0x14, 4, 0x8A);
 dsim.write(0x14, 4, 0x80);
 assert.equal(dsim.read(0) & 0x3FF, 0x10F, "all five lanes leave ULPS and return to stop");
+dsim.write(0x14, 4, 0x8A);
+dsim.write(0x14, 4, 0);
+assert.equal(dsim.read(0) & 0x3FF, 0x2F0, "deasserting the request leaves the lanes asleep");
+dsim.write(0x04, 4, 1);
+assert.equal(dsim.read(0) & 0x3FF, 0x10F, "controller reset returns the lanes to stop for the next wake");
 vic.reset();
 intc.write(0x10010, 4, 1 << 10);
 intc.write(0x10128, 4, 0x8000002A);
