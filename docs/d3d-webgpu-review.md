@@ -2748,6 +2748,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 
 ### 阶段 5：着色器翻译器（约 3–4 周）
 
+> **阶段 5L1（2026-11-05，功能批次完成）：数值参考解释器、算术/控制流修复与严格 Tint 语料门禁。**
+> - 新增独立算术/控制流解释器，复用字节码解码、不复用生成的WGSL。实际生成的 `d9_body` 包装为compute，在Metal和SwiftShader分别比较707个程序×32组输入，共90,496个分量；两端均无超出明确精度预算的差异、无GPU错误。覆盖常量、掩码/修饰符、地址取整、嵌套循环、break及调用内提前return。初始差分直接暴露SM1常量未夹取及嵌套aL污染。
+> - 修复ps_1_x常量读取夹取、vs_1_1 MOV a0向下取整、嵌套/调用后的aL恢复，以及POW零底数正指数/零指数的明确定义。MOVA半整数采用ties-to-even测试策略，仍不宣称Windows原生半整数已定论。
+> - 通用相对误差门槛2e-5（尺度至少1）；SINCOS在[-π,π]依WGSL规范采用2^-11绝对误差预算。707个合成程序用于数值执行，不等同于所有版本合法指令组合的验证器测试。
+> - 47项翻译器单测、190个Naga程序、178项执行器测试、22,624次CPU执行及范围lint通过。严格语料入口现要求真实Chrome Tint校验，12个私有GTA着色器在两个后端均零拒绝；私有字节码不提交。
+> - 发布主线程和shader worker同源bundle `94631fcb923bae8aab2a`，验证两者包含准确测试源码，站点两项集成通过。证据：[stage5l1-validation.json](fixtures/d3d-review/stage5l1-validation.json)。纹理采样差分、SM3语义链接、旧版颜色/雾规则和主体一次翻译架构继续，阶段5尚未完成。
+
 - **目标：** 翻译的正确性由差分测试保证。
 - **改动：**
   - 写一个 SM1–3 的 CPU 参考解释器（JS），按 D3D9 文档的伪代码实现。

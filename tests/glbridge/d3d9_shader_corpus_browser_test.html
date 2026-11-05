@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>Private D3D corpus: Chrome Tint</title><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script type="module">
+try {
+    const input=await fetch("../../build/d3d-review/corpus-tint-input.json");
+    if(!input.ok)throw new Error("Missing private shader corpus input");
+    const shaders=await input.json();if(!Array.isArray(shaders)||!shaders.length)throw new Error("Empty private shader corpus");
+    const adapter=await navigator.gpu?.requestAdapter();if(!adapter)throw new Error("No WebGPU adapter");
+    const device=await adapter.requestDevice(),results=[],errors=[];
+    device.addEventListener("uncapturederror",event=>errors.push(event.error.message));
+    for(const shader of shaders) {
+        const tokens=new Uint32Array(shader.tokens);
+        const hash=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",tokens)),x=>x.toString(16).padStart(2,"0")).join("");
+        if(hash!==shader.sha256)throw new Error("Private shader hash mismatch: "+shader.name);
+        const compiled=D3D9ShaderPipeline.compileShader(tokens);
+        if(!compiled.ok)throw new Error(shader.name+": "+compiled.error);
+        const module=device.createShaderModule({code:compiled.wgsl});
+        const info=await module.getCompilationInfo();
+        const rejected=info.messages.filter(message=>message.type==="error");
+        results.push({name:shader.name,sha256:hash,kind:compiled.reflection.kind,version:compiled.reflection.version,errors:rejected.map(message=>message.message)});
+    }
+    await device.queue.onSubmittedWorkDone();device.destroy();
+    await fetch("/__test_file?name=d3d9-corpus-tint-result.json",{method:"POST",body:JSON.stringify({shaders:results,errors},null,2)});
+    if(errors.length||results.some(result=>result.errors.length))throw new Error("Tint rejected private corpus: "+JSON.stringify({results,errors}));
+    document.querySelector("#result").textContent=`PASS Chrome Tint private corpus: ${results.length} shaders, zero rejections`;
+} catch(error) {document.querySelector("#result").textContent="FAIL "+error.stack;}
+</script>

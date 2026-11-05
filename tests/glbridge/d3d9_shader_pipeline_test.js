@@ -347,8 +347,8 @@ test("vs_1_1 MOV a0.x selects a matrix-palette constant", () => {
     ];
     const { wgsl, reflection } = compileOk(shader,
         "vs_1_1 matrix-palette address");
-    assert.match(wgsl, /let _v\d+ = round\(/,
-        "MOV a0.x must apply SM1.1 round-to-nearest conversion");
+    assert.match(wgsl, /let _v\d+ = floor\(/,
+        "MOV a0.x must floor as observed by Wine visual.c test_mova on Windows");
     assert.ok(wgsl.includes("a0 = vec4<i32>(a0f);"),
         "MOV a0.x did not update the integer address register:\n" + wgsl);
     assert.ok(wgsl.includes("clamp(a0.x + 4, 0, 255)"),
@@ -798,7 +798,7 @@ test("arithmetic opcodes translate to their WGSL equivalents", () => {
         [OP.LIT, 1, "d9_lit(vin0)"],
         [OP.NRM, 1, "d9_normalize((vin0).xyz)"],
         [OP.CRS, 2, "cross((vin0).xyz, (vin0).xyz)"],
-        [OP.POW, 2, "pow(abs((vin0).x), (vin0).x)"],
+        [OP.POW, 2, "d9_pow((vin0).x, (vin0).x)"],
     ];
     for (const [opcode, sourceCount, expected] of cases) {
         const list = [
@@ -990,7 +990,7 @@ test("a derivative inside a data-dependent branch is hoisted above it",
         END,
     ]));
     assert.ok(result.ok, "translation failed: " + result.error);
-    const lines = result.wgsl.split("\n");
+    const lines = result.wgsl.slice(result.wgsl.indexOf("fn d9_body()")).split("\n");
     const derivative = lines.findIndex(line => line.includes("dpdy("));
     const branch = lines.findIndex(line => /^\s*if \(/.test(line));
     assert.ok(derivative >= 0, "expected a dpdy call");
@@ -1051,7 +1051,7 @@ test("an in-branch texture sample keeps its mip level via hoisted gradients",
         "expected an explicit-gradient sample");
     assert.ok(!/textureSampleLevel\(d9_tex0[^)]*0\.0\)/.test(result.wgsl),
         "the level-0 fallback must not be used when gradients are available");
-    const lines = result.wgsl.split("\n");
+    const lines = result.wgsl.slice(result.wgsl.indexOf("fn d9_body()")).split("\n");
     const gradient = lines.findIndex(line => line.includes("dpdx("));
     const branch = lines.findIndex(line => /^\s*if \(/.test(line));
     assert.ok(gradient >= 0 && gradient < branch,

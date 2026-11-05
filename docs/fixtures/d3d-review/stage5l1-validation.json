@@ -1,0 +1,333 @@
+{
+  "stage": "5L1 numerical ALU/control-flow oracle and strict Chrome Tint corpus gate",
+  "date": "2026-11-05",
+  "baseline": {
+    "core": "239543e6",
+    "site": "b6f8717"
+  },
+  "fixes": [
+    "Clamp SM1 pixel constants before modifiers and swizzles, including DEF constants.",
+    "vs_1_1 MOV a0 floors according to Wine Windows test_mova observations.",
+    "Restore enclosing aL after nested LOOP/BREAK and calls returning from loops.",
+    "Define POW zero exponent and zero positive-base-power cases before WGSL pow."
+  ],
+  "runs": {
+    "metal": {
+      "programs": 707,
+      "components": 90496,
+      "inputCount": 32,
+      "maximumRelativeError": 2.980232238769531e-07,
+      "failures": [],
+      "gpuErrors": []
+    },
+    "swift": {
+      "programs": 707,
+      "components": 90496,
+      "inputCount": 32,
+      "maximumRelativeError": 0.00018918514251708984,
+      "failures": [],
+      "gpuErrors": []
+    }
+  },
+  "comparison": {
+    "relativeTolerance": 2e-05,
+    "scale": "max(1, abs(reference))",
+    "sincosAbsoluteTolerance": 0.00048828125,
+    "sincosSource": "https://www.w3.org/TR/WGSL/#floating-point-accuracy",
+    "sincosDomain": "finite input within [-pi, pi]",
+    "movaHalfTies": "Fixture policy is nearest ties-to-even; native Windows half-tie behavior remains unverified."
+  },
+  "validation": {
+    "cpuExecutions": 22624,
+    "translatorUnit": 47,
+    "naga": 190,
+    "executor": 178,
+    "lintFiles": 8,
+    "newLintProblems": 0,
+    "siteIntegration": 2,
+    "bundledTranslator": "Exact source text present in published main and shader-worker bundles"
+  },
+  "corpus": {
+    "metal": {
+      "shaders": [
+        {
+          "name": "01eecdcd933fca338a68ef67d23b49a50fc6440e3fe42fc42849f7ec80c7611b.d9sh",
+          "sha256": "01eecdcd933fca338a68ef67d23b49a50fc6440e3fe42fc42849f7ec80c7611b",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "142ff08f867941812c44e812277ca4be6de43e17d2faec6c4517e9dbec23fe63.d9sh",
+          "sha256": "142ff08f867941812c44e812277ca4be6de43e17d2faec6c4517e9dbec23fe63",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "4909cc6de97d5d5c2fba07332c206b81f168da85c9aaf32175a1f8db44fd2ca8.d9sh",
+          "sha256": "4909cc6de97d5d5c2fba07332c206b81f168da85c9aaf32175a1f8db44fd2ca8",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "6583ae819655f3f44104e8beb5e179db8ac5537e6c5ca26de72e09fba4d7071f.d9sh",
+          "sha256": "6583ae819655f3f44104e8beb5e179db8ac5537e6c5ca26de72e09fba4d7071f",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "7459774c33b5ee6d22ec1aeee6072a2bffe5961fa7002bb34c7a4787063de780.d9sh",
+          "sha256": "7459774c33b5ee6d22ec1aeee6072a2bffe5961fa7002bb34c7a4787063de780",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "7a9e3a006da0d93ce1411b34d01fa4e9b14c9011c7bba99aa94aa36444935a0e.d9sh",
+          "sha256": "7a9e3a006da0d93ce1411b34d01fa4e9b14c9011c7bba99aa94aa36444935a0e",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "7f271de0ab800273eda6154d102f3a70ddb75979736a28c5c28e7061c37e4134.d9sh",
+          "sha256": "7f271de0ab800273eda6154d102f3a70ddb75979736a28c5c28e7061c37e4134",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "7f33dae45d7ca090ddaacc34d1c8fa0c57095c2dd6d2795ed5a4b5fd68c8cab3.d9sh",
+          "sha256": "7f33dae45d7ca090ddaacc34d1c8fa0c57095c2dd6d2795ed5a4b5fd68c8cab3",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "83cb522ec21414f0ea5d1625fa0a5862055b9f3e9e3d08060a434e7341c49545.d9sh",
+          "sha256": "83cb522ec21414f0ea5d1625fa0a5862055b9f3e9e3d08060a434e7341c49545",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "8ac4de316b1c24f80873b9875cafa2333fe220c66099c44b31b095cfadb3eb24.d9sh",
+          "sha256": "8ac4de316b1c24f80873b9875cafa2333fe220c66099c44b31b095cfadb3eb24",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "dc9628bd2100521be1b6c0f2db66dd02253a0ee117cf3ff0f5b88c316b3fd752.d9sh",
+          "sha256": "dc9628bd2100521be1b6c0f2db66dd02253a0ee117cf3ff0f5b88c316b3fd752",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "e039c1efc603ed8ba0c877a635861bebe48372340cc9474f1c399c802654d2d9.d9sh",
+          "sha256": "e039c1efc603ed8ba0c877a635861bebe48372340cc9474f1c399c802654d2d9",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        }
+      ],
+      "errors": []
+    },
+    "swift": {
+      "shaders": [
+        {
+          "name": "01eecdcd933fca338a68ef67d23b49a50fc6440e3fe42fc42849f7ec80c7611b.d9sh",
+          "sha256": "01eecdcd933fca338a68ef67d23b49a50fc6440e3fe42fc42849f7ec80c7611b",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "142ff08f867941812c44e812277ca4be6de43e17d2faec6c4517e9dbec23fe63.d9sh",
+          "sha256": "142ff08f867941812c44e812277ca4be6de43e17d2faec6c4517e9dbec23fe63",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "4909cc6de97d5d5c2fba07332c206b81f168da85c9aaf32175a1f8db44fd2ca8.d9sh",
+          "sha256": "4909cc6de97d5d5c2fba07332c206b81f168da85c9aaf32175a1f8db44fd2ca8",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "6583ae819655f3f44104e8beb5e179db8ac5537e6c5ca26de72e09fba4d7071f.d9sh",
+          "sha256": "6583ae819655f3f44104e8beb5e179db8ac5537e6c5ca26de72e09fba4d7071f",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "7459774c33b5ee6d22ec1aeee6072a2bffe5961fa7002bb34c7a4787063de780.d9sh",
+          "sha256": "7459774c33b5ee6d22ec1aeee6072a2bffe5961fa7002bb34c7a4787063de780",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "7a9e3a006da0d93ce1411b34d01fa4e9b14c9011c7bba99aa94aa36444935a0e.d9sh",
+          "sha256": "7a9e3a006da0d93ce1411b34d01fa4e9b14c9011c7bba99aa94aa36444935a0e",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "7f271de0ab800273eda6154d102f3a70ddb75979736a28c5c28e7061c37e4134.d9sh",
+          "sha256": "7f271de0ab800273eda6154d102f3a70ddb75979736a28c5c28e7061c37e4134",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "7f33dae45d7ca090ddaacc34d1c8fa0c57095c2dd6d2795ed5a4b5fd68c8cab3.d9sh",
+          "sha256": "7f33dae45d7ca090ddaacc34d1c8fa0c57095c2dd6d2795ed5a4b5fd68c8cab3",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "83cb522ec21414f0ea5d1625fa0a5862055b9f3e9e3d08060a434e7341c49545.d9sh",
+          "sha256": "83cb522ec21414f0ea5d1625fa0a5862055b9f3e9e3d08060a434e7341c49545",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "8ac4de316b1c24f80873b9875cafa2333fe220c66099c44b31b095cfadb3eb24.d9sh",
+          "sha256": "8ac4de316b1c24f80873b9875cafa2333fe220c66099c44b31b095cfadb3eb24",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "dc9628bd2100521be1b6c0f2db66dd02253a0ee117cf3ff0f5b88c316b3fd752.d9sh",
+          "sha256": "dc9628bd2100521be1b6c0f2db66dd02253a0ee117cf3ff0f5b88c316b3fd752",
+          "kind": "pixel",
+          "version": {
+            "major": 1,
+            "minor": 1
+          },
+          "errors": []
+        },
+        {
+          "name": "e039c1efc603ed8ba0c877a635861bebe48372340cc9474f1c399c802654d2d9.d9sh",
+          "sha256": "e039c1efc603ed8ba0c877a635861bebe48372340cc9474f1c399c802654d2d9",
+          "kind": "vertex",
+          "version": {
+            "major": 2,
+            "minor": 1
+          },
+          "errors": []
+        }
+      ],
+      "errors": []
+    }
+  },
+  "sourceSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "ba17507be45c3a7db5930080ce1e3c6ca1014f6d189b986f7ad0a32a15dab34b",
+    "tests/lib/d3d_shader_reference.mjs": "1aee3e8a233dfc983ff3fb5825c02d94d49f7fea36183387e36e581ba96e8588",
+    "tests/lib/d3d_shader_cases.mjs": "d3445ede098f6dcc66f9376436f76aba567a3e90987cc8c8a129f6487b2ab305",
+    "tests/glbridge/d3d_shader_reference_test.mjs": "f90cccd1ea50007b1d43d9dd2daf233ec81fe75bec402fb31508b1a680795f31",
+    "tests/glbridge/d3d_shader_differential_browser_test.html": "970439bb1436b6a36911984574c02cfd809c8a91b1c755e90e81b9fdd32c63db",
+    "tests/glbridge/d3d9_shader_pipeline_test.js": "ba4bbfcf9daa82d6d6c9014965e51839af886edf225709045a1adf539c0dc0d4",
+    "tests/glbridge/d3d9_shader_corpus_test.js": "3cd97b36944662db52b4e5b1f313b09c8fb3c3e4f421c209a955e961fb2171d8",
+    "tests/glbridge/d3d9_shader_corpus_browser_test.html": "ff506ccc2f5cd80f684d76ebe13a1206986df2302e956eb4e98e1d35a8a6e9d0"
+  },
+  "published": {
+    "revision": "94631fcb923bae8aab2a",
+    "sha256": {
+      "libv86-webgpu.js": "2dc6f77ef3f263b4b60a8861c8edd345e1f7fcbb6dac94967985a84639d94b3b",
+      "d3d9_shader_worker.js": "7b716119f4cab531c24b6718f577cf607f70742cf38a4e4e3f50c539413fedb2",
+      "d3d9_shader_pipeline.js": "ff5ebcc6dd7b102bf6838424bcaf203dd3dd2116dc28863eef46b79b43e17d16",
+      "graphics_journal_worker.js": "8171b128070e0d450993f60a38bf21b5ad5e7eadfc293a888007c0f0cb463391",
+      "d9wg_diagnostics.js": "af1df257b7c13f93076501e5ce389b8d0baeb81cf8a528c4026104053d00cfa0",
+      "v86gl-device.js": "c63bdda39d2eeef34adc8fc89fb9150d3f4211df77a2b2b7150715c4e793b6d7",
+      "glslang.wasm": "bf04f3f1aa510afd7e461ccb75c929e9498684b3186768c00804ffecc8bdbd16",
+      "vx_naga.wasm": "8a0e51ee1698ff84d14a125d00241fc57fa33f17123cc3d6850d742bf41f5641"
+    }
+  },
+  "limitations": [
+    "First numerical batch only; texture/derivative and broader control-flow/predication matrix remain.",
+    "Oracle reuses decoded operand parser; arithmetic/control equations are independent of generated WGSL.",
+    "Synthetic arithmetic tests are not a validator acceptance matrix for every shader version/opcode combination.",
+    "SM3 semantic linker, legacy texture-address modifiers, color/fog rules and body-once variants remain.",
+    "Private corpus validates 12 captured shaders, not GTA SA startup or all game shaders.",
+    "Host bundle was rebuilt from current committed sources, including previously committed GLES/IOSurface changes; unrelated working-tree iOS changes were not staged."
+  ]
+}

@@ -566,8 +566,13 @@
             case REG_TEMP:
                 this.temps.add(source.index);
                 return "r" + source.index;
-            case REG_CONST:
-                return "d9c.f[" + this.constantIndexExpression(source, 0) + "]";
+            case REG_CONST: {
+                const value = "d9c.f[" + this.constantIndexExpression(source, 0) + "]";
+                // SM1 pixel constants have the hardware range [-1, 1]. Apply
+                // this before source swizzles/modifiers, including DEF values.
+                return this.kind === "pixel" && this.major === 1
+                    ? "clamp(" + value + ", vec4<f32>(-1.0), vec4<f32>(1.0))" : value;
+            }
             case REG_CONST2:
                 return "d9c.f[" + this.constantIndexExpression(source, 1) + "]";
             case REG_CONST3:
@@ -961,13 +966,13 @@
                 return;
             case OP.MOV:
                 // vs_1_1 predates MOVA. Its only legal way to load a0.x is
-                // `mov a0.x, src`, which performs the same round-to-nearest
-                // float-to-integer conversion MOVA performs in later models.
+                // `mov a0.x, src`. Windows floors this value (Wine visual.c
+                // test_mova); MOVA in later models uses nearest rounding.
                 // Keep the float mirror for masked assignment, then update
                 // the integer register relative c[a0.x + n] reads.
                 if (this.kind === "vertex" && this.major === 1 &&
                         dest.type === REG_ADDR) {
-                    this.store(dest, "round(" + s(0) + ")");
+                    this.store(dest, "floor(" + s(0) + ")");
                     this.emit("a0 = vec4<i32>(a0f);");
                 } else {
                     this.store(dest, s(0));
@@ -1011,7 +1016,7 @@
                 return;
             case OP.LOGP: this.store(dest, "vec4<f32>(d9_log(" + scalar(0) + "))"); return;
             case OP.POW:
-                this.store(dest, "vec4<f32>(pow(abs(" + scalar(0) + "), " +
+                this.store(dest, "vec4<f32>(d9_pow(" + scalar(0) + ", " +
                     scalar(1) + "))");
                 return;
             case OP.DP3:
@@ -1308,23 +1313,27 @@
             case OP.LOOP: {
                 const counter = this.fresh("loop");
                 const register = sources[1].index;
+                const saved = this.fresh("saved_aL");
                 this.usesLoopCounter = true;
                 this.maxIntConst = Math.max(this.maxIntConst, register);
+                this.emit("let " + saved + " = aL;");
                 this.emit("aL = d9c.i[" + register + "].y;");
                 this.emit("for (var " + counter + " = 0; " + counter + " < d9c.i[" +
                     register + "].x; " + counter + " = " + counter + " + 1) {");
                 this.enter(false);
                 this.emit("// aL advances at the bottom of the body");
                 this.pendingLoopStep = this.pendingLoopStep || [];
-                this.pendingLoopStep.push(register);
+                this.pendingLoopStep.push({ register, saved });
                 return;
             }
             case OP.ENDLOOP: {
-                const register = this.pendingLoopStep && this.pendingLoopStep.pop();
-                if (register !== undefined)
-                    this.emit("aL = aL + d9c.i[" + register + "].z;");
+                const loop = this.pendingLoopStep && this.pendingLoopStep.pop();
+                if (loop)
+                    this.emit("aL = aL + d9c.i[" + loop.register + "].z;");
                 this.leave();
                 this.emit("}");
+                // This also runs after BREAK, restoring the enclosing loop.
+                if (loop) this.emit("aL = " + loop.saved + ";");
                 return;
             }
             case OP.BREAK: this.emit("break;"); return;
@@ -1340,12 +1349,20 @@
                 return;
             }
             case OP.CALL:
-                this.emit("d9_sub" + sources[0].index + "();");
+            case OP.CALLNZ: {
+                // RET inside a callee's loop bypasses that loop's epilogue.
+                // The calling loop's aL must survive even that early return.
+                this.usesLoopCounter = true;
+                const saved = this.fresh("call_aL");
+                this.emit("let " + saved + " = aL;");
+                if (opcode === OP.CALL)
+                    this.emit("d9_sub" + sources[0].index + "();");
+                else
+                    this.emit("if (" + this.booleanSource(sources[1]) + ") { d9_sub" +
+                        sources[0].index + "(); }");
+                this.emit("aL = " + saved + ";");
                 return;
-            case OP.CALLNZ:
-                this.emit("if (" + this.booleanSource(sources[1]) + ") { d9_sub" +
-                    sources[0].index + "(); }");
-                return;
+            }
             case OP.RET:
                 this.emit("return;");
                 return;
@@ -1928,6 +1945,11 @@
                 "select(inverseSqrt(a), " + FLOAT_MAX + ", a == 0.0); }");
             out.push("fn d9_log(v: f32) -> f32 { let a = abs(v); return " +
                 "select(log2(a), -" + FLOAT_MAX + ", a == 0.0); }");
+            out.push("fn d9_pow(x: f32, y: f32) -> f32 {");
+            out.push("    if (y == 0.0) { return 1.0; }");
+            out.push("    if (x == 0.0 && y > 0.0) { return 0.0; }");
+            out.push("    return pow(abs(x), y);");
+            out.push("}");
             out.push("fn d9_normalize(v: vec3<f32>) -> vec3<f32> { let l = " +
                 "dot(v, v); return select(v * inverseSqrt(l), vec3<f32>(0.0), l == 0.0); }");
             out.push("fn d9_lit(s: vec4<f32>) -> vec4<f32> {");

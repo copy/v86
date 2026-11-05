@@ -1,0 +1,75 @@
+<!doctype html><meta charset="utf-8"><title>D3D shader numerical differential</title><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script type="module">
+import {execute_shader} from "../lib/d3d_shader_reference.mjs";
+import {numerical_cases,numerical_inputs} from "../lib/d3d_shader_cases.mjs";
+try {
+    const adapter=await navigator.gpu?.requestAdapter();if(!adapter)throw new Error("No WebGPU adapter");
+    const device=await adapter.requestDevice(),gpuErrors=[];
+    device.addEventListener("uncapturederror",event=>gpuErrors.push(event.error.message));
+    const translator=D3D9ShaderPipeline,failures=[],inputs=numerical_inputs();
+    let programs=0,components=0,maximumRelativeError=0;
+    for(const test of numerical_cases()) {
+        const translated=translator.compileShader(test.tokens);
+        if(!translated.ok){failures.push({name:test.name,translation:translated.error});continue;}
+        const ref=translated.reflection,parsed=translator.parseShader(test.tokens);
+        // Retain the actual generated helpers, private registers and d9_body.
+        // Only the raster entry and uniform source are replaced for compute.
+        const bodyStart=translated.wgsl.indexOf("fn d9_body() {");
+        let end=translated.wgsl.indexOf("{",bodyStart)+1,depth=1;
+        for(;depth&&end<translated.wgsl.length;end++) {if(translated.wgsl[end]==="{")depth++;if(translated.wgsl[end]==="}")depth--;}
+        if(bodyStart<0||depth)throw new Error("Missing shader body");
+        const wgsl=translated.wgsl.slice(0,end).replace(/@group\(0\) @binding\(\d+\) var<uniform> d9c: D9Constants;/,"var<private> d9c: D9Constants;")+`
+@group(0) @binding(0) var<storage,read> cases: array<D9Constants>;
+@group(0) @binding(1) var<storage,read_write> results: array<vec4<f32>>;
+@compute @workgroup_size(1) fn differential(@builtin(global_invocation_id) id: vec3<u32>) {
+    d9c = cases[id.x]; d9_body(); results[id.x] = r0;
+}`;
+        const module=device.createShaderModule({code:wgsl}),info=await module.getCompilationInfo();
+        const diagnostics=info.messages.filter(message=>message.type==="error");
+        if(diagnostics.length){failures.push({name:test.name,compile:diagnostics.map(x=>x.message)});continue;}
+        device.pushErrorScope("validation");
+        const pipeline=await device.createComputePipelineAsync({layout:"auto",compute:{module,entryPoint:"differential"}});
+        const data=new ArrayBuffer(ref.uniformBytes*inputs.length),floats=new Float32Array(data),integers=new Int32Array(data);
+        for(let i=0;i<inputs.length;i++) {
+            const at=i*ref.uniformBytes/4,input=inputs[i];
+            for(let c=0;c<ref.floatConstCount;c++)floats.set(input.f[c]||[0,0,0,0],at+c*4);
+            for(let c=0;c<ref.intConstCount;c++)integers.set(input.i[c]||[0,0,0,0],at+ref.floatConstCount*4+c*4);
+            for(let c=0;c<ref.boolVectorCount*4;c++)integers[at+ref.floatConstCount*4+ref.intConstCount*4+c]=Number(!!input.b[c]);
+            for(const d of ref.floatDefaults)floats.set(d.values,at+d.register*4);
+            for(const d of ref.intDefaults)integers.set(d.values,at+ref.floatConstCount*4+d.register*4);
+            for(const d of ref.boolDefaults)integers[at+ref.floatConstCount*4+ref.intConstCount*4+d.register]=Number(d.value);
+        }
+        const source=device.createBuffer({size:data.byteLength,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_DST});
+        device.queue.writeBuffer(source,0,data);
+        const target=device.createBuffer({size:inputs.length*16,usage:GPUBufferUsage.STORAGE|GPUBufferUsage.COPY_SRC});
+        const read=device.createBuffer({size:inputs.length*16,usage:GPUBufferUsage.MAP_READ|GPUBufferUsage.COPY_DST});
+        const group=device.createBindGroup({layout:pipeline.getBindGroupLayout(0),entries:[{binding:0,resource:{buffer:source}},{binding:1,resource:{buffer:target}}]});
+        const encoder=device.createCommandEncoder(),pass=encoder.beginComputePass();pass.setPipeline(pipeline);pass.setBindGroup(0,group);pass.dispatchWorkgroups(inputs.length);pass.end();encoder.copyBufferToBuffer(target,0,read,0,inputs.length*16);device.queue.submit([encoder.finish()]);
+        await read.mapAsync(GPUMapMode.READ);const actual=new Float32Array(read.getMappedRange());
+        let differences=0,examples=[];
+        for(let i=0;i<inputs.length;i++) {
+            const expected=execute_shader(parsed,inputs[i]).read(0,0);
+            for(let c=0;c<4;c++) {
+                const a=actual[i*4+c],e=expected[c],delta=Math.abs(a-e),scale=Math.max(1,Math.abs(e));components++;
+                if(Number.isFinite(delta))maximumRelativeError=Math.max(maximumRelativeError,delta/scale);
+                // Floating ALU may fuse operations; use an explicit tight
+                // tolerance. SINCOS uses the WGSL f32 absolute bound 2^-11
+                // on [-pi,pi]: https://www.w3.org/TR/WGSL/#floating-point-accuracy
+                // NaN/Inf must match category and sign exactly.
+                const same=Number.isNaN(a)&&Number.isNaN(e)||a===e||Number.isFinite(a)&&Number.isFinite(e)&&delta<=Math.max(test.absoluteTolerance||0,0.00002*scale);
+                if(!same){differences++;if(examples.length<4)examples.push({input:i,component:c,actual:String(a),expected:String(e)});}
+            }
+        }
+        read.unmap();source.destroy();target.destroy();read.destroy();
+        const error=await device.popErrorScope();if(error)gpuErrors.push(error.message);
+        if(differences)failures.push({name:test.name,differences,examples});
+        programs++;
+    }
+    const evidence={programs,components,inputCount:inputs.length,maximumRelativeError,failures,gpuErrors};
+    await fetch("/__test_file?name=d3d-shader-differential.json",{method:"POST",body:JSON.stringify(evidence,null,2)});
+    device.destroy();
+    if(failures.length||gpuErrors.length)throw new Error(JSON.stringify({programs,components,failingPrograms:failures.length,examples:failures.slice(0,8),gpuErrors}));
+    document.querySelector("#result").textContent=`PASS numerical shader differential: ${programs} programs, ${components} components`;
+} catch(error) {document.querySelector("#result").textContent="FAIL "+error.stack;}
+</script>

@@ -144,3 +144,25 @@ if (strict &&
     console.error("\nD9_CORPUS_STRICT=1 and the corpus has failures");
     process.exit(1);
 }
+
+// Strict mode also requires Chrome's production Tint validator. Naga alone
+// accepts programs that browsers may reject. Private tokens stay under build/.
+if (strict) {
+    const crypto = require("node:crypto"), root = path.resolve(__dirname, "../..");
+    const input = files.map(name => {
+        const bytes = fs.readFileSync(path.join(directory, name));
+        return { name, sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+            tokens: Array.from({ length: bytes.length / 4 }, (_, i) => bytes.readUInt32LE(i * 4)) };
+    });
+    const target = path.join(root, "build/d3d-review/corpus-tint-input.json");
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, JSON.stringify(input));
+    const checked = spawnSync(process.execPath, [path.join(__dirname, "gl_multipass_browser_runner.js"),
+        "d3d9_shader_corpus_browser_test.html"], { cwd: root, encoding: "utf8", timeout: 190000,
+        env: { ...process.env, GL_TIMEOUT_MS: process.env.GL_TIMEOUT_MS || "180000" } });
+    process.stdout.write(checked.stdout || "");process.stderr.write(checked.stderr || "");
+    if (checked.status !== 0) {
+        console.error("Strict D3D corpus Chrome Tint validation failed", checked.error || checked.signal || "");
+        process.exit(1);
+    }
+}
