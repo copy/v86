@@ -1,0 +1,717 @@
+{
+  "batch": "stage6-7",
+  "date": "2026-11-06",
+  "scope": "Matched old-branch 3DMark99 baseline and further scalar-copy optimization",
+  "status": "Complete local functional batch; Race parity and stage6 remain open",
+  "changes": [
+    "Replace two per-position 16-byte stack/block copies with alias-safe scalar 4-byte loads/stores. Keep identical classification, finite-range guards, fallback and exact snapshot bits.",
+    "The built DDraw disassembly contains 205 REP MOVS sites versus 207 before; the two removed sites were inside per-vertex paths.",
+    "Repair the project-owned XP probe assertion that still called a now-supported multi-stream declaration unsupported. Identity-space positions[2..4] are all left of x=-1, so require ClipUnion=ClipIntersection=1. Retain stale-status rejection using an unsupported CPU vertex program. The multi-stream implementation predates this batch (site 8aa5a105)."
+  ],
+  "comparison": {
+    "settings": {
+      "resolution": "800x600",
+      "color_bits": 16,
+      "depth_bits": 16,
+      "buffering": "Triple",
+      "vsync": "Off",
+      "cpu_optimization": "Pentium III",
+      "cpu_worker": true,
+      "memory_MiB": 1024,
+      "backend": "Metal"
+    },
+    "rows": [
+      {
+        "version": "old v86 master + site main",
+        "directory": "stage6-99-master-bounded",
+        "score": 401,
+        "cpu_score": 10281,
+        "Race_FPS": 26.2,
+        "First_Person_FPS": 2.2
+      },
+      {
+        "version": "refactor before stage6 performance fixes",
+        "score": 189,
+        "Race_FPS": 6.2,
+        "First_Person_FPS": 1.1
+      },
+      {
+        "version": "first accepted stage6 scalar optimization",
+        "directory": "stage6-99-scalar",
+        "score": 1605,
+        "cpu_score": 10100,
+        "Race_FPS": 22.7,
+        "First_Person_FPS": 12.4
+      },
+      {
+        "version": "this batch, accepted",
+        "directory": "stage6-99-scalar2-clean",
+        "score": 1842,
+        "cpu_score": 9761,
+        "Race_FPS": 24.6,
+        "First_Person_FPS": 14.7
+      }
+    ],
+    "remaining_gap": "Race is 6.1% below the measured old-branch average. CPU scores also vary, but no normalization is used to declare parity. First Person is substantially faster. The user-reported instantaneous ~30 FPS is not substituted for a measured average.",
+    "old_source": {
+      "v86_master": "87d26deb9a77c2e98b4b684f39cc72ba9065d76a",
+      "site_main": "43c4d1e58c6808e2fee2e2abac59062467b6942b",
+      "ddraw_sha256": "031d8ed406c2903caa35adac16cecb2d3751cb4fdb4271483c2a7722568153f7",
+      "core_assets": {
+        "libv86.js": {
+          "bytes": 771458,
+          "sha256": "bf4101821a875b9a8fd8b6d9ad40db89adbdf21b62e85f442a47dea4dc754bfe"
+        },
+        "v86.wasm": {
+          "bytes": 3010349,
+          "sha256": "41fa4391b80c295e20e53b217ccf418288e0f88b1904fdc23e8907b13612ce60"
+        },
+        "cpu-worker.js": {
+          "bytes": 780426,
+          "sha256": "1982d98e76fc08f6d0d338b94bff806263ab5e81ccfe706a4b40e5dbb4c17ef8"
+        },
+        "v86-bochs-vga.js": {
+          "bytes": 44376,
+          "sha256": "ce8415006ca38dc53bd807323fc01fcfc47e9d3c31b7aad3934636e4408d1984"
+        }
+      },
+      "journal_bound": {
+        "scope": "Only bound pending raw graphics history before CPU-worker transport acknowledgement; no draw, shader or guest DLL change",
+        "budget": 67108864,
+        "pageBytes": 4194304,
+        "allRecordsPreserved": true
+      },
+      "journal_shim_sha256": "13100dd44de0eaf17fb471aae5b535282bc149a25ff584f08c7035a1133c3155",
+      "qualification": "Only the pending raw history queue is bounded before worker acknowledgement to prevent old-host OOM; all records retained, no guest/draw/shader change. Old host has no structured GPU/host error collectors; browser and command monitoring are retained. Not an entirely unmodified runtime baseline.",
+      "runner": {
+        "code": 0,
+        "browserErrors": [],
+        "monitorErrors": [],
+        "time": "2026-11-05T21:42:25.568Z"
+      },
+      "artifacts": [
+        {
+          "file": "S6OLD99.3DP",
+          "name": "S6OLD99.3DP",
+          "bytes": 3820,
+          "sha256": "c7345d798864b73d68ca466721ae9249ce3a7a57b99edbb7b4661a835f8fcdbd"
+        },
+        {
+          "file": "OLD99.TXT",
+          "name": "OLD99.TXT",
+          "bytes": 4360,
+          "sha256": "ad7e51286fe198a6638db10a4f0207bd8dc32ac99d02fd343daefdafdbe095d0"
+        },
+        {
+          "file": "3DMark 99 Max/ddraw.dll",
+          "name": "3DMark_99_Max_ddraw.dll",
+          "bytes": 100352,
+          "sha256": "031d8ed406c2903caa35adac16cecb2d3751cb4fdb4271483c2a7722568153f7"
+        },
+        {
+          "file": "Quality/IQ01I_S6OLD99.bmp",
+          "name": "Quality_IQ01I_S6OLD99.bmp",
+          "bytes": 249856,
+          "sha256": "b010eb1527157c6bd27d249833060d1e81b3e98fbfe4efa5bd7a8701a092ef96"
+        },
+        {
+          "file": "Quality/IQ01T_S6OLD99.bmp",
+          "name": "Quality_IQ01T_S6OLD99.bmp",
+          "bytes": 16384,
+          "sha256": "a1d5ae75bd0cb38446437d9a2f988f059c7648b9dfc2cbb71e5a0c607b282348"
+        },
+        {
+          "file": "Quality/IQ02I_S6OLD99.bmp",
+          "name": "Quality_IQ02I_S6OLD99.bmp",
+          "bytes": 249856,
+          "sha256": "a647e60ce29bce5441bd839282cf7460ec6280fd9959ad8ee89189189b8ff1ee"
+        },
+        {
+          "file": "Quality/IQ02T_S6OLD99.bmp",
+          "name": "Quality_IQ02T_S6OLD99.bmp",
+          "bytes": 16384,
+          "sha256": "8f2027fb3cc2387ef11c0368f6003aac6db503ee4256f329705e9b502b40a80e"
+        },
+        {
+          "file": "Quality/IQ03I_S6OLD99.bmp",
+          "name": "Quality_IQ03I_S6OLD99.bmp",
+          "bytes": 249856,
+          "sha256": "2748efd53df08b966976ca94f613898293021687ad54674c7bcb4cd7f18010b2"
+        },
+        {
+          "file": "Quality/IQ03T_S6OLD99.bmp",
+          "name": "Quality_IQ03T_S6OLD99.bmp",
+          "bytes": 16384,
+          "sha256": "6a0ca677be63687987bf21c15f4937f643242b3bafd88bc17d1f427e7594ca13"
+        },
+        {
+          "file": "Quality/IQ04I_S6OLD99.bmp",
+          "name": "Quality_IQ04I_S6OLD99.bmp",
+          "bytes": 249856,
+          "sha256": "55393fd1fa089d180361b57df9918fc818929b36fc936164c60aac18642681b5"
+        },
+        {
+          "file": "Quality/IQ04T_S6OLD99.bmp",
+          "name": "Quality_IQ04T_S6OLD99.bmp",
+          "bytes": 16384,
+          "sha256": "918f791c69dae6569e92e398c5633f0013a165a80c46474240c707771e05728d"
+        },
+        {
+          "file": "Quality/IQ05I_S6OLD99.bmp",
+          "name": "Quality_IQ05I_S6OLD99.bmp",
+          "bytes": 249856,
+          "sha256": "725c91384282e03db2b505e020ce926ee32fee5440c218d62dcb9f84e8195d4c"
+        },
+        {
+          "file": "Quality/IQ05T_S6OLD99.bmp",
+          "name": "Quality_IQ05T_S6OLD99.bmp",
+          "bytes": 16384,
+          "sha256": "1de780e57e1e69cbe0212b5210d508584fd3cd6e59b4d306359e130a4342e1a5"
+        },
+        {
+          "file": "Quality/IQ06I_S6OLD99.bmp",
+          "name": "Quality_IQ06I_S6OLD99.bmp",
+          "bytes": 249856,
+          "sha256": "02d47a2df3ea5c3cf99e3a49dd49f53aacebac3eb279c3aad93d28286e31ee4a"
+        },
+        {
+          "file": "Quality/IQ06T_S6OLD99.bmp",
+          "name": "Quality_IQ06T_S6OLD99.bmp",
+          "bytes": 16384,
+          "sha256": "f453af8f4048d8996d93325d38d640df1942881e3937fff3805f49f03a110ae3"
+        },
+        {
+          "file": "Quality/IQ07I_S6OLD99.bmp",
+          "name": "Quality_IQ07I_S6OLD99.bmp",
+          "bytes": 249856,
+          "sha256": "ff472d99c92c1c77d4c4fa74fee298ac5f21606a3ee184885e975dd8eb2cdf70"
+        },
+        {
+          "file": "Quality/IQ07T_S6OLD99.bmp",
+          "name": "Quality_IQ07T_S6OLD99.bmp",
+          "bytes": 16384,
+          "sha256": "14944ae28fe9721ee6a1c673c151f39f22b59ef7b7f15365d1dae568f0bd9edd"
+        },
+        {
+          "file": "Quality/IQ08I_S6OLD99.bmp",
+          "name": "Quality_IQ08I_S6OLD99.bmp",
+          "bytes": 1597696,
+          "sha256": "82dd4bad995d08aca71859feb320e240f9e5e83ecb8e21680d5bfbbabde32b6b"
+        },
+        {
+          "file": "Quality/IQ08T_S6OLD99.bmp",
+          "name": "Quality_IQ08T_S6OLD99.bmp",
+          "bytes": 18496,
+          "sha256": "161bf3770fa9c5ff94ab0c8b86b52e39f6a537ea7122767d8c4a893db0227010"
+        },
+        {
+          "file": "Quality/IQ09I_S6OLD99.bmp",
+          "name": "Quality_IQ09I_S6OLD99.bmp",
+          "bytes": 1597696,
+          "sha256": "7c5fa30ffcb5bf0c727d0114c610cef96a6bf12ff11e1cc2093c6aa930e1b973"
+        },
+        {
+          "file": "Quality/IQ09T_S6OLD99.bmp",
+          "name": "Quality_IQ09T_S6OLD99.bmp",
+          "bytes": 18496,
+          "sha256": "7fb8646aca07e2064f2461709b25e175238576104d6152fca808f7b33a4bc7c2"
+        }
+      ]
+    }
+  },
+  "accepted_run": {
+    "directory": "build/d3d-review/stage6-99-scalar2-clean",
+    "completed_tests": 26,
+    "core_assets": {
+      "libv86.js": {
+        "bytes": 842704,
+        "sha256": "6eca83bb632e2e132e89a35e868c6b3fc59c67d74232d4c517c6104d5bc6f327"
+      },
+      "v86.wasm": {
+        "bytes": 3011563,
+        "sha256": "15a39f2f07c9d40f9c4d5bae1fb720dd410d91d1a3d05a541f2d92cf584a8d9f"
+      },
+      "cpu-worker.js": {
+        "bytes": 851766,
+        "sha256": "0e93acfc901408b4f1380f7c25560456e1d8c55ecb225c124a5d69bbe0f01877"
+      },
+      "v86-bochs-vga.js": {
+        "bytes": 44376,
+        "sha256": "ce8415006ca38dc53bd807323fc01fcfc47e9d3c31b7aad3934636e4408d1984"
+      }
+    },
+    "webgpu_revision": "f95489b0bdfbfc0030ee",
+    "errors": {
+      "browser": 0,
+      "monitor": 0,
+      "host": 0,
+      "gpu": 0,
+      "commands_failed": 0,
+      "draws_dropped": 0,
+      "shader_compile": 0,
+      "shader_translation": 0
+    },
+    "normal_exit": {
+      "devices": 0,
+      "resources": 0
+    },
+    "journal": {
+      "rawBytes": 14536365692,
+      "pendingBytes": 0,
+      "residentBytes": 66689279
+    },
+    "quality": {
+      "reference": "Previously accepted stage6-99-scalar images, which were independently reviewed against bundled references. This is an optimization regression comparison, not a new independent oracle.",
+      "excluded": "64 top metadata rows in each full-size BMP",
+      "images": [
+        {
+          "test": 1,
+          "components": 196608,
+          "different": 0
+        },
+        {
+          "test": 2,
+          "components": 196608,
+          "different": 0
+        },
+        {
+          "test": 3,
+          "components": 196608,
+          "different": 0
+        },
+        {
+          "test": 4,
+          "components": 196608,
+          "different": 0
+        },
+        {
+          "test": 5,
+          "components": 196608,
+          "different": 0
+        },
+        {
+          "test": 6,
+          "components": 196608,
+          "different": 0
+        },
+        {
+          "test": 7,
+          "components": 196608,
+          "different": 0
+        },
+        {
+          "test": 8,
+          "components": 1440000,
+          "different": 0
+        },
+        {
+          "test": 9,
+          "components": 1440000,
+          "different": 0
+        }
+      ]
+    },
+    "artifacts": [
+      {
+        "file": "S6SC299.3DP",
+        "name": "S6SC299.3DP",
+        "bytes": 3820,
+        "sha256": "3e30e791b558636c38a3963c3a3048c379371cc9fee508115de6df7ba615911a"
+      },
+      {
+        "file": "SC299.TXT",
+        "name": "SC299.TXT",
+        "bytes": 4359,
+        "sha256": "f8cb606ad1f2c3260a7c62a172256c5e2d7b681fedb0e46d13d7c16d68172b82"
+      },
+      {
+        "file": "3DMark 99 Max/ddraw.dll",
+        "name": "3DMark_99_Max_ddraw.dll",
+        "bytes": 145408,
+        "sha256": "f99335110e586963af6b248bfd6406134235e40d3f8387767d8afa6a9327e660"
+      },
+      {
+        "file": "Quality/IQ01I_S6SC299.bmp",
+        "name": "Quality_IQ01I_S6SC299.bmp",
+        "bytes": 249856,
+        "sha256": "b010eb1527157c6bd27d249833060d1e81b3e98fbfe4efa5bd7a8701a092ef96"
+      },
+      {
+        "file": "Quality/IQ01T_S6SC299.bmp",
+        "name": "Quality_IQ01T_S6SC299.bmp",
+        "bytes": 16384,
+        "sha256": "a1d5ae75bd0cb38446437d9a2f988f059c7648b9dfc2cbb71e5a0c607b282348"
+      },
+      {
+        "file": "Quality/IQ02I_S6SC299.bmp",
+        "name": "Quality_IQ02I_S6SC299.bmp",
+        "bytes": 249856,
+        "sha256": "e073e322a024dc775adefce4b908ea25a84f950dc479717d12d5d9be4317e236"
+      },
+      {
+        "file": "Quality/IQ02T_S6SC299.bmp",
+        "name": "Quality_IQ02T_S6SC299.bmp",
+        "bytes": 16384,
+        "sha256": "d2f920990e5e1e245d13b95ba107aa8cc8b12453ccae45cfeca4b881a58002a0"
+      },
+      {
+        "file": "Quality/IQ03I_S6SC299.bmp",
+        "name": "Quality_IQ03I_S6SC299.bmp",
+        "bytes": 249856,
+        "sha256": "2748efd53df08b966976ca94f613898293021687ad54674c7bcb4cd7f18010b2"
+      },
+      {
+        "file": "Quality/IQ03T_S6SC299.bmp",
+        "name": "Quality_IQ03T_S6SC299.bmp",
+        "bytes": 16384,
+        "sha256": "6a0ca677be63687987bf21c15f4937f643242b3bafd88bc17d1f427e7594ca13"
+      },
+      {
+        "file": "Quality/IQ04I_S6SC299.bmp",
+        "name": "Quality_IQ04I_S6SC299.bmp",
+        "bytes": 249856,
+        "sha256": "55393fd1fa089d180361b57df9918fc818929b36fc936164c60aac18642681b5"
+      },
+      {
+        "file": "Quality/IQ04T_S6SC299.bmp",
+        "name": "Quality_IQ04T_S6SC299.bmp",
+        "bytes": 16384,
+        "sha256": "918f791c69dae6569e92e398c5633f0013a165a80c46474240c707771e05728d"
+      },
+      {
+        "file": "Quality/IQ05I_S6SC299.bmp",
+        "name": "Quality_IQ05I_S6SC299.bmp",
+        "bytes": 249856,
+        "sha256": "725c91384282e03db2b505e020ce926ee32fee5440c218d62dcb9f84e8195d4c"
+      },
+      {
+        "file": "Quality/IQ05T_S6SC299.bmp",
+        "name": "Quality_IQ05T_S6SC299.bmp",
+        "bytes": 16384,
+        "sha256": "1de780e57e1e69cbe0212b5210d508584fd3cd6e59b4d306359e130a4342e1a5"
+      },
+      {
+        "file": "Quality/IQ06I_S6SC299.bmp",
+        "name": "Quality_IQ06I_S6SC299.bmp",
+        "bytes": 249856,
+        "sha256": "02d47a2df3ea5c3cf99e3a49dd49f53aacebac3eb279c3aad93d28286e31ee4a"
+      },
+      {
+        "file": "Quality/IQ06T_S6SC299.bmp",
+        "name": "Quality_IQ06T_S6SC299.bmp",
+        "bytes": 16384,
+        "sha256": "f453af8f4048d8996d93325d38d640df1942881e3937fff3805f49f03a110ae3"
+      },
+      {
+        "file": "Quality/IQ07I_S6SC299.bmp",
+        "name": "Quality_IQ07I_S6SC299.bmp",
+        "bytes": 249856,
+        "sha256": "ff472d99c92c1c77d4c4fa74fee298ac5f21606a3ee184885e975dd8eb2cdf70"
+      },
+      {
+        "file": "Quality/IQ07T_S6SC299.bmp",
+        "name": "Quality_IQ07T_S6SC299.bmp",
+        "bytes": 16384,
+        "sha256": "14944ae28fe9721ee6a1c673c151f39f22b59ef7b7f15365d1dae568f0bd9edd"
+      },
+      {
+        "file": "Quality/IQ08I_S6SC299.bmp",
+        "name": "Quality_IQ08I_S6SC299.bmp",
+        "bytes": 1597696,
+        "sha256": "4466e3fb5b8133c4cc2bb8e8ef7d8c73e6104329a27c6e107528efcac809a6e1"
+      },
+      {
+        "file": "Quality/IQ08T_S6SC299.bmp",
+        "name": "Quality_IQ08T_S6SC299.bmp",
+        "bytes": 18496,
+        "sha256": "b2cf7daa65b4259c1d9f2143d965164403d26a383b98a9dc6d2a0de269a8282f"
+      },
+      {
+        "file": "Quality/IQ09I_S6SC299.bmp",
+        "name": "Quality_IQ09I_S6SC299.bmp",
+        "bytes": 1597696,
+        "sha256": "9399f3c5c5f8fc4f59ff6d269abb7a935c8acc1f7825fe2ab82e6a90bad9777e"
+      },
+      {
+        "file": "Quality/IQ09T_S6SC299.bmp",
+        "name": "Quality_IQ09T_S6SC299.bmp",
+        "bytes": 18496,
+        "sha256": "1a9c7e25fc6b60d0dcf916c970d6dea73d099bd47ffa69fe88f173bb51e5d705"
+      }
+    ]
+  },
+  "profiling": {
+    "directory": "build/d3d-review/stage6-99-scalar-profile",
+    "scope": "Separate deliberately aborted diagnostic; sampling scores not accepted",
+    "summary": {
+      "race-worker": {
+        "microseconds": 25063424,
+        "top": [
+          {
+            "function": "x64_pagel32_6538a000",
+            "ms": 2939.442,
+            "percent": 11.73
+          },
+          {
+            "function": "x64_pagel32_65399000",
+            "ms": 2501.197,
+            "percent": 9.98
+          },
+          {
+            "function": "x64_pagel32_6539b000",
+            "ms": 2307.165,
+            "percent": 9.21
+          },
+          {
+            "function": "x64_pagel32_65398000",
+            "ms": 1691.339,
+            "percent": 6.75
+          },
+          {
+            "function": "fpu_fcomi",
+            "ms": 828.42,
+            "percent": 3.31
+          },
+          {
+            "function": "x64_pagel32_6539a000",
+            "ms": 809.713,
+            "percent": 3.23
+          },
+          {
+            "function": "fpu_sync_slot",
+            "ms": 665.999,
+            "percent": 2.66
+          },
+          {
+            "function": "x64_pagel32_b21000",
+            "ms": 591.699,
+            "percent": 2.36
+          },
+          {
+            "function": "_ZN3v863x645pages13execute_inner17h206e0952987cb769E",
+            "ms": 475.657,
+            "percent": 1.9
+          },
+          {
+            "function": "_ZN3v863x647execute3alu17h5e4646241676b21aE",
+            "ms": 461.042,
+            "percent": 1.84
+          },
+          {
+            "function": "x64_pagel32_6539c000",
+            "ms": 425.135,
+            "percent": 1.7
+          },
+          {
+            "function": "x64_pagel32_438000",
+            "ms": 422.374,
+            "percent": 1.69
+          },
+          {
+            "function": "x64_pagel32_b1e000",
+            "ms": 341.322,
+            "percent": 1.36
+          },
+          {
+            "function": "x64_pagel32_3bb000",
+            "ms": 327.509,
+            "percent": 1.31
+          },
+          {
+            "function": "_ZN3v863x645pages11step_result17hbd6245f0f32857fbE",
+            "ms": 324.998,
+            "percent": 1.3
+          },
+          {
+            "function": "_ZN3v863cpu3cpu22run_compat_instruction17hbea534ce7ecc02d0E",
+            "ms": 284.943,
+            "percent": 1.14
+          },
+          {
+            "function": "x64_pagel32_76b44000",
+            "ms": 262.054,
+            "percent": 1.05
+          },
+          {
+            "function": "x64_pagel32_b1c000",
+            "ms": 256.226,
+            "percent": 1.02
+          },
+          {
+            "function": "x64_pagel32_b22000",
+            "ms": 255.576,
+            "percent": 1.02
+          },
+          {
+            "function": "_ZN3v863gen11interpreter3run17h660101cb5936e44eE",
+            "ms": 251.197,
+            "percent": 1.0
+          }
+        ]
+      },
+      "race-host": {
+        "microseconds": 20115585,
+        "top": [
+          {
+            "function": "(idle)",
+            "ms": 17936.537,
+            "percent": 89.17
+          },
+          {
+            "function": "(program)",
+            "ms": 382.19,
+            "percent": 1.9
+          },
+          {
+            "function": "writeBuffer",
+            "ms": 280.355,
+            "percent": 1.39
+          },
+          {
+            "function": "buildProgramFor",
+            "ms": 189.309,
+            "percent": 0.94
+          },
+          {
+            "function": "pipelineFor",
+            "ms": 171.295,
+            "percent": 0.85
+          },
+          {
+            "function": "(garbage collector)",
+            "ms": 127.327,
+            "percent": 0.63
+          },
+          {
+            "function": "append",
+            "ms": 94.746,
+            "percent": 0.47
+          },
+          {
+            "function": "submit",
+            "ms": 93.79,
+            "percent": 0.47
+          },
+          {
+            "function": "textureCascadeSignature",
+            "ms": 85.87,
+            "percent": 0.43
+          },
+          {
+            "function": "applyBufferUpdate",
+            "ms": 71.678,
+            "percent": 0.36
+          },
+          {
+            "function": "",
+            "ms": 59.062,
+            "percent": 0.29
+          },
+          {
+            "function": "createBuffer",
+            "ms": 45.391,
+            "percent": 0.23
+          },
+          {
+            "function": "toDataURL",
+            "ms": 44.005,
+            "percent": 0.22
+          },
+          {
+            "function": "bindGroupFor",
+            "ms": 38.43,
+            "percent": 0.19
+          },
+          {
+            "function": "put",
+            "ms": 36.505,
+            "percent": 0.18
+          },
+          {
+            "function": "programFor",
+            "ms": 34.399,
+            "percent": 0.17
+          },
+          {
+            "function": "constantBufferFor",
+            "ms": 27.203,
+            "percent": 0.14
+          },
+          {
+            "function": "recordDraw",
+            "ms": 25.6,
+            "percent": 0.13
+          },
+          {
+            "function": "destroy",
+            "ms": 24.358,
+            "percent": 0.12
+          },
+          {
+            "function": "staticStateKey",
+            "ms": 23.282,
+            "percent": 0.12
+          }
+        ]
+      }
+    }
+  },
+  "validation": {
+    "native": [
+      "D9WG_SANITIZE=1 node glbridge/tests/d9wg_screen_clip_fast_test.js: 250000 differential vectors passed.",
+      "D9WG_SANITIZE=1 node glbridge/tests/ddraw_screen_clip_cache_test.js: exact snapshots, mutations, invalid indices and allocation fallback passed.",
+      "node glbridge/tests/ddraw_indexed_span_test.js: 120 rebased ranges passed."
+    ],
+    "xp": {
+      "directory": "build/d3d-review/stage6-perf-clip-status-current",
+      "seconds": 144,
+      "owners": [
+        1,
+        2,
+        3
+      ],
+      "releases": [
+        1,
+        2,
+        3
+      ],
+      "native_d3d7_comparisons": 100,
+      "d3d8_9": "Both complete project clip-status groups passed, including refreshed multi-stream and unsupported-program cases.",
+      "rendering": "CPU-side API result probe with transport acknowledgement, not a GPU pixel test. Full 99 run above supplies actual browser/GPU validation.",
+      "log_sha256": {
+        "CLIP7.TXT": "03a473c1f108f99c98fae1325f10329304322a9e339d97831eb369b71f7011f9",
+        "CLIP8.TXT": "e18b76aa04f593591d0eb1740b98f74a15fb60ce1e4c566f9da45fa0a4bc136a",
+        "CLIP9.TXT": "e18b76aa04f593591d0eb1740b98f74a15fb60ce1e4c566f9da45fa0a4bc136a"
+      }
+    }
+  },
+  "rejected_experiments": [
+    {
+      "directory": "stage6-99-scalar2",
+      "reason": "Operator opened Win+R during feature tests after mistaking CPU-stage UI for an unstarted run. Aborted, excluded; clean cold run accepted separately."
+    },
+    {
+      "directory": "stage6-99-layout",
+      "reason": "Decoded FVF-layout cache passed native correctness but reduced measured performance: score1644, Race23.8, FirstPerson12.6. Completely reverted and not published."
+    },
+    {
+      "directory": "stage6-perf-clip-status",
+      "reason": "Project probe had stale unsupported-multi-stream expectation. Original failure retained; explicit independent expected value and unsupported-program rejection now covered."
+    }
+  ],
+  "published_dlls": {
+    "glbridge/ddrawproxy/ddraw.dll": "f99335110e586963af6b248bfd6406134235e40d3f8387767d8afa6a9327e660",
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "bc6701747aedd2779142b522c83aba45abedd8c04ae2f14f8f9abada2be0376f",
+    "glbridge/d3d8proxy/d3d8.dll": "b8268a328d3bd2d5cb215a7f20d732b3fc8fff99ea796db9525b5845c044b516",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "8888b2e915598bc481539533795308f9a0f357827faa89ef5e456b1a9d317a59",
+    "glbridge/d3d9proxy/d3d9.dll": "ddd3a5b6e3cfc0fc8c62d35524fa15c582d74b4e29b0f67f9f1e920c8db4c866",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "e066ca36e9a85a6ce0dabba46ae18351f79c914a0aaeef0c92c69d011c42e5fc"
+  },
+  "publication_scope": "DDraw retail bytes exactly match accepted 26-test run. D3D8/9 and diagnostic DLLs rebuilt from the same scalar-copy source. The six-version results retain their original recorded DLL hashes; this batch does not relabel them as reruns of the new binaries.",
+  "remaining": [
+    "Race old-branch performance parity.",
+    "3DMark03 hardware-3D sound scope clarification.",
+    "Complete Wine/API suites and explicit applicability decision.",
+    "Cross-backend scene comparison."
+  ]
+}
