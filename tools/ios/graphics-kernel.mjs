@@ -2,7 +2,8 @@
 // the guest graphics library.
 import fs from "node:fs";
 import { open_volume } from "./hfs_edit.mjs";
-import { DISPLAY_DAEMONS, LOCKDOWN_DAEMON, SAFARI_EXECUTABLE, SYSTEM_GL_LIBRARY, graphics_kernel } from "../../src/ios/guest_load.js";
+import { macho_parse } from "../../src/apple/macho.js";
+import { DISPLAY_DAEMONS, LOCKDOWN_DAEMON, SYSTEM_GL_APPLICATIONS, SYSTEM_GL_LIBRARY, graphics_kernel } from "../../src/ios/guest_load.js";
 
 const [kernelPath, systemPath, libPath, output, mode, ...extra] = process.argv.slice(2);
 if(!output || extra.length || mode && mode !== "--offline")
@@ -16,7 +17,11 @@ try
     if(systemLibrary)
     {
         if(!library.equals(await volume.contents(systemLibrary))) throw new Error("System and data graphics libraries differ");
-        daemons.push(await volume.contents(await volume.lookup(SAFARI_EXECUTABLE)));
+        for(const path of SYSTEM_GL_APPLICATIONS)
+        {
+            const executable = await volume.contents(await volume.lookup(path));
+            if(macho_parse(executable).dylibs.includes(SYSTEM_GL_LIBRARY)) daemons.push(executable);
+        }
     }
     const lockdown = mode === "--offline" ? await volume.contents(await volume.lookup(LOCKDOWN_DAEMON)) : null;
     fs.writeFileSync(output, graphics_kernel(fs.readFileSync(kernelPath), daemons, library, lockdown), { flag: "wx" });

@@ -2,7 +2,7 @@
 // private copy. No files from the IPSW are needed by the emulator build.
 import { HFSPlus } from "./hfsplus.js";
 import { catalog_key, catalog_thread } from "./hfsx_data.js";
-import { DISPLAY_DAEMONS, LOCKDOWN_DAEMON, SAFARI_EXECUTABLE, SYSTEM_GL_LIBRARY,
+import { DISPLAY_DAEMONS, LOCKDOWN_DAEMON, SYSTEM_GL_APPLICATIONS, SYSTEM_GL_LIBRARY,
     check_guest_library, link_guest_gles, offline_lockdown } from "./guest_load.js";
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
@@ -325,8 +325,8 @@ export async function prepare_system_volume(read, write, graphics, compress = de
     if(library)
     {
         await install_system_gl(volume, write, library);
-        daemons.push(await rewrite_daemon(volume, write, SAFARI_EXECUTABLE, compress,
-            bytes => link_guest_gles(bytes, SYSTEM_GL_LIBRARY)));
+        for(const path of SYSTEM_GL_APPLICATIONS)
+            daemons.push(await rewrite_daemon(volume, write, path, compress, bytes => link_guest_gles(bytes, SYSTEM_GL_LIBRARY)));
     }
     const lockdown = offline ? await rewrite_daemon(volume, write, LOCKDOWN_DAEMON, compress, offline_lockdown) : null;
     return { volume, daemons, lockdown };

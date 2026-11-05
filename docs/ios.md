@@ -25,11 +25,11 @@ make ios-guest IPHONE4_DYLD_CACHE=/path/to/dyld_shared_cache_armv7
 ```
 
 The importer reads `build/ios-guest/libv86gles.dylib` or a copy you select
-in the wizard. It links the two local display daemons and Safari to the
-adapter and adds the updated executables and library to the kernel's trust
-cache. Safari loads the copy installed on the read-only system volume,
-where its original sandbox permits library reads. Existing NAND imports
-need a new import to pick up the updated Safari executable.
+in the wizard. It links the two local display daemons, Safari and Photos
+to the adapter and adds the updated executables and library to the kernel's
+trust cache. Safari and Photos load the copy on the read-only system
+volume. Build the current adapter and import the firmware again to pick up
+the application fixes on a previously imported phone.
 The graphics path needs WebGPU and the `make glbridge` assets. Boot
 without the graphics adapter only for serial diagnostics.
 Graphics mode advances guest time at one fifth of wall time by default

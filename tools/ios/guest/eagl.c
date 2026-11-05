@@ -15,6 +15,7 @@ extern implementation method_setImplementation(void *, implementation);
 
 #ifdef N90_HOST_CONTEXTS
 extern int n90_install_contexts(void);
+extern void n90_install_photo_images(void);
 #ifdef N90_CHECK_CONTEXTS
 extern void n90_check_contexts(void);
 #endif
@@ -63,6 +64,7 @@ __attribute__((constructor)) static void start_driver(void)
         n90_check_contexts();
 #endif
     }
+    n90_install_photo_images();
 #endif
     syslog(5, "V86 EAGL attached pid %d display %ux%u", getpid(), width, height);
 }

@@ -22,7 +22,7 @@ exports:
 ...
 STUB
 }
-stub System /usr/lib/libSystem.B.dylib '_getpid, _syslog, _malloc, _calloc, _free, _memcmp, _memcpy, _memset, _strcmp, _dladdr, _dlsym, _OSSpinLockLock, _OSSpinLockUnlock, _pthread_create, _pthread_detach, dyld_stub_binder'
+stub System /usr/lib/libSystem.B.dylib '_getpid, _getprogname, _syslog, _malloc, _calloc, _free, _memcmp, _memcpy, _memset, _strcmp, _dladdr, _dlsym, _OSSpinLockLock, _OSSpinLockUnlock, _pthread_create, _pthread_detach, dyld_stub_binder'
 stub objc /usr/lib/libobjc.A.dylib '_objc_getClass, _sel_registerName, _class_getInstanceMethod, _method_setImplementation, _method_getImplementation, _class_getInstanceVariable, _ivar_getOffset, _objc_msgSend, _objc_autoreleasePoolPush, _objc_autoreleasePoolPop, _objc_allocateClassPair, _objc_registerClassPair, _class_addMethod'
 stub IOKit /System/Library/Frameworks/IOKit.framework/Versions/A/IOKit '_IORegistryEntryFromPath, _IORegistryEntryGetProperty, _IOObjectRelease'
 node "$src/gles-opcodes.mjs" > "$out/gles-opcodes.h"
@@ -32,8 +32,9 @@ compile() {
 set -- "$out/eagl.o"
 if [ -n "$host_contexts" ]; then
     stub IOSurface /System/Library/PrivateFrameworks/IOSurface.framework/IOSurface '_IOSurfaceGetID, _IOSurfaceGetWidth, _IOSurfaceGetHeight, _IOSurfaceGetPixelFormat, _IOSurfaceCreate, _IOSurfaceLookup, _IOSurfaceLock, _IOSurfaceUnlock, _IOSurfaceGetBaseAddress, _IOSurfaceGetBytesPerRow, _kIOSurfaceWidth, _kIOSurfaceHeight, _kIOSurfaceBytesPerElement, _kIOSurfacePixelFormat'
-    stub CoreFoundation /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation '_CFRetain, _CFRelease, _CFNumberCreate, _CFDictionaryCreateMutable, _CFDictionarySetValue, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks, _kCFBooleanTrue'
-    set -- "$@" -lIOSurface -lCoreFoundation
+    stub CoreFoundation /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation '_CFRetain, _CFRelease, _CFGetTypeID, _CFNumberCreate, _CFDictionaryCreateMutable, _CFDictionarySetValue, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks, _kCFBooleanTrue'
+    stub CoreGraphics /System/Library/Frameworks/CoreGraphics.framework/CoreGraphics '_CGBitmapContextCreate, _CGBitmapContextCreateImage, _CGColorSpaceCreateDeviceRGB, _CGColorSpaceRelease, _CGContextDrawImage, _CGContextRelease, _CGImageGetBitmapInfo, _CGImageGetHeight, _CGImageGetTypeID, _CGImageGetWidth, _CGImageRelease'
+    set -- "$@" -lIOSurface -lCoreFoundation -lCoreGraphics
     node "$src/gl-frame-wrappers.mjs" "$cache" "$out" --slots-only
     check_flag=
     surface_flag=
@@ -61,8 +62,9 @@ if [ -n "$host_contexts" ]; then
     fi
     compile -DN90_HOST_CONTEXTS $check_flag -c "$src/eagl.c" -o "$out/eagl.o"
     compile $surface_flag -c "$src/gli-context.c" -o "$out/gli-context.o"
+    compile -c "$src/gli-photo.c" -o "$out/gli-photo.o"
     compile -c "$src/gli-gates.s" -o "$out/gli-gates.o"
-    set -- "$@" "$out/gli-context.o" "$out/gli-gates.o"
+    set -- "$@" "$out/gli-context.o" "$out/gli-photo.o" "$out/gli-gates.o"
 else
     compile -c "$src/eagl.c" -o "$out/eagl.o"
 fi

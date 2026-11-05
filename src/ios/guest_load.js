@@ -13,7 +13,7 @@ export const LOCKDOWN_DAEMON = "/usr/libexec/lockdownd";
 
 export const GUEST_GL_LIBRARY = "/private/var/v86/libv86gles.dylib";
 export const SYSTEM_GL_LIBRARY = "/usr/lib/libv86gles.dylib";
-export const SAFARI_EXECUTABLE = "/Applications/MobileSafari.app/MobileSafari";
+export const SYSTEM_GL_APPLICATIONS = ["/Applications/MobileSafari.app/MobileSafari", "/Applications/MobileSlideShow.app/MobileSlideShow"];
 
 // Validate the signed pages before trusting a supplied development binary.
 function code_directories(bytes)
