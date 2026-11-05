@@ -52,6 +52,11 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
     }
     const uart3 = dt_find(tree, "/arm-io/uart3");
     if(uart3) uart3.children = uart3.children.filter(child => dt_name(child) !== "bluetooth");
+    // UIKit reads this iBoot property as an integer point-to-pixel ratio.
+    // N90's 640x960 panel has a 320x480 point coordinate space.
+    const chosen = required("/chosen"), scale = dt_property(chosen, "display-scale");
+    if(!scale || (scale.value.length === 4 && scale.value.every(byte => byte === 0)))
+        dt_set(chosen, "display-scale", cells(2));
     const cpu = required("/cpus/cpu0");
     for(const [name, hz] of Object.entries({ "timebase-frequency": 24000000, "fixed-frequency": 24000000,
         "clock-frequency": 800000000, "bus-frequency": 200000000, "memory-frequency": 200000000,
