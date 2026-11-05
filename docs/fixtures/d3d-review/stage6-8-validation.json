@@ -1,0 +1,2012 @@
+{
+  "batch": "stage6-8",
+  "date": "2026-11-06",
+  "scope": "Complete upstream Wine visual audits and first shared clear/shader/texture-capability fixes",
+  "status": "Functional batch complete; full conformance FAIL, stage6 remains open",
+  "changes": [
+    "Clear treats a null rectangle pointer as viewport clear regardless of count, and non-null zero-count rectangles as a no-op. Shared API8/9 core.",
+    "VS1.x scalar operands use w after swizzling; legacy LOGP emits exponent/mantissa/logarithm/one rather than a replicated logarithm. Later shader models retain their prior behavior.",
+    "Bump-map stages preserve running alpha rather than applying ALPHAOP; disabled generated specular lighting preserves the incoming specular value for programmable pixel shaders.",
+    "API8 now exposes the four modulate/add operations already implemented by the shared host. Immutable old caps fixtures remain unchanged; project-owned baseline comparisons explicitly account for exactly these four bits.",
+    "Seven additional complete upstream suites are hash-pinned and build with project-owned MinGW ABI declarations. XP timeout is configurable; a started suite is never relaunched into the same log after timeout."
+  ],
+  "checks": {
+    "shaderPipeline": 52,
+    "executor": 179,
+    "nagaShaders": 199,
+    "nativeCapsAssertions": 62403,
+    "nativeCapsCases": 1344,
+    "nativeCapsMutantsKilled": 16,
+    "pixelCoverage": "48 formats / 26 operations / 1123 fixtures",
+    "siteGraphicsIntegration": "2/2 passed",
+    "siteConfiguration": "3/4 passed; existing Warcraft catalog test also asserts obsolete local MapleStory disk path. app.js and the test are byte-identical to HEAD bc27efe; unrelated failure retained, not changed or counted as passed.",
+    "xpCaps": {
+      "directory": "stage6-wine-caps-core",
+      "status": "PASS",
+      "seconds": 121,
+      "owners": [
+        1
+      ],
+      "releases": [
+        1
+      ],
+      "qualification": "API/lifetime probe with simulated readback replies, not GPU pixel evidence. Original complete Wine visual suite supplies actual GPU validation."
+    }
+  },
+  "audits": [
+    {
+      "directory": "stage6-wine8-visual-first",
+      "status": "FAIL",
+      "summary": {
+        "checks": 143588,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 66,
+        "skipped": 18
+      },
+      "exit": 66,
+      "source": {
+        "suite": "d3d8_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d8_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+          "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+          "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+        },
+        "dllSha256": "24aa83c6115dd725bdd5dfc61cb82b916a3834a0ec15c28bf18498188ef503c4"
+      },
+      "logSha256": "bcdb9b4509a8bacf38126ac6e5d13365227d2ea42852f2f502b337b45a15f55e",
+      "groups": {
+        "depth_clamp_test": [
+          {
+            "line": 3440,
+            "message": "Test failed: SetViewport failed, hr 0x8876086c."
+          }
+        ],
+        "lighting_test": [
+          {
+            "line": 666,
+            "message": "Test failed: Lit quad with non-affine matrix has color 0x000000ff."
+          }
+        ],
+        "clear_test": [
+          {
+            "line": 1126,
+            "message": "Test failed: Clear with count = 0, rect != NULL has color 0xff0000"
+          },
+          {
+            "line": 1134,
+            "message": "Test failed: Got hr 0x8876086c."
+          },
+          {
+            "line": 1137,
+            "message": "Test failed: Clear with count = 1, rect = NULL has color 0xffffff"
+          }
+        ],
+        "offscreen_test": [
+          {
+            "line": 2802,
+            "message": "Test failed: Offscreen failed: Got color 0x00ff00ff, expected 0x00ffffff."
+          }
+        ],
+        "test_blend": [
+          {
+            "line": 2977,
+            "message": "Test failed: DSTALPHA on texture returned color 007f0080, expected 0x000000ff"
+          }
+        ],
+        "test_scalar_instructions": [
+          {
+            "line": 2685,
+            "message": "Test failed: logp_test: Got unexpected color 0x00000000, expected 0x00ffffff."
+          }
+        ],
+        "texop_test": [
+          {
+            "line": 3311,
+            "message": "Tests skipped: tex operation MODULATEALPHA_ADDCOLOR not supported"
+          },
+          {
+            "line": 3311,
+            "message": "Tests skipped: tex operation MODULATECOLOR_ADDALPHA not supported"
+          },
+          {
+            "line": 3311,
+            "message": "Tests skipped: tex operation MODULATEINVALPHA_ADDCOLOR not supported"
+          },
+          {
+            "line": 3311,
+            "message": "Tests skipped: tex operation MODULATEINVCOLOR_ADDALPHA not supported"
+          }
+        ],
+        "depth_buffer_test": [
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 80,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 240,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,300, got 0x00ff0000."
+          }
+        ],
+        "intz_test": [
+          {
+            "line": 3902,
+            "message": "Tests skipped: No INTZ support, skipping INTZ test."
+          }
+        ],
+        "multisample_copy_rects_test": [
+          {
+            "line": 4404,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisampled CopyRects test."
+          }
+        ],
+        "zenable_test": [
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 420, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 420, got 0x00ff0000."
+          }
+        ],
+        "resz_test": [
+          {
+            "line": 4530,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping RESZ test."
+          }
+        ],
+        "fog_special_test": [
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 0."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 0."
+          },
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 1."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 1."
+          }
+        ],
+        "volume_dxtn_test": [
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT1 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT3 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT5 volume textures are not supported, skipping test."
+          }
+        ],
+        "add_dirty_rect_test": [
+          {
+            "line": 5680,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5693,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5705,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5722,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5744,
+            "message": "Test failed: Expected color 0x0000ff00, got 0x00000080."
+          },
+          {
+            "line": 5765,
+            "message": "Test failed: Got unexpected colour 0x000000ff."
+          },
+          {
+            "line": 5878,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5885,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5932,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          },
+          {
+            "line": 5939,
+            "message": "Test failed: Got unexpected color 0x000000ff."
+          },
+          {
+            "line": 5954,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          }
+        ],
+        "test_3dc_formats": [
+          {
+            "line": 6273,
+            "message": "Tests skipped: ATI1N textures are not supported, skipping test."
+          }
+        ],
+        "test_negative_fixedfunction_fog": [
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 0."
+          },
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 1."
+          }
+        ],
+        "test_updatetexture": [
+          {
+            "line": 7217,
+            "message": "Tests skipped: 2D mipmapped ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 11."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Cube ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Volume ATI2N textures are not supported, skipping some tests."
+          }
+        ],
+        "test_multisample_mismatch": [
+          {
+            "line": 7980,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample mismatch test."
+          }
+        ],
+        "test_vshader_input": [
+          {
+            "line": 8363,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          },
+          {
+            "line": 8365,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          },
+          {
+            "line": 8378,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          }
+        ],
+        "test_flip": [
+          {
+            "line": 8777,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample flip test."
+          }
+        ],
+        "test_multisample_init": [
+          {
+            "line": 9274,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample init test."
+          }
+        ],
+        "test_texture_blending": [
+          {
+            "line": 9865,
+            "message": "Test failed: Test 5: Got color 0xffff0000, expected 0x80ff0000."
+          },
+          {
+            "line": 9865,
+            "message": "Test failed: Test 7: Got color 0x00ff0000, expected 0x80ff0000."
+          },
+          {
+            "line": 9865,
+            "message": "Test failed: Test 10: Got color 0xffff0000, expected 0x80ff0000."
+          }
+        ],
+        "test_max_index16": [
+          {
+            "line": 10320,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          },
+          {
+            "line": 10322,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          }
+        ],
+        "test_map_synchronisation": [
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x1000."
+          },
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x3000."
+          }
+        ],
+        "test_sample_mask": [
+          {
+            "line": 11507,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8."
+          }
+        ],
+        "test_mipmap_upload": [
+          {
+            "line": 12242,
+            "message": "Test failed: level 1: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 2: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 3: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 4: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 5: Got unexpected color 0x00000000."
+          }
+        ],
+        "test_specular_shaders": [
+          {
+            "line": 12405,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12415,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          }
+        ]
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "sessionCleanupBeforeRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 1
+        }
+      ],
+      "afterRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine8-visual-clear",
+      "status": "FAIL",
+      "summary": {
+        "checks": 143588,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 63,
+        "skipped": 18
+      },
+      "exit": 63,
+      "source": {
+        "suite": "d3d8_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d8_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+          "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+          "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+        },
+        "dllSha256": "650868fa87ef7e083877c1f7aeafd279d708aacbbc51d72621c59844fb9fcdbc"
+      },
+      "logSha256": "1334f2d64a0fbd9efb39fa323c6a436a7569b6cc177df899ca8c889e0e9e9458",
+      "groups": {
+        "depth_clamp_test": [
+          {
+            "line": 3440,
+            "message": "Test failed: SetViewport failed, hr 0x8876086c."
+          }
+        ],
+        "lighting_test": [
+          {
+            "line": 666,
+            "message": "Test failed: Lit quad with non-affine matrix has color 0x000000ff."
+          }
+        ],
+        "offscreen_test": [
+          {
+            "line": 2802,
+            "message": "Test failed: Offscreen failed: Got color 0x00ff00ff, expected 0x00ffffff."
+          }
+        ],
+        "test_blend": [
+          {
+            "line": 2977,
+            "message": "Test failed: DSTALPHA on texture returned color 007f0080, expected 0x000000ff"
+          }
+        ],
+        "test_scalar_instructions": [
+          {
+            "line": 2685,
+            "message": "Test failed: logp_test: Got unexpected color 0x00000000, expected 0x00ffffff."
+          }
+        ],
+        "texop_test": [
+          {
+            "line": 3311,
+            "message": "Tests skipped: tex operation MODULATEALPHA_ADDCOLOR not supported"
+          },
+          {
+            "line": 3311,
+            "message": "Tests skipped: tex operation MODULATECOLOR_ADDALPHA not supported"
+          },
+          {
+            "line": 3311,
+            "message": "Tests skipped: tex operation MODULATEINVALPHA_ADDCOLOR not supported"
+          },
+          {
+            "line": 3311,
+            "message": "Tests skipped: tex operation MODULATEINVCOLOR_ADDALPHA not supported"
+          }
+        ],
+        "depth_buffer_test": [
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 80,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 240,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,300, got 0x00ff0000."
+          }
+        ],
+        "intz_test": [
+          {
+            "line": 3902,
+            "message": "Tests skipped: No INTZ support, skipping INTZ test."
+          }
+        ],
+        "multisample_copy_rects_test": [
+          {
+            "line": 4404,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisampled CopyRects test."
+          }
+        ],
+        "zenable_test": [
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 420, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 420, got 0x00ff0000."
+          }
+        ],
+        "resz_test": [
+          {
+            "line": 4530,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping RESZ test."
+          }
+        ],
+        "fog_special_test": [
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 0."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 0."
+          },
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 1."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 1."
+          }
+        ],
+        "volume_dxtn_test": [
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT1 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT3 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT5 volume textures are not supported, skipping test."
+          }
+        ],
+        "add_dirty_rect_test": [
+          {
+            "line": 5680,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5693,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5705,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5722,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5744,
+            "message": "Test failed: Expected color 0x0000ff00, got 0x00000080."
+          },
+          {
+            "line": 5765,
+            "message": "Test failed: Got unexpected colour 0x000000ff."
+          },
+          {
+            "line": 5878,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5885,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5932,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          },
+          {
+            "line": 5939,
+            "message": "Test failed: Got unexpected color 0x000000ff."
+          },
+          {
+            "line": 5954,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          }
+        ],
+        "test_3dc_formats": [
+          {
+            "line": 6273,
+            "message": "Tests skipped: ATI1N textures are not supported, skipping test."
+          }
+        ],
+        "test_negative_fixedfunction_fog": [
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 0."
+          },
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 1."
+          }
+        ],
+        "test_updatetexture": [
+          {
+            "line": 7217,
+            "message": "Tests skipped: 2D mipmapped ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 11."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Cube ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Volume ATI2N textures are not supported, skipping some tests."
+          }
+        ],
+        "test_multisample_mismatch": [
+          {
+            "line": 7980,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample mismatch test."
+          }
+        ],
+        "test_vshader_input": [
+          {
+            "line": 8363,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          },
+          {
+            "line": 8365,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          },
+          {
+            "line": 8378,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          }
+        ],
+        "test_flip": [
+          {
+            "line": 8777,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample flip test."
+          }
+        ],
+        "test_multisample_init": [
+          {
+            "line": 9274,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample init test."
+          }
+        ],
+        "test_texture_blending": [
+          {
+            "line": 9865,
+            "message": "Test failed: Test 5: Got color 0xffff0000, expected 0x80ff0000."
+          },
+          {
+            "line": 9865,
+            "message": "Test failed: Test 7: Got color 0x00ff0000, expected 0x80ff0000."
+          },
+          {
+            "line": 9865,
+            "message": "Test failed: Test 10: Got color 0xffff0000, expected 0x80ff0000."
+          }
+        ],
+        "test_max_index16": [
+          {
+            "line": 10320,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          },
+          {
+            "line": 10322,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          }
+        ],
+        "test_map_synchronisation": [
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x1000."
+          },
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x3000."
+          }
+        ],
+        "test_sample_mask": [
+          {
+            "line": 11507,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8."
+          }
+        ],
+        "test_mipmap_upload": [
+          {
+            "line": 12242,
+            "message": "Test failed: level 1: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 2: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 3: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 4: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 5: Got unexpected color 0x00000000."
+          }
+        ],
+        "test_specular_shaders": [
+          {
+            "line": 12405,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12415,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          }
+        ]
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "sessionCleanupBeforeRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 1
+        }
+      ],
+      "afterRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine8-visual-shaders",
+      "status": "FAIL",
+      "summary": {
+        "checks": 143648,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 59,
+        "skipped": 14
+      },
+      "exit": 59,
+      "source": {
+        "suite": "d3d8_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d8_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+          "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+          "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+        },
+        "dllSha256": "2e3484748e97302b00b4d21425e484e0ac726e04b514a23332298524332fef7c"
+      },
+      "logSha256": "7ba753f2d0ccc24a2ed2ecdaf3540f5e836b5de06a0b42433980c5f7fbbfeae5",
+      "groups": {
+        "depth_clamp_test": [
+          {
+            "line": 3440,
+            "message": "Test failed: SetViewport failed, hr 0x8876086c."
+          }
+        ],
+        "lighting_test": [
+          {
+            "line": 666,
+            "message": "Test failed: Lit quad with non-affine matrix has color 0x000000ff."
+          }
+        ],
+        "offscreen_test": [
+          {
+            "line": 2802,
+            "message": "Test failed: Offscreen failed: Got color 0x00ff00ff, expected 0x00ffffff."
+          }
+        ],
+        "test_blend": [
+          {
+            "line": 2977,
+            "message": "Test failed: DSTALPHA on texture returned color 007f0080, expected 0x000000ff"
+          }
+        ],
+        "depth_buffer_test": [
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 80,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 240,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,300, got 0x00ff0000."
+          }
+        ],
+        "intz_test": [
+          {
+            "line": 3902,
+            "message": "Tests skipped: No INTZ support, skipping INTZ test."
+          }
+        ],
+        "multisample_copy_rects_test": [
+          {
+            "line": 4404,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisampled CopyRects test."
+          }
+        ],
+        "zenable_test": [
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 420, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 420, got 0x00ff0000."
+          }
+        ],
+        "resz_test": [
+          {
+            "line": 4530,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping RESZ test."
+          }
+        ],
+        "fog_special_test": [
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 0."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 0."
+          },
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 1."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 1."
+          }
+        ],
+        "volume_dxtn_test": [
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT1 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT3 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT5 volume textures are not supported, skipping test."
+          }
+        ],
+        "add_dirty_rect_test": [
+          {
+            "line": 5680,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5693,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5705,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5722,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5744,
+            "message": "Test failed: Expected color 0x0000ff00, got 0x00000080."
+          },
+          {
+            "line": 5765,
+            "message": "Test failed: Got unexpected colour 0x000000ff."
+          },
+          {
+            "line": 5878,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5885,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5932,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          },
+          {
+            "line": 5939,
+            "message": "Test failed: Got unexpected color 0x000000ff."
+          },
+          {
+            "line": 5954,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          }
+        ],
+        "test_3dc_formats": [
+          {
+            "line": 6273,
+            "message": "Tests skipped: ATI1N textures are not supported, skipping test."
+          }
+        ],
+        "test_negative_fixedfunction_fog": [
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 0."
+          },
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 1."
+          }
+        ],
+        "test_updatetexture": [
+          {
+            "line": 7217,
+            "message": "Tests skipped: 2D mipmapped ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 11."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Cube ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Volume ATI2N textures are not supported, skipping some tests."
+          }
+        ],
+        "test_multisample_mismatch": [
+          {
+            "line": 7980,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample mismatch test."
+          }
+        ],
+        "test_vshader_input": [
+          {
+            "line": 8363,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          },
+          {
+            "line": 8365,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          },
+          {
+            "line": 8378,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          }
+        ],
+        "test_flip": [
+          {
+            "line": 8777,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample flip test."
+          }
+        ],
+        "test_multisample_init": [
+          {
+            "line": 9274,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample init test."
+          }
+        ],
+        "test_max_index16": [
+          {
+            "line": 10320,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          },
+          {
+            "line": 10322,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          }
+        ],
+        "test_map_synchronisation": [
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x1000."
+          },
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x3000."
+          }
+        ],
+        "test_sample_mask": [
+          {
+            "line": 11507,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8."
+          }
+        ],
+        "test_mipmap_upload": [
+          {
+            "line": 12242,
+            "message": "Test failed: level 1: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 2: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 3: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 4: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 5: Got unexpected color 0x00000000."
+          }
+        ],
+        "test_specular_shaders": [
+          {
+            "line": 12405,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12415,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          }
+        ]
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "sessionCleanupBeforeRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 1
+        }
+      ],
+      "afterRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine8-visual-batch8",
+      "status": "FAIL",
+      "summary": {
+        "checks": 143648,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 57,
+        "skipped": 14
+      },
+      "exit": 57,
+      "source": {
+        "suite": "d3d8_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d8_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+          "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+          "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+        },
+        "dllSha256": "82f72a4298d61500e388980cf2aea24e8c11b1b72a5a8279b2ce9cfb59facf8e",
+        "executableSha256": "316f26c3c11eeeb85ddfa6a967ba6a4d1ba9f08004b816206c4c5cdc09f0b0b6",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db891800a1d2ac0b177fb929c711acc2a0d90423177cf9144e6aeb65d206ebef",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "59ace238bd9aa45e89899528c6eac6366f4d50e6944d8ba051112866c36227c8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "28a491c08da677d660f2cfd3afd0d66ffcdf9538d78e694d08c0426218c92682",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "ad0823fa0038b3aea0f5dc3d4744dff74bb6e37deda1211f7f84188d6a39ab5c",
+      "groups": {
+        "depth_clamp_test": [
+          {
+            "line": 3440,
+            "message": "Test failed: SetViewport failed, hr 0x8876086c."
+          }
+        ],
+        "lighting_test": [
+          {
+            "line": 666,
+            "message": "Test failed: Lit quad with non-affine matrix has color 0x000000ff."
+          }
+        ],
+        "offscreen_test": [
+          {
+            "line": 2802,
+            "message": "Test failed: Offscreen failed: Got color 0x00ff00ff, expected 0x00ffffff."
+          }
+        ],
+        "test_blend": [
+          {
+            "line": 2977,
+            "message": "Test failed: DSTALPHA on texture returned color 007f0080, expected 0x000000ff"
+          }
+        ],
+        "depth_buffer_test": [
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,60, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 80,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x000000ff at 240,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,180, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 80,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 240,300, got 0x00ff0000."
+          },
+          {
+            "line": 3663,
+            "message": "Test failed: Expected color 0x0000ff00 at 400,300, got 0x00ff0000."
+          }
+        ],
+        "intz_test": [
+          {
+            "line": 3902,
+            "message": "Tests skipped: No INTZ support, skipping INTZ test."
+          }
+        ],
+        "multisample_copy_rects_test": [
+          {
+            "line": 4404,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisampled CopyRects test."
+          }
+        ],
+        "zenable_test": [
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 60, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 180, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 300, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 80, 420, got 0x00ff0000."
+          },
+          {
+            "line": 4870,
+            "message": "Test failed: Expected color 0x0000ff00 at 560, 420, got 0x00ff0000."
+          }
+        ],
+        "resz_test": [
+          {
+            "line": 4530,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping RESZ test."
+          }
+        ],
+        "fog_special_test": [
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 0."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 0."
+          },
+          {
+            "line": 5153,
+            "message": "Test failed: Expected left color 0x00ff0000, got 0x007c8300, case 1."
+          },
+          {
+            "line": 5156,
+            "message": "Test failed: Expected right color 0x00ff0000, got 0x00837c00, case 1."
+          }
+        ],
+        "volume_dxtn_test": [
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT1 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT3 volume textures are not supported, skipping test."
+          },
+          {
+            "line": 5277,
+            "message": "Tests skipped: DXT5 volume textures are not supported, skipping test."
+          }
+        ],
+        "add_dirty_rect_test": [
+          {
+            "line": 5680,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5693,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5705,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5722,
+            "message": "Test failed: Expected color 0x00ff0000, got 0x0000ff00."
+          },
+          {
+            "line": 5744,
+            "message": "Test failed: Expected color 0x0000ff00, got 0x00000080."
+          },
+          {
+            "line": 5765,
+            "message": "Test failed: Got unexpected colour 0x000000ff."
+          },
+          {
+            "line": 5878,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5885,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 5932,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          },
+          {
+            "line": 5939,
+            "message": "Test failed: Got unexpected color 0x000000ff."
+          },
+          {
+            "line": 5954,
+            "message": "Test failed: Got unexpected color 0x0000ff00."
+          }
+        ],
+        "test_3dc_formats": [
+          {
+            "line": 6273,
+            "message": "Tests skipped: ATI1N textures are not supported, skipping test."
+          }
+        ],
+        "test_negative_fixedfunction_fog": [
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 0."
+          },
+          {
+            "line": 6655,
+            "message": "Test failed: Got unexpected color 0x000000ff, case 1."
+          }
+        ],
+        "test_updatetexture": [
+          {
+            "line": 7217,
+            "message": "Tests skipped: 2D mipmapped ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 11."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 0, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Cube ATI2N textures are not supported, skipping some tests."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 12."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 13."
+          },
+          {
+            "line": 7366,
+            "message": "Test failed: Failed to update texture, hr 0x8876086c, case 1, 14."
+          },
+          {
+            "line": 7217,
+            "message": "Tests skipped: Volume ATI2N textures are not supported, skipping some tests."
+          }
+        ],
+        "test_multisample_mismatch": [
+          {
+            "line": 7980,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample mismatch test."
+          }
+        ],
+        "test_vshader_input": [
+          {
+            "line": 8363,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          },
+          {
+            "line": 8365,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          },
+          {
+            "line": 8378,
+            "message": "Test failed: Unexpected error while creating vertex shader, hr 0."
+          }
+        ],
+        "test_flip": [
+          {
+            "line": 8777,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample flip test."
+          }
+        ],
+        "test_multisample_init": [
+          {
+            "line": 9274,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample init test."
+          }
+        ],
+        "test_max_index16": [
+          {
+            "line": 10320,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          },
+          {
+            "line": 10322,
+            "message": "Test failed: Got unexpected color 0x00ffffff."
+          }
+        ],
+        "test_map_synchronisation": [
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x1000."
+          },
+          {
+            "line": 10734,
+            "message": "Test failed: Expected unsynchronised map for flags 0x3000."
+          }
+        ],
+        "test_sample_mask": [
+          {
+            "line": 11507,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8."
+          }
+        ],
+        "test_mipmap_upload": [
+          {
+            "line": 12242,
+            "message": "Test failed: level 1: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 2: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 3: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 4: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 12242,
+            "message": "Test failed: level 5: Got unexpected color 0x00000000."
+          }
+        ]
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "sessionCleanupBeforeRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 1
+        }
+      ],
+      "afterRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine9-visual-first",
+      "status": "CRASH",
+      "summary": null,
+      "exit": -1073741819,
+      "source": {
+        "suite": "d3d9_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+          "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+          "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+        },
+        "dllSha256": "592685217bbdaf51e567e6130e0f2d5c984b76b643e1b95e93f476f39874d5d9"
+      },
+      "logSha256": "9cba71149953fe93f105b2fe74fa310857e58a00c50c2862f91dff1432ec1f9d",
+      "groups": {
+        "stretchrect_test": [
+          {
+            "line": 4358,
+            "message": "Test failed: Got unexpected hr 0x8876086c."
+          },
+          {
+            "line": 4367,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 4377,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 4387,
+            "message": "Test failed: Got unexpected hr 0x8876086c."
+          },
+          {
+            "line": 4396,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 4402,
+            "message": "Test failed: Got unexpected color 0x00000000."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 0, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 1, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 2, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 3, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 4, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 5, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 6, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 7, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 8, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 9, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 10, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 11, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 12, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 13, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 14, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 15, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 16, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 17, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 18, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 19, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 20, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 21, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 22, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 23, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 24, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 25, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 26, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 27, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 28, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 29, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 30, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 31, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 32, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 33, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 34, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 36, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 38, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 39, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 40, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 41, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 42, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 43, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 44, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 46, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 47, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 49, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 51, got unexpected hr 0."
+          },
+          {
+            "line": 4470,
+            "message": "Test failed: Test 53, got unexpected hr 0."
+          }
+        ],
+        "test_multisample_stretch_rect": [
+          {
+            "line": 4520,
+            "message": "Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8."
+          }
+        ],
+        "lighting_test": [
+          {
+            "line": 713,
+            "message": "Test failed: Lit quad with non-affine matrix has color 0x000000ff."
+          }
+        ],
+        "clear_test": [
+          {
+            "line": 1416,
+            "message": "Test failed: Clear with count = 0, rect != NULL has color 00ff0000"
+          },
+          {
+            "line": 1424,
+            "message": "Test failed: Got hr 0x8876086c."
+          },
+          {
+            "line": 1427,
+            "message": "Test failed: Clear with count = 1, rect = NULL has color 00ffffff"
+          }
+        ],
+        "test_clear_different_size_surfaces": [
+          {
+            "line": 1625,
+            "message": "Test failed: Failed to set viewport, hr 0x8876086c."
+          },
+          {
+            "line": 1638,
+            "message": "Test failed: Failed to lock rect, hr 0x8876086c."
+          },
+          {
+            "line": 1644,
+            "message": "Test failed: Got depth 0x2100 at 0, 0."
+          },
+          {
+            "line": 1644,
+            "message": "Test failed: Got depth 0x6a72 at 1, 0."
+          },
+          {
+            "line": 1644,
+            "message": "Test failed: Got depth 0x0001 at 2, 0."
+          },
+          {
+            "line": 1644,
+            "message": "Test failed: Got depth 0x0000 at 3, 0."
+          },
+          {
+            "line": 1644,
+            "message": "Test failed: Got depth 0x0000 at 0, 1."
+          },
+          {
+            "line": 1644,
+            "message": "Test failed: Got depth 0x0000 at 1, 1."
+          },
+          {
+            "line": 1644,
+            "message": "Test failed: Got depth 0x0000 at 2, 1."
+          },
+          {
+            "line": 1644,
+            "message": "Test failed: Got depth 0x0000 at 3, 1."
+          }
+        ]
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "sessionCleanupBeforeRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 0
+        }
+      ],
+      "afterRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    }
+  ],
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw.dll": {
+      "bytes": 145408,
+      "sha256": "b0ce97734fb125e4ab290a76ebb9fd34b9892a6c0313a953273839beaf443950"
+    },
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": {
+      "bytes": 177664,
+      "sha256": "2ba11c11853e82333167799f2b417ac013a919769858c4088d0fdb326213d962"
+    },
+    "glbridge/d3d8proxy/d3d8.dll": {
+      "bytes": 201728,
+      "sha256": "82f72a4298d61500e388980cf2aea24e8c11b1b72a5a8279b2ce9cfb59facf8e"
+    },
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": {
+      "bytes": 253952,
+      "sha256": "3e2faff385454fa433bc7911b8dd44c44759bccf25448e21cc3db2c415c92f9b"
+    },
+    "glbridge/d3d9proxy/d3d9.dll": {
+      "bytes": 159232,
+      "sha256": "d40ccbe35d0668601f87d52ce339a28156cd4c537be2dca016fb08d5f7fdac25"
+    },
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": {
+      "bytes": 207872,
+      "sha256": "5c8dea7cfd583711a335ccfd6d966922d499245b54d64cd2c6976203f7069ee5"
+    }
+  },
+  "webgpuRevision": "ddae32c450159e67526a",
+  "remaining": [
+    "D3D8 visual: 57 failures and 14 skips; one resource remains before owner release. No failures, skips, or cleanup residuals were waived.",
+    "D3D9 visual crashes after failed D16_LOCKABLE readback; no completion summary. This is not a completed audit.",
+    "Complete D3D9 device and DirectDraw1/2/4/7 compile but have not yet run in this batch.",
+    "Shared-depth contents across target sizes, viewport/depth bounds, dirty/mip uploads, blend/alpha semantics, fog/lighting, shader-input rejection and other failures remain listed by original function/line.",
+    "3DMark03 hardware-3D audio scope and inapplicable Wine-branch handling await user response; strict zero-skip policy remains in effect.",
+    "3DMark99 Race remains 6.1% below the measured old baseline; current Metal/SwiftShader comparisons and affected full benchmark reruns remain open. Historical benchmark runs keep their original DLL and host revisions."
+  ]
+}

@@ -745,8 +745,12 @@
                     // D3D9 takes the lit vertex's alpha from the diffuse material
                     // channel only -- lighting never affects alpha.
                     "    let out_diffuse = vec4<f32>(lit_rgb, clamp(material_diffuse.a, 0.0, 1.0));\n" +
-                    "    let out_specular = vec4<f32>(clamp(total_specular *\n" +
-                    "        material_specular.xyz, vec3<f32>(0.0), vec3<f32>(1.0)), 0.0);\n";
+                    (lighting.specularEnable
+                        ? "    let out_specular = vec4<f32>(clamp(total_specular *\n" +
+                          "        material_specular.xyz, vec3<f32>(0.0), vec3<f32>(1.0)), 0.0);\n"
+                        // Disabling generated highlights preserves the vertex
+                        // specular input for a programmable pixel shader.
+                        : "    let out_specular = vertex_specular;\n");
             } else {
                 colorBody += "    let out_diffuse = vertex_diffuse;\n" +
                     "    let out_specular = vertex_specular;\n";
@@ -1166,7 +1170,11 @@ ${coordBody}${fogBody}${clipBody}${pointBody}    return result;
                 alphaArgs.alpha1 = alpha(stage.colorArg1);
                 const colorExpression = textureOpExpression(stage.colorOp,
                     "vec3<f32>", colorArgs, blendAlpha[stage.colorOp] || "0.0");
-                const alphaExpression = stage.colorOp === D3DTOP_DOTPRODUCT3 ? "stage_rgb.x"
+                // Bump stages perturb the following sample; ALPHAOP does not
+                // overwrite the running alpha (Wine test_texture_blending).
+                const alphaExpression = stage.colorOp === D3DTOP_BUMPENVMAP ||
+                        stage.colorOp === D3DTOP_BUMPENVMAPLUMINANCE ? null
+                    : stage.colorOp === D3DTOP_DOTPRODUCT3 ? "stage_rgb.x"
                     : stage.alphaOp === D3DTOP_DISABLE ? null
                     : textureOpExpression(stage.alphaOp, "f32", alphaArgs,
                         blendAlpha[stage.alphaOp] || "0.0");

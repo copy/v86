@@ -1075,8 +1075,11 @@
             }
 
             const s = i => this.sourceExpression(sources[i]);
+            // Unswizzled VS 1.x scalar operands use w. Replicated operands
+            // still select their explicit component after swizzling.
             const scalar = (i, component) =>
-                "(" + this.sourceExpression(sources[i]) + ")." + (component || "x");
+                "(" + this.sourceExpression(sources[i]) + ")." +
+                    (component || (this.kind === "vertex" && this.major === 1 ? "w" : "x"));
 
             switch (opcode) {
             case OP.NOP: case OP.PHASE:
@@ -1133,7 +1136,20 @@
                     this.store(dest, "vec4<f32>(exp2(" + scalar(0) + "))");
                 }
                 return;
-            case OP.LOGP: this.store(dest, "vec4<f32>(d9_log(" + scalar(0) + "))"); return;
+            case OP.LOGP:
+                if (this.major === 1) {
+                    // VS 1.x returns exponent, mantissa, logarithm and 1;
+                    // shader model 2+ instead replicates the logarithm.
+                    const name = this.fresh("logp");
+                    this.emit("let " + name + " = abs(" + scalar(0) + ");");
+                    this.emit("let " + name + "_log = d9_log(" + name + ");");
+                    this.store(dest, "vec4<f32>(floor(" + name + "_log), " +
+                        "select(" + name + " / exp2(floor(" + name + "_log)), 1.0, " + name + " == 0.0), " +
+                        name + "_log, 1.0)");
+                } else {
+                    this.store(dest, "vec4<f32>(d9_log(" + scalar(0) + "))");
+                }
+                return;
             case OP.POW:
                 this.store(dest, "vec4<f32>(d9_pow(" + scalar(0) + ", " +
                     scalar(1) + "))");

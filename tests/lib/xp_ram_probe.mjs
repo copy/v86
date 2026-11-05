@@ -9,8 +9,11 @@ import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
     success, log_files = [], log_completion = {}, binary_files = [], capture_graphics = false, expected_releases = null,
-    rendering = "not exercised", simulated_host_features = null, observe_batch = null, graphics_renderer = null, inspect })
+    rendering = "not exercised", simulated_host_features = null, observe_batch = null, graphics_renderer = null,
+    probe_timeout_seconds = 180, inspect })
 {
+    assert(Number.isInteger(probe_timeout_seconds) && probe_timeout_seconds > 0 && probe_timeout_seconds <= 10800,
+        "Invalid XP probe execution timeout");
     assert(!graphics_renderer || (!observe_batch && simulated_host_features === null), "A live GPU cannot be combined with simulated replies/capabilities");
     let graphics_work = Promise.resolve(), graphics_error = null, graphics_active = true;
     const before = fs.statSync(image);
@@ -118,7 +121,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             await vm.keyboard_send_scancodes([0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB], 30);await delay(2000);
             await vm.keyboard_send_text("cmd /c for %d in (d e f g h i j k) do @if exist %d:\\probe.cmd %d:\\probe.cmd", 30);
             await vm.keyboard_send_scancodes([28, 156], 30);
-            for(let poll = 0; poll < 180; poll++)
+            for(let poll = 0; poll < probe_timeout_seconds; poll++)
             {
                 await delay(1000);if(graphics_error) throw graphics_error;const text = result_text();
                 const logs = read_logs();
@@ -126,8 +129,13 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                     throw new Error(JSON.stringify({ text, logs }));
                 if(poll === 29 && !text && Object.values(logs).every(text => !text)) break;
                 if(completed(text, logs)) break;
-                if(poll % 10 === 9) console.log("waiting", elapsed(), "s", JSON.stringify({ text: text.trim(), logs }));
+                if(poll % 10 === 9) console.log("waiting", elapsed(), "s", JSON.stringify({ text: text.trim(),
+                    logs: Object.fromEntries(Object.entries(logs).map(([name,log]) => [name,log.slice(-4096)])) }));
             }
+            // Retry only a missed launch. Starting another process after an
+            // active suite times out would corrupt its log and GPU ownership.
+            if(!completed(result_text(), read_logs()) && (result_text() || Object.values(read_logs()).some(Boolean)))
+                throw new Error("XP probe execution timed out after starting");
         }
         const text = result_text();assert(completed(text, read_logs()), "Owner probe did not finish: " + text);
         // A flushed success marker can precede ExitProcess and DLL detach.

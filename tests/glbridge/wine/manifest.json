@@ -38,6 +38,54 @@
       "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/device.c",
       "sha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
       "gitBlob": "1764980c089b2dc8d1eab36312fea856c3e59d5f"
+    },
+    {
+      "path": "d3d8_visual.c",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+      "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+      "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+    },
+    {
+      "path": "d3d9_device.c",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+      "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+      "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+    },
+    {
+      "path": "d3d9_visual.c",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+      "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+      "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+    },
+    {
+      "path": "ddraw_ddraw1.c",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw1.c",
+      "sha256": "d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a",
+      "gitBlob": "ca595964df2cd916460444fe6da7000ad2888b27"
+    },
+    {
+      "path": "ddraw_ddraw2.c",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw2.c",
+      "sha256": "0a9d07b1c376256b126ad24fa71271e6a0c4f1b2d91478db77080c01488d451e",
+      "gitBlob": "dfbd0003fb27db3864a3c2196b1ab2666cc80f22"
+    },
+    {
+      "path": "ddraw_ddraw4.c",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw4.c",
+      "sha256": "5788fe13e3e2a5d893688fc09f9bc97d1945ce72428378335cfcd69a935d5433",
+      "gitBlob": "be26a5a74e5f21a3d04acb71c266744d72bb6818"
+    },
+    {
+      "path": "ddraw_ddraw7.c",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw7.c",
+      "sha256": "61b49e1c0f28d1af3e15130f44c0369f88962973fac6bb9b352e15ffccde8623",
+      "gitBlob": "f58523e788b9923056f03b09a49a35f552a1b277"
+    },
+    {
+      "path": "utils.h",
+      "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/utils.h",
+      "sha256": "eb35c760222fb2ee29f4e04db3477db62e6eb6d86fdcd6eb6bf3745e7908fa78",
+      "gitBlob": "248e07eb52150d8263bf5082921344509e9735d8"
     }
   ]
 }

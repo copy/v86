@@ -1,4 +1,5 @@
-These are unmodified Wine D3D8/9 stateblock and D3D8 device test suites and their
+These are unmodified Wine D3D8/9 stateblock, device, visual and DirectDraw
+1/2/4/7 test suites and their
 standalone test headers, pinned to commit
 `415a275e3844c252ad385b46023095e9401ca234`. `manifest.json` records upstream
 URLs, SHA-256 checksums and Git blob identities. The files retain their
@@ -41,3 +42,23 @@ Wine. The `device` option calls the complete original entry and remains a
 failing audit until its remaining conformance failures are fixed. Neither
 entry patches upstream assertions or hides skips. `wine_debug_standalone.c`
 only supplies Wine's diagnostic string storage for the MinGW standalone build.
+
+The complete additional suites are available through:
+
+```
+D3D_WINE_SUITE=d3d8_visual node tests/glbridge/d3d_wine_full_xp.mjs
+```
+
+Other suite names are `d3d9_device`, `d3d9_visual`, `ddraw_ddraw1`,
+`ddraw_ddraw2`, `ddraw_ddraw4`, and `ddraw_ddraw7`. Run them sequentially:
+each invocation boots one XP instance and keeps all disk changes in RAM.
+`D3D_WINE_BUILD_ONLY=1` builds without starting a VM. The complete-suite
+runner retains the same strict failure/skip and owner-cleanup checks; adding
+a runner or compiling a suite is not evidence that it passes.
+
+MinGW needs two project-owned ABI supplements: `../wine_mingw_teb.h` exposes
+the three structure fields used by the original Wow64 detection, and
+`../wine-compat/d3d9on12.h` declares the D3D9On12 C interface. Both cite the
+pinned Wine definitions; neither changes the detection outcome, test bodies,
+expected values, or unavailable XP capabilities. DirectDraw builds also
+preinclude the standard Windows declarations and use Wine's diagnostic aliases.
