@@ -9,7 +9,8 @@ import {site_directory} from "../lib/site.mjs";
 import {run_xp_ram_probe} from "../lib/xp_ram_probe.mjs";
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const site = site_directory(root);
-const out = path.resolve(process.env.D8WG_FRONTEND_DEVICE_OUT || root + "build/d3d-review/stage4-device8");
+const public_entry = process.env.D8WG_PUBLIC_DEVICE === "1";
+const out = path.resolve(process.env.D8WG_FRONTEND_DEVICE_OUT || root + "build/d3d-review/" + (public_entry ? "stage4-public-device8" : "stage4-device8"));
 const require = createRequire(import.meta.url);
 const P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
 const W = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js");
@@ -24,7 +25,7 @@ if (!process.env.D8WG_FRONTEND_DEVICE_PREBUILT) {
     run(cc, ["-shared", ...common, "-Wl,-e,_DllMain@12", "-Wl,--kill-at", "-Wl,--exclude-all-symbols", "-o", out + "/CORE8.DLL",
         site + "/glbridge/sample/d3d8_frontend_device_consumer.c", site + "/glbridge/sample/d3d8_frontend_device_consumer.def",
         ...sources.map(name => site + "/glbridge/d3d8proxy/d3d8_core_" + name + ".c"), out + "/libd9wg_d3d9.a", "-luser32", "-lgdi32", "-lkernel32"]);
-    run(cc, ["-mwindows", ...common, "-Wl,-e,_WinMainCRTStartup@0", "-o", out + "/DEVICE8.EXE",
+    run(cc, ["-mwindows", ...common, ...(public_entry ? ["-DD8WG_PUBLIC_DEVICE=1"] : []), "-Wl,-e,_WinMainCRTStartup@0", "-o", out + "/DEVICE8.EXE",
         site + "/glbridge/sample/d3d8_frontend_device_test.c", "-ldxguid", "-luser32", "-lkernel32"]);
 }
 const files = {"V86GL.SYS":fs.readFileSync(site + "/glbridge/v86gl_driver/v86gl.sys")};
@@ -64,6 +65,7 @@ const result = await run_xp_ram_probe({root, out, files,
     },
     inspect(r) {
         assert.equal(replies, 28);
+        if (public_entry) assert.match(r.logs["DEVICE8.TXT"], /PUBLIC Direct3DCreate8\/CreateDevice entry/);
         assert.match(r.logs["DEVICE8.TXT"], /PASS Device8 frontend methods=97 devices=4 images=28 checks=\d+ finalRefs=0/);
         assert.equal(r.owners.length, 1); assert.deepEqual(r.releases, r.owners);
     },

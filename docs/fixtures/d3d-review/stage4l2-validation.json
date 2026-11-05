@@ -1,0 +1,113 @@
+{
+  "stage": "4L2",
+  "date": "2026-11-05",
+  "scope": "Public Direct3DCreate8/CreateDevice now creates the common-core Device8 facade. Retired backend is immutable, nonshipping historical comparison data.",
+  "baseline": {
+    "core": "5e714caa",
+    "site": "26eb8f7"
+  },
+  "production": {
+    "publicFactorySwitched": true,
+    "rootSourceLines": 418,
+    "retiredSourceLines": 8350,
+    "oldDllBytes": 261120,
+    "newDllBytes": 193024,
+    "existingCoreFunctionsUnchanged": true,
+    "hostProtocolShaderUnchanged": true
+  },
+  "validation": {
+    "guestSuites": 398,
+    "guestFinalFailed": 0,
+    "initialHarnessFailuresCorrected": [
+      "d3d8_protocol_consistency_test",
+      "d8wg_caps_core_mutation_test",
+      "d8wg_caps_core_test",
+      "d9wg_process_owner_test"
+    ],
+    "historicalComparison": "Explicit legacy8_comparison reader uses the frozen old Device8 backend. These tests are not claimed as new frontend coverage. Root8, adapters, shared core and real SDK run cover production.",
+    "xp": {
+      "seconds": 130,
+      "batches": 37,
+      "publicEntry": true,
+      "methods": 97,
+      "checks": 2815,
+      "devices": 4,
+      "resets": 4,
+      "handles": 80,
+      "commands": 1762,
+      "images": 28,
+      "ownerReleases": [
+        1
+      ],
+      "readbackReplies": "Analytic CPU replies; images independently verified by actual GPU replay."
+    },
+    "gpu": {
+      "swift": {
+        "frames": 28,
+        "pixels": 1408,
+        "maximumError": 0,
+        "reportSha256": "06353572661611d87b7c502719f749ef0e09d9e7e5f3a509a3e39c4425c0ba22"
+      },
+      "metal": {
+        "frames": 28,
+        "pixels": 1408,
+        "maximumError": 0,
+        "reportSha256": "06353572661611d87b7c502719f749ef0e09d9e7e5f3a509a3e39c4425c0ba22"
+      }
+    },
+    "wireCorruptions": 2210,
+    "standardSdk8ExecutablesBuilt": 18,
+    "retailAndDiagnosticBuilds": true,
+    "siteIntegration": 2,
+    "lint": {
+      "siteFiles": 114,
+      "coreFiles": 3,
+      "newProblems": 0
+    },
+    "inherited": "Older frozen core fixtures are inherited from 4L1/4K50; only the new public-entry fixture was rerun here."
+  },
+  "legacyPublicProbe": {
+    "status": "PASS",
+    "seconds": 113,
+    "logs": {
+      "DEVICE8.TXT": "PUBLIC Direct3DCreate8/CreateDevice entry\r\nDEVICE8 CHECK pure=0 images=7 checks=682 reset=1 shaderDeletion=1 stateScopes=3 childRevival=1\r\nDEVICE8 CHECK pure=1 images=14 checks=1358 reset=1 shaderDeletion=1 stateScopes=3 childRevival=1\r\nDEVICE8 CHECK pure=0 images=21 checks=2037 reset=1 shaderDeletion=1 stateScopes=3 childRevival=1\r\nDEVICE8 CHECK pure=1 images=28 checks=2713 reset=1 shaderDeletion=1 stateScopes=3 childRevival=1\r\nPASS Device8 frontend methods=97 devices=4 images=28 checks=2815 finalRefs=0\r\n"
+    },
+    "probeSha256": "ed5bbe7480fd080f270e8e698626b5c44ec55ef5d0f1d46b6ff0c38e6db029aa",
+    "adaptation": "Only GetRasterStatus expects old stub INVALIDCALL instead of new shared-core success. First unmodified baseline failed here; an intermediate probe mistakenly expected NOTAVAILABLE and was corrected."
+  },
+  "sourceSha256": {
+    "glbridge/d3d8proxy/d3d8_proxy.c": "77c3edfeb15b27b853dd853bd5001207e7d63affb69c1de4d7c3f93b1869f5ae",
+    "glbridge/d3d8proxy/d3d8_core_view.h": "85cc57aacfa9c68fda3bc0d0131eb0ce32d0f313d6b9e139555810eac0b929ae",
+    "glbridge/d3d8proxy/build.sh": "984300c37e89c265c1029d5a1f3bfaaa14ebfcf81477bbeebacb7eb9c3d26052",
+    "glbridge/d3d9proxy/d3d9_proxy.c": "63eda14d807b4aa530d9d7d7f5ca979ec8888ac328ae42faa32f3885d6f2e618",
+    "glbridge/d3d9proxy/d3d9_core.h": "a24815ec3559b9bf31f954cb1dd81ef5fc83a9c32dcfc0604df0f48d1bf36487",
+    "glbridge/d3d8proxy/d3d8_core_buffer.c": "dbd116fef6acc13f1822bf471e944250c9a71399a76342435a56728696b0288c",
+    "glbridge/d3d8proxy/d3d8_core_buffer.h": "3d42359b13986025da71e73d072a0dbc365feb674fecdea9f657c50ffffc64b7",
+    "glbridge/d3d8proxy/d3d8_core_cube_texture.c": "5be49476ea6132b5054c18d128c2333b36aaae28a0e9785666ba8b945ecfcab2",
+    "glbridge/d3d8proxy/d3d8_core_cube_texture.h": "108052e507363344b78cc5f546b46fc501f274f8b4f041799e8ece1e8e4d34b7",
+    "glbridge/d3d8proxy/d3d8_core_device.c": "eedf3a315f74825de4ab1921bb0e32dab6ac016ee7445dd7f51294bedbca0b1c",
+    "glbridge/d3d8proxy/d3d8_core_device.h": "681e8b293f4d91dee1814659f6aaab70c96b5027a70615d32e12d5be21850a8f",
+    "glbridge/d3d8proxy/d3d8_core_surface.c": "d612a31aeb37f78201c006f0f657bad321bb7804343e5082a1e086b27b92c019",
+    "glbridge/d3d8proxy/d3d8_core_surface.h": "04ed2e3a17bad37117260e40acbbd4ce1907ed4b920463ed74c32143f062b811",
+    "glbridge/d3d8proxy/d3d8_core_swap_chain.c": "5b62c48ef5f236426648ac1d1bb94069805ab997b79bb345c367b750691931c2",
+    "glbridge/d3d8proxy/d3d8_core_swap_chain.h": "a22b7abe2d1804d48f77ea534b7385f37bd643b77550183f05988580321310ed",
+    "glbridge/d3d8proxy/d3d8_core_texture.c": "54458dc44210e468835918baa87747232c045627200392dd90ee393454e10b76",
+    "glbridge/d3d8proxy/d3d8_core_texture.h": "064ba0ce7ed5048dd301a958e3c75a10fac47d61ac3d34c200be24e82045620d",
+    "glbridge/d3d8proxy/d3d8_core_volume.c": "211ab5fcc84a7a101e714b82dbf7e896684a07f8fbe97e514d409869735d7cd3",
+    "glbridge/d3d8proxy/d3d8_core_volume.h": "9a7e523868efa4cccbd367472d1786ce4c88db566830fccb2ca33cbdd176ba15",
+    "glbridge/d3d8proxy/d3d8_core_volume_texture.c": "5437e3d311ad103cfa9b2c192671753a3361fb6d59638b07ee0abbe6dbce7e01",
+    "glbridge/d3d8proxy/d3d8_core_volume_texture.h": "82bb38aec6abb95a5312e6d0c5e9f8c1dce84496a50f0ee469e76a6a1dd92cd1",
+    "glbridge/sample/d3d8_frontend_device_consumer.c": "4c91e34f7315c2ccd1ceec975a0bc902f8b039400e4810ca8f49817e723112dc",
+    "glbridge/sample/d3d8_frontend_device_consumer.def": "6f51fc152a8dd151f8c96fd25fa40c6b72720213bcd18f2b336fc33f0f902925",
+    "glbridge/sample/d3d8_frontend_device_test.c": "6a26d633782d6a942bf75d4834ba6ea350a202ac14a6619c8d05a86c762f8711"
+  },
+  "captureBuild": {
+    "d3d8.dll": "76fb3d58293c92fdea0356f4f92d128e7d92e2cce4a9222419c903907111a51d",
+    "CORE8.DLL": "ec3ee67ac249daeffdf26f34d9751599993a0f3c6fdcb2452f50bdfa26b0ff57",
+    "DEVICE8.EXE": "17507c7f1e0949c9f5173d621e66619383a6db0bd73b7eb7ff2fb94c05495668",
+    "libd9wg_d3d9.a": "77eb43c5f8175e39cd16e0b7d2a4849930781427e1755a162c5ed14a5cce5c52"
+  },
+  "traceSha256": "c8132bd7101a43180c735ef83508ced00f756a151275422000bd868825d93164",
+  "referenceSha256": "04196dd1feeadc53357c8b1e0a529619a0d5b1335da6c718407c3082e667b901",
+  "publishedDiagnosticSha256": "62a026de20c5481edbb0bf90ea2ce52df43f681ed2601ff2d127959d38b924e5"
+}

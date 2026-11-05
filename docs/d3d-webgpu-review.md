@@ -2666,6 +2666,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 32 个标准 EXE、零售/诊断 DLL、21 成员静态核心、两项站点集成和范围 lint 通过；新增核心夹具实际运行，既有冻结夹具沿用 4K50 基线，不计作本轮重跑。发布本次 XP 的准确零售8及同源诊断8，普通9/宿主/协议/着色器及其运行包不变。证据：[stage4l1-validation.json](fixtures/d3d-review/stage4l1-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L1.json`。
 > - **阶段4继续：默认公开工厂尚未切换。** 下一功能批次切换入口、清理旧重复实现并完成兼容性边界回归；其后继续共用顶点处理/DDraw收尾与原生对照。阶段5系统数值差分、完整HAL/游戏/FPS验收仍未完成。
 
+> **阶段 4L2（2026-11-05，功能批次完成）：公开 D3D8 入口切换、旧后端退出发布构建及兼容回归。**
+> - `Direct3DCreate8` / `IDirect3D8::CreateDevice` 默认创建完整共用核心 Device8；旧 8,350 行后端移入不可变历史夹具，生产 Root8 缩至 418 行。静态核心统一发送 API8 HELLO，已有核心函数逐字不变。零售 DLL 从 261,120 降至 193,024 字节。
+> - **实际公开入口 XP：130 秒/37 批、全部97方法、2,815检查、四设备/四Reset、80句柄/1,762命令**，SDK120/220 × 普通/PURE。最终驱动 owner 释放、设备/资源清空均确认。28完整图像/1,408像素在 SwiftShader 与 Metal 均零误差；CPU 回读回复为解析注入，真实图像由独立 GPU 回放验证。冻结流检出2,210项破坏。
+> - **旧版公开 DLL 对照：113秒/45批、同样2,815检查和28次读回通过**。唯一修改的期望为 GetRasterStatus：旧实现固定返回 INVALIDCALL，新核心支持成功查询；这不是完整原生HAL等价性证明，也未把旧版的CPU回读注入称作GPU图像验证。原始对照在该旧stub处停止；中间探针误写NOTAVAILABLE，核对原实现后改正，日志均保留。
+> - **398项客体回归最终通过**：初轮四项失败是协议/caps/owner测试仍引用退出生产的函数，调整后逐项重跑通过。历史Device8比较使用显式读取器并验证原源SHA-256；Root8、真实适配器和共用核心测试仍读取生产实现。历史比较结果不冒充新前端覆盖。
+> - 18个标准SDK8 EXE、严格零售/诊断构建、两项站点集成、114项站点文件/3项核心文件范围lint通过。发布XP验证的准确零售DLL和同源诊断DLL；普通9、DDraw、宿主/协议/着色器及包保持不变。新增公开入口夹具实际运行，其余旧核心冻结夹具继承前轮基线。证据：[stage4l2-validation.json](fixtures/d3d-review/stage4l2-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L2.json`。
+> - **阶段4继续**：按功能批次处理兼容性错误路径、共用顶点处理及DDraw收尾，再做原生对照；阶段5系统着色器差分和完整游戏验收尚未完成。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
