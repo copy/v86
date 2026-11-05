@@ -2755,6 +2755,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 47项翻译器单测、190个Naga程序、178项执行器测试、22,624次CPU执行及范围lint通过。严格语料入口现要求真实Chrome Tint校验，12个私有GTA着色器在两个后端均零拒绝；私有字节码不提交。
 > - 发布主线程和shader worker同源bundle `94631fcb923bae8aab2a`，验证两者包含准确测试源码，站点两项集成通过。证据：[stage5l1-validation.json](fixtures/d3d-review/stage5l1-validation.json)。纹理采样差分、SM3语义链接、旧版颜色/雾规则和主体一次翻译架构继续，阶段5尚未完成。
 
+> **阶段 5L2（2026-11-05，功能批次完成）：纹理采样数值回归，修复 S2-11/S2-13。**
+> - 删除坐标/导数提升及静默零值、LOD0回退，使用已有 `derivative_uniformity` 诊断开关保持指令原执行位置。循环每次迭代读取当前坐标；分支中的偏置与导数也不再被替换。
+> - 旧版 TEXBEM/L、TEXDP3/TEX、矩阵PAD/采样/反射路径使用完整源修饰符和swizzle；保留原来的坐标、梯度与LOD运算。
+> - 新增RGBA16Float已知纹理、四mip、六立方体面和RGBA32Float读回：34个实际fragment程序、8,704个分量，在Metal/SwiftShader均通过1e-5绝对误差门槛，零GPU错误。旧代码在同组中有13个失败程序，包含循环坐标冻结、分支导数清零、偏置丢失及 `_bx2` 丢失。
+> - 数值用例保证quad内执行一致，未宣称真正分歧分支中的未定义导数具有确定值。三种谓词/break/call控制流通过真实Tint；12个私有shader通过Naga+Tint；44项单测、190个Naga程序、178项执行器、范围lint及两站点集成通过。删除了三个要求旧错误回退行为的文本断言。
+> - 发布bundle `895589dae30ca08739ae`。证据：[stage5l2-validation.json](fixtures/d3d-review/stage5l2-validation.json)。语义链接、旧版投影/深度/颜色/雾规则、主体只翻译一次及完整资源兼容性继续。
+
 - **目标：** 翻译的正确性由差分测试保证。
 - **改动：**
   - 写一个 SM1–3 的 CPU 参考解释器（JS），按 D3D9 文档的伪代码实现。

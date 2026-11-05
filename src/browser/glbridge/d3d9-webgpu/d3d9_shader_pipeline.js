@@ -498,9 +498,6 @@
             // per destination component, the predicate a predicated
             // instruction's store() is gated by
             this.predicateGate = null;
-            this.controlDepth = 0;             // >0 => inside if/loop
-            this.nonUniformDepth = 0;          // >0 => implicit-LOD sampling illegal
-            this.nonUniformFrames = [];        // open non-uniform regions
             this.levelZeroSamples = 0;
             this.temporaryId = 0;
             this.warnings = [];
@@ -745,7 +742,6 @@
         // statement per component rather than `dest.xy = ...`.
         store(dest, valueExpression, options) {
             const asBool = options && options.bool;
-            this.noteRegisterWrite(dest);
             const target = this.destTarget(dest);
             const name = this.fresh("v");
             let value = valueExpression;
@@ -942,14 +938,8 @@
                 const negated = predicate.modifier === SRCMOD_NOT;
                 this.emit("if (" + (negated ? "!" : "") + "p0." + component + ") {");
                 this.indent += 2;
-                ++this.controlDepth;
-                ++this.nonUniformDepth;
-                this.pushNonUniformFrame();
                 const inner = Object.assign({}, instruction, { predicated: false });
                 this.instruction(inner);
-                (this.nonUniformFrames || []).pop();
-                --this.nonUniformDepth;
-                --this.controlDepth;
                 this.indent -= 2;
                 this.emit("}");
                 return;
@@ -1067,9 +1057,7 @@
             case OP.DSX:
             case OP.DSY: {
                 const builtin = opcode === OP.DSX ? "dpdx" : "dpdy";
-                this.store(dest, this.nonUniformDepth > 0
-                    ? this.derivativeExpression(builtin, sources[0])
-                    : builtin + "(" + s(0) + ")");
+                this.store(dest, builtin + "(" + s(0) + ")");
                 return;
             }
             case OP.M4x4: this.matrix(dest, sources, 4, 4); return;
@@ -1150,9 +1138,7 @@
                 this.psTexcoordInputs.add(index);
                 this.bumpStages.add(index);
                 const bump = "d9c.bump[" + index + "]";
-                const source = this.rawSource({ type: sources[0].type,
-                    index: sources[0].index, swizzle: 0xe4, modifier: 0,
-                    relative: false, relativeToken: 0 });
+                const source = this.sourceExpression(sources[0]);
                 const perturbed = this.fresh("bem");
                 this.emit("let " + perturbed + " = t" + index + ".xy + vec2<f32>(" +
                     bump + ".x * (" + source + ").x + " + bump + ".z * (" +
@@ -1180,9 +1166,7 @@
                 const index = dest.index;
                 this.psTexcoordInputs.add(index);
                 const value = "dot(t" + index + ".xyz, (" +
-                    this.rawSource({ type: sources[0].type,
-                        index: sources[0].index, swizzle: 0xe4, modifier: 0,
-                        relative: false, relativeToken: 0 }) + ").xyz)";
+                    this.sourceExpression(sources[0]) + ").xyz)";
                 this.store(dest, "vec4<f32>(" + value + ")");
                 return;
             }
@@ -1195,9 +1179,7 @@
                 this.psTexcoordInputs.add(index);
                 const coord = this.fresh("dp3tex");
                 this.emit("let " + coord + " = vec2<f32>(dot(t" + index +
-                    ".xyz, (" + this.rawSource({ type: sources[0].type,
-                        index: sources[0].index, swizzle: 0xe4, modifier: 0,
-                        relative: false, relativeToken: 0 }) +
+                    ".xyz, (" + this.sourceExpression(sources[0]) +
                     ").xyz), 0.0);");
                 this.store(dest, this.sampleExpression(index,
                     { coord, ref: null }, {}));
@@ -1212,9 +1194,7 @@
                 const row = this.fresh("m3row");
                 this.psTexcoordInputs.add(dest.index);
                 this.emit("let " + row + " = dot(t" + dest.index + ".xyz, (" +
-                    this.rawSource({ type: sources[0].type,
-                        index: sources[0].index, swizzle: 0xe4, modifier: 0,
-                        relative: false, relativeToken: 0 }) + ").xyz);");
+                    this.sourceExpression(sources[0]) + ").xyz);");
                 this.matrixRows.push(row);
                 return;
             }
@@ -1224,9 +1204,7 @@
                 this.psTexcoordInputs.add(index);
                 const last = this.fresh("m3row");
                 this.emit("let " + last + " = dot(t" + index + ".xyz, (" +
-                    this.rawSource({ type: sources[0].type,
-                        index: sources[0].index, swizzle: 0xe4, modifier: 0,
-                        relative: false, relativeToken: 0 }) + ").xyz);");
+                    this.sourceExpression(sources[0]) + ").xyz);");
                 const rows = this.takeMatrixRows(1, last);
                 const coord = this.fresh("m3x2");
                 this.emit("let " + coord + " = vec2<f32>(" + rows.join(", ") + ");");
@@ -1245,9 +1223,7 @@
                 this.psTexcoordInputs.add(index);
                 const last = this.fresh("m3row");
                 this.emit("let " + last + " = dot(t" + index + ".xyz, (" +
-                    this.rawSource({ type: sources[0].type,
-                        index: sources[0].index, swizzle: 0xe4, modifier: 0,
-                        relative: false, relativeToken: 0 }) + ").xyz);");
+                    this.sourceExpression(sources[0]) + ").xyz);");
                 const rows = this.takeMatrixRows(2, last);
                 const normal = this.fresh("m3x3");
                 this.emit("let " + normal + " = vec3<f32>(" + rows.join(", ") + ");");
@@ -1374,113 +1350,12 @@
             }
         }
 
-        // A frame per open non-uniform region, recording where its opening
-        // statement began and which registers have been written since. Both are
-        // what dsx/dsy needs: see derivativeExpression().
-        pushNonUniformFrame(insertAt) {
-            this.nonUniformFrames = this.nonUniformFrames || [];
-            this.nonUniformFrames.push({
-                // The `if (...) {` line is emitted before enter() runs, so the
-                // position *before* the region is one line back.
-                insertAt: insertAt === undefined
-                    ? Math.max(0, this.lines.length - 1) : insertAt,
-                indent: Math.max(0, this.indent - 2),
-                written: new Set(),
-            });
-        }
-
-        enter(nonUniform) {
-            this.indent += 2;
-            ++this.controlDepth;
-            this.uniformityStack = this.uniformityStack || [];
-            this.uniformityStack.push(!!nonUniform);
-            if (nonUniform) {
-                ++this.nonUniformDepth;
-                this.pushNonUniformFrame();
-            }
-        }
-
-        enterSameUniformity() {
-            this.indent += 2;
-            ++this.controlDepth;
-            const nonUniform = this.lastLeftNonUniform;
-            this.uniformityStack.push(nonUniform);
-            if (nonUniform) {
-                ++this.nonUniformDepth;
-                // An `else` branch hoists to before the whole `if`, not to
-                // before the `} else {` -- that position is inside the *then*
-                // branch, where the code would run under the wrong condition.
-                // Writes made by the then-branch do not reach here, so the
-                // written-register set starts empty again.
-                this.pushNonUniformFrame(this.lastLeftInsertAt);
-            }
-        }
-
-        leave() {
-            this.indent -= 2;
-            --this.controlDepth;
-            const nonUniform = (this.uniformityStack || []).pop();
-            this.lastLeftNonUniform = nonUniform;
-            if (nonUniform) {
-                --this.nonUniformDepth;
-                const frame = (this.nonUniformFrames || []).pop();
-                this.lastLeftInsertAt = frame ? frame.insertAt : undefined;
-            }
-        }
-
-        // Every register written inside an open non-uniform region, so a later
-        // hoist can tell whether the value it wants still exists above it.
-        noteRegisterWrite(dest) {
-            if (!this.nonUniformFrames || !this.nonUniformFrames.length) return;
-            const key = dest.type + ":" + dest.index;
-            for (const frame of this.nonUniformFrames) frame.written.add(key);
-        }
-
-        /*
-         * dsx/dsy inside data-dependent control flow.
-         *
-         * D3D9 runs both sides of a branch on real hardware, so a derivative
-         * taken inside an `if` is well defined there. WGSL forbids it outright,
-         * and the shader fails to compile -- which is not a subtle difference:
-         * 3DMark06's airship rendered as a black silhouette because its pixel
-         * shader would not build at all.
-         *
-         * The derivative almost always reads a register computed *before* the
-         * branch (screen-space coordinates, most often), so hoisting the call
-         * to just above the branch is both legal and exactly what the shader
-         * asked for. That is only true while nothing has overwritten the
-         * operand inside the region, which is what the written-register set
-         * tracks; when it has, there is no value above the branch to take a
-         * derivative of and the result degrades to zero -- flat, noted, and
-         * still a shader that compiles.
-         */
-        derivativeExpression(builtin, source) {
-            const registerKey = source.type + ":" + source.index;
-            const frames = this.nonUniformFrames || [];
-            const clobbered = frames.some(frame => frame.written.has(registerKey));
-            const before = this.lines.length;
-            const expression = this.sourceExpression(source);
-            // A source modifier that emits its own statement cannot be hoisted
-            // with the call; those statements would stay behind.
-            const emitted = this.lines.length !== before;
-            if (!clobbered && !emitted && !source.relative && frames.length) {
-                const outermost = frames[0];
-                const name = this.fresh("deriv");
-                this.lines.splice(outermost.insertAt, 0,
-                    " ".repeat(outermost.indent) + "let " + name + " = " +
-                    builtin + "(" + expression + ");");
-                for (const frame of frames) ++frame.insertAt;
-                this.note("a screen-space derivative inside data-dependent " +
-                    "control flow was hoisted above the branch, which WGSL " +
-                    "requires and D3D9 does not");
-                return name;
-            }
-            this.note("a screen-space derivative inside data-dependent control " +
-                "flow reads a register the branch itself overwrote; there is no " +
-                "value above the branch to differentiate, so it evaluates to " +
-                "zero (WGSL forbids the call there)");
-            return "vec4<f32>(0.0)";
-        }
+        // Keep derivatives and samples at the instruction's execution point.
+        // The module-level diagnostic permits data-dependent flow; moving an
+        // operand above a loop freezes it before subsequent iterations write it.
+        enter() { this.indent += 2; }
+        enterSameUniformity() { this.enter(); }
+        leave() { this.indent -= 2; }
 
         comparison(control, left, right, componentwise) {
             const operators = { 1: ">", 2: "==", 3: ">=", 4: "<", 5: "!=", 6: "<=" };
@@ -1611,15 +1486,11 @@
                 return "textureSampleLevel(" + texture + ", " + sampler + ", " +
                     coord + ", " + options.lod + ")";
             if (options && options.bias !== undefined)
-                return this.nonUniformDepth > 0
-                    ? this.degradedSample(texture, sampler, coord)
-                    : "textureSampleBias(" + texture + ", " + sampler + ", " +
-                        coord + ", " + options.bias + ")";
+                return "textureSampleBias(" + texture + ", " + sampler + ", " +
+                    coord + ", " + options.bias + ")";
             const uniformBias = this.options.samplerLodBiasUniform && this.kind === "pixel"
                 ? "d9c.sampler_lod_bias[" + Math.floor(index / 4) + "][" + (index & 3) + "]" : "";
             const stateBias = this.samplerLodBias ? this.samplerLodBias[index] : 0;
-            if (this.nonUniformDepth > 0)
-                return this.degradedSample(texture, sampler, coord);
             // A sampler-state bias applies to the ordinary implicit-derivative
             // sample only. D3D9 ignores it for the explicit-LOD and gradient
             // forms above, and a vertex fetch has no mip chain to bias.
@@ -1681,83 +1552,18 @@
         // very nearly always single-level to begin with, so this is a real
         // approximation only for the rare mipped one.
         compareExpression(texture, sampler, coord, ref, options) {
-            const explicitLevel = (options && (options.gradients ||
-                options.explicitLod || options.bias !== undefined)) ||
-                this.nonUniformDepth > 0;
+            const explicitLevel = options && (options.gradients ||
+                options.explicitLod || options.bias !== undefined);
             if (explicitLevel) {
                 ++this.levelZeroSamples;
                 this.note("a depth comparison sample selects mip level 0: WGSL " +
-                    "has no gradient, bias or non-uniform form of " +
+                    "has no gradient or bias form of " +
                     "textureSampleCompare");
                 return "vec4<f32>(textureSampleCompareLevel(" + texture + ", " +
                     sampler + ", " + coord + ", " + ref + "))";
             }
             return "vec4<f32>(textureSampleCompare(" + texture + ", " +
                 sampler + ", " + coord + ", " + ref + "))";
-        }
-
-        /*
-         * Recovers real gradients for a texture sample inside data-dependent
-         * control flow.
-         *
-         * WGSL forbids implicit-derivative sampling there, and the fallback
-         * below picks mip level 0 -- correct-ish but visibly aliased wherever
-         * the surface is minified, which in practice is most of a scene. When
-         * the coordinate comes from a register the branch has not touched,
-         * there *is* a value above the branch to differentiate: hoist the
-         * coordinate and both derivatives out, and sample with
-         * textureSampleGrad, which WGSL permits under any control flow because
-         * the gradients are explicit. That is not a degradation at all -- it is
-         * the mip level the shader would have selected on D3D9 hardware.
-         *
-         * Returns null when the coordinate cannot be reconstructed above the
-         * branch, leaving degradedSample() to handle it.
-         */
-        hoistedGradients(index, source, coordinateExpression, projected) {
-            const frames = this.nonUniformFrames || [];
-            if (!frames.length || !source || source.relative) return null;
-            if (frames.some(frame =>
-                    frame.written.has(source.type + ":" + source.index)))
-                return null;
-            const type = this.samplers.get(index) || "2d";
-            const swizzle = (type === "cube" || type === "3d") ? "xyz" : "xy";
-            const outermost = frames[0];
-            const pad = " ".repeat(outermost.indent);
-            const raw = this.fresh("guv");
-            const uv = this.fresh("gc");
-            const dx = this.fresh("gdx");
-            const dy = this.fresh("gdy");
-            const projectedExpression = projected
-                ? "(" + raw + "." + swizzle + " / max(abs(" + raw +
-                    ".w), 1e-8) * sign(" + raw + ".w + 1e-20))"
-                : raw + "." + swizzle;
-            this.lines.splice(outermost.insertAt, 0,
-                pad + "let " + raw + " = " + coordinateExpression + ";",
-                pad + "let " + uv + " = " + projectedExpression + ";",
-                pad + "let " + dx + " = dpdx(" + uv + ");",
-                pad + "let " + dy + " = dpdy(" + uv + ");");
-            for (const frame of frames) frame.insertAt += 4;
-            this.note("a texture sample inside data-dependent control flow " +
-                "keeps its real mip level: the coordinate and its derivatives " +
-                "are hoisted above the branch and the sample uses explicit " +
-                "gradients, which WGSL allows there");
-            return { coordinate: uv, ddx: dx, ddy: dy };
-        }
-
-        // WGSL forbids implicit-derivative sampling under non-uniform control
-        // flow. When hoistedGradients() cannot reconstruct the coordinate above
-        // the branch -- because the branch computed it -- mip level 0 is the
-        // legal, deterministic fallback: visibly sharper/aliased rather than
-        // wrong colours, and counted so it is never a silent difference. Note
-        // this is unreachable for ps_2_0 (no flow control at all in that model)
-        // and for uniform `if b#`/`rep`/`loop` bodies, whose conditions come
-        // from the uniform buffer and so keep control flow uniform.
-        degradedSample(texture, sampler, coordinate) {
-            ++this.levelZeroSamples;
-            this.note("sampling inside data-dependent control flow falls back " +
-                "to mip level 0 (WGSL forbids implicit derivatives there)");
-            return "textureSampleLevel(" + texture + ", " + sampler + ", " +
-                coordinate + ", 0.0)";
         }
 
         // Consumes the rows the preceding texm3x*pad instructions produced,
@@ -1809,31 +1615,6 @@
             } else {
                 index = this.samplerIndexFor(sources[1]);
                 coordinateExpression = this.sourceExpression(sources[0]);
-            }
-            // Try to keep the real mip level before anything else decides the
-            // sample has to be level 0. Only the plain and biased forms need
-            // it: texldd already carries explicit gradients and texldl an
-            // explicit level, and both are legal in non-uniform flow as they
-            // stand.
-            //
-            // Depth samplers are excluded: WGSL has no textureSampleCompareGrad,
-            // so there is no gradient form to recover *to*, and the comparison
-            // reference must survive -- compareExpression() already handles
-            // them and drops to textureSampleCompareLevel.
-            const wantsImplicitLod = !(options &&
-                (options.explicitLod || options.gradients)) &&
-                !this.isDepthSampler(index);
-            const recovered = (this.nonUniformDepth > 0 && wantsImplicitLod)
-                ? this.hoistedGradients(index,
-                    (this.kind === "pixel" && this.major === 1 && this.minor < 4)
-                        ? null : sources[0],
-                    coordinateExpression, projected)
-                : null;
-            if (recovered) {
-                this.store(dest, this.sampleExpression(index,
-                    { coord: recovered.coordinate, ref: null },
-                    { gradients: true, ddx: recovered.ddx, ddy: recovered.ddy }));
-                return;
             }
             const coordinate = this.coordinateFor(index, coordinateExpression, projected);
             const sampleOptions = {};

@@ -1,0 +1,524 @@
+{
+  "stage": "5L2 live texture coordinates, derivatives and SM1 address modifiers",
+  "date": "2026-11-05",
+  "baseline": {
+    "core": "95ad483d",
+    "site": "8ba6722"
+  },
+  "changes": [
+    "Remove operand/derivative hoisting and silent zero/LOD0 fallbacks; preserve original sample/derivative execution point using the existing derivative_uniformity diagnostic.",
+    "Apply source swizzle/modifiers in TEXBEM/L, TEXDP3/TEX and all matrix pad/sample/reflection forms.",
+    "Replace three unit tests enforcing the obsolete approximations with actual fragment-stage texture readbacks."
+  ],
+  "reference": {
+    "texture": "Exact binary fractions in RGBA16Float; point/clamp, four distinct mips, six distinct cube faces",
+    "renderTarget": "RGBA32Float, 8x8 pixels per program",
+    "equations": "Independent point-sample, dot/matrix, cube face, bump and luminance equations in test fixture",
+    "tolerance": 1e-05,
+    "branchScope": "Data-dependent bytecode conditions evaluate uniformly across fragment quads for numerical expectations. Derivatives in genuinely divergent quads remain undefined; no stronger guarantee claimed.",
+    "sources": [
+      "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/texm3x3pad---ps",
+      "https://www.w3.org/TR/WGSL/#derivative-uniformity"
+    ]
+  },
+  "before": {
+    "programs": 34,
+    "components": 8704,
+    "absoluteTolerance": 1e-05,
+    "failures": [
+      {
+        "name": "if-rep-changing-coordinate",
+        "differences": 64,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.0625,
+            "expected": 0.3125
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.0625,
+            "expected": 0.3125
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 0,
+            "actual": 0.0625,
+            "expected": 0.3125
+          },
+          {
+            "x": 3,
+            "y": 0,
+            "c": 0,
+            "actual": 0.0625,
+            "expected": 0.3125
+          }
+        ]
+      },
+      {
+        "name": "if-rep-changing-gradient",
+        "differences": 160,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 2,
+            "actual": 0.125,
+            "expected": 0.375
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 2,
+            "actual": 0.125,
+            "expected": 0.375
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 0,
+            "actual": 0.1875,
+            "expected": 0.125
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 2,
+            "actual": 0.125,
+            "expected": 0.375
+          }
+        ]
+      },
+      {
+        "name": "branch-rewritten-derivative-91",
+        "differences": 64,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0,
+            "expected": 0.25
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0,
+            "expected": 0.25
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 0,
+            "actual": 0,
+            "expected": 0.25
+          },
+          {
+            "x": 3,
+            "y": 0,
+            "c": 0,
+            "actual": 0,
+            "expected": 0.25
+          }
+        ]
+      },
+      {
+        "name": "branch-rewritten-derivative-92",
+        "differences": 64,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 1,
+            "actual": 0,
+            "expected": 0.25
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 1,
+            "actual": 0,
+            "expected": 0.25
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 1,
+            "actual": 0,
+            "expected": 0.25
+          },
+          {
+            "x": 3,
+            "y": 0,
+            "c": 1,
+            "actual": 0,
+            "expected": 0.25
+          }
+        ]
+      },
+      {
+        "name": "branch-bias",
+        "differences": 176,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 2,
+            "actual": 0.125,
+            "expected": 0.375
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.0625
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 2,
+            "actual": 0.125,
+            "expected": 0.375
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 0,
+            "actual": 0.1875,
+            "expected": 0.0625
+          }
+        ]
+      },
+      {
+        "name": "ps1/dp3/modifier4",
+        "differences": 256,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.4375,
+            "expected": -0.125
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "c": 1,
+            "actual": 0.4375,
+            "expected": -0.125
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "c": 2,
+            "actual": 0.4375,
+            "expected": -0.125
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "c": 3,
+            "actual": 0.4375,
+            "expected": -0.125
+          }
+        ]
+      },
+      {
+        "name": "ps1/dp3tex/modifier4",
+        "differences": 64,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.25,
+            "expected": 0.0625
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.25,
+            "expected": 0.0625
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 0,
+            "actual": 0.25,
+            "expected": 0.0625
+          },
+          {
+            "x": 3,
+            "y": 0,
+            "c": 0,
+            "actual": 0.25,
+            "expected": 0.0625
+          }
+        ]
+      },
+      {
+        "name": "ps1/m3x2/modifier4",
+        "differences": 128,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.25,
+            "expected": 0.0625
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "c": 1,
+            "actual": 0.125,
+            "expected": 0.0625
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.25,
+            "expected": 0.0625
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 1,
+            "actual": 0.125,
+            "expected": 0.0625
+          }
+        ]
+      },
+      {
+        "name": "ps1/m3x3/modifier4",
+        "differences": 64,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.75
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.75
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.75
+          },
+          {
+            "x": 3,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.75
+          }
+        ]
+      },
+      {
+        "name": "ps1/spec/modifier4",
+        "differences": 64,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.625
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.625
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.625
+          },
+          {
+            "x": 3,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.625
+          }
+        ]
+      },
+      {
+        "name": "ps1/vspec/modifier4",
+        "differences": 64,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.625
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.625
+          },
+          {
+            "x": 2,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.625
+          },
+          {
+            "x": 3,
+            "y": 0,
+            "c": 0,
+            "actual": 0.125,
+            "expected": 0.625
+          }
+        ]
+      },
+      {
+        "name": "ps1/bem/modifier4",
+        "differences": 128,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.4375,
+            "expected": 0.3125
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "c": 1,
+            "actual": 0.375,
+            "expected": 0.1875
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.4375,
+            "expected": 0.3125
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 1,
+            "actual": 0.375,
+            "expected": 0.1875
+          }
+        ]
+      },
+      {
+        "name": "ps1/beml/modifier4",
+        "differences": 192,
+        "examples": [
+          {
+            "x": 0,
+            "y": 0,
+            "c": 0,
+            "actual": 0.24609375,
+            "expected": 0.0390625
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "c": 1,
+            "actual": 0.2109375,
+            "expected": 0.0234375
+          },
+          {
+            "x": 0,
+            "y": 0,
+            "c": 2,
+            "actual": 0.0703125,
+            "expected": 0.015625
+          },
+          {
+            "x": 1,
+            "y": 0,
+            "c": 0,
+            "actual": 0.24609375,
+            "expected": 0.0390625
+          }
+        ]
+      }
+    ],
+    "gpuErrors": []
+  },
+  "runs": {
+    "metal": {
+      "programs": 34,
+      "components": 8704,
+      "absoluteTolerance": 1e-05,
+      "failures": [],
+      "gpuErrors": []
+    },
+    "swift": {
+      "programs": 34,
+      "components": 8704,
+      "absoluteTolerance": 1e-05,
+      "failures": [],
+      "gpuErrors": []
+    }
+  },
+  "validation": {
+    "translatorUnit": 44,
+    "naga": 190,
+    "executor": 178,
+    "chromeTintControlFlowShapes": 3,
+    "privateCorpusNagaAndTint": 12,
+    "lintFiles": 4,
+    "newLintProblems": 0,
+    "siteIntegration": 2
+  },
+  "sourceSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "84912d6d54ffa586b098c92a4d763bd582cbb88a45431302e611bd9dd6ff10df",
+    "tests/glbridge/d3d9_shader_pipeline_test.js": "7e69e0fe58f7816c02ec5c48266f3ff428dd5d5304d4e536601edab6d207ad45",
+    "tests/lib/d3d_shader_texture_cases.mjs": "ea857f0b74d7f8d1492794498e6a2eac824050fda4c68802650e6983a9711571",
+    "tests/glbridge/d3d_shader_texture_browser_test.html": "e3ea296d41ccb0c0c859fcae5749928682e86fd873e489b26418ad0ed6bb95ba"
+  },
+  "published": {
+    "revision": "895589dae30ca08739ae",
+    "sha256": {
+      "libv86-webgpu.js": "868d4a590a8090300afacbd611eafac06424e7a38b0c4befeaa67ee98387ada3",
+      "d3d9_shader_worker.js": "49a3c15b58c9aa52c5a9528aea589a1d662613e80af7192a461580fdb480bb38",
+      "d3d9_shader_pipeline.js": "4cd7c2bea68ad6913e8e83599c866b72a0a940383fcecd22d3c982eabf067a2d",
+      "graphics_journal_worker.js": "b3696d4072b702e27ddd5bd35971c94d8c17d6a524f677fbf5adf2dec441c8ac",
+      "d9wg_diagnostics.js": "0e55da03b1e77a836c76b4ebf3cfb22383fefa9409a1686815f6734dead5f648",
+      "v86gl-device.js": "575e9873977b7ec9fa0d42c490a3e8cfd59f8510dcabee6d5006f5cdd029dc5b",
+      "glslang.wasm": "bf04f3f1aa510afd7e461ccb75c929e9498684b3186768c00804ffecc8bdbd16",
+      "vx_naga.wasm": "8a0e51ee1698ff84d14a125d00241fc57fa33f17123cc3d6850d742bf41f5641"
+    }
+  },
+  "limitations": [
+    "Texture tests wrap the actual generated d9_body in a fragment entry; semantic linking is tested separately and remains pending.",
+    "Not a complete texture opcode/filter/addressing matrix. SM1 projection/depth, SM3 semantics, color/fog rules and body-once translation remain.",
+    "Earlier full Wine resource compatibility and cross-backend 3DMark image differences remain unresolved."
+  ]
+}

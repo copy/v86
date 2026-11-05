@@ -972,91 +972,9 @@ test("generated WGSL is brace-balanced and declares every register it reads", ()
     }
 });
 
-test("a derivative inside a data-dependent branch is hoisted above it",
-        () => {
-    // r1 is computed before the branch, so dpdy(r1) above the branch is the
-    // same value D3D9 would have produced inside it.
-    const result = pipeline.compileShader(new Uint32Array([
-        PS(3, 0),
-        instruction(OP.DCL, { length: 2 }), dclToken(USAGE.TEXCOORD, 0), dst(REG.INPUT, 0),
-        instruction(OP.DEF, { length: 5 }), dst(REG.CONST, 0),
-            floatBits(0.5), floatBits(0), floatBits(0), floatBits(0),
-        instruction(OP.MOV, { length: 2 }), dst(REG.TEMP, 1), src(REG.INPUT, 0),
-        instruction(OP.IFC, { length: 2, control: 5 }),
-            src(REG.TEMP, 1), src(REG.CONST, 0),
-        instruction(OP.DSY, { length: 2 }), dst(REG.TEMP, 0), src(REG.TEMP, 1),
-        instruction(OP.ENDIF),
-        instruction(OP.MOV, { length: 2 }), dst(REG.COLOROUT, 0), src(REG.TEMP, 0),
-        END,
-    ]));
-    assert.ok(result.ok, "translation failed: " + result.error);
-    const lines = result.wgsl.slice(result.wgsl.indexOf("fn d9_body()")).split("\n");
-    const derivative = lines.findIndex(line => line.includes("dpdy("));
-    const branch = lines.findIndex(line => /^\s*if \(/.test(line));
-    assert.ok(derivative >= 0, "expected a dpdy call");
-    assert.ok(branch >= 0, "expected a branch");
-    // The whole point: WGSL rejects the call inside the branch, so it has to
-    // come out above it rather than being dropped.
-    assert.ok(derivative < branch,
-        "the derivative must be hoisted above the branch, not left inside it");
-    assert.ok(!/vec4<f32>\(0\.0\)/.test(lines[derivative]),
-        "a hoistable derivative must not degrade to zero");
-});
-
-test("a derivative of a register the branch rewrites degrades to zero", () => {
-    // r1 is assigned *inside* the branch, so there is no value above it to
-    // differentiate and hoisting would read the wrong one.
-    const result = pipeline.compileShader(new Uint32Array([
-        PS(3, 0),
-        instruction(OP.DCL, { length: 2 }), dclToken(USAGE.TEXCOORD, 0), dst(REG.INPUT, 0),
-        instruction(OP.DEF, { length: 5 }), dst(REG.CONST, 0),
-            floatBits(0.5), floatBits(0), floatBits(0), floatBits(0),
-        instruction(OP.IFC, { length: 2, control: 5 }),
-            src(REG.INPUT, 0), src(REG.CONST, 0),
-        instruction(OP.MOV, { length: 2 }), dst(REG.TEMP, 1), src(REG.CONST, 0),
-        instruction(OP.DSX, { length: 2 }), dst(REG.TEMP, 0), src(REG.TEMP, 1),
-        instruction(OP.ENDIF),
-        instruction(OP.MOV, { length: 2 }), dst(REG.COLOROUT, 0), src(REG.TEMP, 0),
-        END,
-    ]));
-    assert.ok(result.ok, "translation failed: " + result.error);
-    assert.ok(!result.wgsl.includes("dpdx("),
-        "an unhoistable derivative must not emit a call WGSL rejects");
-    assert.ok(result.reflection.warnings.some(warning =>
-        warning.includes("no value above the branch")),
-        "the approximation has to be reported");
-});
-
-test("an in-branch texture sample keeps its mip level via hoisted gradients",
-        () => {
-    const result = pipeline.compileShader(new Uint32Array([
-        PS(3, 0),
-        instruction(OP.DCL, { length: 2 }), dclToken(0, 0, 2), dst(REG.SAMPLER, 0),
-        instruction(OP.DCL, { length: 2 }), dclToken(USAGE.TEXCOORD, 0), dst(REG.INPUT, 0),
-        instruction(OP.DEF, { length: 5 }), dst(REG.CONST, 0),
-            floatBits(0.5), floatBits(0), floatBits(0), floatBits(0),
-        instruction(OP.IFC, { length: 2, control: 5 }),
-            src(REG.INPUT, 0), src(REG.CONST, 0),
-        instruction(OP.TEX, { length: 3 }), dst(REG.TEMP, 0),
-            src(REG.INPUT, 0), src(REG.SAMPLER, 0),
-        instruction(OP.ENDIF),
-        instruction(OP.MOV, { length: 2 }), dst(REG.COLOROUT, 0), src(REG.TEMP, 0),
-        END,
-    ]));
-    assert.ok(result.ok, "translation failed: " + result.error);
-    // textureSampleGrad is legal under non-uniform control flow because the
-    // gradients are explicit, so the sample keeps the mip level the shader
-    // asked for instead of dropping to level 0.
-    assert.ok(result.wgsl.includes("textureSampleGrad("),
-        "expected an explicit-gradient sample");
-    assert.ok(!/textureSampleLevel\(d9_tex0[^)]*0\.0\)/.test(result.wgsl),
-        "the level-0 fallback must not be used when gradients are available");
-    const lines = result.wgsl.slice(result.wgsl.indexOf("fn d9_body()")).split("\n");
-    const gradient = lines.findIndex(line => line.includes("dpdx("));
-    const branch = lines.findIndex(line => /^\s*if \(/.test(line));
-    assert.ok(gradient >= 0 && gradient < branch,
-        "the derivatives have to be computed above the branch");
-});
+// Derivative/texture execution semantics are checked by actual pixel readback
+// in d3d_shader_texture_browser_test.html, replacing the old assertions that
+// required hoisting and its zero/LOD-zero fallbacks.
 
 // ---- report ----
 
