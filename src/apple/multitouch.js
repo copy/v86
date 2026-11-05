@@ -235,7 +235,9 @@ export class AppleMultitouch
     pointer_contacts()
     {
         const [x, y, down, pinch] = this.pointer;
-        const points = down ? [[0, x, y]] : [];
+        // The N90 input stack drops path zero. Keep path one for the
+        // mirrored finger so old snapshots can finish an active pinch.
+        const points = down ? [[2, x, y]] : [];
         if(pinch) points.push([1, 639 - x, 959 - y]);
         this.set_contacts(points, this.timestamp());
     }
@@ -251,7 +253,7 @@ export class AppleMultitouch
             let wire_id = this.host_ids.get(id);
             if(wire_id === undefined)
             {
-                wire_id = 0;
+                wire_id = 1;
                 while([...this.host_ids.values(), ...next.values()].includes(wire_id)) wire_id++;
             }
             next.set(id, wire_id); contacts.push([wire_id, x * 640 / width, y * 960 / height]);
@@ -268,7 +270,7 @@ export class AppleMultitouch
         for(const contact of contacts.slice(0, 5))
         {
             const id = contact[0];
-            if(next.has(id) || !Number.isInteger(id) || id < 0 || id > 255 ||
+            if(next.has(id) || !Number.isInteger(id) || id < 1 || id > 255 ||
                 !Number.isFinite(contact[1]) || !Number.isFinite(contact[2])) continue;
             const x = Math.max(0, Math.min(639, Math.round(contact[1])));
             const y = Math.max(0, Math.min(959, Math.round(contact[2])));
@@ -318,9 +320,11 @@ export class AppleMultitouch
         this.bulk = state[8]; this.payload_sum = state[9]; this.footer = state[10].slice();
         this.frames = (state[11] || []).map(frame => frame.slice());
         this.contacts = new Map(state[12] || []); this.frame_number = state[13] || 0;
+        this.contacts.delete(0);
         this.last_frame = state[14]?.slice() || null; this.last_sequence = state[15] || 0;
         this.frame = state[16]?.slice() || null; this.frame_replay = !!state[17];
-        this.pointer = state[18]?.slice() || [0, 0, false]; this.host_ids = new Map(state[19] || []);
+        this.pointer = state[18]?.slice() || [0, 0, false];
+        this.host_ids = new Map((state[19] || []).filter(([, id]) => id !== 0));
         this.ready(this.running);
     }
 }
