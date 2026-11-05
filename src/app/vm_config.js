@@ -892,7 +892,8 @@ export function config_to_options(config, env)
             wasm_path: "build/" + (env.debug ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") + env.query_append,
             screen: { container: env.screen_container }, graphics_adapter: "none", net_device: { type: "none" },
             gles_backdoor: ios.gles_proxy, ios: { nand_boot: true, nand: { ...nand, disk_option: "read_write" }, boot_args },
-            initial_state: image(config.initial_state), disable_speaker: config.sound.mute, autostart: true,
+            // The N90 codec and I2S controls are modeled, but do not emit PCM.
+            initial_state: image(config.initial_state), disable_speaker: true, autostart: true,
         };
     }
     // (the card the backend serves: the virt machine's net<id>; else the first)
