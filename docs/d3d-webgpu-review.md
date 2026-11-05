@@ -2722,6 +2722,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 二维锁定50,112组、立方体467,712组，构造检查37,017,042项；87个相关变异、渲染目标/私有数据/绑定/诊断回归、32 SDK EXE、四DLL构建、两站点集成及范围lint通过。发布Metal实际验收的8零售DLL及同源8/9零售/诊断包。
 > - 证据：[stage4l8-validation.json](fixtures/d3d-review/stage4l8-validation.json)。完整Wine的压缩图像/体积纹理、窗口Reset及多后缓冲等仍未收尾；本组没有场景像素比较，API9未另跑XP。
 
+> **阶段 4L9（2026-11-05，功能批次完成）：压缩图像和纯 CPU Scratch 体积纹理。**
+> - API8 ImageSurface 支持 DXT/YUV 块布局；DXT 顶层保持四像素对齐。Scratch 体积纹理允许压缩存储，不创建、上传或销毁 GPU 资源，也不能绑定采样；默认池非动态 LockBox 按 Wine 预期清空 pBits 后拒绝。补齐 WRITEONLY、MANAGED/SCRATCH+DYNAMIC 的创建限制。
+> - 原版 volume_blocks、volume_locking、lockbox_invalid 加项目图像矩阵，在实际 XP Metal/SwiftShader 各 **38,326 项、零失败/todo/flaky/skip**；退出前设备/资源为零，GPU/宿主错误为零。首次原版 storage-audit 的 42,855 项有一项输出错误和两个 ATI 扩展 skip：输出错误已修，原审计日志保留；ATI 未宣称支持，不把其 skip 计成通过。
+> - 图像/体积/锁定合计 51,557,191 项原生检查及 ASan/UBSan 通过，67 个变异检出；格式、生命周期、绑定、状态块、回缓冲等回归、32 SDK EXE、四 DLL、两站点集成通过。发布准确 Metal 验收的 D3D8 零售 DLL 和同源诊断/9包。
+> - 证据：[stage4l9-validation.json](fixtures/d3d-review/stage4l9-validation.json)。完整 Wine 窗口/Reset/多后缓冲及阶段5仍开放；本组没有场景像素比较，不代表完整 Wine 验收。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：

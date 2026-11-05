@@ -105,9 +105,71 @@ static void locking_group(void)
     UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
 }
 
+static void storage_audit_group(void)
+{
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = DefWindowProcA;
+    wc.lpszClassName = "d3d8_test_wc";
+    RegisterClassA(&wc);
+    test_surface_blocks();
+    test_volume_blocks();
+    test_volume_locking();
+    test_lockbox_invalid();
+    UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
+}
+
+/* Project-owned image matrix for the formats our runtime declares. The
+ * unmodified surface_blocks audit remains available and reports its two
+ * unsupported ATI extension skips; it is never relabelled a full pass. */
+static void storage_group(void)
+{
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = DefWindowProcA; wc.lpszClassName = "d3d8_test_wc";
+    RegisterClassA(&wc);
+    HWND window = create_window();
+    IDirect3D8 *root = Direct3DCreate8(D3D_SDK_VERSION);
+    IDirect3DDevice8 *device = root ? create_device(root, window, NULL) : NULL;
+    ok(!!device, "Missing image-storage test device.\n");
+    if (device) {
+        const D3DFORMAT formats[] = {D3DFMT_DXT1,D3DFMT_DXT2,D3DFMT_DXT3,D3DFMT_DXT4,D3DFMT_DXT5,D3DFMT_YUY2,D3DFMT_UYVY};
+        for (unsigned int f=0; f<ARRAY_SIZE(formats); ++f)
+            for (unsigned int w=1; w<=8; ++w) for (unsigned int h=1; h<=8; ++h) {
+                IDirect3DSurface8 *surface=(void *)0xdeadbeef;
+                HRESULT expected=f<5 && ((w%4)||(h%4)) ? D3DERR_INVALIDCALL : D3D_OK;
+                HRESULT hr=IDirect3DDevice8_CreateImageSurface(device,w,h,formats[f],&surface);
+                ok(hr==expected,"Image %u %ux%u hr %#lx expected %#lx.\n",f,w,h,hr,expected);
+                if (FAILED(hr)) {ok(!surface,"Failed image output not cleared.\n");continue;}
+                D3DLOCKED_RECT lock;
+                hr=IDirect3DSurface8_LockRect(surface,&lock,NULL,0);
+                const unsigned int pitch=f<5 ? ((w+3)/4)*(f?16:8) : ((w+1)/2)*4;
+                ok(hr==D3D_OK&&lock.Pitch==(INT)pitch&&lock.pBits,"Image layout mismatch.\n");
+                if (SUCCEEDED(hr)) {
+                    memset(lock.pBits,0,pitch*(f<5?(h+3)/4:h));
+                    hr=IDirect3DSurface8_UnlockRect(surface);
+                    ok(hr==D3D_OK,"Image unlock failed.\n");
+                }
+                IDirect3DSurface8_Release(surface);
+            }
+        IDirect3DVolumeTexture8 *scratch=NULL;
+        HRESULT hr=IDirect3DDevice8_CreateVolumeTexture(device,4,4,2,0,0,D3DFMT_DXT1,D3DPOOL_SCRATCH,&scratch);
+        ok(hr==D3D_OK&&scratch,"Missing scratch compressed volume.\n");
+        if(scratch) {
+            hr=IDirect3DDevice8_SetTexture(device,0,(IDirect3DBaseTexture8 *)scratch);
+            ok(hr==D3DERR_INVALIDCALL,"Scratch volume must not bind to GPU.\n");
+            IDirect3DVolumeTexture8_Release(scratch);
+        }
+        ULONG refs=IDirect3DDevice8_Release(device);ok(!refs,"Image device references %lu.\n",refs);
+    }
+    if(root)IDirect3D8_Release(root);DestroyWindow(window);
+    test_volume_blocks();test_volume_locking();test_lockbox_invalid();
+    UnregisterClassA(wc.lpszClassName,GetModuleHandleA(NULL));
+}
+
 const struct test winetest_testlist[] = {
     { "device", full_device_suite },
     { "compatibility", compatibility_group },
     { "locking", locking_group },
+    { "storage", storage_group },
+    { "storage-audit", storage_audit_group },
     { 0, 0 }
 };

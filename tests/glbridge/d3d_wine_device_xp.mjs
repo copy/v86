@@ -13,7 +13,7 @@ import {create_d3d_live_renderer} from "../lib/d3d_live_renderer.mjs";
 const root=fileURLToPath(new URL("../../",import.meta.url)),site=site_directory(root);
 const group=process.env.D3D_WINE_DEVICE_GROUP || "compatibility";
 const vendor=root+"tests/glbridge/wine/",out=path.resolve(process.env.D3D_WINE_OUT || root+"build/d3d-review/wine-device8-"+group);
-assert(["compatibility","locking","device"].includes(group), "Unknown Wine device group");
+assert(["compatibility","locking","storage","storage-audit","device"].includes(group), "Unknown Wine device group");
 const manifest=JSON.parse(fs.readFileSync(vendor+"manifest.json"));
 for(const file of manifest.files)assert.equal(createHash("sha256").update(fs.readFileSync(vendor+file.path)).digest("hex"),file.sha256,"Modified upstream Wine source: "+file.path);
 fs.mkdirSync(out,{recursive:true});
@@ -29,7 +29,7 @@ files["PROBE.CMD"]=Buffer.from(["@echo off","set D9WG_GDI_CURSOR=0","set WINETES
 const live=await create_d3d_live_renderer();
 try {
     const result=await run_xp_ram_probe({root,out,files,image:process.env.XP_IMAGE || site+"/windowsxp/windowsxp_multidisk_C_4G.img",success:"COMPLETE Wine device probe",log_files:["WINE8.TXT"],log_completion:{"WINE8.TXT":"exit="},capture_graphics:true,expected_releases:1,graphics_renderer:live,
-        rendering:"Wine D3D8 device group="+group+"; original test functions, Windows expectations, actual GPU transport; compatibility is a selected group, not full-suite conformance.",inspect(result) {
+        rendering:"Wine D3D8 device group="+group+"; unmodified Wine functions plus project-owned regressions, Windows expectations, actual GPU transport; selected groups are not full-suite conformance.",inspect(result) {
             for(const [name,log] of Object.entries(result.logs)) {
                 fs.writeFileSync(out+"/"+name,log);
                 result.wineSummaries ??= {};result.wineSummaries[name]=parse_wine_result(log,name,{minimumChecks:group==="device"?1001:100});
