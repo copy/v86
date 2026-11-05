@@ -1,0 +1,283 @@
+{
+  "batch": "stage6-3",
+  "date": "2026-11-06",
+  "scope": "Complete local 3DMark2001 SE Metal run and targeted shadow-coordinate investigation",
+  "status": "21 tests completed; stage6 remains open",
+  "run": {
+    "directory": "build/d3d-review/stage6-2001-first",
+    "program": "3DMark2001 SE Pro build 300 (actual Details window)",
+    "tests_completed": 21,
+    "test_groups": {
+      "game": 7,
+      "theoretical": 6,
+      "DX8_features": 4,
+      "image_quality": 4
+    },
+    "settings": {
+      "resolution": [
+        1024,
+        768
+      ],
+      "color_bits": 32,
+      "depth_bits": 24,
+      "textures": "DXTC compressed",
+      "buffers": 2,
+      "antialiasing": "None",
+      "pipeline": "D3D Hardware T&L",
+      "cpu_worker": true,
+      "default_settings_warning": true
+    },
+    "browser": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/157.0.8103.38",
+      "revision": "@a733b5afbb3ba618844ff8876b89ad1a774b2f18",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+      "jsVersion": "15.7.112.23"
+    },
+    "gpu": {
+      "vendor": "apple",
+      "architecture": "metal-3",
+      "device": "",
+      "description": ""
+    },
+    "core_assets": {
+      "libv86.js": {
+        "bytes": 842704,
+        "sha256": "6eca83bb632e2e132e89a35e868c6b3fc59c67d74232d4c517c6104d5bc6f327"
+      },
+      "v86.wasm": {
+        "bytes": 3011563,
+        "sha256": "15a39f2f07c9d40f9c4d5bae1fb720dd410d91d1a3d05a541f2d92cf584a8d9f"
+      },
+      "cpu-worker.js": {
+        "bytes": 851766,
+        "sha256": "0e93acfc901408b4f1380f7c25560456e1d8c55ecb225c124a5d69bbe0f01877"
+      },
+      "v86-bochs-vga.js": {
+        "bytes": 44376,
+        "sha256": "ce8415006ca38dc53bd807323fc01fcfc47e9d3c31b7aad3934636e4408d1984"
+      }
+    },
+    "webgpu_revision": "63e28a608d73eec6a1b2",
+    "results": [
+      {
+        "test": "3DMark Score",
+        "result": "8237"
+      },
+      {
+        "test": "Game 1 - Car Chase - Low Detail",
+        "result": "69.2 fps"
+      },
+      {
+        "test": "Game 1 - Car Chase - High Detail",
+        "result": "20.5 fps"
+      },
+      {
+        "test": "Game 2 - Dragothic - Low Detail",
+        "result": "133.2 fps"
+      },
+      {
+        "test": "Game 2 - Dragothic - High Detail",
+        "result": "65.0 fps"
+      },
+      {
+        "test": "Game 3 - Lobby - Low Detail",
+        "result": "85.3 fps"
+      },
+      {
+        "test": "Game 3 - Lobby - High Detail",
+        "result": "33.4 fps"
+      },
+      {
+        "test": "Game 4 - Nature",
+        "result": "149.1 fps"
+      },
+      {
+        "test": "Fill Rate (Single-Texturing)",
+        "result": "24509.3 MTexels/s"
+      },
+      {
+        "test": "Fill Rate (Multi-Texturing)",
+        "result": "29970.6 MTexels/s"
+      },
+      {
+        "test": "High Polygon Count (1 Light)",
+        "result": "386.3 MTriangles/s"
+      },
+      {
+        "test": "High Polygon Count (8 Lights)",
+        "result": "228.7 MTriangles/s"
+      },
+      {
+        "test": "Environment Bump Mapping",
+        "result": "180.8 fps"
+      },
+      {
+        "test": "DOT3 Bump Mapping",
+        "result": "113.8 fps"
+      },
+      {
+        "test": "Vertex Shader",
+        "result": "49.9 fps"
+      },
+      {
+        "test": "Pixel Shader",
+        "result": "127.8 fps"
+      },
+      {
+        "test": "Advanced Pixel Shader",
+        "result": "304.9 fps"
+      },
+      {
+        "test": "Point Sprites",
+        "result": "125.7 MSprites/s"
+      }
+    ],
+    "error_counts": {
+      "browser_console": 0,
+      "host": 0,
+      "gpu": 0,
+      "commands_failed": 0,
+      "draws_dropped": 0,
+      "shader_compilation": 0,
+      "shader_translation": 0
+    },
+    "normal_exit": {
+      "devices": 0,
+      "resources": 0
+    },
+    "quality": {
+      "images_exported": 8,
+      "full_images_reviewed": 4,
+      "reference": "Independent bundled Help/images/s-*-screens.jpg for all games, fill, high polygon, bump, shader and point-sprite tests; different camera/time positions, qualitative comparison only.",
+      "scene_frames_reviewed": [
+        84,
+        92,
+        104,
+        112,
+        122,
+        126,
+        138,
+        144,
+        150,
+        156,
+        162,
+        168,
+        174,
+        178,
+        186,
+        192
+      ],
+      "point_sprite_frames_reviewed": [
+        178,
+        179
+      ],
+      "review": "Geometry, textures, fog, lighting, dynamic shadows, transparency, Nature water/foliage, bump/shader patterns, rendered point-sprite cat and all four quality outputs inspected."
+    },
+    "warnings_reviewed": [
+      "Actual application warns that settings differ from defaults; score is not presented as a default-settings result.",
+      "Unwritten texcoord diagnostic investigated separately; its sampled texture is 1x1 with wrap addressing, so the texel is coordinate-independent. Diagnostic retained, not suppressed."
+    ],
+    "artifacts": [
+      {
+        "file": "RESULT01.TXT",
+        "name": "RESULT01.TXT",
+        "bytes": 11972,
+        "sha256": "5fd98308a3371213cf895086920e40c38f435e222acf49f05e730346636c3ab9"
+      },
+      {
+        "file": "S6MK01.3DP",
+        "name": "S6MK01.3DP",
+        "bytes": 5791,
+        "sha256": "e516e66f4e8489714aa58909fc72368b22bc26820688b99f12520dfced52f0b7"
+      },
+      {
+        "file": "3DMARK01/d3d8.dll",
+        "name": "3DMARK01_d3d8.dll",
+        "bytes": 201728,
+        "sha256": "9fe1ac6858ec529cd64676da0d9eb59c66f6af03e162aa140a92f84d4750cffa"
+      },
+      {
+        "file": "Quality/IQ01I_S6MK01.bmp",
+        "name": "Quality_IQ01I_S6MK01.bmp",
+        "bytes": 2560000,
+        "sha256": "cba857b827c194764f1b08fa0355ef6ae9ac7ad79dc6ef1916c6f89b936a7781"
+      },
+      {
+        "file": "Quality/IQ02I_S6MK01.bmp",
+        "name": "Quality_IQ02I_S6MK01.bmp",
+        "bytes": 2560000,
+        "sha256": "5473b68ee1ffb636c94fdf7be14db3d91f4e6f6c844d5d4c9619a36377268657"
+      },
+      {
+        "file": "Quality/IQ03I_S6MK01.bmp",
+        "name": "Quality_IQ03I_S6MK01.bmp",
+        "bytes": 2560000,
+        "sha256": "e7b45e69d89f62348c74971f436b5cf20f5c243eb5c8671e11b9d5ba63b3998f"
+      },
+      {
+        "file": "Quality/IQ04I_S6MK01.bmp",
+        "name": "Quality_IQ04I_S6MK01.bmp",
+        "bytes": 2560000,
+        "sha256": "0498f41a8b44bad7b9139e4fa1da7763efdf5dad6ebabfe807fe37a837e87321"
+      },
+      {
+        "file": "Quality/IQ01T_S6MK01.bmp",
+        "name": "Quality_IQ01T_S6MK01.bmp",
+        "bytes": 18496,
+        "sha256": "a00b4c0953c8b1e38d1340c32e1a8bdf5e02960e3434afd5b664622bb163ca76"
+      },
+      {
+        "file": "Quality/IQ02T_S6MK01.bmp",
+        "name": "Quality_IQ02T_S6MK01.bmp",
+        "bytes": 18496,
+        "sha256": "ed17afeaca9cc642dfa6fc49524f0df8730a231178d6d8dce95bb79322c0b4c1"
+      },
+      {
+        "file": "Quality/IQ03T_S6MK01.bmp",
+        "name": "Quality_IQ03T_S6MK01.bmp",
+        "bytes": 18496,
+        "sha256": "c7d41ee2e245166d35233cc6542511413576845b3b9f5eb320671f14941766f0"
+      },
+      {
+        "file": "Quality/IQ04T_S6MK01.bmp",
+        "name": "Quality_IQ04T_S6MK01.bmp",
+        "bytes": 18496,
+        "sha256": "5749bf368cb56e74c77c4bc5a746d7c3f0f40bba8456e463198c13584b006f35"
+      }
+    ]
+  },
+  "shadow_diagnostic": {
+    "directory": "build/d3d-review/stage6-2001-shadow-diagnostic",
+    "scope": "Targeted rerun through Dragothic High; stopped in subsequent Lobby, not a second full acceptance run",
+    "captured_variants": 2,
+    "sample_sha256": "eedc1cd59a562ea7969a18ae3756b8fb6102142d25fbe970d0048931d7f3dd6d",
+    "observed_draws": 12387,
+    "vertex_shader_writes_texcoords": false,
+    "active_texture_stages": 1,
+    "sampled_texture": {
+      "size": [
+        1,
+        1
+      ],
+      "format": 21,
+      "type": "2d",
+      "address_u": "wrap",
+      "address_v": "wrap"
+    },
+    "scene_frames_reviewed": [
+      106,
+      107,
+      108,
+      109,
+      110,
+      111
+    ],
+    "finding": "A constant single-texel shadow material does not require varying texture coordinates. No texture-coordinate routing fix is indicated by these samples. Original diagnostic counts remain in full-run evidence."
+  },
+  "remaining": [
+    "3DMark03/05/06 full tests and remaining Wine/API suites.",
+    "Cross-backend comparison remains open.",
+    "3DMark99 complete old-branch performance parity remains open."
+  ]
+}

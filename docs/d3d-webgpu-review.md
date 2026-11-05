@@ -2919,7 +2919,7 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 | --- | --- | --- | --- |
 | 1 | 3DMark99 | `game/3dmarklegacy.img` | Metal全部26项通过；旧分支性能对齐/跨后端核对仍开放 |
 | 2 | 3DMark2000 | `game/3dmarklegacy.img` | Metal全部22项通过；跨后端核对仍开放 |
-| 3 | 3DMark2001 SE | `game/3dmarklegacy.img` | 全项验收待完成；既有局部场景回放不替代本项 |
+| 3 | 3DMark2001 SE | `game/3dmarklegacy.img` | Metal全部21项通过；跨后端核对仍开放 |
 | 4 | 3DMark03 | `game/3dmark03.img` | 全项验收待完成 |
 | 5 | 3DMark05 | `game/3dmark05.img` | 全项验收待完成 |
 | 6 | 3DMark06 | `game/3dmark06.img` | 全项验收待完成；用户已确认最后重复的05指06 |
@@ -2946,6 +2946,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 Pro build 340在1024×768、16位颜色/纹理/深度、三缓冲、硬件T&L与CPU Worker下完成全部22项，得分2799、CPU分161。直升机低/中/高为71.1/47.0/15.0 FPS，Adventure为51.0/29.6/19.6 FPS；其余填充率、1/4/8光源、8/16/32/64MB纹理、四种凹凸映射均有实际成绩。两类画质测试输出18张图片，9张完整图与关键场景已检查，并核对自带帮助中的独立图例和高光差异说明。
 
 浏览器console错误、宿主/GPU错误、失败命令和丢弃绘制均为零，正常退出后设备/资源为零。保留两类告警：测试切换时客体窗口暂时隐藏；坐标诊断样本为未绑定纹理的纯颜色绘制。没有隐藏告警或把它们改成通过条件。原始详情表由`BENCHUI --list Details`读取，项目、DLL、成绩表和18张图片通过RAM磁盘导出核验。详见 `fixtures/d3d-review/stage6-2-validation.json`。SwiftShader比较、其余四版及完整Wine/API验收继续开放。
+
+### 3DMark2001 SE完整Metal验收（2026-11-06）
+
+Pro build 300在1024×768、32位颜色、24位深度、DXTC纹理、双缓冲、硬件T&L与CPU Worker下完成全部21项（7游戏、6理论、4 DX8功能、4画质），得分8237。程序提示设置不是默认值，故不将该分数作为标准默认成绩。三组游戏低/高细节分别为69.2/20.5、133.2/65.0、85.3/33.4 FPS，Nature为149.1 FPS；其余功能项目均有实际结果，四类画质输出8张图片。
+
+全部场景关键帧、4张完整画质图及自带帮助独立图例已核对。Dragothic高细节的未写纹理坐标提示另做定向捕获：两种状态均只采样1×1、wrap寻址的纹理，采样值与坐标无关；保留提示及原始计数，不把提示隐藏。阴影、着色器和点精灵画面已检查。浏览器/宿主/GPU错误、着色器编译/翻译失败、失败命令和丢弃绘制均为零，正常退出后设备/资源为零。客体程序目录DLL与发布D3D8 DLL哈希一致。
+
+详情表、项目、DLL、质量图和独立诊断仅留本地；清单见 `fixtures/d3d-review/stage6-3-validation.json`。03/05/06、跨后端比较、99旧分支性能对齐及完整Wine/API验收继续开放。
 
 ## 附录 A：我本人的核实记录
 
