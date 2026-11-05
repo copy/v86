@@ -1,0 +1,61 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>N90 CPU Worker display test</title>
+<pre id="result">Running…</pre>
+<script type="module">
+import { V86 } from "../../build/libv86.mjs";
+import { dt_serialize } from "../../src/apple/devicetree.js";
+
+// A minimal N90 boot payload that idles. All screen changes in this test
+// come from scanout of emulated display memory at retrace.
+const kernel = new Uint8Array(4096), k = new DataView(kernel.buffer);
+const set = (at, ...words) => words.forEach((word, i) => k.setUint32(at + i * 4, word, true));
+set(0, 0xfeedface, 12, 9, 2, 2, 56 + 84, 0);
+set(28, 1, 56);
+kernel.set(new TextEncoder().encode("__TEXT"), 36);
+set(52, 0x80001000, 4096, 0, 4096, 7, 5, 0, 0);
+set(84, 5, 84, 1, 17);
+set(100 + 15 * 4, 0x80001800, 0x13);
+set(0x800, 0xe320f003, 0xeafffffd); // wfi; b back to wfi
+const prop = (name, value) => ({ name, value: new TextEncoder().encode(value + "\0"), placeholder: false });
+const node = (name, children = [], properties = []) => ({ properties: [prop("name", name), ...properties], children });
+const tree = dt_serialize(node("device-tree", [
+    node("chosen"), node("cpus", [node("cpu0")]), node("memory"), node("vram"), node("pram"), node("arm-io"),
+], [prop("compatible", "N90AP")]));
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+let resolveFrame;
+const sink = {
+    set_mode() {}, set_size_graphical() {}, pause() {}, continue() {}, destroy() {},
+    update_buffer: layers => resolveFrame?.(layers),
+};
+const emulator = new V86({
+    machine_type: "s5l8930", graphics_adapter: "none", disable_audio: true, disable_keyboard: true,
+    disable_mouse: true, cpu_worker: true, screen_adapter: sink, wasm_path: "../../build/v86-arm64.wasm",
+    cpu_worker_url: "../../build/cpu-worker.js",
+    ios: { kernelcache: { buffer: kernel.buffer }, devicetree: { buffer: tree.buffer } },
+});
+try
+{
+    await new Promise((resolve, reject) => {
+        emulator.add_listener("emulator-loaded", resolve);
+        emulator.add_listener("emulator-error", reject);
+    });
+    await emulator.run();
+    // Let two different frames be scanned without asking the worker for
+    // pixels, then make an incremental request. It must send the newest
+    // frame, even though that frame has already been scanned on retrace.
+    await emulator.write_memory(new Uint8Array([0, 0, 255, 0]), 0x5f700000);
+    await delay(85);
+    await emulator.write_memory(new Uint8Array([13, 140, 51, 0]), 0x5f700000);
+    await delay(85);
+    const result = new Promise(resolve => resolveFrame = resolve);
+    emulator.worker_controller.request_frame(false);
+    const layers = await Promise.race([result, delay(3000).then(() => { throw new Error("No worker frame reply"); })]);
+    if(layers.length !== 1 || layers[0].pixels.width !== 640 || layers[0].pixels.height !== 960 ||
+        layers[0].pixels.data.slice(0, 4).join(",") !== "51,140,13,255")
+        throw new Error("The worker did not return the latest N90 scanout");
+    document.getElementById("result").textContent = "PASS: first frame request returned the latest unsolicited N90 scanout";
+}
+catch(error) { document.getElementById("result").textContent = "FAIL: " + error.message; }
+finally { await emulator.destroy(); }
+</script>

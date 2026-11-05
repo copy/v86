@@ -8,7 +8,7 @@ import { DisplaySinkRecorder } from "../display.js";
 export function start_cpu_worker()
 {
     let emulator, epoch = 1;
-    let screen_commands = [], screen_scheduled = false, frame_layers = [];
+    let screen_commands = [], screen_scheduled = false, frame_layers = null, frame_changed = false;
     let timer, command_chain = Promise.resolve();
     let audio_port = null, audio_reset_done = null, audio_enabled = false, audio_rate = 22050;
     let audio_sequence = 0;
@@ -35,6 +35,14 @@ export function start_cpu_worker()
         if(!screen_scheduled) { screen_scheduled = true; globalThis.queueMicrotask(flush_screen); }
     };
     const screen = new DisplaySinkRecorder(screen_call, layers => {
+        // Devices may render on their own retrace. The page only accepts
+        // pixels in response to a frame request; keep a repaint marker
+        // instead of copying unrequested frames into an unbounded queue.
+        if(!frame_layers)
+        {
+            if(layers.length) frame_changed = true;
+            return;
+        }
         for(const l of layers)
         {
             const w = l.buffer_width, h = l.buffer_height;
@@ -318,12 +326,18 @@ export function start_cpu_worker()
                 case "event":
                     if(m["name"] !== "dac-request-data" || !audio_port) emulator.bus.send(m["name"], m["value"]);
                     break;
-                case "frame":
+                case "frame": {
+                    const full = !!m["full"] || frame_changed;
+                    frame_changed = false;
                     frame_layers = [];
-                    emulator.v86.cpu.devices.display?.request_frame(!!m["full"]);
-                    send("frame", { "layers": frame_layers }, frame_layers.map(l => l["pixels"].buffer));
-                    frame_layers = [];
+                    try
+                    {
+                        emulator.v86.cpu.devices.display?.request_frame(full);
+                        send("frame", { "layers": frame_layers }, frame_layers.map(l => l["pixels"].buffer));
+                    }
+                    finally { frame_layers = null; }
                     break;
+                }
                 case "device": {
                     const handler = device_handlers.get(m["name"]);
                     if(handler) handler(m["message"]);

@@ -988,6 +988,7 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/app/browser_runner.mjs tests/app/app_test.html page=index.html worker=0
 	node tests/android/make_package.mjs
 	for part in freedos linux arm64 dialog uefi secure_boot android android_gsi android_emulator ios_dialog; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
+	node tests/app/browser_runner.mjs tests/ios/worker_panel_test.html
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_service service=1
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
