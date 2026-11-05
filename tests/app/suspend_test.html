@@ -97,6 +97,9 @@ async function main()
     // opened again: resumed, the screen as it was, the guest goes on; the state file used up
     const c = await console_tab(id);
     check(await screen_has(c.emulator, "BEFORE-SUSPEND", 60000), "the resumed screen");
+    const resumed_status = await until(() => /MIPS/.test(c.$(".console-status").textContent) && c.$(".console-status").textContent,
+        "the resumed console's runtime statistics");
+    check(!/\b\d{3,}h\b/.test(resumed_status), "the resumed runtime: " + resumed_status);
     await type(c.emulator, "echo AFTER-RESUME");
     check(await screen_has(c.emulator, "AFTER-RESUME"), "the guest goes on after resuming");
     await until(async () => !(await read_state(id)) && !(await store.get(id)).suspended, "the state used up");

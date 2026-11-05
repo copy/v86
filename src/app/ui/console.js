@@ -527,14 +527,15 @@ function console_ui(layout, emulator, ctx)
     {
         running = true;
         stats.last_tick = Date.now();
+        stats.last_counter = emulator.get_instruction_counter();
         clearInterval(interval);
         interval = window.setInterval(tick, 1000);
         ctx.set_status("Running");
     });
     emulator.add_listener("emulator-stopped", () =>
     {
+        if(running) tick();
         running = false;
-        tick();
         clearInterval(interval);
         if(!powered_off) ctx.set_status("Paused");
     });
