@@ -2645,6 +2645,16 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **23,849项篡改检出**覆盖新增结构体/常量/gamma/palette/资源/呈现/普通9边界及SDK摘要，保留前缀抽样并独立运行旧完整夹具。**393客体 / 95核心回归**、32标准EXE、四严格DLL、21成员静态核心与SDK8独立方法表布局、两项站点集成及范围lint通过。发布准确接受的XP零售8/9与同源diagnostic。证据 [stage4k49-validation.json](fixtures/d3d-review/stage4k49-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K49.json`。
 > - 本阶段是 **有类型的后端设备分发表**；设备前端仍为IUnknown/CPU元数据夹具，尚未接通完整97方法Device8、成对RT政策、真实子资源前端引用、原始shader/stateblock元数据与默认工厂。继续这些内容，以及原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS和阶段4/5/6。
 
+> **4K50（2026-11-05，已完成）：成对目标绑定与真实表面所属关系。**
+> - 新增私有 `set_render_target8@12`，先验证颜色/深度的真实类型、所属设备、用途、默认池、尺寸和采样类型，再修改任何状态；NULL颜色保留现有颜色目标及viewport，NULL深度解除深度绑定。两个CPU绑定先于首条传输提交，随后按颜色→深度→实时viewport发送；失败保留已提交状态，匹配viewport不重复发送，录制期间的目标副作用仍更新实时viewport。私有颜色/深度存储替换和实时viewport发布抽成三处共用实现，普通9的既有校验、发送顺序与录制行为保留。
+> - 新增借用型 `surface_owner8@12`：纹理子表面返回纹理、cube子表面返回cube，独立RT/隐式或交换链表面返回设备；不加引用，调用方须保持表面公共引用。真实Surface8新增 `surface_backend8@4`，仅接受自身vtable，借用实际9表面。为随后完整Device8按真实容器恢复前端视图提供基础；没有把底层独立RT存储纹理误作公开容器。
+> - 原生 **36,400检查 / 4,135用例**覆盖四类颜色表面、NULL颜色/深度、预校验原子性、尺寸/采样/类型/设备、同对象仅剩绑定引用重绑、每个传输失败位置、录制/实时viewport和容器种类；**25项严格C变异与ASAN**通过。真实Surface8适配器 **55,595检查 / 1,037用例**及新增选择器**4项严格C变异、ASAN**通过；保留23项绑定、8项所属设备、10项标量录制变异。初次原生探针接口指针类型错误、一次用途负例被另一条规则同时拒绝、两项变异因未使用变量被编译器拒绝，均先修正再验收，未计为成功变异。
+> - 完整旧核心源码/头和Surface8源码/头均能逐字节还原：**748个既有核心源函数中745个不变**，只改三处共用委托，新增5个核心函数和1个前端选择器；所有设备/资源/弱注册表布局不变，十六份其余旧前端/运行策略/构建文件完全一致。Windows-only头的新增IUnknown声明使用既有opaque struct形式，独立SDK8/无D3D头消费者及21成员静态核心通过。
+> - 接受的第三次实际XP运行 **128秒 / 118批**，**21设备 / 21 Reset / 172句柄**，保留27声明/43shader。四份SDK120/220普通/PURE上下文使用真实Texture8、CubeTexture8、Surface8，检查20次成对绑定、4次过小深度拒绝、纹理/cube/设备容器身份、从借用父对象恢复同一缓存前端、公开引用平衡、空颜色目标及录制期间viewport副作用；两份普通9设备拒绝8专用入口。每份上下文新增五个资源和三次4×4读回。
+> - 初次严格SDK编译因探针辅助函数名错误而拒绝；第一次VM发现普通9 GetRenderTargetData拒绝cube，改用已存在的8共用CopyRects路径。第二次VM通过，但实际GPU揭示探针错误地假定自定义viewport下Clear清整面；最终探针先明确清零整面，再验证中间2×2着色/外围零，重新跑XP和GPU。所有失败记录保留；不改变宿主或普通9cube读回政策。
+> - **84完整图像 / 4,224像素**在SwiftShader和Metal均零误差，主Present4/附加Present4/0丢弃，退出前设备/资源为空；共1,529命令，比49增加128。新增完整纹理/独立RT和cube局部viewport清除参考；仍为56逻辑draw、48上传/7,424字节、2,026上传前CPU DWORD检查。新增192只读回复像素不充作独立CPU影子证据，canvas输出未单独读回。
+> - **1,218项篡改检出**覆盖全部128条新增命令的载荷字、帧边界、摘要和所选保留操作，模型还验证所有命令的设备关联。**395项客体回归、新增1项核心夹具、两GPU、32标准EXE/四严格DLL、站点2项及范围lint**通过；宿主与全部既有核心测试/夹具无改动，继承49完整95项核心基线，不把继承结果写成96项新跑。证据 [stage4k50-validation.json](fixtures/d3d-review/stage4k50-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K50.json`。发布准确接受的XP零售8/9与同源diagnostic，继续完整97方法Device8、前端子资源引用、原始shader/stateblock元数据与默认工厂，以及原生兼容性/完整T&L/数值差分/HAL/游戏/FPS及阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
