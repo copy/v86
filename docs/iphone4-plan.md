@@ -746,7 +746,7 @@ CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读�
 
 **S5 原版着色器绘图。** 使用 `--check-host-draw <本地共享缓存>` 构建客体库，用 `system.mjs ... --draw` 完整冷启动。backboardd 与 SpringBoard 均经过原版 glShaderSource 提交多段顶点着色器（含显式长度）和片段着色器，链接程序，查询属性位置，建立并更新顶点缓冲，再从非零偏移绘制三角形。两者在真实 IOSurface 上读回的 64×48 个像素全部为预期的洋红色。当前顶点指针支持绑定顶点缓冲的形式。
 
-**首次迁移与显示交换。** 正常异步读盘运行中，原版 DataMigrator 已记录地图和账户等迁移插件完成。在同一私有快照上改用同步读取底层文件字节、保留写入覆盖层的诊断对照中，DMPerformMigration 返回 1，DataMigrator 以 0 退出，SpringBoard 越过 BKSSystemAppCheckIn。随后 backboardd 的 SwapBegin、SwapSetLayer、SwapEnd 返回成功。首次交换提交了空图层，后续等待反复返回 0xe00002d5。内核逐帧确认了 CLCD 中断，但物理面板仍为启动画面。后续使用当前正式客体库的普通异步读盘冷启动，backboardd 已记录允许系统应用启动，随后启动 Setup。该长跑未再出现 NAND IOP 超时。Setup 的原版报告显示启动看门狗超时，全系统 CPU 时间约 36.8 秒，应用自身约 3.1 秒。SpringBoard 后续有一次崩溃重启，物理面板仍为两色启动画面。正在用相同迁移后快照做正常时钟与十分之一速时钟对照，主屏像素仍待验收。 在迁移后的一次性诊断客体中，原版内核的线程转储显示 Setup 主线程等待 SpringBoardServices；SpringBoard 主线程等待 FigPlayerRemoteCreate；mediaserverd 主线程停在 FigPlayerCMSession 的一次性初始化，另一个线程正在设置 CoreAudio 属性。正在核对音频设备初始化所需的硬件应答。
+**首次迁移与显示交换。** 正常异步读盘运行中，原版 DataMigrator 已记录地图和账户等迁移插件完成。在同一私有快照上改用同步读取底层文件字节、保留写入覆盖层的诊断对照中，DMPerformMigration 返回 1，DataMigrator 以 0 退出，SpringBoard 越过 BKSSystemAppCheckIn。随后 backboardd 的 SwapBegin、SwapSetLayer、SwapEnd 返回成功。首次交换提交了空图层，后续等待反复返回 0xe00002d5。内核逐帧确认了 CLCD 中断，但物理面板仍为启动画面。后续使用当前正式客体库的普通异步读盘冷启动，backboardd 已记录允许系统应用启动，随后启动 Setup。该长跑未再出现 NAND IOP 超时。Setup 的原版报告显示启动看门狗超时，全系统 CPU 时间约 36.8 秒，应用自身约 3.1 秒。SpringBoard 后续有一次崩溃重启，物理面板仍为两色启动画面。相同迁移后快照的正常时钟与十分之一速时钟对照都仍停在两色启动画面，慢时钟运行也出现 SpringBoard 重启，不能仅以降低时钟解决。主屏像素仍待验收。 在迁移后的一次性诊断客体中，原版内核的线程转储显示 Setup 主线程等待 SpringBoardServices；SpringBoard 主线程等待 FigPlayerRemoteCreate；mediaserverd 主线程停在 FigPlayerCMSession 的一次性初始化，另一个线程正在设置 CoreAudio 属性。正在核对音频设备初始化所需的硬件应答。
 
 新增的双芯片回归覆盖了一颗芯片预读时另一颗仍在等待 DMA 的情况。模拟器为已启动的传输保留源页和列，恢复快照后仍能读出原来的字节，下一颗芯片的新页也能按序读取。
 
@@ -825,6 +825,10 @@ CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读�
 ```
 
 **S6 按键硬件输入，2026-11-05。** N90 设备树的五个按键连接 GPIO 0–4。它们是低电平有效，未按下时现在返回高电平。此前全零初值会让原版驱动读到持续按下。GPIO 配置写入和外部电平分开，按下、松开各锁存一次中断，重复状态不产生新边沿。宿主可用 `emulator.ios_send_button("home", true)` 按下，再用 `false` 松开；另支持 `power`、`volume-up`、`volume-down`、`mute`。设备测试覆盖电平、中断确认、按住时恢复快照和旧快照默认状态。原版系统中的操作效果仍待验收。按键极性另与 [openiBoot 的 A4 按键实现](https://github.com/iDroid-Project/openiBoot/blob/master/plat-a4/buttons.c) 核对。
+
+**S7 音频控制的前置接口，2026-11-05。** 迁移后的原版内核等待栈显示，音频编解码器的启动停在取得 Mikey 接口；I2C 记录同时显示地址 0x39 的复位请求返回缺少从设备。现在在第一条 I2C 总线上提供 CD3282 控制寄存器、软件复位和带自动递增地址的读写，耳机和线控保持未接入。寄存器及未读完的控制器 FIFO 随快照保存，旧快照将新接口恢复到复位状态。另一个 I2C 总线不响应这个地址。
+
+一次原版 10B329 冷启动已连续完成复位、配置写入和版本读取，三个事务均获完成状态，先前的 Mikey 复位错误消失。设备回归覆盖复位、配置、只读检测位、事务中恢复和旧快照兼容，构建检查通过。此项仅验收控制接口；后续编解码器识别、媒体服务正常就绪及 PCM 播放仍待完成。
 
 ## 待所有者决定
 

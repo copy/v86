@@ -1,5 +1,7 @@
 // A4 I2C controllers. The command couples a register-address phase to
 // a FIFO transfer. The status is latched until the guest acknowledges it.
+import { AppleMikey } from "./audio.js";
+
 export class AppleI2C
 {
     constructor(cpu, base, irq, vic, pmu, backlight = null, pmu_irq = null)
@@ -9,6 +11,7 @@ export class AppleI2C
         this.irq = irq;
         this.vic = vic;
         this.pmu = pmu ? new Uint8Array(256) : null;
+        this.mikey = pmu ? new AppleMikey() : null;
         this.regs = new Uint32Array(10);
         this.fifo = [];
         this.reset();
@@ -23,6 +26,7 @@ export class AppleI2C
     {
         this.regs.fill(0);
         this.fifo = [];
+        this.mikey?.reset();
         if(this.pmu)
         {
             this.pmu.fill(0);
@@ -82,6 +86,18 @@ export class AppleI2C
                 });
                 this.regs[3] |= 0x10;
             }
+            else if(this.mikey && this.regs[0] === 0x39 && count <= 256)
+            {
+                const address = this.regs[4], start = address & 0x7f;
+                const reg = i => address & 0x80 ? start + i & 0x7f : start;
+                if(value & 1)
+                {
+                    for(let i = 0; i < Math.min(count, this.fifo.length); i++) this.mikey.write(reg(i), this.fifo[i]);
+                    this.fifo = [];
+                }
+                else this.fifo = Array.from({ length: count }, (_, i) => this.mikey.read(reg(i)));
+                this.regs[3] |= 0x10;
+            }
             else
             {
                 this.fifo = [];
@@ -91,12 +107,13 @@ export class AppleI2C
         this.vic.set_line(this.irq, !!(this.regs[2] & this.regs[3]));
     }
 
-    get_state() { return [this.regs.slice(), this.fifo.slice(), this.pmu?.slice() || null]; }
+    get_state() { return [this.regs.slice(), this.fifo.slice(), this.pmu?.slice() || null, this.mikey?.get_state() || null]; }
     set_state(state)
     {
         this.regs.set(state[0]);
         this.fifo = Array.from(state[1]);
         if(this.pmu) { this.pmu.set(state[2]); this.update_backlight(); }
+        this.mikey?.set_state(state[3]);
         this.vic.set_line(this.irq, !!(this.regs[2] & this.regs[3]));
     }
 }

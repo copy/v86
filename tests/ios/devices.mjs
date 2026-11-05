@@ -88,7 +88,7 @@ assert.equal(dma.read(0x100C), 0);
 pmgr.write(0x1014, 4, 0xA05);
 assert.equal(pmgr.read(0x1014), 0xA55);
 
-new AppleI2C(cpu, 0x83200000, 19, vic, true);
+const controls = new AppleI2C(cpu, 0x83200000, 19, vic, true);
 const i2c = ports.get(0x83200000);
 intc.write(0x10, 4, 1 << 19);
 i2c.write(0, 4, 0x74);
@@ -104,6 +104,52 @@ i2c.write(0, 4, 0x33);
 i2c.write(0x24, 4, 4);
 assert.equal(i2c.read(0x0C), 0x20);
 console.log("PASS: CDMA gating, PMGR acknowledgement, I2C completion and missing slave");
+
+// Mikey's native reset and configuration requests must complete on bus zero.
+// A missing headset cannot be created by writing the hardware sense register.
+i2c.write(0x0C, 4, 0x30);
+i2c.write(0, 4, 0x39);
+i2c.write(0x10, 4, 1);
+i2c.write(0x20, 1, 0x80);
+i2c.write(0x24, 4, 5);
+assert.equal(signals, 1);
+assert.equal(i2c.read(0x0C), 0x10);
+i2c.write(0x0C, 4, 0x10);
+assert.equal(signals, 0);
+i2c.write(0x10, 4, 0x84);
+i2c.write(0x18, 4, 2);
+for(const byte of [0x21, 0x62]) i2c.write(0x20, 1, byte);
+i2c.write(0x24, 4, 5);
+i2c.write(0x24, 4, 4);
+assert.equal(i2c.read(0x20), 0x21);
+const mikeyState = controls.get_state();
+assert.equal(i2c.read(0x20), 0x62);
+controls.reset();
+controls.set_state(mikeyState);
+assert.equal(i2c.read(0x20), 0x62, "restore a partially drained read FIFO");
+i2c.write(0x18, 4, 1);
+i2c.write(0x10, 4, 12);
+i2c.write(0x20, 1, 0xff);
+i2c.write(0x24, 4, 5);
+i2c.write(0x24, 4, 4);
+assert.equal(i2c.read(0x20), 0, "no headset or remote button is connected");
+i2c.write(0x10, 4, 1);
+i2c.write(0x20, 1, 0x80);
+i2c.write(0x24, 4, 5);
+i2c.write(0x24, 4, 4);
+assert.equal(i2c.read(0x20), 0, "software reset self-clears");
+i2c.write(0x10, 4, 4);
+i2c.write(0x24, 4, 4);
+assert.equal(i2c.read(0x20), 0, "reset discards previous configuration");
+controls.set_state(mikeyState.slice(0, 3));
+assert.equal(controls.mikey.read(4), 0, "old snapshots reset the newly added slave");
+const otherControls = new AppleI2C(cpu, 0x83400000, 21, vic, false);
+otherControls.write(0, 0x39);
+otherControls.write(0x18, 1);
+otherControls.write(0x24, 4);
+assert.equal(otherControls.regs[3], 0x20, "Mikey is absent from the other I2C bus");
+controls.reset();
+console.log("PASS: native Mikey control transactions, absent headset, reset and compatible snapshots");
 
 
 const hub = { add_source() {}, set_mode() {}, set_size_graphical() {} };
