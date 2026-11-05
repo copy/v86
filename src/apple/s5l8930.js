@@ -8,15 +8,17 @@ import { AppleI2C } from "./i2c.js";
 import { AppleTimer } from "./timer.js";
 import { AppleUART } from "./uart.js";
 import { AppleVIC } from "./vic.js";
+import { AppleI2S } from "./audio.js";
 
 export const N90_BUTTONS = ["home", "power", "volume-up", "volume-down", "mute"];
 
 const auxiliary_uarts = ["apple_uart1", "apple_uart2", "apple_uart3", "apple_uart4", "apple_uart5", "apple_uart6"];
+const audio_controllers = ["apple_i2s0", "apple_i2s1", "apple_i2s2"];
 
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts,
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers,
 ];
 
 export function create_n90_devices(cpu, bus, screen, buffer)
@@ -51,6 +53,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
         apple_sgx: new AppleRegisterWindow(cpu, "sgx", 0x85100000, 0x1000),
     };
     auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
+    audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i); });
     if(nand) devices.apple_nand = nand;
     return devices;
 }

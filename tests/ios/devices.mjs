@@ -8,6 +8,7 @@ import { AppleI2C } from "../../src/apple/i2c.js";
 import { AppleIOP } from "../../src/apple/iop.js";
 import { AppleGPIO, N90_BUTTONS } from "../../src/apple/s5l8930.js";
 import { AppleUART } from "../../src/apple/uart.js";
+import { AppleI2S } from "../../src/apple/audio.js";
 
 let now = 0, signals = 0;
 const ports = new Map(), output = [], inputs = new Map();
@@ -150,6 +151,55 @@ otherControls.write(0x24, 4);
 assert.equal(otherControls.regs[3], 0x20, "Mikey is absent from the other I2C bus");
 controls.reset();
 console.log("PASS: native Mikey control transactions, absent headset, reset and compatible snapshots");
+
+// The CS42L61 driver reads three ID bytes with the register auto-increment
+// flag. Configuration writes cannot alter those hardware identification bits.
+i2c.write(0, 4, 0x4a);
+i2c.write(0x10, 4, 0x81);
+i2c.write(0x18, 4, 3);
+for(let i = 0; i < 3; i++) i2c.write(0x20, 1, 0xff);
+i2c.write(0x24, 4, 5);
+i2c.write(0x24, 4, 4);
+assert.deepEqual(Array.from({ length: 3 }, () => i2c.read(0x20)), [0x42, 0xa6, 0x10]);
+i2c.write(0x10, 4, 0x85);
+i2c.write(0x18, 4, 2);
+for(const byte of [0x70, 0x80]) i2c.write(0x20, 1, byte);
+i2c.write(0x24, 4, 5);
+const codecState = controls.get_state();
+controls.reset();
+controls.set_state(codecState);
+i2c.write(0x24, 4, 4);
+assert.deepEqual([i2c.read(0x20), i2c.read(0x20)], [0x70, 0x80]);
+assert.equal(controls.mikey.read(5), 0, "codec and Mikey have independent registers");
+controls.set_state(codecState.slice(0, 4));
+assert.equal(controls.codec.read(5), 0, "older snapshots reset codec configuration");
+assert.equal(controls.codec.read(1), 0x42);
+controls.reset();
+console.log("PASS: codec identification burst, protected ID bytes, configuration and old/new snapshots");
+
+const audioPorts = [];
+for(let n = 0; n < 3; n++)
+{
+    const controller = new AppleI2S(cpu, n), port = ports.get(0x84500000 + n * 0x1000);
+    audioPorts.push(port);
+    assert.equal(port.read(0x400), 2);
+    port.write(0x408, 4, 0);
+    port.write(0x434, 4, 0);
+    port.write(0x400, 4, 0x30);
+    assert.equal(port.read(0x400), 0x32, "native stop sequence observes clock acknowledgement");
+    port.write(0x400, 4, 0x33);
+    port.write(0x404, 4, 0x3000081 + n);
+    assert.equal(port.read(0x400), 0x31, "halt bit is a hardware input");
+    const state = controller.get_state();
+    controller.reset();
+    assert.equal(port.read(0x400), 2);
+    controller.set_state(state);
+    assert.equal(port.read(0x404), 0x3000081 + n);
+    assert.equal(port.read(0x400), 0x31);
+    port.write(0x400, 4, 0x30);
+}
+assert.equal(audioPorts[0].read(0x404), 0x3000081);
+console.log("PASS: three isolated I2S control banks, clock stop acknowledgement and snapshots");
 
 
 const hub = { add_source() {}, set_mode() {}, set_size_graphical() {} };
