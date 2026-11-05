@@ -2920,7 +2920,7 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 | 1 | 3DMark99 | `game/3dmarklegacy.img` | Metal全部26项通过；旧分支性能对齐/跨后端核对仍开放 |
 | 2 | 3DMark2000 | `game/3dmarklegacy.img` | Metal全部22项通过；跨后端核对仍开放 |
 | 3 | 3DMark2001 SE | `game/3dmarklegacy.img` | Metal全部21项通过；跨后端核对仍开放 |
-| 4 | 3DMark03 | `game/3dmark03.img` | 全项验收待完成 |
+| 4 | 3DMark03 | `game/3dmark03.img` | Metal图形/CPU 11项完成；3项声音不支持，尚未全项通过 |
 | 5 | 3DMark05 | `game/3dmark05.img` | 全项验收待完成 |
 | 6 | 3DMark06 | `game/3dmark06.img` | 全项验收待完成；用户已确认最后重复的05指06 |
 
@@ -2954,6 +2954,16 @@ Pro build 300在1024×768、32位颜色、24位深度、DXTC纹理、双缓冲�
 全部场景关键帧、4张完整画质图及自带帮助独立图例已核对。Dragothic高细节的未写纹理坐标提示另做定向捕获：两种状态均只采样1×1、wrap寻址的纹理，采样值与坐标无关；保留提示及原始计数，不把提示隐藏。阴影、着色器和点精灵画面已检查。浏览器/宿主/GPU错误、着色器编译/翻译失败、失败命令和丢弃绘制均为零，正常退出后设备/资源为零。客体程序目录DLL与发布D3D8 DLL哈希一致。
 
 详情表、项目、DLL、质量图和独立诊断仅留本地；清单见 `fixtures/d3d-review/stage6-3-validation.json`。03/05/06、跨后端比较、99旧分支性能对齐及完整Wine/API验收继续开放。
+
+### 3DMark03首轮与诊断修复（2026-11-06）
+
+Professional Edition 3.6.0完成4个游戏、2个CPU和5个功能项目，得分9521、CPU分1895。四个游戏为94.6/95.1/64.6/58.7 FPS；CPU为86.1/54.5 FPS。显示设置为1024×768、无AA、Optimal纹理/顶点着色器，保留原始结果中的Checksums Valid=No，不作为官方认证成绩。游戏、CPU、填充率、顶点/像素着色器与Ragtroll关键帧已对照自带帮助独立图例检查；浏览器/宿主/GPU错误、着色器失败及丢弃绘制均为零，退出后设备/资源清零。
+
+**03仍未全项通过：3个声音测试全部未运行。** 原始结果明确为Not supported。新增只读`SOUNDCAP.EXE`核验：XP可正常打开Sound Blaster 16及DirectSound，但驱动报告硬件3D声源数量为0。需补齐真实音频能力再重跑，不能修改能力位、跳过项目或用分数代替通过。
+
+另修正点精灵诊断的反射信息：生成的入口已写入全部8组纹理坐标，旧统计却仅计算客体着色器本体的输出。03全程376个采样中，该提示与点精灵绘制数完全一致。修复仅补全变体反射，保持WGSL画面逻辑不变；普通三角形确实缺失UV时仍报告。52项着色器测试与179项执行器测试通过，发布WebGPU版本为`f95489b0bdfbfc0030ee`。
+
+05从镜像根目录启动会触发其自带Boost路径错误；改为在RAM覆盖层内将指定程序文件移入普通目录后已进入主界面。启动脚本对05/06保留同盘重命名方式，不复制大数据文件或改写原始镜像。正式05/06测试继续。证据见 `fixtures/d3d-review/stage6-4-validation.json`；03声音测试、跨后端比较、99性能对齐及其余阶段6验收保持开放。
 
 ## 附录 A：我本人的核实记录
 
@@ -3027,4 +3037,3 @@ git -C wine sparse-checkout set dlls/d3d8 dlls/d3d9 dlls/ddraw dlls/wined3d libs
 逐条的 Wine 文件和行号、测试名称和期望值，见共享笔记目录 `d3d-review/` 下的 `wine-check-lead.md`、`wine-check-shader-d3d8.md`、`wine-check-ddraw.md`。
 
 Wine 的测试里有不少可以直接作为阶段 1 像素一致性套件的期望值来源：d3d9 `visual.c` 的 `clear_test`、`fog_test`、`test_color_clamping`、`constant_clamp_ps_test`、`test_mova`、`test_color_vertex`、`texop_test`，d3d8 `visual.c` 的 `fog_with_shader_test`、`cnd_test`、`intz_test`，以及 ddraw1/2/4/7 中的颜色填充、颜色键、执行缓冲和视口测试。
-

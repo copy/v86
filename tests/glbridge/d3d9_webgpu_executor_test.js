@@ -995,6 +995,40 @@ await test("point sprites expand one source point into an instanced textured qua
         "eight points should be one six-vertex instanced draw");
 });
 
+await test("generated sprite coordinates count as written, while missing triangle UVs remain diagnostic", async () => {
+    const { executor, find } = makeExecutor();
+    const elements = [
+        element(0, 0, DECLTYPE.FLOAT3, DECLUSAGE.POSITION),
+        element(0, 12, DECLTYPE.D3DCOLOR, DECLUSAGE.COLOR),
+    ];
+    const vs = shaderCreatePayload(0x40000001, VS_BYTECODE);
+    await executor.submit(buildBatch([
+        command(OP.CREATE_DEVICE, createDevicePayload(640, 480)),
+        command(OP.CREATE_BUFFER, createBufferPayload(0x201, 1, 96)),
+        command(OP.CREATE_TEXTURE_2D, encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0x401, width: 4, height: 4, level_count: 1, format: 21, usage: 0, pool: 1, multisample_type: 0, multisample_quality: 0 })),
+        command(OP.CREATE_VERTEX_DECLARATION, declarationPayload(0x301, elements)),
+        command(OP.CREATE_VERTEX_SHADER, vs.payload, vs.blob, vs.blobOffsetField),
+        command(OP.SET_VERTEX_DECLARATION, encodePayload("SetVertexDeclaration", { device_handle: DEVICE, declaration_handle: 0x301 })),
+        command(OP.SET_STREAM_SOURCE, setStreamSourcePayload(0, 0x201, 16)),
+        command(OP.SET_VERTEX_SHADER, encodePayload("SetShader", { device_handle: DEVICE, shader_handle: 0x40000001 })),
+        command(OP.SET_TEXTURE, encodePayload("SetTexture", { device_handle: DEVICE, stage: 0, texture_handle: 0x401, reserved: 0 })),
+        command(OP.SET_RENDER_STATE, encodePayload("SetRenderState", { device_handle: DEVICE, state: 156, value: 1, reserved: 0 })),
+        command(OP.DRAW_PRIMITIVE, drawPrimitivePayload(1, 0, 3)),
+    ]));
+    await executor.idle();
+    assert.equal(executor.stats.pointSpriteDraws, 1);
+    assert.equal(executor.stats.drawsWithUnwrittenCoordVarying, 0);
+    assert.ok(find("createRenderPipeline").pop()[1].vertex.module.code.includes(
+        "result.varying2 = vec4<f32>(d9_point_uv"));
+    await executor.submit(buildBatch([
+        command(OP.DRAW_PRIMITIVE, drawPrimitivePayload(4, 0, 1)),
+    ]));
+    await executor.idle();
+    assert.equal(executor.stats.drawsWithUnwrittenCoordVarying, 1,
+        "the same guest shader still lacks UVs on ordinary triangles");
+    assert.equal(executor.stats.droppedDraws, 0);
+});
+
 await test("fixed-function attribute locations follow semantics, not element order", async () => {
     // TEXCOORD declared before COLOR. M1 assigned locations by iteration
     // order while the WGSL hardcoded colour at location 1, so this

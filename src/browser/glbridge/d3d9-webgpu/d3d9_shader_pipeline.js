@@ -2299,6 +2299,15 @@
                 boolVectors * 16;
             const pointExpansion = this.kind === "vertex" &&
                 !!this.options.pointExpansion;
+            // The point-sprite entry wrapper writes all eight legacy UVs,
+            // even when the guest's shader body only writes position. Keep
+            // this variant's reflection consistent without changing the
+            // prepared body reused by ordinary triangle/point variants.
+            const writtenVaryings = new Set(this.writtenVaryings);
+            if (pointExpansion && this.options.pointSprite) {
+                for (let stage = 0; stage < 8; ++stage)
+                    writtenVaryings.add(VARYING_TEXCOORD0 + stage);
+            }
             // Every vertex shader carries the render target size for the
             // half-pixel offset, so it sits between the register region and the
             // optional point-sprite fields.
@@ -2346,7 +2355,7 @@
                 // coordinate samples one texel across a whole model -- a flat
                 // silhouette that looks like a lighting or texture bug rather
                 // than the stage/varying mismatch it is.
-                writtenVaryings: Array.from(this.writtenVaryings)
+                writtenVaryings: Array.from(writtenVaryings)
                     .sort((a, b) => a - b),
                 floatDefaults, intDefaults, boolDefaults,
                 levelZeroSamples: this.levelZeroSamples,

@@ -933,6 +933,16 @@ test("point-sprite vertex variants expand oPts into a six-vertex quad", () => {
     assert.ok(result.wgsl.includes("var d9_point_size = o_pointsize.x"));
     assert.ok(result.wgsl.includes("result.varying2 = vec4<f32>(d9_point_uv"),
         "POINTSPRITEENABLE must synthesize TEXCOORD0");
+    assert.deepEqual(result.reflection.writtenVaryings, [2, 3, 4, 5, 6, 7, 8, 9],
+        "the entry wrapper writes every legacy texture-coordinate output");
+    const ordinary = pipeline.specializeShader(result,
+        { pointExpansion: true, pointSprite: false });
+    assert.equal(ordinary.ok, true, ordinary.error);
+    assert.deepEqual(ordinary.reflection.writtenVaryings, [],
+        "sprite specialization must not add writes to the reusable guest body");
+    const triangle = pipeline.specializeShader(result, {});
+    assert.equal(triangle.ok, true, triangle.error);
+    assert.deepEqual(triangle.reflection.writtenVaryings, []);
 });
 
 test("generated WGSL is brace-balanced and declares every register it reads", () => {

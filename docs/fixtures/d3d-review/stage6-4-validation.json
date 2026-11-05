@@ -1,0 +1,346 @@
+{
+  "batch": "stage6-4",
+  "date": "2026-11-06",
+  "scope": "3DMark03 graphics/CPU run, audio capability audit, point-sprite reflection fix and 05/06 launch preparation",
+  "status": "INCOMPLETE: 11 of 14 benchmark tests completed; three sound tests unavailable",
+  "run": {
+    "directory": "build/d3d-review/stage6-03-first",
+    "program": "3DMark03 Professional Edition 3.6.0",
+    "completed": 11,
+    "unavailable": 3,
+    "settings": {
+      "Width": "1024",
+      "Height": "768",
+      "Anti-Aliasing": "None",
+      "Post-Processing": "No",
+      "Texture Filtering": "Optimal",
+      "Max Anisotropy": "4",
+      "Vertex Shaders": "Optimal",
+      "Force PS 1.1 in GT2 & GT3": "No",
+      "Repeat Tests": "Off",
+      "Fixed Framerate": "Off",
+      "Checksums Valid": "No",
+      "Display Changed": "No",
+      "NullPS": "No",
+      "Invalid Score": "No"
+    },
+    "browser": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/157.0.8103.38",
+      "revision": "@a733b5afbb3ba618844ff8876b89ad1a774b2f18",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+      "jsVersion": "15.7.112.23"
+    },
+    "backend": "Apple Metal",
+    "cpu_worker": true,
+    "core_assets": {
+      "libv86.js": {
+        "bytes": 842704,
+        "sha256": "6eca83bb632e2e132e89a35e868c6b3fc59c67d74232d4c517c6104d5bc6f327"
+      },
+      "v86.wasm": {
+        "bytes": 3011563,
+        "sha256": "15a39f2f07c9d40f9c4d5bae1fb720dd410d91d1a3d05a541f2d92cf584a8d9f"
+      },
+      "cpu-worker.js": {
+        "bytes": 851766,
+        "sha256": "0e93acfc901408b4f1380f7c25560456e1d8c55ecb225c124a5d69bbe0f01877"
+      },
+      "v86-bochs-vga.js": {
+        "bytes": 44376,
+        "sha256": "ce8415006ca38dc53bd807323fc01fcfc47e9d3c31b7aad3934636e4408d1984"
+      }
+    },
+    "webgpu_revision": "63e28a608d73eec6a1b2",
+    "results": [
+      {
+        "test": "3DMark Score",
+        "value": "9521.000000000",
+        "unit": "3DMarks",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "3DMarks",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "GT1 - Wings of Fury",
+        "value": "94.596183777",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "GT2 - Battle of Proxycon",
+        "value": "95.070381165",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "GT3 - Troll's Lair",
+        "value": "64.598815918",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "GT4 - Mother Nature",
+        "value": "58.726680756",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "CPU Score",
+        "value": "1895.000000000",
+        "unit": "CPUMarks",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "CPUMarks",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "CPU Test 1",
+        "value": "86.124969482",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "CPU Test 2",
+        "value": "54.513442993",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "Fill Rate (Single-Texturing)",
+        "value": "12637.011936095",
+        "unit": "texels/s",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "texels/s",
+          "base": "10",
+          "exp": "6"
+        }
+      },
+      {
+        "test": "Fill Rate (Multi-Texturing)",
+        "value": "44855.566222751",
+        "unit": "texels/s",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "texels/s",
+          "base": "10",
+          "exp": "6"
+        }
+      },
+      {
+        "test": "Vertex Shader",
+        "value": "29.661991119",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "Pixel Shader 2.0",
+        "value": "1533.995849609",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "Ragtroll",
+        "value": "10.709410667",
+        "unit": "FPS",
+        "status": "0",
+        "status_text": "",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "No sounds",
+        "value": "-1.000000000",
+        "unit": "FPS",
+        "status": "2",
+        "status_text": "Not supported",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "24 sounds",
+        "value": "-1.000000000",
+        "unit": "FPS",
+        "status": "2",
+        "status_text": "Not supported",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      },
+      {
+        "test": "60 sounds",
+        "value": "-1.000000000",
+        "unit": "FPS",
+        "status": "2",
+        "status_text": "Not supported",
+        "unit_scaling": {
+          "unit": "FPS",
+          "base": "10",
+          "exp": "0"
+        }
+      }
+    ],
+    "error_counts": {
+      "browser_console": 0,
+      "monitor": 0,
+      "host": 0,
+      "gpu": 0,
+      "commands_failed": 0,
+      "draws_dropped": 0,
+      "shader_compile": 0,
+      "shader_translation": 0
+    },
+    "normal_exit": {
+      "devices": 0,
+      "resources": 0
+    },
+    "journal": {
+      "rawBytes": 7983903272,
+      "pendingBytes": 0,
+      "residentBytes": 66857611
+    },
+    "artifacts": [
+      {
+        "file": "S6MK03.3DR",
+        "name": "S6MK03.3DR",
+        "bytes": 66516,
+        "sha256": "de81c79fe0ee2dcc97c05674f534c51668f623311075c5b64342ed2677ba4979"
+      },
+      {
+        "file": "d3d9.dll",
+        "name": "d3d9.dll",
+        "bytes": 159232,
+        "sha256": "08835a09e9531cf5863ab3c4988ca38e44886179da44b1e7bb98afff207f83d9"
+      },
+      {
+        "file": "SOUNDCAP.TXT",
+        "name": "SOUNDCAP.TXT",
+        "bytes": 625,
+        "sha256": "ce729cecf1bfcb7259adb7b3a0e0e63d150119767b7c90680ab2817b4a9a3e31"
+      }
+    ],
+    "visual_review": {
+      "frames": [
+        98,
+        100,
+        104,
+        114,
+        120,
+        134,
+        138,
+        158,
+        162,
+        166,
+        180,
+        192,
+        201,
+        204,
+        208,
+        212,
+        218,
+        222,
+        226,
+        230
+      ],
+      "reference": "Independent bundled help/images/ss_gt1..4.jpg, ss_fillrate.jpg, ss_vsh.jpg, ss_psh2.jpg, ss_physics.jpg; qualitative checks at differing camera/time positions, not pixel equality.",
+      "observations": "Aircraft, clouds, particles, spaceship lighting/stencil shadows, troll skinning, Nature water/vegetation, CPU scenes, fill-rate layers, vertex crowd, procedural marble/wood and ragdoll scenes inspected."
+    },
+    "score_caveat": "Original Result.xml reports Checksums Valid=No and Invalid Score=No; retained verbatim, not an official validated score."
+  },
+  "audio_audit": {
+    "source": "tests/glbridge/d3d_sound_caps.c",
+    "native_report": "wave_devices=1\nwave=0 result=0 name=Sound Blaster 16 channels=65535 support=0000002c\ndevice=Primary Sound Driver module= default=1\nDirectSoundCreate=00000000\nGetCaps=00000000 flags=00000f5f max_hw_mixing=1 free_hw_mixing=0 max_hw_3d=0 free_hw_3d=0\ndevice=Sound Blaster 16 module=ctlsb16.sys default=0\nDirectSoundCreate=00000000\nGetCaps=00000000 flags=00000f5f max_hw_mixing=1 free_hw_mixing=0 max_hw_3d=0 free_hw_3d=0\nDirectSoundEnumerate=00000000\ndevice=explicit default probe module= default=1\nDirectSoundCreate=00000000\nGetCaps=00000000 flags=00000f5f max_hw_mixing=1 free_hw_mixing=0 max_hw_3d=0 free_hw_3d=0\n",
+    "finding": "SB16 driver ctlsb16.sys is installed and DirectSound opens successfully, but hardware 3D sound buffers are zero. 3DMark03 reports all three sound tests as Not supported; these remain unmet requirements.",
+    "scope": "Read-only capability query; no fake capabilities, patched result or forced skip."
+  },
+  "point_sprite_diagnostic_fix": {
+    "full_run_unwritten_coord_count": 251640,
+    "full_run_point_sprite_draws": 251640,
+    "sample_count": 376,
+    "counter_mismatches": 0,
+    "cause": "The generated point-sprite entry wrapper assigns all eight legacy UV outputs, but reflection previously listed only outputs written by the guest shader body.",
+    "fix": "Add wrapper-generated UVs to a variant-local reflection set; leave emitted WGSL and prepared shader body unchanged.",
+    "validation": [
+      "52 shader pipeline tests passed, including sprite/ordinary variant isolation.",
+      "179 executor tests passed, including no false missing-UV diagnostic for sprites and retained diagnostics for missing triangle UVs."
+    ],
+    "published_webgpu_revision": "f95489b0bdfbfc0030ee"
+  },
+  "launch_fix": {
+    "diagnostic_directory": "build/d3d-review/stage6-05-first",
+    "failure": "Bundled Boost rejects root-directory D://3DMark05.exe; absolute launch without matching CWD instead loses demo.dat.",
+    "resolution": "Move only named benchmark files and Help/systeminfo directories into MARK05/MARK06 within the RAM overlay, then use that working directory and app-local DLL. Original images remain read-only.",
+    "observed": "05 Business Version 1.3.0 reached its main UI after relocation; formal all-test run follows separately."
+  },
+  "remaining": [
+    "3DMark03 sound tests require real 3D audio support and rerun.",
+    "3DMark05/06 full tests and remaining Wine/API suites.",
+    "Cross-backend review and 3DMark99 old-branch performance parity."
+  ]
+}
