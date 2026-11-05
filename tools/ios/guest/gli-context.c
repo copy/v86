@@ -78,6 +78,7 @@ static unsigned invalid_operation(struct context *ctx)
 
 #include "gli-surface.h"
 #include "gli-draw.h"
+#include "gli-query.h"
 
 static unsigned get_error(struct context *ctx)
 {
@@ -149,6 +150,7 @@ static int create_context(void **out, const void *format, struct group *group, d
     install_scalar_functions(primary);
     install_surface_functions(primary);
     install_draw_functions(primary);
+    install_query_functions(primary);
     primary[N90_glDeleteShader - 5] = (driver_word)delete_object;
     primary[N90_glGetError - 5] = (driver_word)get_error;
     primary[N90_glGetString - 5] = (driver_word)get_string;

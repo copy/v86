@@ -2,7 +2,7 @@
 
 截至 2026-11-05，S1–S3 已用 iPhone3,1 的 10B329 固件验收。S4 已用原版内核从 NAND 挂载系统卷与数据卷，启动核心服务，加载系统钥匙包，并验证 C、D 两类文件写入、同步和重开后的内容。一次正常时钟冷启动已越过首次迁移并运行到设置程序启动，长跑中未再出现闪存 IOP 超时。首次设置仍未通过验收。
 
-S5 已在恢复环境经原版 OpenGLES 入口绘制 640×960 测试帧，并逐像素验证快照恢复。在完整系统冷启动中，backboardd 和 SpringBoard 均已用原版 EAGL 创建宿主上下文，在两个上下文间共享着色器并完成切换和释放。这两个进程也已通过原版 EAGL 接口在共享 IOSurface 上绘图并逐像素读回，还各自通过原版 CAEAGLLayer 发布了像素正确的窗口测试帧。系统合成器提交真实界面仍待验收。S6 的触控操作和 S7 的整机集成尚待验收。
+S5 已在恢复环境经原版 OpenGLES 入口绘制 640×960 测试帧，并逐像素验证快照恢复。在完整系统冷启动中，backboardd 和 SpringBoard 均已用原版 EAGL 创建宿主上下文，在两个上下文间共享着色器并完成切换和释放。这两个进程也已通过原版 EAGL 接口在共享 IOSurface 上绘图并逐像素读回，还各自通过原版 CAEAGLLayer 发布了像素正确的窗口测试帧。系统合成器提交真实界面仍待验收。S6 的五个硬件按键已验证到原版 HID 按下与松开事件，触控操作和 S7 的整机集成尚待验收。
 
 本计划为 v86 增加机器类型 `machine_type: "s5l8930"`，模拟 iPhone 4（`iPhone3,1`，板子 N90AP），目标是
 iOS 6.1.3 启动到主屏幕，能触控操作，能运行系统自带的应用。
@@ -745,6 +745,10 @@ CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读�
 构建客体库时用 `--check-host-surfaces <dyld_shared_cache_armv7>`，完整 NAND 冷启动时用 `system.mjs --surfaces` 验证系统进程。backboardd 和 SpringBoard 均通过原版 EAGL 调用把同一块内核 IOSurface 绑定到两个上下文，在渲染缓冲上绘图，从纹理读回，64×48 的所有像素均匹配。另用 `--check-host-window` 构建和 `system.mjs --windows` 区分两项窗口验收。测试窗口在两个真实内核表面之间轮换，发布回调逐像素验证了连续两帧及行方向。启用保留内容时，第二帧只改左下角，另一个缓冲完整保留首帧背景。在同一次完整冷启动中，backboardd 和 SpringBoard 均在原版 CAEAGLLayer 上执行 renderbufferStorage:fromDrawable: 和 presentRenderbuffer:，发布后核对了内核 IOSurface 全部 64×48 像素。在测试中引用已经领到的缓冲，这个版本的原生窗口每帧只允许领取一次。整屏合成及 SpringBoard 主屏仍待验证。
 
 **S5 原版着色器绘图。** 使用 `--check-host-draw <本地共享缓存>` 构建客体库，用 `system.mjs ... --draw` 完整冷启动。backboardd 与 SpringBoard 均经过原版 glShaderSource 提交多段顶点着色器（含显式长度）和片段着色器，链接程序，查询属性位置，建立并更新顶点缓冲，再从非零偏移绘制三角形。两者在真实 IOSurface 上读回的 64×48 个像素全部为预期的洋红色。当前顶点指针支持绑定顶点缓冲的形式。
+
+**S5 公开 GL 查询，2026-11-05。** 客体适配层已接通整数、浮点与布尔状态查询，以及着色器、程序状态、信息日志和着色器源码查询。传输按输出的元素数及字节宽度接收结果，压缩纹理格式等列表先查询实际长度，空的可选日志长度指针也会正确排空返回数据。`node tests/ios/gl-query.mjs <本地共享缓存>` 执行八个原版 ARM 入口，逐字节核对十个请求和对应应答，覆盖多值状态、动态长度、日志截断、空长度指针、非法负长度及输出两侧的保护值。
+
+另一次完整 NAND 冷启动在 backboardd 和 SpringBoard 中均通过编译与链接状态、当前程序、四分量清除颜色、四字节颜色掩码及视口查询，随后原版三角形绘图的全部 64×48 像素仍匹配。普通构建也已生成，真实系统合成器的主屏提交继续单独验证。
 
 **首次迁移与显示交换。** 正常异步读盘运行中，原版 DataMigrator 已记录地图和账户等迁移插件完成。在同一私有快照上改用同步读取底层文件字节、保留写入覆盖层的诊断对照中，DMPerformMigration 返回 1，DataMigrator 以 0 退出，SpringBoard 越过 BKSSystemAppCheckIn。随后 backboardd 的 SwapBegin、SwapSetLayer、SwapEnd 返回成功。首次交换提交了空图层，后续等待反复返回 0xe00002d5。内核逐帧确认了 CLCD 中断，但物理面板仍为启动画面。后续使用当前正式客体库的普通异步读盘冷启动，backboardd 已记录允许系统应用启动，随后启动 Setup。该长跑未再出现 NAND IOP 超时。Setup 的原版报告显示启动看门狗超时，全系统 CPU 时间约 36.8 秒，应用自身约 3.1 秒。SpringBoard 后续有一次崩溃重启，物理面板仍为两色启动画面。相同迁移后快照的正常时钟与十分之一速时钟对照都仍停在两色启动画面，慢时钟运行也出现 SpringBoard 重启，不能仅以降低时钟解决。主屏像素仍待验收。 在迁移后的一次性诊断客体中，原版内核的线程转储显示 Setup 主线程等待 SpringBoardServices；SpringBoard 主线程等待 FigPlayerRemoteCreate；mediaserverd 主线程停在 FigPlayerCMSession 的一次性初始化，另一个线程正在设置 CoreAudio 属性。正在核对音频设备初始化所需的硬件应答。
 
