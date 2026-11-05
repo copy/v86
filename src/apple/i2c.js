@@ -109,7 +109,8 @@ export class AppleI2C
             else if(device && count <= 256)
             {
                 const address = this.regs[4], start = address & 0x7f;
-                const reg = i => address & 0x80 ? start + i & 0x7f : start;
+                const reg = i => device.transfer_register ? device.transfer_register(address & 255, i) :
+                    address & 0x80 ? start + i & 0x7f : start;
                 if(value & 1)
                 {
                     for(let i = 0; i < Math.min(count, this.fifo.length); i++) device.write(reg(i), this.fifo[i]);

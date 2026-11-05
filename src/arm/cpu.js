@@ -764,7 +764,8 @@ A64CPU.prototype.run_hardware_timers = function(acpi, now)
 {
     const display = this.devices.display ? this.devices.display.timer(now) : 100;
     if(this.devices.apple_timer) return Math.min(display, this.devices.apple_timer.timer(),
-        this.devices.apple_accelerometer?.timer(now) ?? 100);
+        this.devices.apple_accelerometer?.timer(now) ?? 100, this.devices.apple_gyroscope?.timer(now) ?? 100,
+        this.devices.apple_compass?.timer(now) ?? 100, this.devices.apple_light_sensor?.timer(now) ?? 100);
     const sound = this.virtio_sound ? this.virtio_sound.timer(now) : 100;
     const audio = this.devices["goldfish_audio"] ? this.devices["goldfish_audio"].timer(now) : 100;
     return Math.min(100, display, sound, audio, this.devices["pl031"] ? this.devices["pl031"].timer() : 100);

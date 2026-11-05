@@ -28,7 +28,7 @@ function handoff(scale, clock = 0, calibration = new Uint8Array(40))
         node("chosen", scale === undefined ? {} : { "display-scale": cells(scale) }),
         node("cpus", {}, [node("cpu0")]), node("memory"), node("vram"), node("pram"),
         node("arm-io", { "clock-frequencies": frequencies }, [node("mipi-dsim", {}, [node("lcd", { "lcd-panel-id": cells(0) })]), node("spi2"),
-            node("i2c2", {}, [node("accelerometer", { "accel-sensitivity-calibration": calibration })])]),
+            node("i2c2", {}, [node("accelerometer", { "accel-sensitivity-calibration": calibration }), node("inv-gyro")])]),
     ]);
     const ram = new Uint8Array(1 << 20), result = load_n90_kernel(ram, kernel, dt_serialize(tree));
     const args = result.r0 - 0x40000000, view = new DataView(ram.buffer);
@@ -47,6 +47,8 @@ for(const input of [undefined, 0, 1, 2, 3])
     assert.equal(clocks[0x2f], 24000000);
     assert.equal(clocks[0x30], 24000000);
     assert.deepEqual(dt_cells(dt_property(dt_find(tree, "/arm-io/i2c2/accelerometer"), "accel-sensitivity-calibration").value),
+        [65536, 0, 0, 0, 65536, 0, 0, 0, 65536, 0]);
+    assert.deepEqual(dt_cells(dt_property(dt_find(tree, "/arm-io/i2c2/inv-gyro"), "gyro-sensitivity-calibration").value),
         [65536, 0, 0, 0, 65536, 0, 0, 0, 65536, 0]);
 }
 const preserved = handoff(2, 123456789);

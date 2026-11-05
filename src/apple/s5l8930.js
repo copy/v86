@@ -12,7 +12,7 @@ import { AppleI2S } from "./audio.js";
 import { AppleSPI } from "./spi.js";
 import { AppleMultitouch } from "./multitouch.js";
 import { AppleDART } from "./dart.js";
-import { AppleLIS331DLH } from "./sensors.js";
+import { AppleAK8975B, AppleCT700, AppleLIS331DLH, AppleMPU3100 } from "./sensors.js";
 
 export const N90_BUTTONS = ["home", "power", "volume-up", "volume-down", "mute"];
 
@@ -23,7 +23,7 @@ const spi_controllers = ["apple_spi0", "apple_spi1"];
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers, "apple_multitouch", "apple_accelerometer",
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers, "apple_multitouch", "apple_accelerometer", "apple_gyroscope", "apple_compass", "apple_light_sensor",
 ];
 
 export function create_n90_devices(cpu, bus, screen, buffer)
@@ -32,6 +32,10 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     const vic = new AppleVIC(cpu);
     const gpio = new AppleGPIO(cpu, vic);
     const accelerometer = new AppleLIS331DLH((line, level) => { if(level) gpio.pulse(line ? 38 : 36); });
+    const gyroscope = new AppleMPU3100(() => gpio.pulse(33), accelerometer);
+    const compass = new AppleAK8975B(() => gpio.pulse(35), () => cpu.clock.now());
+    const light = new AppleCT700(() => gpio.pulse(37));
+    gpio.inputs.set(37, () => !light.asserted());
     bus.register("ios-orientation", angle => accelerometer.set_orientation(angle));
     bus.register("ios-button", event => gpio.set_button(event[0], event[1]));
     const clcd = new AppleCLCD(cpu, display, vic);
@@ -52,9 +56,13 @@ export function create_n90_devices(cpu, bus, screen, buffer)
         apple_cdma: dma,
         apple_miu: new AppleRegisterWindow(cpu, "miu", 0xBFC00000, 0x1000),
         apple_clcd: clcd,
-        apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true, level => clcd.set_backlight(level), () => gpio.pulse(13)),
-        apple_i2c2: new AppleI2C(cpu, 0x83400000, 21, vic, false, null, null, new Map([[0x19, accelerometer]])),
+        apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true, level => clcd.set_backlight(level),
+            () => gpio.pulse(13), new Map([[0x0C, compass], [0x29, light]])),
+        apple_i2c2: new AppleI2C(cpu, 0x83400000, 21, vic, false, null, null, new Map([[0x19, accelerometer], [0x68, gyroscope]])),
         apple_accelerometer: accelerometer,
+        apple_gyroscope: gyroscope,
+        apple_compass: compass,
+        apple_light_sensor: light,
         apple_swi: new AppleSWI(cpu),
         apple_dart1: new AppleDART(cpu, "dart1", 0x88D00000),
         apple_dart2: new AppleDART(cpu, "dart2", 0x89D00000),
@@ -108,6 +116,7 @@ export class AppleGPIO
         this.mask = new Uint32Array(6);
         this.pending = new Uint32Array(6);
         this.outputs = new Map();
+        this.inputs = new Map();
         this.reset();
         cpu.io.register_mmio(0xBFA00000, 0x1000, {
             name: "gpio",
@@ -150,7 +159,9 @@ export class AppleGPIO
             // These five active-low wires are inputs. Programming a pin's
             // mode does not press a physical button.
             const level = this.buttons & 1 << pin ? 0 : 1;
-            return pin < N90_BUTTONS.length ? (this.pins[pin] & ~1) | level : this.pins[pin];
+            if(pin < N90_BUTTONS.length) return (this.pins[pin] & ~1) | level;
+            const input = this.inputs.get(pin);
+            return input ? (this.pins[pin] & ~1) | +input() : this.pins[pin];
         }
         if(offset === 0xC00) return this.groups();
         const bank = (offset & 63) >>> 2;

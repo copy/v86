@@ -188,3 +188,263 @@ export class AppleLIS331DLH
         this.motion_zone = Array.from(state[6] || [0, 0]);
     }
 }
+
+// N90 has one InvenSense gyro at I2C2 0x68. The other device-tree
+// personality at this address is an alternative part. Model the raw sensor
+// and FIFO used by AppleMPU3100; the embedded motion processor is unused.
+export class AppleMPU3100
+{
+    constructor(interrupt, accelerometer)
+    {
+        this.interrupt = interrupt;
+        this.accelerometer = accelerometer;
+        this.regs = new Uint8Array(64);
+        this.fifo = new Uint8Array(512);
+        this.head = 0;
+        this.count = 0;
+        this.next_sample = 0;
+        this.reset();
+    }
+
+    reset()
+    {
+        this.regs.fill(0);
+        this.regs[0] = 0x68;
+        this.regs[0x3E] = 0x40;
+        this.head = this.count = this.next_sample = 0;
+    }
+
+    transfer_register(start, i) { return start === 0x3C ? start : (start + i) & 63; }
+
+    read(reg)
+    {
+        const value = reg === 0x3A ? this.count >>> 8 : reg === 0x3B ? this.count & 255 :
+            reg === 0x3C ? this.pop() : this.regs[reg];
+        if(reg === 0x1A || this.regs[0x17] & 0x10) this.regs[0x1A] = 0;
+        return value;
+    }
+
+    write(reg, byte)
+    {
+        if(reg === 0x3E && byte & 0x80) { this.reset(); return; }
+        if(reg === 0x3D)
+        {
+            if(byte & 2) this.head = this.count = 0;
+            this.regs[reg] = byte & 0x60;
+        }
+        else if(reg >= 0x0C && reg <= 0x0E || reg >= 0x12 && reg <= 0x18 || reg === 0x3E)
+            this.regs[reg] = byte;
+        if(reg === 0x15 || reg === 0x16 || reg === 0x3E) this.next_sample = 0;
+        if(reg === 0x3E)
+        {
+            this.regs[0x1A] = byte & 0x40 ? 0 : 4;
+            if(this.regs[0x1A] & this.regs[0x17]) this.interrupt();
+        }
+    }
+
+    pop()
+    {
+        if(!this.count) return 0;
+        const byte = this.fifo[this.head];
+        this.head = (this.head + 1) & 511;
+        this.count--;
+        return byte;
+    }
+
+    push(byte)
+    {
+        if(this.count === 512) this.pop();
+        this.fifo[(this.head + this.count++) & 511] = byte;
+    }
+
+    timer(now)
+    {
+        const power = this.regs[0x3E];
+        if(power & 0x40 || (power & 7) === 7) return 100;
+        const period = (1 + this.regs[0x15]) / ((this.regs[0x16] & 7) ? 1 : 8);
+        if(!this.next_sample) this.next_sample = now + period;
+        if(now < this.next_sample) return Math.min(100, this.next_sample - now);
+        const samples = Math.min(256, 1 + Math.floor((now - this.next_sample) / period));
+        this.next_sample = now + period;
+        const temp = -13200; // 35 C; the simulated phone is stationary.
+        this.regs[0x1B] = temp >>> 8;
+        this.regs[0x1C] = temp;
+        if(this.regs[0x3D] & 0x20 && (this.regs[0x14] & 127) === 0x19)
+        {
+            const start = this.regs[0x18] & 0x3F;
+            for(let i = 0; i < 6; i++)
+                this.regs[0x23 + i] = this.accelerometer.regs[(start + i) & 63];
+        }
+        if(this.regs[0x3D] & 0x40)
+        {
+            const route = this.regs[0x12];
+            for(let n = 0; route && n < samples; n++)
+            {
+                for(let i = 0; i < 7; i++)
+                    if(route & 128 >>> i)
+                    {
+                        this.push(this.regs[0x1B + 2 * i]);
+                        this.push(this.regs[0x1C + 2 * i]);
+                    }
+                if(route & 1) { this.push(0); this.push(0); } // footer
+            }
+        }
+        const prior = this.regs[0x1A];
+        this.regs[0x1A] |= 1;
+        if(this.regs[0x17] & 1 && (!(this.regs[0x17] & 0x20) || !(prior & 1))) this.interrupt();
+        return Math.min(100, period);
+    }
+
+    get_state() { return [this.regs.slice(), this.fifo.slice(), this.head, this.count, this.next_sample]; }
+    set_state(state)
+    {
+        if(!state) { this.reset(); return; }
+        this.regs.set(state[0]); this.fifo.set(state[1]);
+        [this.head, this.count, this.next_sample] = state.slice(2);
+    }
+}
+
+// One AK8975B at I2C0 0x0C. Give the stationary guest a stable magnetic
+// field, nominal factory sensitivity and the native single-shot handshake.
+export class AppleAK8975B
+{
+    constructor(interrupt, now)
+    {
+        this.interrupt = interrupt;
+        this.now = now;
+        this.regs = new Uint8Array(19);
+        this.ready_at = 0;
+        this.reset();
+    }
+
+    reset() { this.regs.fill(0); this.regs[0] = 0x48; this.ready_at = 0; }
+    transfer_register(start, i) { return start + i; }
+
+    read(reg)
+    {
+        if(reg >= 0x10 && reg <= 0x12) return this.regs[0x0A] === 15 ? 128 : 0;
+        const value = this.regs[reg] || 0;
+        if(reg >= 3 && reg <= 9) this.regs[2] = 0;
+        return value;
+    }
+
+    write(reg, byte)
+    {
+        if(reg === 0x0C) this.regs[reg] = byte & 0x40; // ASTC.SELF
+        if(reg !== 0x0A || ![0, 1, 8, 15].includes(byte & 15)) return;
+        const mode = this.regs[reg] = byte & 15;
+        this.regs.fill(0, 2, 10);
+        this.ready_at = mode === 1 || mode === 8 ? this.now() + 9 : 0;
+    }
+
+    timer(now)
+    {
+        if(!this.ready_at) return 100;
+        if(now < this.ready_at) return this.ready_at - now;
+        const values = this.regs[0x0A] === 8 && this.regs[0x0C] ? [0, 0, -500] : [90, 0, 130];
+        const v = new DataView(this.regs.buffer);
+        values.forEach((value, i) => v.setInt16(3 + 2 * i, value, true));
+        this.regs[2] = 1;
+        this.regs[0x0A] = this.ready_at = 0;
+        this.interrupt();
+        return 100;
+    }
+
+    get_state() { return [this.regs.slice(), this.ready_at]; }
+    set_state(state)
+    {
+        if(!state) { this.reset(); return; }
+        this.regs.set(state[0]); this.ready_at = state[1];
+    }
+}
+
+// CT700 on I2C0 0x29. The 10B329 driver reads four ADC words followed
+// by proximity, and clears the two causes with separate I2C commands.
+export class AppleCT700
+{
+    constructor(interrupt)
+    {
+        this.interrupt = interrupt;
+        this.regs = new Uint8Array(32);
+        this.next_sample = 0;
+        this.reset();
+    }
+
+    reset()
+    {
+        this.regs.fill(0);
+        this.regs[0x11] = 1; // revision; native probe only requires an acknowledgement
+        this.next_sample = 0;
+    }
+
+    transfer_register(start, i)
+    {
+        if((start & 0x60) === 0x60) return start;
+        return (start + (start & 0x20 ? i : 0)) & 31;
+    }
+
+    clear(command)
+    {
+        if(command === 0xE5 || command === 0xE7) this.regs[0x13] &= ~0x20;
+        if(command === 0xE6 || command === 0xE7) this.regs[0x13] &= ~0x10;
+    }
+
+    read(reg)
+    {
+        this.clear(reg);
+        return this.regs[reg] || 0;
+    }
+
+    write(reg, value)
+    {
+        if(reg >= 0xE0) { this.clear(reg); return; }
+        if(reg >= 0x11) return;
+        this.regs[reg] = value;
+        if(reg === 0)
+        {
+            if((value & 3) !== 3) this.regs[0x13] &= ~0x11;
+            if((value & 5) !== 5) this.regs[0x13] &= ~0x22;
+        }
+        if(reg <= 2) this.next_sample = 0;
+    }
+
+    asserted()
+    {
+        return !!(this.regs[0x13] & this.regs[0] & 0x30);
+    }
+
+    timer(now)
+    {
+        const enable = this.regs[0];
+        if(!(enable & 1) || !(enable & 6)) return 100;
+        const period = 2.72 * (256 - this.regs[enable & 2 ? 1 : 2]);
+        if(!this.next_sample) this.next_sample = now + period;
+        if(now < this.next_sample) return Math.min(100, this.next_sample - now);
+        this.next_sample = now + period;
+        const previous = this.asserted(), v = new DataView(this.regs.buffer);
+        if(enable & 2)
+        {
+            // Steady room light on the clear, visible and IR channels.
+            const light = 240;
+            for(const [i, value] of [light, 170, 155, 65].entries()) v.setUint16(0x14 + 2 * i, value, true);
+            this.regs[0x13] |= 1;
+            if(enable & 16 && (light < v.getUint16(4, true) || light > v.getUint16(6, true))) this.regs[0x13] |= 16;
+        }
+        if(enable & 4)
+        {
+            const far = 8;
+            v.setUint16(0x1C, far, true);
+            this.regs[0x13] |= 2;
+            if(enable & 32 && (far < v.getUint16(8, true) || far > v.getUint16(10, true))) this.regs[0x13] |= 32;
+        }
+        if(!previous && this.asserted()) this.interrupt();
+        return Math.min(100, period);
+    }
+
+    get_state() { return [this.regs.slice(), this.next_sample]; }
+    set_state(state)
+    {
+        if(!state) { this.reset(); return; }
+        this.regs.set(state[0]); this.next_sample = state[1];
+    }
+}

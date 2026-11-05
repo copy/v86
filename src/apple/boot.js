@@ -75,19 +75,37 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
             if(!view.getUint32(slot * 4, true)) view.setUint32(slot * 4, hz, true);
         dt_set(io, "clock-frequencies", clocks);
     }
-    // The restore tree leaves iBoot's per-device accelerometer calibration
-    // empty. This simulated sensor has unit gain and no cross-axis error;
-    // the native driver requires a nonzero 16.16 calibration matrix.
-    const accelerometer = dt_find(tree, "/arm-io/i2c2/accelerometer");
-    if(accelerometer)
+    // The native drivers require nonzero per-device calibration matrices.
+    // The simulated motion sensors have unit gain and no cross-axis error.
+    for(const [path, key] of [["accelerometer", "accel-sensitivity-calibration"], ["inv-gyro", "gyro-sensitivity-calibration"]])
     {
-        const calibration = dt_property(accelerometer, "accel-sensitivity-calibration");
+        const sensor = dt_find(tree, "/arm-io/i2c2/" + path);
+        if(!sensor) continue;
+        const calibration = dt_property(sensor, key);
         if(!calibration || calibration.value.every(byte => byte === 0))
         {
             const matrix = new Uint8Array(Math.max(40, calibration?.value.length || 0));
             const view = new DataView(matrix.buffer);
             for(const at of [0, 16, 32]) view.setUint32(at, 0x10000, true);
-            dt_set(accelerometer, "accel-sensitivity-calibration", matrix);
+            dt_set(sensor, key, matrix);
+        }
+    }
+    const light = dt_find(tree, "/arm-io/i2c0/als");
+    if(light)
+    {
+        const als = dt_property(light, "als-calibration"), prox = dt_property(light, "prox-calibration");
+        if(!als || als.value.every(byte => byte === 0))
+        {
+            const bytes = new Uint8Array(16), v = new DataView(bytes.buffer);
+            [0.5, 0.25, 0.25, -0.5].forEach((gain, i) => v.setInt32(i * 4, gain * 65536, true));
+            dt_set(light, "als-calibration", bytes);
+        }
+        if(!prox || prox.value.every(byte => byte === 0))
+        {
+            const bytes = new Uint8Array(72), v = new DataView(bytes.buffer);
+            bytes.set([0x50, 0x58]); // PX calibration tag, then six Q16.16 coefficients at 0x2a
+            [1, 70, 40, 64, 32, 64].forEach((gain, i) => v.setInt32(0x2A + i * 4, gain * 65536, true));
+            dt_set(light, "prox-calibration", bytes);
         }
     }
 
