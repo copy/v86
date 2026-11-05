@@ -2603,6 +2603,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 实际SDK8写入由SDK9参考绘制消费：新增2次普通绑定绘制及6次索引绘制（含Reset后blue），累计 **56完整图像 / 3,584像素**，SwiftShader与Metal均零误差。独立wire核对8次buffer上传/552字节、全部顶点和两种索引字节，**40,748项篡改检出**。共48 UP、2次普通绑定、6次索引draw；宿主计数drawCalls=50记录非索引，另indexedDrawCalls=6。保留44次纹理上传/7,168字节、12纹理/4cube/2volume、35shader translations、2交换链创建/0拒绝/2销毁、0 Present/GPU/host错误，资源在兜底前为空。CPU帧缓冲回复明确为解析注入。参考绘制的9 NULL stream保留stride20，不据此声称Device8 SetStream政策已实现。
 > - **383客体 / 90核心完整回归**、32标准EXE/四严格DLL/21成员核心/独立消费者与SDK8边界、两项站点集成/范围lint通过；发布准确XP零售8/9和同源diagnostic。证据 [stage4k44-validation.json](fixtures/d3d-review/stage4k44-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K44.json`。继续SwapChain8/Device8、状态块范围与默认工厂，及其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS与阶段4/5/6。
 
+> **4K45（2026-11-05，已完成）：SwapChain8真实接口与独立back-buffer引用。**
+> - 新增 `d3d8_core_swap_chain.c/.h`，实现SDK8真实5方法表；2方法的SDK中立核心边界仅处理Present补flags=0及back-buffer类型转换。只接受实际8配置的附加交换链；返回现有真实Surface8，使用独立引用和前端Device8容器。无效索引/核心getter失败保留调用者原输出；成功getter才进入消费已持有引用的Surface8包装。弱缓存随实际链/表面存储退休，链public-zero且表面仍存活时可复用同一接口。
+> - 删除新增桥接块后，**完整既有核心9源与头逐字节重建一致**，包括679个可提取源函数、全部宏与存储结构；十二份旧8/运行策略/现有资源适配器完整文件一致，8构建只增加新适配器源。默认公开工厂仍待切换。Present裁剪/dirty区域沿用既有核心政策，本阶段未宣称原生裁剪语义已补齐。
+> - 原生 **8,482检查 / 269用例**，256组四种清理顺序，检查QI全部GUID字节、Present四参数/HRESULT、GetBackBuffer错误输出原子性、真实Surface8容器/独立引用、public-zero复活、表面public/private持有延迟链存储销毁，以及输入消费/OOM/缓存命中/竞争/类型/设备/隐式链拒绝；后端明确为COM/元数据shim。**28严格语义变异与ASAN**通过，已有资源适配器和Surface8检查均保留通过。
+> - 首次实际XP探针漏算了renderable表面每次成功Lock的GPU读回，CPU比较失败。补齐锁定前/只读/Present后读回，并把独立CPU检查移到上传前；最终第二次XP **133秒 / 92批**，共 **十五设备/十五Reset/116句柄/23声明/35shader**。两组新SDK120/220客户端覆盖真实SwapChain8及Surface8、Device8容器、独立计数、无效索引保留输出、忽略立体类型、52字节输入不改写、链public-zero/表面仍有效/复活同一性、释放后Reset和最终引用0。新Device8父接口仍明确为IUnknown夹具。
+> - 新增 **64 DWORD上传前CPU影子检查**，累计2,026 DWORD；只读锁定的另64 DWORD消费了解析GPU回复，单独作为读回集成检查。新增12次4×4完整读回，加保留56次，合计 **68完整图像 / 3,776像素**，SwiftShader与Metal均零误差，涵盖锁定前局部初始零值/上一颜色、只读及Present后red/blue。**4次附加Present在真实附加GPU上下文执行、0丢弃**；未单独读回canvas输出像素。初始零值为本地WebGPU政策，未宣称原生HAL初始化内容有保证。
+> - 独立wire **45686项篡改检出**，核对48次纹理上传/7,424字节、4次临时纹理StretchRect、18纹理/6RT/4cube/2volume、4交换链创建/0拒绝/4销毁；保留56次draw、0主Present/GPU/host错误，资源在兜底前为空。**385客体 / 91核心回归**、32标准EXE/四严格DLL/21成员核心/独立消费者及SDK8边界、两项站点集成/范围lint通过，发布准确最终XP零售8/9与同源diagnostic。证据 [stage4k45-validation.json](fixtures/d3d-review/stage4k45-validation.json)，镜像 `glbridge/deployments/d3d-webgpu-review-4K45.json`。继续Device8弱元数据生命周期、完整前端/状态块范围/默认工厂及其余原生兼容性、完整T&L/着色器数值差分/HAL/游戏/FPS和阶段4/5/6。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
