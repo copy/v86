@@ -69,7 +69,30 @@ try
     const display = process.argv.includes("--display");
     const panel = /ApplePinotLCD: _lcdPanelID: 0x(?!00000000)[0-9a-f]+ _lcdPanelClass: [12]/i;
     const pipeline = /AppleCLCD::start_hardware[^\n]*clcdDitherCfg/;
-    while((!marker.test(serial) || display && (!panel.test(serial) || !pipeline.test(serial))) && !/panic\(cpu/.test(serial) && performance.now() < deadline)
+    // Read the original driver's adopted boot-window geometry, not just
+    // the emulator's fixed scanout dimensions. 10B329 logs its instance.
+    const memory = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset, cpu.mem8.length);
+    const kernelTTBR = new Uint32Array(cpu.wasm_memory.buffer, cpu.state_base + 944, 1);
+    function kernelWord(address)
+    {
+        const physicalWord = physical => {
+            const at = cpu.ram_offset(physical, 4);
+            return at < 0 ? 0 : memory.getUint32(at, true);
+        };
+        const first = physicalWord((kernelTTBR[0] & 0xffffc000) + (address >>> 20) * 4);
+        if((first & 3) === 2) return physicalWord(((first & 0xfff00000) + (address & 0xfffff)) >>> 0);
+        if((first & 3) !== 1) return 0;
+        const page = physicalWord(((first & 0xfffffc00) + ((address >>> 12) & 255) * 4) >>> 0);
+        return page & 2 ? physicalWord(((page & 0xfffff000) + (address & 4095)) >>> 0) : 0;
+    }
+    function adoptedWindow()
+    {
+        const match = serial.match(/AppleCLCD\(0x([0-9a-f]+)\)::start_hardware/i);
+        if(!match) return false;
+        const instance = Number.parseInt(match[1], 16);
+        return kernelWord(instance + 0x64) === 640 && kernelWord(instance + 0x68) === 960;
+    }
+    while((!marker.test(serial) || display && (!panel.test(serial) || !pipeline.test(serial) || !adoptedWindow())) && !/panic\(cpu/.test(serial) && performance.now() < deadline)
     {
         cpu.run_cores();
     }
@@ -78,6 +101,8 @@ try
     {
         assert.match(serial, panel);
         assert.match(serial, pipeline);
+        assert.ok(adoptedWindow(), "original display driver adopted a 640x960 boot window");
+        console.log("PASS: original display driver adopted the enabled 640x960 boot window");
     }
     assert.match(serial, marker, "stopped at " + cpu.read_pc());
     assert.doesNotMatch(serial, /panic\(cpu/);

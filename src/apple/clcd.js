@@ -60,6 +60,7 @@ export class AppleCLCD
         this.regs[0x4060 >>> 2] = N90_VIDEO.width << 16 | N90_VIDEO.height;
         this.regs[0x4044 >>> 2] = N90_VIDEO.base;
         this.regs[0x1030 >>> 2] = N90_VIDEO.width << 16 | N90_VIDEO.height;
+        this.regs[0x1038 >>> 2] = 0x100;
         this.update_irq();
         this.invalidate();
     }
