@@ -8,7 +8,7 @@ import { process_list } from "./process-list.mjs";
 import { V86 } from "../../src/main.js";
 
 const [firmware, image, ...args] = process.argv.slice(2);
-if(!firmware || !image) throw new Error("usage: system.mjs firmware-directory flash.img [--debug-kernel kernel] [--mounts|--processes|--keybag|--graphics|--contexts|--surfaces|--windows|--draw|--screen]");
+if(!firmware || !image) throw new Error("usage: system.mjs firmware-directory flash.img [--debug-kernel kernel] [--mounts|--processes|--keybag|--graphics|--contexts|--surfaces|--windows|--draw|--screen|--panel-power]");
 let debugKernel;
 if(args[0] === "--debug-kernel")
 {
@@ -17,12 +17,14 @@ if(args[0] === "--debug-kernel")
     if(!debugKernel || debugKernel.startsWith("--")) throw new Error("expected a local debug kernel");
 }
 const gate = args.shift();
-if(args.length || (gate && !["--mounts", "--processes", "--keybag", "--graphics", "--contexts", "--surfaces", "--windows", "--draw", "--screen"].includes(gate))) throw new Error("unknown system boot gate");
+if(args.length || (gate && !["--mounts", "--processes", "--keybag", "--graphics", "--contexts", "--surfaces", "--windows", "--draw", "--screen", "--panel-power"].includes(gate))) throw new Error("unknown system boot gate");
 const draw = gate === "--draw", windows = gate === "--windows", surfaces = draw || windows || gate === "--surfaces", contexts = surfaces || gate === "--contexts";
-const screen = gate === "--screen", graphics = gate === "--graphics" || contexts || screen;
+const panelPower = gate === "--panel-power", screen = gate === "--screen" || panelPower;
+const graphics = gate === "--graphics" || contexts || screen;
 const checkProcesses = graphics || gate === "--processes" || gate === "--keybag";
 const renderer = surfaces || screen ? await (await import("../gles/chrome_renderer.mjs")).chrome_renderer() : null;
 const file = name => ({ url: path.resolve(firmware, name) });
+const started = performance.now();
 const emulator = new V86({
     machine_type: "s5l8930", graphics_adapter: "none", log_level: 0, autostart: false,
     gles_backdoor: graphics,
@@ -49,6 +51,13 @@ try
     let names = [], processesReady = !checkProcesses, nextSample = 0;
     let keybagReady = gate !== "--keybag" && !graphics, graphicsReady = !graphics, nextLogCheck = 0;
     let screenReady = !screen, nextScreenCheck = 0;
+    let panelPhase = "first frame", firstFrameSeconds = 0, releaseButton = null, releaseAt = 0;
+    let wakeCount = 0, darkSince = null;
+    const press = button => {
+        emulator.ios_send_button(button, true);
+        releaseButton = button;
+        releaseAt = cpu.clock.now() + 120;
+    };
     // keybagd formats the syslog entry using its thread ID and caller name.
     // The constant in the Mach-O contains only the bare message.
     const message = Buffer.from(" main: System Keybag loaded");
@@ -57,6 +66,11 @@ try
         !serial.includes("Userspace shutdown begun") && !serial.includes("panic(cpu") && performance.now() < end)
     {
         for(let i = 0; i < 24; i++) cpu.run_cores();
+        if(releaseButton && cpu.clock.now() >= releaseAt)
+        {
+            emulator.ios_send_button(releaseButton, false);
+            releaseButton = null;
+        }
         if(!processesReady && serial.includes(marker) && performance.now() >= nextSample)
         {
             nextSample = performance.now() + 100;
@@ -104,22 +118,48 @@ try
         if(!screenReady && graphicsReady && performance.now() >= nextScreenCheck)
         {
             nextScreenCheck = performance.now() + 500;
-            // Inspect what CLCD actually scanned, not the compositor's
-            // GPU target or a CPU mapping that was never selected.
-            const pixels = cpu.devices.apple_clcd.shown, colors = new Set();
-            for(let i = 0; i < pixels.length; i += 97)
+            const panel = cpu.devices.apple_clcd, pixels = panel.rgba, colors = new Set();
+            let black = true;
+            for(let i = 0; i < pixels.length; i += 97 * 4)
             {
-                const p = pixels[i] & 0xFFFFFF, g = p >>> 8 & 255;
-                if((p >>> 16) !== g || (p & 255) !== g) colors.add(p);
+                const r = pixels[i], g = pixels[i + 1], b = pixels[i + 2];
+                if(r || g || b) black = false;
+                if(r !== g || g !== b) colors.add(r << 16 | g << 8 | b);
             }
-            screenReady = colors.size >= 300 && process_list(cpu).some(p => p.name === "SpringBoard");
+            if(panelPhase === "display off")
+            {
+                if(!releaseButton && !panel.panel_on && black)
+                {
+                    darkSince ??= cpu.clock.now();
+                    if(cpu.clock.now() - darkSince >= 1000)
+                    {
+                        panelPhase = "wake frame";
+                        press("home");
+                    }
+                }
+                else darkSince = null;
+            }
+            else if(!releaseButton && panel.panel_on && colors.size >= 300 && process_list(cpu).some(p => p.name === "SpringBoard"))
+            {
+                if(panelPhase === "first frame")
+                    firstFrameSeconds = Math.round((performance.now() - started) / 1000);
+                else wakeCount++;
+                if(panelPower && wakeCount < 2)
+                {
+                    panelPhase = "display off";
+                    darkSince = null;
+                    press("power");
+                }
+                else screenReady = true;
+            }
         }
         await new Promise(ok => setImmediate(ok));
     }
     assert.ok(serial.includes("FTL_Open            [OK]") &&
         serial.includes("loaded configuration for 2 partitions") && serial.includes(root) && serial.includes(marker) &&
         processesReady && keybagReady && graphicsReady && !serial.includes("Userspace shutdown begun") && !serial.includes("panic(cpu"), serial.slice(-2600));
-    assert.ok(screenReady, "The original SpringBoard did not reach the LCD scanout");
+    assert.ok(screenReady, "The original SpringBoard did not complete LCD acceptance at " + panelPhase);
+    if(panelPower) assert.ok(serial.includes("AppleARMBacklight::start: Found the CLCD service"));
     if(gate)
     {
         assert.ok(serial.includes(launchd) && serial.includes("/dev/disk0s1s1 on / (hfs, local, read-only"));
@@ -137,7 +177,8 @@ try
             if(draw) console.log("PASS: switching away from the compositor's FBO publishes every BGRA pixel to native IOSurface memory");
             if(draw) console.log("PASS: native padded RGBA uploads and complete PVRTC image replacements read back exactly");
             if(windows) console.log("PASS: native EAGL window rotation and CAEAGLLayer publication with verified BGRA pixels");
-            if(screen) console.log("PASS: SpringBoard produced a color frame on the actual LCD scanout");
+            if(screen) console.log(`PASS: SpringBoard produced a color frame on the actual LCD scanout after ${firstFrameSeconds} s`);
+            if(panelPower) console.log("PASS: Power blanked the native panel and Home restored the original color scanout in two cycles");
             if(surfaces) console.log("PASS: native EAGL renderbuffer and texture attachments share all 64x48 WebGPU pixels in both system processes");
             if(contexts) console.log("PASS: both system processes created shared EAGL contexts, switched between them, shared a shader, queried the host renderer and released their contexts");
             console.log("PASS: backboardd and SpringBoard loaded the N90 EAGL adapter and queried the host display");

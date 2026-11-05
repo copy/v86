@@ -63,6 +63,9 @@ setup behavior; the data builder detects that prepared system.
 
 Run `make ios-tests` without Apple files. Original kernel and system
 tests in `tests/ios` take the owner's locally prepared firmware and NAND.
+With a graphics-enabled system, `tests/ios/system.mjs` accepts
+`--panel-power` to check two cycles of Lock and Home against the LCD
+pixels.
 The VM manager's `ios_dialog` browser test checks the experimental
 entry, firmware rejection and fixed hardware settings.
 
