@@ -8,7 +8,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
-    success, log_files = [], binary_files = [], capture_graphics = false, expected_releases = null,
+    success, log_files = [], log_completion = {}, binary_files = [], capture_graphics = false, expected_releases = null,
     rendering = "not exercised", simulated_host_features = null, observe_batch = null, graphics_renderer = null, inspect })
 {
     assert(!graphics_renderer || (!observe_batch && simulated_host_features === null), "A live GPU cannot be combined with simulated replies/capabilities");
@@ -68,6 +68,8 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
         virtio_devices: [descriptor], autostart: true, disable_speaker: true, boot_order: 0x213, log_level: 0 });
     const started = performance.now(), elapsed = () => Math.round((performance.now() - started) / 1000);
     const result_text = () => { const data = read_fat16(tools.bytes, result_file);return data ? Buffer.from(data).toString("ascii") : ""; };
+    assert(Object.keys(log_completion).every(name => log_files.includes(name)), "Completion logs must be captured");
+    const completed = (text, logs) => text.includes(success) && Object.entries(log_completion).every(([name, marker]) => logs[name].includes(marker));
     const read_logs = () => Object.fromEntries(log_files.map(name => {
         const data = read_fat16(tools.bytes, name);return [name, data ? Buffer.from(data).toString("ascii") : ""];
     }));
@@ -109,7 +111,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             if(picture && elapsed() >= 60 && performance.now() - stable_since > 20000) break;
         }
         save_frame("probe-desktop.png", frame());
-        for(let attempt = 0; attempt < 3 && !result_text().includes(success); attempt++)
+        for(let attempt = 0; attempt < 3 && !completed(result_text(), read_logs()); attempt++)
         {
             console.log("launch RAM probe", elapsed(), "s", "attempt", attempt + 1);
             for(let cancel = 0; cancel < 3; cancel++) { await vm.keyboard_send_scancodes([1, 129], 30);await delay(1000); }
@@ -123,11 +125,11 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                 if(text.includes("FAIL ") || Object.values(logs).some(text => text.includes("FAIL ")))
                     throw new Error(JSON.stringify({ text, logs }));
                 if(poll === 29 && !text && Object.values(logs).every(text => !text)) break;
-                if(text.includes(success)) break;
+                if(completed(text, logs)) break;
                 if(poll % 10 === 9) console.log("waiting", elapsed(), "s", JSON.stringify({ text: text.trim(), logs }));
             }
         }
-        const text = result_text();assert(text.includes(success), "Owner probe did not finish: " + text);
+        const text = result_text();assert(completed(text, read_logs()), "Owner probe did not finish: " + text);
         // A flushed success marker can precede ExitProcess and DLL detach.
         // Keep running the VM until the requested transport owners retire.
         if(expected_releases !== null) {

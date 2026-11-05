@@ -30,7 +30,9 @@
     let queue=Promise.resolve(),failed=false;
     try {
         const gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false,createSwapChainCanvas:()=>document.createElement("canvas")});
-        const cleanup=[];const end=gpu.onSessionEnd;
+        const cleanup=[],sessionCleanup=[];const end=gpu.onSessionEnd;
+        const release=gpu.releaseActiveSession;
+        gpu.releaseActiveSession=function(reason){sessionCleanup.push({reason,devices:this.devices.size,resources:this.resources.size});return release.call(this,reason);};
         gpu.onSessionEnd=function(...args){cleanup.push({devices:this.devices.size,resources:this.resources.size});return end.apply(this,args);};
         await gpu.initialize();
         socket.onmessage=event => {
@@ -49,7 +51,7 @@
                 }
                 await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
                 if(gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.batchesFailed)throw new Error("GPU validation failed: "+JSON.stringify({gpu:gpu.gpuErrors.errors,host:gpu.hostErrors}));
-                text(8,JSON.stringify({stats:gpu.stats,cleanup,devices:gpu.devices.size,resources:gpu.resources.size,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors}));
+                text(8,JSON.stringify({stats:gpu.stats,cleanup,sessionCleanup,devices:gpu.devices.size,resources:gpu.resources.size,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors}));
                 send(4,seq);
             }).catch(error=>{failed=true;text(5,String(error.stack));document.querySelector("#result").textContent=String(error.stack);});
         };

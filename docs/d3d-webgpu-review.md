@@ -2691,6 +2691,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 新增序列/连接丢失/写入异常/超时/关闭/释放期间非法写入测试；实际virtqueue测试新增DMA复用后命令副本不变断言。原传输、旧D3D9冻结夹具、两项客体原生套件、站点集成2项和11文件范围lint通过；未重跑的401项客体基线明确继承4L3。生产DLL源码、宿主、协议及着色器包不变，本批只修改测试通道和客体探针。
 > - 一次运行完整矩阵：`node tests/glbridge/d3d_live_xp_matrix.mjs`。证据：[stage4l4-validation.json](fixtures/d3d-review/stage4l4-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L4.json`。继续原版Wine及本地3DMark/MapleStory验收，再完成阶段5；这些选定API探针不等同于完整游戏验收。
 
+> **阶段 4L5（2026-11-05，功能批次完成）：原版 Wine 状态块验收与预定义块的流偏移兼容性。**
+> - 固定Wine提交 `415a275e3844c252ad385b46023095e9401ca234` 的完整D3D8/9状态块测试及standalone头文件，保留上游字节、哈希、版权和LGPL许可。在XP选择Windows期望值，测试正文/断言/期望值均未修改；缺失、跳过或未完整结束均不能算通过。
+> - 首次实际执行：8的9,283项全部通过；9的14,738项有16次流偏移失败。预定义CreateStateBlock在创建时保存offset，后续Capture仅刷新buffer/stride；Begin/End录制块仍刷新offset。共用核心已按此修正，实际C覆盖16槽×两种策略×三轮捕获和替换对象引用。
+> - SwiftShader与Metal下完整两套测试均 **24,021项、零失败/零todo/零flaky/零skip**。每次9,393条实际客体命令、两个进程owner，资源在owner-released回收前为空。这里测试API状态，没有绘图/像素比较；独立像素验收继承4L4。
+> - 完整401项客体回归、161,345项原生状态块持有检查（新增436项）、37/37严格编译后运行断言变异、ASan/UBSan、32标准SDK EXE、四严格DLL、站点集成2项及范围lint通过。结果解析器另拒绝13种不完整/失败/跳过/矛盾日志。等待两份日志结束标记，避免XP延迟落盘误判；观察进程退出清理，覆盖Wine没有显式FreeLibrary的卸载路径。
+> - 发布准确Metal验收的零售8/9及同源诊断DLL。运行：`GL_SWIFTSHADER=1 node tests/glbridge/d3d_wine_stateblock_xp.mjs`。证据：[stage4l5-validation.json](fixtures/d3d-review/stage4l5-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L5.json`。完整Wine device/visual/DDraw、游戏及阶段5继续；未将本批状态块套件称为全部Wine验收或原生Microsoft HAL验证。
+
+
 
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
