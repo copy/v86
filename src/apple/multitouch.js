@@ -4,13 +4,17 @@ const word = (bytes, at) => (bytes[at + 2] << 24 | bytes[at + 3] << 16 | bytes[a
 const wire_word = value => [value >>> 8 & 255, value & 255, value >>> 24, value >>> 16 & 255];
 const sum = bytes => bytes.reduce((total, byte) => total + byte, 0) >>> 0;
 const reports = new Map([
-    [0xD1, [1, 0, 0, 0]],
-    [0xD3, [1, 32, 20, 1, 0, 0, 0, 0]],
+    [0xD1, [0x55, 0, 0, 0]], // N1F55 family
+    [0xD3, [1, 15, 10, 1, 0, 0, 0, 0]], // little endian, rows, columns, BCD version
     [0xD0, [0, 0, 0, 0]],
     [0xA1, [0, 0, 0, 0]],
-    // Coordinate units of the simulated panel, independent of UIKit points.
-    [0xD9, [0x80, 2, 0, 0, 0xC0, 3, 0, 0]],
+    // Simulated 50 by 75 mm sensor, in hundredths of a millimetre.
+    [0xD9, [0x88, 0x13, 0, 0, 0x4C, 0x1D, 0, 0]],
 ]);
+
+// Active coordinate bounds selected by the N90 profile for the simulated
+// D9 geometry, in hundredths of a millimetre. The wire origin is bottom-left.
+const SENSOR_X = [-83, 4664], SENSOR_Y = [-84, 7284];
 
 export class AppleMultitouch
 {
@@ -247,7 +251,7 @@ export class AppleMultitouch
         this.set_contacts(contacts, this.timestamp());
     }
 
-    // Contact coordinates use the D9 report's 640 by 960 panel units.
+    // Host coordinates use 640 by 960 pixels; wire coordinates use sensor units.
     set_contacts(contacts, timestamp)
     {
         if(!this.running) return;
@@ -274,9 +278,16 @@ export class AppleMultitouch
         points.forEach(([id, event, x, y], i) => {
             const at = 24 + i * 28;
             frame[at] = id; frame[at + 1] = event;
-            frame[at + 4] = x & 255; frame[at + 5] = x >>> 8;
-            frame[at + 6] = y & 255; frame[at + 7] = y >>> 8;
-            for(const offset of [12, 14, 18, 20]) frame[at + offset] = event === 7 ? 0 : 8;
+            frame[at + 2] = 1; // finger identity (zero is unclassified)
+            const sensor_x = Math.round(SENSOR_X[0] + x / 640 * (SENSOR_X[1] - SENSOR_X[0]));
+            const sensor_y = Math.round(SENSOR_Y[1] - y / 960 * (SENSOR_Y[1] - SENSOR_Y[0]));
+            frame[at + 4] = sensor_x & 255; frame[at + 5] = sensor_x >>> 8 & 255;
+            frame[at + 6] = sensor_y & 255; frame[at + 7] = sensor_y >>> 8 & 255;
+            for(const offset of [12, 14, 18, 20])
+            {
+                const value = event === 7 ? 0 : offset === 20 ? 200 : 300;
+                frame[at + offset] = value & 255; frame[at + offset + 1] = value >>> 8;
+            }
         });
         this.frames.push(frame);
         this.interrupt();

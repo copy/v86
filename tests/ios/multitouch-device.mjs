@@ -53,6 +53,9 @@ function runtime(command, id, sequence = 0)
 }
 const version = runtime(0xE2, 0);
 assert.deepEqual([...version.slice(2, 5)], [2, 0, 2]);
+assert.deepEqual([...runtime(0xE6, 0xD1, 1).slice(3, 7)], [0x55, 0, 0, 0], "N1F55 family report");
+assert.deepEqual([...runtime(0xE6, 0xD3, 1).slice(3, 8)], [1, 15, 10, 1, 0],
+    "sensor report separates byte order, rows, columns and BCD version from the family");
 for(const [id, length] of [[0xD1, 4], [0xD3, 8], [0xD0, 4], [0xA1, 4], [0xD9, 8]])
 {
     const info = runtime(0xE3, id);
@@ -64,7 +67,7 @@ for(const [id, length] of [[0xD1, 4], [0xD3, 8], [0xD0, 4], [0xA1, 4], [0xD9, 8]
         if(id === 0xD9)
         {
             const view = new DataView(report.buffer);
-            assert.equal(view.getUint32(3, true), 640); assert.equal(view.getUint32(7, true), 960);
+            assert.equal(view.getUint32(3, true), 5000); assert.equal(view.getUint32(7, true), 7500);
         }
     }
 }
@@ -116,13 +119,14 @@ for(const [i, event] of [3, 4, 7].entries())
         full.slice(5, -2).reduce((a, b) => a + b, 0));
     assert.deepEqual([...full.slice(5, 9)], [0x44, i, 24, 1]);
     assert.equal(full[5 + 24 + 1], event);
+    assert.equal(full[5 + 24 + 2], 1, "report a finger, not an unclassified contact");
 }
 assert.equal(touch.frames.length, 0);
 assert.equal(transact(frame_request(2))[1], 0, "the following sequence acknowledges the final frame");
 touch.set_contacts([[2, -10, 2000], [3, 1, 2]], 200);
 const two = touch.frames[0];
 assert.equal(two[16], 2);
-assert.deepEqual(two.slice(28, 32), [0, 0, 0xBF, 3]);
+assert.deepEqual(two.slice(28, 32), [0xAD, 0xFF, 0xB4, 0xFF], "clipped edges are signed sensor coordinates");
 assert.equal(touch.get_state()[11][0].length, 80);
 touch.reset(); assert.equal(touch.frames.length, 0); assert.equal(touch.contacts.size, 0);
 console.log("PASS: N1 down/move/up frames, two contacts, clipping, CRC, retry, queued IRQs and partial-frame snapshots");
@@ -134,7 +138,7 @@ for(const [i, byte] of [0x1F, 1].entries()) input.exchange(byte, i === 0, 2);
 input.absolute([80, 120, 320, 480]); input.click([true, false, false]);
 input.absolute([160, 240, 320, 480]); input.click([false, false, false]);
 assert.deepEqual(input.frames.map(frame => frame[25]), [3, 4, 7]);
-assert.deepEqual(input.frames[1].slice(28, 32), [0x40, 1, 0xE0, 1]);
+assert.deepEqual(input.frames[1].slice(28, 32), [0xF3, 8, 0x10, 0x0E]);
 const count = input.frames.length;
 input.absolute([NaN, 2, 320, 480]); input.absolute([1, 2, 0, 480]);
 input.click([false, false, false]); assert.equal(input.frames.length, count);
