@@ -27,7 +27,7 @@ struct binding {
     struct binding *next;
     void *surface;
     struct native_window *window;
-    unsigned name, target, handle, refs, retained;
+    unsigned name, target, handle, id, refs, retained, published;
     int lease;
 };
 
@@ -126,8 +126,9 @@ static int bind_surface(struct context *ctx, unsigned target, void *surface, str
     b->surface = CFRetain(surface);
     b->name = name;
     b->target = target;
+    b->id = IOSurfaceGetID(surface);
     b->window = window;
-    if(!SEND(b->lease, v86_AcquireIOSurface, IOSurfaceGetID(surface), IOSurfaceGetWidth(surface),
+    if(!SEND(b->lease, v86_AcquireIOSurface, b->id, IOSurfaceGetWidth(surface),
             IOSurfaceGetHeight(surface), IOSurfaceGetPixelFormat(surface)) || !gles_read(b->lease, &b->handle, 4) || !b->handle || !import_pixels(b) ||
         !SEND(ctx->driver.connection, target == 0x0de1 ? rc_rcBindTexture : rc_rcBindRenderbuffer, b->handle))
     {
@@ -259,13 +260,69 @@ static void publish_framebuffer(struct context *ctx)
     struct binding *b = ctx->group->bindings;
     while(b && (b->target != target || b->name != (unsigned)name)) b = b->next;
     if(b && b->window) b = 0; // CAEAGLLayer publishes at present instead
-    if(b) b->refs++;
+    if(b) { b->refs++; b->published = 0; }
     OSSpinLockUnlock(&lock);
     if(b)
     {
-        if(!publish_bytes(b)) ctx->driver.ok = 0;
+        int published = publish_bytes(b);
+        OSSpinLockLock(&lock);
+        b->published = published;
+        OSSpinLockUnlock(&lock);
+        if(!published) ctx->driver.ok = 0;
         release_binding(b);
     }
+}
+
+// QuartzCore queues a deferred IOMobileFramebuffer layer when drawing on
+// SGX. Its kernel swap then waits for a completion signal from that GPU.
+// Our successful readback has already written and unlocked the IOSurface,
+// so pass it to the original display driver as ready. Leave unrelated
+// layers (including video and native producers) on the original path.
+typedef int (*swap_layer_fn)(void *, unsigned, void *,
+    unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned);
+static swap_layer_fn native_swap_layer;
+static int swap_layer(void *display, unsigned layer, void *surface,
+    unsigned sx, unsigned sy, unsigned sw, unsigned sh, unsigned dx, unsigned dy, unsigned dw, unsigned dh, unsigned flags)
+{
+    if(surface && (flags & 1))
+    {
+        const unsigned id = IOSurfaceGetID(surface);
+        OSSpinLockLock(&lock);
+        for(struct group *g = groups; g && (flags & 1); g = g->next)
+            for(struct binding *b = g->bindings; b; b = b->next)
+                if(b->id == id && b->published)
+                {
+                    b->published = 0;
+                    flags &= ~1u;
+                    break;
+                }
+        OSSpinLockUnlock(&lock);
+    }
+    // On ARMv7 the eight CGRect floats are passed as ordinary words.
+    return native_swap_layer(display, layer, surface, sx, sy, sw, sh, dx, dy, dw, dh, flags);
+}
+
+static void install_swap_layer(void)
+{
+    void *quartz = dlsym((void *)-2, "CACurrentMediaTime");
+    swap_layer_fn original_layer = (swap_layer_fn)dlsym((void *)-2, "IOMobileFramebufferSwapSetLayer");
+    struct image_info info;
+    if(!quartz || !original_layer || !dladdr(quartz, &info)) return;
+    const unsigned *hdr = info.base, *cmd = hdr + 7;
+    if(hdr[0] != 0xfeedface || hdr[1] != 12) return;
+    const unsigned char uuid[16] = {0xc0,0x86,0xb6,0xe6,0xcd,0x9d,0x34,0x13,0x99,0xbc,0xc3,0x67,0x5c,0x82,0xf1,0xfe};
+    for(unsigned i = 0; i < hdr[4]; i++, cmd += cmd[1] / 4)
+        if(cmd[0] == 0x1b && cmd[1] == 24 && !memcmp(cmd + 2, uuid, sizeof(uuid)))
+        {
+            // 10B329 QuartzCore's prebound writable lazy symbol pointer.
+            swap_layer_fn *slot = (swap_layer_fn *)((char *)hdr + (0x396fce28u - 0x32cdc000u));
+            if(*slot == original_layer)
+            {
+                native_swap_layer = original_layer;
+                *slot = swap_layer;
+            }
+            return;
+        }
 }
 
 static void bind_framebuffer(struct context *ctx, unsigned target, unsigned name)

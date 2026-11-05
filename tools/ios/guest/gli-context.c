@@ -335,5 +335,6 @@ int n90_install_contexts(void)
     original_present = (present_method)method_setImplementation(present_sel, (fn)present);
     original_dispose = (dispose_method)method_setImplementation(dispose, (fn)dispose_group);
     original_load = (load_method)method_setImplementation(load, (fn)load_group);
+    install_swap_layer();
     return 1;
 }
