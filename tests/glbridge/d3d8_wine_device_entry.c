@@ -181,12 +181,29 @@ static void resource_contract_group(void)
     UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
 }
 
+#include "d3d8_swapchain_pixels.h"
+
+static void swapchain_group(void)
+{
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = DefWindowProcA;
+    wc.lpszClassName = "d3d8_test_wc";
+    RegisterClassA(&wc);
+    registry_mode.dmSize = sizeof(registry_mode);
+    ok(EnumDisplaySettingsW(NULL, ENUM_REGISTRY_SETTINGS, &registry_mode), "Missing registry display mode.\n");
+    test_swapchain();
+    test_swapchain_parameters();
+    swapchain_pixels();
+    UnregisterClassA(wc.lpszClassName, GetModuleHandleA(NULL));
+}
+
 const struct test winetest_testlist[] = {
     { "device", full_device_suite },
     { "compatibility", compatibility_group },
     { "locking", locking_group },
     { "storage", storage_group },
     { "resources", resource_contract_group },
+    { "swapchains", swapchain_group },
     { "storage-audit", storage_audit_group },
     { 0, 0 }
 };

@@ -13,7 +13,7 @@ import {create_d3d_live_renderer} from "../lib/d3d_live_renderer.mjs";
 const root=fileURLToPath(new URL("../../",import.meta.url)),site=site_directory(root);
 const group=process.env.D3D_WINE_DEVICE_GROUP || "compatibility";
 const vendor=root+"tests/glbridge/wine/",out=path.resolve(process.env.D3D_WINE_OUT || root+"build/d3d-review/wine-device8-"+group);
-assert(["compatibility","locking","storage","storage-audit","resources","device"].includes(group), "Unknown Wine device group");
+assert(["compatibility","locking","storage","storage-audit","resources","swapchains","device"].includes(group), "Unknown Wine device group");
 const manifest=JSON.parse(fs.readFileSync(vendor+"manifest.json"));
 for(const file of manifest.files)assert.equal(createHash("sha256").update(fs.readFileSync(vendor+file.path)).digest("hex"),file.sha256,"Modified upstream Wine source: "+file.path);
 fs.mkdirSync(out,{recursive:true});

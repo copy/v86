@@ -2734,6 +2734,12 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 7个未修改 Wine 函数在实际XP Metal/SwiftShader各 **431项、零失败/todo/flaky/skip**，设备/资源释放为零，GPU/宿主错误为零。244组真实复制矩阵及ASan/UBSan、资源优先级/深度/包装/绑定/生命周期检查、207个相关变异、32 SDK EXE、四DLL和两站点集成通过。
 > - 4L9后的完整审计已越过体积崩溃点，在多后缓冲测试8827行再次崩溃，之前记录89次断言失败/64个位置；保留失败日志和哈希，尚未宣称完整Wine通过。下一批继续多后缓冲及窗口/Reset。发布准确Metal验收8零售DLL，证据：[stage4l10-validation.json](fixtures/d3d-review/stage4l10-validation.json)。
 
+> **阶段 4L11（2026-11-05，功能批次完成）：多后备缓冲区、FLIP 像素轮换与交换链寿命。**
+> - 隐式/附加交换链提供独立的 1–3 个后备缓冲区，公开对象和绑定身份保持稳定；GPU 复制实现 FLIP 的前后缓冲循环，COPY 保留内容，DISCARD 不承诺丢弃后的像素。缓存的公开引用/内部绑定参与父对象寿命，未被应用持有的缓存不阻止 Reset，最终销毁受临时设备引用保护。
+> - 实际像素测试发现并修复 LockRect 读回缓存被误判为 CPU-only 表面的问题；读回后重新绑定和 StretchRect 继续使用原 GPU 资源。首次运行的 52 次失败保留，不计为验收。
+> - 两个未修改 Wine 函数及 14 组项目像素场景在 XP Metal/SwiftShader 各 **816 项、零失败/todo/flaky/skip**；各完成 82 次 GPU blit、69 次像素读回，GPU/宿主错误、结束后的设备/资源均为零。覆盖逐像素 FLIP 循环、附加链不影响主链、对象/绑定身份、先释放链再释放表面、持有末缓冲阻止 Reset 与释放后尺寸更新。
+> - 相关生命周期、私有数据重入、资源/Reset、参数/节奏/目标绑定矩阵和变异检查、32 SDK EXE、四 DLL、范围 lint 与两项站点集成通过。发布准确 Metal 验收的 D3D8 DLL；本批未单独运行 XP9。证据：[stage4l11-validation.json](fixtures/d3d-review/stage4l11-validation.json)。全屏只覆盖原版参数检查，新增像素场景为窗口化非 MSAA；完整 Wine 窗口/Reset/visual/DDraw 及阶段5仍未关闭。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
