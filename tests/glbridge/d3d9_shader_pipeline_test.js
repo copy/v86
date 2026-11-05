@@ -1072,6 +1072,58 @@ test("legacy arithmetic reflects coordinate inputs without inventing samplers", 
     }
 });
 
+test("shader variants preserve one serialized instruction body across entry and sampler adapters", () => {
+    const freeze = object => {
+        if (!object || typeof object !== "object" || Object.isFrozen(object)) return object;
+        Object.values(object).forEach(freeze);return Object.freeze(object);
+    };
+    for (const stream of [VS_1_1_TRANSFORM, VS_2_0_FLOW, VS_2_0_SUBROUTINE, PS_1_1_MODULATE, PS_2_0_TEXTURED]) {
+        const base = compileOk(stream), serialized = JSON.stringify(base);
+        const restored = freeze(JSON.parse(serialized));
+        assert.ok(!("instructions" in restored.program));
+        assert.ok(!("tokens" in restored.program));
+        const body = "fn d9_body() {\n" + restored.program.mainBody.join("\n") + "\n}";
+        const variants = base.reflection.kind === "vertex" ? [{}, {flatShading: true}, {clipPlaneCount: 6},
+            {pointExpansion: true, pointSprite: true}, {inputConversions: {0: "short4"}, bgraInputLocations: [1]}]
+            : [{}, {flatShading: true}, {alphaTestUniform: true, alphaTestDiscard: "    if (result.color0.a < .5) { discard; }"},
+                {samplerMirrorOnce: {0: "xy"}, samplerSwizzles: {0: "rrrr"}, samplerLodBiasUniform: true},
+                {depthSamplers: [0]}, {depthSamplers: [0], depthFetchSamplers: [0]},
+                {legacySamplerTypes: {0: "cube"}, legacyProjection: {0: "w"}}];
+        for (const options of variants) {
+            const variant = pipeline.specializeShader(restored, options);
+            assert.ok(variant.ok, variant.error);
+            assert.strictEqual(variant.program, restored.program);
+            assert.ok(variant.wgsl.includes(body));
+            assert.deepStrictEqual(variant, pipeline.compileShader(tokens(stream), options),
+                "specialization differs from compiling the same options from scratch");
+        }
+        assert.strictEqual(JSON.stringify(restored), serialized, "specialization mutated the reusable body");
+    }
+});
+
+test("persistent shader cache preserves prepared bodies and rejects missing body payloads", () => {
+    const cache = new pipeline.D3D9ShaderCache(), stream = tokens(PS_2_0_TEXTURED), hash = pipeline.hashTokens(stream);
+    cache.compile(stream, hash.low, hash.high);
+    const payload = JSON.parse(JSON.stringify(cache.exportEntries())), restored = new pipeline.D3D9ShaderCache();
+    assert.strictEqual(restored.importEntries(payload), 1);
+    const base = restored.get(hash.low, hash.high);
+    assert.ok(pipeline.specializeShader(base, {depthSamplers: [0]}).ok);
+    assert.strictEqual(restored.stats.compiles, 0);
+    delete payload.entries[0].result.program;
+    assert.strictEqual(new pipeline.D3D9ShaderCache().importEntries(payload), 0);
+});
+
+test("deduplicated sampling adapters retain per-instruction fallback counts", () => {
+    const base = compileOk([PS(2, 0), instruction(OP.DCL, {length: 2}), dclToken(0, 0, 2), dst(REG.SAMPLER, 0),
+        instruction(OP.TEXLDL, {length: 3}), dst(REG.TEMP, 0), src(REG.CONST, 0), src(REG.SAMPLER, 0),
+        instruction(OP.TEXLDL, {length: 3}), dst(REG.TEMP, 1), src(REG.CONST, 1), src(REG.SAMPLER, 0),
+        instruction(OP.ADD, {length: 3}), dst(REG.COLOROUT, 0), src(REG.TEMP, 0), src(REG.TEMP, 1), END]);
+    assert.strictEqual(base.program.sampleOperations.length, 1);
+    const depth = pipeline.specializeShader(base, {depthSamplers: [0]});
+    assert.ok(depth.ok, depth.error);
+    assert.strictEqual(depth.reflection.levelZeroSamples, 2);
+});
+
 // ---- report ----
 
 if (failures.length) {

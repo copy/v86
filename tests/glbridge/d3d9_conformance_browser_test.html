@@ -40,7 +40,8 @@
         }
         const device = executor.device;
         const group = new URLSearchParams(location.search).get("group");
-        let executed = 0;
+        let executed = 0, checkedVariants = 0, persistedBodies = 0;
+        const checkBodies = new URLSearchParams(location.search).has("body_reuse");
         for (let i = 0; i < CASES.length; i++) {
             const c = CASES[i];
             if (group && c.group !== group) continue;
@@ -68,6 +69,23 @@
                 if (!reply || reply.length !== 16 + 64 * 64 * 4 || new DataView(reply.buffer).getUint32(12, true) !== C.D9WG_RESPONSE_OK)
                     throw new Error(c.name + ": guest READBACK failed");
                 pictures.set(target, reply.subarray(16));
+            }
+            if (checkBodies) {
+                for (const resource of executor.resources.values()) {
+                    if (!resource.translated || !resource.translated.ok) continue;
+                    if (!resource.translated.program) throw new Error("Missing prepared body from shader compiler");
+                    for (const variant of resource.variants.values()) {
+                        if (!variant.ok || variant.program !== resource.translated.program)
+                            throw new Error("Draw variant retranslated or lost its prepared body");
+                        ++checkedVariants;
+                    }
+                }
+                if (!persistedBodies && executor.shaderCache.entries.size) {
+                    const cache = new D3D9ShaderPipeline.D3D9ShaderCache();
+                    persistedBodies = cache.importEntries(JSON.parse(JSON.stringify(executor.shaderCache.exportEntries())));
+                    if (!persistedBodies) throw new Error("Prepared body cache did not survive persistence");
+                    executor.shaderCache = cache;
+                }
             }
             // Each case is a separate guest process. End it through the wire
             // after readback so hundreds of cases do not retain hundreds of
@@ -121,6 +139,12 @@
             } else {
                 lines.push("ok    " + c.name);
             }
+        }
+        if (checkBodies) {
+            if (!checkedVariants || !persistedBodies || !executor.stats.shaderWorkerCompiles || executor.stats.shaderWorkerFallbacks)
+                throw new Error("Body reuse test did not exercise worker compilation, variants and cache persistence");
+            lines.push("body reuse: " + checkedVariants + " variants, " + persistedBodies + " persisted bodies, " +
+                executor.stats.shaderWorkerCompiles + " worker compiles, zero worker fallbacks");
         }
         if (!executed) throw new Error("No conformance cases selected: " + group);
         document.getElementById("result").textContent =

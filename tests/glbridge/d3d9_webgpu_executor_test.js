@@ -1128,6 +1128,10 @@ await test("SM1 sampler variants follow cube/2D/volume bindings without poisonin
         command(OP.CREATE_TEXTURE_2D, encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0x402, width: 4, height: 4, level_count: 1, format: 21, usage: 0, pool: 1, multisample_type: 0, multisample_quality: 0 })),
         command(OP.CREATE_TEXTURE_VOLUME, encodePayload("CreateTextureVolume", { device_handle: DEVICE, resource_handle: 0x403, width: 4, height: 4, depth: 4, level_count: 1, format: 21, usage: 0, pool: 1 }).subarray(0, 36)),
     ]));
+    const preparedPixel = executor.resources.get(psHandle).translated.program;
+    Object.defineProperty(executor.resources.get(psHandle), "tokens", {get() {
+        throw new Error("draw-time specialization attempted to read the original bytecode");
+    }});
     for (const [handle, type] of [[0x401, "cube"], [0x402, "2d"],
             [0x403, "3d"], [0x401, "cube"]]) {
         const before = executor.stats.programmableDraws;
@@ -1149,6 +1153,8 @@ await test("SM1 sampler variants follow cube/2D/volume bindings without poisonin
     const shader = executor.resources.get(psHandle);
     assert.equal(shader.translated.reflection.samplers[0].type, "2d");
     // SM2 really does declare 2D; the same binding is still invalid for it.
+    for (const variant of executor.resources.get(psHandle).variants.values())
+        assert.strictEqual(variant.program, preparedPixel, "draw variant did not reuse its prepared body");
     const explicit = shaderCreatePayload(0x40000200, PS_BYTECODE);
     await executor.submit(buildBatch([
         command(OP.CREATE_PIXEL_SHADER, explicit.payload, explicit.blob, explicit.blobOffsetField),

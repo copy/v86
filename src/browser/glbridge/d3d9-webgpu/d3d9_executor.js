@@ -4609,7 +4609,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         flatShading || fogBlend) {
                     variant = psResource.variants.get(pixelVariantKey);
                     if (!variant) {
-                        variant = shaderPipeline.compileShader(psResource.tokens, {
+                        variant = shaderPipeline.specializeShader(psResource.translated, {
                             alphaTestDiscard: alphaTestDiscard(alphaTest,
                                 "result.color0.a", "d9c.alpha_test.x"),
                             alphaTestUniform: alphaTest.enabled,
@@ -4778,7 +4778,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 let variant = vsResource.variants.get(variantKey);
                 if (!variant) {
                     variant = needsVariant
-                        ? shaderPipeline.compileShader(vsResource.tokens,
+                        ? shaderPipeline.specializeShader(vsResource.translated,
                             { bgraInputLocations: bgra, inputConversions, samplerSwizzles: vertexSwizzles,
                               pointExpansion: !!drawOptions.pointExpansion,
                               pointSprite: !!drawOptions.pointSprite,

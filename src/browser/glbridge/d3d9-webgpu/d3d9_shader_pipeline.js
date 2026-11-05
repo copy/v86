@@ -472,6 +472,12 @@
         throw new Error("Unsupported D3D texture sample swizzle " + swizzle);
     }
 
+    const PROGRAM_MAPS = ["usedInputs", "outputSemantics", "samplers", "floatDefaults", "intDefaults", "boolDefaults"];
+    const PROGRAM_SETS = ["temps", "writtenVaryings", "psTexcoordInputs", "bumpStages", "psColorInputs", "colorOutputs"];
+    const PROGRAM_VALUES = ["outputDeclarations", "inputDeclarations", "usesAddress", "usesLoopCounter", "usesPredicate",
+        "usesPointSize", "usesDepthOutput", "usesFragPosition", "usesFrontFacing", "usesRelativeConstants", "usesRelativeInputs",
+        "maxFloatConst", "maxIntConst", "maxBoolConst", "temporaryId", "warnings"];
+
     class Translator {
         constructor(parsed, options) {
             this.parsed = parsed;
@@ -553,6 +559,8 @@
             this.levelZeroSamples = 0;
             this.temporaryId = 0;
             this.warnings = [];
+            this.sampleOperations = [];
+            this.sampleOperationKeys = new Map();
         }
 
         emit(text) {
@@ -909,7 +917,21 @@
             this.emitBlock(routines.main);
             const mainBody = this.lines;
 
-            return this.assemble(routines, bodies, mainBody);
+            return this.prepareProgram(routines, bodies, mainBody);
+        }
+
+        prepareProgram(routines, bodies, mainBody) {
+            // Plain data survives worker structured cloning and JSON cache
+            // persistence. Instruction operands are deliberately absent: a
+            // specialization cannot walk or retranslate the bytecode body.
+            const maps = {}, sets = {}, values = {};
+            for (const name of PROGRAM_MAPS) maps[name] = Array.from(this[name]);
+            for (const name of PROGRAM_SETS) sets[name] = Array.from(this[name]);
+            for (const name of PROGRAM_VALUES) values[name] = this[name];
+            return {version: 1, kind: this.kind, major: this.major, minor: this.minor,
+                maps, sets, values, sampleOperations: this.sampleOperations,
+                subroutines: routines.subroutines.map(routine => ({label: routine.label})),
+                bodies: Array.from(bodies), mainBody};
         }
 
         declare(instruction) {
@@ -1571,6 +1593,7 @@
         // depth sampler, where z is the comparison reference and so has to be
         // carried out alongside the uv rather than dropped with the rest.
         coordinateFor(index, expression, projected) {
+            if (this.preparing) return {rawExpression: expression, projected};
             const type = this.samplers.get(index) || "2d";
             const arity = type === "cube" ? 3 : (type === "3d" ? 3 : 2);
             const name = this.fresh("uv");
@@ -1596,6 +1619,26 @@
         }
 
         sampleExpression(index, coordinate, options) {
+            if (this.preparing) {
+                const params = [], args = [coordinate.rawExpression ||
+                    "vec4<f32>(" + coordinate.coord + ", 0.0, 1.0)"];
+                const dimension = (this.samplers.get(index) || "2d") === "2d" ? 2 : 3;
+                for (const name of ["lod", "bias", "ddx", "ddy"]) {
+                    if (!options || options[name] === undefined) continue;
+                    params.push({name, type: name === "ddx" || name === "ddy" ? "vec" + dimension + "<f32>" : "f32"});
+                    args.push(options[name]);
+                }
+                const operation = {index, projected: coordinate.projected || false, params,
+                    explicitLod: !!(options && options.explicitLod), gradients: !!(options && options.gradients)};
+                const key = JSON.stringify(operation);
+                let id = this.sampleOperationKeys.get(key);
+                if (id === undefined) {
+                    id = this.sampleOperations.length;
+                    this.sampleOperationKeys.set(key, id);
+                    this.sampleOperations.push({...operation, uses: 1});
+                } else ++this.sampleOperations[id].uses;
+                return "d9_sample" + id + "(" + args.join(", ") + ")";
+            }
             const raw = this.rawSampleExpression(index, coordinate, options);
             return sampleSwizzleExpression(raw, this.options.samplerSwizzles && this.options.samplerSwizzles[index]);
         }
@@ -1745,7 +1788,7 @@
                     this.samplers.set(index, this.legacySamplerType(index));
                 this.psTexcoordInputs.add(index);
                 coordinateExpression = "t" + index;
-                projected = (this.options.legacyProjection || {})[index] || false;
+                projected = "legacy";
             } else if (this.kind === "pixel" && this.major === 1) {
                 // ps_1_4 `texld r#, t#`: sampler comes from the destination.
                 index = dest.index;
@@ -1942,6 +1985,7 @@
                 out.push("    return d9_inputs[index];");
                 out.push("}");
             }
+            this.assembleSampleHelpers(out);
             for (const routine of routines.subroutines) {
                 out.push("fn d9_sub" + routine.label + "() {");
                 out.push(...bodies.get(routine.label));
@@ -1959,6 +2003,25 @@
 
             const reflection = this.reflect(floatCount, intCount, boolVectors);
             return { wgsl: out.join("\n") + "\n", reflection };
+        }
+
+        assembleSampleHelpers(out) {
+            for (const [id, operation] of this.sampleOperations.entries()) {
+                const {index, params, explicitLod, gradients} = operation;
+                const projected = operation.projected === "legacy"
+                    ? (this.options.legacyProjection || {})[index] || false : operation.projected;
+                const options = {explicitLod, gradients};
+                for (const parameter of params) options[parameter.name] = "sample_" + parameter.name;
+                this.lines = [];
+                this.indent = 4;
+                const coordinate = this.coordinateFor(index, "sample_coord", projected);
+                const before = this.levelZeroSamples;
+                const value = this.sampleExpression(index, coordinate, options);
+                this.levelZeroSamples += (this.levelZeroSamples - before) * (operation.uses - 1);
+                out.push("fn d9_sample" + id + "(sample_coord: vec4<f32>" +
+                    params.map(parameter => ", sample_" + parameter.name + ": " + parameter.type).join("") + ") -> vec4<f32> {");
+                out.push(...this.lines, "    return " + value + ";", "}", "");
+            }
         }
 
         assembleVertexEntry(out) {
@@ -2366,15 +2429,42 @@
         }
     }
 
+    function isPreparedProgram(program) {
+        return !!program && program.version === 1 && !!program.maps && !!program.sets && !!program.values &&
+            PROGRAM_MAPS.every(name => Array.isArray(program.maps[name])) &&
+            PROGRAM_SETS.every(name => Array.isArray(program.sets[name])) &&
+            [program.mainBody, program.bodies, program.subroutines, program.sampleOperations].every(Array.isArray);
+    }
+
+    function specializeShader(base, options) {
+        try {
+            if (!base || !base.ok) return base || {ok: false, error: "missing translated shader"};
+            const program = base.program;
+            if (!isPreparedProgram(program)) throw new Error("missing prepared shader body");
+            const translator = new Translator(program, options);
+            for (const name of PROGRAM_MAPS) translator[name] = new Map(program.maps[name]);
+            for (const name of PROGRAM_SETS) translator[name] = new Set(program.sets[name]);
+            for (const name of PROGRAM_VALUES) translator[name] = Array.isArray(program.values[name])
+                ? program.values[name].slice() : program.values[name];
+            translator.sampleOperations = program.sampleOperations;
+            if (program.kind === "pixel" && program.major === 1)
+                for (const index of translator.samplers.keys()) translator.samplers.set(index, translator.legacySamplerType(index));
+            const result = translator.assemble({subroutines: program.subroutines}, new Map(program.bodies), program.mainBody);
+            return {ok: true, wgsl: result.wgsl, reflection: result.reflection, program};
+        } catch (error) {
+            return {ok: false, error: error && error.message ? error.message : String(error)};
+        }
+    }
+
     function compileShader(tokens, options) {
         try {
             const parsed = parseShader(tokens);
-            const translator = new Translator(parsed, options);
-            const result = translator.translate();
-            return { ok: true, wgsl: result.wgsl, reflection: result.reflection };
+            const translator = new Translator(parsed);
+            translator.preparing = true;
+            const program = translator.translate();
+            return specializeShader({ok: true, program}, options);
         } catch (error) {
-            return { ok: false, error: error && error.message ? error.message :
-                String(error) };
+            return {ok: false, error: error && error.message ? error.message : String(error)};
         }
     }
 
@@ -2520,7 +2610,7 @@
                 if (!item || typeof item.key !== "string" || !item.result) continue;
                 const result = item.result;
                 if (result.ok && (typeof result.wgsl !== "string" ||
-                        !result.reflection)) continue;
+                        !result.reflection || !isPreparedProgram(result.program))) continue;
                 if (!result.ok && typeof result.error !== "string") continue;
                 if (this.entries.has(item.key)) continue;
                 this.entries.set(item.key, result);
@@ -2534,7 +2624,7 @@
     }
 
     const api = {
-        compileShader, parseShader, hashTokens, D3D9ShaderCache, sampleSwizzleExpression, linkShaderSemantics,
+        compileShader, specializeShader, parseShader, hashTokens, D3D9ShaderCache, sampleSwizzleExpression, linkShaderSemantics,
         vertexInputConversion, vertexInputType, vertexInputValue, vertexInputHelpers,
         TRANSLATOR_REVISION,
         VARYING_COLOR0, VARYING_COLOR1, VARYING_TEXCOORD0, VARYING_FOG,

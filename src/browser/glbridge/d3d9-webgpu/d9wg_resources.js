@@ -991,7 +991,8 @@
                     if (workerCompile) {
                         try {
                             translated = await workerCompile;
-                            if (!translated || typeof translated.ok !== "boolean")
+                            if (!translated || typeof translated.ok !== "boolean" ||
+                                    (translated.ok && (!translated.program || translated.program.version !== 1)))
                                 throw new Error("shader worker returned an invalid result");
                             ++this.stats.shaderWorkerCompiles;
                             const ended = typeof performance !== "undefined" && performance.now

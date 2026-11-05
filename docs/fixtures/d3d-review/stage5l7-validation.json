@@ -1,0 +1,185 @@
+{
+  "stage": "5L7 prepared instruction bodies and thin variant adapters; stage 5 completed",
+  "date": "2026-11-05",
+  "baseline": {
+    "core": "ec7c91fa",
+    "site": "4b3df73"
+  },
+  "changes": [
+    "Compile bytecode into a reusable, serializable program with instruction-body/subroutine WGSL, register metadata and deduplicated sampling adapter descriptors. Prepared programs contain no bytecode or parsed instruction list.",
+    "Specialize entry, uniforms, linkage and sampling adapters without walking bytecode. Both executor stages use specializeShader(base, options); all variants share the same prepared program.",
+    "Preserve programs across worker messages and JSON shader caches. Reject cache entries missing prepared bodies and fall back if a worker returns the old incomplete shape. Preserve per-instruction fallback statistics when adapter functions are deduplicated."
+  ],
+  "runs": {
+    "metal": {
+      "status": "PASS",
+      "cases": 1123,
+      "sharedBodyVariants": 1258,
+      "persistedBodies": 1,
+      "workerCompiles": 516,
+      "workerFallbacks": 0,
+      "logSha256": "e408bc09cd08062fb4e56b5cce247309c99e0ca68633063791e3785af6e1fa83",
+      "validation": "Wire READBACK and error gates plus identity checks on every variant program; JSON cache restoration and actual browser worker compilation are mandatory.",
+      "numericalDifferential": {
+        "programs": 707,
+        "components": 90496,
+        "logSha256": "1c19c8cede511488bdae7dce69dd1c936a7bbfb14aaca5899324e66f353d522c",
+        "tolerance": "relative 2e-5, scale at least 1; SINCOS WGSL absolute bound 2^-11"
+      },
+      "textureDifferential": {
+        "programs": 52,
+        "components": 13312,
+        "absoluteTolerance": 1e-05,
+        "logSha256": "5ec07f1223e40f00a85d72ac42316ae5f5a76d57fbd9e1f81bcfb8124331fd25"
+      }
+    },
+    "swift": {
+      "status": "PASS",
+      "cases": 1123,
+      "sharedBodyVariants": 1258,
+      "persistedBodies": 1,
+      "workerCompiles": 516,
+      "workerFallbacks": 0,
+      "logSha256": "e408bc09cd08062fb4e56b5cce247309c99e0ca68633063791e3785af6e1fa83",
+      "validation": "Wire READBACK and error gates plus identity checks on every variant program; JSON cache restoration and actual browser worker compilation are mandatory.",
+      "numericalDifferential": {
+        "programs": 707,
+        "components": 90496,
+        "logSha256": "1c19c8cede511488bdae7dce69dd1c936a7bbfb14aaca5899324e66f353d522c",
+        "tolerance": "relative 2e-5, scale at least 1; SINCOS WGSL absolute bound 2^-11"
+      },
+      "textureDifferential": {
+        "programs": 52,
+        "components": 13312,
+        "absoluteTolerance": 1e-05,
+        "logSha256": "5ec07f1223e40f00a85d72ac42316ae5f5a76d57fbd9e1f81bcfb8124331fd25"
+      }
+    }
+  },
+  "validation": {
+    "shaderUnit": 52,
+    "executorUnit": 178,
+    "nagaPrograms": 199,
+    "strictPrivateCorpus": {
+      "translated": 12,
+      "naga": 12,
+      "chromeTint": 12
+    },
+    "siteIntegration": 2,
+    "lintFiles": 11,
+    "newLintProblems": 0,
+    "architectureGuards": [
+      "Executor sampler-variant test makes original token access throw after creation.",
+      "Frozen JSON-restored programs specialize without mutation and produce identical results to fresh compilation.",
+      "Both GPU backends require actual worker compiles with zero fallback and verify variant program identity."
+    ]
+  },
+  "cpuMicrobenchmark": {
+    "scope": "CPU-only local microbenchmark; not game FPS or a timing acceptance threshold",
+    "instructions": 252,
+    "variantsPerRound": 200,
+    "rounds": [
+      {
+        "old": {
+          "ms": 26.606374999999986,
+          "bytes": 3559600
+        },
+        "prepared": {
+          "ms": 5.157749999999993,
+          "bytes": 3559600
+        }
+      },
+      {
+        "old": {
+          "ms": 26.358125,
+          "bytes": 3559600
+        },
+        "prepared": {
+          "ms": 5.667833999999999,
+          "bytes": 3559600
+        }
+      },
+      {
+        "old": {
+          "ms": 23.57891699999999,
+          "bytes": 3559600
+        },
+        "prepared": {
+          "ms": 4.761374999999987,
+          "bytes": 3559600
+        }
+      },
+      {
+        "old": {
+          "ms": 26.483499999999992,
+          "bytes": 3559600
+        },
+        "prepared": {
+          "ms": 4.488917000000015,
+          "bytes": 3559600
+        }
+      },
+      {
+        "old": {
+          "ms": 23.615542000000033,
+          "bytes": 3559600
+        },
+        "prepared": {
+          "ms": 4.573541000000034,
+          "bytes": 3559600
+        }
+      }
+    ],
+    "oldMedianMs": 26.358125,
+    "preparedMedianMs": 4.761374999999987,
+    "ratio": 5.535822110209776
+  },
+  "sourceSha256": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "c57c870c223771fb18c25ac1b76e8d5e329886cde764adfa1576e0a559b2b375",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "28a491c08da677d660f2cfd3afd0d66ffcdf9538d78e694d08c0426218c92682",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+    "tests/glbridge/d3d9_shader_pipeline_test.js": "3ea97f8149544cf0658d86bf59cfbaada46e90599cf341b14e8c0c21d0e1320e",
+    "tests/glbridge/d3d9_webgpu_executor_test.js": "283c64713fcb649c2415b99c700979f28873cc4f75de623aba3fc10c90a5de2f",
+    "tests/glbridge/d3d9_conformance_browser_test.html": "cfa56adce9f37307fe144206d60b1fe05e28c54fe26bcaabefd358ce8c0f6a16"
+  },
+  "logs": {
+    "unit": "164947ead02f8e2c7ee04322052def021d26fa5f33659c390cf4249e843c71c1",
+    "executor": "481e58d77803ef79566dff0727532785aa42685e2eee4468c87a59be57679bad",
+    "naga": "643316e51bf3c8a14b1a40d5f2defff2673de0f863fb969e54c6d90961f954fd",
+    "corpus": "82c5eca04fa67349e85bebc25e312777914ca75cf9f4bb998a76a162089d349f",
+    "lint": "58b1f36a9511701d47be45182383246e3cf519ea91692ac30fb955d37488c70d",
+    "site": "d75d6dab78e49b7129d60d5c84b2dc9a3f2308ca1db93ef5e01271046100c9e1",
+    "build": "a77d8e0e7b242e4056b4236384f1b95f415e2f29a557f8b43dac066809555470",
+    "benchmark": "941a6bb84f880940570fb287eff6e261e2c31d22f5b37c2d836dda65e3080421"
+  },
+  "bundle": {
+    "revision": "6018289b1abb163f6620",
+    "files": [
+      "libv86-webgpu.js",
+      "d3d9_shader_worker.js",
+      "d3d9_shader_pipeline.js",
+      "graphics_journal_worker.js",
+      "d9wg_diagnostics.js",
+      "v86gl-device.js",
+      "glslang.wasm",
+      "vx_naga.wasm"
+    ]
+  },
+  "publishedSha256": {
+    "libv86-webgpu.js": "10d1c4460b2c73971cd78e80cd05cef21041de60df093dd2963a54c5c655d6b3",
+    "d3d9_shader_worker.js": "dcf9263145630548b75376748c535935fc1da1dd4e7d51a68ab7ab613ed54ad6",
+    "d3d9_shader_pipeline.js": "522f60fd153c1ef4553b41bad01bfae7bef57324df6a0b4be5678f57a96c3e4b",
+    "graphics_journal_worker.js": "3659d3f263e022db7864be84db99d20af97053a6a608da62b3a2cdca7d4c01a6",
+    "d9wg_diagnostics.js": "f03d5d15eda4fc6daf9b985ea6903967a62f06f13eb2a0aeccade8b3f7be245f",
+    "v86gl-device.js": "d9bd804801c0a5b19f2c7296006ac33128083ace85f18ab832280f650c0f495c",
+    "glslang.wasm": "bf04f3f1aa510afd7e461ccb75c929e9498684b3186768c00804ffecc8bdbd16",
+    "vx_naga.wasm": "8a0e51ee1698ff84d14a125d00241fc57fa33f17123cc3d6850d742bf41f5641",
+    "manifest.json": "b663272b97e2d4944947f036e13676ffc8bfe598894a9958a9bde3056765b18f"
+  },
+  "limitations": [
+    "A full WGSL module still has to be assembled and compiled by WebGPU for each binding/interface variant; bytecode-body translation is what is shared.",
+    "First SwiftShader numerical run exceeded the 60-second runner limit under concurrent load. Acceptance is the isolated 180-second-budget run; the timed-out run is not counted as a pass.",
+    "The CPU microbenchmark measures local shader-source generation, not game FPS.",
+    "Stage 4 full Wine compatibility remains open. MapleStory remains user-skipped; 3DMark evidence retains its original bounded scene/replay scope."
+  ]
+}
