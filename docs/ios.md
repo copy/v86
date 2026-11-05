@@ -25,8 +25,11 @@ make ios-guest IPHONE4_DYLD_CACHE=/path/to/dyld_shared_cache_armv7
 ```
 
 The importer reads `build/ios-guest/libv86gles.dylib` or a copy you select
-in the wizard. It links the two local display daemons to the adapter and
-adds their hashes and the adapter's to the kernel's trust cache.
+in the wizard. It links the two local display daemons and Safari to the
+adapter and adds the updated executables and library to the kernel's trust
+cache. Safari loads the copy installed on the read-only system volume,
+where its original sandbox permits library reads. Existing NAND imports
+need a new import to pick up the updated Safari executable.
 The graphics path needs WebGPU and the `make glbridge` assets. Boot
 without the graphics adapter only for serial diagnostics.
 Graphics mode advances guest time at one fifth of wall time by default
@@ -57,8 +60,8 @@ exports contain Apple system files and are for personal backup.
 `system-volume.mjs` prepares a copy of its HFSX system volume,
 `data-volume.mjs` builds its matching data volume, and
 `nand_build.mjs volumes` writes a raw sparse NAND image. The data volume
-builder also runs without macOS utilities. With graphics, pass `--gles`
-to the system builder, `--gles-library` to the data builder and prepare
+builder also runs without macOS utilities. With graphics, pass
+`--gles-library` and the adapter path to both volume builders, then prepare
 the matching kernel with `graphics-kernel.mjs`. Add `--offline` to
 `system-volume.mjs` and `graphics-kernel.mjs` for the browser's offline
 setup behavior; the data builder detects that prepared system.

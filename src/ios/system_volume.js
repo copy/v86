@@ -1,7 +1,9 @@
 // Prepare the supplied 10B329 system volume in place. It is already a
 // private copy. No files from the IPSW are needed by the emulator build.
 import { HFSPlus } from "./hfsplus.js";
-import { DISPLAY_DAEMONS, LOCKDOWN_DAEMON, link_guest_gles, offline_lockdown } from "./guest_load.js";
+import { catalog_key, catalog_thread } from "./hfsx_data.js";
+import { DISPLAY_DAEMONS, LOCKDOWN_DAEMON, SAFARI_EXECUTABLE, SYSTEM_GL_LIBRARY,
+    check_guest_library, link_guest_gles, offline_lockdown } from "./guest_load.js";
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 const expect = (condition, message) => { if(!condition) throw new Error(message); };
@@ -127,7 +129,7 @@ async function rewrite_daemon(volume, write, path, compress, patch)
         if(equals(source.subarray(oldMap, oldMap + 16), source.subarray(0, 16)))
             resource.set(resource.subarray(0, 16), newMap);
         const fork = size <= file.resource.blocks * volume.block_size ? { ...file.resource, size } :
-            await relocate_resource(volume, write, file.resource, size);
+            await extend_system_volume(volume, write, file.resource, size);
         await resize_resource(volume, write, file, fork);
     }
     const dst = view(resource);
@@ -145,11 +147,11 @@ async function rewrite_daemon(volume, write, path, compress, patch)
     return patched;
 }
 
-async function relocate_resource(volume, write, fork, size)
+async function extend_system_volume(volume, write, fork, size)
 {
     // This restore's HFSX is packed with no free blocks. Grow the private
     // copy by one extent plus its new alternate volume header. Leave all
-    // other forks in place and release the old, directly mapped extent(s).
+    // other forks in place and release any directly mapped old extents.
     const block = volume.block_size, start = volume.total_blocks;
     const count = Math.ceil(size / block), total = start + count + 1;
     const allocation = volume.forks[6];
@@ -167,7 +169,7 @@ async function relocate_resource(volume, write, fork, size)
         "Unexpected final N90 system allocation block");
     const release = b => {
         const bit = 128 >>> (b & 7);
-        expect(b < start && bitmap[b >>> 3] & bit, "Invalid old resource allocation");
+        expect(b < start && bitmap[b >>> 3] & bit, "Invalid old system allocation");
         bitmap[b >>> 3] &= ~bit;
     };
     release(start - 1);
@@ -179,14 +181,19 @@ async function relocate_resource(volume, write, fork, size)
     const header = volume.header.slice(), v = view(header), free = volume.free_blocks + fork.blocks + 1;
     v.setUint32(44, total);
     v.setUint32(48, free);
-    const tail = new Uint8Array(block);
-    tail.set(header, block - 1024);
-    await write((total - 1) * block, tail);
-    await write(1024, header);
-    volume.header = header;
     volume.total_blocks = total;
     volume.free_blocks = free;
+    await write_volume_header(volume, write, header);
     return { size, blocks: count, extents: [{ start, count }] };
+}
+
+async function write_volume_header(volume, write, header)
+{
+    const block = volume.block_size, tail = new Uint8Array(block);
+    tail.set(header, block - 1024);
+    await write((volume.total_blocks - 1) * block, tail);
+    await write(1024, header);
+    volume.header = header;
 }
 
 async function resize_resource(volume, write, file, fork)
@@ -220,7 +227,94 @@ async function resize_resource(volume, write, file, fork)
     throw new Error("Could not locate the display daemon's resource fork record");
 }
 
-export async function prepare_system_volume(read, write, graphics, compress = deflate, offline = false)
+function compare_catalog_key(a, b)
+{
+    const av = view(a), bv = view(b);
+    const parent = av.getUint32(2) - bv.getUint32(2);
+    if(parent) return parent;
+    for(let i = 8; i < Math.min(a.length, b.length); i += 2)
+    {
+        const unit = av.getUint16(i) - bv.getUint16(i);
+        if(unit) return unit;
+    }
+    return a.length - b.length;
+}
+
+async function insert_catalog_record(volume, write, key, data)
+{
+    const tree = volume.catalog, size = tree.node_size;
+    await volume.walk(tree, other => compare_catalog_key(other, key), () => false);
+    for(const [n, leaf] of tree.cache)
+    {
+        if(leaf.kind !== -1 || !leaf.records.length || compare_catalog_key(leaf.records[0].key, key) >= 0) continue;
+        const index = leaf.records.findIndex(record => compare_catalog_key(record.key, key) >= 0);
+        if(index < 0 && leaf.next) continue;
+        expect(index < 0 || compare_catalog_key(leaf.records[index].key, key) > 0, "Duplicate system catalog record");
+        const at = n * size, node = await volume.read_fork(tree.file_id, tree.fork, at, size), v = view(node);
+        const count = leaf.records.length, slot = i => size - 2 * (i + 1);
+        const position = index < 0 ? count : index;
+        const start = v.getUint16(slot(position)), free = v.getUint16(slot(count)), grow = key.length + data.length;
+        // Both records fit in existing 10B329 leaves without changing their first keys.
+        expect(free + grow <= slot(count + 1), "The system catalog leaf has no room for the guest library");
+        node.copyWithin(start + grow, start, free);
+        for(let i = count; i >= position; i--) v.setUint16(slot(i + 1), v.getUint16(slot(i)) + grow);
+        node.set(key, start);
+        node.set(data, start + key.length);
+        v.setUint16(10, count + 1);
+        await write_fork(write, volume, tree.file_id, tree.fork, 0, at, node);
+        tree.cache.delete(n);
+        return;
+    }
+    throw new Error("Could not insert the guest library's system catalog record");
+}
+
+async function install_system_gl(volume, write, library)
+{
+    check_guest_library(library);
+    const directory = await volume.lookup("/usr/lib"), name = SYSTEM_GL_LIBRARY.slice("/usr/lib/".length);
+    const tree = volume.catalog;
+    expect(volume.case_sensitive && tree.key_compare === 0xBC && directory?.type === "directory", "Expected the N90 HFSX system library directory");
+    const parent = [...tree.cache].find(([, leaf]) => leaf.kind === -1 && leaf.records.some(({ data }) =>
+        view(data).getUint16(0) === 1 && view(data).getUint32(8) === directory.id));
+    expect(parent, "Missing the system library directory record");
+    const [parentNode, leaf] = parent, size = tree.node_size;
+    const parentIndex = leaf.records.findIndex(({ data }) => view(data).getUint16(0) === 1 && view(data).getUint32(8) === directory.id);
+
+    const fileID = view(volume.header).getUint32(64), record = new Uint8Array(248), v = view(record);
+    v.setUint16(0, 2);
+    v.setUint16(2, 2); // has a file thread
+    v.setUint32(8, fileID);
+    record.set(leaf.records[parentIndex].data.subarray(12, 32), 12);
+    v.setUint16(42, 0o100755);
+    v.setUint32(44, 1);
+    const { blocks, extents: [{ start }] } = await extend_system_volume(volume, write, { blocks: 0, extents: [] }, library.length);
+    v.setBigUint64(88, BigInt(library.length));
+    v.setUint32(100, blocks);
+    v.setUint32(104, start);
+    v.setUint32(108, blocks);
+    await write(start * volume.block_size, library);
+
+    // Update the directory before inserting records, which can shift offsets in its leaf.
+    const parentAt = parentNode * size, node = await volume.read_fork(tree.file_id, tree.fork, parentAt, size), nv = view(node);
+    const keyAt = nv.getUint16(size - 2 * (parentIndex + 1)), bodyAt = keyAt + 2 + nv.getUint16(keyAt);
+    nv.setUint32(bodyAt + 4, directory.valence + 1);
+    await write_fork(write, volume, tree.file_id, tree.fork, 0, parentAt, node);
+    tree.cache.delete(parentNode);
+
+    await insert_catalog_record(volume, write, catalog_key(directory.id, name), record);
+    await insert_catalog_record(volume, write, catalog_key(fileID, ""), catalog_thread(directory.id, name, false));
+    const catalogHeader = await volume.read_fork(tree.file_id, tree.fork, 0, size), ch = view(catalogHeader);
+    ch.setUint32(20, ch.getUint32(20) + 2); // leaf records in BTHeaderRec
+    await write_fork(write, volume, tree.file_id, tree.fork, 0, 0, catalogHeader);
+    const header = volume.header.slice(), hv = view(header);
+    hv.setUint32(32, hv.getUint32(32) + 1);
+    hv.setUint32(64, fileID + 1);
+    await write_volume_header(volume, write, header);
+    const installed = await volume.lookup(SYSTEM_GL_LIBRARY);
+    expect(installed && equals(await volume.contents(installed), library), "Could not read back the system guest library");
+}
+
+export async function prepare_system_volume(read, write, graphics, compress = deflate, offline = false, library = null)
 {
     const volume = await new HFSPlus(read).open(), daemons = [];
     await fix_fstab(volume, write, compress);
@@ -228,6 +322,12 @@ export async function prepare_system_volume(read, write, graphics, compress = de
         "Patched fstab could not be read back");
     if(graphics)
         for(const path of DISPLAY_DAEMONS) daemons.push(await rewrite_daemon(volume, write, path, compress, link_guest_gles));
+    if(library)
+    {
+        await install_system_gl(volume, write, library);
+        daemons.push(await rewrite_daemon(volume, write, SAFARI_EXECUTABLE, compress,
+            bytes => link_guest_gles(bytes, SYSTEM_GL_LIBRARY)));
+    }
     const lockdown = offline ? await rewrite_daemon(volume, write, LOCKDOWN_DAEMON, compress, offline_lockdown) : null;
     return { volume, daemons, lockdown };
 }

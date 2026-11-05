@@ -21,12 +21,21 @@ function fork(v, at, size, start, count, clump = 0)
     v.setUint32(at + 20, count);
 }
 
-function key(parent, name)
+export function catalog_key(parent, name)
 {
     const bytes = new Uint8Array(8 + 2 * name.length), v = view(bytes);
     v.setUint16(0, bytes.length - 2);
     v.setUint32(2, parent);
     utf16(v, 6, name);
+    return bytes;
+}
+
+export function catalog_thread(parent, name, directory)
+{
+    const bytes = new Uint8Array(10 + 2 * name.length), v = view(bytes);
+    v.setUint16(0, directory ? 3 : 4);
+    v.setUint32(4, parent);
+    utf16(v, 8, name);
     return bytes;
 }
 
@@ -207,12 +216,8 @@ export async function write_hfsx_data(system, capacity, write, files)
                 fork(v, at, bytes.length, f.start, f.count);
             }
         }
-        records.push({ parent: entry.parent, name: entry.name, parts: [key(entry.parent, entry.name), body] });
-        const thread = new Uint8Array(10 + 2 * entry.name.length), tv = view(thread);
-        tv.setUint16(0, directory ? 3 : 4);
-        tv.setUint32(4, entry.parent);
-        utf16(tv, 8, entry.name);
-        records.push({ parent: entry.id, name: "", parts: [key(entry.id, ""), thread] });
+        records.push({ parent: entry.parent, name: entry.name, parts: [catalog_key(entry.parent, entry.name), body] });
+        records.push({ parent: entry.id, name: "", parts: [catalog_key(entry.id, ""), catalog_thread(entry.parent, entry.name, directory)] });
     }
     records.sort((a, b) => a.parent - b.parent || (a.name < b.name ? -1 : Number(a.name > b.name)));
     const catalog = tree(records.map(r => r.parts), CATALOG_NODE, 516, 0xBC, 6), cat = space(catalog.bytes);

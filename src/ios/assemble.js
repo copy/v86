@@ -99,7 +99,7 @@ export async function assemble_n90(ipsw, keySource, scratch, nand, library, prog
         progress(stage === "check" ? "Checking root filesystem" : "Extracting system volume", done, entry.compressed_size));
     scratch.resize(system.size);
     progress("Preparing system and data volumes", 0, 1);
-    const { volume, daemons, lockdown } = await prepare_system_volume(scratch.read, scratch.write, !!library, undefined, true);
+    const { volume, daemons, lockdown } = await prepare_system_volume(scratch.read, scratch.write, !!library, undefined, true, library);
     kernel = graphics_kernel(kernel, daemons, library, lockdown);
     await write_prepared_n90(scratch.read, nand, { kernel, tree, logo, library }, progress, volume);
 }

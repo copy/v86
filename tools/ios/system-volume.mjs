@@ -5,8 +5,12 @@ import path from "node:path";
 import { prepare_system_volume } from "../../src/ios/system_volume.js";
 
 const [source, output, ...options] = process.argv.slice(2);
-if(!source || !output || options.some(option => !["--gles", "--offline"].includes(option)))
-    throw new Error("usage: system-volume.mjs rootfs.hfs new-system.hfs [--gles] [--offline]");
+const libraryOption = options.indexOf("--gles-library");
+const libraryPath = libraryOption < 0 ? null : options.splice(libraryOption, 2)[1];
+if(!source || !output || libraryOption >= 0 && (!libraryPath || libraryPath.startsWith("--")) ||
+    options.some(option => !["--gles", "--offline"].includes(option)))
+    throw new Error("usage: system-volume.mjs rootfs.hfs new-system.hfs [--gles | --gles-library libv86gles.dylib] [--offline]");
+const library = libraryPath ? fs.readFileSync(libraryPath) : null;
 const dir = fs.mkdtempSync(path.join(path.dirname(path.resolve(output)), ".n90-system-")), temp = path.join(dir, "volume");
 try
 {
@@ -20,7 +24,7 @@ try
             return bytes;
         }, (at, bytes) => {
             assert.equal(fs.writeSync(fd, bytes, 0, bytes.length, at), bytes.length);
-        }, options.includes("--gles"), undefined, options.includes("--offline"));
+        }, !!library || options.includes("--gles"), undefined, options.includes("--offline"), library);
     }
     finally { fs.closeSync(fd); }
     fs.linkSync(temp, output);

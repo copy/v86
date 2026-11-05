@@ -1,4 +1,4 @@
-// Add a weak dependency to a private copy of a 10B329 daemon. Existing
+// Add a weak dependency to a private copy of a 10B329 executable. Existing
 // dependency ordinals, file offsets, entitlements and segment sizes stay valid.
 import { SHA1 } from "./crypto.js";
 import { SHA256 } from "../image/sha256.js";
@@ -12,6 +12,8 @@ export const DISPLAY_DAEMONS = ["/usr/libexec/backboardd", "/System/Library/Core
 export const LOCKDOWN_DAEMON = "/usr/libexec/lockdownd";
 
 export const GUEST_GL_LIBRARY = "/private/var/v86/libv86gles.dylib";
+export const SYSTEM_GL_LIBRARY = "/usr/lib/libv86gles.dylib";
+export const SAFARI_EXECUTABLE = "/Applications/MobileSafari.app/MobileSafari";
 
 // Validate the signed pages before trusting a supplied development binary.
 function code_directories(bytes)
@@ -91,26 +93,27 @@ export function has_offline_lockdown(bytes)
         new SHA256().update(bytes).hex() === "78bdb383289ce3e44077bdad28481d4ab8bd674661380cf96daca5e047024090";
 }
 
-export function link_guest_gles(original)
+export function link_guest_gles(original, libraryPath = GUEST_GL_LIBRARY)
 {
     const macho = macho_parse(original);
     require_layout(!macho.is64 && macho.cputype === CPU_TYPE_ARM && macho.filetype === 2, "expected an ARM executable");
-    require_layout(!macho.dylibs.includes(GUEST_GL_LIBRARY), "guest GLES dependency already exists");
+    require_layout(!macho.dylibs.includes(libraryPath), "guest GLES dependency already exists");
     const bytes = new Uint8Array(original), v = view(bytes);
     const ncmds = v.getUint32(16, true), size = v.getUint32(20, true), end = 28 + size;
     const first = Math.min(...macho.segments.flatMap(s => s.sections).map(s => s.offset).filter(Boolean));
-    const cmd = new Uint8Array((24 + GUEST_GL_LIBRARY.length + 1 + 3) & ~3);
+    const path = new TextEncoder().encode(libraryPath);
+    const cmd = new Uint8Array((24 + path.length + 1 + 3) & ~3);
     require_layout(end + cmd.length <= first && bytes.subarray(end, end + cmd.length).every(b => !b), "insufficient Mach-O header padding");
     view(cmd).setUint32(0, 0x80000018, true); // LC_LOAD_WEAK_DYLIB
     view(cmd).setUint32(4, cmd.length, true);
     view(cmd).setUint32(8, 24, true);
-    cmd.set(new TextEncoder().encode(GUEST_GL_LIBRARY), 24);
+    cmd.set(path, 24);
     bytes.set(cmd, end);
     view(bytes).setUint32(16, ncmds + 1, true);
     view(bytes).setUint32(20, size + cmd.length, true);
 
     resign_pages(original, bytes, 0, end + cmd.length);
-    require_layout(macho_parse(bytes).dylibs.includes(GUEST_GL_LIBRARY));
+    require_layout(macho_parse(bytes).dylibs.includes(libraryPath));
     return bytes;
 }
 
@@ -121,14 +124,18 @@ export function check_guest_library(library)
         info.id === GUEST_GL_LIBRARY, "Expected the N90 guest GLES library");
 }
 
-export function graphics_kernel(original, linkedDaemons, library, lockdown = null)
+export function graphics_kernel(original, linkedExecutables, library, lockdown = null)
 {
     const trusted = [];
     if(library)
     {
         check_guest_library(library);
-        for(const bytes of linkedDaemons) require_layout(macho_parse(bytes).dylibs.includes(GUEST_GL_LIBRARY));
-        trusted.push(...linkedDaemons, library);
+        for(const bytes of linkedExecutables)
+        {
+            const paths = macho_parse(bytes).dylibs;
+            require_layout(paths.includes(GUEST_GL_LIBRARY) || paths.includes(SYSTEM_GL_LIBRARY));
+        }
+        trusted.push(...linkedExecutables, library);
     }
     if(lockdown)
     {
