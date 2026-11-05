@@ -230,8 +230,10 @@ static void device_tail_audit_group(void)
 }
 
 #include "d3d8_retail_runtime.h"
+#include "d3d8_lifetime_runtime.h"
 
 const struct test winetest_testlist[] = {
+    { "lifetime-runtime", lifetime_runtime_group },
     { "retail-runtime", retail_runtime_group },
     { "device", full_device_suite },
     { "device-tail-audit", device_tail_audit_group },

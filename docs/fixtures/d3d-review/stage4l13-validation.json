@@ -1,0 +1,675 @@
+{
+  "stage": "4L13 Retail resource lifetime and nested buffer maps",
+  "date": "2026-11-05",
+  "baseline": {
+    "core": "b0fdfff9",
+    "site": "de20870"
+  },
+  "changes": [
+    "Device-owned reusable texture frontend storage preserves immediate repeated Release without retaining backend resources. Exact-size free lists are locked, zeroed on reuse, bounded by peak concurrent wrappers per size, and freed on final device retirement.",
+    "Public API8 VB/IB nested locks count maps and union writable ranges. Final Unlock uploads once; mapped draws see the union. READONLY remains only when all nested maps are readonly. API9 duplicate-map refusal is unchanged.",
+    "ApplyStateBlock(0) succeeds without changing live state outside recording. Unsupported valid MSAA render targets return NOTAVAILABLE while invalid enums and lockable-MSAA retain INVALIDCALL."
+  ],
+  "acceptanceScope": {
+    "unmodifiedWineFunctions": [
+      "test_refcount",
+      "test_invalid_multisample",
+      "test_ApplyStateBlock",
+      "test_vb_lock_flags"
+    ],
+    "projectOwned": "Six VB/IB pool combinations exercise three overlapping-lifetime maps and independent full-buffer byte expectations; 1000 create/release/repeated-release texture cycles. CPU relocks are not GPU pixel comparisons. Native production-C fixtures inspect upload bytes/ranges and deferred final upload.",
+    "fullSuite": false
+  },
+  "runs": {
+    "metal": {
+      "status": "PASS",
+      "seconds": 115,
+      "summary": {
+        "WINE8.TXT": {
+          "checks": 3619,
+          "todos": 0,
+          "flaky": 0,
+          "failures": 0,
+          "skipped": 0
+        }
+      },
+      "gpuStats": {
+        "batches": 5,
+        "commands": 2092,
+        "presents": 0,
+        "queueSubmits": 0,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 0,
+        "uniformRingChunksUsed": 0,
+        "backBufferAllocations": 0,
+        "backBufferPresents": 0,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 0,
+        "readbackRequests": 0,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 1,
+        "swapChainsDestroyed": 1,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 1006,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 2,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 0,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 1,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 0,
+        "sessionsEnded": 1,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 5,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 1,
+        "volumeTexturesCreated": 1,
+        "renderTargetsCreated": 2,
+        "renderTargetBinds": 0,
+        "renderPasses": 0,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 0,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 0,
+        "renderTargetReadbackBytes": 0,
+        "renderTargetReadbackFailures": 0
+      },
+      "sessionCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 0
+        }
+      ],
+      "artifacts": {
+        "d3d8.dll": {
+          "bytes": 198656,
+          "sha256": "29f1e04b87377e29a91d11a625195d07bfa2ea27af2757bc49adaf5aa9c8cd52"
+        },
+        "WINE8DV.EXE": {
+          "bytes": 1501313,
+          "sha256": "2db72a27206dacf64d089d947de31beccb04618a3f0ec884b68d909fae82daa1"
+        },
+        "WINE8.TXT": {
+          "bytes": 153,
+          "sha256": "8a0b28b1c22a66527cee2c6f69e1182929ce5cea60aa32eeb28b3908ff5f2060"
+        },
+        "probe-result.json": {
+          "bytes": 849,
+          "sha256": "3c8abbd43711d24dca527a13d366b2a78442f0541c8f763f2cd7a5ee19a9dd4c"
+        },
+        "live-gpu.json": {
+          "bytes": 5454,
+          "sha256": "2f8923927f93a083be5b88cbf24777ba28afd3bf72321986a6ce113af7d55aa8"
+        },
+        "graphics.bin": {
+          "bytes": 92116,
+          "sha256": "dd0be824e496615a87d3452dbef367ac74a6e1cc35d77c78b48b9590a318b2a8"
+        }
+      }
+    },
+    "swiftshader": {
+      "status": "PASS",
+      "seconds": 141,
+      "summary": {
+        "WINE8.TXT": {
+          "checks": 3619,
+          "todos": 0,
+          "flaky": 0,
+          "failures": 0,
+          "skipped": 0
+        }
+      },
+      "gpuStats": {
+        "batches": 5,
+        "commands": 2092,
+        "presents": 0,
+        "queueSubmits": 0,
+        "drawCalls": 0,
+        "indexedDrawCalls": 0,
+        "upDrawCalls": 0,
+        "pipelineCreations": 0,
+        "pipelineHits": 0,
+        "pipelinesRejected": 0,
+        "programBuilds": 0,
+        "programCacheHits": 0,
+        "bindGroupCreations": 0,
+        "bindGroupHits": 0,
+        "bindGroupCacheEvictions": 0,
+        "framesRejected": 0,
+        "uniformSlotReuses": 0,
+        "uniformRingOverflows": 0,
+        "uniformRingChunksAllocated": 0,
+        "uniformRingChunksUsed": 0,
+        "backBufferAllocations": 0,
+        "backBufferPresents": 0,
+        "redundantStateSkipped": 0,
+        "uniformStagingUploads": 0,
+        "readbackRequests": 0,
+        "frameFlushes": 0,
+        "unsupportedCommands": 0,
+        "malformedBatches": 0,
+        "batchesFailed": 0,
+        "protocolViolations": 0,
+        "msaaUnresolves": 0,
+        "malformedCommands": 0,
+        "gammaRampUpdates": 0,
+        "fillModeDraws": 0,
+        "swapChainsCreated": 1,
+        "swapChainsDestroyed": 1,
+        "swapChainsRefused": 0,
+        "swapChainPresents": 0,
+        "swapChainPresentsDropped": 0,
+        "gammaPresents": 0,
+        "droppedDraws": 0,
+        "guestReports": 0,
+        "texturesCreated": 1006,
+        "textureUploads": 0,
+        "textureBytesUploaded": 0,
+        "texturePreviewsSkipped": 0,
+        "drawsWithTexture": 0,
+        "drawsWithFallbackTexture": 0,
+        "shadersTranslated": 2,
+        "shaderTranslationFailures": 0,
+        "shaderVariantsTranslated": 0,
+        "shaderModulesCreated": 0,
+        "shaderCompileErrors": 0,
+        "shaderCachePersistentLoads": 0,
+        "shaderCachePersistentSaves": 0,
+        "shaderCachePersistentFailures": 0,
+        "shaderWorkerCompiles": 0,
+        "shaderWorkerFallbacks": 0,
+        "samplersCreated": 0,
+        "samplerHits": 0,
+        "framesWithoutColorClear": 0,
+        "framesWithNoOps": 0,
+        "uploadChunksAllocated": 1,
+        "uploadStagingUploads": 0,
+        "bufferRenames": 0,
+        "textureUpdateHazards": 0,
+        "textureRenames": 0,
+        "textureFullCopyRenameBytes": 0,
+        "bufferFullCopyRenames": 0,
+        "bufferNoOverwriteWrites": 0,
+        "emptySurfaceReports": 0,
+        "surfaceChanges": 0,
+        "sessionChanges": 0,
+        "sessionsEnded": 1,
+        "deviceLosses": 0,
+        "deviceRecoveries": 0,
+        "guestFeatureBits": 0,
+        "guestShaderModel2": false,
+        "guestShaderModel3": false,
+        "windowStateChanges": 5,
+        "windowNotForegroundReports": 0,
+        "windowOccludedReports": 0,
+        "windowRegionReports": 0,
+        "cursorUploads": 0,
+        "cursorDraws": 0,
+        "texturesRejected": 0,
+        "srgbTextureSamples": 0,
+        "srgbViewsCreated": 0,
+        "srgbCopyTexturesCreated": 0,
+        "srgbTextureCopies": 0,
+        "srgbTextureUnavailable": 0,
+        "srgbWriteRequests": 0,
+        "srgbWriteUnavailable": 0,
+        "cubeTexturesCreated": 1,
+        "volumeTexturesCreated": 1,
+        "renderTargetsCreated": 2,
+        "renderTargetBinds": 0,
+        "renderPasses": 0,
+        "depthTargetSizeMismatches": 0,
+        "depthTargetSubstitutions": 0,
+        "depthTargetSubstitutionsUncleared": 0,
+        "blits": 0,
+        "blitsSkipped": 0,
+        "blitsThroughBackBuffer": 0,
+        "colorFills": 0,
+        "partialClears": 0,
+        "drawsWithScissor": 0,
+        "drawsWithIncompleteMipChain": 0,
+        "comparisonSamplersCreated": 0,
+        "depthStageWithoutDepthTexture": 0,
+        "depthAttachmentSampledInPlace": 0,
+        "cubeFaceTargetBinds": 0,
+        "mipChainsGenerated": 0,
+        "mipLevelsGenerated": 0,
+        "explicitMipGenerations": 0,
+        "palettesSet": 0,
+        "paletteSelections": 0,
+        "palettizedRepaints": 0,
+        "depthTextureOnNonDepthStage": 0,
+        "stagesWithoutSampleableView": 0,
+        "commandsFailed": 0,
+        "lastDrawTexture": 0,
+        "drawsWithUnsupportedTextureOp": 0,
+        "drawsWithTexCoordIndex": 0,
+        "drawsWithTextureTransform": 0,
+        "drawsWithUnmappedBlend": 0,
+        "drawsWithUnappliedFog": 0,
+        "drawsWithUnappliedLighting": 0,
+        "drawsWithZeroNormalLighting": 0,
+        "zeroNormalDrawsWithoutTexture": 0,
+        "zeroNormalDrawsWithMissingTexture": 0,
+        "zeroNormalDrawsWithUnboundTexture": 0,
+        "zeroNormalDrawsWithUnknownTexture": 0,
+        "zeroNormalDrawsWithLiveTexture": 0,
+        "drawsWithUnwrittenCoordVarying": 0,
+        "drawsWithDefaultedInputs": 0,
+        "drawsWithMissingCoordSet": 0,
+        "blendedDraws": 0,
+        "drawsWithUnappliedVertexBlend": 0,
+        "programmableDraws": 0,
+        "drawsSkippedForBadShader": 0,
+        "drawsWithCompactVertexInputs": 0,
+        "constantUploadBytes": 0,
+        "pointSpriteDraws": 0,
+        "pointSpriteInstances": 0,
+        "indexedPointExpansions": 0,
+        "instancedDraws": 0,
+        "instancesDrawn": 0,
+        "expandedInstanceStreams": 0,
+        "queriesCreated": 0,
+        "queryBegins": 0,
+        "queryEnds": 0,
+        "occlusionQueriesResolved": 0,
+        "timestampQueriesResolved": 0,
+        "eventQueriesResolved": 0,
+        "queryFailures": 0,
+        "responseWriteFailures": 0,
+        "renderTargetReadbacks": 0,
+        "renderTargetReadbackBytes": 0,
+        "renderTargetReadbackFailures": 0
+      },
+      "sessionCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 0
+        }
+      ],
+      "artifacts": {
+        "d3d8.dll": {
+          "bytes": 198656,
+          "sha256": "f13d2a901a0b57b941e4cccdccc38b1382fcd2197fc8c61f656cae6bd2a74885"
+        },
+        "WINE8DV.EXE": {
+          "bytes": 1501313,
+          "sha256": "ebe4224eb3be2282c364598daef1417e5391c6c0ee12b86a64c78ad1cb209c2c"
+        },
+        "WINE8.TXT": {
+          "bytes": 153,
+          "sha256": "c48ccff300b4e39727ff6496ded1709fdbb60817906e00c4fb8f661bba8446f9"
+        },
+        "probe-result.json": {
+          "bytes": 849,
+          "sha256": "83d154573be3793a0c7ce1baf1a6aec8c4fbf692861105e6ffaf31e7fe011e49"
+        },
+        "live-gpu.json": {
+          "bytes": 5454,
+          "sha256": "2f8923927f93a083be5b88cbf24777ba28afd3bf72321986a6ce113af7d55aa8"
+        },
+        "graphics.bin": {
+          "bytes": 92116,
+          "sha256": "5d69cd8c7e716f53b169be0f340254658fad2bd377afc39d1fb947c11cf5a780"
+        }
+      }
+    }
+  },
+  "nativeAndIntegration": {
+    "d8wg_device_frontend_lifetime": {
+      "sha256": "8e32e38d7406a439554671d0f43a1de7da83ebe28cebf2d1697c34a4dbc526b9",
+      "result": "PASS Device8 actual frontend lifetime: 63308 checks, 1024 child/reentry cases, 50000 serial/concurrent cache reuses, 1026 retirements, 5311 cleanups; backend COM shim only"
+    },
+    "d8wg_device_frontend_lifetime-asan": {
+      "sha256": "8e32e38d7406a439554671d0f43a1de7da83ebe28cebf2d1697c34a4dbc526b9",
+      "result": "PASS Device8 actual frontend lifetime: 63308 checks, 1024 child/reentry cases, 50000 serial/concurrent cache reuses, 1026 retirements, 5311 cleanups; backend COM shim only"
+    },
+    "d8wg_device_frontend_mutation": {
+      "sha256": "fe5f8e6a2f5bdb43915b08f9533d9db86cedc1d9a49ff882d01c3e999660f6e0",
+      "result": "PASS Device8 frontend mutations: 31 strictly compiled lifetime/scope/Reset faults rejected by actual C assertions"
+    },
+    "d8wg_texture_adapter": {
+      "sha256": "20dc5077f41d9f179d724cf1516993c3852bce013abb3d9c7508451631c85b79",
+      "result": "PASS actual SDK8 surface adapter: 55595 checks / 1037 cases; real11-method vtable,frontend identity/container/device queries,own/coupled refs andsingle core pin,cached public-zero revival,owned-input consumption/OOM/racing publication,typed descriptor/private/lock forwarding andexact cleanup;backend metadata/COM shim only\nPASS actual SDK8 texture adapter: 54054 checks / 1036 cases; real19-method vtable,Resource8/BaseTexture8/Texture8 identity,actual Surface8 child containers,coupled level refs/public-zero/parent-first/device-first cleanup,priority/LOD/type/private/descriptor/lock forwarding,owned input/OOM/race/hotcache guards;backend metadata/COM shim only"
+    },
+    "d8wg_texture_adapter_mutation": {
+      "sha256": "c033e38d23e71132ec2eddcb544ac2059de32a9384879777cf476d6a1929d97a",
+      "result": "PASS SDK8 texture adapter mutations: 43/43 strictly compiled then failed actual C assertions"
+    },
+    "d8wg_surface_adapter": {
+      "sha256": "a498296a3b1820b3f48e9b459233e596346443b8f9fb7521494443a316b36e24",
+      "result": "PASS actual SDK8 surface adapter: 55595 checks / 1037 cases; real11-method vtable,frontend identity/container/device queries,own/coupled refs andsingle core pin,cached public-zero revival,owned-input consumption/OOM/racing publication,typed descriptor/private/lock forwarding andexact cleanup;backend metadata/COM shim only"
+    },
+    "d8wg_backend_render_target": {
+      "sha256": "124abd027b53928d5491bf74992772f51fa2dea9f5c0c077710075642e56c470",
+      "result": "PASS actual backend8 render target: 2213574 checks,737859 cases; frozen public8 validation/results/output,4096 bounds,six formats,MSAA/lockable,zero quality/no shared handle,provider errors andprofile guards"
+    },
+    "d8wg_backend_render_target_mutation": {
+      "sha256": "361c0ea5fb819d2b62952c039634aaf4e0303d4d1ba9f286adfb7c042af923e5",
+      "result": "PASS backend8 target mutations: 18/18; legacy bounds/formats/MSAA/output/profile andexact core forwarding/errors"
+    },
+    "d9wg_buffer_lock": {
+      "sha256": "e2275ca72b8a019a6823927ac5a09d4bdea66490ec2e78d383c2c9e2bc992be8",
+      "result": "PASS actual API 8 VB/IB Lock: 1344 frozen policy cases, seven XP HRESULT observations, ignored/combined hints, exact uploads/read-only preservation, range/failure atomicity bounded DISCARD shadow access and production API8 nested range/readonly/last-unlock semantics\nPASS actual API 9 VB/IB Lock: 1472 frozen policy cases, seven XP HRESULT observations, ignored/combined hints, exact uploads/read-only preservation, range/failure atomicity bounded DISCARD shadow access and production API8 nested range/readonly/last-unlock semantics"
+    },
+    "d9wg_buffer_lock-asan": {
+      "sha256": "e2275ca72b8a019a6823927ac5a09d4bdea66490ec2e78d383c2c9e2bc992be8",
+      "result": "PASS actual API 8 VB/IB Lock: 1344 frozen policy cases, seven XP HRESULT observations, ignored/combined hints, exact uploads/read-only preservation, range/failure atomicity bounded DISCARD shadow access and production API8 nested range/readonly/last-unlock semantics\nPASS actual API 9 VB/IB Lock: 1472 frozen policy cases, seven XP HRESULT observations, ignored/combined hints, exact uploads/read-only preservation, range/failure atomicity bounded DISCARD shadow access and production API8 nested range/readonly/last-unlock semantics"
+    },
+    "d9wg_buffer_lock_mutation": {
+      "sha256": "d687fa03bbc807a58f1ba2a4f3421a29b467100cf3f36e8c7f3f01e5e4f83b83",
+      "result": "PASS buffer Lock mutations: 27/27 (23 runtime assertions,4 controlled protected-page faults),strict compilation;retail access/streaming policy, four frontend adapters, exact uploads, clip invalidation, unlock failure cleanup and protected DISCARD shadow pages"
+    },
+    "d8wg_incremental_block_core": {
+      "sha256": "5295920eaddd479fda65f93830608c1cd5b9415294c1b6b942f07be3c9adffbd",
+      "result": "PASS actual D3D9 texture bindings: 86784 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 cube bindings: 104192 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, six actual cached face constructors and shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 volume bindings: 70656 checks, 1024 pool/order profiles, 8192 public-zero revivals, 64 mixed-kind replacement cycles; four sampler slots, two cached volume levels, shared public parent count, exact device pins, public-only Reset blockers and complete final-owner cleanup\nPASS actual D3D9 buffer bindings: 91904 checks, 1024 pool/order profiles, 16384 public-zero revivals; three VB stream slots and one IB slot, exact public/device refs, getter offsets, DEFAULT locks, UP cleanup, shadow/clip teardown and complete final-owner cleanup\nPASS actual D3D9 declaration/shader bindings: 179968 checks, 1024 final-owner profiles, 24576 public-zero QI revivals; exact public/device refs, metadata, getters, FVF, reset-style clear/rebind and complete storage teardown\nPASS actual D3D9 stateblock private bindings: 161345 checks, 512 pool/final-owner profiles, 4096 capture/clear/apply cycles; eight resource families, recorded replacement/FVF, public-zero storage, recording guards, recapture retirement and unfinished-recording cleanup\nPASS actual D3D9 external-child device state: 111616 checks, 2048 pool/anchor/final-owner profiles, 2048 GetDevice recoveries; eight public anchor families preserve all live slots and scalar state, recording stays private until End, exact device pins and final cleanup\nPASS actual D3D9 stream metadata: 40960 checks, 512 pool/slot profiles, 4096 NULL preserves and 512 recorded NULL/capture/apply sequences; ignored incoming metadata, live recording source, exact internal restoration, duplicate filtering, successful-UP zeroing and private storage cleanup\nPASS actual D3D9 FVF declaration cache: 116928 checks, 128 final-owner profiles, 8192 cached switches, 16384 public-zero revivals; six independent layouts, exact identity and device pins, zero no-op, recorded/captured FVF, reset-style retention, atomic failures and idempotent cache teardown\nPASS actual D3D9 user declaration FVF: 60032 checks, 128 owner profiles, 8192 collision pairs; seventeen Windows positive/negative layouts, conservative guards, both cache creation orders, stateblock private lifetime and exact final cleanup\nPASS actual core8 FVF bindings: 622117 checks / 40970 cases (36832 accepted/4128 refused); frozen8/9 decoder,versioned layouts,zero clears VS/layout,real9 cachepublic-zero/identity/parentpins,state-blockrecord/apply/cache-reacquire,ordinary9 no-op/cache separation andexact cleanup\nPASS actual core8 program pair bindings: 33440 checks / 1036 cases; prevalidated owners/types,program/FFP/zero,duplicate versus recording,actual state-block/public-zero/device-first lifetime,submission-prefix failures and exact cleanup\nPASS actual core8 snapshot blocks: 19488 checks / 1037 cases; synchronous frontend callback,real9 recording/publish/abort,detached snapshots/rebuild,program/FFP/public-zero/device-first lifetime,existing recording preserved,callback andallocation/emission failures,coldFVF cache ownership and exact cleanup\nPASS actual core8 DWORD state blocks: 19161 checks / 1117 cases; no device parent cycle,all8 resource families,stable Capture replacement/OOM/abort,ordinary9 coexistence,invalid/cross-profile/stale tokens,recording guards,collision skip,reentrant delete/no resurrection,actual private-data finalizers anddevice revival,exact cleanup\nPASS actual core8 incremental state blocks: 79400 checks / 1038 cases; actual9 Begin/End todevice-owned DWORD,all8 resource families,duplicate recording/live isolation,public-zero/fourcleanuporders,invalid End preservesrecording,profile/teardown/OOM guards,ordinary9 interop andabandonedrecording cleanup\nPASS actual D3D9 target bindings: 1802342 checks, 16 lifecycle groups, 1024 public-zero revivals; actual RT/depth setters/getters, one/two internal slots, one public device pin, public-only Reset blockers, same-object rebinding and unbind/device-first/last-public cleanup"
+    },
+    "d8wg_buffer_adapter": {
+      "sha256": "f7c7bb842cf72dda6c31b781e40c37cbe824ecb1cc6cd6872a1f115e11652f55",
+      "result": "PASS actual SDK8 surface adapter: 55595 checks / 1037 cases; real11-method vtable,frontend identity/container/device queries,own/coupled refs andsingle core pin,cached public-zero revival,owned-input consumption/OOM/racing publication,typed descriptor/private/lock forwarding andexact cleanup;backend metadata/COM shim only\nPASS actual SDK8 VB8/IB8 adapters: 24373 checks / 536 cases; both14method typed vtables,one shared implementation,allGUIDbytes/Resource8/class/device identity,priority/preload/type/private/24-20byte descriptors/lock argument-status forwarding,weakcache/publiczero/refcoalescing/parent-first/device-first/race/OOM/ownedinput guards;backend explicit COM/metadata shim"
+    },
+    "d9wg_mapped_draw": {
+      "sha256": "678461972cc50b2a16d0b749f66e4def4e394165a4c48ec2f32e43512b25d3cb",
+      "result": "PASS actual API 8 mapped draw bridge and Lock/Unlock: 17 buffers, exact ranges/data/order, duplicate bindings, repeat writes, readonly/static/conflicting hints, one DISCARD per map, partial transport receipts, zero-size maps, owner/range atomicity and retained locks\nPASS actual API 9 mapped draw bridge and Lock/Unlock: 17 buffers, exact ranges/data/order, duplicate bindings, repeat writes, readonly/static/conflicting hints, one DISCARD per map, partial transport receipts, zero-size maps, owner/range atomicity and retained locks"
+    },
+    "d9wg_mapped_draw_mutation": {
+      "sha256": "7b085831694fc06d418280074255ee499ee4da0ae9ddce5c0218f00025c239c2",
+      "result": "PASS mapped draw mutations: 25/25; exact uploads, readonly/dedup, partial receipts, retained locks, VB/IB DISCARD and actual draw/CPU-input ordering"
+    },
+    "d9wg_reset_status": {
+      "sha256": "f593143be7af753325bd54bd6dc0765c6df231b88706c78fc6c5455071fdf51a",
+      "result": "PASS actual API8 Reset depth Size: 36 checks,12 format/MSAA cases; odd-width aligned cached depth metadata andparent/output state\nPASS actual API 8 Reset geometry: 70 checks; zero/partial dimensions, effective parameters, caller version rules, cached color/depth surfaces and failed replay/mode output atomicity\nPASS actual API 8 Reset recording: 42 checks, six input/resource/allocation/transport/replay paths, detached callbacks and exactly-once resource finalization\nPASS actual API 8 Reset status: 581 checks, 13 failure paths; repeated queries/retries, device isolation, no lost Present commands/timing and complete recovery and native Scene reset boundaries\nPASS actual API 9 Reset geometry: 39 checks; zero/partial dimensions, effective parameters, caller version rules, cached color/depth surfaces and failed replay/mode output atomicity\nPASS actual API 9 Reset default format: 14 checks; live desktop instead of old buffer format, explicit preservation and fullscreen refusal/recovery\nPASS actual API 9 Reset recording: 42 checks, six input/resource/allocation/transport/replay paths, detached callbacks and exactly-once resource finalization\nPASS actual API 9 Reset status: 564 checks, 14 failure paths; repeated queries/retries, device isolation, no lost Present commands/timing and complete recovery and native Scene reset boundaries"
+    },
+    "d9wg_reset_status_mutation": {
+      "sha256": "40a94209debe1e531fa7357781a957872ebffc7959efafb222794d873bd05ca1",
+      "result": "PASS Reset status mutations: 31/31; both public Reset/cooperative/Present paths, HRESULT distinction, recovery publication and shared status policy"
+    },
+    "d8wg_backend_reset": {
+      "sha256": "0ab642f7683468b62b17a3df99a33edef58c572386383175fdd0cb8ede61cb6c",
+      "result": "PASS actual backend8 core Reset geometry: 39 checks; zero/partial dimensions, effective parameters, caller version rules, cached color/depth surfaces and failed replay/mode output atomicity\nPASS backend8 Reset legacy formats: 98 checks; UNKNOWN keeps current16/32-bit format,no desktop queries,count-only publication,copy-vsync,fullscreen UNKNOWN andMSAA-lockable\nPASS actual backend8 core Reset recording: 42 checks, six input/resource/allocation/transport/replay paths, detached callbacks and exactly-once resource finalization\nPASS actual backend8 core Reset status: 613 checks, 12 failure paths; repeated queries/retries, device isolation, no lost Present commands/timing and complete recovery and native Scene reset boundaries"
+    },
+    "d8wg_backend_reset_mutation": {
+      "sha256": "ad80e5896d7db9afcb395f5e4e091cbf38d9caf72af3385d86b814334ac8d979",
+      "result": "KILL Reset emits9 defaults for8\nKILL Reset uses9 interval policy\nKILL Reset rejects copy-vsync\nKILL Reset rejects MSAA-lockable\nKILL Reset unsupported samples return9 error\nKILL Reset accepts9 depth formats\nKILL Reset rejects8 target formats\nKILL Reset uses stale desktop format\nKILL Reset blocker returns9 status\nKILL Reset caller gets9 publication\nKILL Reset does not initialize states\nKILL Reset publishes recovered before replay\nKILL Reset bridge allows ordinary9\nKILL Reset NULL bypasses core pending state\nKILL Reset bridge bypasses core\nPASS backend8 Reset mutations:15/15, strict compilation then runtime assertions"
+    },
+    "core-lint": {
+      "sha256": "505dc76ec8691703a682c4a87669e133e4043c2d6dc017619f1545634388b609",
+      "result": "Checked 1 JS/MJS/HTML files; 0 new problems (existing baseline excluded)"
+    },
+    "site-lint": {
+      "sha256": "58b1f36a9511701d47be45182383246e3cf519ea91692ac30fb955d37488c70d",
+      "result": "Checked 11 JS/MJS/HTML files; 0 new problems (existing baseline excluded)"
+    },
+    "site-integration": {
+      "sha256": "6708fd29b9bcc02752e2341110fc8de6adc839763c89f7deb5ca8ef30c6019b2",
+      "result": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (3.148583ms)\n✔ rapid launches wait for the previous canvas/device teardown (3.43325ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 100.064333"
+    }
+  },
+  "builds": {
+    "sdk8": {
+      "bytes": 191,
+      "sha256": "2e55de6d79f4bc765f2f7407d1919379d4e5d61b165feca9b1c08cec571b723c"
+    },
+    "sdk9": {
+      "bytes": 80,
+      "sha256": "eb2ecdc44fcdae09607a29ef86b662ea82392ffb5d7f46271368946a18ea4173"
+    },
+    "diag8": {
+      "bytes": 220,
+      "sha256": "353505776a35f0d46b186fab399e4c3cf12a065ca96228b284775dad0d2386df"
+    },
+    "diag9": {
+      "bytes": 103,
+      "sha256": "8fccf94ce1b9b259f02873c2d49fb3777fc4771a13d0c839352ca4dd62fdbbf4"
+    },
+    "dll9": {
+      "bytes": 81,
+      "sha256": "9eb30a0641c4039aaa9b1a8b0d8bc438bfdb9bf148e210fc83bbea6017e1a69b"
+    }
+  },
+  "sdkExecutablesBuilt": 32,
+  "fullSuiteAudit": {
+    "status": "FAIL (not acceptance)",
+    "timing": "After lifetime/nested-map fixes, before the three MSAA/ApplyStateBlock assertion fixes. Final selected group covers these three.",
+    "summary": "0120:device: 53539 tests executed (0 marked as todo, 0 as flaky, 71 failures), 10 skipped.",
+    "failureCount": 71,
+    "failureLines": [
+      996,
+      1011,
+      2784,
+      3130,
+      3132,
+      3150,
+      3155,
+      3157,
+      3166,
+      3180,
+      3190,
+      3200,
+      3204,
+      3208,
+      3229,
+      3234,
+      3238,
+      3255,
+      3268,
+      3269,
+      3280,
+      3347,
+      3352,
+      3355,
+      3360,
+      3403,
+      3437,
+      3457,
+      3461,
+      3472,
+      3554,
+      3556,
+      3573,
+      3575,
+      3597,
+      3636,
+      3673,
+      3911,
+      4037,
+      4042,
+      4069,
+      4073,
+      4091,
+      4095,
+      4109,
+      4784,
+      4801,
+      8572,
+      8623,
+      11036
+    ],
+    "sessionCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 1,
+        "resources": 1
+      }
+    ],
+    "gpuErrors": [],
+    "hostErrors": [],
+    "artifacts": {
+      "WINE8.TXT": {
+        "bytes": 6909,
+        "sha256": "b7cd8a74c1ed348d489bc4757bab50b1f59b7f8966646fddbe9a5dc9ec662a9c"
+      },
+      "live-gpu.json": {
+        "bytes": 5505,
+        "sha256": "88170b599723029faee3e9d2a69cd472646294b77e27c6af34eccd500c855c53"
+      },
+      "graphics.bin": {
+        "bytes": 23990420,
+        "sha256": "a70c359a42dc018b7ac1457a6767ac9ee5a02831b510d7d02cbb9aa1e72e11c6"
+      },
+      "d3d8.dll": {
+        "bytes": 198144,
+        "sha256": "91e0af5adf5435f56d1bb07a3777a3a56d7b4d9c22291de93985ce3d7de993d9"
+      }
+    },
+    "retainedDeviceDiagnosis": "Upstream test_depth_stencil_size at lines3930-3997 omits IDirect3DDevice8_Release(device). Wire command772 creates device1048691; commands776-779 create its64x64 color andthree depth targets. Three depths are destroyed; boundcolor1048692 anddevice1048691 remain untilowner cleanup. Upstream is unchanged; this is not attributed to proxy teardown and is not waived by the acceptance harness."
+  },
+  "sourceSha256": {
+    "core/tests/glbridge/d3d8_wine_device_entry.c": "5504cd3ea58e1252ee05703ad166ab07ea853a82facbbd8d81b97f9268e6ba93",
+    "core/tests/glbridge/d3d8_lifetime_runtime.h": "35fa47c500e2486f43f33bc175d324ccc51a24d1dd1028d7369083f1ed326dab",
+    "core/tests/glbridge/d3d_wine_device_xp.mjs": "7dcc4f7f9a90f02264dbcd91f4a7581a2d85cd8e412870125da6e094fee60284",
+    "site/glbridge/d3d8proxy/d3d8_core_device.c": "9699368a1a128d27a452fdd8bdfac1d6f54438da2a759074db0e730ac4072bb2",
+    "site/glbridge/d3d8proxy/d3d8_core_texture.c": "16816ae55de6e856376723663e41033c84241c78b4c98df1922326986fa06df3",
+    "site/glbridge/d3d8proxy/d3d8_core_view.h": "c74e09821b0c1d75e09bc36d4954522aceb20db0bb9687b2c8e15f988104fce4",
+    "site/glbridge/d3d9proxy/d3d9_proxy.c": "b6c417d853782c33a4dc5e08756bcb246894ccd46a34ac79f8fe60c5214457a7",
+    "site/glbridge/runtime/d9wg_buffer_lock.h": "b11602a194ad28c145f031747b0a991913be62dffec8f0fe82601104fd3fd4d2",
+    "site/glbridge/tests/d8wg_backend_render_target_mutation_test.js": "d5b882d171b51643a63bfd67823784ced159010dca35d279afb93e7ec9c3597c",
+    "site/glbridge/tests/d8wg_backend_render_target_test.js": "ce9584c01ed52545b054e5919dfda1d685f6b3b63335263a1991da2f3a1a912f",
+    "site/glbridge/tests/d8wg_backend_reset_test.js": "0a55d1a0c944e9ce4d0c99e5cdd98bd6631e3e4dc73ce2618c90336d20cda9af",
+    "site/glbridge/tests/d8wg_device_frontend_lifetime_test.js": "ff11aef1a181e14a77eb3493ea0bd00de59bc126ba8548762fcf4920dc128ca2",
+    "site/glbridge/tests/d8wg_device_frontend_mutation_test.js": "547422aa95d2b53e7f6e8d6d0228ab5c728774500683f7221ddb3a66748a6647",
+    "site/glbridge/tests/d8wg_surface_adapter_test.js": "98aac4f0e89ef002e830bf0225de1cb0ee115c9ee6036996a224a969a88be0e4",
+    "site/glbridge/tests/d8wg_texture_adapter_mutation_test.js": "c6e4ce7ab2cd504e8aa93314c2a8f00d92b051bd8d625d3a5aa400d8bc4a9a43",
+    "site/glbridge/tests/d9wg_buffer_lock_mutation_test.js": "5f00d64c93b88d8d6a92b13146fefbd6945eb88775bb2eb0b668cdbf37e806e6",
+    "site/glbridge/tests/d9wg_buffer_lock_test.js": "daea2e077fcb3ede2c9f2b4bee91a9d2d820e9425f0a4b60a289c4b87aa64f7c",
+    "site/glbridge/tests/d9wg_mapped_draw_test.js": "5282dc6a927d2ffa2c42912eb333aebeda20075418b327b2e4652e5567d7dd00",
+    "site/glbridge/tests/d9wg_reset_status_test.js": "b58edbebd836f8a579486f0b7205aee1daee6cfd390827b4813adfe92c529121"
+  },
+  "publishedSha256": {
+    "glbridge/d3d8proxy/d3d8.dll": "29f1e04b87377e29a91d11a625195d07bfa2ea27af2757bc49adaf5aa9c8cd52",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "8200983c59cd944ffbc4e40466c5c8e17ceb018c0cfdcb7c91651f2d9d6fcee9",
+    "glbridge/d3d9proxy/d3d9.dll": "0e8b9edc9a7f5a01b946d55e646d8b246eced1de002a0911e7edfbdc1008fab1",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "03778c4953bdf8f977338494b1563b8d1b1936e191d5352e78270acb1b9ad4a2"
+  },
+  "graphicsBundle": "6018289b1abb163f6620",
+  "limitations": [
+    "The full upstream suite now terminates normally but still has window/focus/display-loss failures andten optional-path skips. Selected acceptance is not full-suite conformance.",
+    "Only texture frontend headers are cached. This guarantees the tested immediate repeated Release while the device lives, not arbitrary use of released COM pointers.",
+    "API9 received native production-C/strict-build regression coverage, not a separate XP9 run in this batch.",
+    "Some older native Reset fixtures lacked the IsWindow dependency added in4L12; updated mock declarations and valid focus-window setup restore those checks without changing production results.",
+    "Stage5 remains complete; stage4 window/loss compatibility continues. MapleStory is excluded by user instruction."
+  ]
+}

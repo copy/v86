@@ -2748,6 +2748,14 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 实际分配器通过 ASan/UBSan 的103组布局/OOM/溢出检查；实际 C 状态录制、非交换矩阵、资源寿命/重入、格式/锁/构造矩阵、旧实现反例与严格变异检查、32 SDK EXE、四DLL、范围lint和两站点集成通过。同步准确 Metal 验收的8零售DLL及同源诊断、共用9构建，宿主包保持 `6018289b1abb163f6620`。
 > - 原版后半段审计从925次失败降至 **1次**：11036行 SetForegroundWindow(GetDesktopWindow())；保留5个可选能力分支skip，未计作通过。完整套件前段的重复Release/缓冲锁问题仍待处理；本批不是完整Wine验收。证据：[stage4l12-validation.json](fixtures/d3d-review/stage4l12-validation.json)。阶段5已完成，阶段4继续；冒险岛按用户要求跳过。
 
+
+> **阶段 4L13（2026-11-05，功能批次完成）：零售资源寿命与嵌套缓冲锁。**
+> - 二维纹理包装对象的存储由设备按大小复用，保留立即重复 Release 所需的对象头；底层资源立即销毁，缓存受锁保护、复用前清零、设备最终释放时清空。保留量取决于各尺寸同时存活对象的峰值，不随创建次数增长；不承诺任意失效 COM 指针可继续使用。
+> - 共用核心支持 API8 VB/IB 多次锁定：计数、合并范围、只读标志取交集，最后一次 Unlock 上传；绘制期间可见合并范围。API9 保留原有重复锁拒绝。另修复 ApplyStateBlock(0) 的成功空操作及合法但不支持的 MSAA 目标返回值。
+> - 四个未修改 Wine 函数及项目用例在 XP Metal/SwiftShader 各 **3,619项、零失败/todo/flaky/skip**；六种缓冲/池组合逐字节检查嵌套写入、1,000次纹理创建/释放/再次释放，零GPU/宿主错误，owner清理前设备和资源为空。CPU重锁不计作GPU像素比较。
+> - 本机实际C通过5万次串行/四线程复用、ASan/UBSan、缓冲上传范围/字节、生命周期/录制/Reset/映射绘制和严格变异检查；32 SDK EXE、四DLL、范围lint、两项站点集成通过。同步准确Metal验收的8零售DLL及同源诊断/9构建，宿主包不变。
+> - 完整原版套件终于正常跑完：**53,539项、71次失败、10次skip**，该审计发生在本批最后三处返回值断言修复之前，不能标记为通过。剩余集中在窗口/焦点/全屏丢失语义。结束前一个设备/目标残留已追溯到原版 `test_depth_stencil_size` 缺少设备Release，原版和严格清理断言均未修改。证据：[stage4l13-validation.json](fixtures/d3d-review/stage4l13-validation.json)。阶段4继续，阶段5完成；冒险岛跳过。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
