@@ -9,7 +9,7 @@
             D9WG_USAGE_DDRAW_INDEXED, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
             DEPTH_FORMAT, formatToGPU, isRenderableGPUFormat, srgbSiblingOf, TEXTURE_USAGE_RENDER_ATTACHMENT,
             TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_COPY_DST, TEXTURE_USAGE_COPY_SRC, isCompressedFormat, RESOURCE_TEXTURE_2D,
-            gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,
+            gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, bcNeedsExpansion, expandBCBlocks, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,
             RESOURCE_VERTEX_DECLARATION, D9WGStreamError, shaderPipeline, RESOURCE_VERTEX_SHADER, RESOURCE_PIXEL_SHADER, BUFFER_USAGE_UNIFORM, PALETTE_ENTRIES, PALETTE_BYTES
         } = dependencies;
         return {
@@ -328,8 +328,9 @@
                     autoGenMipsSupported(3, format);
                 if (wantsAutoMips)
                     levelCount = autoGenerateMips ? fullMipLevelCount(width, height) : 1;
+                const bcExpanded = bcNeedsExpansion(format, width, height);
                 const gpuFormat = isDepth ? DEPTH_FORMAT
-                    : (ddIndexed ? "r8uint" : formatToGPU(format));
+                    : (ddIndexed ? "r8uint" : bcExpanded ? "rgba8unorm" : formatToGPU(format));
                 if (!gpuFormat) {
                     console.warn("[d3d9-webgpu] unsupported texture format", format);
                     return;
@@ -406,10 +407,10 @@
                 this.resources.set(handle, {
                     kind: RESOURCE_TEXTURE_2D, textureType: "2d",
                     deviceHandle: view.getUint32(offset + D9WG.F.CreateTexture2D.device_handle, true),
-                    gpuTexture, msaaTexture, gpuFormat, srgbFormat, format, usage,
+                    gpuTexture, msaaTexture, gpuFormat, srgbFormat, format, usage, bcExpanded,
                     width, height, sampleCount,
                     multisampleType, multisampleQuality,
-                    gpuBytesPerTexel: ddIndexed ? 1 : gpuBytesPerTexel(format),
+                    gpuBytesPerTexel: ddIndexed ? 1 : bcExpanded ? 4 : gpuBytesPerTexel(format),
                     ddIndexed,
                     textureDescriptor,
                     levelCount: Math.max(1, levelCount),
@@ -480,7 +481,7 @@
                 const resource = this.resources.get(handle);
                 if (!resource || !resource.gpuTexture) return;
                 const source = new Uint8Array(bytes.buffer, bytes.byteOffset + dataOffset, dataBytes);
-                const compressed = isCompressedFormat(resource.format);
+                const compressed = isCompressedFormat(resource.format) && !resource.bcExpanded;
                 let payload = source;
                 let bytesPerRow = rowPitch;
                 if (resource.ddIndexed) {
@@ -519,7 +520,10 @@
                         source: source.slice(),
                     });
                 }
-                if (!compressed) {
+                if (resource.bcExpanded) {
+                    payload = expandBCBlocks(resource.format, source, width, height, depth, rowPitch, slicePitch);
+                    bytesPerRow = width * 4;
+                } else if (!compressed) {
                     const gpuBpp = resource.gpuBytesPerTexel;
                     // Expand to the tightly packed WebGPU representation chosen
                     // by formatToGPU(): RGBA8 UNORM/SNORM or RGBA16F.
@@ -571,7 +575,8 @@
                 const usage = view.getUint32(offset + D9WG.F.CreateTextureCube.usage, true);
                 const ddIndexed = (usage & D9WG_USAGE_DDRAW_INDEXED) !== 0 &&
                     isPalettizedFormat(format);
-                const gpuFormat = ddIndexed ? "r8uint" : formatToGPU(format);
+                const bcExpanded = bcNeedsExpansion(format, edge, edge);
+                const gpuFormat = ddIndexed ? "r8uint" : bcExpanded ? "rgba8unorm" : formatToGPU(format);
                 if (!gpuFormat) {
                     console.warn("[d3d9-webgpu] unsupported cube texture format", format);
                     return;
@@ -603,9 +608,9 @@
                 this.resources.set(handle, {
                     kind: RESOURCE_TEXTURE_CUBE, textureType: "cube",
                     deviceHandle: view.getUint32(offset + D9WG.F.CreateTextureCube.device_handle, true),
-                    gpuTexture, gpuFormat, srgbFormat,
+                    gpuTexture, gpuFormat, srgbFormat, bcExpanded,
                     format, usage, width: edge, height: edge, layerCount: 6,
-                    gpuBytesPerTexel: ddIndexed ? 1 : gpuBytesPerTexel(format),
+                    gpuBytesPerTexel: ddIndexed ? 1 : bcExpanded ? 4 : gpuBytesPerTexel(format),
                     ddIndexed,
                     textureDescriptor,
                     levelCount: textureDescriptor.mipLevelCount,

@@ -150,6 +150,79 @@
         return compressed ? Math.ceil(size / 4) * 4 : size;
     }
 
+    // Native ATI1/ATI2 textures permit edges outside a whole 4x4 block;
+    // WebGPU BC texture base dimensions do not. Decode only those resources
+    // into RGBA8 so their logical dimensions, UVs and mip sizes stay exact.
+    // Endpoint/index rules: Microsoft's "Block Compression (Direct3D 10)".
+    function atiNeedsExpansion(format, width, height) {
+        return (format === D3DFMT_ATI1N || format === D3DFMT_ATI2N)
+            && !!((width | height) & 3);
+    }
+
+    function bcNeedsExpansion(format, width, height) {
+        return isCompressedFormat(format) && !!((width | height) & 3);
+    }
+
+    function expandATIBlocks(format, source, width, height, depth, rowPitch, slicePitch) {
+        const channels = format === D3DFMT_ATI1N ? 1 : format === D3DFMT_ATI2N ? 2 : 0;
+        const blockBytes = channels * 8, rows = Math.ceil(height / 4), columns = Math.ceil(width / 4);
+        if (!channels || width < 1 || height < 1 || depth < 1 || rowPitch < columns * blockBytes
+                || slicePitch < rowPitch * rows
+                || source.length < (depth - 1) * slicePitch + (rows - 1) * rowPitch + columns * blockBytes)
+            throw new Error("Invalid ATI block upload extent");
+        const output = new Uint8Array(width * height * depth * 4);
+        const values = new Uint8Array(8);
+        for (let z = 0; z < depth; ++z) for (let by = 0; by < rows; ++by)
+            for (let bx = 0; bx < columns; ++bx) for (let channel = 0; channel < channels; ++channel) {
+                const at = z * slicePitch + by * rowPitch + bx * blockBytes + channel * 8;
+                values[0] = source[at]; values[1] = source[at + 1];
+                const denominator = values[0] > values[1] ? 7 : 5;
+                for (let i = 1; i < denominator; ++i)
+                    values[i + 1] = Math.round(((denominator - i) * values[0] + i * values[1]) / denominator);
+                if (denominator === 5) { values[6] = 0; values[7] = 255; }
+                for (let y = 0; y < 4 && by * 4 + y < height; ++y)
+                    for (let x = 0; x < 4 && bx * 4 + x < width; ++x) {
+                        const bit = (y * 4 + x) * 3, byte = at + 2 + (bit >> 3);
+                        const bits = source[byte] | ((byte + 1 < at + 8 ? source[byte + 1] : 0) << 8);
+                        const to = ((z * height + by * 4 + y) * width + bx * 4 + x) * 4;
+                        output[to + channel] = values[(bits >> (bit & 7)) & 7];
+                        output[to + 3] = 255;
+                    }
+            }
+        return output;
+    }
+
+    function expandBCBlocks(format, source, width, height, depth, rowPitch, slicePitch) {
+        if (format === D3DFMT_ATI1N || format === D3DFMT_ATI2N)
+            return expandATIBlocks(format, source, width, height, depth, rowPitch, slicePitch);
+        const dxt = [D3DFMT_DXT1,D3DFMT_DXT2,D3DFMT_DXT3,D3DFMT_DXT4,D3DFMT_DXT5].indexOf(format) + 1;
+        const blockBytes=dxt===1?8:16,columns=Math.ceil(width/4),rows=Math.ceil(height/4);
+        if (!dxt || width<1 || height<1 || depth<1 || rowPitch<columns*blockBytes || slicePitch<rowPitch*rows
+                || source.length<(depth-1)*slicePitch+(rows-1)*rowPitch+columns*blockBytes)
+            throw new Error("Invalid DXT block upload extent");
+        const output=new Uint8Array(width*height*depth*4);
+        for(let z=0;z<depth;z++)for(let by=0;by<rows;by++)for(let bx=0;bx<columns;bx++) {
+            const at=z*slicePitch+by*rowPitch+bx*blockBytes,color=at+(dxt===1?0:8);
+            const a=source[color]|source[color+1]<<8,b=source[color+2]|source[color+3]<<8;
+            // Bit replication, matching the packed-format expansion path.
+            const unpack=v=>[(v>>11<<3)|(v>>13),(((v>>5)&63)<<2)|((v>>9)&3),((v&31)<<3)|((v>>2)&7),255];
+            const palette=[unpack(a),unpack(b)];
+            if(a>b||dxt!==1) {
+                palette.push(palette[0].map((v,c)=>c===3?255:Math.round((2*v+palette[1][c])/3)),
+                    palette[0].map((v,c)=>c===3?255:Math.round((v+2*palette[1][c])/3)));
+            } else palette.push(palette[0].map((v,c)=>c===3?255:Math.floor((v+palette[1][c])/2)),[0,0,0,0]);
+            const selectors=(source[color+4]|source[color+5]<<8|source[color+6]<<16|source[color+7]<<24)>>>0;
+            const alpha=dxt>=4?expandATIBlocks(D3DFMT_ATI1N,source.subarray(at,at+8),4,4,1,8,8):null;
+            for(let y=0;y<4&&by*4+y<height;y++)for(let x=0;x<4&&bx*4+x<width;x++) {
+                const texel=y*4+x,to=((z*height+by*4+y)*width+bx*4+x)*4;
+                output.set(palette[(selectors>>>(texel*2))&3],to);
+                if(dxt===2||dxt===3)output[to+3]=((source[at+(texel>>1)]>>((texel&1)*4))&15)*17;
+                else if(alpha)output[to+3]=alpha[texel*4];
+            }
+        }
+        return output;
+    }
+
     function isFourCCDepthFormat(format) {
         return format === D3DFMT_DF16 || format === D3DFMT_DF24 ||
             format === D3DFMT_INTZ;
@@ -979,6 +1052,10 @@
         isCompressedFormat,
         compressedBlockBytes,
         blockAlignedCopyExtent,
+        atiNeedsExpansion,
+        expandATIBlocks,
+        bcNeedsExpansion,
+        expandBCBlocks,
         isFourCCDepthFormat,
         isPalettizedFormat,
         isPackedPairFormat,

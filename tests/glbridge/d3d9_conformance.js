@@ -368,6 +368,26 @@
         probes: [{ at: [32, 32], expect: api === 8 ? [64, 128, 191, 0] : [0, 0, 0, 0] }],
     });
 
+    // Wine's test_blend distinguishes alpha-bearing targets from RGB/XRGB,
+    // even when both have RGBA storage. Clear deliberately leaves alpha at 1/2.
+    for (const targetFormat of [21, 22, 23, 24, 30, 33]) for (const saturate of [false, true]) {
+        const opaque = targetFormat !== 21;
+        CASES.push({ name: `logical destination alpha format ${targetFormat}, saturate ${saturate}`,
+            targetFormat, clear: 0x80ff0000,
+            body: d => [rs(d, RS.ALPHABLENDENABLE, 1), rs(d, RS.SRCBLEND, saturate ? 11 : 7),
+                rs(d, RS.DESTBLEND, saturate ? 1 : 8), draw(d, quad(0, 0, 64, 64, .5, 0x800000ff))],
+            probes: [{ at: [32, 32], expect: saturate ? [0, 0, opaque ? 0 : 127]
+                : opaque ? [0, 0, 255] : [127, 0, 128], tolerance: 2 }],
+        });
+    }
+    for (const backBufferFormat of [21, 22]) CASES.push({
+        name: `logical backbuffer destination alpha format ${backBufferFormat}`,
+        backBuffer: true, backBufferFormat, clear: 0x80ff0000,
+        body: d => [rs(d, RS.ALPHABLENDENABLE, 1), rs(d, RS.SRCBLEND, 7), rs(d, RS.DESTBLEND, 8),
+            draw(d, quad(0, 0, 64, 64, .5, 0x800000ff))],
+        probes: [{ at: [32, 32], expect: backBufferFormat === 22 ? [0, 0, 255] : [127, 0, 128], tolerance: 2 }],
+    });
+
     const KNOWN_FAILURES = {};
 
     // The setup every case starts from: device `dev`, render target(s), full
@@ -377,7 +397,7 @@
         const samples = c.msaa || 0;
         // `backBuffer`: draw into the device's implicit back buffer instead
         const commands = [
-            cmd(OP.CREATE_DEVICE, P.encode("CreateDevice", { device_handle: dev, hwnd: 0x1234, x: 0, y: 0, width: W, height: W, backbuffer_format: 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: c.autoDepth === false ? 0 : 1, auto_depth_stencil_format: 75, multisample_type: samples, multisample_quality: 0 })),
+            cmd(OP.CREATE_DEVICE, P.encode("CreateDevice", { device_handle: dev, hwnd: 0x1234, x: 0, y: 0, width: W, height: W, backbuffer_format: c.backBufferFormat || 22, windowed: 1, behavior_flags: 0x20, enable_auto_depth_stencil: c.autoDepth === false ? 0 : 1, auto_depth_stencil_format: 75, multisample_type: samples, multisample_quality: 0 })),
         ];
         if (!c.backBuffer) {
             commands.push(cmd(OP.CREATE_TEXTURE_2D, P.encode("CreateTexture2D", { device_handle: dev, resource_handle: rt, width: W, height: W, level_count: 1, format: c.targetFormat || 21, usage: 1, pool: 0, multisample_type: samples, multisample_quality: 0 })),

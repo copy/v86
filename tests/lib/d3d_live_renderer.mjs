@@ -15,6 +15,7 @@ export function attach_d3d_live_renderer(remote, options = {}, stats = {batches:
     remote.renderer.listen(message => {
         if (closed) return;
         if (message.type === "lost") {
+            stats.failure = message.reason;
             failure = new Error(message.reason); if (active) active.reject(failure); return;
         }
         if (!active) {failure = new Error("Unexpected GPU response without an active batch");return;}

@@ -1,0 +1,508 @@
+{
+  "batch": "stage6-10",
+  "date": "2026-11-06",
+  "status": "Functional batch complete; native suites still FAIL/CRASH; stage6 open",
+  "changes": [
+    "NULL render targets retain their logical format and support bounded lock scratch without GPU color readback/upload.",
+    "RGB/XRGB blend destination alpha is logically one. Per-MRT opaque format mask participates in pipeline caching; CreateDevice/Reset retain backbuffer format.",
+    "Unaligned base-size BC textures/cubes expand to RGBA8 while retaining logical dimensions, mips and channels. Native aligned compressed storage remains unchanged. Includes ATI1/2 and DXT1-5 block decoding.",
+    "Live renderer records current failing GPU snapshot before aborting and retains failure reason."
+  ],
+  "checks": {
+    "pixels": {
+      "metal": {
+        "status": "PASS",
+        "cases": 1179,
+        "sha256": "ca937e16485c4356959c07a92a44c80d664aae4de08187d8b2258e62d7f5cfab",
+        "artifact": "build/d3d-review/stage6-batch10-pixels/metal.json"
+      },
+      "swiftshader": {
+        "status": "PASS",
+        "cases": 1179,
+        "sha256": "ca937e16485c4356959c07a92a44c80d664aae4de08187d8b2258e62d7f5cfab",
+        "artifact": "build/d3d-review/stage6-batch10-pixels/swiftshader.json"
+      }
+    },
+    "cpuBlockDecodePixels": 42525,
+    "targetLifetimeAssertions": 2399,
+    "targetLifetimeGroups": 433,
+    "targetLifetimeMutationChecks": 12,
+    "backbufferLockAssertions": 88505,
+    "backbufferPurePlans": 43008,
+    "backbufferAdapterScenarios": 100,
+    "backbufferMutationChecks": 35,
+    "backendTextureAssertions": 25069994,
+    "backendTextureCases": 4908803,
+    "deviceCleanupAssertions": 1940563,
+    "executorTests": 179,
+    "pipelineStateTests": "PASS, including mixed MRT formats, cache reuse and Reset",
+    "liveRendererQueueTests": "PASS, six failure paths",
+    "siteGraphicsIntegration": "2/2 PASS",
+    "shippingBuild": "Six DLLs, host bundle and shipping tools ISO rebuilt; original disk images unchanged"
+  },
+  "audits": [
+    {
+      "directory": "stage6-wine8-logp-alpha",
+      "status": "FAIL",
+      "summary": {
+        "checks": 143648,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 53,
+        "skipped": 14
+      },
+      "recordedAssertionFailures": 53,
+      "exit": 53,
+      "source": {
+        "suite": "d3d8_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d8_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+          "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+          "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+        },
+        "dllSha256": "8904d51964c6567f6a7829ebc00bbcfc979784584eebd5f30507c7b8682683fb",
+        "executableSha256": "f148e9ac99e370efa97dce7373c9b45448d4a832c8ff98becb447e4aff8f8207",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "d6b20f2f976b28b5783fb7adf7be24f2ccf73e3e3bb370e69f9c5db6736cc188",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "01f00fb30cefb7f1d10d1e67b52cf45c2623cdc169da2506aa14122ec4508b49",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "468799651278440fb34a833047046d4f1e512fdc4e8e8753b83ab97db3de08a4",
+      "liveGpuSha256": "c39726ff3bf5e2212604e0e13956a29c946651f8d3f205b399f111671bd80fb7",
+      "gpuErrorCount": 0,
+      "hostErrorCount": 0,
+      "commandsFailed": 0,
+      "cleanupBeforeOwnerRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 0,
+          "remainingResources": []
+        }
+      ],
+      "afterOwnerRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine9-device-psapi",
+      "status": "CRASH",
+      "summary": null,
+      "recordedAssertionFailures": 433,
+      "exit": -1073741819,
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "ed1e38fd5fbece7518eef3385a849f5ab02d0f7bd3d8d8590799e47220dced8d",
+        "executableSha256": "2e7816ccb058a22b5c55335caebc67a913857f1e51f3efb6ee463517f4780499",
+        "rendererPageSha256": "8c8ca9dd9734f1962529f31274bc46e4b873966d852c55a05c935e5b41637275",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "59ace238bd9aa45e89899528c6eac6366f4d50e6944d8ba051112866c36227c8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "28a491c08da677d660f2cfd3afd0d66ffcdf9538d78e694d08c0426218c92682",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "27bec230395237ae2c1dd96009bf8b796b07b5758701a33013930142828b4206",
+      "liveGpuSha256": "f4813c2802a73c6bb3f7dd0c52cad8a758a9fa4dc29fe0509b6c1d4dc864b0d1",
+      "gpuErrorCount": 0,
+      "hostErrorCount": 0,
+      "commandsFailed": 0,
+      "cleanupBeforeOwnerRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 2,
+          "resources": 13,
+          "remainingResources": [
+            {
+              "handle": 1073741839,
+              "kind": 7
+            },
+            {
+              "handle": 1073741841,
+              "kind": 7
+            },
+            {
+              "handle": 1073741843,
+              "kind": 7
+            },
+            {
+              "handle": 1073741845,
+              "kind": 7
+            },
+            {
+              "handle": 1073741847,
+              "kind": 8
+            },
+            {
+              "handle": 1073741849,
+              "kind": 8
+            },
+            {
+              "handle": 1073741851,
+              "kind": 8
+            },
+            {
+              "handle": 1048922,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048924,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048926,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048928,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048930,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048932,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            }
+          ]
+        }
+      ],
+      "afterOwnerRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine9-device-null-target",
+      "status": "GPU_ABORT",
+      "summary": null,
+      "recordedAssertionFailures": 102,
+      "exit": null,
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "18a6616a6e9ab75ef304ed1bfe33fd0827fbb913d479d80df9e970833d2a549b",
+        "executableSha256": "bee90ce107ec9c9e867661d6b7429632bfbe84632fce1d213fa6f0c5a7bd94b8",
+        "rendererPageSha256": "8c8ca9dd9734f1962529f31274bc46e4b873966d852c55a05c935e5b41637275",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "323a5ccc158c5b3cb72812143a76a9f223841ae5b390d5faad0784d0f1972416",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "f79ca94b0976e21f74af6cc7c87fb9c4d1ff0f896debd7879985fca2607aa145",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "59ace238bd9aa45e89899528c6eac6366f4d50e6944d8ba051112866c36227c8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "28a491c08da677d660f2cfd3afd0d66ffcdf9538d78e694d08c0426218c92682",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "e5d02ec54e8dd2ea8487f982640ed5a83f0c134d4821fa27af0f125a769ec463",
+      "liveGpuSha256": "e92a0017511213bb5e1429781e0521d1024e5029b863bf36596385a4aa037901",
+      "gpuErrorCount": null,
+      "hostErrorCount": 0,
+      "commandsFailed": 0,
+      "cleanupBeforeOwnerRelease": [],
+      "afterOwnerRelease": {
+        "devices": 2,
+        "resources": 13
+      },
+      "note": "GPU validation aborted this run. Its old snapshot predates the failing batch and must not be interpreted as zero errors. Later harness changes preserve the failing snapshot.",
+      "runnerLogSha256": "15c8c87fe30db0e5e941921dbe28fa1a363c783de490dbc361989f09cc40edd5"
+    },
+    {
+      "directory": "stage6-wine9-device-ati-edges",
+      "status": "GPU_ABORT",
+      "summary": null,
+      "recordedAssertionFailures": 96,
+      "exit": null,
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "c197d1506de48701d01f9068450578636e725b66a6f43817b7d660b3c1db21df",
+        "executableSha256": "d138953d67aa1173214ef37a962de7e2c689fee0e7cf82572da3454d33fca67b",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "043c0ece171e274f35acbb08c913ebe825d06cd42ce6b067ff3fd2841846a4f3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "c8349b4959503363fd01fcc2385d09a75dbb692b5f83039738d13cd14568c0f4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "d6b20f2f976b28b5783fb7adf7be24f2ccf73e3e3bb370e69f9c5db6736cc188",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "7b8b8b0c3c8048573af4abd875a587d8362ded2bcc48e6f6f5a5cdcc14de3bbe",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "4baac7351bbf71d6ae788e3beb46e6422b928e3dc6e1991f2c9b6c60f78fc739",
+      "liveGpuSha256": "de0a2174e4621924c38f23e8695f8df02bbdcded0572704a2e43109058cd7f3f",
+      "gpuErrorCount": 600,
+      "hostErrorCount": 0,
+      "commandsFailed": 0,
+      "cleanupBeforeOwnerRelease": [],
+      "afterOwnerRelease": {
+        "devices": 2,
+        "resources": 13
+      }
+    },
+    {
+      "directory": "stage6-wine9-device-bc-edges",
+      "status": "CRASH",
+      "summary": null,
+      "recordedAssertionFailures": 1770,
+      "exit": -1073741819,
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "17935a512064a24907d0cfb511910fd0aa3261970dbb69ecac8e13c29d259e2e",
+        "executableSha256": "d3753392b14ad6770c5e11557c5493f65d37b37aed636d962376e8f996ff39a6",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "d6b20f2f976b28b5783fb7adf7be24f2ccf73e3e3bb370e69f9c5db6736cc188",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "6d830ea24d9069cad2d7547c99c1ab96082cc0918cd0fa56ebe53ae6d264c79c",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "ce2cd962c131e164e6124cb23038548946766df556ef8903a7d137d77911acba",
+      "liveGpuSha256": "398f748f0805576823b92d54a173448bd5306c890b6f5ca14f5ff234e3c4e241",
+      "gpuErrorCount": 0,
+      "hostErrorCount": 0,
+      "commandsFailed": 0,
+      "cleanupBeforeOwnerRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 2,
+          "resources": 13,
+          "remainingResources": [
+            {
+              "handle": 1073741839,
+              "kind": 7
+            },
+            {
+              "handle": 1073741841,
+              "kind": 7
+            },
+            {
+              "handle": 1073741843,
+              "kind": 7
+            },
+            {
+              "handle": 1073741845,
+              "kind": 7
+            },
+            {
+              "handle": 1073741847,
+              "kind": 8
+            },
+            {
+              "handle": 1073741849,
+              "kind": 8
+            },
+            {
+              "handle": 1073741851,
+              "kind": 8
+            },
+            {
+              "handle": 1048922,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048924,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048926,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048928,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048930,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048932,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            }
+          ]
+        }
+      ],
+      "afterOwnerRelease": {
+        "devices": 0,
+        "resources": 0
+      },
+      "note": "Reached test_volume_blocks; unsupported CPU-only DXT volume creation then null dereference at original line 10774. No complete suite summary. Owner cleanup still has 2 devices/13 resources; forced release is not a clean lifecycle pass."
+    }
+  ],
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw.dll": {
+      "bytes": 145408,
+      "sha256": "d42ece22c82d732e0aeeb8dbdbd400c4e9bcaf8011bfe8572d4b3cd373c89513"
+    },
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": {
+      "bytes": 177664,
+      "sha256": "26b32fe480daa2e2c39e791c3eb740fda8f1661a9fb50bff6ac846b6940bd24a"
+    },
+    "glbridge/d3d8proxy/d3d8.dll": {
+      "bytes": 202240,
+      "sha256": "8904d51964c6567f6a7829ebc00bbcfc979784584eebd5f30507c7b8682683fb"
+    },
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": {
+      "bytes": 254464,
+      "sha256": "589a6ded653f217cf32f8f37d1a6fd6d5d80089e75e1f570f5f13a940b555456"
+    },
+    "glbridge/d3d9proxy/d3d9.dll": {
+      "bytes": 159744,
+      "sha256": "17935a512064a24907d0cfb511910fd0aa3261970dbb69ecac8e13c29d259e2e"
+    },
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": {
+      "bytes": 207872,
+      "sha256": "934d67cc5d17ae6e8e810892d3a4d403d98d4610c0678aef701e395940625a75"
+    }
+  },
+  "webgpuRevision": "ce2e3593ba41e7d3dcb9",
+  "coverageLimits": [
+    "Full D3D8 run covers corrected LOGP and alpha semantics, but predates BC fallback and equivalent final opaque-mask representation. Final Metal/SwiftShader pixel suites cover the combined published host.",
+    "Full D3D9 device run remains incomplete and crashes after CPU-only compressed volume creation failure. 1770 recorded failures are not a completed failure total.",
+    "Compressed fallback currently covers 2D/cube, not volumes or raw compressed GPU readback. No claim of all compressed operations passing.",
+    "Existing six benchmark results retain historical binaries; this batch does not claim full reruns."
+  ],
+  "remaining": [
+    "D3D8 visual 53 failures/14 skips, D3D9 device/visual and legacy DirectDraw crashes, other original suites.",
+    "CPU-only volume rules, depth/readback/viewport, dirty mip upload, API/window/lifetime and remaining visual failures.",
+    "Current benchmark reruns, cross-backend comparisons, 3DMark03 audio, and 3DMark99 Race ~6.1% below measured old baseline. No failure/skip waived."
+  ],
+  "scopeDecision": "User: keep three 3DMark03 sound tests incomplete and finish other acceptance first; no audio implementation in this batch."
+}

@@ -52,8 +52,8 @@
                     await gpu.submit(packet.subarray(21),{ownerToken,flags,writeGuestMemory(offset,bytes){send(3,offset,bytes);}});
                 }
                 await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
-                if(gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.batchesFailed)throw new Error("GPU validation failed: "+JSON.stringify({gpu:gpu.gpuErrors.errors,host:gpu.hostErrors}));
                 text(8,JSON.stringify({stats:gpu.stats,cleanup,sessionCleanup,devices:gpu.devices.size,resources:gpu.resources.size,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors}));
+                if(gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.batchesFailed)throw new Error("GPU validation failed: "+JSON.stringify({gpu:gpu.gpuErrors.errors,host:gpu.hostErrors}));
                 send(4,seq);
             }).catch(error=>{failed=true;text(5,String(error.stack));document.querySelector("#result").textContent=String(error.stack);});
         };

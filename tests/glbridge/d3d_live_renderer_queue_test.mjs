@@ -33,6 +33,7 @@ for(const kind of ["lost","sequence","write","timeout","close","release-write"])
     if(kind==="write"||kind==="release-write")f.reply({type:"write",offset:0,bytes:[]});
     if(kind==="close")f.live.close();
     await rejected;await queued_rejected;await assert.rejects(f.live.idle());assert.equal(f.sent.length,1);
+    if(kind==="lost")assert.equal(f.live.stats.failure,"GPU lost","retain failure even when the previous snapshot was clean");
     if(kind!=="close")f.live.close();
 }
 {

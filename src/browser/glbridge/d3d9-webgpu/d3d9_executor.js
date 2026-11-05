@@ -58,12 +58,13 @@
         (typeof require === "function" ? require("./d9wg_wire.js") : null);
     if (!wire) throw new Error("d3d9_executor.js requires d9wg_wire.js to be loaded first");
     const { D9WGStreamError } = wire;
+    const OPAQUE_COLOR_FORMATS = new Set([20, 22, 23, 24, 27, 30, 33]);
     const formats = global.D9WGFormats ||
         (typeof require === "function" ? require("./d9wg_formats.js") : null);
     if (!formats) throw new Error("d3d9_executor.js requires d9wg_formats.js to be loaded first");
     const {
         D3DFMT_A8R8G8B8, D3DFMT_INDEX32, srgbSiblingOf, isCompressedFormat, compressedBlockBytes,
-        blockAlignedCopyExtent, isFourCCDepthFormat, isPalettizedFormat, gpuBytesPerTexel, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
+        blockAlignedCopyExtent, bcNeedsExpansion, expandBCBlocks, isFourCCDepthFormat, isPalettizedFormat, gpuBytesPerTexel, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
         isRenderableGPUFormat, isFloat32GPUFormat, isBlendableGPUFormat, formatToGPU, d3dBytesPerTexel,
         packGPUReadbackRow, expandRowToGPU, samplingSwizzle
     } = formats;
@@ -2096,6 +2097,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 noSurface: false, sessionKey: this.sessionKey };
             state.backBufferWidth = width;
             state.backBufferHeight = height;
+            state.backBufferD3DFormat = view.getUint32(offset + D9WG.F.CreateDevice.backbuffer_format, true);
             this.configureBackBufferMSAA(state, width, height,
                 multisampleType, multisampleQuality);
             this.ensureDepthTarget(state, width, height, enableAutoDepth !== 0);
@@ -2144,6 +2146,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 noSurface: false, sessionKey: this.sessionKey };
             state.backBufferWidth = width;
             state.backBufferHeight = height;
+            state.backBufferD3DFormat = view.getUint32(offset + D9WG.F.ResetDevice.backbuffer_format, true);
             this.configureBackBufferMSAA(state, width, height,
                 multisampleType, multisampleQuality);
             this.ensureDepthTarget(state, width, height, enableAutoDepth !== 0);
@@ -3133,6 +3136,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return { key: key + "x" + sampleCount, colors, depthView, width,
                 height, substituteDepth,
                 hasDepth: !!depthView, sampleCount,
+                // Packed RGB/XRGB targets use RGBA storage on WebGPU, but
+                // their destination alpha is still logically one for blending.
+                opaqueTargetMask: colors.reduce((mask, color, index) => mask |
+                    (color && OPAQUE_COLOR_FORMATS.has(color.resource
+                        ? color.resource.format : state.backBufferD3DFormat) ? 1 << index : 0), 0),
                 formats: colors.map(color => color ? color.format : null) };
         }
 
@@ -6619,7 +6627,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         D9WG_USAGE_DDRAW_INDEXED, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
         DEPTH_FORMAT, formatToGPU, isRenderableGPUFormat, srgbSiblingOf, TEXTURE_USAGE_RENDER_ATTACHMENT,
         TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_COPY_DST, TEXTURE_USAGE_COPY_SRC, isCompressedFormat, RESOURCE_TEXTURE_2D,
-        gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,
+        gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, bcNeedsExpansion, expandBCBlocks, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,
         RESOURCE_VERTEX_DECLARATION, D9WGStreamError, shaderPipeline, RESOURCE_VERTEX_SHADER, RESOURCE_PIXEL_SHADER,
         BUFFER_USAGE_UNIFORM, PALETTE_ENTRIES: surfaceFactory.PALETTE_ENTRIES, PALETTE_BYTES: surfaceFactory.PALETTE_BYTES
     });

@@ -241,6 +241,56 @@
             cmd(P.OP.SET_PIXEL_SHADER, P.encode("SetShader", {device_handle: dev, shader_handle: ps})), wire("SetSamplerState", {device_handle: dev, state: 7, value: 1}), rs(dev, 174, 1)];
     }
     const autoCoordinates = (dev, coordinates) => cmd(P.OP.SET_PIXEL_SHADER_CONSTANT_F, P.encode("SetShaderConstantF", {device_handle: dev, vector_count: 1}), [blob("SetShaderConstantF", "data_offset", Uint8Array.from(floats(...coordinates)))]);
+    for (const channels of [1, 2]) for (const cube of [false, true]) for (const edge of [1, 3, 7]) {
+        const height = cube ? edge : edge === 7 ? 5 : edge;
+        const levels = edge === 1 ? 1 : edge === 3 ? 2 : 3;
+        const value = (level,face,block) => 40 + level * 30 + face * 9 + block * 8;
+        add("ati-edges", {name: `ATI${channels} odd ${cube ? "cube" : "2D"} ${edge} mip chain`,
+            body: dev => {
+                const handle=dev+0x500000,ps=dev+0x600000,format=fourcc("ATI"+channels);
+                const commands=[wire(cube?"CreateTextureCube":"CreateTexture2D",{device_handle:dev,resource_handle:handle,
+                    ...(cube?{edge_length:edge}:{width:edge,height}),level_count:levels,format})];
+                for(let level=0;level<levels;level++)for(let face=0;face<(cube?6:1);face++) {
+                    const w=Math.max(1,edge>>level),h=Math.max(1,height>>level),columns=Math.ceil(w/4),rows=Math.ceil(h/4),pitch=columns*channels*8;
+                    const data=new Uint8Array(pitch*rows);
+                    for(let block=0;block<columns*rows;block++)for(let c=0;c<channels;c++)
+                        data[block*channels*8+c*8]=value(level,face,cube?0:block)+c*20;
+                    commands.push(wire("UpdateTexture",{resource_handle:handle,level,z:face,width:w,height:h,depth:1,
+                        row_pitch:pitch,slice_pitch:data.length,data_bytes:data.length},[blob("UpdateTexture","data_offset",data)]));
+                }
+                commands.push(wire("SetTexture",{device_handle:dev,texture_handle:handle}),...autoShader(dev,ps,cube));
+                for(let level=0;level<levels;level++)for(let face=0;face<(cube?6:1);face++)commands.push(
+                    autoCoordinates(dev,[...(cube?cubeAxes[face]:[.9,.9,0]),level]),
+                    wire("SetScissorRect",{device_handle:dev,left:cube?face*10:0,right:cube?face*10+10:64,top:level*20,bottom:level*20+20}),
+                    ...drawXYZ(dev,fullXYZ(.5,0xffffffff)));
+                return commands;
+            }, probes:Array.from({length:levels*(cube?6:1)},(_,i)=>{
+                const level=cube?Math.floor(i/6):i,face=cube?i%6:0,w=Math.max(1,edge>>level),h=Math.max(1,height>>level);
+                const block=cube?0:Math.floor(Math.floor(h*.9)/4)*Math.ceil(w/4)+Math.floor(Math.floor(w*.9)/4),v=value(level,face,block);
+                return {at:[cube?face*10+5:32,level*20+10],expect:channels===1?[v,v,v,v]:[v+20,v,255,255],tolerance:1};
+            })});
+    }
+    for(const dxt of [1,2,3,4,5])for(const cube of [false,true])for(const edge of [1,3,7]) {
+        const levels=edge===1?1:edge===3?2:3,colors=[0xf800,0x07e0,0x001f];
+        add("bc-edges",{name:`DXT${dxt} odd ${cube?"cube":"2D"} ${edge} mip chain`,body:dev=>{
+            const handle=dev+0x500000,ps=dev+0x600000,commands=[wire(cube?"CreateTextureCube":"CreateTexture2D",{
+                device_handle:dev,resource_handle:handle,...(cube?{edge_length:edge}:{width:edge,height:edge}),level_count:levels,format:fourcc("DXT"+dxt)})];
+            for(let level=0;level<levels;level++)for(let face=0;face<(cube?6:1);face++) {
+                const w=Math.max(1,edge>>level),color=bcColorBlock(colors[(level+face)%3]);
+                const block=Uint8Array.from(dxt===1?color:[...(dxt<=3?new Array(8).fill(255):[255,0,0,0,0,0,0,0]),...color]);
+                const pitch=Math.ceil(w/4)*block.length,data=new Uint8Array(pitch*Math.ceil(w/4));
+                for(let at=0;at<data.length;at+=block.length)data.set(block,at);
+                commands.push(wire("UpdateTexture",{resource_handle:handle,level,z:face,width:w,height:w,depth:1,row_pitch:pitch,slice_pitch:data.length,data_bytes:data.length},[blob("UpdateTexture","data_offset",data)]));
+            }
+            commands.push(wire("SetTexture",{device_handle:dev,texture_handle:handle}),...autoShader(dev,ps,cube));
+            for(let level=0;level<levels;level++)for(let face=0;face<(cube?6:1);face++)commands.push(
+                autoCoordinates(dev,[...(cube?cubeAxes[face]:[.9,.9,0]),level]),wire("SetScissorRect",{device_handle:dev,left:cube?face*10:0,right:cube?face*10+10:64,top:level*20,bottom:level*20+20}),...drawXYZ(dev,fullXYZ(.5,0xffffffff)));
+            return commands;
+        },probes:Array.from({length:levels*(cube?6:1)},(_,i)=>{
+            const level=cube?Math.floor(i/6):i,face=cube?i%6:0;
+            return{at:[cube?face*10+5:32,level*20+10],expect:bcRGBA(colors[(level+face)%3]),tolerance:1};
+        })});
+    }
     for (const [format, channels, bytes, bgra] of autoGenFormats) for (const cube of [false, true]) for (const filter of [0, 1, 2, 3]) add("autogen", {
         name: "autogen format " + format + (cube ? " cube" : " 2D") + " filter " + filter + " reaches both generated levels", body: (dev, rt, runtime) => {
             void rt;

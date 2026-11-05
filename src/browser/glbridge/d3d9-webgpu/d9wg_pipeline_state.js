@@ -35,6 +35,7 @@
                 back.compare, back.failOp, back.depthFailOp, back.passOp,
                 state.stencilReadMask, state.stencilWriteMask,
                 state.extraWriteMasks.join("."), state.colorFormats.join("."),
+                state.opaqueTargetMask || 0,
                 state.sampleCount, state.sampleMask, state.alphaToCoverage].join("|");
         }
         return {
@@ -199,6 +200,7 @@
                     // them positionally, so an MRT pass needs the whole list baked
                     // into the pipeline and therefore into its cache key.
                     colorFormats: targets ? targets.formats : [this.format],
+                    opaqueTargetMask: targets ? targets.opaqueTargetMask : 0,
                     // WebGPU takes the sample count on the pipeline as well as on
                     // the attachments, and the two must agree; without this the
                     // pipeline defaulted to 1 and every draw into a multisampled
@@ -402,12 +404,21 @@
                                 : pipelineState.extraWriteMasks[index - 1] };
                         if (pipelineState.blendEnabled &&
                                 isBlendableGPUFormat(format, this.deviceFeatures)) {
+                            // A8 and X8 can share a physical RGBA texture format.
+                            // Read destination-alpha factors from the logical D3D
+                            // target, independently for every MRT attachment.
+                            const opaque = (pipelineState.opaqueTargetMask & (1 << index)) !== 0;
+                            const factor = (value, alpha = false) => !opaque ? value
+                                : value === "dst-alpha" ? "one"
+                                : value === "one-minus-dst-alpha" ? "zero"
+                                : value === "src-alpha-saturated" ? (alpha ? "one" : "zero")
+                                : value;
                             target.blend = {
-                                color: { srcFactor: pipelineState.srcFactor,
-                                         dstFactor: pipelineState.dstFactor,
+                                color: { srcFactor: factor(pipelineState.srcFactor),
+                                         dstFactor: factor(pipelineState.dstFactor),
                                          operation: pipelineState.blendOp },
-                                alpha: { srcFactor: pipelineState.alphaSrcFactor,
-                                         dstFactor: pipelineState.alphaDstFactor,
+                                alpha: { srcFactor: factor(pipelineState.alphaSrcFactor, true),
+                                         dstFactor: factor(pipelineState.alphaDstFactor, true),
                                          operation: pipelineState.alphaBlendOp },
                             };
                         } else if (pipelineState.blendEnabled &&
