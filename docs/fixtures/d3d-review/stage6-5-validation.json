@@ -1,0 +1,314 @@
+{
+  "batch": "stage6-5",
+  "date": "2026-11-06",
+  "scope": "Complete 3DMark05 Metal acceptance and native .3dr result extraction",
+  "status": "16 tests completed; stage6 remains open",
+  "run": {
+    "directory": "build/d3d-review/stage6-05-folder",
+    "program": "3DMark05 Business Edition 1.3.0",
+    "tests_completed": 16,
+    "test_groups": {
+      "game": 3,
+      "CPU": 2,
+      "features": 5,
+      "batch_sizes": 6
+    },
+    "settings": {
+      "Width": "1024",
+      "Height": "768",
+      "Anti-Aliasing": "None",
+      "Anti-Aliasing Quality": "0",
+      "Texture Filtering": "Optimal",
+      "Max Anisotropy": "4",
+      "VS Profile": "3_0",
+      "PS Profile": "3_0",
+      "Force Full Precision": "No",
+      "Disable DST": "No",
+      "Disable Post-Processing": "No",
+      "Force Software Vertex Shader": "No",
+      "Color Mipmaps": "No",
+      "Repeat Tests": "Off",
+      "Fixed Framerate": "Off",
+      "Checksums Valid": "No",
+      "Display Changed": "No",
+      "NullPS": "No",
+      "Invalid Score": "No"
+    },
+    "cpu_worker": true,
+    "backend": "Apple Metal",
+    "browser": {
+      "protocolVersion": "1.3",
+      "product": "Chrome/157.0.8103.38",
+      "revision": "@a733b5afbb3ba618844ff8876b89ad1a774b2f18",
+      "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+      "jsVersion": "15.7.112.23"
+    },
+    "core_assets": {
+      "libv86.js": {
+        "bytes": 842704,
+        "sha256": "6eca83bb632e2e132e89a35e868c6b3fc59c67d74232d4c517c6104d5bc6f327"
+      },
+      "v86.wasm": {
+        "bytes": 3011563,
+        "sha256": "15a39f2f07c9d40f9c4d5bae1fb720dd410d91d1a3d05a541f2d92cf584a8d9f"
+      },
+      "cpu-worker.js": {
+        "bytes": 851766,
+        "sha256": "0e93acfc901408b4f1380f7c25560456e1d8c55ecb225c124a5d69bbe0f01877"
+      },
+      "v86-bochs-vga.js": {
+        "bytes": 44376,
+        "sha256": "ce8415006ca38dc53bd807323fc01fcfc47e9d3c31b7aad3934636e4408d1984"
+      }
+    },
+    "webgpu_revision": "f95489b0bdfbfc0030ee",
+    "results": [
+      {
+        "test": "3DMark Score",
+        "value": "2945.000000000",
+        "unit": "3DMarks",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "GT1 - Return To Proxycon",
+        "value": "10.984669685",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "GT2 - Firefly Forest",
+        "value": "8.005024910",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "GT3 - Canyon Flight",
+        "value": "18.589363098",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "CPU Score",
+        "value": "7784.000000000",
+        "unit": "CPUMarks",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "CPU Test 1",
+        "value": "2.448808670",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "CPU Test 2",
+        "value": "10.996953964",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Fill Rate - Single-Texturing",
+        "value": "33535.984375000",
+        "unit": "texels/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Fill Rate - Multi-Texturing",
+        "value": "74000.859375000",
+        "unit": "texels/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Pixel Shader",
+        "value": "549.979980469",
+        "unit": "FPS",
+        "base": 10,
+        "exp": 0,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Vertex Shader - Simple",
+        "value": "486.880859375",
+        "unit": "vertices/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "Vertex Shader - Complex",
+        "value": "84.205833435",
+        "unit": "vertices/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "8 Triangles",
+        "value": "1.124779701",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "32 Triangles",
+        "value": "4.894609451",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "128 Triangles",
+        "value": "19.920606613",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "512 Triangles",
+        "value": "76.971160889",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "2048 Triangles",
+        "value": "268.264678955",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      },
+      {
+        "test": "32768 Triangles",
+        "value": "1332.303344727",
+        "unit": "triangles/s",
+        "base": 10,
+        "exp": 6,
+        "status": "0",
+        "status_text": ""
+      }
+    ],
+    "error_counts": {
+      "browser_console": 0,
+      "monitor": 0,
+      "host": 0,
+      "gpu": 0,
+      "commands_failed": 0,
+      "draws_dropped": 0,
+      "shader_compile": 0,
+      "shader_translation": 0
+    },
+    "normal_exit": {
+      "devices": 0,
+      "resources": 0
+    },
+    "diagnostics": {
+      "unwritten_texture_coordinates": 0,
+      "missing_texture_coordinates": 0,
+      "point_sprite_draws": 9180
+    },
+    "journal": {
+      "rawBytes": 12702713840,
+      "pendingBytes": 0,
+      "residentBytes": 67078718
+    },
+    "artifacts": [
+      {
+        "file": "S6MK05.3DR",
+        "name": "S6MK05.3DR",
+        "bytes": 66509,
+        "sha256": "b8bc4efbf8472c02f600e15b800cb5ebc1b785bd70af9477572d79a0db0629df"
+      },
+      {
+        "file": "MARK05/d3d9.dll",
+        "name": "MARK05_d3d9.dll",
+        "bytes": 159232,
+        "sha256": "08835a09e9531cf5863ab3c4988ca38e44886179da44b1e7bb98afff207f83d9"
+      }
+    ],
+    "visual_review": {
+      "frames": [
+        114,
+        120,
+        126,
+        140,
+        144,
+        148,
+        158,
+        162,
+        166,
+        186,
+        198,
+        210,
+        258,
+        270,
+        274,
+        276,
+        278,
+        284,
+        286,
+        290,
+        294,
+        296,
+        298,
+        300,
+        303
+      ],
+      "reference": "Independent bundled Help/images/ss_gt1..3.jpg for game scenes and Help/html/tests.htm for feature/batch structure. The bundled ss_fillrate.jpg depicts the filtering tunnel and is not treated as an exact reference for the 2x2-texture fill-rate test.",
+      "observations": "Metal surfaces, animated lighting/shadows, firefly forest, airship/monster/water/bloom, CPU variants, both fill-rate layers, rock pixel shader, four high-polygon monsters, animated grass and six colored batch grids inspected. Qualitative reference review, no exact pixel equality claim."
+    },
+    "score_caveat": "Checksums Valid=No retained from the original .3dr; this is a local compatibility result, not an officially certified score."
+  },
+  "tool_validation": {
+    "parser": "tests/glbridge/d3d_3dmark_result.py",
+    "actual_files": [
+      "3DMark03: 16 rows including 3 unsupported statuses preserved",
+      "3DMark05: 18 rows, all statuses successful, covering 16 tests plus two scores"
+    ],
+    "units": "Preserve the original base and exponent (for example texels/s x 10^6).",
+    "privacy": "Only allowlisted benchmark settings and results; registration keys, comments and SI.xml machine inventory are excluded."
+  },
+  "remaining": [
+    "3DMark06 full acceptance.",
+    "3DMark03 sound tests await scope clarification and remain incomplete.",
+    "Cross-backend comparison, 3DMark99 old-branch performance parity and remaining Wine/API suites."
+  ]
+}

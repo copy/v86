@@ -2921,7 +2921,7 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 | 2 | 3DMark2000 | `game/3dmarklegacy.img` | Metal全部22项通过；跨后端核对仍开放 |
 | 3 | 3DMark2001 SE | `game/3dmarklegacy.img` | Metal全部21项通过；跨后端核对仍开放 |
 | 4 | 3DMark03 | `game/3dmark03.img` | Metal图形/CPU 11项完成；3项声音不支持，尚未全项通过 |
-| 5 | 3DMark05 | `game/3dmark05.img` | 全项验收待完成 |
+| 5 | 3DMark05 | `game/3dmark05.img` | Metal全部16项通过；跨后端核对仍开放 |
 | 6 | 3DMark06 | `game/3dmark06.img` | 全项验收待完成；用户已确认最后重复的05指06 |
 
 验收要求：
@@ -2964,6 +2964,14 @@ Professional Edition 3.6.0完成4个游戏、2个CPU和5个功能项目，得分
 另修正点精灵诊断的反射信息：生成的入口已写入全部8组纹理坐标，旧统计却仅计算客体着色器本体的输出。03全程376个采样中，该提示与点精灵绘制数完全一致。修复仅补全变体反射，保持WGSL画面逻辑不变；普通三角形确实缺失UV时仍报告。52项着色器测试与179项执行器测试通过，发布WebGPU版本为`f95489b0bdfbfc0030ee`。
 
 05从镜像根目录启动会触发其自带Boost路径错误；改为在RAM覆盖层内将指定程序文件移入普通目录后已进入主界面。启动脚本对05/06保留同盘重命名方式，不复制大数据文件或改写原始镜像。正式05/06测试继续。证据见 `fixtures/d3d-review/stage6-4-validation.json`；03声音测试、跨后端比较、99性能对齐及其余阶段6验收保持开放。
+
+### 3DMark05完整Metal验收（2026-11-06）
+
+Business Edition 1.3.0已完成全部16项：3游戏、2 CPU、5功能、6批量绘制。1024×768、无AA、Optimal纹理、VS/PS 3.0，保留默认深度阴影与后处理；CPU项目使用程序自身规定的低分辨率/软件顶点路径。得分2945、CPU分7784；游戏为11.0/8.0/18.6 FPS，CPU为2.4/11.0 FPS。原始`.3dr`含18行结果（含两项分数），全部状态成功，6种批量大小均有成绩。
+
+逐场景检查了金属/光照/阴影、森林萤火、水面/飞艇/怪物/泛光、CPU变体、填充率、岩石像素着色、四个高面数模型、草地及6种批量网格。独立参考使用自带游戏截图与功能说明；帮助中的`ss_fillrate.jpg`实际是过滤隧道，未把它当成填充率逐像素基准。浏览器/宿主/GPU错误、着色器失败、失败命令及丢弃绘制均为零；正常退出后设备/资源清零。修正后的点精灵反射在9180次点精灵绘制下不再产生缺失UV误报。
+
+新增`python3 tests/glbridge/d3d_3dmark_result.py INPUT.3DR OUTPUT.json`直接解析本地原始结果，保留状态及单位倍率，排除注册码、评论与机器清单；已用03/05实际文件校验。保留原始Checksums Valid=No，不作为官方认证成绩。详细证据见 `fixtures/d3d-review/stage6-5-validation.json`。06、03声音范围、跨后端比较、99旧分支性能及完整Wine/API验收继续开放。
 
 ## 附录 A：我本人的核实记录
 
