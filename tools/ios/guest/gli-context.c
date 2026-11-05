@@ -9,7 +9,7 @@ typedef void (*fn)(void);
 extern void *calloc(usize, usize), *malloc(usize);
 extern void free(void *);
 extern int strcmp(const char *, const char *), memcmp(const void *, const void *, usize);
-extern void *memcpy(void *, const void *, usize);
+extern void *memcpy(void *, const void *, usize), *memset(void *, int, usize);
 extern void *objc_getClass(const char *), *sel_registerName(const char *);
 extern void *class_getInstanceMethod(void *, void *), *class_getInstanceVariable(void *, const char *);
 extern long ivar_getOffset(void *);
@@ -34,6 +34,7 @@ struct context {
     struct context *next;
     struct group *group;
     unsigned handle, error;
+    unsigned framebuffer, frame_dirty;
     char *strings[5];
     struct client_attrib attribs[N90_ATTRIBS];
 };
@@ -87,6 +88,7 @@ static unsigned invalid_operation(struct context *ctx)
 
 #include "gli-surface.h"
 #include "gli-draw.h"
+#include "gli-texture.h"
 #include "gli-query.h"
 #include "gli-uniform.h"
 
@@ -109,7 +111,8 @@ static const char *get_string(struct context *ctx, unsigned name)
     unsigned conn = ctx->driver.connection;
     if(!SEND(conn, rc_rcGetGLString, name, 0, 0) || !gles_read(conn, &size, 4) || size >= 0 || size < -65536) return 0;
     size = -size;
-    char *text = malloc(size);
+    static const char pvrtc_extension[] = " GL_IMG_texture_compression_pvrtc";
+    char *text = malloc(size + (i == 3 ? sizeof(pvrtc_extension) - 1 : 0));
     if(!text) { if(!ctx->error) ctx->error = 0x505; return 0; }
     if(!SEND(conn, rc_rcGetGLString, name, size, size) || !gles_read(conn, text, size) ||
         !gles_read(conn, &count, 4) || count != size || text[size - 1])
@@ -117,6 +120,7 @@ static const char *get_string(struct context *ctx, unsigned name)
         free(text);
         return 0;
     }
+    if(i == 3) memcpy(text + size - 1, pvrtc_extension, sizeof(pvrtc_extension));
     return ctx->strings[i] = text;
 }
 
@@ -160,6 +164,7 @@ static int create_context(void **out, const void *format, struct group *group, d
     install_scalar_functions(primary);
     install_surface_functions(primary);
     install_draw_functions(primary);
+    install_texture_functions(primary);
     install_query_functions(primary);
     install_uniform_functions(primary);
     primary[N90_glDeleteShader - 5] = (driver_word)delete_object;

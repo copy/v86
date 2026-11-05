@@ -205,7 +205,7 @@ static int publish_bytes(struct binding *b)
     unsigned stride = IOSurfaceGetBytesPerRow(b->surface);
     if(!w || w > 0x4000 || !h || h > 0x4000 || stride < 4 * w || stride > ~0u / h) return 0;
     unsigned rows = 1;
-    while(rows <= h / 2 && rows * w <= 8192) rows *= 2;
+    while(rows <= h / 2 && rows * w <= (1u << 17)) rows *= 2;
     unsigned char *rgba = malloc(rows * w * 4);
     if(!rgba) return 0;
     if(IOSurfaceLock(b->surface, 0, 0)) { free(rgba); return 0; }
@@ -232,6 +232,63 @@ static int publish_bytes(struct binding *b)
     int unlocked = IOSurfaceUnlock(b->surface, 0, 0) == 0;
     free(rgba);
     return ok && unlocked;
+}
+
+static int framebuffer_attachment(struct context *ctx, unsigned pname, int *out)
+{
+    const unsigned conn = ctx->driver.connection;
+    return SEND(conn, gles2_glGetFramebufferAttachmentParameteriv, 0x8d40, 0x8ce0, pname, 4) &&
+        gles_read(conn, out, 4);
+}
+
+// The display compositor draws to an IOSurface-backed texture attached
+// to its FBO and then unbinds that FBO before the native LCD swap.
+static void publish_framebuffer(struct context *ctx)
+{
+    if(!ctx->frame_dirty || !ctx->framebuffer) return;
+    ctx->frame_dirty = 0;
+    int kind = 0, name = 0;
+    if(!framebuffer_attachment(ctx, 0x8cd0, &kind)) { ctx->driver.ok = 0; return; }
+    unsigned target = kind == 0x1702 ? 0x0de1 : kind == 0x8d41 ? 0x8d41 : 0;
+    if(!target) return;
+    if(!framebuffer_attachment(ctx, 0x8cd1, &name)) { ctx->driver.ok = 0; return; }
+    OSSpinLockLock(&lock);
+    struct binding *b = ctx->group->bindings;
+    while(b && (b->target != target || b->name != (unsigned)name)) b = b->next;
+    if(b && b->window) b = 0; // CAEAGLLayer publishes at present instead
+    if(b) b->refs++;
+    OSSpinLockUnlock(&lock);
+    if(b)
+    {
+        if(!publish_bytes(b)) ctx->driver.ok = 0;
+        release_binding(b);
+    }
+}
+
+static void bind_framebuffer(struct context *ctx, unsigned target, unsigned name)
+{
+    if(target == 0x8d40 && name != ctx->framebuffer) publish_framebuffer(ctx);
+    const int ok = SEND(ctx->driver.connection, gles2_glBindFramebuffer, target, name);
+    ctx->driver.ok &= ok;
+    if(ok && target == 0x8d40) ctx->framebuffer = name;
+}
+
+static void clear_framebuffer(struct context *ctx, unsigned mask)
+{
+    ctx->driver.ok &= SEND(ctx->driver.connection, gles2_glClear, mask);
+    if(mask & 0x4000) ctx->frame_dirty |= !!ctx->framebuffer;
+}
+
+static void flush_framebuffer(struct context *ctx)
+{
+    publish_framebuffer(ctx);
+    ctx->driver.ok &= SEND(ctx->driver.connection, gles2_glFlush);
+}
+
+static void finish_framebuffer(struct context *ctx)
+{
+    publish_framebuffer(ctx);
+    ctx->driver.ok &= SEND(ctx->driver.connection, gles2_glFinish);
 }
 
 // Retained backing preserves the previous frame when Core Animation
@@ -353,4 +410,8 @@ static void install_surface_functions(driver_word *table)
     table[N90_glGenBuffers - 5] = (driver_word)gen_Buffers;
     table[N90_glDeleteBuffers - 5] = (driver_word)delete_Buffers;
     table[N90_glReadPixels - 5] = (driver_word)read_rgba;
+    table[N90_glBindFramebuffer - 5] = (driver_word)bind_framebuffer;
+    table[N90_glClear - 5] = (driver_word)clear_framebuffer;
+    table[N90_glFlush - 5] = (driver_word)flush_framebuffer;
+    table[N90_glFinish - 5] = (driver_word)finish_framebuffer;
 }

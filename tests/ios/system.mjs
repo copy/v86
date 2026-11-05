@@ -74,7 +74,8 @@ try
                     if(contexts) assert.ok(!ram.includes(Buffer.from(lifecycle + " failed")), name + " failed its EAGL lifecycle check");
                     if(surfaces)
                     {
-                        const checks = draw ? ["IOSurface pixels", "shader triangle"] : windows ? ["IOSurface pixels", "native window", "CAEAGLLayer"] : ["IOSurface pixels"];
+                        const checks = draw ? ["IOSurface pixels", "shader triangle", "framebuffer publish", "texture upload"] :
+                            windows ? ["IOSurface pixels", "native window", "CAEAGLLayer"] : ["IOSurface pixels"];
                         for(const which of checks)
                         {
                             const marker = Buffer.from("V86 " + which + " pid " + p.pid + " step ");
@@ -116,6 +117,8 @@ try
             for(const p of names.filter(p => ["backboardd", "SpringBoard"].includes(p.name)))
                 console.log(p.pid + " " + p.name);
             if(draw) console.log("PASS: original EAGL programs drew vertex-buffer and indexed client-array triangles into every shared surface pixel in both processes");
+            if(draw) console.log("PASS: switching away from the compositor's FBO publishes every BGRA pixel to native IOSurface memory");
+            if(draw) console.log("PASS: native padded RGBA uploads and complete PVRTC image replacements read back exactly");
             if(windows) console.log("PASS: native EAGL window rotation and CAEAGLLayer publication with verified BGRA pixels");
             if(surfaces) console.log("PASS: native EAGL renderbuffer and texture attachments share all 64x48 WebGPU pixels in both system processes");
             if(contexts) console.log("PASS: both system processes created shared EAGL contexts, switched between them, shared a shader, queried the host renderer and released their contexts");

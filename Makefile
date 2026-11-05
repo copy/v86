@@ -2065,7 +2065,7 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 
 # docs/iphone4-plan.md "测试": the iOS firmware tools on samples the tests
 # make themselves (made-up keys, no Apple files)
-.PHONY: ios-tests
+.PHONY: ios-tests ios-pvrtc-tests
 ios-tests:
 	node tests/ios/boot-tree.mjs
 	node tests/ios/spi-dma.mjs
@@ -2078,6 +2078,13 @@ ios-tests:
 	node tests/ios/nand.mjs
 	node tests/ios/tools.mjs
 	node tests/ios/devices.mjs
+
+ios-pvrtc-tests: build/ios-pvrtc-test
+	./build/ios-pvrtc-test
+
+build/ios-pvrtc-test: tests/ios/pvrtc.c tools/ios/guest/pvrtc.h
+	mkdir -p build
+	$(CC) -std=c99 -O2 -Wall -Wextra -o $@ $<
 
 # docs/gles-proxy-plan.md "测试": the GLES host's protocol tables against the
 # pinned specs' shapes, the connection stream, renderControl, the shadow

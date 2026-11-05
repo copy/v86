@@ -17,6 +17,13 @@ extern void glEnableVertexAttribArray(unsigned), glDisableVertexAttribArray(unsi
 extern void glVertexAttribPointer(unsigned, int, unsigned, unsigned char, int, const void *);
 extern void glDrawArrays(unsigned, int, int), glViewport(int, int, int, int), glDisable(unsigned);
 extern void glDrawElements(unsigned, int, unsigned, const void *);
+extern void glGenFramebuffers(int, unsigned *), glGenTextures(int, unsigned *);
+extern void glDeleteFramebuffers(int, const unsigned *), glDeleteTextures(int, const unsigned *);
+extern void glBindFramebuffer(unsigned, unsigned), glBindTexture(unsigned, unsigned);
+extern void glFramebufferTexture2D(unsigned, unsigned, unsigned, unsigned, int), glPixelStorei(unsigned, int);
+extern void glTexImage2D(unsigned, int, int, int, int, int, unsigned, unsigned, const void *);
+extern void glCompressedTexImage2D(unsigned, int, unsigned, int, int, int, int, const void *);
+extern void glCompressedTexSubImage2D(unsigned, int, int, int, int, int, unsigned, int, const void *);
 extern void glReadPixels(int, int, int, int, unsigned, unsigned, void *);
 extern void glGetIntegerv(unsigned, int *), glGetFloatv(unsigned, float *), glGetBooleanv(unsigned, unsigned char *);
 extern void glGetShaderiv(unsigned, unsigned, int *), glGetProgramiv(unsigned, unsigned, int *);
@@ -128,5 +135,46 @@ done:
     if(program) glDeleteProgram(program);
     if(vs) glDeleteShader(vs);
     if(fs) glDeleteShader(fs);
+    return step;
+}
+
+int n90_texture_pixels(void)
+{
+    unsigned tex = 0, fbo = 0;
+    int step = 1, alignment = 4;
+    glGetIntegerv(0x0cf5, &alignment);
+    glGenTextures(1, &tex); glGenFramebuffers(1, &fbo);
+    if(!tex || !fbo) goto done;
+    glBindTexture(0x0de1, tex);
+    glBindFramebuffer(0x8d40, fbo);
+    glPixelStorei(0x0cf5, 8);
+    const unsigned char rgba[] = { 255,0,0,255, 11,11,11,11, 0,255,0,255 };
+    glTexImage2D(0x0de1, 0, 0x1908, 1, 2, 0, 0x1908, 0x1401, rgba);
+    glFramebufferTexture2D(0x8d40, 0x8ce0, 0x0de1, tex, 0);
+    unsigned char pixels[64];
+    glReadPixels(0, 0, 1, 2, 0x1908, 0x1401, pixels);
+    step = 2;
+    if(glGetError() || pixels[0] != 255 || pixels[1] || pixels[2] || pixels[3] != 255 ||
+        pixels[4] || pixels[5] != 255 || pixels[6] || pixels[7] != 255) goto done;
+    unsigned pvrtc[] = { 0,0xfc00fc00, 0,0xfc00fc00, 0,0xfc00fc00, 0,0xfc00fc00 };
+    glCompressedTexImage2D(0x0de1, 0, 0x8c02, 4, 4, 0, sizeof(pvrtc), pvrtc);
+    glReadPixels(0, 0, 4, 4, 0x1908, 0x1401, pixels);
+    step = 3;
+    if(glGetError()) goto done;
+    for(unsigned i = 0; i < sizeof(pixels); i += 4)
+        if(pixels[i] != 255 || pixels[i+1] || pixels[i+2] || pixels[i+3] != 255) goto done;
+    for(unsigned i = 1; i < 8; i += 2) pvrtc[i] = 0x83e083e0;
+    glCompressedTexSubImage2D(0x0de1, 0, 0, 0, 4, 4, 0x8c02, sizeof(pvrtc), pvrtc);
+    glReadPixels(0, 0, 4, 4, 0x1908, 0x1401, pixels);
+    step = 4;
+    if(glGetError()) goto done;
+    for(unsigned i = 0; i < sizeof(pixels); i += 4)
+        if(pixels[i] || pixels[i+1] != 255 || pixels[i+2] || pixels[i+3] != 255) goto done;
+    step = 0;
+done:
+    glPixelStorei(0x0cf5, alignment);
+    glBindFramebuffer(0x8d40, 0);
+    if(fbo) glDeleteFramebuffers(1, &fbo);
+    if(tex) glDeleteTextures(1, &tex);
     return step;
 }

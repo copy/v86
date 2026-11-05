@@ -126,6 +126,30 @@ int n90_surface_pixels(void *cls, void *first, void *second)
     if(!bind(cls, first)) goto done;
     int draw_step = n90_triangle_pixels();
     syslog(5, "V86 shader triangle pid %d step %d", getpid(), draw_step);
+    // The real compositor draws to a texture-backed IOSurface and switches
+    // back to framebuffer zero before handing the surface to the LCD.
+    int publish_step = 1;
+    if(bind(cls, second) && !n90_triangle_pixels())
+    {
+        glBindFramebuffer(0x8d40, 0);
+        publish_step = 2;
+        if(!glGetError() && !IOSurfaceLock(surface, 1, 0))
+        {
+            const unsigned char *base = IOSurfaceGetBaseAddress(surface);
+            const unsigned stride = IOSurfaceGetBytesPerRow(surface);
+            int ok = base && stride >= 256;
+            for(unsigned y = 0; ok && y < 48; y++)
+                for(unsigned x = 0; ok && x < 64; x++)
+                {
+                    const unsigned char *p = base + y * stride + x * 4;
+                    ok = p[0] == 255 && p[1] == 255 && !p[2] && p[3] == 255;
+                }
+            if(!IOSurfaceUnlock(surface, 1, 0) && ok) publish_step = 0;
+        }
+    }
+    syslog(5, "V86 framebuffer publish pid %d step %d", getpid(), publish_step);
+    extern int n90_texture_pixels(void);
+    syslog(5, "V86 texture upload pid %d step %d", getpid(), n90_texture_pixels());
 #endif
     step = 0;
 done:

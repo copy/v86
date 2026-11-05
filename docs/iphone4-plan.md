@@ -516,6 +516,8 @@ Chrome 与本地工具的压缩结果可能不同。若重写后的资源在原�
 
 原版合成器的 GL 入口还使用客户内存中的顶点和索引。客体库在绘制时复制仍启用的顶点数组，按原始步长取数据并打包，索引缓冲路径仍传偏移。两种路径已在原版 backboardd 和 SpringBoard 的 EAGL 上下文中逐像素验证：先画 VBO 三角形，再用带填充的顶点和非连续索引覆盖为另一颜色。构建当前 WebGPU 渲染器后，可用 `tests/ios/system.mjs --draw` 复测；此项不代替主屏验收。
 
+原版合成器已提交带顶点和索引的绘图，目标是附到 FBO 的 640×960 IOSurface 纹理。客体库在结束该 FBO 的绘图时，将修改过的表面从 WebGPU 分批读回并写入原版 IOSurface，再交给原版 LCD 交换。原版两个进程的独立回归已逐像素核对 FBO 切换后的共享内存。普通纹理上传保留像素行填充；PVRTC1 在客体内展开成 RGBA，原版 GLES 入口已验证上传和整级替换。`make ios-pvrtc-tests` 可独立复测位深、环绕、透明度和小纹理；另有 784 组输入和 [PowerVR SDK 参考解码器](https://github.com/powervr-graphics/Native_SDK/blob/master/framework/PVRCore/texture/PVRTDecompress.cpp) 逐像素对照。真实主屏仍单独验收。
+
 验收：主屏幕显示正确（图标、壁纸、状态栏、Dock）；与真机截图（所有者提供，或公开的 iOS 6.1.3 截图）比较。
 
 ### S6 交互
