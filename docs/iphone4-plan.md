@@ -375,28 +375,26 @@ SGX 的内核驱动保持加载，但没有硬件：它的 MMIO 读回“空闲�
 
 照 Android 镜像的做法（[vm-manager.md](vm-manager.md) 的 “Android”，`src/app/android_catalog.js`、`android_import.js`、
 `android_import_worker.js`）：用户只选设备和版本、交出自己的文件，页面在本地验证、解密、打补丁、组装磁盘；
-开机时由 v86 从磁盘中读出内核与设备树。新模块是 `src/app/ios_catalog.js`、`ios_import.js`、`ios_import_worker.js`。
+开机时由 v86 从磁盘中读出内核与设备树。固件目录位于 `src/ios/catalog.js`，导入由 `src/app/ios_import.js` 和 `src/app/ios_import_worker.js` 处理。
 
-**入口。** 实验性机器默认不显示。**Preferences…** 里有一个开关“显示实验性机器（iPhone）”，打开时显示一段说明：
-固件与密钥由用户自己提供，只在本机处理，不得分享生成的磁盘。
+**入口。** 新建向导的 **Source** 页在 Android 镜像包下方直接显示 **iPhone 4 (GSM) · iOS 6.1.3 (.ipsw)**，
+并标注 **Experimental**。选中后由用户提供固件与密钥，浏览器在本地处理。
 
-**新建向导**（来源一步多出 **Apple 固件（IPSW）**）：
+**新建向导**（选择 iPhone 来源后进入专用流程）：
 
-1. **设备与版本。** 目录列出已验证的组合，v1 只有“iPhone 4（GSM，iPhone3,1）· iOS 6.1.3（10B329）”。每项列出
-   IPSW 的文件名、大小和哈希，以及验证状态。与 Android 目录不同，**不给下载链接**：文件由用户自己取得。
-2. **固件。** 把 IPSW 拖进向导（或选择文件）。页面在本地读取，不上传：
+1. **Source。** 固件卡片列出支持的组合“iPhone 4（GSM，iPhone3,1）· iOS 6.1.3（10B329）”及 IPSW 文件名、大小和哈希。
+   把自己的 IPSW 拖进向导或选择文件，页面在本地读取和验证。
    - 读出 `BuildManifest.plist`/`Restore.plist`，检查机型与版本和所选的一致；
    - 与目录中的哈希比对。
-3. **密钥。** 粘贴或载入一个密钥文件（JSON，字段为内核缓存、设备树、恢复 ramdisk 的 IV 与 key，以及根文件系统
+2. **Keys。** 粘贴或载入一个密钥文件（JSON，字段为内核缓存、设备树、恢复 ramdisk 的 IV 与 key，以及根文件系统
    的 key；格式见“复核结论”的“固件与密钥”），内容来自 The Apple Wiki 上该版本的页面。
    - 页面立即试解密逐项验证：内核缓存解开后应是 `complzss` 头，设备树能解析，恢复 ramdisk 在 0x400 处是 HFS+
      卷头，根文件系统有 `encrcdsa` 头、解出的末尾是 UDIF 的 `koly` 尾；
    - 哪一项不对就标在哪一项上；
    - 密钥不保存：组装完成后不再需要。
-4. **磁盘。**
-   - 容量 16 或 32 GB（稀疏镜像，只占实际写入的空间），保存在浏览器磁盘或磁盘服务上；
-   - **完成** 后在 worker 里组装：解密、解压、本地打补丁、`nand_build`；显示进度，可取消。
-5. **摘要。** 硬件固定（A4、512 MiB、iPhone 4 的显示与按键），只能改名字。
+3. **Name。** 设置机器名称和备注。
+4. **NAND。** 使用浏览器内的 16 GB 稀疏镜像，可以选择本地图形适配器。
+5. **Summary。** 确认固定硬件（A4、512 MiB、iPhone 4 的显示与按键）。点击 **Finish** 后在 worker 中组装，支持查看进度和取消。
 
 **设置对话框**（`s5l8930` 机器只显示这些项）：
 
@@ -914,7 +912,6 @@ CPU 创建的 BGRA 表面也能作为 GL 输入。客体在 IOSurface 的只读�
 3. 首个系统版本用 iOS 6.1.3，还是更轻的 4.3.x。4.3.x 没有 LwVM 与 backboardd，守护进程更少，开机路径更短，
    S4 的风险小；6.1.3 的界面更有代表性，能跑的应用也多。
 4. 激活绕过不可行时，是否把首个型号改为 iPod touch 4G（它去掉 SIM 与基带，但本身可能也要激活）。
-5. 实验性机器默认隐藏、由 Preferences 的开关打开（见“界面”），是否合适；Home 键映射到 Esc 是否可以。
 
 ## 规范与实现参考
 

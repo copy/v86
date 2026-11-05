@@ -8,12 +8,12 @@ results.
 
 ## Import in the VM manager
 
-1. In **Preferences**, turn on **Show experimental iPhone machines**.
-2. Create a virtual machine from **Apple firmware (.ipsw)**. Choose your
-   original `iPhone3,1_6.1.3_10B329_Restore.ipsw`.
-3. Open or paste a `v86-ios-keys` JSON file and verify it. The
+1. Open **New virtual machine…** and choose **iPhone 4 (GSM) · iOS 6.1.3 (.ipsw)**
+   in **Source**. Choose or drop your original `iPhone3,1_6.1.3_10B329_Restore.ipsw`.
+2. In **Keys**, open or paste a `v86-ios-keys` JSON file and verify it. The
    [key file schema](iphone4-plan.md#复核结论) lists the required images.
-4. Finish the import. The browser verifies the package, builds the data
+3. Name the machine and review its NAND settings and summary. Finish the
+   import. The browser verifies the package, builds the data
    volume, and saves a NAND disk in this site's private storage. The keys
    are discarded. The NAND holds its own boot files; the original system
    volume is kept separately so data can be reset without the keys.

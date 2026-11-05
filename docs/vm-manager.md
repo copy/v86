@@ -15,13 +15,14 @@ settings, rename, export, delete.
 
 - **New virtual machine…** opens the wizard: where the system comes from (a
   CD or floppy image, an installed hard disk image, a kernel and initrd, an
-  Android image package (below), or later), the system (a preset: DOS, Windows 3.x to 8.1, Linux 32-bit,
+  Android image package (below), [iPhone firmware](ios.md), or later), the system (a preset: DOS, Windows 3.x to 8.1, Linux 32-bit,
   x86_64, arm64 and ARM 32-bit, Android arm64, ARM 32-bit, x86_64 and x86 (the last two not verified: Android-x86's
   ISOs, never tried here), or other), the name, the hard disk, and a
   summary. A preset sets all the hardware; it says whether that setting was
   verified, how the system is installed, the steps after the installation
   and its known problems. "Customize hardware…" opens the settings dialog
-  before the machine is made. The network card follows the system's own
+  before the machine is made. The iPhone source opens its own firmware keys
+  and NAND steps with fixed hardware. The network card follows the system's own
   drivers: the NE2000 up to Windows XP and 32-bit Linux, the Intel PRO/1000
   MT (e1000) for Windows Vista to 8.1, virtio-net for Linux x86_64 and the
   ARM machines. So does the sound card: the Sound Blaster 16 up to XP, HD

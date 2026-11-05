@@ -14,7 +14,7 @@
                    on through the CPU worker, the Secure Boot firmware's boot manager on the serial console (no bootable device)
      part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
-     part=ios_dialog  the experimental iPhone source, wrong firmware rejected before keys, and fixed hardware settings
+     part=ios_dialog  the visible iPhone source, wrong firmware rejected before keys, and fixed hardware settings
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
      part=android  an Android image package (build/android-test-package.zip: tests/android/make_package.mjs) dropped on the
                    wizard: Cuttlefish's arm64 device, the Android 16 preset with gfxstream (I8.1), a browser disk made in the
@@ -862,28 +862,36 @@ const parts = {
     {
         await open_library();
         $("#new_vm").click();
-        let wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
-        check(!wizard.querySelector("input[value=ios]"), "the experimental iPhone source must be hidden by default");
-        button("Cancel", wizard).click();
-        $("#preferences").click();
-        const prefs = await until(() => $("dialog[open]"), "Preferences");
-        Array.from(prefs.querySelectorAll("label")).find(l => l.textContent.includes("experimental iPhone")).querySelector("input").click();
-        button("Save", prefs).click();
-        const { VMStore } = await import("../../src/app/vm_store.js");
-        const store = await VMStore.open();
-        await until(() => store.get_pref("experimental_ios"), "saved iPhone preference");
-        $("#new_vm").click();
-        wizard = await until(() => $("dialog.wizard-dialog[open]"), "the enabled wizard");
-        wizard.querySelector("input[value=ios]").click();
+        const wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        const source = value => wizard.querySelector(`input[name=source][value=${value}]`);
+        const steps = () => Array.from(wizard.querySelectorAll(".wizard-steps li"), li => li.textContent).join(",");
+        check(source("cdrom").checked, "the default source is still CD/DVD");
+        const ios = source("ios");
+        check(ios?.parentElement.textContent.includes("iPhone 4 (GSM) · iOS 6.1.3 (.ipsw)"), "the iPhone source is visible by default");
+        check(ios.parentElement.querySelector(".badge")?.textContent === "Experimental", "the experimental badge is visible");
+        ios.click();
+        check(d.activeElement === source("ios"), "the selected source keeps keyboard focus");
+        check(steps() === "Source,Keys,Name,NAND,Summary", "the iPhone steps: " + steps());
+        check(wizard.querySelector(".wizard-body").textContent.includes("iPhone3,1_6.1.3_10B329_Restore.ipsw"), "the exact firmware file is listed");
+        check(!button("Next", wizard), "the firmware is required before Keys");
         const transfer = new w.DataTransfer();
         transfer.items.add(new w.File(["not an IPSW"], "wrong.ipsw"));
-        const input = wizard.querySelector("input[aria-label='iPhone firmware']");
-        input.files = transfer.files;
-        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        const zone = wizard.querySelector("input[aria-label='iPhone firmware']").closest(".drop-zone");
+        zone.dispatchEvent(new w.DragEvent("dragover", { dataTransfer: transfer, cancelable: true }));
+        check(zone.classList.contains("over"), "the firmware drop zone highlights during a drag");
+        zone.dispatchEvent(new w.DragEvent("drop", { dataTransfer: transfer, cancelable: true }));
         await until(() => wizard.querySelector(".wizard-status")?.textContent.includes("Choose the original"), "unsupported IPSW rejected");
         check(!button("Next", wizard), "unsupported firmware cannot proceed to keys");
+        source("later").click();
+        check(steps() === "Source,System,Name,Hard disk,Summary", "the PC steps are restored: " + steps());
+        button("Next", wizard).click();
+        check(wizard.querySelector(".wizard-body[aria-label=System] .preset-list"), "PC sources still open the system presets");
+        button("Next", wizard).click();
+        check(wizard.querySelector("input[aria-label=Name]").value === "Other", "the PC keeps its own default name");
         button("Cancel", wizard).click();
 
+        const { VMStore } = await import("../../src/app/vm_store.js");
+        const store = await VMStore.open();
         const { new_ios_config } = await import("../../src/app/vm_config.js");
         const { N90_RESTORE } = await import("../../src/ios/catalog.js");
         const config = new_ios_config("iPhone dialog test",
@@ -902,7 +910,7 @@ const parts = {
         button("Save", settings).click();
         await until(async () => (await store.get(config.id))?.ios?.orientation === 90, "saved initial orientation");
         await store.delete(config.id);
-        log("experimental source, incorrect IPSW rejected, fixed iPhone hardware and saved orientation");
+        log("visible experimental iPhone source, incorrect IPSW rejected, PC flow restored, fixed iPhone hardware and saved orientation");
     },
     async service()
     {

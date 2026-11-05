@@ -115,7 +115,6 @@ async function preferences(store)
         "aria-label": "Disk service URL" }));
     const token = /** @type {HTMLInputElement} */ (h("input", { type: "password", value: pref.token || "", size: 40, autocomplete: "off", "aria-label": "Token" }));
     const off = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: !!pref.off }));
-    const experimental = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: !!await store.get_pref("experimental_ios") }));
     const result = h("p.note", { role: "status" });
     const test = h("button", { type: "button", onclick: async () =>
     {
@@ -133,14 +132,11 @@ async function preferences(store)
             h("label.field", null, h("span", null, "Token (if it needs one)"), token),
             h("label.check", null, off, " Use no disk service"),
             h("div", null, test, result),
-            h("label.check", null, experimental, " Show experimental iPhone machines"),
-            h("p.note", null, "Use your own iPhone firmware and keys. The browser prepares them locally; keep the resulting disk for personal use."),
         ],
         buttons: [{ label: "Cancel", value: false }, { label: "Save", value: true, primary: true }],
     });
     if(!answer) return;
     await store.put_pref("disk_service", off.checked ? { off: true } : url.value.trim() ? { url: url.value.trim(), token: token.value || undefined } : undefined);
-    await store.put_pref("experimental_ios", experimental.checked);
 }
 
 /**
@@ -170,7 +166,7 @@ export async function open_library(root)
 
     const create = async () =>
     {
-        const config = await open_wizard({ store, service, names: configs.map(c => c.name), experimental_ios: !!await store.get_pref("experimental_ios") });
+        const config = await open_wizard({ store, service, names: configs.map(c => c.name) });
         if(!config) return;
         await reload((await store.put(config)).id);
     };
