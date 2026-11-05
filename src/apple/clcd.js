@@ -18,6 +18,7 @@ export class AppleCLCD
         this.color = new Uint32Array(0x2000 / 4);
         this.dsi = new Uint32Array(0x1000 / 4);
         this.ulps = 0;
+        this.panel_on = true;
         this.command = null;
         this.commands = [];
         this.dirty = true;
