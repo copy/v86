@@ -677,7 +677,10 @@ export function ScreenAdapter(options, screen_fill_buffer)
         graphic_screen.style.width = "";
         graphic_screen.style.height = "";
 
-        const rectangle = graphic_screen.getBoundingClientRect();
+        // Measure the canvas before any ancestor transform. The iPhone
+        // console rotates its parent, which swaps the bounding rectangle.
+        const width = graphic_screen.offsetWidth;
+        const height = graphic_screen.offsetHeight;
 
         // unblur non-fractional scales
         if(s_x % 1 === 0 && s_y % 1 === 0)
@@ -702,11 +705,11 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
         if(s_x !== 1)
         {
-            graphic_screen.style.width = rectangle.width * s_x + "px";
+            graphic_screen.style.width = width * s_x + "px";
         }
         if(s_y !== 1)
         {
-            graphic_screen.style.height = rectangle.height * s_y + "px";
+            graphic_screen.style.height = height * s_y + "px";
         }
     }
 

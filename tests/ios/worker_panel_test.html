@@ -54,7 +54,30 @@ try
     if(layers.length !== 1 || layers[0].pixels.width !== 640 || layers[0].pixels.height !== 960 ||
         layers[0].pixels.data.slice(0, 4).join(",") !== "51,140,13,255")
         throw new Error("The worker did not return the latest N90 scanout");
-    document.getElementById("result").textContent = "PASS: first frame request returned the latest unsolicited N90 scanout";
+
+    globalThis.DEBUG = false;
+    const { ScreenAdapter } = await import("../../src/browser/screen.js");
+    const panel = document.createElement("div");
+    panel.style.display = "inline-block";
+    document.body.append(panel);
+    const display = new ScreenAdapter({ container: panel }, () => {});
+    try
+    {
+        display.set_size_graphical(640, 960, 640, 960);
+        const canvas = display.get_graphics_canvas();
+        const verifyRotation = angle => {
+            panel.style.transform = `rotate(${angle}deg)`;
+            display.set_scale(0.5, 0.5);
+            const { width, height } = canvas.getBoundingClientRect();
+            const ratio = angle === 90 ? 960 / 640 : 640 / 960;
+            if(Math.abs(width / height - ratio) > 0.001)
+                throw new Error(`Incorrect panel proportions after scaling at ${angle} degrees`);
+        };
+        verifyRotation(90);
+        verifyRotation(0);
+    }
+    finally { display.destroy(); panel.remove(); }
+    document.getElementById("result").textContent = "PASS: latest unsolicited N90 scanout and correct scaled panel proportions after rotation";
 }
 catch(error) { document.getElementById("result").textContent = "FAIL: " + error.message; }
 finally { await emulator.destroy(); }
