@@ -485,7 +485,7 @@ SGX 的内核驱动保持加载，但没有硬件：它的 MMIO 读回“空闲�
 
 ### S4 NAND、数据保护与系统启动
 
-**离线激活，2026-11-05。** 原版 10B329 `lockdownd` 的 `dealwith_activation` 已有本地 Activated 分支。模拟器准备镜像时，对通过完整 SHA-256 核验的私有副本改写一个 Thumb 分支（文件偏移 0xe22c），保留 `DisableHactivation` 检查，更新受影响的签名页，并只将重签后的哈希加入原版内核的信任表。新数据卷写入 mobile 用户的两项 Setup 完成偏好。原版冷启动已记录两次实际进入该分支，无需 SIM 或联网；进入主屏仍是后续验收。
+**离线激活，2026-11-05。** 原版 10B329 `lockdownd` 的 `dealwith_activation` 已有本地 Activated 分支。模拟器准备镜像时，对通过完整 SHA-256 核验的私有副本改写一个 Thumb 分支（文件偏移 0xe22c），保留 `DisableHactivation` 检查，更新受影响的签名页，并只将重签后的哈希加入原版内核的信任表。新数据卷为 mobile 用户设置 `SetupDone`、`SetupFinishedAllSteps`、`SetupVersion=3` 和 `ForceNoBuddy`，符合原版 Preferences.framework 的设置检查。原版冷启动已记录两次实际进入激活分支，无需 SIM 或联网；使用这组偏好的启动越过了设置助理，只有完成标记的对照则反复启动 Setup。进入主屏仍是后续验收。
 
 Chrome 与本地工具的压缩结果可能不同。若重写后的资源在原有分配块中放不下，构建器在私有 HFSX 副本末尾追加连续区段，重写目录分配、分配位图和两个卷头。已对故意放宽压缩的三份系统程序逐字节回读，并用独立的 HFSX 检查器验证扩展后的卷。
 

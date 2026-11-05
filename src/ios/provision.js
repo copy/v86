@@ -12,7 +12,8 @@ const deviceKey = new Uint8Array(16).fill(1);
 new AES(N90_UID).block(deviceKey, 0, false);
 
 // The emulated phone has neither a cellular modem nor a SIM. Native
-// SpringBoard reads these booleans before launching Setup Assistant.
+// Preferences.framework checks ForceNoBuddy before presenting Setup
+// Assistant and reads SetupVersion and SetupDone for its upgrade path.
 export function offline_setup_file()
 {
     return {
@@ -20,7 +21,8 @@ export function offline_setup_file()
         uid: 501, gid: 501, mode: 0o600, dir_mode: 0o755,
         bytes: ascii('<?xml version="1.0" encoding="UTF-8"?>\n' +
             '<plist version="1.0"><dict><key>SetupDone</key><true/>' +
-            '<key>SetupFinishedAllSteps</key><true/></dict></plist>\n'),
+            '<key>SetupFinishedAllSteps</key><true/>' +
+            '<key>SetupVersion</key><integer>3</integer><key>ForceNoBuddy</key><true/></dict></plist>\n'),
     };
 }
 
