@@ -6,7 +6,7 @@
 // saving, the whole configuration is checked (check_config) and each
 // problem shows on its item's panel.
 
-import { h, replace } from "./dom.js";
+import { h, replace, confirm } from "./dom.js";
 import { choices, change, fitted } from "../vm_model.js";
 import { check_config } from "../vm_config.js";
 import { describe_image } from "./describe.js";
@@ -29,6 +29,7 @@ import { USB_PORTS } from "../../machine_options.js";
  * @property {(fn: (next: VMConfig) => void) => void} edit a change of several fields, then fitted to the machine
  * @property {{put_handle: (handle: any) => Promise<string>}} store where picked files' handles go
  * @property {import("../disk_service_client.js").Service | null} service the disk service, if there is one
+ * @property {((progress: (text: string) => void) => Promise<void>) | null} erase_ios
  */
 
 /**
@@ -47,6 +48,13 @@ import { USB_PORTS } from "../../machine_options.js";
  */
 export function hardware_items(c)
 {
+    if(c.ios) return [
+        { id: "general", label: "General", summary: c.name, panel: general_panel, remove: null },
+        { id: "ios", label: "iPhone", summary: "iPhone 4 · iOS 6.1.3", panel: ios_panel, remove: null },
+        { id: "ios-nand", label: "Storage", summary: describe_image(c.ios.nand), panel: ios_nand_panel, remove: null },
+        { id: "serial", label: "Serial terminal", summary: c.serial[0]?.attach || "none", panel: ios_serial_panel, remove: null },
+        { id: "sound", label: "Sound", summary: c.sound.mute ? "Muted" : "On", panel: ios_sound_panel, remove: null },
+    ];
     const virt = c.machine.type === "virt";
     /** @type {Item[]} */
     const items = [
@@ -93,6 +101,70 @@ export function hardware_items(c)
     return items;
 }
 
+/** @param {PanelContext} ctx */
+function ios_panel(ctx)
+{
+    const ios = /** @type {import("../vm_config.js").IOS} */ (ctx.config.ios);
+    const verbose = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: ios.verbose }));
+    verbose.onchange = () => ctx.set("ios.verbose", verbose.checked);
+    const gles = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: ios.gles_proxy }));
+    gles.onchange = () => ctx.set("ios.gles_proxy", gles.checked);
+    const args = /** @type {HTMLInputElement} */ (h("input", { type: "text", value: ios.boot_args, maxlength: 160 }));
+    args.onchange = () => ctx.set("ios.boot_args", args.value);
+    const orientation = /** @type {HTMLSelectElement} */ (h("select", null, [0, 90, 180, 270].map((angle, i) =>
+        h("option", { value: String(angle), selected: angle === ios.orientation }, ["Portrait", "Landscape right", "Portrait upside down", "Landscape left"][i]))));
+    orientation.onchange = () => ctx.set("ios.orientation", Number(orientation.value));
+    return [
+        h("p", null, "iPhone 4 (GSM) · iOS 6.1.3 (10B329)"),
+        h("label.check", null, verbose, " Show verbose boot messages"),
+        h("label.field", null, h("span", null, "Additional boot arguments"), args),
+        h("label.check", null, gles, " Use WebGPU for iPhone graphics"),
+        h("p.note", null, "An image prepared with the graphics adapter can show the iOS interface. With WebGPU off, use the serial terminal for diagnostics."),
+        h("label.field", null, h("span", null, "Initial orientation"), orientation),
+    ];
+}
+
+/** @param {PanelContext} ctx */
+function ios_nand_panel(ctx)
+{
+    const status = h("p.note", { role: "status" });
+    const erase = /** @type {HTMLButtonElement} */ (h("button.danger", { type: "button", disabled: !ctx.erase_ios }, "Erase All Content and Settings…"));
+    erase.onclick = async () => {
+        if(!ctx.erase_ios || !await confirm("Erase all content and settings?", "The original iOS system stays. Apps, files, settings and any suspended state are erased.",
+            "Erase iPhone", true)) return;
+        erase.disabled = true;
+        try
+        {
+            status.textContent = "Preparing a clean data volume…";
+            await ctx.erase_ios(text => { status.textContent = text; });
+            status.textContent = "Content and settings erased.";
+        }
+        catch(error) { status.textContent = error.message; }
+        finally { erase.disabled = false; }
+    };
+    return [
+        h("p", null, "Built-in NAND: " + describe_image(ctx.config.ios?.nand || null)),
+        h("p.note", null, "Power off the iPhone before erasing its data."),
+        erase, status,
+    ];
+}
+
+/** @param {PanelContext} ctx */
+function ios_serial_panel(ctx)
+{
+    const attach = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: ctx.config.serial[0]?.attach === "terminal" }));
+    attach.onchange = () => ctx.set("serial", [{ port: 0, attach: attach.checked ? "terminal" : "none" }]);
+    return h("label.check", null, attach, " Show boot terminal");
+}
+
+/** @param {PanelContext} ctx */
+function ios_sound_panel(ctx)
+{
+    const mute = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: ctx.config.sound.mute }));
+    mute.onchange = () => ctx.set("sound.mute", mute.checked);
+    return h("label.check", null, mute, " Mute the emulator");
+}
+
 /**
  * The item a problem belongs to
  * @param {string} path
@@ -101,6 +173,7 @@ export function hardware_items(c)
 export function item_of(path)
 {
     const [head, index] = path.split(".");
+    if(head === "ios") return index === "nand" ? "ios-nand" : "ios";
     // (a USB disk's: usb.disks.<i>)
     if(head === "usb" && index === "disks" && /^\d+$/.test(path.split(".")[2] || "")) return "usb-disk-" + path.split(".")[2];
     switch(head)
@@ -124,6 +197,7 @@ export function item_of(path)
  */
 function additions(c)
 {
+    if(c.ios) return [];
     const virt = c.machine.type === "virt", arm = virt || c.machine.type === "ranchu";
     /** @type {Array<[string, (next: VMConfig) => void]>} */
     const list = [];
@@ -171,7 +245,8 @@ function additions(c)
  * Edit a configuration in the dialog; resolves with the saved configuration
  * (checked) or null when cancelled
  * @param {VMConfig} config
- * @param {{store: PanelContext["store"], service?: PanelContext["service"], title?: string, save_label?: string, item?: string}} options
+ * @param {{store: PanelContext["store"], service?: PanelContext["service"], title?: string, save_label?: string, item?: string,
+ *     erase_ios?: PanelContext["erase_ios"]}} options
  * @return {Promise<VMConfig | null>}
  */
 export function open_settings(config, options)
@@ -181,11 +256,13 @@ export function open_settings(config, options)
         let working = fitted(config).config;
         let notes = fitted(config).notes;
         let selected = options.item || "general";
+        let erasing = false;
         /** @type {Problem[]} */
         let problems = [];
         const element = /** @type {HTMLDialogElement} */ (h("dialog.settings-dialog", { "aria-label": options.title || "Settings" }));
         const close = value =>
         {
+            if(erasing) return;
             element.close();
             element.remove();
             resolve(value);
@@ -216,10 +293,17 @@ export function open_settings(config, options)
             },
             store: options.store,
             service: options.service || null,
+            erase_ios: options.erase_ios && (async progress => {
+                if(erasing) return;
+                erasing = true;
+                try { await options.erase_ios(progress); working.suspended = null; }
+                finally { erasing = false; }
+            }),
         };
 
         const save = () =>
         {
+            if(erasing) return;
             problems = check_config(working);
             if(problems.length)
             {
@@ -261,7 +345,7 @@ export function open_settings(config, options)
             replace(element,
                 h("div.settings", null,
                     h("header.settings-header", null, h("h2", null, options.title || "Settings: " + working.name)),
-                    h("aside.settings-list", null, list, h("div.settings-list-actions", null, add, remove)),
+                    h("aside.settings-list", null, list, working.ios ? null : h("div.settings-list-actions", null, add, remove)),
                     h("section.settings-panel", { "aria-label": item.label }, h("h3", null, item.label),
                         own_problems.length ? h("ul.problems", { role: "alert" }, own_problems.map(p => h("li", null, p.message))) : null,
                         item.panel(ctx)),

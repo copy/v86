@@ -14,35 +14,74 @@ function check(image, sources, synthetic = false)
     const fd = fs.openSync(image, "r"), zero = Buffer.alloc(8192);
     try
     {
-        function physical(vpn)
+        const whitening = new Uint32Array(256), sequences = new Map();
+        let seed = 0x50F4546A;
+        for(let i = 0; i < 256; i++)
         {
-            const chip = (vpn & 1) * 2 + (vpn >>> 1 & 1);
-            const row = Math.floor(vpn / 512) * 128 + ((vpn & 511) >>> 2);
-            const bytes = Buffer.alloc(8192);
+            for(let j = 0; j < 763; j++) seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+            whitening[i] = seed;
+        }
+        function physical(chip, row)
+        {
+            const bytes = Buffer.alloc(8628);
             assert.equal(fs.readSync(fd, bytes, 0, bytes.length, (chip * 4152 * 128 + row) * 8704), bytes.length);
             for(let i = 0; i < bytes.length; i++) bytes[i] ^= 255;
             return bytes;
         }
-        const context = physical(15 * 512), control = context.readUInt16LE(0x69A) * 512;
-        const state = physical(control);
+        const maps = [];
+        for(let chip = 0; chip < 4; chip++)
+        {
+            const context = physical(chip, 15 * 128);
+            const start = context.readUInt16LE(0x698), map = new Map();
+            for(let i = 0; i < 4152 - start; i++)
+            {
+                const block = context.readUInt16LE(0x26 + i * 2);
+                if(block < 4152) map.set(block, start + i);
+            }
+            assert.equal(context[0x16], 19);
+            for(let block = 0; block < 19; block++)
+                assert.equal(map.get(block), 4016 + block, "YAFTL must not share a physical block with the raw boot area");
+            maps.push(map);
+        }
+        function virtual(vpn)
+        {
+            const chip = (vpn & 1) * 2 + (vpn >>> 1 & 1);
+            const block = Math.floor(vpn / 512);
+            const row = (maps[chip].get(block) ?? block) * 128 + ((vpn & 511) >>> 2);
+            const bytes = physical(chip, row);
+            if(block >= 22 && block < 3997 && !bytes.subarray(8192).every(b => b === 255))
+            {
+                const sequence = (bytes.readUInt32LE(8196) ^ whitening[(row + 1) & 255]) >>> 0;
+                assert.equal(sequence, block + 1, "each initial YAFTL block has its own weave sequence");
+                assert.ok(!sequences.has(sequence) || sequences.get(sequence) === block);
+                sequences.set(sequence, block);
+                if((vpn & 511) === 511)
+                    assert.ok((bytes[8201] ^ (whitening[(row + 2) & 255] >>> 8)) & 8,
+                        "the block TOC must be marked closed for native recovery");
+            }
+            return bytes;
+        }
+        const context = physical(0, 15 * 128), control = context.readUInt16LE(0x69A) * 512;
+        const state = virtual(control);
         assert.equal(state.toString("ascii", 0, 4), "CX01");
         for(const [blockOffset, cursorOffset, tocPart] of [[12, 0x66, 1], [20, 0x68, 2]])
         {
             const block = state.readUInt32LE(blockOffset), cursor = state.readUInt16LE(cursorOffset);
-            const toc = physical(control + tocPart);
+            assert.equal(state.readUInt32LE(blockOffset + 4), block + 1);
+            const toc = virtual(control + tocPart);
             assert.ok(cursor >= 1 && cursor <= 511);
             assert.notEqual(toc.readUInt32LE((cursor - 1) * 4), 0xFFFFFFFF);
             assert.equal(toc.readUInt32LE(cursor * 4), 0xFFFFFFFF);
-            assert.ok(physical(block * 512 + cursor).every(b => b === 255), "next program must target an erased row");
+            assert.ok(virtual(block * 512 + cursor).every(b => b === 255), "next program must target an erased row");
         }
-        const directory = physical(control + 4), cache = new Map();
+        const directory = virtual(control + 4), cache = new Map();
         function mappedPage(lpn)
         {
             const dir = lpn >>> 11, index = directory.readUInt32LE(dir * 4);
             if(index === 0xFFFFFFFF) return null;
-            if(!cache.has(index)) cache.set(index, physical(index));
+            if(!cache.has(index)) cache.set(index, virtual(index));
             const vpn = cache.get(index).readUInt32LE((lpn & 2047) * 4);
-            return vpn === 0xFFFFFFFF ? null : physical(vpn);
+            return vpn === 0xFFFFFFFF ? null : virtual(vpn);
         }
         const head = mappedPage(0).subarray(0, 4096);
         assert.equal(head.toString("hex", 0, 16), "6a9088cf8afd630ae351e24887e0b98b");
@@ -88,6 +127,9 @@ function check(image, sources, synthetic = false)
             }
             finally { fs.closeSync(input); }
         }
+        assert.ok(sequences.size >= 2);
+        for(const block of sequences.values()) virtual(block * 512 + 511);
+        assert.ok(state.readUInt32LE(44) > Math.max(...sequences.keys()), "future writes start after every populated weave sequence");
     }
     finally { fs.closeSync(fd); }
 }

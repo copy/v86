@@ -221,14 +221,23 @@ export class AppleMultitouch
         const x = data[0] * 640 / data[2], y = data[1] * 960 / data[3];
         if(x === this.pointer[0] && y === this.pointer[1]) return;
         this.pointer[0] = x; this.pointer[1] = y;
-        if(this.pointer[2] && !this.host_ids.size) this.set_contacts([[0, x, y]], this.timestamp());
+        if(this.pointer[2] && !this.host_ids.size) this.pointer_contacts();
     }
 
     click(data)
     {
         if(!this.running || this.host_ids.size || !!data[0] === this.pointer[2]) return;
         this.pointer[2] = !!data[0];
-        this.set_contacts(data[0] ? [[0, this.pointer[0], this.pointer[1]]] : [], this.timestamp());
+        this.pointer[3] = !!(data[0] && data[3]);
+        this.pointer_contacts();
+    }
+
+    pointer_contacts()
+    {
+        const [x, y, down, pinch] = this.pointer;
+        const points = down ? [[0, x, y]] : [];
+        if(pinch) points.push([1, 639 - x, 959 - y]);
+        this.set_contacts(points, this.timestamp());
     }
 
     touch_input(event)

@@ -13,7 +13,8 @@ import { VMStore, export_config, export_file_name, import_config, files_to_choos
 import { list_disks, create_disk, import_disk, export_disk, delete_disk, disk_id } from "../browser_disks.js";
 import { preset } from "../guest_presets.js";
 import { probe, LOCAL_SERVICE } from "../disk_service_client.js";
-import { delete_state, running_machines, storage_space } from "../vm_state.js";
+import { delete_state, hold_machine, running_machines, storage_space } from "../vm_state.js";
+import { reset_ios_data } from "../ios_import.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
@@ -52,7 +53,11 @@ async function browser_disks_dialog(store, configs)
                 disks.length ? h("table.hardware.browser-disks", null, h("tbody", null, disks.map(d => h("tr", { dataset: { disk: d.id } },
                     h("th", null, d.label), h("td", null, format_size(d.size)), h("td", null, users(d.path).join(", ") || "not used"),
                     h("td", null,
-                        h("button", { type: "button", onclick: act(() => export_disk(d.id, d.label.replace(/[^\w.-]+/g, "_") + ".img", download)) }, "Export"), " ",
+                        h("button", { type: "button", onclick: act(async () => {
+                            if((d.ios || configs.some(c => c.ios?.nand?.kind === "browser" && c.ios.nand.path === d.path)) &&
+                                !await confirm("Export the iPhone disk?", "The NAND image contains Apple system files. Keep the export as a personal backup.", "Export")) return;
+                            await export_disk(d.id, d.label.replace(/[^\w.-]+/g, "_") + ".img", download);
+                        }) }, "Export"), " ",
                         h("button.danger", { type: "button", onclick: act(async () =>
                         {
                             const used = users(d.path);
@@ -110,6 +115,7 @@ async function preferences(store)
         "aria-label": "Disk service URL" }));
     const token = /** @type {HTMLInputElement} */ (h("input", { type: "password", value: pref.token || "", size: 40, autocomplete: "off", "aria-label": "Token" }));
     const off = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: !!pref.off }));
+    const experimental = /** @type {HTMLInputElement} */ (h("input", { type: "checkbox", checked: !!await store.get_pref("experimental_ios") }));
     const result = h("p.note", { role: "status" });
     const test = h("button", { type: "button", onclick: async () =>
     {
@@ -127,11 +133,14 @@ async function preferences(store)
             h("label.field", null, h("span", null, "Token (if it needs one)"), token),
             h("label.check", null, off, " Use no disk service"),
             h("div", null, test, result),
+            h("label.check", null, experimental, " Show experimental iPhone machines"),
+            h("p.note", null, "Use your own iPhone firmware and keys. The browser prepares them locally; keep the resulting disk for personal use."),
         ],
         buttons: [{ label: "Cancel", value: false }, { label: "Save", value: true, primary: true }],
     });
     if(!answer) return;
     await store.put_pref("disk_service", off.checked ? { off: true } : url.value.trim() ? { url: url.value.trim(), token: token.value || undefined } : undefined);
+    await store.put_pref("experimental_ios", experimental.checked);
 }
 
 /**
@@ -161,14 +170,28 @@ export async function open_library(root)
 
     const create = async () =>
     {
-        const config = await open_wizard({ store, service, names: configs.map(c => c.name) });
+        const config = await open_wizard({ store, service, names: configs.map(c => c.name), experimental_ios: !!await store.get_pref("experimental_ios") });
         if(!config) return;
         await reload((await store.put(config)).id);
     };
 
     const edit = async config =>
     {
-        const edited = await open_settings(config, { store, service });
+        const ios = config.ios;
+        const erase_ios = ios?.nand?.kind === "browser" ? async progress => {
+            const lock = await hold_machine(config.id);
+            if(!lock) throw new Error("Power off the iPhone before erasing its data");
+            try
+            {
+                await reset_ios_data(disk_id(ios.nand.path), (stage, percent) => progress(stage + ": " + percent + "%"));
+                config.suspended = null;
+                await store.put(config);
+                await delete_state(config.id);
+                await reload(config.id);
+            }
+            finally { lock.release(); }
+        } : null;
+        const edited = await open_settings(config, { store, service, erase_ios });
         if(!edited) return;
         await reload((await store.put(edited)).id);
     };
@@ -204,7 +227,8 @@ export async function open_library(root)
             tabindex: "0",
             onclick: () => { selected = c.id; render(); },
             onkeydown: e => { if(e.key === "Enter" || e.key === " ") { selected = c.id; render(); } },
-        }, h("span.vm-name", null, c.name), h("span.vm-state", null, running.has(c.id) ? "Running in another tab" :
+        }, h("span.vm-name", null, c.name), c.ios ? h("span.vm-state", null, "iPhone 4 · iOS 6.1.3") : null,
+        h("span.vm-state", null, running.has(c.id) ? "Running in another tab" :
             c.suspended ? "Suspended" : "Powered off"))));
         const sidebar = h("aside.library-list", null,
             h("div.library-actions", null,

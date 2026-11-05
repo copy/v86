@@ -113,27 +113,29 @@ export class AppleH2FMI
     nand_status()
     {
         const ce = this.chip();
-        return 0x80 | (this.pending.has(ce) ? 0 : 0x40) | Number(this.failed_chips.has(ce));
+        const busy = this.pending.has(ce);
+        if(busy) this.wait_for_io?.(this.pending);
+        return 0x80 | (busy ? 0 : 0x40) | Number(this.failed_chips.has(ce));
     }
 
     commit(run, erase)
     {
         const ce = this.chip(), token = this.begin_operation(ce);
-        const finish = failed => {
-            if(!this.complete_operation(ce, token, failed)) return;
-            this.fail = failed;
-            this.regs[0x1044 >>> 2] |= run & 15;
-            this.update_irq();
-        };
+        const finish = failed => { this.complete_operation(ce, token, failed); };
         const page = this.program, address = this.program_address, pioComplete = !this.pio_left;
         this.pio_left = 0;
         this.program = this.program_address = null;
+        // The sequencer finishes sending PROGRAM/ERASE CONFIRM while the
+        // NAND chip is still busy. The IOP waits for this bit with IRQs
+        // masked, then checks the individual NAND chip's ready status.
+        this.regs[0x1044 >>> 2] |= run & 15;
         if(!this.nand || !this.chips.has(ce)) finish(true);
         else if(erase)
             this.nand.erase(this.bus, ce, this.regs[0x1018 >>> 2] & 0xFFFFFF, () => finish(false), () => finish(true));
         else if(page && address && ce === address[0] && pioComplete && !this.requests && !this.fail)
             this.nand.program(this.bus, ce, address[1], page, () => finish(false), () => finish(true));
         else finish(true);
+        this.update_irq();
     }
 
     load_page(run)
@@ -262,8 +264,6 @@ export class AppleH2FMI
             const command = this.regs[0x1014 >>> 2];
             if(command === 0x80)
             {
-                this.pending.delete(this.chip());
-                this.failed_chips.delete(this.chip());
                 this.read_stream = null;
                 this.program = ERASED.slice();
                 this.pio_left = 0;

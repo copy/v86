@@ -2,8 +2,8 @@
 // output initially contains only the explicitly supplied physical pages.
 //   nand_build.mjs blank|bootstrap|format new.img [bus:ce:row:page.bin ...]
 //   nand_build.mjs volumes new.img system.hfs data.hfs
-import { write_bootstrap_pages, write_ftl_pages } from "./nand_layout.mjs";
-import { write_volumes } from "./nand_volumes.mjs";
+import { write_bootstrap_pages, write_ftl_pages } from "../../src/ios/nand_layout.js";
+import { write_volumes } from "../../src/ios/nand_volumes.js";
 import fs from "node:fs";
 import path from "node:path";
 import { NAND_BYTES, NAND_PAGE, NAND_SLOT, nand_offset } from "../../src/apple/nand.js";
@@ -14,6 +14,10 @@ if(command === "volumes" && pages.length !== 2) throw new Error("usage: nand_bui
 const dir = fs.mkdtempSync(path.join(path.dirname(path.resolve(output)), ".n90-nand-"));
 const temporary = path.join(dir, "image");
 const written = new Set();
+const read = fd => (at, length) => {
+    const bytes = new Uint8Array(length);
+    return bytes.subarray(0, fs.readSync(fd, bytes, 0, length, at));
+};
 try
 {
     const fd = fs.openSync(temporary, "wx");
@@ -38,7 +42,7 @@ try
             try
             {
                 const data = fs.openSync(pages[1], "r");
-                try { await write_volumes(put, sys, data); }
+                try { await write_volumes(put, read(sys), read(data)); }
                 finally { fs.closeSync(data); }
             }
             finally { fs.closeSync(sys); }

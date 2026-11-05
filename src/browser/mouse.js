@@ -8,7 +8,7 @@ import { BusConnector } from "../bus.js";
  *
  * @param {BusConnector} bus
  */
-export function MouseAdapter(bus, screen_container)
+export function MouseAdapter(bus, screen_container, iphone = false)
 {
     const SPEED_FACTOR = 1;
 
@@ -91,6 +91,7 @@ export function MouseAdapter(bus, screen_container)
         }
         window.removeEventListener("touchstart", touch_start_handler, false);
         window.removeEventListener("touchend", touch_end_handler, false);
+        if(iphone) window.removeEventListener("touchcancel", touch_end_handler, false);
         window.removeEventListener("touchmove", mousemove_handler, false);
         window.removeEventListener("mousemove", mousemove_handler, false);
         window.removeEventListener("mousedown", mousedown_handler, false);
@@ -110,6 +111,7 @@ export function MouseAdapter(bus, screen_container)
 
         window.addEventListener("touchstart", touch_start_handler, false);
         window.addEventListener("touchend", touch_end_handler, false);
+        if(iphone) window.addEventListener("touchcancel", touch_end_handler, false);
         window.addEventListener("touchmove", mousemove_handler, false);
         window.addEventListener("mousemove", mousemove_handler, false);
         window.addEventListener("mousedown", mousedown_handler, false);
@@ -212,9 +214,30 @@ export function MouseAdapter(bus, screen_container)
     {
         if(!mouse.bus || !screen_container || !mouse.is_running) return;
         const rect = screen_container.getBoundingClientRect();
-        const touches = Array.from(e["touches"] || [], touch =>
-            [touch["identifier"], touch.clientX - rect.left, touch.clientY - rect.top]);
-        mouse.bus.send("touch", { "touches": touches, "width": rect.width, "height": rect.height });
+        const frame = point(rect, rect.left, rect.top);
+        const touches = Array.from(e["touches"] || [], touch => {
+            const [x, y] = point(rect, touch.clientX, touch.clientY);
+            return [touch["identifier"], x, y];
+        });
+        mouse.bus.send("touch", { "touches": touches, "width": frame[2], "height": frame[3] });
+    }
+
+    function point(rect, client_x, client_y)
+    {
+        const x = client_x - rect.left, y = client_y - rect.top, w = rect.width, h = rect.height;
+        switch(iphone ? Number(screen_container.dataset["iphoneRotation"]) : 0)
+        {
+            case 90: return [y, w - x, h, w];
+            case 180: return [w - x, h - y, w, h];
+            case 270: return [h - y, x, h, w];
+            default: return [x, y, w, h];
+        }
+    }
+
+    function send_absolute(e)
+    {
+        if(screen_container && !document.pointerLockElement)
+            mouse.bus.send("mouse-absolute", point(screen_container.getBoundingClientRect(), e.clientX, e.clientY));
     }
 
     function mousemove_handler(e)
@@ -299,25 +322,21 @@ export function MouseAdapter(bus, screen_container)
 
         // Under pointer lock the page coordinates don't change, so no
         // meaningful absolute position can be reported
-        if(screen_container && !document.pointerLockElement)
-        {
-            const rect = screen_container.getBoundingClientRect();
-            mouse.bus.send("mouse-absolute", [
-                e.clientX - rect.left, e.clientY - rect.top, rect.width, rect.height]);
-        }
+        if(!iphone || !touches) send_absolute(e);
     }
 
     function mousedown_handler(e)
     {
         if(may_handle(e))
         {
+            if(iphone) send_absolute(e);
             click_event(e, true);
         }
     }
 
     function mouseup_handler(e)
     {
-        if(may_handle(e))
+        if(may_handle(e) || iphone && left_down)
         {
             click_event(e, false);
         }
@@ -346,7 +365,7 @@ export function MouseAdapter(bus, screen_container)
         {
             dbg_log("Unknown event.which: " + e.which);
         }
-        mouse.bus.send("mouse-click", [left_down, middle_down, right_down]);
+        mouse.bus.send("mouse-click", iphone ? [left_down, middle_down, right_down, !!e.altKey] : [left_down, middle_down, right_down]);
         e.preventDefault();
     }
 

@@ -978,7 +978,7 @@ export interface V86Options {
      */
     machine_type?: "i440fx" | "q35" | "virt" | "ranchu" | "s5l8930";
     apple_model?: "iPhone3,1";
-    ios?: { kernelcache: V86Image; devicetree: V86Image; ramdisk?: V86Image; nand?: V86HardDiskImage; bootlogo?: V86Image; boot_args?: string };
+    ios?: { kernelcache?: V86Image; devicetree?: V86Image; ramdisk?: V86Image; nand?: V86HardDiskImage; bootlogo?: V86Image; boot_args?: string; nand_boot?: boolean };
 
     /**
      * machine_type "ranchu" only: the display (the framebuffer's size in
@@ -1735,6 +1735,12 @@ export class V86 {
      * Send text, assuming the guest OS uses a US keyboard layout
      */
     keyboard_send_text(string: string): void;
+
+    /** Press or release one of the simulated iPhone's physical buttons. */
+    ios_send_button(button: "home" | "power" | "volume-up" | "volume-down" | "mute", pressed: boolean): void;
+
+    /** Rotate the simulated iPhone's gravity vector clockwise from portrait. */
+    ios_set_orientation(angle: 0 | 90 | 180 | 270): void;
 
     /**
      * Download a screenshot (returns an <img> element, only works in browsers)

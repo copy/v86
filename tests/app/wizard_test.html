@@ -14,6 +14,7 @@
                    on through the CPU worker, the Secure Boot firmware's boot manager on the serial console (no bootable device)
      part=dialog   the settings dialog: arm64 makes the machine virt and says so, the choices it offers, ACPI fixed with its
                    reason, a problem shown on its panel and fixed, Add and Remove, Cancel keeps the configuration
+     part=ios_dialog  the experimental iPhone source, wrong firmware rejected before keys, and fixed hardware settings
      part=service  (with the runner's service=1) the disk service in Preferences, the wizard's new disk created there
      part=android  an Android image package (build/android-test-package.zip: tests/android/make_package.mjs) dropped on the
                    wizard: Cuttlefish's arm64 device, the Android 16 preset with gfxstream (I8.1), a browser disk made in the
@@ -856,6 +857,52 @@ const parts = {
         await until(() => /Graphics 720×1280/.test(c.body.textContent), "the display at the device's 720×1280", 900000);
         log("display: 720×1280, the device's (" + ((Date.now() - booted) / 1000).toFixed(0) + " s)");
         await emulator.destroy();
+    },
+    async ios_dialog()
+    {
+        await open_library();
+        $("#new_vm").click();
+        let wizard = await until(() => $("dialog.wizard-dialog[open]"), "the wizard");
+        check(!wizard.querySelector("input[value=ios]"), "the experimental iPhone source must be hidden by default");
+        button("Cancel", wizard).click();
+        $("#preferences").click();
+        const prefs = await until(() => $("dialog[open]"), "Preferences");
+        Array.from(prefs.querySelectorAll("label")).find(l => l.textContent.includes("experimental iPhone")).querySelector("input").click();
+        button("Save", prefs).click();
+        const { VMStore } = await import("../../src/app/vm_store.js");
+        const store = await VMStore.open();
+        await until(() => store.get_pref("experimental_ios"), "saved iPhone preference");
+        $("#new_vm").click();
+        wizard = await until(() => $("dialog.wizard-dialog[open]"), "the enabled wizard");
+        wizard.querySelector("input[value=ios]").click();
+        const transfer = new w.DataTransfer();
+        transfer.items.add(new w.File(["not an IPSW"], "wrong.ipsw"));
+        const input = wizard.querySelector("input[aria-label='iPhone firmware']");
+        input.files = transfer.files;
+        input.dispatchEvent(new w.Event("change", { bubbles: true }));
+        await until(() => wizard.querySelector(".wizard-status")?.textContent.includes("Choose the original"), "unsupported IPSW rejected");
+        check(!button("Next", wizard), "unsupported firmware cannot proceed to keys");
+        button("Cancel", wizard).click();
+
+        const { new_ios_config } = await import("../../src/app/vm_config.js");
+        const { N90_RESTORE } = await import("../../src/ios/catalog.js");
+        const config = new_ios_config("iPhone dialog test",
+            { kind: "browser", path: "v86/disks/iphone-dialog.img", size: N90_RESTORE.nand_bytes }, true);
+        await store.put(config);
+        library.remove();
+        await open_library();
+        await until(() => names().includes(config.name), "saved experimental iPhone");
+        button("Edit settings…").click();
+        const settings = await until(() => $("dialog.settings-dialog[open]"), "iPhone settings");
+        const panels = Array.from(settings.querySelectorAll(".item-label"), l => l.textContent);
+        check(panels.join(",") === "General,iPhone,Storage,Serial terminal,Sound", "fixed iPhone panels: " + panels);
+        check(!settings.querySelector("select[aria-label='Add hardware']"), "iPhone cannot attach unsupported hardware");
+        settings.querySelector("[data-item=ios]").click();
+        set(settings.querySelector("select"), "90");
+        button("Save", settings).click();
+        await until(async () => (await store.get(config.id))?.ios?.orientation === 90, "saved initial orientation");
+        await store.delete(config.id);
+        log("experimental source, incorrect IPSW rejected, fixed iPhone hardware and saved orientation");
     },
     async service()
     {

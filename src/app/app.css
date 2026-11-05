@@ -167,6 +167,8 @@ details.checklist { margin: 10px 0; }
 .console-notice { margin-bottom: 8px; }
 .console-main { display: flex; gap: 10px; align-items: flex-start; }
 .console-screen { overflow: auto; min-width: 0; }
+.iphone-stage { position: relative; margin-inline: auto; }
+#screen_container.iphone-screen { position: absolute; top: 50%; left: 50%; touch-action: none; }
 .console-drawer {
     flex: 0 0 360px;
     max-width: 100%;

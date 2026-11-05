@@ -300,7 +300,7 @@ export async function open_console(root, target)
                     console.warn("The TPM's state store could not be made (" + e.message + "): the TPM's state stays in memory this time");
                 }
             }
-            if(config.display.proxy) await load_graphics_proxy();
+            if(config.display.proxy || config.ios?.gles_proxy) await load_graphics_proxy();
             // (an emulator image's GLES on the host's GPU, docs/gles-proxy-plan.md
             // E5: the WebGPU renderer's bundle; without WebGPU the guest's CPU
             // draws, this start only: a suspended machine resumes with its own)
@@ -475,8 +475,10 @@ function console_ui(layout, emulator, ctx)
 {
     const options = ctx.options;
     const tag = ctx.profile?.id || (ctx.config ? ctx.config.name.replace(/[^\w.-]+/g, "_") : "v86");
+    const ios = ctx.config?.ios;
     const virt = options.cpu_type === "arm64";
-    const written_back = [options.hda, options.hdb, options.fda, options.fdb, ...(options.virtio_disks || [])].some(d => d && d.disk_option === "read_write");
+    const written_back = [options.hda, options.hdb, options.fda, options.fdb, options.ios?.nand,
+        ...(options.virtio_disks || [])].some(d => d && d.disk_option === "read_write");
     let powered_off = false;
     let running = false;
 
@@ -605,6 +607,10 @@ function console_ui(layout, emulator, ctx)
         window.addEventListener("resize", report);
         emulator.add_listener("emulator-ready", report);
     }
+    if(ios) emulator.add_listener("emulator-ready", () => {
+        orient(ios.orientation);
+        set_zoom_to_fit(true);
+    });
 
     // ---- power
     const power_off = async (ask = true) =>
@@ -805,12 +811,39 @@ function console_ui(layout, emulator, ctx)
 
     // ---- view
     let zoom_to_fit = false, theatre = false, scale = 1;
+    let iphone_angle = ios?.orientation || 0;
+    const iphone_stage = ios ? h("div.iphone-stage") : null;
+    if(iphone_stage)
+    {
+        layout.screen_container.replaceWith(iphone_stage);
+        iphone_stage.append(layout.screen_container);
+        layout.screen_container.classList.add("iphone-screen");
+        new ResizeObserver(() => size_iphone_stage()).observe(layout.screen_container);
+    }
+    function size_iphone_stage()
+    {
+        if(!iphone_stage) return;
+        const screen = layout.screen_container, wide = iphone_angle % 180 !== 0;
+        iphone_stage.style.width = (wide ? screen.offsetHeight : screen.offsetWidth) + "px";
+        iphone_stage.style.height = (wide ? screen.offsetWidth : screen.offsetHeight) + "px";
+    }
+    /** @param {0 | 90 | 180 | 270} angle */
+    function orient(angle)
+    {
+        iphone_angle = angle;
+        layout.screen_container.dataset.iphoneRotation = String(angle);
+        layout.screen_container.style.transform = "translate(-50%, -50%) rotate(" + angle + "deg)";
+        emulator.ios_set_orientation(angle);
+        size_iphone_stage();
+        if(zoom_to_fit) fit();
+    }
     const fit = () =>
     {
         emulator.screen_set_scale(1, 1);
         const box = layout.screen_container.getBoundingClientRect();
         const room = theatre ? { width: window.innerWidth, height: window.innerHeight } :
-            { width: layout.screen_container.parentElement.clientWidth || window.innerWidth, height: window.innerHeight - 120 };
+            { width: (iphone_stage || layout.screen_container).parentElement.clientWidth || window.innerWidth, height: window.innerHeight - 120 };
+        if(!box.width || !box.height) return;
         const n = Math.max(0.1, Math.min(room.width / box.width, room.height / box.height));
         emulator.screen_set_scale(n, n);
     };
@@ -871,6 +904,7 @@ function console_ui(layout, emulator, ctx)
     };
     layout.screen_container.addEventListener("click", e =>
     {
+        if(ios) return;
         // (a guest that follows the host's cursor needs no lock; the menu's Lock mouse is still there for games)
         if(mouse_enabled && stats.guest_mouse && !stats.absolute_mouse && !stats.usb_tablet) emulator.lock_mouse();
         if(window.getSelection()?.isCollapsed)
@@ -1117,6 +1151,61 @@ function console_ui(layout, emulator, ctx)
     });
 
     // ---- the toolbar
+    /** @typedef {"home" | "power" | "volume-up" | "volume-down" | "mute"} IPhoneButton */
+    /** @param {IPhoneButton} key @param {string} title */
+    const iphone_button = (key, title) => {
+        let held = false;
+        const send = pressed => {
+            if(held === pressed) return;
+            held = pressed;
+            emulator.ios_send_button(key, pressed);
+        };
+        const button = h("button", { id: "iphone_" + key.replace("-", "_"), type: "button",
+            onpointerdown: event => { if(event.button === 0) { button.setPointerCapture(event.pointerId); send(true); } },
+            onpointerup: () => send(false), onpointercancel: () => send(false), onlostpointercapture: () => send(false),
+            onclick: event => { if(!event.detail) { send(true); window.setTimeout(() => send(false), 70); } },
+        }, title);
+        return button;
+    };
+    const iphone_controls = ios ? [
+        iphone_button("home", "Home"), iphone_button("power", "Lock"),
+        iphone_button("volume-up", "Volume +"), iphone_button("volume-down", "Volume −"),
+        (() => {
+            let silent = false;
+            const button = h("button#iphone_silent", { type: "button", "aria-pressed": "false", onclick: () => {
+                silent = !silent;
+                emulator.ios_send_button("mute", silent);
+                button.setAttribute("aria-pressed", String(silent));
+            } }, "Silent");
+            return button;
+        })(),
+        h("button#iphone_rotate", { type: "button", onclick: () => orient(/** @type {0 | 90 | 180 | 270} */ ((iphone_angle + 90) % 360)) }, "Rotate"),
+    ] : [];
+    if(ios)
+    {
+        /** @type {Map<string, IPhoneButton>} */
+        const held = new Map();
+        window.addEventListener("keydown", event => {
+            if(powered_off || document.querySelector("dialog[open]")) return;
+            const key = event.key === "Escape" ? "home" : event.metaKey && event.code === "KeyL" ? "power" : null;
+            if(!key) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if(!held.has(event.code)) { held.set(event.code, key); emulator.ios_send_button(key, true); }
+        }, true);
+        window.addEventListener("keyup", event => {
+            const key = held.get(event.code);
+            if(!key) return;
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            held.delete(event.code);
+            emulator.ios_send_button(key, false);
+        }, true);
+        window.addEventListener("blur", () => {
+            for(const key of held.values()) emulator.ios_send_button(key, false);
+            held.clear();
+        });
+    }
     /** @type {Object<string, () => Array<import("./dom.js").MenuItem | "-">>} */
     const items = {
         power: () => [
@@ -1179,14 +1268,13 @@ function console_ui(layout, emulator, ctx)
         replace(layout.toolbar,
             h("a.button", { href: location.pathname }, "Library"),
             menu_button("Power", items.power, "menu_power"),
-            menu_button("Keys", items.keys, "menu_keys"),
-            menu_button("Devices", items.devices, "menu_devices"),
+            ios ? iphone_controls : [menu_button("Keys", items.keys, "menu_keys"), menu_button("Devices", items.devices, "menu_devices")],
             menu_button("View", items.view, "menu_view"),
-            menu_button("Input", items.input, "menu_input"),
+            ios ? null : menu_button("Input", items.input, "menu_input"),
             mute,
-            menu_button("Tools", items.tools, "menu_tools"),
+            ios ? null : menu_button("Tools", items.tools, "menu_tools"),
             h("span.toolbar-gap"),
-            drawer_button("terminal", "Terminal"),
+            !ios || ctx.config.serial.some(serial => serial.attach === "terminal") ? drawer_button("terminal", "Terminal") : null,
             kernel_console ? drawer_button("kernel", "Kernel console") : null,
             files_tab ? drawer_button("files", "Files") : null,
             drawer_button("details", "Details"),

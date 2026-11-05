@@ -9,12 +9,13 @@ import { CPU_PROFILES, MACHINE_CPU_PROFILES, ARM_MACHINE_TYPES, CPU_TYPES, FIRMW
     check_machine_options } from "../machine_options.js";
 import { ANDROID_DEVICES as ANDROID_DEVICE_MODELS } from "../android/bootloader.js";
 import { DEFAULT_GLES_VERSION, GLES_VERSIONS } from "../android/devices.js";
+import { N90_RESTORE } from "../ios/catalog.js";
 import { DISK_OPTIONS, DISK_ERRORS, check_disk_options } from "../disk_options.js";
 import { DEFAULT_FORM, DEFAULT_MEMORY_SIZE, MAX_MEMORY_SIZE, MAX_HEAP_MEMORY_SIZE, MAX_ARRAY_BUFFER_SIZE_MB, DEFAULT_VGA_MEMORY_SIZE,
     DEFAULT_MTU, apply_form, settings_to_options } from "../browser/vm_options.js";
 
 export const FORMAT = "v86-vm";
-export const VERSION = 4;
+export const VERSION = 5;
 
 /** The UEFI firmware's images (machine.firmware "uefi"; bios/fetch-ovmf.sh) */
 export const UEFI_CODE_URL = "bios/ovmf-code.fd";
@@ -105,6 +106,7 @@ export const TPM_STATE_SIZE = 512 * 1024;
  * @property {{bzimage: Image | null, initrd: Image | null, cmdline: string | null, multiboot: Image | null, from_filesystem: boolean} | null} kernel
  * @property {Android | null} android Android booted from its disk: the kernel and initrd from its boot partitions
  *     (kernel's cmdline, if any, after the device's)
+ * @property {IOS | null} ios iPhone boot files and system on a prepared NAND disk
  * @property {{adapter: string, vram_mb: number | null, proxy: boolean, vulkan: "none" | "venus" | "gfxstream", displays: number}} display
  *     vram_mb: null with an initial_state, whose video memory it is; vulkan: virtio-gpu's Vulkan, drawn by the graphics
  *     proxy's WebGPU renderer: Venus contexts, or gfxstream's (its contexts only: Android's official images)
@@ -151,6 +153,11 @@ export const ANDROID_SELINUX = ["enforcing", "permissive"];
 export const ANDROID_DISPLAYS = ["device", "window"];
 /** the GLES version an emulator image announces on the host's GPU (docs/gles3-plan.md) */
 export const ANDROID_GLES_VERSIONS = Object.keys(GLES_VERSIONS);
+/** @typedef {{model: string, build: string, nand: Image | null, boot_args: string, verbose: boolean,
+ *     gles_proxy: boolean, orientation: 0 | 90 | 180 | 270}} IOS */
+/** @type {IOS} */
+const IOS_DEFAULTS = { model: N90_RESTORE.model, build: N90_RESTORE.build, nand: null,
+    boot_args: "", verbose: true, gles_proxy: true, orientation: 0 };
 /** an android section's defaults
  * @type {Android} */
 export const ANDROID_DEFAULTS = { device: "cf_arm64_only_phone", gpu_mode: "swiftshader", vendor_ramdisk: "release", debug_ramdisk: null, selinux: "enforcing",
@@ -207,6 +214,25 @@ export function new_config(fields = {})
     return with_defaults(Object.assign({ format: FORMAT, version: VERSION, id: new_id(), created: now, modified: now }, fields));
 }
 
+/**
+ * @param {string} name
+ * @param {Image} nand
+ * @param {boolean} gles_proxy
+ * @return {VMConfig}
+ */
+export function new_ios_config(name, nand, gles_proxy)
+{
+    const c = new_config({ name, guest: "ios" });
+    Object.assign(c.machine, { type: "s5l8930", acpi: false });
+    Object.assign(c.cpu, { type: "arm32", profile: "cortex-a8", cores: 1, parallel: false });
+    c.memory.mb = 512;
+    Object.assign(c.display, { adapter: "none", vram_mb: null, proxy: false });
+    c.network = [];
+    c.sound.device = "none";
+    c.ios = { ...IOS_DEFAULTS, nand, gles_proxy };
+    return c;
+}
+
 /** @param {*} value */
 const is_object = value => !!value && typeof value === "object" && !Array.isArray(value);
 
@@ -240,6 +266,7 @@ export function with_defaults(config)
     c.floppies = Array.isArray(c.floppies) ? c.floppies.map(f => Object.assign({ image: null, disk_option: "read_only" }, f)) : [];
     c.kernel = is_object(c.kernel) ? Object.assign({ bzimage: null, initrd: null, cmdline: null, multiboot: null, from_filesystem: false }, c.kernel) : null;
     c.android = is_object(c.android) ? Object.assign({}, ANDROID_DEFAULTS, c.android) : null;
+    c.ios = is_object(c.ios) ? Object.assign({}, IOS_DEFAULTS, c.ios) : null;
     section("display", { adapter: DEFAULT_FORM.graphics_adapter, vram_mb: DEFAULT_VGA_MEMORY_SIZE, proxy: false, vulkan: "none", displays: 1 });
     c.network = Array.isArray(c.network) ? c.network.map(n => Object.assign(default_network(), n)) : [default_network()];
     section("sound", { device: "sb16", mute: false });
@@ -291,6 +318,7 @@ const MIGRATIONS = {
     },
     // 4 (2026-10-26, U1): the usb section (none before)
     3: config => Object.assign({}, config, { usb: null }),
+    4: config => Object.assign({}, config, { ios: null }),
 };
 
 /**
@@ -395,6 +423,39 @@ export function validate_config(config)
     if(typeof config.notes !== "string") problem("notes", "must be text");
 
     const machine = config.machine, cpu = config.cpu;
+    if(machine.type === "s5l8930")
+    {
+        const ios = config.ios;
+        if(!ios) problem("ios", "An iPhone needs a prepared NAND image");
+        else
+        {
+            if(ios.model !== N90_RESTORE.model || ios.build !== N90_RESTORE.build)
+                problem("ios", "This emulator supports iPhone 4 (GSM), iOS 6.1.3 (10B329)");
+            check_image(ios.nand, "ios.nand", problems);
+            if(!ios.nand || ios.nand.kind !== "browser" || ios.nand.size !== N90_RESTORE.nand_bytes)
+                problem("ios.nand", "Choose the iPhone's prepared browser NAND disk");
+            if(typeof ios.boot_args !== "string" || /[\0\r\n]/.test(ios.boot_args) || ios.boot_args.length > 160)
+                problem("ios.boot_args", "Use a single line of up to 160 characters");
+            bool(ios.verbose, "ios.verbose");
+            bool(ios.gles_proxy, "ios.gles_proxy");
+            if(![0, 90, 180, 270].includes(ios.orientation)) problem("ios.orientation", "Choose portrait or a right-angle rotation");
+        }
+        if(cpu.type !== "arm32" || cpu.cores !== 1 || cpu.parallel || cpu.profile !== "cortex-a8" || config.memory.mb !== 512)
+            problem("ios", "iPhone 4 has one Cortex-A8 CPU and 512 MB of memory");
+        if(machine.acpi || machine.hpet || machine.smbus || machine.pcie_root_ports || machine.bios || machine.vga_bios ||
+            machine.firmware !== "seabios" || machine.uefi_vars || machine.secure_boot || machine.boot_order || machine.fastboot || machine.bootmenu)
+            problem("ios", "iPhone 4 uses its built-in boot configuration");
+        if(config.disks.length || config.cdrom.image || config.floppies.length || config.usb || config.tpm ||
+            config.network.some(n => n.device !== "none" || n.backend !== "none") || config.filesystem || config.kernel || config.android ||
+            config.display.adapter !== "none" || config.display.proxy || config.display.vulkan !== "none" || config.display.displays !== 1 ||
+            config.virt.input || config.virt.console_ports || config.virt.vsock || config.virt.transport !== "mmio")
+            problem("ios", "PC, Android and virt hardware cannot be attached to an iPhone");
+        if(config.sound.device !== "none") problem("ios", "iPhone 4 has built-in audio controls");
+        if(config.serial.length > 1 || config.serial.some(s => s.port !== 0 || !["terminal", "none"].includes(s.attach)))
+            problem("serial", "Choose the iPhone's boot terminal or none");
+        return problems;
+    }
+    if(config.ios) problem("ios", "iPhone firmware requires the iPhone machine");
     // (the rest depends on the CPU and the machine)
     if(!CPU_TYPES.includes(cpu.type) || !MACHINE_TYPES.includes(machine.type))
     {
@@ -820,6 +881,20 @@ export function config_to_options(config, env)
     const MB = 1024 * 1024;
     const image = value => image_option(value, env.file);
     const machine = config.machine, cpu = config.cpu, display = config.display, advanced = config.advanced;
+    if(machine.type === "s5l8930" && config.ios)
+    {
+        const ios = config.ios, nand = image(ios.nand);
+        const boot_args = [ios.verbose ? "-v serial=3" : "serial=3", "rd=disk0s1s1", ios.boot_args.trim()].filter(Boolean).join(" ");
+        return {
+            machine_type: "s5l8930", apple_model: ios.model, cpu_type: "arm32", cpu_profile: "cortex-a8",
+            cpu_cores: 1, memory_size: 512 * MB, cpu_worker: true,
+            cpu_worker_url: "build/cpu-worker.js" + env.query_append,
+            wasm_path: "build/" + (env.debug ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") + env.query_append,
+            screen: { container: env.screen_container }, graphics_adapter: "none", net_device: { type: "none" },
+            gles_backdoor: ios.gles_proxy, ios: { nand_boot: true, nand: { ...nand, disk_option: "read_write" }, boot_args },
+            initial_state: image(config.initial_state), disable_speaker: config.sound.mute, autostart: true,
+        };
+    }
     // (the card the backend serves: the virt machine's net<id>; else the first)
     const served = Math.max(0, config.network.findIndex(n => n.backend !== "none"));
     const network = config.network[served];

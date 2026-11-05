@@ -9,8 +9,7 @@ import assert from "node:assert/strict";
 import zlib from "node:zlib";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { effaceable_unit, wipe_info } from "../../tools/ios/lockers.mjs";
-import { systembag } from "../../tools/ios/systembag.mjs";
+import { effaceable_unit, wipe_info, systembag } from "../../src/ios/provision.js";
 import { AES, SHA1, HMAC_SHA1, from_hex, to_hex } from "../../src/ios/crypto.js";
 import { img3_build, img3_payload, img3_parse } from "../../src/ios/img3.js";
 import { lzss_decompress, complzss_decompress, adler32 } from "../../src/ios/lzss.js";
@@ -504,7 +503,7 @@ if(process.platform === "darwin") test("N90 systembag: CBC envelope, signature a
     const parse = input => plist_parse(execFileSync("/usr/bin/plutil", ["-convert", "xml1", "-o", "-", "--", "-"], { input }));
     const bag = parse(systembag()), { key, iv } = wipe_info();
     assert.equal(bag._MKBWIPEID, 0x42414731);
-    assert.deepEqual(Buffer.from(bag._MKBIV), iv);
+    assert.deepEqual(bag._MKBIV, iv);
     const plain = Buffer.from(bag._MKBPAYLOAD);
     new AES(key).cbc(plain, iv, true);
     const pad = plain.at(-1);

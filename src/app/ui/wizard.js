@@ -20,6 +20,8 @@ import { create_disk } from "../browser_disks.js";
 import { inspect_android_package, import_android_package, import_android_package_to_service, sort_android_files, hash_file, USERDATA_GIB,
     DEFAULT_USERDATA_GIB } from "../android_import.js";
 import { ANDROID_CATALOG } from "../android_catalog.js";
+import { N90_RESTORE, import_ios_package, inspect_ios_package, verify_ios_keys } from "../ios_import.js";
+import { new_ios_config } from "../vm_config.js";
 import { MAX_ARRAY_BUFFER_SIZE_MB } from "../../browser/vm_options.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
@@ -37,7 +39,7 @@ const SOURCES = [
 
 /**
  * The wizard; resolves with the new configuration (stored by the caller) or null when cancelled
- * @param {{store: {put_handle: (handle: any) => Promise<string>, get_pref?: any, put_pref?: any}, service: Service | null, names: string[]}} options
+ * @param {{store: {put_handle: (handle: any) => Promise<string>, get_pref?: any, put_pref?: any}, service: Service | null, names: string[], experimental_ios?: boolean}} options
  *     names: the library's
  * @return {Promise<VMConfig | null>}
  */
@@ -65,14 +67,21 @@ export function open_wizard(options)
              *     package; checks: each dropped part's against it (ok, checking…, or what differs); room: the site's storage left (null: unknown) */
             android: { file: null, gsi: null, debug_ramdisk: null, info: null, error: "", userdata_gib: DEFAULT_USERDATA_GIB,
                 entry: ANDROID_CATALOG.default_entry, checks: {} },
+            ios: { file: /** @type {File | null} */ (null), library: /** @type {File | null} */ (null),
+                checked: false, keys: "", keys_ok: false, acceleration: true, checking: /** @type {AbortController | null} */ (null),
+                results: /** @type {Array<[string, boolean, string]>} */ ([]) },
             progress: "",
             /** @type {AbortController | null} the import going on (its Cancel) */
             importing: null,
         };
         const element = /** @type {HTMLDialogElement} */ (h("dialog.wizard-dialog", { "aria-label": "New virtual machine" }));
-        const close = value => { element.close(); element.remove(); resolve(value); };
+        const close = value => {
+            state.ios.checking?.abort();
+            state.ios.keys = "";
+            element.close(); element.remove(); resolve(value);
+        };
         element.addEventListener("cancel", e => { e.preventDefault(); if(state.importing) state.importing.abort(); else close(null); });
-        const steps = ["Source", "System", "Name", "Hard disk", "Summary"];
+        const step_titles = () => state.source === "ios" ? ["Firmware", "Keys", "Name", "NAND", "Summary"] : ["Source", "System", "Name", "Hard disk", "Summary"];
 
         const unique = name =>
         {
@@ -100,6 +109,13 @@ export function open_wizard(options)
          */
         const build = made =>
         {
+            if(state.source === "ios")
+            {
+                const config = new_ios_config(state.name.trim() || N90_RESTORE.name,
+                    { kind: "browser", path: made || "(made when finished)", size: N90_RESTORE.nand_bytes }, state.ios.acceleration);
+                config.notes = state.notes;
+                return config;
+            }
             const p = /** @type {import("../guest_presets.js").Preset} */ (preset(state.preset));
             const config = preset_config(p, { name: state.name.trim() || p.name, notes: state.notes });
             if(state.source === "cdrom" && state.image) config.cdrom.image = state.image;
@@ -137,7 +153,31 @@ export function open_wizard(options)
         {
             state.error = "";
             let url;
-            const new_disk = state.source !== "disk" && state.source !== "android" && state.disk === "new";
+            const new_disk = !["disk", "android", "ios"].includes(state.source) && state.disk === "new";
+            if(state.source === "ios")
+            {
+                const i = state.ios, abort = state.importing = new AbortController();
+                try
+                {
+                    state.progress = "Preparing iPhone firmware…";
+                    render();
+                    const disk = await import_ios_package(i.file, i.keys, state.name, {
+                        prefs: options.store, signal: abort.signal, library: i.library, acceleration: i.acceleration, progress: ios_progress,
+                    });
+                    url = disk.path;
+                }
+                catch(error)
+                {
+                    state.error = error.message === "Cancelled" ? "The import was cancelled" : error.message;
+                    return;
+                }
+                finally
+                {
+                    state.progress = "";
+                    state.importing = null;
+                    render();
+                }
+            }
             if(state.source === "android")
             {
                 const file = /** @type {File} */ (state.android.file);
@@ -218,8 +258,15 @@ export function open_wizard(options)
 
         const source_step = () =>
         {
-            const radios = SOURCES.map(([value, text]) => h("label.check", null,
-                h("input", { type: "radio", name: "source", value, checked: state.source === value, onchange: () => { state.source = value; state.image = null; render(); } }),
+            const sources = options.experimental_ios ? SOURCES.concat([["ios", "Apple firmware (.ipsw)"]]) : SOURCES;
+            const radios = sources.map(([value, text]) => h("label.check", null,
+                h("input", { type: "radio", name: "source", value, checked: state.source === value, onchange: () => {
+                    if(state.source === "ios") state.ios.checking?.abort();
+                    state.source = value; state.image = null; state.error = ""; state.progress = "";
+                    if(value === "ios") state.name = unique("iPhone 4 · iOS 6.1.3");
+                    else choose_preset(state.preset);
+                    render();
+                } }),
                 " " + text));
             const pickers = [];
             if(state.source === "cdrom" || state.source === "floppy" || state.source === "disk")
@@ -234,6 +281,7 @@ export function open_wizard(options)
                     } }));
             }
             if(state.source === "android") pickers.push(android_picker());
+            if(state.source === "ios") pickers.push(ios_picker());
             if(state.source === "direct")
             {
                 pickers.push(
@@ -250,6 +298,94 @@ export function open_wizard(options)
             }
             return [h("fieldset", null, h("legend", null, "Where does the system come from?"), radios), pickers];
         };
+
+        function ios_progress(stage, percent)
+        {
+            state.progress = stage + (percent ? ": " + percent + "%" : "…");
+            const status = element.querySelector(".wizard-status");
+            if(status) status.textContent = state.progress;
+        }
+
+        async function take_ipsw(file)
+        {
+            const i = state.ios;
+            i.checking?.abort();
+            const checking = i.checking = new AbortController();
+            Object.assign(i, { file, checked: false, keys_ok: false, results: [] });
+            state.error = "";
+            state.progress = "Checking the IPSW…";
+            render();
+            try
+            {
+                await inspect_ios_package(file, { signal: checking.signal, progress: ios_progress });
+                if(i.checking === checking) i.checked = true;
+            }
+            catch(error) { if(!checking.signal.aborted) state.error = error.message; }
+            finally
+            {
+                if(i.checking === checking) { i.checking = null; state.progress = ""; render(); }
+            }
+        }
+
+        function ios_picker()
+        {
+            const i = state.ios, input = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".ipsw", "aria-label": "iPhone firmware" }));
+            input.onchange = () => { if(input.files?.[0]) void take_ipsw(input.files[0]); };
+            const zone = h("div.android-drop", null,
+                h("h3", null, "iPhone 4 (GSM) · iOS 6.1.3 (10B329)"),
+                h("p", null, "Choose or drop your own " + N90_RESTORE.file + " (" + format_size(N90_RESTORE.size) + ")."),
+                h("p.note", null, "SHA-1: " + N90_RESTORE.sha1), input,
+                i.file ? h("p", null, i.file.name + (i.checked ? " — verified" : "")) : null);
+            zone.ondragover = event => event.preventDefault();
+            zone.ondrop = event => { event.preventDefault(); const file = event.dataTransfer?.files[0]; if(file) void take_ipsw(file); };
+            return zone;
+        }
+
+        function ios_keys_step()
+        {
+            const i = state.ios;
+            const input = /** @type {HTMLTextAreaElement} */ (h("textarea", { rows: 8, cols: 56, spellcheck: false,
+                autocomplete: "off", "aria-label": "iPhone firmware keys" }));
+            input.value = i.keys;
+            input.oninput = () => {
+                i.checking?.abort(); i.checking = null;
+                i.keys = input.value; i.keys_ok = false; i.results = [];
+                state.error = ""; state.progress = "";
+                const next = /** @type {HTMLButtonElement} */ (element.querySelector(".wizard-footer .primary"));
+                if(next) next.disabled = true;
+                element.querySelector(".ios-key-results")?.replaceChildren();
+            };
+            const load = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".json,application/json", "aria-label": "Key file" }));
+            load.onchange = async () => {
+                if(!load.files?.[0]) return;
+                i.checking?.abort(); i.checking = null;
+                i.keys = await load.files[0].text();
+                i.keys_ok = false; i.results = []; state.error = ""; state.progress = ""; render();
+            };
+            const verify = async () => {
+                i.checking?.abort();
+                const checking = i.checking = new AbortController();
+                i.keys_ok = false; i.results = []; state.error = ""; state.progress = "Checking the keys…";
+                render();
+                try
+                {
+                    const failures = await verify_ios_keys(i.file, i.keys, { signal: checking.signal, progress: ios_progress,
+                        check: (name, ok, message) => i.results.push([name, ok, message]) });
+                    if(i.checking === checking) i.keys_ok = failures === 0;
+                }
+                catch(error) { if(!checking.signal.aborted) state.error = error.message; }
+                finally
+                {
+                    if(i.checking === checking) { i.checking = null; state.progress = ""; render(); }
+                }
+            };
+            return [
+                h("p", null, "Paste or open a v86-ios-keys JSON file for iPhone3,1 build 10B329. The keys stay in this window and are discarded when the wizard closes."),
+                input, h("div", null, load, h("button", { type: "button", onclick: verify }, "Verify keys")),
+                h("ul.ios-key-results", null, i.results.map(([name, ok, message]) =>
+                    h("li", { class: ok ? "" : "error" }, name + ": " + message))),
+            ];
+        }
 
         // (the files: chosen or dropped, the device's package and a GSI (in
         // one go or one after the other), then read: what they are, the disk)
@@ -365,6 +501,7 @@ export function open_wizard(options)
 
         const system_step = () =>
         {
+            if(state.source === "ios") return ios_keys_step();
             const p = /** @type {import("../guest_presets.js").Preset} */ (preset(state.preset));
             const list = h("ul.preset-list", { role: "listbox", "aria-label": "Systems" }, PRESETS.map(q => h("li", {
                 role: "option", tabindex: "0", "aria-selected": q.id === state.preset ? "true" : "false", class: q.id === state.preset ? "selected" : "",
@@ -396,6 +533,19 @@ export function open_wizard(options)
 
         const disk_step = () =>
         {
+            if(state.source === "ios")
+            {
+                const i = state.ios, library = /** @type {HTMLInputElement} */ (h("input", { type: "file", accept: ".dylib", "aria-label": "Local graphics adapter" }));
+                library.onchange = () => { i.library = library.files?.[0] || null; render(); };
+                return [
+                    h("p", null, "Create a 16 GB iPhone NAND disk in this browser. The system and your changes stay on this computer."),
+                    h("label.check", null, h("input", { type: "checkbox", checked: i.acceleration, onchange: e => {
+                        i.acceleration = e.target.checked; render();
+                    } }), " Use WebGPU for iPhone graphics"),
+                    i.acceleration ? h("label.field", null, h("span", null, "Local graphics adapter (optional if installed)"), library, i.library?.name || "") : null,
+                    h("p.note", null, "Only written NAND blocks and the original system volume for reset use browser storage."),
+                ];
+            }
             if(state.source === "android")
             {
                 const info = /** @type {import("../android_import.js").PackageInfo} */ (state.android.info);
@@ -488,6 +638,12 @@ export function open_wizard(options)
         const summary_step = () =>
         {
             const config = build();
+            if(state.source === "ios") return [
+                h("h3", null, config.name),
+                h("p.note", null, "The image contains Apple system files. Keep it as a personal backup."),
+                h("table.hardware", null, h("tbody", null, hardware_rows(config).map(([name, value]) =>
+                    h("tr", null, h("th", null, name), h("td", null, value))))),
+            ];
             const p = /** @type {import("../guest_presets.js").Preset} */ (preset(state.preset));
             return [
                 h("h3", null, config.name),
@@ -501,6 +657,7 @@ export function open_wizard(options)
         {
             if(state.step === 0)
             {
+                if(state.source === "ios") return state.ios.checked ? "" : state.ios.checking ? "Checking the IPSW…" : "Choose the supported IPSW";
                 if(state.source === "direct") return state.direct.bzimage ? "" : "Choose the kernel";
                 if(state.source === "android")
                 {
@@ -520,6 +677,7 @@ export function open_wizard(options)
                 if(state.source !== "later" && !state.image) return "Choose the image";
                 if(state.image && state.image.kind === "url" && !state.image.url) return "Give the image's URL";
             }
+            if(state.step === 1 && state.source === "ios" && !state.ios.keys_ok) return "Verify the firmware keys";
             if(state.step === 2 && !state.name.trim()) return "Give the machine a name";
             if(state.step === 3 && state.disk === "new" && state.location === "memory" && state.disk_mb > MAX_ARRAY_BUFFER_SIZE_MB) return "Too large for memory";
             return "";
@@ -527,6 +685,7 @@ export function open_wizard(options)
 
         function render()
         {
+            const steps = step_titles();
             const body = [source_step, system_step, name_step, disk_step, summary_step][state.step]();
             const blocked = ready();
             const last = state.step === steps.length - 1;
@@ -540,7 +699,7 @@ export function open_wizard(options)
                     state.importing ? h("button", { type: "button", onclick: () => state.importing && state.importing.abort() }, "Cancel import") : [
                         h("button", { type: "button", onclick: () => close(null) }, "Cancel"),
                         h("button", { type: "button", disabled: state.step === 0, onclick: () => { state.step--; render(); } }, "Back"),
-                        last ? [h("button", { type: "button", onclick: () => finish(true) }, "Customize hardware…"),
+                        last ? [state.source === "ios" ? null : h("button", { type: "button", onclick: () => finish(true) }, "Customize hardware…"),
                             h("button.primary", { type: "button", onclick: () => finish(false) }, "Finish")] :
                             h("button.primary", { type: "button", disabled: !!blocked, onclick: () => { state.step++; render(); } }, "Next")])));
         }

@@ -75,6 +75,21 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
             if(!view.getUint32(slot * 4, true)) view.setUint32(slot * 4, hz, true);
         dt_set(io, "clock-frequencies", clocks);
     }
+    // The restore tree leaves iBoot's per-device accelerometer calibration
+    // empty. This simulated sensor has unit gain and no cross-axis error;
+    // the native driver requires a nonzero 16.16 calibration matrix.
+    const accelerometer = dt_find(tree, "/arm-io/i2c2/accelerometer");
+    if(accelerometer)
+    {
+        const calibration = dt_property(accelerometer, "accel-sensitivity-calibration");
+        if(!calibration || calibration.value.every(byte => byte === 0))
+        {
+            const matrix = new Uint8Array(Math.max(40, calibration?.value.length || 0));
+            const view = new DataView(matrix.buffer);
+            for(const at of [0, 16, 32]) view.setUint32(at, 0x10000, true);
+            dt_set(accelerometer, "accel-sensitivity-calibration", matrix);
+        }
+    }
 
     // IODTNVRAM walks 16-byte units in the 8 KiB iBoot proxy. The zero
     // placeholder has a zero-length partition and the walk never advances.

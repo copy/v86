@@ -21,6 +21,7 @@
 import { disk_error, WRITEBACK_STATE, WRITEBACK_STATE_VERSION, FLUSH_IDLE_MS, FLUSH_MAX_MS, is_writeback_state } from "./disk_writeback.js";
 import { dbg_log } from "./log.js";
 import { LOG_DISK } from "./const.js";
+import { open_sparse_nand } from "./ios/sparse_nand.js";
 
 const SECTOR_SIZE = 512;
 export const OPFS_SCHEME = "opfs:";
@@ -106,6 +107,7 @@ export function OpfsDisk(url, options)
     this.url = url;
     this.name = options.name;
     this.expected_size = options.size;
+    this.sparse_nand = null;
     /** @type {number} */
     this.byteLength = 0;
     /** a backend of the contract (src/block_backend.js, src/ide.js: the write cache) */
@@ -164,7 +166,12 @@ OpfsDisk.prototype.load = async function()
         }
         fail("the browser disk " + this.url + " cannot be opened (" + (e && e.message || e) + ")");
     }
-    const size = this.access["getSize"]();
+    if(this.name === "ios_nand")
+    {
+        try { this.sparse_nand = open_sparse_nand(this.access); }
+        catch(error) { this.close_now(); fail(error.message); }
+    }
+    const size = this.sparse_nand?.size ?? this.access["getSize"]();
     if(size % SECTOR_SIZE)
     {
         this.close_now();
@@ -241,6 +248,7 @@ OpfsDisk.prototype.io_error = function(e, what)
 OpfsDisk.prototype.read_now = function(start, length)
 {
     if(this.closed) throw disk_error(this.name + ": the disk is closed", "io", false);
+    if(this.sparse_nand) return this.sparse_nand.read(start, length);
     const data = new Uint8Array(length);
     this.access["read"](data, { "at": start });
     return data;
@@ -295,7 +303,8 @@ OpfsDisk.prototype.set = function(start, data, fn)
             this.save_record();
             this.move_before_write = false;
         }
-        for(let done = 0; done < data.length;)
+        if(this.sparse_nand) this.sparse_nand.write(start, data);
+        else for(let done = 0; done < data.length;)
         {
             const n = this.access["write"](data.subarray(done), { "at": start + done });
             if(!n) throw new Error("nothing written");
@@ -390,6 +399,7 @@ OpfsDisk.prototype.close_now = function()
     }
     this.access = null;
     this.record_access = null;
+    this.sparse_nand = null;
     this.closed = true;
 };
 

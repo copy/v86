@@ -37,6 +37,13 @@ export function describe_image(image)
  */
 export function hardware_rows(c)
 {
+    if(c.ios) return [
+        ["iPhone", "iPhone 4 (GSM) · iOS 6.1.3 (" + c.ios.build + ")"],
+        ["Processor", "Apple A4 (Cortex-A8)"],
+        ["Memory", "512 MB"],
+        ["Display", "640 × 960" + (c.ios.gles_proxy ? ", WebGPU" : ", boot diagnostics")],
+        ["NAND", describe_image(c.ios.nand)],
+    ];
     /** @type {Array<[string, string]>} */
     const rows = [
         ["Memory", c.memory.mb + " MB"],

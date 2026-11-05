@@ -88,9 +88,10 @@ console.log("PASS: raw N90 layout, factory pages, VSVFL checksums, spare whiteni
 // A single sparse block and the adjacent guard slot exercise the real disk
 // backend, including reprogramming without erase and preserving neighbours.
 const block = new Uint8Array(129 * NAND_SLOT);
+let writes = 0;
 const disk = { byteLength: NAND_BYTES,
     get(at, length, done) { done(block.subarray(at, at + length)); },
-    set(at, bytes, done) { block.set(bytes, at); done(); } };
+    set(at, bytes, done) { writes++; block.set(bytes, at); done(); } };
 const medium = new AppleNAND({}, disk);
 const write = (row, data) => new Promise((ok, fail) => medium.program(0, 0, row, data, ok, fail));
 const read = row => new Promise((ok, fail) => medium.read(0, 0, row, ok, fail));
@@ -109,6 +110,17 @@ await new Promise((ok, fail) => medium.erase(0, 0, 127, ok, fail));
 assert.ok((await read(127)).every(b => b === 255));
 assert.equal((await read(128))[0], 0xAC);
 console.log("PASS: NAND programs clear bits, block erase restores them and preserves the next block");
+const afterErase = writes;
+await new Promise((ok, fail) => medium.erase(0, 0, 127, ok, fail));
+assert.equal(writes, afterErase, "erased blocks need no redundant overlay allocation");
+assert.ok((await read(127)).every(b => b === 255));
+const shortMedium = new AppleNAND({}, {
+    byteLength: NAND_BYTES,
+    get(at, length, done) { done(new Uint8Array(length - 1)); },
+    set() { assert.fail("a short block read must not erase anything"); },
+});
+await assert.rejects(new Promise((ok, fail) => shortMedium.erase(0, 0, 0, ok, fail)), /short NAND block/);
+console.log("PASS: repeated erase preserves sparse blocks and rejects incomplete reads");
 
 // Failed speculative neighbours must not trigger the disk's stop policy
 // when the requested page itself can be read.
@@ -154,3 +166,31 @@ assert.equal((await oldPage)[0], 0xFF);
 assert.equal((await newPage)[0], page[0]);
 assert.equal((await racingRead())[0], page[0]);
 console.log("PASS: late pre-program read cannot replace the new NAND range");
+
+// Native verify can reach the chip before an asynchronous host program
+// has read the old slot or committed the overlay. The verify and the next
+// program must observe the issued order even if the disk has a cached range.
+const queuedCPU = {}, writesPending = [];
+const queuedMedium = new AppleNAND(queuedCPU, {
+    byteLength: NAND_BYTES,
+    get(at, n, done) { done(raw.slice(at, at + n)); },
+    set(at, bytes, done) { writesPending.push(() => { raw.set(bytes, at); done(); }); },
+});
+const qread = () => new Promise((ok, fail) => queuedMedium.read(0, 0, 0, ok, fail));
+const qwrite = value => {
+    const bytes = new Uint8Array(NAND_PAGE).fill(255);
+    bytes[0] = value;
+    return new Promise((ok, fail) => queuedMedium.program(0, 0, 0, bytes, ok, fail));
+};
+const first = qwrite(0x0F), verify = qread(), second = qwrite(0xF0);
+assert.ok(queuedCPU.snapshot_io_pending >= 3, "a snapshot must wait for the queued verify and second program");
+assert.equal(writesPending.length, 1);
+writesPending.shift()();
+assert.equal((await verify)[0], page[0] & 0x0F);
+await first;
+assert.equal(writesPending.length, 1);
+writesPending.shift()();
+await second;
+assert.equal((await qread())[0], 0);
+assert.equal(queuedCPU.snapshot_io_pending, 0);
+console.log("PASS: verify reads and subsequent programs cannot pass a pending program on their chip");

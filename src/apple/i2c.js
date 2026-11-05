@@ -4,10 +4,11 @@ import { AppleCS42L61, AppleMikey } from "./audio.js";
 
 export class AppleI2C
 {
-    constructor(cpu, base, irq, vic, pmu, backlight = null, pmu_irq = null)
+    constructor(cpu, base, irq, vic, pmu, backlight = null, pmu_irq = null, slaves = null)
     {
         this.backlight = backlight;
         this.pmu_irq = pmu_irq;
+        this.slaves = slaves;
         this.irq = irq;
         this.vic = vic;
         this.pmu = pmu ? new Uint8Array(256) : null;
@@ -58,7 +59,8 @@ export class AppleI2C
         if(offset === 0x24 && (value & 4))
         {
             const count = this.regs[6];
-            const audio = this.regs[0] === 0x39 ? this.mikey : this.regs[0] === 0x4a ? this.codec : null;
+            const device = this.slaves?.get(this.regs[0]) ||
+                (this.regs[0] === 0x39 ? this.mikey : this.regs[0] === 0x4a ? this.codec : null);
             if(this.pmu && this.regs[0] === 0x74 && count <= 256)
             {
                 const subaddress = this.regs[4];
@@ -89,16 +91,16 @@ export class AppleI2C
                 });
                 this.regs[3] |= 0x10;
             }
-            else if(audio && count <= 256)
+            else if(device && count <= 256)
             {
                 const address = this.regs[4], start = address & 0x7f;
                 const reg = i => address & 0x80 ? start + i & 0x7f : start;
                 if(value & 1)
                 {
-                    for(let i = 0; i < Math.min(count, this.fifo.length); i++) audio.write(reg(i), this.fifo[i]);
+                    for(let i = 0; i < Math.min(count, this.fifo.length); i++) device.write(reg(i), this.fifo[i]);
                     this.fifo = [];
                 }
-                else this.fifo = Array.from({ length: count }, (_, i) => audio.read(reg(i)));
+                else this.fifo = Array.from({ length: count }, (_, i) => device.read(reg(i)));
                 this.regs[3] |= 0x10;
             }
             else

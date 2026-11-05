@@ -43,6 +43,7 @@ import { PCIeRootPort } from "../pcie_root_port.js";
 import { android_bootloader, ANDROID_DEVICES } from "../android/bootloader.js";
 import { DEFAULT_GLES_VERSION, GLES_VERSIONS, ranchu_gpu_mode } from "../android/devices.js";
 import { PartitionBuffer } from "../android/partition_buffer.js";
+import { read_nand_boot } from "../ios/nand_boot.js";
 import { FS } from "../../lib/filesystem.js";
 
 /**
@@ -741,7 +742,7 @@ V86.prototype.continue_init = async function(emulator, options)
     }
     if(!options.disable_mouse)
     {
-        this.mouse_adapter = new MouseAdapter(this.bus, screen_options.container);
+        this.mouse_adapter = new MouseAdapter(this.bus, screen_options.container, this.machine_type === "s5l8930");
     }
 
     // Pointer lock is not needed while the guest uses absolute pointer
@@ -1137,8 +1138,10 @@ V86.prototype.continue_init = async function(emulator, options)
     if(this.machine_type === "s5l8930")
     {
         if(options.kernel || options.dtb || options.initrd) throw new Error("use ios.kernelcache, ios.devicetree and ios.ramdisk on s5l8930");
-        if(!options.initial_state && (!options.ios?.kernelcache || !options.ios?.devicetree))
-            throw new Error("iPhone boot requires ios.kernelcache and ios.devicetree");
+        if(!options.initial_state && !options.ios?.nand_boot && (!options.ios?.kernelcache || !options.ios?.devicetree))
+            throw new Error("iPhone boot requires a prepared NAND image, or ios.kernelcache and ios.devicetree");
+        if(options.ios?.nand_boot && (!options.ios.nand || options.ios.kernelcache || options.ios.devicetree))
+            throw new Error("ios.nand_boot requires a NAND image and supplies its own kernel and device tree");
     }
     add_file("initrd", options.ios ? options.ios.ramdisk : options.initrd);
     add_file("kernel", options.ios ? options.ios.kernelcache : options.kernel);
@@ -1311,6 +1314,15 @@ V86.prototype.continue_init = async function(emulator, options)
         // (a disk written back and another disk of the same file, by
         // another name: src/disk_writeback.js)
         await check_loaded_disks(loaded_disks);
+        if(options.ios?.nand_boot)
+        {
+            const boot = await read_nand_boot((offset, length) => new Promise((resolve, reject) => {
+                settings.ios_nand.get(offset, length, (bytes, error) => error ? reject(error) : resolve(bytes));
+            }));
+            settings.kernel = boot.kernel;
+            settings.dtb = boot.tree;
+            settings.ios_bootlogo = boot.logo;
+        }
         // (a floppy written back is used as it is: a floppy format's size)
         for(const [name, buffer] of loaded_disks)
         {
@@ -2726,6 +2738,18 @@ V86.prototype.ios_send_button = function(button, pressed)
 };
 // eslint-disable-next-line no-self-assign -- Keep the public name through Closure compilation.
 V86.prototype["ios_send_button"] = V86.prototype.ios_send_button;
+
+/**
+ * Rotate the simulated N90's gravity vector, in clockwise degrees from portrait.
+ * @param {number} angle 0, 90, 180, or 270
+ */
+V86.prototype.ios_set_orientation = function(angle)
+{
+    if(![0, 90, 180, 270].includes(angle)) throw new Error("ios_set_orientation: expected 0, 90, 180, or 270 degrees");
+    this.bus.send("ios-orientation", angle);
+};
+// eslint-disable-next-line no-self-assign -- Keep the public name through Closure compilation.
+V86.prototype["ios_set_orientation"] = V86.prototype.ios_set_orientation;
 
 /**
  * Send a sequence of scan codes to the emulated PS2 controller. A list of

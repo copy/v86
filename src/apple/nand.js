@@ -3,20 +3,12 @@
 // filesystem holes thus read as erased flash without allocating 17 GiB.
 import { restore_disk_state } from "../disk_writeback.js";
 import { BlockBackend } from "../block_backend.js";
+import { begin_state_io } from "../state_io.js";
 import { dt_find, dt_property, dt_set } from "./devicetree.js";
+import { NAND_DATA, NAND_SPARE, NAND_PAGE, NAND_SLOT, NAND_BLOCK_PAGES, NAND_BLOCKS, NAND_BYTES, nand_offset } from "./nand_geometry.js";
+export { NAND_DATA, NAND_SPARE, NAND_PAGE, NAND_SLOT, NAND_BLOCK_PAGES, NAND_BLOCKS, NAND_ROWS, NAND_BYTES, nand_offset } from "./nand_geometry.js";
 
-export const NAND_DATA = 8192, NAND_SPARE = 436, NAND_PAGE = NAND_DATA + NAND_SPARE;
-export const NAND_SLOT = Math.ceil(NAND_PAGE / 512) * 512;
-export const NAND_BLOCK_PAGES = 128, NAND_BLOCKS = 0x1038, NAND_ROWS = NAND_BLOCK_PAGES * NAND_BLOCKS;
-export const NAND_BYTES = 4 * NAND_ROWS * NAND_SLOT;
 const READ_SPAN = 16 * NAND_SLOT;
-
-export function nand_offset(bus, ce, row)
-{
-    if(!Number.isInteger(bus) || bus < 0 || bus >= 2 || !Number.isInteger(ce) || ce < 0 || ce >= 2 ||
-        !Number.isInteger(row) || row < 0 || row >= NAND_ROWS) return -1;
-    return ((bus * 2 + ce) * NAND_ROWS + row) * NAND_SLOT;
-}
 
 export function configure_nand_tree(tree)
 {
@@ -52,15 +44,45 @@ export class AppleNAND
     {
         if(buffer.byteLength !== NAND_BYTES) throw new Error("N90 NAND image size must be " + NAND_BYTES);
         this.buffer = buffer;
+        this.cpu = cpu;
         this.backend = new BlockBackend(cpu, buffer);
         this.read_cache = new Array(4).fill(null);
+        this.queues = Array.from({ length: 4 }, () => []);
+    }
+
+    // Program and erase are read/modify/write host operations. A native
+    // verify read can arrive as soon as the sequencer has sent the command.
+    // Once a mutation is issued, order subsequent operations on that chip
+    // behind it so verify never reads an old range or the erased base.
+    enqueue(chip, start, done, fail)
+    {
+        const queue = this.queues[chip], release = begin_state_io(this.cpu);
+        const finish = (callback, result) => {
+            if(queue[0] !== task) return;
+            try { callback(result); }
+            finally
+            {
+                release();
+                if(queue[0] === task) { queue.shift(); queue[0]?.start(); }
+            }
+        };
+        const task = { release, start: () => start(value => finish(done, value), error => finish(fail, error)) };
+        queue.push(task);
+        if(queue.length === 1) task.start();
     }
 
     read(bus, ce, row, done, fail)
     {
         const offset = nand_offset(bus, ce, row);
         if(offset < 0) { fail(new Error("NAND page outside medium")); return; }
-        const chip = bus * 2 + ce, start = offset - offset % READ_SPAN, at = offset - start;
+        const chip = bus * 2 + ce;
+        if(this.queues[chip].length) this.enqueue(chip, (ok, err) => this.read_page(chip, offset, ok, err), done, fail);
+        else this.read_page(chip, offset, done, fail);
+    }
+
+    read_page(chip, offset, done, fail)
+    {
+        const start = offset - offset % READ_SPAN, at = offset - start;
         const deliver = bytes => {
             if(bytes.length < NAND_SLOT) { fail(new Error("short NAND page")); return; }
             const page = new Uint8Array(NAND_PAGE);
@@ -102,22 +124,43 @@ export class AppleNAND
         if(offset < 0 || page.length !== NAND_PAGE) { fail(new Error("invalid NAND program")); return; }
         // Physical programming only clears bits. The file stores their
         // complement, so reprogramming an existing page ORs its slot.
-        this.backend.read(offset, NAND_SLOT, old => {
-            if(old.length !== NAND_SLOT) { fail(new Error("short NAND page")); return; }
+        this.enqueue(bus * 2 + ce, (ok, err) => this.backend.read(offset, NAND_SLOT, old => {
+            if(old.length !== NAND_SLOT) { err(new Error("short NAND page")); return; }
             const slot = new Uint8Array(old);
             for(let i = 0; i < page.length; i++) slot[i] |= ~page[i];
-            this.write(bus, ce, offset, slot, done, fail);
-        }, fail);
+            this.write(bus, ce, offset, slot, ok, err);
+        }, err), done, fail);
     }
 
     erase(bus, ce, row, done, fail)
     {
         const offset = nand_offset(bus, ce, row - row % NAND_BLOCK_PAGES);
         if(!Number.isInteger(row) || row < 0 || offset < 0) { fail(new Error("invalid NAND erase")); return; }
-        this.write(bus, ce, offset, new Uint8Array(NAND_BLOCK_PAGES * NAND_SLOT), done, fail);
+        const length = NAND_BLOCK_PAGES * NAND_SLOT;
+        this.enqueue(bus * 2 + ce, (ok, err) => this.backend.read(offset, length, bytes => {
+            if(bytes.length !== length) { err(new Error("short NAND block")); return; }
+            // Sparse holes already contain complemented erased flash. Native
+            // recovery may erase thousands of free blocks: don't materialize
+            // gigabytes of identical zeroes in the disk overlay.
+            if(bytes.every(byte => byte === 0))
+            {
+                this.read_cache[bus * 2 + ce] = null;
+                ok();
+            }
+            else this.write(bus, ce, offset, new Uint8Array(length), ok, err);
+        }, err), done, fail);
     }
 
-    reset() { this.read_cache.fill(null); this.backend.reset(); }
+    reset()
+    {
+        for(const queue of this.queues)
+        {
+            for(const task of queue) task.release();
+            queue.length = 0;
+        }
+        this.read_cache.fill(null);
+        this.backend.reset();
+    }
     get_state() { return [this.buffer]; }
     set_state(state) { this.reset(); restore_disk_state(this.buffer, state[0]); }
 }

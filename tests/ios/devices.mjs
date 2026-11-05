@@ -466,7 +466,7 @@ assert.equal(flashPort.read(0x1044), 0, "stale read cannot complete after reset"
 console.log("PASS: NAND row/column, async completion, both CDMA request orders and reset during read");
 
 // The firmware sends data and spare bytes via separate scatterlists, then
-// confirms the program and polls for completion before sampling status.
+// acknowledges command delivery before polling the selected NAND chip.
 let programmed = null, finishProgram, erasedRow;
 media.program = (bus, ce, row, page, done) => {
     assert.deepEqual([bus, ce, row], [0, 0, 0x10203]);
@@ -499,10 +499,17 @@ flashPort.write(0x1014, 0x1000);
 flashPort.write(0x1010, 2);
 assert.deepEqual(Array.from(programmed.subarray(0, 6)), [255, 255, 11, 22, 33, 44]);
 assert.deepEqual(Array.from(programmed.subarray(8192, 8196)), [11, 22, 33, 44]);
-assert.equal(flashPort.read(0x1044), 0);
-finishProgram();
 assert.equal(flashPort.read(0x1044), 2);
 flashPort.write(0x1044, 2);
+flashPort.write(0x1014, 0x70);
+flashPort.write(0x1010, 0x50);
+assert.equal(flashPort.read(0x1048), 0x80, "program is still busy after the sequencer interrupt");
+flashPort.write(0x1044, 0x20);
+finishProgram();
+assert.equal(flashPort.read(0x1044), 0, "host completion must not repeat the sequencer interrupt");
+flashPort.write(0x1010, 0x50);
+assert.equal(flashPort.read(0x1048), 0xC0);
+flashPort.write(0x1044, 0x20);
 flashPort.write(0x1018, 0x10200);
 flashPort.write(0x1014, 0xD060);
 flashPort.write(0x1010, 11);
@@ -633,13 +640,15 @@ banks.write(0x100C, 2);
 assert.equal(banks.read(0x1024), 0xC0, "CE1 is independently ready");
 banks.write(0x1014, 0xD060);
 banks.write(0x1010, 9);
+assert.equal(banks.read(0x1044), 9, "erase command can finish independently of CE0's array read");
+banks.write(0x1044, 9);
 callbacks[0](Uint8Array.of(31, 0, 0, 0));
 assert.equal(banks.read(0x1044), 11);
 banks.write(0x1044, 11);
 banks.write(0x1014, 0x70);
 assert.equal(banks.read(0x1024) & 0x40, 0, "CE1 is still erasing");
 finishErase.fail();
-assert.equal(banks.read(0x1044), 9);
+assert.equal(banks.read(0x1044), 0);
 assert.equal(banks.read(0x1024), 0xC1);
 const failedState = banks.get_state();
 banks.reset();

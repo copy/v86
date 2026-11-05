@@ -20,14 +20,15 @@ const cells = (...words) => {
 const node = (name, properties = {}, children = []) => ({
     properties: Object.entries({ name: ascii(name), ...properties }).map(([name, value]) => ({ name, value, placeholder: false })), children,
 });
-function handoff(scale, clock = 0)
+function handoff(scale, clock = 0, calibration = new Uint8Array(40))
 {
     const frequencies = new Uint8Array(256);
     new DataView(frequencies.buffer).setUint32(0x22 * 4, clock, true);
     const tree = node("device-tree", { compatible: ascii("N90AP") }, [
         node("chosen", scale === undefined ? {} : { "display-scale": cells(scale) }),
         node("cpus", {}, [node("cpu0")]), node("memory"), node("vram"), node("pram"),
-        node("arm-io", { "clock-frequencies": frequencies }, [node("mipi-dsim", {}, [node("lcd", { "lcd-panel-id": cells(0) })]), node("spi2")]),
+        node("arm-io", { "clock-frequencies": frequencies }, [node("mipi-dsim", {}, [node("lcd", { "lcd-panel-id": cells(0) })]), node("spi2"),
+            node("i2c2", {}, [node("accelerometer", { "accel-sensitivity-calibration": calibration })])]),
     ]);
     const ram = new Uint8Array(1 << 20), result = load_n90_kernel(ram, kernel, dt_serialize(tree));
     const args = result.r0 - 0x40000000, view = new DataView(ram.buffer);
@@ -45,7 +46,12 @@ for(const input of [undefined, 0, 1, 2, 3])
     assert.equal(clocks[0x22], 100000000);
     assert.equal(clocks[0x2f], 24000000);
     assert.equal(clocks[0x30], 24000000);
+    assert.deepEqual(dt_cells(dt_property(dt_find(tree, "/arm-io/i2c2/accelerometer"), "accel-sensitivity-calibration").value),
+        [65536, 0, 0, 0, 65536, 0, 0, 0, 65536, 0]);
 }
 const preserved = handoff(2, 123456789);
 assert.equal(dt_cells(dt_property(dt_find(preserved, "/arm-io"), "clock-frequencies").value)[0x22], 123456789);
-console.log("PASS: N90 Retina scale, panel and SPI clocks fill zero placeholders and preserve configured values");
+const calibration = cells(65537, 1, 0, -1, 65535, 0, 0, 0, 65536, 0);
+assert.deepEqual(dt_property(dt_find(handoff(2, 0, calibration), "/arm-io/i2c2/accelerometer"),
+    "accel-sensitivity-calibration").value, calibration);
+console.log("PASS: N90 Retina scale, panel, SPI clocks and sensor calibration fill zero placeholders and preserve configured values");

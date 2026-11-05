@@ -12,6 +12,7 @@ import { AppleI2S } from "./audio.js";
 import { AppleSPI } from "./spi.js";
 import { AppleMultitouch } from "./multitouch.js";
 import { AppleDART } from "./dart.js";
+import { AppleLIS331DLH } from "./sensors.js";
 
 export const N90_BUTTONS = ["home", "power", "volume-up", "volume-down", "mute"];
 
@@ -22,7 +23,7 @@ const spi_controllers = ["apple_spi0", "apple_spi1"];
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers, "apple_multitouch",
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers, "apple_multitouch", "apple_accelerometer",
 ];
 
 export function create_n90_devices(cpu, bus, screen, buffer)
@@ -30,6 +31,8 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     const display = new DisplayHub(bus, screen);
     const vic = new AppleVIC(cpu);
     const gpio = new AppleGPIO(cpu, vic);
+    const accelerometer = new AppleLIS331DLH((line, level) => { if(level) gpio.pulse(line ? 38 : 36); });
+    bus.register("ios-orientation", angle => accelerometer.set_orientation(angle));
     bus.register("ios-button", event => gpio.set_button(event[0], event[1]));
     const clcd = new AppleCLCD(cpu, display, vic);
     const nand = buffer ? new AppleNAND(cpu, buffer) : null;
@@ -50,7 +53,8 @@ export function create_n90_devices(cpu, bus, screen, buffer)
         apple_miu: new AppleRegisterWindow(cpu, "miu", 0xBFC00000, 0x1000),
         apple_clcd: clcd,
         apple_i2c0: new AppleI2C(cpu, 0x83200000, 19, vic, true, level => clcd.set_backlight(level), () => gpio.pulse(13)),
-        apple_i2c2: new AppleI2C(cpu, 0x83400000, 21, vic, false),
+        apple_i2c2: new AppleI2C(cpu, 0x83400000, 21, vic, false, null, null, new Map([[0x19, accelerometer]])),
+        apple_accelerometer: accelerometer,
         apple_swi: new AppleSWI(cpu),
         apple_dart1: new AppleDART(cpu, "dart1", 0x88D00000),
         apple_dart2: new AppleDART(cpu, "dart2", 0x89D00000),
