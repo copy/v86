@@ -1,0 +1,32 @@
+import {frontend_swap_chain_scenes} from './d3d8_frontend_swap_chain_wire.mjs';
+export function frontend_device_view_scenes(){return frontend_swap_chain_scenes();}
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {inspect_frontend_swap_chain_wire as inspect_prefix} from './d3d8_frontend_swap_chain_wire.mjs';
+const require=createRequire(import.meta.url),P=require('../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js'),W=require('../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js');
+function frame(outer,header,commands){const h=Buffer.from(header),size=commands.reduce((n,c)=>n+c.length,0);h.writeUInt32LE(size,P.F.BatchHeader.command_bytes);h.writeUInt32LE(commands.length,P.F.BatchHeader.command_count);const carrier=Buffer.from(outer);carrier.writeUInt32LE(8+32+size,8);carrier.writeUInt32LE(32+size,16);return Buffer.concat([carrier,h,...commands]);}
+const opcodeNames=new Map();for(const[name,value]of Object.entries(P.OP))if(!opcodeNames.has(value))opcodeNames.set(value,name);
+const sequence=['SET_RENDER_STATE','RESET','SET_RENDER_STATE','DESTROY_RESOURCE'];
+const constants=['SET_VERTEX_SHADER_CONSTANT_F','SET_PIXEL_SHADER_CONSTANT_F','SET_VERTEX_SHADER_CONSTANT_I','SET_PIXEL_SHADER_CONSTANT_I','SET_VERTEX_SHADER_CONSTANT_B','SET_PIXEL_SHADER_CONSTANT_B'];
+export function inspect_frontend_device_view_wire(bytes,result){
+ assert.equal(result.owners.length,1);assert.deepEqual(result.releases,result.owners);const owner=result.owners[0],prefix=[],life=[],used=new Set();let deviceCount=0,current,window,finalSession,sessionHeader,sessionOuter,batches=0;
+ const unique=h=>{assert(h&&!used.has(h));used.add(h);};
+ for(let at=0;at<bytes.length;){assert(at+20<=bytes.length);const size=bytes.readUInt32LE(at+8);assert.equal(bytes.readUInt32LE(at),owner);assert.equal(bytes.readUInt16LE(at+12),0xffe1);assert.equal(bytes.readUInt32LE(at+16),size-8);assert(size>=40&&at+12+size<=bytes.length);const outer=bytes.subarray(at,at+20),packet=bytes.subarray(at+20,at+12+size),h=W.readHeader(packet),kept=[];W.checkStream(h.view,h.end,h.commandCount);assert.equal(h.end,packet.length);batches++;
+  for(let x=32;x<h.end;){const op=packet.readUInt16LE(x),n=packet.readUInt32LE(x+4),command=packet.subarray(x,x+n),name=opcodeNames.get(op),decode=kind=>P.decode(kind,h.view,x+16,n-16);assert(!finalSession);if(op===P.OP.CREATE_DEVICE)deviceCount++;
+   if(op===P.OP.SESSION_END){assert.equal(deviceCount,19);finalSession=command;sessionHeader=packet.subarray(0,32);sessionOuter=outer;}
+   else if(deviceCount<=15){kept.push(command);if(op===P.OP.CREATE_DEVICE){const q=decode('CreateDevice');window??=q.hwnd;unique(q.device_handle);}else if(op===P.OP.RESET)unique(decode('ResetDevice').new_device_handle);else if([P.OP.CREATE_VERTEX_DECLARATION,P.OP.CREATE_VERTEX_SHADER,P.OP.CREATE_PIXEL_SHADER,P.OP.CREATE_TEXTURE_2D,P.OP.CREATE_TEXTURE_CUBE,P.OP.CREATE_TEXTURE_VOLUME,P.OP.CREATE_BUFFER].includes(op))unique(decode(P.commandStruct(op)).resource_handle);else if(op===P.OP.CREATE_SWAP_CHAIN)unique(decode('CreateSwapChain').swap_chain_handle);}
+   else if(op===P.OP.CREATE_DEVICE){assert(deviceCount<=19&&(!current||current.retired));const q=decode('CreateDevice');assert.deepEqual([q.width,q.height,q.backbuffer_format,q.windowed,q.behavior_flags,q.enable_auto_depth_stencil,q.auto_depth_stencil_format,q.multisample_type,q.multisample_quality,q.hwnd,q.x,q.y],[8,8,21,1,32,1,80,0,0,window,0,0]);unique(q.device_handle);current={sdk:deviceCount<=17?120:220,mode:life.length%2,handle:q.device_handle,position:0,reset:false,retired:false,constants:[],materials:0,windows:0,rs:0};life.push(current);}
+   else{assert(current&&!current.retired);
+    if(name==='SET_MATERIAL'||name==='WINDOW_STATE'){const q=decode(P.commandStruct(op));assert.equal(q.device_handle,current.handle);if(name==='SET_MATERIAL')current.materials++;else current.windows++;}
+    else if(constants.includes(name)){assert(current.reset);const q=decode('SetShaderConstantF'),boolean=name.endsWith('_B'),integer=name.endsWith('_I'),count=boolean||integer?16:name.includes('VERTEX')?256:224;assert(!current.constants.includes(name));current.constants.push(name);assert.deepEqual([q.device_handle,q.start_register,q.vector_count],[current.handle,0,count]);const len=count*(boolean?4:16);assert(q.data_offset>=x+32&&q.data_offset+len<=packet.length);for(const byte of packet.subarray(q.data_offset,q.data_offset+len))assert.equal(byte,0);}
+    else{assert.equal(name,sequence[current.position++]);const q=decode(P.commandStruct(op));if('device_handle'in q)assert.equal(q.device_handle,current.handle);
+     if(name==='SET_RENDER_STATE'){assert(current.rs++<2);assert.deepEqual([q.state,q.value,q.reserved],[155,0,0]);}
+     else if(name==='RESET'){assert(!current.reset);assert.equal(q.old_device_handle,current.handle);assert.deepEqual([q.hwnd,q.x,q.y,q.width,q.height,q.backbuffer_format,q.windowed,q.behavior_flags,q.enable_auto_depth_stencil,q.auto_depth_stencil_format,q.multisample_type,q.multisample_quality],[window,0,0,8,8,21,1,32,1,80,0,0]);unique(q.new_device_handle);current.handle=q.new_device_handle;current.reset=true;}
+     else if(name==='DESTROY_RESOURCE'){assert.equal(q.resource_kind,0);assert.equal(q.resource_handle,current.handle);assert(current.reset&&current.position===sequence.length&&current.constants.length===6&&current.materials===2&&current.windows===2&&current.rs===2);current.retired=true;}
+
+    }
+   }x+=n;
+  }if(kept.length)prefix.push(frame(outer,packet.subarray(0,32),kept));at+=12+size;
+ }
+ assert(finalSession&&life.length===4&&life.every(d=>d.retired));assert.equal(used.size,124);prefix.push(frame(sessionOuter,sessionHeader,[finalSession]));const lines=result.logs['DEVCORE.TXT'].replace(/\r/g,'').trim().split('\n');assert.deepEqual(lines.filter(l=>/^DEVICEVIEW CHECK sdk=/.test(l)),[120,220].map(sdk=>`DEVICEVIEW CHECK sdk=${sdk} devices=2 modes=2 callbacks=6 deviceLast=1 transient=1 retained=1 reset=1 noPins=1 finalRefs=0`));const priorLog=lines.filter(l=>!/^DEVICEVIEW CHECK sdk=/.test(l)).join('\n').replaceAll('DEVCORE','SWPCORE');const previous=inspect_prefix(Buffer.concat(prefix),{owners:result.owners,releases:result.releases,logs:{'SWPCORE.TXT':priorLog}});return{...previous,deviceViewDevices:life,allDevices:19,allResets:19,allDeclarations:23,uniqueHandles:124,deviceViews:4,implicitMetadataViews:8,deviceViewRetireCallbacks:12,batches};
+}
