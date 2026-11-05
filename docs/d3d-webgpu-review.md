@@ -2708,6 +2708,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - **完整设备套件仍失败**：原验证崩溃和压缩纹理GPU错误已消除，但后续观察到805次失败、78个源码位置，最后在缺失的压缩体积纹理上崩溃；退出前有3设备/9资源依赖强制回收。窗口/Reset、多后缓冲、锁定和体积纹理等继续保留为待办，未把选定组成功称为完整Wine通过。
 > - 发布准确Metal验收的8零售DLL及同源诊断包；9的共用构造更新通过原生矩阵，本批未另跑XP9。运行 `node tests/glbridge/d3d_wine_device_xp.mjs`；完整失败审计使用 `D3D_WINE_DEVICE_GROUP=device`。证据：[stage4l6-validation.json](fixtures/d3d-review/stage4l6-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L6.json`。继续阶段4游戏回归与剩余兼容性，再完成阶段5。
 
+> **阶段 4L7（2026-11-05，功能批次完成）：真实 XP 3DMark 2001 SE 场景与回放验收。**
+> - 使用当前零售 D3D8 DLL、只读磁盘和 RAM overlay 启动基准，进入实际车辆场景，采样32次 Present，取得1024×768的GPU读回。14,327次索引绘制、191个纹理、810次上传，宿主/GPU错误与丢弃绘制均为零；没有宣称跑完整套基准或取得总分。
+> - 修复捕获/回放丢失 owner 身份以及回放积压造成的读回超时；136个包（含1个诊断READBACK）、38,034,208字节。Metal回放的3,145,728个像素字节完全一致。SwiftShader回放完成且无GPU错误，但与Metal黄金图仍有252,626字节不同，保留为失败，不放宽图像门槛。
+> - 加入独立浏览器启动、镜像分段读取、失败截图与手动准备入口；修复Wine设备运行器默认输出路径初始化次序。游戏trace、528MiB journal往返、站点两项集成、输入辅助程序严格编译和范围lint通过。
+> - **按用户最新要求跳过冒险岛验收**。已观察到登录及人物选择；不再等待进入地图，不记为地图验收通过。后续保留正确的系统目录DLL安装方式。3DMark成功作为本批游戏回归证据，其余Wine兼容性及阶段5仍继续。
+> - 证据：[stage4l7-validation.json](fixtures/d3d-review/stage4l7-validation.json)。本地游戏数据、journal和图像不进入仓库；站点保存同份验收记录。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
@@ -2737,7 +2744,7 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 - **验证：**
   - 先把纯逻辑部分（声明转换、FVF、状态映射、状态块范围、默认表）在宿主上原生编译，做单元测试；
   - 再跑阶段 6 的 Wine 测试；
-  - 3DMark 2001 SE 和 MapleStory 回归。
+  - 3DMark 2001 SE 回归；MapleStory 按用户 2026-11-05 指示跳过。
 
 ### 阶段 5：着色器翻译器（约 3–4 周）
 

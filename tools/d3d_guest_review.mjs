@@ -11,15 +11,19 @@ const root = file_url_to_path(new URL("../", import.meta.url)), site = site_dire
 fs.mkdirSync(out, { recursive: true });
 if(!fs.existsSync(out + "site")) fs.symlinkSync(site, out + "site");
 for(const api of ["d3d9", "d3d8", "ddraw"]) run("sh", [site + "/glbridge/" + api + "proxy/build.sh", out + api.toUpperCase() + ".DLL"], { stdio: "inherit" });
+run(process.env.D9WG_CC || "i686-w64-mingw32-gcc", ["-Os", "-Wall", "-Wextra", "-Werror", root + "tests/glbridge/d3d_game_input.c", "-o", out + "GINPUT.EXE", "-luser32"], {stdio:"inherit"});
 const commands = {
     WAR3: ["copy /y %~d0\\D3D8.DLL \"D:\\Warcraft III\\d3d8.dll\"", "copy /y %~d0\\D3D9.DLL \"D:\\Warcraft III\\d3d9.dll\"", "cd /d \"D:\\Warcraft III\"", "War3.exe -window -loadfile \"Maps\\(2)PlunderIsle.w3m\""],
     GTASA: ["copy /y %~d0\\D3D9.DLL \"D:\\GTA San Andreas\\d3d9.dll\"", "cd /d \"D:\\GTA San Andreas\"", "start gta_sa.exe"],
+    MARK01: ["for %%g in (d e f g h i j k) do @if exist %%g:\\3DMARK01\\3DMark2001SE.exe set GAME=%%g:\\3DMARK01", "if not defined GAME goto fail", "copy /y %~d0\\D3D8.DLL %GAME%\\d3d8.dll", "if errorlevel 1 goto fail", "cd /d %GAME%", "3DMark2001SE.exe /benchmark"],
+    MAPLE: ["copy /y %~d0\\D3D8.DLL C:\\WINDOWS\\system32\\dllcache\\d3d8.dll", "if errorlevel 1 goto fail", "copy /y %~d0\\D3D8.DLL C:\\WINDOWS\\system32\\d3d8.dll", "if errorlevel 1 goto fail", "for %%g in (d e f g h i j k) do @if exist %%g:\\maplestory\\mapleStory-client\\HeavenMS-localhost-WINDOW.exe set GAME=%%g:\\maplestory\\mapleStory-client", "if not defined GAME goto fail", "cd /d %GAME%", "HeavenMS-localhost-WINDOW.exe"],
 };
-const files = ["D3D9.DLL", "D3D8.DLL", "DDRAW.DLL"].map(name => ({ name, contents: fs.readFileSync(out + name) }));
-for(const [name, command] of Object.entries(commands)) files.push({ name: name + ".CMD", contents: Buffer.from(["@echo off", "sc start v86gl", ...command, ""].join("\r\n")) });
+const files = ["D3D9.DLL", "D3D8.DLL", "DDRAW.DLL", "GINPUT.EXE"].map(name => ({ name, contents: fs.readFileSync(out + name) }));
+files.push({name:"V86GL.SYS",contents:fs.readFileSync(site+"/glbridge/v86gl_driver/v86gl.sys")});
+for(const [name, command] of Object.entries(commands)) files.push({ name: name + ".CMD", contents: Buffer.from(["@echo off", "sc stop v86gl", "copy /y %~d0\\V86GL.SYS C:\\WINDOWS\\system32\\drivers\\v86gl.sys", "sc config v86gl binPath= C:\\WINDOWS\\system32\\drivers\\v86gl.sys", "sc start v86gl", "if errorlevel 1 goto fail", ...command, "goto end", ":fail", "echo FAIL game setup", ":end", ""].join("\r\n")) });
 fs.writeFileSync(out + "tools.iso", Buffer.from(generate(files)));
 const hash = bytes => crypto.createHash("sha256").update(bytes).digest("hex");
-fs.writeFileSync(out + "inputs.json", JSON.stringify({ images: Object.fromEntries(["windowsxp/windowsxp_multidisk_C_4G.img", "game/warcraft3.img", "game/gtasa.img"].map(name => {
+fs.writeFileSync(out + "inputs.json", JSON.stringify({ images: Object.fromEntries(["windowsxp/windowsxp_multidisk_C_4G.img", "game/warcraft3.img", "game/gtasa.img", "game/3dmarklegacy.img", "game/maplestory.img"].map(name => {
     const stat = fs.statSync(site + "/" + name);return [name, { size: stat.size, mtimeMs: stat.mtimeMs }];
 })), files: files.map(f => ({ name: f.name, bytes: f.contents.length, sha256: hash(f.contents) })) }, null, 2) + "\n");
 console.log("Prepared " + path.relative(root, out) + " with current guest DLLs; image writes remain RAM overlays");

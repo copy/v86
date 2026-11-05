@@ -33,6 +33,8 @@
             if (view.getUint32(12, true) !== D9WGProtocol.C.D9WG_RESPONSE_OK || bytes.length !== 16 + r.count * note.width * 4) throw new Error("Replay READBACK failed");
             actual.set(bytes.subarray(16), r.first * note.width * 4);seen.add(request);
         };
+        const warnings = [], warn = gpu.warnOnce;
+        gpu.warnOnce = function(key, message, details) {warnings.push({key,message,details});return warn.call(this,key,message,details);};
         const start = performance.now();let dispatchMs = 0;
         const dispatch = gpu.dispatchCommand;gpu.dispatchCommand = function(...args) { const start = performance.now();try { return dispatch.apply(this, args); } finally { dispatchMs += performance.now() - start; } };
         let packetCount = 0;
@@ -40,14 +42,17 @@
             for await (const record of V86GraphicsJournal.records(V86GraphicsJournal.parse(traceBytes))) {
                 if (record.barrier) { gpu.flushForCheckpoint();await gpu.checkpointIdle();continue; }
                 const view = new DataView(record.bytes.buffer, record.bytes.byteOffset, record.bytes.byteLength), opcode = view.getUint16(0, true);
-                if (opcode === 0xFFE2) { gpu.endOwnerSessions();continue; }
+                if (opcode === 0xFFE2) { await gpu.idle();gpu.endOwnerSessions(record.bytes.length === 12 ? view.getUint32(8, true) : undefined);continue; }
                 if (opcode !== 0xFFE1 || view.getUint16(2, true) !== 0xFFFF || view.getUint32(4, true) !== record.bytes.length - 8) throw new Error("Unexpected game journal envelope");
-                await gpu.submit(record.bytes.subarray(8), { writeGuestMemory });++packetCount;
+                // Match live transport backpressure: a software backend must not
+                // accumulate an entire game behind a time-bounded READBACK.
+                await gpu.submit(record.bytes.subarray(8), { ownerToken: record.ownerToken || 0, writeGuestMemory });
+                await gpu.device.queue.onSubmittedWorkDone();++packetCount;
             }
         } else for (const packet of source.packets) { await gpu.submit(packet, { writeGuestMemory });++packetCount; }
         await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
         for (let i = 0; i < 4; i++) await new Promise(r => setTimeout(r, 0));
-        if (seen.size !== requests.size || actual.length !== expected.length) throw new Error("Incomplete game readback");
+        if (seen.size !== requests.size || actual.length !== expected.length) throw new Error("Incomplete game readback: "+JSON.stringify({warnings,seen:[...seen],requests:[...requests.keys()],hostErrors:gpu.hostErrors,gpuErrors:gpu.gpuErrors.errors,stats:gpu.stats}));
         let differingBytes = 0;const differences = [];
         for (let i = 0; i < actual.length; i++) if (actual[i] !== expected[i]) {
             ++differingBytes;if (differences.length < 4096) differences.push({ at: i, expected: expected[i], actual: actual[i] });
