@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>v86 VirtIO-GPU Debug</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --page: #131918;
+            --panel: #1c2523;
+            --panel-raised: #242f2c;
+            --ink: #e8eee9;
+            --muted: #9eada7;
+            --line: #394642;
+            --accent: #c9ee76;
+            --good: #8dd9a5;
+            --warn: #f0c879;
+            --bad: #f09582;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--page);
+            color: var(--ink);
+            font: 14px/1.45 "DejaVu Sans", sans-serif;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 18px 24px;
+            border-bottom: 1px solid var(--line);
+            background: #19211f;
+        }
+
+        h1, h2, p { margin: 0; }
+        h1 { font-size: 18px; font-weight: 650; }
+        h2 { font-size: 13px; font-weight: 650; }
+
+        .subtitle, .muted { color: var(--muted); }
+        .subtitle { margin-top: 3px; font-size: 12px; }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        .status::before {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--warn);
+            content: "";
+        }
+
+        .status[data-state="ready"] { color: var(--good); }
+        .status[data-state="ready"]::before { background: var(--good); }
+        .status[data-state="error"] { color: var(--bad); }
+        .status[data-state="error"]::before { background: var(--bad); }
+
+        main {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(300px, 370px);
+            gap: 16px;
+            padding: 16px 24px 24px;
+        }
+
+        .column { min-width: 0; }
+        .panel {
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: var(--panel);
+        }
+
+        .panel + .panel { margin-top: 16px; }
+
+        .panel-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .screen-wrap {
+            display: grid;
+            min-height: 360px;
+            place-items: center;
+            overflow: auto;
+            padding: 12px;
+            background-color: #0a0d0c;
+            background-image: linear-gradient(45deg, #151b19 25%, transparent 25%),
+                linear-gradient(-45deg, #151b19 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #151b19 75%),
+                linear-gradient(-45deg, transparent 75%, #151b19 75%);
+            background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+            background-size: 16px 16px;
+        }
+
+        #screen_container {
+            max-width: 100%;
+            outline: 1px solid #53615b;
+        }
+
+        #screen {
+            white-space: pre;
+            font: bold 15px/1.2 monospace;
+        }
+
+        #vga, #virtio_gpu_canvas, #virtio_gpu_fallback_canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+            background: #000;
+            image-rendering: pixelated;
+            touch-action: none;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        button {
+            min-height: 34px;
+            padding: 6px 11px;
+            border: 1px solid #52615b;
+            border-radius: 4px;
+            background: var(--panel-raised);
+            color: var(--ink);
+            font: inherit;
+            cursor: pointer;
+        }
+
+        button:hover { border-color: var(--accent); }
+        button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 1px;
+            background: var(--line);
+        }
+
+        .metric {
+            min-width: 0;
+            padding: 12px 14px;
+            background: var(--panel);
+        }
+
+        .metric-label {
+            display: block;
+            color: var(--muted);
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        .metric-value {
+            display: block;
+            overflow-wrap: anywhere;
+            margin-top: 3px;
+            font: 600 16px/1.3 "DejaVu Sans Mono", monospace;
+        }
+
+        #serial {
+            height: 350px;
+            overflow: auto;
+            margin: 0;
+            padding: 12px 14px;
+            color: #d7e5d9;
+            font: 12px/1.45 "DejaVu Sans Mono", monospace;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        @media (max-width: 850px) {
+            header { align-items: flex-start; padding: 15px 16px; }
+            main { grid-template-columns: minmax(0, 1fr); padding: 12px 16px 20px; }
+            .screen-wrap { min-height: 240px; }
+            #serial { height: 240px; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1>VirtIO-GPU / Alpine Linux</h1>
+            <p class="subtitle">Alpine 3.24.3 x86 CD-ROM · 2D scanout test</p>
+        </div>
+        <div class="status" id="status" data-state="loading" role="status" aria-live="polite">Loading emulator</div>
+    </header>
+
+    <main>
+        <section class="column" aria-label="Guest display">
+            <div class="panel">
+                <div class="panel-heading">
+                    <h2>Guest display</h2>
+                    <div class="toolbar">
+                        <button id="pause" type="button">Pause</button>
+                        <button id="restart" type="button">Restart</button>
+                    </div>
+                </div>
+                <div class="screen-wrap">
+                    <div id="screen_container">
+                        <div id="screen"></div>
+                        <canvas id="vga"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-heading"><h2>Alpine serial console</h2><span class="muted" id="serial-count">0 bytes</span></div>
+                <pre id="serial" aria-live="polite"></pre>
+            </div>
+        </section>
+
+        <aside class="column" aria-label="Device diagnostics">
+            <div class="panel">
+                <div class="panel-heading"><h2>VirtIO-GPU device</h2><span class="muted" id="device-state">Waiting for guest</span></div>
+                <div class="metrics">
+                    <div class="metric"><span class="metric-label">Scanout</span><span class="metric-value" id="scanout">Inactive</span></div>
+                    <div class="metric"><span class="metric-label">Resources</span><span class="metric-value" id="resources">0</span></div>
+                    <div class="metric"><span class="metric-label">Guest backing</span><span class="metric-value" id="backing">0 B</span></div>
+                    <div class="metric"><span class="metric-label">Queues</span><span class="metric-value" id="queues">Not ready</span></div>
+                    <div class="metric"><span class="metric-label">Framebuffer</span><span class="metric-value" id="framebuffer">No pixels</span></div>
+                    <div class="metric"><span class="metric-label">Last update</span><span class="metric-value" id="updated">Waiting</span></div>
+                </div>
+            </div>
+            <div class="panel">
+                <div class="panel-heading"><h2>Boot configuration</h2></div>
+                <div class="metric">
+                    <span class="metric-label">Kernel command line</span>
+                    <span class="muted" id="cmdline">console=ttyS0,115200 alpine_dev=cdrom modules=virtio_pci,virtio_gpu,virtio_console</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-label">Renderer</span>
+                    <span class="muted">VirtIO-GPU 2D commands → v86 canvas framebuffer</span>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <script type="module">
+        import { V86 } from "../build/libv86-debug.mjs";
+
+        const by_id = id => document.getElementById(id);
+        const status = by_id("status");
+        const serial = by_id("serial");
+        let emulator;
+        let paused = false;
+        let serial_bytes = 0;
+        let last_framebuffer_signature = "";
+
+        function set_status(text, state = "loading")
+        {
+            status.textContent = text;
+            status.dataset.state = state;
+        }
+
+        function format_bytes(bytes)
+        {
+            if(bytes < 1024) return bytes + " B";
+            if(bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KiB";
+            return (bytes / 1024 / 1024).toFixed(1) + " MiB";
+        }
+
+        function sample_framebuffer(pixels)
+        {
+            let checksum = 0;
+            let has_nonzero_pixel = false;
+            for(let sample = 0; sample < 64; ++sample)
+            {
+                const pixel = pixels[(sample * (pixels.length - 1) / 63 | 0) & ~3];
+                checksum = (checksum * 33 ^ pixel) >>> 0;
+                has_nonzero_pixel = has_nonzero_pixel || pixel !== 0;
+            }
+            return {checksum, has_nonzero_pixel};
+        }
+
+        function append_serial(byte)
+        {
+            serial_bytes++;
+            serial.textContent += String.fromCharCode(byte);
+            if(serial.textContent.length > 24000)
+            {
+                serial.textContent = serial.textContent.slice(-18000);
+            }
+            serial.scrollTop = serial.scrollHeight;
+            by_id("serial-count").textContent = serial_bytes.toLocaleString() + " bytes";
+        }
+
+        function update_diagnostics()
+        {
+            const gpu = emulator?.v86?.cpu?.devices?.virtio_gpu;
+            if(!gpu)
+            {
+                by_id("device-state").textContent = "Waiting for device";
+                return;
+            }
+
+            const resource = gpu.resources.get(gpu.scanout_resource);
+            const total_backing = resource ? resource.backing.reduce((sum, segment) => sum + segment.length, 0) : 0;
+            const frame_sample = resource ? sample_framebuffer(resource.pixels) : null;
+            const frame_signature = frame_sample ? gpu.scanout_resource + ":" + frame_sample.checksum : "";
+            const queues_ready = gpu.virtio.queues.every(queue => queue.is_configured());
+
+            by_id("device-state").textContent = "PCI device active";
+            by_id("scanout").textContent = resource ? resource.width + " × " + resource.height : "Inactive";
+            by_id("resources").textContent = gpu.resources.size.toString();
+            by_id("backing").textContent = format_bytes(total_backing);
+            by_id("queues").textContent = queues_ready ? "Configured" : "Pending";
+            by_id("framebuffer").textContent = frame_sample?.has_nonzero_pixel ? "Nonzero pixels" : "No pixels";
+
+            if(frame_signature && frame_signature !== last_framebuffer_signature)
+            {
+                by_id("updated").textContent = new Date().toLocaleTimeString();
+                last_framebuffer_signature = frame_signature;
+            }
+        }
+
+        try
+        {
+            emulator = new V86({
+                wasm_path: "../build/v86-debug.wasm",
+                bios: {url: "../bios/seabios.bin"},
+                vga_bios: {url: "../bios/vgabios.bin"},
+                bzimage: {url: "../images/vmlinuz-lts.1"},
+                initrd: {url: "../images/initramfs-lts.1"},
+                cdrom: {
+                    url: "../images/alpine-standard-3.24.3-x86_64.iso",
+                    size: 370147328,
+                },
+                cmdline: "console=ttyS0,115200 earlyprintk=serial alpine_dev=cdrom modules=virtio_pci,virtio_gpu,virtio_console",
+                memory_size: 256 * 1024 * 1024,
+                virtio_gpu: true,
+                screen: {
+                    container: by_id("screen_container"),
+                    use_graphical_text: false,
+                },
+                autostart: true,
+                log_level: 0,
+            });
+
+            emulator.add_listener("download-progress", event => {
+                const file_name = event.file_name.split("/").pop();
+                const progress = event.lengthComputable && event.total ? " " + Math.floor(event.loaded / event.total * 100) + "%" : "";
+                set_status("Loading " + file_name + progress);
+            });
+            emulator.add_listener("download-error", event => {
+                const file_name = event.file_name.split("/").pop();
+                set_status("Failed to load " + file_name + " (HTTP " + event.request.status + ")", "error");
+            });
+            emulator.add_listener("serial0-output-byte", append_serial);
+            emulator.add_listener("emulator-started", () => set_status("Emulator running", "ready"));
+            by_id("pause").addEventListener("click", async () => {
+                paused = !paused;
+                if(paused)
+                {
+                    await emulator.stop();
+                    by_id("pause").textContent = "Resume";
+                    set_status("Paused", "loading");
+                }
+                else
+                {
+                    await emulator.run();
+                    by_id("pause").textContent = "Pause";
+                    set_status("Emulator running", "ready");
+                }
+            });
+            by_id("restart").addEventListener("click", () => {
+                emulator.restart();
+                set_status("Restarting guest", "loading");
+            });
+
+            setInterval(update_diagnostics, 1000);
+        }
+        catch(error)
+        {
+            set_status("Startup failed", "error");
+            serial.textContent = String(error?.stack || error);
+            console.error(error);
+        }
+    </script>
+</body>
+</html>

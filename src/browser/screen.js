@@ -40,6 +40,17 @@ export function ScreenAdapter(options, screen_fill_buffer)
         screen_container.appendChild(graphic_screen);
     }
     const graphic_context = graphic_screen.getContext("2d", { alpha: false });
+    let virtio_gpu_canvas;
+    let virtio_gpu_fallback_canvas;
+    let virtio_gpu_fallback_context;
+    let virtio_gpu_gl;
+    let virtio_gpu_renderer_attempted = false;
+    let virtio_gpu_program;
+    let virtio_gpu_texture;
+    let virtio_gpu_texture_width = 0;
+    let virtio_gpu_texture_height = 0;
+    let virtio_gpu_opaque_uniform;
+    let virtio_gpu_fallback_image_data;
 
     let text_screen = screen_container.getElementsByTagName("div")[0];
     if(!text_screen)
@@ -112,13 +123,224 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
         // render loop state
         timer_id = 0,
-        paused = false;
+        paused = false,
+        virtio_gpu_active = false;
 
     // 0x12345 -> "#012345"
     function number_as_color(n)
     {
         n = n.toString(16);
         return "#" + "0".repeat(6 - n.length) + n;
+    }
+
+    function attach_virtio_gpu_canvas(canvas, id)
+    {
+        canvas.id = id;
+        canvas.style.position = "absolute";
+        canvas.style.left = "0";
+        canvas.style.top = "0";
+        canvas.style.zIndex = "1";
+        canvas.style.pointerEvents = "none";
+        canvas.style.display = "none";
+        canvas.style.imageRendering = "pixelated";
+        if(window.getComputedStyle(screen_container).position === "static")
+        {
+            screen_container.style.position = "relative";
+        }
+        screen_container.appendChild(canvas);
+    }
+
+    function initialize_virtio_gpu_renderer()
+    {
+        if(virtio_gpu_gl || virtio_gpu_renderer_attempted)
+        {
+            return !!virtio_gpu_gl;
+        }
+        virtio_gpu_renderer_attempted = true;
+
+        const canvas = document.createElement("canvas");
+        const gl = /** @type {?WebGL2RenderingContext} */ (canvas.getContext("webgl2",
+        {
+            alpha: false,
+            antialias: false,
+            depth: false,
+            stencil: false,
+            preserveDrawingBuffer: false,
+        }));
+        if(!gl)
+        {
+            return false;
+        }
+
+        const vertex_shader = gl.createShader(gl.VERTEX_SHADER);
+        const fragment_shader = gl.createShader(gl.FRAGMENT_SHADER);
+        if(!vertex_shader || !fragment_shader)
+        {
+            vertex_shader && gl.deleteShader(vertex_shader);
+            fragment_shader && gl.deleteShader(fragment_shader);
+            return false;
+        }
+        gl.shaderSource(vertex_shader, `#version 300 es
+            out vec2 v_uv;
+            void main()
+            {
+                vec2 positions[3] = vec2[3](vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+                vec2 position = positions[gl_VertexID];
+                gl_Position = vec4(position, 0.0, 1.0);
+                v_uv = position * 0.5 + 0.5;
+            }`);
+        gl.shaderSource(fragment_shader, `#version 300 es
+            precision highp float;
+            uniform sampler2D u_frame;
+            uniform bool u_opaque;
+            in vec2 v_uv;
+            out vec4 out_color;
+            void main()
+            {
+                vec4 pixel = texture(u_frame, vec2(v_uv.x, 1.0 - v_uv.y));
+                out_color = vec4(pixel.bgr, u_opaque ? 1.0 : pixel.a);
+            }`);
+        gl.compileShader(vertex_shader);
+        gl.compileShader(fragment_shader);
+        if(!gl.getShaderParameter(vertex_shader, gl.COMPILE_STATUS) ||
+            !gl.getShaderParameter(fragment_shader, gl.COMPILE_STATUS))
+        {
+            console.warn("VirtIO-GPU WebGL2 shader compilation failed",
+                gl.getShaderInfoLog(vertex_shader), gl.getShaderInfoLog(fragment_shader));
+            gl.deleteShader(vertex_shader);
+            gl.deleteShader(fragment_shader);
+            return false;
+        }
+
+        const program = gl.createProgram();
+        if(!program)
+        {
+            return false;
+        }
+        gl.attachShader(program, vertex_shader);
+        gl.attachShader(program, fragment_shader);
+        gl.linkProgram(program);
+        gl.deleteShader(vertex_shader);
+        gl.deleteShader(fragment_shader);
+        if(!gl.getProgramParameter(program, gl.LINK_STATUS))
+        {
+            console.warn("VirtIO-GPU WebGL2 program linking failed", gl.getProgramInfoLog(program));
+            gl.deleteProgram(program);
+            return false;
+        }
+
+        const texture = gl.createTexture();
+        if(!texture)
+        {
+            gl.deleteProgram(program);
+            return false;
+        }
+        gl.useProgram(program);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.uniform1i(gl.getUniformLocation(program, "u_frame"), 0);
+
+        attach_virtio_gpu_canvas(canvas, "virtio_gpu_canvas");
+        virtio_gpu_canvas = canvas;
+        virtio_gpu_gl = gl;
+        virtio_gpu_program = program;
+        virtio_gpu_texture = texture;
+        virtio_gpu_opaque_uniform = gl.getUniformLocation(program, "u_opaque");
+        update_scale_graphic();
+        return true;
+    }
+
+    function get_virtio_gpu_fallback_context(width, height)
+    {
+        if(!virtio_gpu_fallback_context)
+        {
+            virtio_gpu_fallback_canvas = document.createElement("canvas");
+            virtio_gpu_fallback_context = virtio_gpu_fallback_canvas.getContext("2d", { alpha: false });
+            if(!virtio_gpu_fallback_context)
+            {
+                return null;
+            }
+            attach_virtio_gpu_canvas(virtio_gpu_fallback_canvas, "virtio_gpu_fallback_canvas");
+            update_scale_graphic();
+        }
+        if(virtio_gpu_fallback_canvas.width !== width || virtio_gpu_fallback_canvas.height !== height)
+        {
+            virtio_gpu_fallback_canvas.width = width;
+            virtio_gpu_fallback_canvas.height = height;
+            virtio_gpu_fallback_image_data = undefined;
+            update_scale_graphic();
+        }
+        virtio_gpu_fallback_canvas.style.display = "block";
+        if(virtio_gpu_canvas)
+        {
+            virtio_gpu_canvas.style.display = "none";
+        }
+        return virtio_gpu_fallback_context;
+    }
+
+    function present_virtio_gpu_webgl(width, height, pixels, x, y, rect_width, rect_height, opaque)
+    {
+        if(!initialize_virtio_gpu_renderer())
+        {
+            return false;
+        }
+
+        const gl = virtio_gpu_gl;
+        const resized = virtio_gpu_canvas.width !== width || virtio_gpu_canvas.height !== height;
+        if(resized)
+        {
+            virtio_gpu_canvas.width = width;
+            virtio_gpu_canvas.height = height;
+            virtio_gpu_texture_width = 0;
+            virtio_gpu_texture_height = 0;
+            update_scale_graphic();
+            gl.viewport(0, 0, width, height);
+        }
+        virtio_gpu_canvas.style.display = "block";
+        gl.useProgram(virtio_gpu_program);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, virtio_gpu_texture);
+
+        let full_update = false;
+        if(virtio_gpu_texture_width !== width || virtio_gpu_texture_height !== height)
+        {
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+            virtio_gpu_texture_width = width;
+            virtio_gpu_texture_height = height;
+            full_update = true;
+        }
+        else if(rect_width && rect_height)
+        {
+            gl.pixelStorei(gl.UNPACK_ROW_LENGTH, width);
+            gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, x);
+            gl.pixelStorei(gl.UNPACK_SKIP_ROWS, y);
+            gl.texSubImage2D(gl.TEXTURE_2D, 0, x, y, rect_width, rect_height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+            gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+            gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+            gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+        }
+        else
+        {
+            return true;
+        }
+
+        gl.uniform1i(virtio_gpu_opaque_uniform, opaque ? 1 : 0);
+        if(!full_update)
+        {
+            gl.enable(gl.SCISSOR_TEST);
+            gl.scissor(x, height - y - rect_height, rect_width, rect_height);
+        }
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+        if(!full_update)
+        {
+            gl.disable(gl.SCISSOR_TEST);
+        }
+        return true;
     }
 
     function render_font_bitmap(vga_bitmap)
@@ -361,7 +583,8 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
         if(mode === MODE_GRAPHICAL || mode === MODE_GRAPHICAL_TEXT)
         {
-            image.src = graphic_screen.toDataURL("image/png");
+            const active_canvas = virtio_gpu_active ? virtio_gpu_canvas || virtio_gpu_fallback_canvas : null;
+            image.src = (active_canvas || graphic_screen).toDataURL("image/png");
         }
         else
         {
@@ -463,7 +686,67 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
     this.update_graphical = function()
     {
-        this.screen_fill_buffer();
+        if(!virtio_gpu_active)
+        {
+            this.screen_fill_buffer();
+        }
+    };
+
+    this.present_virtio_gpu_frame = function(width, height, pixels, x = 0, y = 0,
+        rect_width = width, rect_height = height, opaque = false)
+    {
+        virtio_gpu_active = true;
+        if(mode !== MODE_GRAPHICAL)
+        {
+            this.set_mode(true);
+        }
+        if(present_virtio_gpu_webgl(width, height, pixels, x, y, rect_width, rect_height, opaque))
+        {
+            return;
+        }
+        const context = get_virtio_gpu_fallback_context(width, height);
+        if(!context)
+        {
+            return;
+        }
+        if(!virtio_gpu_fallback_image_data || virtio_gpu_fallback_image_data.width !== width ||
+            virtio_gpu_fallback_image_data.height !== height)
+        {
+            virtio_gpu_fallback_image_data = context.createImageData(width, height);
+        }
+        const target = virtio_gpu_fallback_image_data.data;
+        for(let row = y; row < y + rect_height; ++row)
+        {
+            let source_offset = (row * width + x) * 4;
+            let target_offset = source_offset;
+            for(let column = 0; column < rect_width; ++column)
+            {
+                target[target_offset] = pixels[source_offset + 2];
+                target[target_offset + 1] = pixels[source_offset + 1];
+                target[target_offset + 2] = pixels[source_offset];
+                target[target_offset + 3] = opaque ? 255 : pixels[source_offset + 3];
+                source_offset += 4;
+                target_offset += 4;
+            }
+        }
+        context.putImageData(virtio_gpu_fallback_image_data, 0, 0, x, y, rect_width, rect_height);
+    };
+
+    this.clear_virtio_gpu_frame = function()
+    {
+        virtio_gpu_active = false;
+        if(virtio_gpu_canvas)
+        {
+            virtio_gpu_canvas.style.display = "none";
+        }
+        if(virtio_gpu_fallback_canvas)
+        {
+            virtio_gpu_fallback_canvas.style.display = "none";
+        }
+        if(mode === MODE_GRAPHICAL)
+        {
+            this.screen_fill_buffer();
+        }
     };
 
     this.update_graphical_text = function()
@@ -544,6 +827,14 @@ export function ScreenAdapter(options, screen_fill_buffer)
             {
                 changed_rows.fill(1);
             }
+        }
+        if(virtio_gpu_canvas)
+        {
+            virtio_gpu_canvas.style.display = mode !== MODE_TEXT && virtio_gpu_active ? "block" : "none";
+        }
+        if(virtio_gpu_fallback_canvas)
+        {
+            virtio_gpu_fallback_canvas.style.display = mode !== MODE_TEXT && virtio_gpu_active ? "block" : "none";
         }
     };
 
@@ -684,6 +975,16 @@ export function ScreenAdapter(options, screen_fill_buffer)
 
         graphic_screen.width = width;
         graphic_screen.height = height;
+        if(virtio_gpu_canvas)
+        {
+            virtio_gpu_canvas.width = width;
+            virtio_gpu_canvas.height = height;
+        }
+        if(virtio_gpu_fallback_canvas)
+        {
+            virtio_gpu_fallback_canvas.width = width;
+            virtio_gpu_fallback_canvas.height = height;
+        }
 
         // graphic_context must be reconfigured whenever its graphic_screen is resized
         graphic_context.imageSmoothingEnabled = false;
@@ -720,6 +1021,14 @@ export function ScreenAdapter(options, screen_fill_buffer)
     function update_scale_graphic()
     {
         elem_set_scale(graphic_screen, scale_x * base_scale, scale_y * base_scale, false);
+        if(virtio_gpu_canvas)
+        {
+            elem_set_scale(virtio_gpu_canvas, scale_x * base_scale, scale_y * base_scale, false);
+        }
+        if(virtio_gpu_fallback_canvas)
+        {
+            elem_set_scale(virtio_gpu_fallback_canvas, scale_x * base_scale, scale_y * base_scale, false);
+        }
     }
 
     function elem_set_scale(elem, scale_x, scale_y, use_scale)

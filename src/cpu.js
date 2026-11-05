@@ -33,6 +33,7 @@ import { IDEController } from "./ide.js";
 import { VirtioNet } from "./virtio_net.js";
 import { VGAScreen } from "./vga.js";
 import { VirtioBalloon } from "./virtio_balloon.js";
+import { VirtioGpu } from "./virtio_gpu.js";
 import { Virtio9p, Virtio9pHandler, Virtio9pProxy } from "../lib/9p.js";
 
 import { load_kernel } from "./kernel.js";
@@ -574,6 +575,7 @@ CPU.prototype.get_state = function()
     state[91] = this.devices.parallel1;
     state[92] = this.efer;
     state[93] = this.pat;
+    state[94] = this.devices.virtio_gpu;
 
     return state;
 };
@@ -744,6 +746,7 @@ CPU.prototype.set_state = function(state)
     this.devices.virtio_console && this.devices.virtio_console.set_state(state[82]);
     this.devices.virtio_net && this.devices.virtio_net.set_state(state[83]);
     this.devices.virtio_balloon && this.devices.virtio_balloon.set_state(state[84]);
+        this.devices.virtio_gpu && state[94] && this.devices.virtio_gpu.set_state(state[94]);
     this.devices.vmware && state[89] && this.devices.vmware.set_state(state[89]);
     this.devices.parallel0 && state[90] && this.devices.parallel0.set_state(state[90]);
     this.devices.parallel1 && state[91] && this.devices.parallel1.set_state(state[91]);
@@ -1191,9 +1194,17 @@ CPU.prototype.init = function(settings, device_bus)
         this.devices.dma = new DMA(this);
 
         this.devices.vga = new VGAScreen(this, device_bus, settings.screen, settings.vga_memory_size || 8 * 1024 * 1024);
+        if(settings.virtio_gpu)
+        {
+            this.devices.virtio_gpu = new VirtioGpu(this, settings.screen);
+        }
 
         this.devices.ps2 = new PS2(this, device_bus);
         this.devices.vmware = new VMwareMouse(this, device_bus);
+    if(this.devices.virtio_gpu)
+    {
+        this.devices.virtio_gpu.reset();
+    }
 
         this.devices.uart0 = new UART(this, 0x3F8, device_bus);
         this.devices.parallel0 = new ParallelPort(this, 0x378, 7, 0, device_bus);

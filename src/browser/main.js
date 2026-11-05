@@ -1790,6 +1790,7 @@ function onload()
 
     if(query_args.has("m")) $("memory_size").value = query_args.get("m");
     if(query_args.has("vram")) $("vga_memory_size").value = query_args.get("vram");
+    if(query_args.has("virtio_gpu")) $("virtio_gpu").checked = bool_arg(query_args.get("virtio_gpu"));
     if(query_args.has("relay_url")) $("relay_url").value = query_args.get("relay_url");
     if(query_args.has("mute")) $("disable_audio").checked = bool_arg(query_args.get("mute"));
     if(query_args.has("acpi")) $("acpi").checked = bool_arg(query_args.get("acpi"));
@@ -2337,6 +2338,9 @@ function start_emulation(profile, query_args)
         }
         if(vga_memory_size !== DEFAULT_VGA_MEMORY_SIZE) new_query_args.set("vram", String(vga_memory_size));
 
+        settings.virtio_gpu = $("virtio_gpu").checked;
+        if(settings.virtio_gpu) new_query_args.set("virtio_gpu", "1");
+
         const boot_order = parseInt($("boot_order").value, 16) || DEFAULT_BOOT_ORDER;
         if(!settings.boot_order || boot_order !== DEFAULT_BOOT_ORDER)
         {
@@ -2410,6 +2414,7 @@ function start_emulation(profile, query_args)
 
         memory_size: settings.memory_size,
         vga_memory_size: settings.vga_memory_size,
+        virtio_gpu: settings.virtio_gpu,
         boot_order: settings.boot_order,
 
         bios: settings.bios,
