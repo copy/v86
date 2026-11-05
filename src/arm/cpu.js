@@ -254,7 +254,11 @@ A64CPU.prototype.init = function(settings, device_bus)
     this.gic_v2 = ranchu && this.cpu_type === "arm32";
     this.wm.exports["a64_gic_set_version"]?.(this.gic_v2 ? 2 : 3);
     if(!this.wm.exports["a64_set_cores"](cores)) throw new Error("the GIC's frames overlap a device");
-    if(settings.cpu_clock) this.clock = new MachineClock(Object.assign({ now: v86.microtick }, settings.cpu_clock));
+    // Native iOS application launch deadlines assume A4 throughput.
+    // Give the graphical N90 guest more host time to meet those deadlines.
+    const clock_options = settings.cpu_clock ||
+        (machine_type === "s5l8930" && settings.gles_backdoor ? { "rate": 0.2 } : null);
+    if(clock_options) this.clock = new MachineClock(Object.assign({ now: v86.microtick }, clock_options));
     // The display adapter's plugin descriptor (P7.1: virtio-gpu without VGA); none with graphics_adapter: "none"
     this.graphics_adapter_descriptor = settings.graphics_adapter;
     const adapter = this.graphics_adapter_descriptor;

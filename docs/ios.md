@@ -29,6 +29,8 @@ in the wizard. It links the two local display daemons to the adapter and
 adds their hashes and the adapter's to the kernel's trust cache.
 The graphics path needs WebGPU and the `make glbridge` assets. Boot
 without the graphics adapter only for serial diagnostics.
+Graphics mode advances guest time at one fifth of wall time by default
+to give native apps enough CPU time before their launch deadlines.
 
 The browser prepares the simulated phone for offline use. It selects
 10B329 lockdownd's existing local activation path and seeds the Setup
