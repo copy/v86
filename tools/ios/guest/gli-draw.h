@@ -80,13 +80,13 @@ static void buffer_subdata(struct context *ctx, unsigned target, int offset, int
     send_draw_packet(ctx, p, bytes);
 }
 
-static int attrib_location(struct context *ctx, unsigned program, const char *name)
+static int named_location(struct context *ctx, unsigned program, const char *name, unsigned opcode)
 {
     if(!name) { draw_error(ctx, 0x501); return -1; }
     unsigned n = fragment_size(name, -1, N90_MAX_PAYLOAD) + 1;
     if(n > N90_MAX_PAYLOAD) { draw_error(ctx, 0x505); return -1; }
     unsigned bytes = 16 + n;
-    unsigned *p = draw_packet(ctx, gles2_glGetAttribLocation, bytes);
+    unsigned *p = draw_packet(ctx, opcode, bytes);
     if(!p) return -1;
     p[2] = program; p[3] = n;
     memcpy(p + 4, name, n);
@@ -95,6 +95,11 @@ static int attrib_location(struct context *ctx, unsigned program, const char *na
         ctx->driver.ok = 0;
     free(p);
     return location;
+}
+
+static int attrib_location(struct context *ctx, unsigned program, const char *name)
+{
+    return named_location(ctx, program, name, gles2_glGetAttribLocation);
 }
 
 static void attrib_pointer(struct context *ctx, unsigned index, int size, unsigned type, unsigned char norm,

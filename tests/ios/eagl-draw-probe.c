@@ -5,6 +5,12 @@ extern void glShaderSource(unsigned, int, const char *const *, const int *);
 extern void glCompileShader(unsigned), glAttachShader(unsigned, unsigned), glLinkProgram(unsigned);
 extern void glUseProgram(unsigned), glDeleteProgram(unsigned), glDeleteShader(unsigned);
 extern int glGetAttribLocation(unsigned, const char *);
+extern int glGetUniformLocation(unsigned, const char *);
+extern void glBindAttribLocation(unsigned, unsigned, const char *);
+extern void glUniform4fv(int, int, const float *), glUniform4iv(int, int, const int *);
+extern void glUniformMatrix2fv(int, int, unsigned char, const float *);
+extern void glUniformMatrix3fv(int, int, unsigned char, const float *);
+extern void glUniformMatrix4fv(int, int, unsigned char, const float *);
 extern void glGenBuffers(int, unsigned *), glBindBuffer(unsigned, unsigned), glDeleteBuffers(int, const unsigned *);
 extern void glBufferData(unsigned, int, const void *, unsigned), glBufferSubData(unsigned, int, int, const void *);
 extern void glEnableVertexAttribArray(unsigned), glDisableVertexAttribArray(unsigned);
@@ -21,9 +27,9 @@ int n90_triangle_pixels(void)
     unsigned vs = glCreateShader(0x8b31), fs = glCreateShader(0x8b30), program = glCreateProgram(), vbo = 0;
     int step = 1, location = -1;
     if(!vs || !fs || !program) goto done;
-    const char *vertex[] = { "attribute vec2 pos;IGNORE", "void main(){gl_Position=vec4(pos,0.,1.);}" };
+    const char *vertex[] = { "attribute vec2 pos;IGNORE", "uniform mat2 basis;uniform mat3 affine;uniform mat4 transform;void main(){vec3 p=affine*vec3(basis*pos,1.);gl_Position=transform*vec4(p.xy,0.,p.z);}" };
     const int lengths[] = { 19, -1 };
-    const char *fragment = "precision mediump float;void main(){gl_FragColor=vec4(1.,0.,1.,1.);}";
+    const char *fragment = "precision mediump float;uniform vec4 tint;uniform ivec4 enabled;void main(){gl_FragColor=tint*vec4(enabled);}";
     glShaderSource(vs, 2, vertex, lengths);
     glShaderSource(fs, 1, &fragment, 0);
     glCompileShader(vs); glCompileShader(fs);
@@ -34,6 +40,7 @@ int n90_triangle_pixels(void)
     glGetShaderiv(fs, 0x8b81, &status);
     if(status != 1) goto done;
     glAttachShader(program, vs); glAttachShader(program, fs);
+    glBindAttribLocation(program, 3, "pos");
     glLinkProgram(program);
     status = 0;
     glGetProgramiv(program, 0x8b82, &status);
@@ -46,8 +53,23 @@ int n90_triangle_pixels(void)
     if(log[1]) goto done;
     location = glGetAttribLocation(program, "pos");
     step = 2;
-    if(location < 0 || glGetError()) goto done;
+    if(location != 3 || glGetError()) goto done;
     glUseProgram(program);
+    const char *names[] = { "basis", "affine", "transform", "tint", "enabled" };
+    int uniforms[5];
+    for(unsigned i = 0; i < 5; i++)
+    {
+        uniforms[i] = glGetUniformLocation(program, names[i]);
+        if(uniforms[i] < 0) goto done;
+    }
+    const float m2[] = { 1,0,0,1 }, m3[] = { 1,0,0,0,1,0,0,0,1 };
+    const float m4[] = { 1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1 }, tint[] = { 1,0,1,1 };
+    const int enabled[] = { 1,1,1,1 };
+    glUniformMatrix2fv(uniforms[0], 1, 0, m2);
+    glUniformMatrix3fv(uniforms[1], 1, 0, m3);
+    glUniformMatrix4fv(uniforms[2], 1, 0, m4);
+    glUniform4fv(uniforms[3], 1, tint);
+    glUniform4iv(uniforms[4], 1, enabled);
     status = 0;
     glGetIntegerv(0x8b8d, &status);
     if((unsigned)status != program) goto done;
