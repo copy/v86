@@ -3,6 +3,7 @@
 审查对象：DirectDraw、Direct3D 1–7、Direct3D 8、Direct3D 9 四个客体前端，以及它们共用的 D9WG 协议和宿主执行器。
 基线：v86 `e92fd4f0`（`ios6` 分支，D3D 相关文件与 `master` 相同），retro-gaming-site `43c4d1e`。日期 2026-10-29。
 性质：本文保留修复前的审查基线，已提交；后续实施进度记在第 7 节各阶段的状态块。
+当前实施状态（2026-11-05）：**阶段4由4L15收尾，阶段5由5L7完成**。历史状态块保留各提交当时的范围；阶段6整套Wine/持续验收仍开放，冒险岛按用户要求跳过。
 OpenGL 路径的审查见姊妹篇 [`opengl-webgpu-review.md`](opengl-webgpu-review.md)。两条路径共用传输层和 `webgpu_host.js`，错误捕获与失败策略（本文 S1-1、S1-4）应一起修。
 
 ## 0. 结论摘要
@@ -2764,6 +2765,15 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 > - 完整未修改 Wine device 审计为 **53,530项、零失败/todo/flaky、10次可选分支skip**。严格门禁仍不算通过；原版 `test_depth_stencil_size` 漏掉设备 Release 的一设备/一目标残留继续如实记录，未修改上游或放宽清理断言。
 > - 修复测试失败时浏览器临时目录遗留：清理返回可等待结果，Wine harness 在抛错前等待完成；真实 Chrome 的正常结束、调用者失败及启动超时三条路径均确认目录已删除。证据：[stage4l14-validation.json](fixtures/d3d-review/stage4l14-validation.json)。阶段4继续最终跨API集成；阶段5完成，冒险岛跳过。
 
+
+> **阶段 4L15（2026-11-05，功能批次完成）：完整回归与跨API集成，阶段4收尾。**
+> - 修复旧原生夹具的结构/依赖和变异定位，冻结参考文件保持不变。API8 CPU纹理以旧元数据加独立的连续块分配次数、偏移和OOM期望校验；补齐UNKNOWN输出保留、缓冲用途/池、非压缩scratch volume的GPU创建及传输失败。立方体上传覆盖四池，索引矩阵显式覆盖缺失stream0的成功空操作。
+> - `glbridge/tests/*_test.js` **408个脚本全部通过**；二维/立方体构造矩阵另通过 ASan/UBSan，范围lint零新增问题。首轮磁盘空间不足中断的结果不计通过：保留89个有完整成功记录的测试，清理空间后重跑其余未完成/失败/无记录项目，最终408项均exit0。
+> - D3D8、D3D9、DirectDraw × Metal/SwiftShader **六次真实XP/GPU运行全部通过**，合计126个图像、7,296个像素，GPU/宿主错误为零、会话清理前设备/资源均为空。三份harness等待浏览器清理；站点同步准确Metal验收的8/9/DDraw零售DLL，同源8/9诊断包沿用4L14。
+> - 当前宿主回放已保存的3DMark2001SE场景：136包、3,145,728字节读回，与4L7基准**零差异**。这是原有场景的Metal回放，不是重新跑完整benchmark或分数；4L7的SwiftShader与Metal截图差异仍保留，未改黄金图。
+> - **阶段4计划项完成**：共用runtime/owner/传输/窗口/格式/caps/FVF/T&L/状态，D3D8包装真实私有D3D9对象、零售语义及DDraw共用路径完成；阶段5已由5L1～5L7完成。证据：[stage4l15-validation.json](fixtures/d3d-review/stage4l15-validation.json)，站点镜像 `glbridge/deployments/d3d-webgpu-review-4L15.json`。宿主bundle保持 `6018289b1abb163f6620`。
+> - **阶段6继续**：4L14完整Wine device审计虽零失败，仍有10次可选分支skip和上游漏Release，严格整套验收未通过；其余Wine visual/DDraw套件、跨后端游戏截图及持续验收不在本次完成声明内。冒险岛明确跳过，不据选定用例宣称所有API/游戏无缺陷。
+
 - **目标：** 一个 bug 只修一处；D3D8 和 DDraw 变成真正的翻译层。
 - **改动：**
   - 抽出 `d9wg_runtime`（C 静态库）：
@@ -2872,14 +2882,13 @@ node tools/d3d_trace_evidence.mjs d9wg-warcraft3-worker docs/fixtures/d3d-review
 
 ### 8.2 L4 已有的基础设施和缺口
 
-- **已有：**
-  - `tests/devices/usb_windows_xp.mjs` 能只读启动 XP 镜像，用 mingw 编译 EXE，放进 FAT16 工具盘，通过 Win+R 运行并读回结果；
-  - `gpu_remote_renderer.mjs` 提供 headless Chrome WebGPU 渲染端，但目前只支持 SVGA。
-- **缺少：**
-  - 渲染端的 D9WG（v86gl）入口；
-  - 装好 `v86gl.sys` 的 XP overlay 镜像；
-  - 结果解析器：解析 Wine 测试的 “Test failed” 行，并与基线比较。
-- **更快的变体：** 在 Linux 上用 Wine 直接运行同样的 EXE，用 socket 垫片替换代理 DLL 的三处驱动调用（`G9:1595-1690`）。本机没有安装 Wine。
+截至4L15，原审查中列出的D9WG渲染入口、装好驱动的本地XP镜像和严格Wine结果解析器均已具备：
+
+- `tests/lib/xp_ram_probe.mjs` 只读启动XP，写入只留在RAM覆盖层；当前DLL与MinGW测试EXE一起放入工具盘。
+- `tests/lib/d3d_live_renderer.mjs` 连接真实Chrome WebGPU，返回实际GPU读回；`tests/glbridge/d3d_live_xp_matrix.mjs` 串行验收8/9/DDraw和两个GPU后端。
+- `tests/glbridge/d3d_wine_stateblock_xp.mjs` 与 `d3d_wine_device_xp.mjs` 运行固定哈希的未修改Wine源码，严格解析完成记录、失败/todo/flaky/skip、进程退出及owner清理。选定组通过与完整套件通过分开记录。
+- **阶段6仍待完成：** 扩展D3D8/9 visual、其余device及DDraw原版套件，处理完整审计的skip/上游寿命问题，形成每晚/发布前运行及游戏截图基线。当前不把未实现的可选能力或上游漏释放静默豁免为通过。
+- Linux/Wine加socket垫片仍是可选的加速方案，本机未以此替代XP验收。
 
 ### 8.3 规则
 

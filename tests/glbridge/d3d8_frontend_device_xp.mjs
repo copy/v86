@@ -79,5 +79,5 @@ const result = await run_xp_ram_probe({root, out, files,
 });
 console.log(JSON.stringify(result));
 } finally {
-    if (live) {fs.writeFileSync(out + "/live-gpu.json",JSON.stringify(live.stats,null,2)+"\n");live.close();}
+    if (live) {fs.writeFileSync(out + "/live-gpu.json",JSON.stringify(live.stats,null,2)+"\n");await live.close();}
 }

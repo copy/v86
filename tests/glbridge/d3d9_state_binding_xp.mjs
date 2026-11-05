@@ -25,4 +25,4 @@ const result = await run_xp_ram_probe({graphics_renderer:live,root, out, files, 
     if(live){assert.equal(live.stats.snapshot.stats.readbackRequests,5);assert.equal(live.stats.snapshot.cleanup.length,1);assert(live.stats.snapshot.cleanup.every(v=>!v.devices&&!v.resources));}else assert.equal(replies,5);assert.equal(r.owners.length, 1); assert(r.logs["STATE9.TXT"].includes("PASS D3D9 stateblock bindings"));
 }});
 console.log(JSON.stringify(result));
-} finally {if(live){fs.writeFileSync(out+"/live-gpu.json",JSON.stringify(live.stats,null,2)+"\n");live.close();}}
+} finally {if(live){fs.writeFileSync(out+"/live-gpu.json",JSON.stringify(live.stats,null,2)+"\n");await live.close();}}
