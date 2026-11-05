@@ -175,8 +175,10 @@ const parts = {
         const hda = await next_download("the hda image");
         await menu("menu_devices", "devices_get_hda");
         const [hda_name, hda_blob] = await hda.wait();
-        const original = await (await fetch("/images/msdos622.img")).blob();
-        check(hda_name === "DOS_console-hda.img" && hda_blob.size === original.size, "the hda image: " + hda_name + " " + hda_blob.size);
+        const original = await fetch("/images/msdos622.img", { method: "HEAD" });
+        const original_size = Number(original.headers.get("Content-Length"));
+        check(original.ok && original_size > 0 && hda_name === "DOS_console-hda.img" && hda_blob.size === original_size,
+            "the hda image: " + hda_name + " " + hda_blob.size);
         log("Devices: a CD of files (DOS lists README.TXT), ejected; a floppy (DOS lists COMMAND.COM), ejected; " + hda_name + " (" + hda_blob.size + " bytes)");
 
         // view
