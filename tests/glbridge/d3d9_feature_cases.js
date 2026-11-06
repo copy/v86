@@ -1274,5 +1274,72 @@
             wire("SetScissorRect",{device_handle:dev,left:32,top:0,right:64,bottom:64}),dip];
         },probes:[{at:[16,32],expect:[0,255,0,255]},{at:[48,32],expect:[255,0,0,255]}]});
 
+    const extentTarget=(dev,handle,size,samples=0,format=21)=>wire("CreateTexture2D",{device_handle:dev,resource_handle:handle,width:size,height:size,level_count:1,format,usage:1,multisample_type:samples});
+    const extentBind=(dev,handle,size,extra={})=>[wire("SetRenderTarget",{device_handle:dev,color_texture_handle:handle,...extra}),wire("SetViewport",{device_handle:dev,width:size,height:size,min_z:0,max_z:1})];
+    const extentClear=(dev,flags,color=0,depth=1,stencil=0)=>wire("Clear",{device_handle:dev,clear_flags:flags,color,depth,stencil});
+    const extentDepth=(dev,handle,size,samples=0)=>[wire("CreateTexture2D",{device_handle:dev,resource_handle:handle,width:size,height:size,level_count:1,format:75,usage:2,multisample_type:samples}),wire("SetDepthStencilSurfaceLevel",{device_handle:dev,depth_texture_handle:handle,width:size,height:size})];
+    const extentStretch=(dev,from,to,size,extra={})=>wire("StretchRect",{device_handle:dev,source_texture_handle:from,source_right:size,source_bottom:size,destination_texture_handle:to,destination_right:64,destination_bottom:64,filter_point:1,...extra});
+    for(const msaa of [0,4])for(const auto of [false,true])for(const backBuffer of [false,true]){
+        const probes=[];for(let y=8;y<64;y+=16)for(let x=8;x<64;x+=16)probes.push({at:[x,y],expect:x<32&&y<32?[0,0,255,255]:x<48&&y<48?[0,255,0,255]:[255,0,0,255]});
+        add("shared-depth",{name:`shared depth across 32/48/64 targets msaa=${msaa} auto=${auto} bb=${backBuffer}`,msaa,backBuffer,body:(dev,rt)=>{
+            const small=dev+0x700000,mid=dev+0x700001,depth=dev+0x700002;
+            return [...(auto?[]:extentDepth(dev,depth,64,msaa)),extentTarget(dev,small,32,msaa),extentTarget(dev,mid,48,msaa),
+                rs(dev,7,1),rs(dev,14,1),rs(dev,23,4),rs(dev,22,1),extentClear(dev,3,0xff0000ff,1),
+                ...extentBind(dev,small,32),extentClear(dev,3,0xffffffff,0),...extentBind(dev,mid,48),...drawXYZ(dev,fullXYZ(.5,0xff000000)),
+                ...extentBind(dev,backBuffer?0:rt,64),rs(dev,14,0),...drawXYZ(dev,fullXYZ(.33,0xff00ff00)),...drawXYZ(dev,fullXYZ(.66,0xffff0000))];
+        },probes});
+    }
+    for(const msaa of [0,4])add("shared-depth",{name:"shared stencil preserves regions and increments msaa="+msaa,msaa,body:(dev,rt)=>{
+        const small=dev+0x700000,mid=dev+0x700001;
+        return [extentTarget(dev,small,32,msaa),extentTarget(dev,mid,48,msaa),rs(dev,7,0),rs(dev,22,1),extentClear(dev,5,0xff0000ff,1,0),
+            ...extentBind(dev,small,32),extentClear(dev,4,0,1,1),...extentBind(dev,mid,48),rs(dev,52,1),rs(dev,56,8),rs(dev,55,4),rs(dev,59,255),rs(dev,168,0),...drawXYZ(dev,fullXYZ(.5,0xffffffff)),
+            ...extentBind(dev,rt,64),rs(dev,168,15),rs(dev,55,1),rs(dev,56,3),rs(dev,57,2),...drawXYZ(dev,fullXYZ(.5,0xff00ff00)),rs(dev,57,1),...drawXYZ(dev,fullXYZ(.5,0xffff0000))];
+        },probes:[{at:[16,16],expect:[0,255,0,255]},{at:[40,16],expect:[255,0,0,255]},{at:[16,40],expect:[255,0,0,255]},{at:[56,56],expect:[0,0,255,255]}]});
+    for(const msaa of [0,4])for(const format of [21,113])for(const srgb of (format===21?[false,true]:[false]))add("shared-depth",{name:`promoted color load/store retains untouched pixels msaa=${msaa} format=${format} srgb=${srgb}`,msaa,body:(dev,rt)=>{
+        const small=dev+0x700000;
+        return [extentTarget(dev,small,32,msaa,format),wire("ColorFill",{device_handle:dev,texture_handle:small,color:0xff804020,right:32,bottom:32}),
+            rs(dev,194,+srgb),...extentBind(dev,small,32),extentClear(dev,2),rs(dev,7,0),rs(dev,22,1),rs(dev,174,1),wire("SetScissorRect",{device_handle:dev,right:16,bottom:32}),...drawXYZ(dev,fullXYZ(.5,0xff00ff00)),
+            rs(dev,174,0),...extentBind(dev,rt,64),extentStretch(dev,small,rt,32)];
+        },probes:[{at:[16,32],expect:[0,255,0,255]},{at:[48,32],expect:[128,64,32,255]}]});
+    for(const format of [21,113])add("shared-depth",{name:"multisample color adapter preserves distinct sample values format="+format,msaa:4,body:(dev,rt)=>{
+        const small=dev+0x700000,depth=dev+0x700002;
+        return [extentTarget(dev,small,32,4,format),wire("SetDepthStencilSurfaceLevel",{device_handle:dev}),...extentBind(dev,small,32),extentClear(dev,1,0xff000000),
+            rs(dev,7,0),rs(dev,22,1),rs(dev,161,1),rs(dev,162,1),...drawXYZ(dev,fullXYZ(.5,0xffff0000)),
+            ...extentDepth(dev,depth,64,4),extentClear(dev,2),rs(dev,162,2),...drawXYZ(dev,fullXYZ(.5,0xff00ff00)),
+            rs(dev,162,0xffffffff),...extentBind(dev,rt,64),extentStretch(dev,small,rt,32)];
+        },probes:[{at:[32,32],expect:[64,64,0,255],tolerance:1}]});
+    add("shared-depth",{name:"cube face and mip color adapter restores selected subresource",body:(dev,rt)=>{
+        const cube=dev+0x700000;
+        return [wire("CreateTextureCube",{device_handle:dev,resource_handle:cube,edge_length:64,level_count:2,format:21,usage:1}),
+            wire("ColorFill",{device_handle:dev,texture_handle:cube,level:1,face:3,color:0xffff0000,right:32,bottom:32}),
+            ...extentBind(dev,cube,32,{color_level:1,color_face:3}),extentClear(dev,2),rs(dev,7,0),rs(dev,22,1),rs(dev,174,1),wire("SetScissorRect",{device_handle:dev,right:16,bottom:32}),...drawXYZ(dev,fullXYZ(.5,0xff00ff00)),
+            rs(dev,174,0),...extentBind(dev,rt,64),extentStretch(dev,cube,rt,32,{source_level:1,source_face:3})];
+        },probes:[{at:[16,32],expect:[0,255,0,255]},{at:[48,32],expect:[255,0,0,255]}]});
+
+    for(const size of [32,128])add("shared-depth",{name:"MRT extent adapter preserves slot identity and pixels outside target0 size="+size,mrt:true,body:(dev,rt)=>{
+        const other=dev+0x700000;
+        return [extentTarget(dev,other,size),wire("ColorFill",{device_handle:dev,texture_handle:other,color:0xff0000ff,right:size,bottom:size}),
+            wire("SetRenderTarget",{device_handle:dev,target_index:1,color_texture_handle:other}),extentClear(dev,1,0xff00ff00),rs(dev,7,0),draw(dev,quad(0,0,64,64,.5,0xffff0000)),
+            wire("SetRenderTarget",{device_handle:dev,target_index:1}),extentStretch(dev,other,rt+1,size)];
+        },probes:[{at:[16,16],expect:[255,0,0,255]},{at:[16,16],target:1,expect:[0,255,0,255]},{at:[48,48],target:1,expect:size===32?[0,255,0,255]:[0,0,255,255]}]});
+
+    for(const msaa of [0,4])add("shared-depth",{name:"implicit back buffer restores promoted color before present msaa="+msaa,msaa,backBuffer:true,body:dev=>[
+        extentClear(dev,1,0xffff0000),...extentDepth(dev,dev+0x700000,128,msaa),extentClear(dev,2),rs(dev,7,1),rs(dev,22,1),rs(dev,174,1),
+        wire("SetScissorRect",{device_handle:dev,right:32,bottom:64}),...drawXYZ(dev,fullXYZ(.5,0xff00ff00))],
+        probes:[{at:[16,32],expect:[0,255,0,255]},{at:[48,32],expect:[255,0,0,255]}]});
+
+    add("shared-depth",{name:"large viewport clears each differently sized color and depth attachment",mrt:true,body:(dev,rt)=>{
+        const tiny=dev+0x700000,other=dev+0x700001,depth=dev+0x700002,color=dev+0x700003;
+        return [extentTarget(dev,tiny,1),
+            wire("CreateTexture2D",{device_handle:dev,resource_handle:other,width:1,height:2,level_count:1,format:21,usage:1}),
+            extentTarget(dev,color,4),extentTarget(dev,rt+2,64),...extentDepth(dev,depth,4),
+            ...extentBind(dev,tiny,640),wire("SetRenderTarget",{device_handle:dev,target_index:1,color_texture_handle:other}),
+            extentClear(dev,3,0xffff0000,.5),wire("SetRenderTarget",{device_handle:dev,target_index:1}),
+            extentStretch(dev,tiny,rt,1),extentStretch(dev,other,rt+1,1,{source_bottom:2}),
+            ...extentBind(dev,color,4),rs(dev,7,1),rs(dev,14,0),rs(dev,23,4),rs(dev,22,1),
+            ...drawXYZ(dev,fullXYZ(.4,0xff00ff00)),...drawXYZ(dev,fullXYZ(.6,0xffff0000)),
+            extentStretch(dev,color,rt+2,4),...extentBind(dev,rt,64),wire("SetDepthStencilSurfaceLevel",{device_handle:dev})];
+        },probes:[0,1,2].flatMap(target=>[[8,8],[48,8],[8,48],[48,48]].map(at=>({at,target,expect:target===2?[0,255,0,255]:[255,0,0,255]})))});
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

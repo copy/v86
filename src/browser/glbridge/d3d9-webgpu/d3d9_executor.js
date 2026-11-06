@@ -1175,7 +1175,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.fallbackView = null;
             this.fallbackDepth = null;
             this.fallbackViews = null;
-            this.substituteDepthViews = null;
             // Every protocol-1.3 batch carries its process session id in the
             // batch header. Futuremark launches several D3D9 probe/helper
             // processes alongside the benchmark, and their numeric handles
@@ -1276,6 +1275,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 renderTargetsCreated: 0,
                 renderTargetBinds: 0, renderPasses: 0,
                 depthTargetSizeMismatches: 0,
+                colorTargetPromotions: 0,
+                colorExtentCopies: 0,
                 depthTargetSubstitutions: 0,
                 depthTargetSubstitutionsUncleared: 0,
                 blits: 0, blitsSkipped: 0, blitsThroughBackBuffer: 0,
@@ -1637,6 +1638,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.bindGroupCache.clear();
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
+            this.multisampleCopyPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.samplerCache.clear();
@@ -2301,6 +2303,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.bindGroupCache.clear();
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
+            this.multisampleCopyPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.samplerCache.clear();
@@ -2316,7 +2319,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.fallbackView = null;
             this.fallbackDepth = null;
             this.fallbackViews = null;
-            this.substituteDepthViews = null;
             this.backBufferTexture = null;
             this.backBufferView = null;
             this.backBufferSrgbView = null;
@@ -2717,62 +2719,77 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const clearsColor = (flags & D3DCLEAR_TARGET) !== 0;
             // A depth/stencil clear is only meaningful if the device
             // actually has an auto depth-stencil surface.
-            const targets = this.renderTargetsFor(state);
+            const targets = this.renderTargetsFor(state, true);
             if (!targets) return;
             const clearsDepth = (flags & D3DCLEAR_ZBUFFER) !== 0 && targets.hasDepth;
             const clearsStencil = (flags & D3DCLEAR_STENCIL) !== 0 && targets.hasDepth;
-            // A depth clear is what makes a substituted attachment equivalent
-            // to the oversized one it stands in for, so it has to be recorded
-            // even when the clear does nothing else.
-            this.noteSubstituteDepthUse(targets, clearsDepth);
             if (!clearsColor && !clearsDepth && !clearsStencil) return;
             const a = ((color >>> 24) & 0xff) / 255;
             const r = ((color >>> 16) & 0xff) / 255;
             const g = ((color >>> 8) & 0xff) / 255;
             const b = (color & 0xff) / 255;
-            const frame = this.ensureFrame();
-            // D3D9 clears only inside the viewport, and inside the scissor
-            // rect while the scissor test is on (Wine's d3d9 clear_test)
-            const scissor = (state.renderStates.get(D3DRS_SCISSORTESTENABLE) || 0) !== 0 ?
-                state.scissorRect : null;
-            const bounds = intersectRects(state.viewport, scissor, targets.width, targets.height);
-            const rectCount = view.getUint32(offset + D9WG.F.Clear.rect_count, true);
-            if (24 + rectCount * 16 > length) {
-                ++this.stats.malformedBatches;
-                throw new D9WGStreamError("D9WG Clear rectangles overrun the command");
-            }
-            const rects = [];
-            const clip = (left, top, right, bottom) => {
-                left = Math.max(left, bounds.x);
-                top = Math.max(top, bounds.y);
-                right = Math.min(right, bounds.x + bounds.width);
-                bottom = Math.min(bottom, bounds.y + bounds.height);
-                if (right > left && bottom > top) rects.push({ left, top, right, bottom });
-            };
-            if (!rectCount) clip(0, 0, targets.width, targets.height);
-            for (let index = 0; index < rectCount; ++index) {
-                const base = offset + D9WG.STRUCTS.Clear.size + index * 16;
-                clip(view.getInt32(base, true), view.getInt32(base + 4, true),
-                    view.getInt32(base + 8, true), view.getInt32(base + 12, true));
-            }
-            const whole = rects.length === 1 && rects[0].left === 0 && rects[0].top === 0 &&
-                rects[0].right === targets.width && rects[0].bottom === targets.height;
-            if (!whole) {
-                if (rects.length) {
-                    frame.record({ kind: "rect-clear", targets, clearsColor,
-                        clearsDepth, clearsStencil, color: { r, g, b, a },
-                        depth, stencil, rects });
-                    ++this.stats.partialClears;
+            // Clear clips independently to each attachment and the viewport.
+            // An explicit large viewport may clear a 4x4 depth buffer and a
+            // 1x2 MRT even when target0 is only 1x1 (native D3D9 visual test).
+            const clearSets = [];
+            if (targets.independentClear) {
+                if (clearsColor) targets.colors.forEach((color, index) => {
+                    if (!color) return;
+                    clearSets.push({ targets: { key: targets.key + ":clear-color:" + index,
+                        colors: [color], formats: [color.format], depthView: null, hasDepth: false,
+                        width: color.width, height: color.height, sampleCount: color.sampleCount || 1 },
+                        clearsColor: true, clearsDepth: false, clearsStencil: false });
+                });
+                if (clearsDepth || clearsStencil) clearSets.push({ targets: {
+                    key: targets.key + ":clear-depth", colors: [], formats: [], depthView: targets.depthView,
+                    hasDepth: true, width: targets.depthWidth, height: targets.depthHeight, sampleCount: targets.depthSamples },
+                    clearsColor: false, clearsDepth, clearsStencil });
+            } else clearSets.push({ targets, clearsColor, clearsDepth, clearsStencil });
+            for (const {targets, clearsColor, clearsDepth, clearsStencil} of clearSets) {
+                const frame = this.ensureFrame();
+                // D3D9 clears only inside the viewport, and inside the scissor
+                // rect while the scissor test is on (Wine's d3d9 clear_test)
+                const scissor = (state.renderStates.get(D3DRS_SCISSORTESTENABLE) || 0) !== 0 ?
+                    state.scissorRect : null;
+                const bounds = intersectRects(state.viewport, scissor, targets.width, targets.height);
+                const rectCount = view.getUint32(offset + D9WG.F.Clear.rect_count, true);
+                if (24 + rectCount * 16 > length) {
+                    ++this.stats.malformedBatches;
+                    throw new D9WGStreamError("D9WG Clear rectangles overrun the command");
                 }
-                return;
+                const rects = [];
+                const clip = (left, top, right, bottom) => {
+                    left = Math.max(left, bounds.x);
+                    top = Math.max(top, bounds.y);
+                    right = Math.min(right, bounds.x + bounds.width);
+                    bottom = Math.min(bottom, bounds.y + bounds.height);
+                    if (right > left && bottom > top) rects.push({ left, top, right, bottom });
+                };
+                if (!rectCount) clip(0, 0, targets.width, targets.height);
+                for (let index = 0; index < rectCount; ++index) {
+                    const base = offset + D9WG.STRUCTS.Clear.size + index * 16;
+                    clip(view.getInt32(base, true), view.getInt32(base + 4, true),
+                        view.getInt32(base + 8, true), view.getInt32(base + 12, true));
+                }
+                const whole = rects.length === 1 && rects[0].left === 0 && rects[0].top === 0 &&
+                    rects[0].right === targets.width && rects[0].bottom === targets.height;
+                if (!whole) {
+                    if (rects.length) {
+                        frame.record({ kind: "rect-clear", targets, clearsColor,
+                            clearsDepth, clearsStencil, color: { r, g, b, a },
+                            depth, stencil, rects });
+                        ++this.stats.partialClears;
+                    }
+                    continue;
+                }
+                frame.record({
+                    kind: "clear", targets,
+                    clearsColor: clearsColor || !!this.debug.forceClearColor,
+                    clearsDepth, clearsStencil,
+                    color: this.debug.forceClearColor || { r, g, b, a },
+                    depth, stencil,
+                });
             }
-            frame.record({
-                kind: "clear", targets,
-                clearsColor: clearsColor || !!this.debug.forceClearColor,
-                clearsDepth, clearsStencil,
-                color: this.debug.forceClearColor || { r, g, b, a },
-                depth, stencil,
-            });
         }
 
         // Replays every recorded clear/draw op against a freshly-acquired
@@ -2796,6 +2813,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.shaderCache = new shaderPipeline.D3D9ShaderCache();
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
+            this.multisampleCopyPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.shaderCacheDirty = false;
@@ -2948,7 +2966,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         //
         // `key` is what groups consecutive ops into one pass: two draws with the
         // same key can share a pass, and a change of key has to end it.
-        renderTargetsFor(state) {
+        renderTargetsFor(state, forClear = false) {
             const colors = [];
             const wantsSRGB = (state.renderStates.get(D3DRS_SRGBWRITEENABLE) || 0)
                 !== 0;
@@ -2967,6 +2985,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         this.deviceBackBuffer(state);
                         colors.push({ view: wantsSRGB ? state.backBufferSrgbView : state.backBufferView, format,
                             linearView: state.backBufferView,
+                            owner: state, texture: state.backBufferTexture,
+                            width: this.backBufferWidthOf(state), height: this.backBufferHeightOf(state),
                             swapchain: true,
                             sampleCount: state.sampleCount || 1,
                             msaaView: format === this.format ? state.backBufferMsaaView
@@ -3025,7 +3045,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     sampleCount: resource.sampleCount || 1,
                     msaaView,
                     msaaOwner: msaaView ? resource : null,
-                    resource });
+                    resource, owner: resource, texture: resource.gpuTexture, level, face,
+                    width: Math.max(1, resource.width >> level), height: Math.max(1, resource.height >> level) });
                 if (index === 0) {
                     width = Math.max(1, resource.width >> level);
                     height = Math.max(1, resource.height >> level);
@@ -3045,7 +3066,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             let depthSamples = 1;
             let depthWidth = 0;
             let depthHeight = 0;
-            let substituteDepth = null;
             if (state.depthTargetHandle) {
                 const resource = this.resources.get(state.depthTargetHandle);
                 const level = state.depthTargetLevel || 0;
@@ -3082,50 +3102,24 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             } else {
                 key += "dnone";
             }
-            // WebGPU requires the depth attachment to be exactly the colour
-            // target's size. D3D9 requires only that it be *at least* as large,
-            // and render-to-texture leans on that constantly: an app keeps one
-            // full-screen depth surface and renders half-resolution passes --
-            // HDR downsamples, shadow projections, reflections -- against it.
-            //
-            // Dropping depth for those passes is not a small approximation.
-            // Nothing is occluded any more, so every alpha-blended draw that
-            // should have been hidden behind geometry paints over it: the image
-            // washes out and solid objects turn translucent. A substitute depth
-            // texture of the right size preserves the depth *test*, which is
-            // what the pass was relying on. What it cannot preserve is depth
-            // written by an earlier pass, and an app doing this almost always
-            // clears depth on entry anyway -- so this trades a fault that
-            // ruins the frame for one that is usually invisible.
+            if (forClear) {
+                const sampleCount = colors[0].sampleCount || 1;
+                const independentClear = colors.some(color => color &&
+                    (color.width !== width || color.height !== height || color.sampleCount !== sampleCount)) ||
+                    (depthView && (depthWidth !== width || depthHeight !== height || depthSamples !== sampleCount));
+                return { key, colors, depthView, width, height, depthWidth, depthHeight, depthSamples,
+                    independentClear, sampleCount, hasDepth: !!depthView,
+                    formats: colors.map(color => color ? color.format : null) };
+            }
+            // D3D permits a larger shared depth surface. Keep its storage;
+            // colors will use temporary matching extents below. Undersized
+            // depth remains an invalid binding and is omitted as before.
             if (depthView && (depthWidth !== width || depthHeight !== height)) {
                 ++this.stats.depthTargetSizeMismatches;
-                if (depthWidth >= width && depthHeight >= height) {
-                    substituteDepth = this.substituteDepthFor(
-                        state.depthTargetHandle, width, height);
-                    depthView = substituteDepth.view;
-                    ++this.stats.depthTargetSubstitutions;
-                    // Deliberately not warned about here: the substitution
-                    // only loses something if the pass depth-tests against
-                    // contents an earlier pass wrote, and a pass that clears
-                    // depth on entry has none to lose. noteSubstituteDepthUse()
-                    // reports the case that actually does.
-                    // The substitute is part of the pass identity: two passes
-                    // standing in for different depth surfaces must not merge.
-                    key += "dsub" + (state.depthTargetHandle || 0) + "." +
-                        width + "x" + height;
-                } else {
-                    // Smaller than the target: the app is asking to depth-test
-                    // fragments the depth buffer has no storage for. There is
-                    // nothing to substitute that would be more correct.
-                    this.warnOnce("rt-depth-undersized",
-                        "the bound depth surface is smaller than the render " +
-                        "target, so this pass runs without depth testing " +
-                        "rather than being rejected wholesale", {
-                            target: width + "x" + height,
-                            depth: depthWidth + "x" + depthHeight,
-                        });
-                    depthView = null;
-                    key += "!d";
+                if (depthWidth < width || depthHeight < height) {
+                    this.warnOnce("rt-depth-undersized", "the bound depth surface is smaller than the render target; this pass runs without depth",
+                        { target: width + "x" + height, depth: depthWidth + "x" + depthHeight });
+                    depthView = null; key += "!d";
                 }
             }
             // WebGPU requires every attachment of a pass -- and the pipeline
@@ -3153,8 +3147,17 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 depthView = null;
                 key += "!ds";
             }
+            const physicalWidth = depthView ? depthWidth : width;
+            const physicalHeight = depthView ? depthHeight : height;
+            let promotedColors = false;
+            for (let index = 0; index < colors.length; ++index) {
+                const color = colors[index];
+                if (!color || (color.width === physicalWidth && color.height === physicalHeight)) continue;
+                colors[index] = this.promoteColorTarget(color, physicalWidth, physicalHeight);
+                promotedColors = true;
+            }
             return { key: key + "x" + sampleCount, colors, depthView, width,
-                height, substituteDepth,
+                height, promotedColors,
                 hasDepth: !!depthView, sampleCount,
                 // Packed RGB/XRGB targets use RGBA storage on WebGPU, but
                 // their destination alpha is still logically one for blending.
@@ -3322,68 +3325,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 destinationFace);
             ++this.stats.blits;
             if (swapchainInvolved) ++this.stats.blitsThroughBackBuffer;
-        }
-
-        // Shared with renderTargetsFor(): a render-attachment view of one level.
-        // Size-matched stand-in depth attachments, one per distinct size. Kept
-        // for the device's lifetime rather than per frame: an app that renders
-        // half-resolution passes does it every frame, and the sizes it uses are
-        // a handful of fixed values.
-        // Keyed by the depth surface being stood in for as well as the size.
-        // Sharing one texture across every pass of a given size looked
-        // economical and is a correctness bug: two render-to-texture passes at
-        // the same resolution but against *different* depth surfaces would
-        // depth-test against each other's fragments. Which is exactly the
-        // hazard this whole path exists to avoid, arrived at from the other
-        // direction. Kept for the device's lifetime because the set of
-        // (surface, size) pairs an app uses is small and fixed.
-        // A pass is about to depth-test against a stand-in. If nothing cleared
-        // it this frame, it is being read for contents the real (larger) depth
-        // surface holds and this one never received -- the one case where the
-        // substitution actually changes the image.
-        noteSubstituteDepthUse(targets, clearsDepth) {
-            const record = targets && targets.substituteDepth;
-            if (!record) return;
-            // ensureFrame(), not this.frame: a Clear is often the first thing
-            // in a frame, and reading a not-yet-created frame's serial as 0
-            // made the clear and the draw that follows it disagree about which
-            // frame they were in -- so every cleared substitute looked stale.
-            const serial = this.ensureFrame().serial;
-            if (clearsDepth) {
-                record.clearedInFrame = serial;
-                return;
-            }
-            if (record.clearedInFrame === serial) return;
-            ++this.stats.depthTargetSubstitutionsUncleared;
-            this.warnOnce("rt-depth-oversized-uncleared",
-                "a pass depth-tests against a depth surface larger than its " +
-                "render target -- which D3D9 allows and WebGPU does not -- " +
-                "without clearing depth first, so it reads a stand-in that " +
-                "never received what an earlier pass wrote into the larger " +
-                "surface; geometry that should have been occluded is not", {
-                    target: targets.width + "x" + targets.height,
-                });
-        }
-
-        substituteDepthFor(sourceHandle, width, height) {
-            if (!this.substituteDepthViews) this.substituteDepthViews = new Map();
-            const size = width + "x" + height;
-            const key = (sourceHandle || 0) + ":" + size;
-            let record = this.substituteDepthViews.get(key);
-            if (record) return record;
-            const texture = this.device.createTexture({
-                label: "D3D9 substitute depth " + size + " for " +
-                    (sourceHandle || "auto"),
-                size: { width, height, depthOrArrayLayers: 1 },
-                format: DEPTH_FORMAT,
-                usage: TEXTURE_USAGE_RENDER_ATTACHMENT,
-            });
-            // clearedInFrame is what separates the harmless case from the
-            // real one: a pass that clears depth on entry loses nothing by
-            // getting a fresh texture, and that is what render-to-texture does.
-            record = { view: texture.createView(), clearedInFrame: -1 };
-            this.substituteDepthViews.set(key, record);
-            return record;
         }
 
         // What a write outside a render pass leaves stale: the multisampled

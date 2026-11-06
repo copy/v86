@@ -465,6 +465,103 @@ ${body.join("\n")}
                 return uniform.transient;
             },
 
+            // WebGPU needs equal attachment extents. Keep the real depth /
+            // stencil attachment and temporarily resize color storage, so
+            // depth survives switching between large and small color targets.
+            promoteColorTarget(color, width, height) {
+                const owner = color.owner;
+                if (!owner.colorPromotions) owner.colorPromotions = new Map();
+                const sampleCount = color.sampleCount || 1;
+                const key = width + "x" + height + "x" + sampleCount + ":" + color.format;
+                let entry = owner.colorPromotions.get(key);
+                if (!entry) {
+                    const texture = this.device.createTexture({
+                        label: "D3D9 color extent adapter " + key,
+                        size: { width, height, depthOrArrayLayers: 1 },
+                        format: color.format, sampleCount,
+                        usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING |
+                            (sampleCount === 1 ? TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_COPY_DST : 0),
+                    });
+                    entry = { texture, view: texture.createView() };
+                    owner.colorPromotions.set(key, entry);
+                }
+                ++this.stats.colorTargetPromotions;
+                return { ...color, view: entry.view, msaaView: null,
+                    promotion: { ...entry, original: color,
+                        width: Math.min(color.width, width), height: Math.min(color.height, height) } };
+            },
+
+            retireColorPromotions(owner) {
+                if (!owner || !owner.colorPromotions) return;
+                for (const entry of owner.colorPromotions.values()) this.retireGPUObject(entry.texture);
+                owner.colorPromotions.clear();
+            },
+
+            multisampleCopyPipelineFor(format, sampleCount) {
+                if (!this.multisampleCopyPipelines) this.multisampleCopyPipelines = new Map();
+                const key = format + ":" + sampleCount;
+                let entry = this.multisampleCopyPipelines.get(key);
+                if (entry) return entry;
+                const module = this.moduleFor(`@group(0) @binding(0) var source: texture_multisampled_2d<f32>;
+@vertex fn vs(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
+    var positions = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+    return vec4<f32>(positions[index], 0.0, 1.0);
+}
+@fragment fn fs(@builtin(position) position: vec4<f32>, @builtin(sample_index) sample: u32) -> @location(0) vec4<f32> {
+    return textureLoad(source, vec2<i32>(position.xy), i32(sample));
+}`, "D3D9 exact multisample copy " + key);
+                const layout = this.device.createBindGroupLayout({ entries: [{ binding: 0,
+                    visibility: SHADER_STAGE_FRAGMENT,
+                    texture: { sampleType: "unfilterable-float", multisampled: true } }] });
+                const pipeline = this.device.createRenderPipeline({
+                    label: "D3D9 exact multisample copy " + key,
+                    layout: this.device.createPipelineLayout({ bindGroupLayouts: [layout] }),
+                    vertex: { module, entryPoint: "vs" }, fragment: { module, entryPoint: "fs", targets: [{ format }] },
+                    primitive: { topology: "triangle-list" }, multisample: { count: sampleCount },
+                });
+                entry = { layout, pipeline }; this.multisampleCopyPipelines.set(key, entry);
+                return entry;
+            },
+
+            copyColorPromotion(encoder, color, restore) {
+                const p = color.promotion, original = p.original;
+                if ((color.sampleCount || 1) === 1) {
+                    const actual = { texture: original.texture, mipLevel: original.level || 0,
+                        origin: { x: 0, y: 0, z: original.face || 0 } };
+                    const temporary = { texture: p.texture };
+                    encoder.copyTextureToTexture(restore ? temporary : actual, restore ? actual : temporary,
+                        { width: p.width, height: p.height, depthOrArrayLayers: 1 });
+                } else {
+                    // Resolve-and-unresolve would merge distinct coverage
+                    // samples. Copy sample i to sample i instead, and only
+                    // resolve once the original multisampled target is updated.
+                    const entry = this.multisampleCopyPipelineFor(color.format, color.sampleCount);
+                    const pass = encoder.beginRenderPass({ colorAttachments: [{
+                        view: restore ? original.msaaView : p.view,
+                        ...(restore ? { resolveTarget: original.view } : {}),
+                        loadOp: "load", storeOp: "store",
+                    }] });
+                    pass.setPipeline(entry.pipeline);
+                    pass.setBindGroup(0, this.device.createBindGroup({ layout: entry.layout, entries: [
+                        { binding: 0, resource: restore ? p.view : original.msaaView } ] }));
+                    pass.setViewport(0, 0, p.width, p.height, 0, 1);
+                    pass.draw(3); pass.end(); ++this.stats.renderPasses;
+                }
+                ++this.stats.colorExtentCopies;
+            },
+
+            prepareColorPromotions(encoder, targets) {
+                if (!targets.promotedColors) return;
+                for (const color of targets.colors) if (color && color.promotion)
+                    this.copyColorPromotion(encoder, color, false);
+            },
+
+            restoreColorPromotions(encoder, targets) {
+                if (!targets || !targets.promotedColors) return;
+                for (const color of targets.colors) if (color && color.promotion)
+                    this.copyColorPromotion(encoder, color, true);
+            },
+
             colorAttachmentFor(color, swapView, swapSrgbView) {
                 const resolved = color.view || (color.format === this.swapchainSrgbFormat ? swapSrgbView : swapView);
                 return color.msaaView ? { view: color.msaaView, resolveTarget: resolved } : { view: resolved };
@@ -549,16 +646,17 @@ ${body.join("\n")}
                     ? "    @builtin(frag_depth) depth: f32," : "";
                 const depthWrite = clearsDepth
                     ? "    result.depth = clear.depth.x;" : "";
+                const hasOutput = colorFields.length > 0 || clearsDepth;
                 const module = this.moduleFor(`struct D9RectClearUniforms {
         color: vec4<f32>,
         depth: vec4<f32>,
     };
     @group(0) @binding(0) var<uniform> clear: D9RectClearUniforms;
     
-    struct D9RectClearOutput {
+    ${hasOutput ? `struct D9RectClearOutput {
     ${colorFields.join("\n")}
     ${depthField}
-    };
+    };` : ""}
     
     @vertex
     fn d9_vs_main(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
@@ -568,11 +666,11 @@ ${body.join("\n")}
     }
     
     @fragment
-    fn d9_ps_main() -> D9RectClearOutput {
-        var result: D9RectClearOutput;
+    fn d9_ps_main()${hasOutput ? " -> D9RectClearOutput" : ""} {
+        ${hasOutput ? "var result: D9RectClearOutput;" : ""}
     ${colorWrites.join("\n")}
     ${depthWrite}
-        return result;
+        ${hasOutput ? "return result;" : ""}
     }
     `, "d3d9 rectangle clear " + key);
                 const bindGroupLayout = this.device.createBindGroupLayout({
@@ -608,6 +706,7 @@ ${body.join("\n")}
 
             replayRectClear(encoder, op, swapView, swapSrgbView) {
                 this.unresolveStale(encoder, op.targets, swapView);
+                this.prepareColorPromotions(encoder, op.targets);
                 const entry = this.rectClearPipelineFor(op.targets, op.clearsColor,
                     op.clearsDepth, op.clearsStencil);
                 const uniform = this.utilityUniform(new Float32Array([
@@ -640,6 +739,7 @@ ${body.join("\n")}
                     pass.draw(3);
                 }
                 pass.end();
+                this.restoreColorPromotions(encoder, op.targets);
                 return uniform.transient;
             },
 

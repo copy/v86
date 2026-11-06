@@ -1,0 +1,112 @@
+{
+  "batch": "stage6-33",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "保留真正的共享深度和模板存储，仅对不同尺寸颜色目标使用可复用临时存储；绘制前加载、结束后恢复颜色，多重采样逐样本拷贝，保持HDR、sRGB和立方体面/mip。尺寸一致的常见绘制不增加拷贝。Clear分别裁剪到每个目标和视口，覆盖原版D3D9的1x1/1x2/4x4目标组合。原版D3D8的10条深度画面失败全部消除；24个真实GPU场景、6项像素故障注入、182项执行器检查及既有XP命令回放通过。剩余2条NOOVERWRITE竞态失败仍保留，14项skip尚未审查，不宣称完整Wine通过。",
+  "checks": {
+    "executor": {
+      "output": "182 executor tests passed",
+      "sha256": "453242ca38ba78c011531b282d6ef6a8a9b78b5429244d82ab82b38796ecb5b0"
+    },
+    "depth-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS 24 cases\\nok    shared depth across 32/48/64 targets msaa=0 auto=false bb=false\\nok    shared depth across 32/48/64 targets msaa=0 auto=false bb=true\\nok    shared depth across 32/48/64 targets msaa=0 auto=true bb=false\\nok    shared depth across 32/48/64 targets msaa=0 auto=true bb=true\\nok    shared depth across 32/48/64 targets msaa=4 auto=false bb=false\\nok    shared depth across 32/48/64 targets msaa=4 auto=false bb=true\\nok    shared depth across 32/48/64 targets msaa=4 auto=true bb=false\\nok    shared depth across 32/48/64 targets msaa=4 auto=true bb=true\\nok    shared stencil preserves regions and increments msaa=0\\nok    shared stencil preserves regions and increments msaa=4\\nok    promoted color load/store retains untouched pixels msaa=0 format=21 srgb=false\\nok    promoted color load/store retains untouched pixels msaa=0 format=21 srgb=true\\nok    promoted color load/store retains untouched pixels msaa=0 format=113 srgb=false\\nok    promoted color load/store retains untouched pixels msaa=4 format=21 srgb=false\\nok    promoted color load/store retains untouched pixels msaa=4 format=21 srgb=true\\nok    promoted color load/store retains untouched pixels msaa=4 format=113 srgb=false\\nok    multisample color adapter preserves distinct sample values format=21\\nok    multisample color adapter preserves distinct sample values format=113\\nok    cube face and mip color adapter restores selected subresource\\nok    MRT extent adapter preserves slot identity and pixels outside target0 size=32\\nok    MRT extent adapter preserves slot identity and pixels outside target0 size=128\\nok    implicit back buffer restores promoted color before present msaa=0\\nok    implicit back buffer restores promoted color before present msaa=4\\nok    large viewport clears each differently sized color and depth attachment\"}\n\nPASS shared-depth 24 real GPU cases",
+      "sha256": "5972dcba4c34a6c1d531e4e166a7c167e355dabf5301e6a42f153503037c5f30"
+    },
+    "depth-mutants": {
+      "output": "PASS shared depth GPU mutations: 6/6 viewport clear bounds, per-sample loss, missing color load/store and wrong cube face rejected by pixel readbacks without GPU validation errors",
+      "sha256": "26bfc267aedda0d488b3c6534709d369c9e5b595ea031cc49c20c8adc6db3981"
+    },
+    "depth-size": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS actual XP shared depth Size:old8wrong/current8andcore8correct,56metadata cases/nineReset/63textures;retaineddepth:old/current public8,ordinary9,privatecore8SDK120/220;near/far/retained depth/clear/stencil halfmask,20 images/1280 real RGBA pixels,zero error\"}\n\nPASS depth-size",
+      "sha256": "078428410e738d9c8abffbccab49bb6073bce509a96740e5d767c9a8a3797bf6"
+    },
+    "depth-replay": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS actual XP private API8 depth:old/current public8,ordinary9,privatecore8SDK120/220;near/far/retained depth/clear/stencil halfmask,20 images/1280 real RGBA pixels,zero error\"}\n\nPASS depth-replay",
+      "sha256": "c28767a989024475e03764869bdae7f2a8225f76106617837af113230efac6d7"
+    },
+    "resources-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS 4 cases\\nok    render-target texture upload stays between two sampling draws\\nok    vertex buffer plain uploads stay between draws\\nok    vertex buffer DISCARD uploads stay between draws\\nok    D3D9 ColorFill takes D3DCOLOR and forces opaque X8 alpha\"}\n\nPASS resources-gpu",
+      "sha256": "d39ebbf301245626c03267df7633d3c9abf56dd3e74e87ce7dae4976b73ccd4e"
+    },
+    "viewport-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS 24 cases\\nok    viewport affine clamp false,false,-1,2,0.25,0.125\\nok    viewport affine clamp false,false,0,2,0.375,0.5\\nok    viewport affine clamp false,false,2,3,0.1,0.125\\nok    viewport affine clamp false,false,-3,-2,0.5,0.125\\nok    viewport affine clamp false,false,0.2,0.7,0.1,0.2\\nok    viewport affine clamp false,true,-1,2,0.25,0.125\\nok    viewport affine clamp false,true,0,2,0.375,0.5\\nok    viewport affine clamp false,true,2,3,0.1,0.125\\nok    viewport affine clamp false,true,-3,-2,0.5,0.125\\nok    viewport affine clamp false,true,0.2,0.7,0.1,0.2\\nok    viewport affine clamp true,false,-1,2,0.25,0.125\\nok    viewport affine clamp true,false,0,2,0.375,0.5\\nok    viewport affine clamp true,false,2,3,0.1,0.125\\nok    viewport affine clamp true,false,-3,-2,0.5,0.125\\nok    viewport affine clamp true,false,0.2,0.7,0.1,0.2\\nok    viewport affine clamp true,true,-1,2,0.25,0.125\\nok    viewport affine clamp true,true,0,2,0.375,0.5\\nok    viewport affine clamp true,true,2,3,0.1,0.125\\nok    viewport affine clamp true,true,-3,-2,0.5,0.125\\nok    viewport affine clamp true,true,0.2,0.7,0.1,0.2\\nok    explicit pixel depth overrides extended viewport depth\\nok    viewport larger than attachment clips to target without rescaling\\nok    interpolated depth clamps after affine mapping msaa=0\\nok    interpolated depth clamps after affine mapping msaa=4\"}\n\nPASS viewport-gpu",
+      "sha256": "14998be3743a465be510e3d6517e5d578d7a59b35a1f0a86cb28c4764ed031c1"
+    },
+    "integration": {
+      "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (3.354625ms)\n✔ rapid launches wait for the previous canvas/device teardown (4.036792ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 102.664416\n\nPASS site graphics integration 2/2",
+      "sha256": "77880e940cebd3173e1d93b349cf912e62b77a252a452c381c866ecaeb6b7845"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine8-shared-depth-final",
+    "checks": 143726,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 2,
+    "skipped": 14,
+    "exit": 2,
+    "failureGroups": {
+      "test_map_synchronisation": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "0566cb94075a7dc3ea3d71410d1c50d0c22371aae785327a6c57a34db1686b15",
+      "source.json": "68cc347d93e40452de35c96febfc28a1216e18b80c83d1e039da7acf8b493241",
+      "live-gpu.json": "8e6fd73c477ca25bf0ff782603e5633136aa7458b9d3dabdf346bc661c946fed",
+      "audit-groups.json": "fde828c389be8d3120071dfc9ba499d822147cd0b7f31ad8c3978f7828f10eb2"
+    },
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "d461f60d6a187688c5e542fbd7a055d2ac537502bd24b66c973ab7aabe1e6856",
+      "executableSha256": "54b16b1ff49cca108e7bfea8033c9914c85e3e14bd1390ef7257ef73ad8bcbcf",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "1f9cec0c46c9d1d010080abf8e6a369be57782a9d3ac0c0d4f3b8c9df27dabf8",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "32075b0751e7f500dfe5f18025cc7dbbed3038ea9eb54fb4f2a99fc15f690887",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "769e9c938d10444ce3d6cc10fdcc39030e7680225294e33ec940a013e69dd2b9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "c4025306d553dd31e9777c4960862dec78c0642a583d37291847f4d84f6f72c9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "91af2782cab9c286ddfe637981bf3aabadf6b0d556ac4de80d843cf8d7f071db",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "0509574e0649acb284233c36486c91ac617109be048c673937f06e81b839b3d1",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "dbd012f1ba00fdbb92a6827a808b346142ad3a99cbe6eaf8f9a79a477b537052",
+    "glbridge/ddrawproxy/ddraw.dll": "b751b3dbb47de7a6a6ba9ddf4f3647bb5674754833fcaa97ef68c3c2b790d599",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "fee539eb6825d11f199193bd0d466776b660ba6316ecdc5da480cf6b2e418412",
+    "glbridge/d3d8proxy/d3d8.dll": "d461f60d6a187688c5e542fbd7a055d2ac537502bd24b66c973ab7aabe1e6856",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "9484b05b769f9047b4d5ed2a68a7b8ec1edef3e0c2a508f61f18fa0d28003d02",
+    "glbridge/d3d9proxy/d3d9.dll": "291dfa04f3e94eec1dce4fc9157c0fee16df0d86ca870b2a63ddbd91d3dc4641"
+  },
+  "build": "Host graphics assets and local tools ISO rebuilt; guest source unchanged; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ]
+}

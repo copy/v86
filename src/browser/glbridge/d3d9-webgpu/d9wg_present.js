@@ -9,6 +9,7 @@
 
             retireDeviceBackBuffer(state) {
                 if (this.backBufferTexture === state.backBufferTexture) this.retireActiveSessionBackBuffer();
+                this.retireColorPromotions(state);
                 this.retireGPUObject(state.backBufferTexture);
                 state.backBufferTexture = state.backBufferView = state.backBufferSrgbView = null;
                 state.backBufferTextureWidth = state.backBufferTextureHeight = 0;
@@ -73,6 +74,7 @@
                     return this.selectDeviceBackBuffer(state);
                 // A resize discards the contents, which is what D3D9 does too: the
                 // back buffer is undefined across a Reset that changes its size.
+                this.retireColorPromotions(state);
                 this.retireGPUObject(state.backBufferTexture);
                 state.backBufferTexture = this.device.createTexture({
                     label: "D3D9 back buffer",
@@ -128,6 +130,7 @@
 
 
             configureBackBufferMSAA(state, width, height, type, quality) {
+                this.retireColorPromotions(state);
                 this.retireGPUObject(state.backBufferMsaaTexture);
                 state.backBufferMsaaTexture = null;
                 state.backBufferMsaaView = null;
@@ -153,7 +156,7 @@
                         ? { viewFormats: [this.swapchainSrgbFormat] } : {}),
                     mipLevelCount: 1,
                     sampleCount: state.sampleCount,
-                    usage: TEXTURE_USAGE_RENDER_ATTACHMENT,
+                    usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING,
                 };
                 state.backBufferMsaaTexture = this.device.createTexture(descriptor);
                 state.backBufferMsaaView = state.backBufferMsaaTexture.createView();

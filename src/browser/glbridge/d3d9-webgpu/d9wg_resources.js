@@ -111,6 +111,7 @@
 
             retireResourceState(resource) {
                 if (!resource) return;
+                this.retireColorPromotions(resource);
                 this.retireGPUObject(resource.gpuBuffer);
                 this.retireGPUObject(resource.stripIndexBuffer);
                 this.retireGPUObject(resource.gpuTexture);
@@ -417,7 +418,7 @@
                         ...(srgbFormat ? { viewFormats: [srgbFormat] } : {}),
                         mipLevelCount: 1,
                         sampleCount,
-                        usage: TEXTURE_USAGE_RENDER_ATTACHMENT,
+                        usage: TEXTURE_USAGE_RENDER_ATTACHMENT | TEXTURE_USAGE_TEXTURE_BINDING,
                     };
                     msaaTexture = this.createTextureOrNull(msaaDescriptor, format);
                     if (!msaaTexture) {

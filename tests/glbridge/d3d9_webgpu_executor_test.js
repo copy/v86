@@ -4687,27 +4687,25 @@ await test("an oversized depth surface still depth-tests a smaller target",
 
     assert.equal(executor.stats.droppedDraws, 0);
     assert.equal(executor.stats.commandsFailed, 0);
-    assert.equal(executor.stats.depthTargetSubstitutions, 1);
-    // The point of the substitution: the pass keeps depth testing. Running it
-    // with no depth attachment lets every blended draw paint over geometry
-    // that should have occluded it, which reads as a washed-out translucent
-    // frame rather than as an error.
-    const pass = fake.calls.filter(call => call[0] === "beginRenderPass")
-        .map(call => call[1])
-        .find(descriptor => descriptor.depthStencilAttachment);
-    assert.ok(pass, "the half-resolution pass must still have depth");
-    const substitute = fake.calls.filter(call => call[0] === "createTexture")
-        .find(call => call[1].label &&
-            call[1].label.startsWith("D3D9 substitute depth"));
-    assert.ok(substitute, "a matching depth texture has to be allocated");
-    assert.equal(substitute[1].size.width, 320);
-    assert.equal(substitute[1].size.height, 240);
-    // Nothing was lost -- the draw did not depth-test against contents an
-    // earlier pass wrote -- so the substitution must not be reported as one.
-    assert.equal(executor.stats.depthTargetSubstitutionsUncleared, 0);
+    assert.equal(executor.stats.depthTargetSubstitutions, 0);
+    assert.equal(executor.stats.colorTargetPromotions, 1);
+    const passes = fake.calls.filter(call => call[0] === "beginRenderPass").map(call => call[1]);
+    const pass = passes.find(descriptor => descriptor.depthStencilAttachment);
+    assert.equal(pass.depthStencilAttachment.view.texture, executor.resources.get(0xC01).gpuTexture,
+        "the original shared depth storage must remain attached");
+    const adapter = fake.calls.find(call => call[0] === "createTexture" && call[1].label?.startsWith("D3D9 color extent adapter"));
+    assert.equal(adapter[1].size.width, 640);assert.equal(adapter[1].size.height, 480);
+    assert.equal(adapter[1].format, "rgba16float");
+    assert.equal(executor.stats.colorExtentCopies, 2);
+    const copies = fake.calls.filter(call => call[0] === "copyTextureToTexture");
+    const target = executor.resources.get(0xC02).gpuTexture;
+    assert(copies.some(call => call[1].texture === target && call[2].texture === adapter[2]));
+    assert(copies.some(call => call[1].texture === adapter[2] && call[2].texture === target));
+    executor.retireResourceState(executor.resources.get(0xC02));fake.completeSubmittedWork();await settle();
+    assert.equal(adapter[2].destroyed, true, "temporary color storage is released with the target");
 });
 
-await test("an uncleared oversized-depth pass is reported, a cleared one is not",
+await test("cleared and uncleared oversized-depth passes retain the original storage",
         async () => {
     const D3DUSAGE_DEPTHSTENCIL = 2;
     const D3DUSAGE_RENDERTARGET = 1;
@@ -4730,8 +4728,7 @@ await test("an uncleared oversized-depth pass is reported, a cleared one is not"
         command(OP.SET_DEPTH_STENCIL_SURFACE_LEVEL, encodePayload("SetDepthStencilSurfaceLevel", { device_handle: DEVICE, depth_texture_handle: 0xF01, depth_level: 0, width: 640, height: 480 })),
     ];
 
-    // Clearing depth on entry is what render-to-texture does, and it makes the
-    // stand-in exactly equivalent to the surface it replaced.
+    // A small clear changes only the logical target region of shared depth.
     {
         const { executor } = makeExecutor();
         await executor.submit(buildBatch([
@@ -4743,13 +4740,12 @@ await test("an uncleared oversized-depth pass is reported, a cleared one is not"
         await executor.idle();
         // Counted per target resolution, and both the Clear and the draw
         // resolve, so the interesting number is the second one.
-        assert.ok(executor.stats.depthTargetSubstitutions >= 1);
+        assert.ok(executor.stats.colorTargetPromotions >= 1);
         assert.equal(executor.stats.depthTargetSubstitutionsUncleared, 0,
-            "a cleared substitute loses nothing and must stay quiet");
+            "no lossy depth substitution remains");
     }
 
-    // Depth-testing without clearing reads a stand-in that never received what
-    // an earlier pass wrote, which is the case worth reporting.
+    // No clear is needed to retain existing shared depth contents.
     {
         const { executor } = makeExecutor();
         await executor.submit(buildBatch([
@@ -4758,8 +4754,17 @@ await test("an uncleared oversized-depth pass is reported, a cleared one is not"
             command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 640, height: 480 })),
         ], { present: true }));
         await executor.idle();
-        assert.equal(executor.stats.depthTargetSubstitutionsUncleared, 1);
+        assert.equal(executor.stats.depthTargetSubstitutionsUncleared, 0);
+        assert.equal(executor.stats.colorTargetPromotions, 1);
     }
+});
+
+await test("multisample extent-copy pipelines are recreated after device loss", async () => {
+    const {executor}=makeExecutor();await executor.initialize();
+    const first=executor.multisampleCopyPipelineFor("rgba8unorm",4);
+    assert.equal(executor.multisampleCopyPipelineFor("rgba8unorm",4),first);
+    executor.recoverDevice();assert.equal(executor.multisampleCopyPipelines,null);
+    await executor.initialize();assert.notEqual(executor.multisampleCopyPipelineFor("rgba8unorm",4),first);
 });
 
 await test("an autogen texture allocates the chain and fills it after a write",
@@ -4899,7 +4904,7 @@ await test("an autogen chain is regenerated only when level 0 changes",
     assert.equal(executor.stats.mipChainsGenerated, 2);
 });
 
-await test("two depth surfaces of one size get separate substitutes",
+await test("two depth surfaces retain distinct storage while reusing one color adapter",
         async () => {
     const D3DUSAGE_DEPTHSTENCIL = 2;
     const D3DUSAGE_RENDERTARGET = 1;
@@ -4909,9 +4914,8 @@ await test("two depth surfaces of one size get separate substitutes",
     await executor.submit(buildBatch([
         command(OP.CREATE_DEVICE, createDevicePayload(640, 480, 0)),
         command(OP.CREATE_BUFFER, createBufferPayload(0x201, 1, 96)),
-        // Two full-size depth surfaces, two half-size targets. Sharing one
-        // substitute across both passes would let them depth-test against
-        // each other's fragments.
+        // Distinct depth surfaces must remain distinct even when the color
+        // adapter is reused by consecutive passes.
         command(OP.CREATE_TEXTURE_2D,
             encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0xD01, width: 640, height: 480, level_count: 1, format: D3DFMT_D24S8, usage: D3DUSAGE_DEPTHSTENCIL, pool: 0, multisample_type: 0, multisample_quality: 0 })),
         command(OP.CREATE_TEXTURE_2D,
@@ -4931,11 +4935,11 @@ await test("two depth surfaces of one size get separate substitutes",
     await executor.idle();
 
     assert.equal(executor.stats.droppedDraws, 0);
-    assert.equal(executor.stats.depthTargetSubstitutions, 2);
-    const substitutes = find("createTexture").filter(call =>
-        call[1].label && call[1].label.startsWith("D3D9 substitute depth"));
-    assert.equal(substitutes.length, 2,
-        "each depth surface needs its own stand-in, not one shared by size");
+    assert.equal(executor.stats.depthTargetSubstitutions, 0);
+    const adapters = find("createTexture").filter(call => call[1].label?.startsWith("D3D9 color extent adapter"));
+    assert.equal(adapters.length, 1, "reuse the color allocation across depth bindings");
+    const depths = find("beginRenderPass").map(call => call[1].depthStencilAttachment?.view.texture).filter(Boolean);
+    assert.deepEqual(depths, [executor.resources.get(0xD01).gpuTexture, executor.resources.get(0xD02).gpuTexture]);
 });
 
 await test("packed 4:2:2 and RGBG formats expand two pixels per block",
@@ -5354,7 +5358,11 @@ await test("HDR render targets use a blendable rgba16float attachment",
     assert.ok(texture[1].usage & 0x10,
         "the HDR texture must carry RENDER_ATTACHMENT usage");
     assert.ok(find("beginRenderPass").some(call =>
-        call[1].colorAttachments?.[0]?.view?.texture === texture[2]));
+        call[1].colorAttachments?.[0]?.view?.format === "rgba16float"));
+    assert.ok(find("beginRenderPass").some(call =>
+        call[1].colorAttachments?.[0]?.view?.texture === texture[2] &&
+        call[1].colorAttachments[0].loadOp === "clear"),
+        "a color-only clear must write the actual HDR target directly");
 });
 
 await test("FP32 textures use unfilterable bindings on baseline WebGPU",

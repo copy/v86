@@ -137,6 +137,7 @@
                 // WebGPU expresses a clear only as a pass's loadOp.
                 let pass = null;
                 let openKey = null;
+                let openTargets = null;
                 /*
                  * Everything below is *pass* state in WebGPU: a setX persists
                  * until it is changed or the pass ends, so re-issuing an
@@ -183,11 +184,15 @@
                     if (!pass) return;
                     endOcclusionSegment();
                     pass.end();
+                    executor.restoreColorPromotions(encoder, openTargets);
+                    openTargets = null;
                     pass = null;
                     openKey = null;
                 };
                 const beginPass = (targets, clearColor, clearDepthStencil) => {
                     if (!clearColor) executor.unresolveStale(encoder, targets, swapView);
+                    executor.prepareColorPromotions(encoder, targets);
+                    openTargets = targets;
                     const descriptor = {
                         colorAttachments: targets.colors.map(color => color && {
                             ...executor.colorAttachmentFor(color, swapView, swapSrgbView),

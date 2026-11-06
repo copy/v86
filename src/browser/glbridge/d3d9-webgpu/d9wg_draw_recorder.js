@@ -101,12 +101,6 @@
                 // so a fan is already an ordinary triangle list by the time it
                 // arrives.
                 geometry = this.applyFillMode(state, geometry) || geometry;
-                // A draw against a stand-in depth attachment that nothing cleared
-                // is the one case where standing in changed the image; anything
-                // else has no earlier contents to have lost.
-                if (targets.substituteDepth &&
-                        (state.renderStates.get(D3DRS_ZENABLE) || 0) !== 0)
-                    this.noteSubstituteDepthUse(targets, false);
                 const pipelineState = this.pipelineStateFor(state, targets);
                 // A point-list that came from D3DFILL_POINT is not a point
                 // sprite: sprite expansion is what D3DRS_POINTSPRITEENABLE asks
