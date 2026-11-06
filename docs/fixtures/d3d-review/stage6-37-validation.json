@@ -1,0 +1,310 @@
+{
+  "batch": "stage6-37",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; complete Wine acceptance remains FAIL",
+  "changes": [
+    "Size vertex float/integer/Boolean banks and state-block storage for hardware or software/mixed devices; expose 8192 software float constants with mixed hardware caps retained.",
+    "Specialize cached relative addressing for device constant capacity; extended register files use read-only storage when larger than the uniform limit; support all four float banks and shader-local DEF precedence.",
+    "Reject first hardware draw with a software-only VS, retain its API ownership, use fixed function on following hardware draws and restore the shader on software mode switch; failed transport leaves mode/binding unchanged.",
+    "Adapt extracted native fixtures to current capacities and previously implemented viewport/frequency/memory behavior; preserve independent assertions."
+  ],
+  "checks": {
+    "executor": {
+      "sha256": "0253f4a6dc9a9daa2cffd603f951397be891c3c42592f6bcd6ac67afe4d7f1a8",
+      "output": "184 executor tests passed"
+    },
+    "shader": {
+      "sha256": "8c51a18af76ed07310ddb62bf82f060da0e76a796dde21f8ed5d539712ebe7bb",
+      "output": "53 shader pipeline tests passed"
+    },
+    "native-ownership": {
+      "sha256": "7ea41fe6370c83786ccc65b0c7dfffd0a80c5b8eeac79f6661941496239f13ce",
+      "output": "PASS actual D3D9 texture bindings: 97024 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 cube bindings: 112384 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, six actual cached face constructors and shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 volume bindings: 60032 checks, 768 pool/order profiles, 6144 public-zero revivals, 64 mixed-kind replacement cycles; four sampler slots, two cached volume levels, shared public parent count, exact device pins, public-only Reset blockers and complete final-owner cleanup\nPASS actual D3D9 buffer bindings: 91904 checks, 1024 pool/order profiles, 16384 public-zero revivals; three VB stream slots and one IB slot, exact public/device refs, getter offsets, DEFAULT locks, UP cleanup, shadow/clip teardown and complete final-owner cleanup\nPASS actual D3D9 declaration/shader bindings: 198400 checks, 1024 final-owner profiles, 24576 public-zero QI revivals; exact public/device refs, metadata, getters, FVF, reset-style clear/rebind and complete storage teardown\nPASS actual D3D9 stateblock private bindings: 161364 checks, 512 pool/final-owner profiles, 4096 capture/clear/apply cycles; eight resource families, recorded replacement/FVF, public-zero storage, recording guards, recapture retirement and unfinished-recording cleanup\nPASS actual D3D9 external-child device state: 111616 checks, 2048 pool/anchor/final-owner profiles, 2048 GetDevice recoveries; eight public anchor families preserve all live slots and scalar state, recording stays private until End, exact device pins and final cleanup\nPASS actual D3D9 stream metadata: 40960 checks, 512 pool/slot profiles, 4096 NULL preserves and 512 recorded NULL/capture/apply sequences; ignored incoming metadata, live recording source, exact internal restoration, duplicate filtering, successful-UP zeroing and private storage cleanup\nPASS actual D3D9 FVF declaration cache: 116928 checks, 128 final-owner profiles, 8192 cached switches, 16384 public-zero revivals; six independent layouts, exact identity and device pins, zero no-op, recorded/captured FVF, reset-style retention, atomic failures and idempotent cache teardown\nPASS actual D3D9 user declaration FVF: 63488 checks, 128 owner profiles, 8192 collision pairs; twenty positive/negative layouts, conservative guards, both cache creation orders, stateblock private lifetime and exact final cleanup\nPASS actual D3D9 target bindings: 1058446 checks, 16 lifecycle groups, 1024 public-zero revivals; actual RT/depth setters/getters, one/two internal slots, one public device pin, public-only Reset blockers, same-object rebinding and unbind/device-first/last-public cleanup"
+    },
+    "native-software": {
+      "sha256": "0a67b3cd957581dfe5eeca5cca898a10ae5d56847ed4362fd479bec19e1a44d8",
+      "output": "PASS actual software constants/modes: 14894 checks; full banks, boundaries, Boolean normalization, dynamic state block allocation/recording, live isolation, hardware fallback, mode restoration and failed transport atomicity"
+    },
+    "native-mutants": {
+      "sha256": "1709102f50a15a426d5c032d2aeec1f377095eed727f0e2dcf2399f1e46489fb",
+      "output": "PASS native software constant mutations: 6/6 capacity, normalization, allocation bounds, binding lifetime and failed mode-switch atomicity defects detected"
+    },
+    "gpu-mutants": {
+      "sha256": "5f0610d73b5cfe1bed9d9be82fe4aa50a51f47e055cc9c7b6b12fcc942be2f22",
+      "output": "PASS software constants GPU mutations: 4/4 float/integer/Boolean bank truncation and relative address clamp detected by pixels without GPU errors"
+    },
+    "methods": {
+      "sha256": "4555ca2ca12db94cde77084a347e2eb232cdba98e7a52e483fdefaae361c7dc7",
+      "output": "PASS actual core8 device method policies: 56505 checks / 5686 cases; 128MiB8/256MiB9,profile/type selector,96VS/8PS bounds andempty calls,legacy8 versusordinary9 pure queries,bit-exact signedzero/NaN/Inf/subnormal CPU+wire,duplicate suppression,recording isolation andcommitted transport failures;five policy thunks+realcoreconstant methods,full57table coveredseparately bySDK/XP"
+    },
+    "recording": {
+      "sha256": "b07ae79d435d5a23b40b82106fc03140b14d764e974dc6202e72f236d79dffc7",
+      "output": "PASS actual D3D9 scalar C recording: live queries, all 266 matrices, ordered Multiply, RS/TSS/sampler/viewport/material/planes/scissor/NPatch/frequency, six constant banks, invalid atomicity and live Multiply emissions"
+    },
+    "scope": {
+      "sha256": "f520c3b82904ed2e55da8c94c88f5707e629464171892a9f74b9225e5a6442aa",
+      "output": "PASS actual D3D8/9 predefined C scopes: independent Wine/SDK RS tables, overlapping texture classes, sampler split, ALL-only resources/material/planes, independent frequency, known lights and all 266 transforms"
+    },
+    "replay": {
+      "sha256": "f294ba644f03ab37f171d904a43ff4ed538bcb9e9a38826c5ec73cd5e584101f",
+      "output": "PASS actual shared state replay: 1532 checks / 352 injected failures; every setter family, first-error stop, exact executed prefix, API8 raw overrides and index commit notification"
+    },
+    "gamma": {
+      "sha256": "d9761f12d09ce85964c0fbd248d7be6859ac5d17154e384815837188642c00b2",
+      "output": "PASS actual API 8 gamma: 21 identity, exact 16-bit RGB/flags, copied storage, NULL/chain/recording, failed-submit cache, same-value retry and actual Reset replay cases\nPASS actual API 9 gamma: 23 identity, exact 16-bit RGB/flags, copied storage, NULL/chain/recording, failed-submit cache, same-value retry and actual Reset replay cases"
+    },
+    "build-all": {
+      "sha256": "c756e2beb0885373b81b76336381f9b826cebff56179d8b5c26e049f95197192",
+      "output": "Built /tmp/d3d-stage6-batch37-publish/ddraw.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt diagnostic /tmp/d3d-stage6-batch37-publish/ddraw-diagnostic.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt private D3D9 core /var/folders/27/s5frsjn90q1f8pxgj82fvmp80000gn/T//d9wg-link.QyBnuM/libd9wg_d3d9.a\nBuilt /tmp/d3d-stage6-batch37-publish/d3d8.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt private diagnostic D3D9 core /var/folders/27/s5frsjn90q1f8pxgj82fvmp80000gn/T//d9wg-link.7MAx4n/libd9wg_d3d9.a\nBuilt diagnostic /tmp/d3d-stage6-batch37-publish/d3d8-diagnostic.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt /tmp/d3d-stage6-batch37-publish/d3d9.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt diagnostic /tmp/d3d-stage6-batch37-publish/d3d9-diagnostic.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll"
+    },
+    "integration": {
+      "sha256": "ea368e0f8e20bd7d3f7d7a2aa861dc206015f570e0dd48f78d8edb8886690da7",
+      "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (3.284333ms)\n✔ rapid launches wait for the previous canvas/device teardown (3.607292ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 103.826166"
+    },
+    "gpu": {
+      "sha256": "64f18e34c81b99e1f2ed38635fa1c85731ef475f7543bc856190a9dfb69db7b8",
+      "status": "PASS",
+      "details": "PASS 84 cases\nok    extended VS flags=32 c255 relative=false local=false\nok    extended VS flags=32 c255 relative=false local=true\nok    extended VS flags=32 c255 relative=true local=false\nok    extended VS flags=32 c255 relative=true local=true\nok    extended VS flags=32 c256 relative=false local=false\nok    extended VS flags=32 c256 relative=false local=true\nok    extended VS flags=32 c256 relative=true local=false\nok    extended VS flags=32 c256 relative=true local=true\nok    extended VS flags=32 c2047 relative=false local=false\nok    extended VS flags=32 c2047 relative=false local=true\nok    extended VS flags=32 c2047 relative=true local=false\nok    extended VS flags=32 c2047 relative=true local=true\nok    extended VS flags=32 c2048 relative=false local=false\nok    extended VS flags=32 c2048 relative=false local=true\nok    extended VS flags=32 c2048 relative=true local=false\nok    extended VS flags=32 c2048 relative=true local=true\nok    extended VS flags=32 c4095 relative=false local=false\nok    extended VS flags=32 c4095 relative=false local=true\nok    extended VS flags=32 c4095 relative=true local=false\nok    extended VS flags=32 c4095 relative=true local=true\nok    extended VS flags=32 c4096 relative=false local=false\nok    extended VS flags=32 c4096 relative=false local=true\nok    extended VS flags=32 c4096 relative=true local=false\nok    extended VS flags=32 c4096 relative=true local=true\nok    extended VS flags=32 c6143 relative=false local=false\nok    extended VS flags=32 c6143 relative=false local=true\nok    extended VS flags=32 c6143 relative=true local=false\nok    extended VS flags=32 c6143 relative=true local=true\nok    extended VS flags=32 c6144 relative=false local=false\nok    extended VS flags=32 c6144 relative=false local=true\nok    extended VS flags=32 c6144 relative=true local=false\nok    extended VS flags=32 c6144 relative=true local=true\nok    extended VS flags=32 c8191 relative=false local=false\nok    extended VS flags=32 c8191 relative=false local=true\nok    extended VS flags=32 c8191 relative=true local=false\nok    extended VS flags=32 c8191 relative=true local=true\nok    extended VS flags=128 c255 relative=false local=false\nok    extended VS flags=128 c255 relative=false local=true\nok    extended VS flags=128 c255 relative=true local=false\nok    extended VS flags=128 c255 relative=true local=true\nok    extended VS flags=128 c256 relative=false local=false\nok    extended VS flags=128 c256 relative=false local=true\nok    extended VS flags=128 c256 relative=true local=false\nok    extended VS flags=128 c256 relative=true local=true\nok    extended VS flags=128 c2047 relative=false local=false\nok    extended VS flags=128 c2047 relative=false local=true\nok    extended VS flags=128 c2047 relative=true local=false\nok    extended VS flags=128 c2047 relative=true local=true\nok    extended VS flags=128 c2048 relative=false local=false\nok    extended VS flags=128 c2048 relative=false local=true\nok    extended VS flags=128 c2048 relative=true local=false\nok    extended VS flags=128 c2048 relative=true local=true\nok    extended VS flags=128 c4095 relative=false local=false\nok    extended VS flags=128 c4095 relative=false local=true\nok    extended VS flags=128 c4095 relative=true local=false\nok    extended VS flags=128 c4095 relative=true local=true\nok    extended VS flags=128 c4096 relative=false local=false\nok    extended VS flags=128 c4096 relative=false local=true\nok    extended VS flags=128 c4096 relative=true local=false\nok    extended VS flags=128 c4096 relative=true local=true\nok    extended VS flags=128 c6143 relative=false local=false\nok    extended VS flags=128 c6143 relative=false local=true\nok    extended VS flags=128 c6143 relative=true local=false\nok    extended VS flags=128 c6143 relative=true local=true\nok    extended VS flags=128 c6144 relative=false local=false\nok    extended VS flags=128 c6144 relative=false local=true\nok    extended VS flags=128 c6144 relative=true local=false\nok    extended VS flags=128 c6144 relative=true local=true\nok    extended VS flags=128 c8191 relative=false local=false\nok    extended VS flags=128 c8191 relative=false local=true\nok    extended VS flags=128 c8191 relative=true local=false\nok    extended VS flags=128 c8191 relative=true local=true\nok    extended integer/boolean flags=32 i15 b15 enabled=false\nok    extended integer/boolean flags=32 i15 b15 enabled=true\nok    extended integer/boolean flags=32 i16 b16 enabled=false\nok    extended integer/boolean flags=32 i16 b16 enabled=true\nok    extended integer/boolean flags=32 i2047 b2047 enabled=false\nok    extended integer/boolean flags=32 i2047 b2047 enabled=true\nok    extended integer/boolean flags=128 i15 b15 enabled=false\nok    extended integer/boolean flags=128 i15 b15 enabled=true\nok    extended integer/boolean flags=128 i16 b16 enabled=false\nok    extended integer/boolean flags=128 i16 b16 enabled=true\nok    extended integer/boolean flags=128 i2047 b2047 enabled=false\nok    extended integer/boolean flags=128 i2047 b2047 enabled=true"
+    }
+  },
+  "d3d8Audit": {
+    "directory": "stage6-wine8-software-constants",
+    "summary": {
+      "checks": 143726,
+      "todos": 0,
+      "flaky": 0,
+      "failures": 2,
+      "skipped": 14
+    },
+    "exit": 2,
+    "observedFailures": 2,
+    "failureGroups": {
+      "test_map_synchronisation": 2
+    },
+    "partialLog": false,
+    "gpuErrors": [],
+    "hostErrors": [],
+    "normalOwnerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "forcedOwnerCleanup": [],
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "c1816ddaa85d26d243713b27ed81b39a44ac7eb19602f4275cd24d4ca2dab1e0",
+      "executableSha256": "18ec7477733f1bad09512b46008b5bab20b346f01b0166aac949d8d409c30169",
+      "rendererPageSha256": "f63f6b2bc270cbab906a825d2f3d67c4421ee5123ee43895fdbc1d70ab8f72b2",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "a06db8e78326d6c094c1576719e7e12274e19a8d4e9f982707a75b6e18592586",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "4e847cd73b90c4552b0dc07ebcc50c99912fc0783c5781d4004b65e20eac8b81",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "96ab059177fe9a6b76192de0e80a468ac7a87e2ad419a50fbcccd970a805e146",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "d5c04d487d2c1444f5930690c07bbe4027725e54474c425737c909087f12b6f9",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "WINE.TXT": "8e7474ec9dd4926d704fc93eec91b09bf722eac4acc7269711deb560c5197af3",
+      "probe-failure.json": "af10dde8be08d8e2b33f016c3b8e6e81f0cdf8c077f1aa6ae85af3b379172e12",
+      "source.json": "ed17ef8b46833d38146a53067f40cb9938785d81d641c0a3db4f0ef7ddd5e4f1",
+      "live-gpu.json": "b58094bfc6b29ac36dab5c7124c04e149219eabf7e1c84e9abe2782e27f5f75e",
+      "audit-groups.json": "b884c31b160965953245db8fe45f5bffba538ca5c37f132c69c5ef8758c4895f"
+    }
+  },
+  "d3d9DeviceAudit": {
+    "directory": "stage6-wine9-device-software-constants",
+    "summary": {
+      "checks": 157734,
+      "todos": 0,
+      "flaky": 0,
+      "failures": 23,
+      "skipped": 9
+    },
+    "exit": 23,
+    "observedFailures": 23,
+    "failureGroups": {
+      "test_wndproc": 3,
+      "test_multi_device": 1,
+      "test_wndproc_windowed": 4,
+      "test_window_style": 5,
+      "test_occlusion_query": 3,
+      "test_lost_device": 3,
+      "test_resource_access": 2,
+      "test_window_position": 2
+    },
+    "partialLog": false,
+    "gpuErrors": [],
+    "hostErrors": [],
+    "normalOwnerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "forcedOwnerCleanup": [],
+    "source": {
+      "suite": "d3d9_device",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_device.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+        "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+      },
+      "dllSha256": "af53b8a80e7c03d093f5ba36ecd7d766c09316d5c0fbe9b6c0889bacc7683452",
+      "executableSha256": "10bf1804977b8b884d372d6ab988b7f8d7d2c9598ff4f1afe2773676bf70277b",
+      "rendererPageSha256": "f63f6b2bc270cbab906a825d2f3d67c4421ee5123ee43895fdbc1d70ab8f72b2",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "a06db8e78326d6c094c1576719e7e12274e19a8d4e9f982707a75b6e18592586",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "4e847cd73b90c4552b0dc07ebcc50c99912fc0783c5781d4004b65e20eac8b81",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "96ab059177fe9a6b76192de0e80a468ac7a87e2ad419a50fbcccd970a805e146",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "d5c04d487d2c1444f5930690c07bbe4027725e54474c425737c909087f12b6f9",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "WINE.TXT": "7633f1fc4c81207ba4315b5d89562eff64bb73f0f8c61537c5d83174baa61e80",
+      "probe-failure.json": "723a6264999333f6043b20ff06926af938adf2774368770f204988adbdc0a620",
+      "source.json": "458fe2cd5ffd2953447aa02742ecd0b062531e1dd0f1a1e3f4b048bf120008c2",
+      "live-gpu.json": "5e45fad595b11e16a6b85d26bad58df9b24e1be95a9c24b015ece1b0d1d2b26e",
+      "audit-groups.json": "5c80f85019f01470893e2c027092c88927e1b22326709935bde9b561fd946d74"
+    }
+  },
+  "d3d9VisualAudit": {
+    "directory": "stage6-wine9-visual-software-constants",
+    "summary": null,
+    "exit": null,
+    "observedFailures": 326,
+    "failureGroups": {
+      "stretchrect_test": 27,
+      "color_fill_test": 54,
+      "test_generate_mipmap": 2,
+      "texbem_test": 4,
+      "unbound_sampler_test": 3,
+      "test_fetch4": 160,
+      "shadow_test": 28,
+      "update_surface_test": 2,
+      "volume_srgb_test": 2,
+      "test_position_index": 2,
+      "test_updatetexture": 9,
+      "test_depthbias": 20,
+      "test_uninitialized_varyings": 2,
+      "test_null_format": 5,
+      "test_map_synchronisation": 2,
+      "test_nrm_instruction": 2,
+      "test_mismatched_sample_types": 2
+    },
+    "partialLog": true,
+    "gpuErrors": [
+      {
+        "source": "uncaptured",
+        "message": "Error while parsing WGSL: :28:111 error: invalid vector swizzle character\n    let tex0 = textureSampleBias(d9_tex0, d9_smp0, (stage_in.varying2.xy / (select(-max(abs(stage_in.varying2.undefined), 1e-6), max(abs(stage_in.varying2.undefined), 1e-6), stage_in.varying2.undefined >= 0.0))), uniforms.sampler_lod_bias[0][0]);\n                                                                                                              ^\n\n\n - While calling [Device].CreateShaderModule([ShaderModuleDescriptor \"\"d3d9 ffpixel:[{\"stages\":[{\"index\":0,\"colorOp\":2,\"colorArg0\":1,\"colorArg1\":2,\"colorArg2\":1,\"alphaOp\":2,\"alphaArg0\":1,\"alphaArg1\":2,\"alphaArg2\":1,\"resultArg\":1,\"usesConstant\":false,\"samplesTexture\":true,\"textureType\":\"2d\",\"transformCount\":255,\"projected\":true,\"addressU\":1,\"addressV\":1,\"addressW\":1,\"borderColor\":0,\"hasTextureBound\":true,\"sampleSwizzle\":\"\",\"colorKey\":null,\"texCoordIndex\":0,\"tciMode\":0,\"coordVarying\":0}],\"usesTextureFactor\":false,\"lodBiasUniforms\":true,\"fogMode\":0,\"tableFog\":false,\"screenDepthUnclipped\":false,\"alphaTest\":{\"enabled\":false,\"func\":8},\"clipPlaneCount\":0,\"specularEnable\":false,\"flatShading\":false},\"\"]\"\"]).\n"
+      },
+      {
+        "source": "render pipeline",
+        "message": "[Invalid ShaderModule \"d3d9 ffpixel:[{\"stages\":[{\"index\":0,\"colorOp\":2,\"colorArg0\":1,\"colorArg1\":2,\"colorArg2\":1,\"alphaOp\":2,\"alphaArg0\":1,\"alphaArg1\":2,\"alphaArg2\":1,\"resultArg\":1,\"usesConstant\":false,\"samplesTexture\":true,\"textureType\":\"2d\",\"transformCount\":255,\"projected\":true,\"addressU\":1,\"addressV\":1,\"addressW\":1,\"borderColor\":0,\"hasTextureBound\":true,\"sampleSwizzle\":\"\",\"colorKey\":null,\"texCoordIndex\":0,\"tciMode\":0,\"coordVarying\":0}],\"usesTextureFactor\":false,\"lodBiasUniforms\":true,\"fogMode\":0,\"tableFog\":false,\"screenDepthUnclipped\":false,\"alphaTest\":{\"enabled\":false,\"func\":8},\"clipPlaneCount\":0,\"specularEnable\":false,\"flatShading\":false},\"\"]\"] is invalid due to a previous error.\n - While validating fragment stage ([Invalid ShaderModule \"d3d9 ffpixel:[{\"stages\":[{\"index\":0,\"colorOp\":2,\"colorArg0\":1,\"colorArg1\":2,\"colorArg2\":1,\"alphaOp\":2,\"alphaArg0\":1,\"alphaArg1\":2,\"alphaArg2\":1,\"resultArg\":1,\"usesConstant\":false,\"samplesTexture\":true,\"textureType\":\"2d\",\"transformCount\":255,\"projected\":true,\"addressU\":1,\"addressV\":1,\"addressW\":1,\"borderColor\":0,\"hasTextureBound\":true,\"sampleSwizzle\":\"\",\"colorKey\":null,\"texCoordIndex\":0,\"tciMode\":0,\"coordVarying\":0}],\"usesTextureFactor\":false,\"lodBiasUniforms\":true,\"fogMode\":0,\"tableFog\":false,\"screenDepthUnclipped\":false,\"alphaTest\":{\"enabled\":false,\"func\":8},\"clipPlaneCount\":0,\"specularEnable\":false,\"flatShading\":false},\"\"]\"], entryPoint: \"d9_ps_main\").\n - While validating fragment state.\n - While calling [Device].CreateRenderPipeline([RenderPipelineDescriptor]).\n",
+        "details": {
+          "vertex": "ffvertex:[{\"positionType\":\"world\",\"hasColor\":false,\"colorIsBGRA\":false,\"hasColor1\":false,\"color1IsBGRA\":false,\"hasNormal\":true,\"hasPointSize\":false,\"texCoordSets\":[0],\"texCoordDimensions\":{\"0\":1},\"blendWeightType\":-1,\"blendIndicesType\":-1,\"position2Type\":-1,\"normal2Type\":-1,\"hasTexCoord\":true,\"screenDepthUnclipped\":false,\"pointExpansion\":false,\"pointSprite\":false,\"pointScale\":false,\"fogMode\":0,\"fogRange\":false,\"normalizeNormals\":false,\"lighting\":null,\"coordStages\":[{\"index\":0,\"texCoordIndex\":0,\"tciMode\":0,\"inputDimensions\":1,\"transformCount\":255,\"projected\":true}],\"clipPlaneCount\":0,\"vertexBlend\":null,\"needsViewSpace\":false,\"flatShading\":false},\"\"]",
+          "fragment": "ffpixel:[{\"stages\":[{\"index\":0,\"colorOp\":2,\"colorArg0\":1,\"colorArg1\":2,\"colorArg2\":1,\"alphaOp\":2,\"alphaArg0\":1,\"alphaArg1\":2,\"alphaArg2\":1,\"resultArg\":1,\"usesConstant\":false,\"samplesTexture\":true,\"textureType\":\"2d\",\"transformCount\":255,\"projected\":true,\"addressU\":1,\"addressV\":1,\"addressW\":1,\"borderColor\":0,\"hasTextureBound\":true,\"sampleSwizzle\":\"\",\"colorKey\":null,\"texCoordIndex\":0,\"tciMode\":0,\"coordVarying\":0}],\"usesTextureFactor\":false,\"lodBiasUniforms\":true,\"fogMode\":0,\"tableFog\":false,\"screenDepthUnclipped\":false,\"alphaTest\":{\"enabled\":false,\"func\":8},\"clipPlaneCount\":0,\"specularEnable\":false,\"flatShading\":false},\"\"]",
+          "topology": "triangle-strip"
+        }
+      },
+      {
+        "source": "frame",
+        "message": "[Invalid RenderPipeline (unlabeled)] is invalid due to a previous error.\n - While encoding [RenderPassEncoder (unlabeled)].SetPipeline([Invalid RenderPipeline (unlabeled)]).\n - While finishing [CommandEncoder (unlabeled)].\n",
+        "details": {
+          "ops": 2,
+          "present": false
+        }
+      }
+    ],
+    "hostErrors": [],
+    "normalOwnerCleanup": [],
+    "forcedOwnerCleanup": [],
+    "source": {
+      "suite": "d3d9_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+        "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+        "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+      },
+      "dllSha256": "93004f525237edbe67627041b3390c1911ac5eaae707264fcd9a454649bd13c6",
+      "executableSha256": "944fb7aa97a228d71b5770fa9b5c1a97d5152a81648a7b42e7cf246f70200c24",
+      "rendererPageSha256": "f63f6b2bc270cbab906a825d2f3d67c4421ee5123ee43895fdbc1d70ab8f72b2",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "a06db8e78326d6c094c1576719e7e12274e19a8d4e9f982707a75b6e18592586",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "4e847cd73b90c4552b0dc07ebcc50c99912fc0783c5781d4004b65e20eac8b81",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "96ab059177fe9a6b76192de0e80a468ac7a87e2ad419a50fbcccd970a805e146",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "d5c04d487d2c1444f5930690c07bbe4027725e54474c425737c909087f12b6f9",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "probe-failure.json": "26de342bb39d60badc78c3151e18e889bbd08069ad2e74056f5ba4ff4fa308cd",
+      "source.json": "cadcfbeaf00d3dd88fe4301b0aea866a186e32f5922bd6dc6778a7acc4082fa3",
+      "live-gpu.json": "801262a9d7fe94d6329adecd43d54f2cef65e94ffb8e8588938cccd672476a02",
+      "audit-groups.json": "5c07deb13d747c7bdd88e671829b20524142f0385f9083bea4d1725b360a8d7d"
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "47d14af5e186091fa9ff119692265f99704250d08fd348ba39b2b7ee59b696f5",
+    "glbridge/ddrawproxy/ddraw.dll": "a0a6ea7e6719ecfdf6ce3946818906ac55882392469a42de0c889dc8f2baade4",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "9643a4035d95667630baeb71ed590a92cc68b026c106185c25b434af6afb3138",
+    "glbridge/d3d8proxy/d3d8.dll": "c1816ddaa85d26d243713b27ed81b39a44ac7eb19602f4275cd24d4ca2dab1e0",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "09a7f50c67ec3199e125de062e312a4dbf919ff0ef82b8c6c5e9905454a9f4ad",
+    "glbridge/d3d9proxy/d3d9.dll": "af53b8a80e7c03d093f5ba36ecd7d766c09316d5c0fbe9b6c0889bacc7683452"
+  },
+  "sourceSha256": "42f749c81a71d821bbb40204c92f27c2f7d13601d42d75505cda358d4fc89f15",
+  "remaining": [
+    "D3D9 visual reached later texture-transform tests but malformed legacy transform flags generated an undefined WGSL swizzle; no complete summary or normal owner cleanup. The 326 observed failures are from a partial log, not a comparable suite total.",
+    "23 D3D9 device failures, 2 D3D8 visual failures and individual skip applicability remain; no outstanding failure waived.",
+    "3DMark performance comparisons deferred per user request."
+  ]
+}

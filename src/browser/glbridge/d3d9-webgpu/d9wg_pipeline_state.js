@@ -339,7 +339,8 @@
                 // numbering d3d9_shader_pipeline.js emits.
                 const bindGroupEntries = [
                     { binding: 0, visibility: SHADER_STAGE_VERTEX,
-                      buffer: { type: "uniform", hasDynamicOffset: true } },
+                      buffer: { type: program.vertexReflection && program.vertexReflection.constantBufferType || "uniform",
+                          hasDynamicOffset: true } },
                 ];
                 if (program.pixelUniformBytes)
                     bindGroupEntries.push({ binding: 1, visibility: SHADER_STAGE_FRAGMENT,

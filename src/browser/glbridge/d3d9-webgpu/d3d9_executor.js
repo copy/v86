@@ -725,6 +725,7 @@
     const BUFFER_USAGE_VERTEX = 0x20;
     const BUFFER_USAGE_INDEX = 0x10;
     const BUFFER_USAGE_UNIFORM = 0x40;
+    const BUFFER_USAGE_STORAGE = 0x80;
     const BUFFER_USAGE_COPY_SRC = 0x4;
     const BUFFER_USAGE_COPY_DST = 0x8;
     const BUFFER_USAGE_MAP_READ = 0x1;
@@ -1815,8 +1816,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return state;
         }
 
-        createDeviceState(handle, autoDepth = true) {
-            return stateFactory.createDeviceState(handle, DEVICE_STATE_CONSTANTS, autoDepth);
+        createDeviceState(handle, autoDepth = true, behaviorFlags = 0) {
+            const state = stateFactory.createDeviceState(handle, DEVICE_STATE_CONSTANTS, autoDepth);
+            if (behaviorFlags & (0x20 | 0x80)) {
+                state.vsConstF = new Float32Array(8192 * 4);
+                state.vsConstI = new Int32Array(2048 * 4);
+                state.vsConstB = new Uint32Array(2048);
+            }
+            return state;
         }
 
         createSessionState(key) {
@@ -2113,7 +2120,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 this.finishFrame(false);
                 this.retireDeviceState(previous, "replace");
             }
-            const state = this.createDeviceState(handle, enableAutoDepth !== 0);
+            const state = this.createDeviceState(handle, enableAutoDepth !== 0,
+                view.getUint32(offset + D9WG.F.CreateDevice.behavior_flags, true));
             this.devices.set(handle, state);
             state.viewport = { x: 0, y: 0, width, height, minZ: 0, maxZ: 1 };
             state.surface = { hwnd, x, y, width, height, visible: true,
@@ -2163,7 +2171,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
             // Reset changes the generation/defaults of an existing logical
             // device; it cannot introduce a previously unknown device.
-            const state = Object.assign(oldState, this.createDeviceState(newHandle, enableAutoDepth !== 0));
+            const state = Object.assign(oldState, this.createDeviceState(newHandle, enableAutoDepth !== 0,
+                view.getUint32(offset + D9WG.F.ResetDevice.behavior_flags, true)));
             this.devices.set(newHandle, state);
             state.viewport = { x: 0, y: 0, width, height, minZ: 0, maxZ: 1 };
             state.surface = { hwnd, x, y, width, height, visible: true,
@@ -4779,11 +4788,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 }
                 const legacyColorClamp = vsResource.translated.reflection.version.major >= 3 &&
                     (!pixelReflection || pixelReflection.version.major < 3);
+                const floatConstantCapacity = state.vsConstF.length / 4;
+                const extendedConstants = floatConstantCapacity > MAX_VS_CONST_F;
                 const variantKey = "b:" + bgra.join(",") + "|c:" +
                     conversionKey + pointKey + clipKey + vertexSwizzleKey + semanticKey +
+                    (extendedConstants ? "|fc:" + floatConstantCapacity : "") +
                     (legacyColorClamp ? "|legacy-color" : "") +
                     (flatShading ? "|flat" : "");
-                const needsVariant = bgra.length || conversionKey.length ||
+                const needsVariant = extendedConstants || bgra.length || conversionKey.length ||
                     !!drawOptions.pointExpansion || !!clipPlaneCount ||
                     !!vertexSwizzleKey || flatShading || legacyColorClamp || !!semanticLink;
                 let variant = vsResource.variants.get(variantKey);
@@ -4793,7 +4805,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             { bgraInputLocations: bgra, inputConversions, samplerSwizzles: vertexSwizzles,
                               pointExpansion: !!drawOptions.pointExpansion,
                               pointSprite: !!drawOptions.pointSprite,
-                              clipPlaneCount, flatShading, legacyColorClamp, semanticLink })
+                              clipPlaneCount, flatShading, legacyColorClamp, semanticLink, floatConstantCapacity })
                         : vsResource.translated;
                     vsResource.variants.set(variantKey, variant);
                     if (needsVariant && variant.ok)
@@ -5222,7 +5234,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 chunk = this.device.createBuffer({
                     label: "D3D9 uniform ring " + index,
                     size: this.uniformRingCapacity,
-                    usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST,
+                    usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_STORAGE | BUFFER_USAGE_COPY_DST,
                 });
                 this.uniformRingChunks[index] = chunk;
                 this.uniformStaging[index] =
@@ -5268,7 +5280,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const buffer = this.device.createBuffer({
                 label: "D3D9 uniform ring overflow",
                 size,
-                usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_COPY_DST,
+                usage: BUFFER_USAGE_UNIFORM | BUFFER_USAGE_STORAGE | BUFFER_USAGE_COPY_DST,
             });
             ++this.stats.uniformRingOverflows;
             // Replay-time utility passes retire through their active frame;

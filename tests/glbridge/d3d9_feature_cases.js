@@ -1461,5 +1461,40 @@
         return commands;
         },probes:[[16,16],[48,16],[16,48],[48,48]].map((at,i)=>({at,expect:(indexed?(count>0&&(divisor===0?i===0:i<Math.ceil(count/divisor))):i===0)?[255,0,0,255]:[0,0,0,255]}))});
 
+    // Software/mixed VS register banks: direct banked addressing, relative
+    // addressing beyond uniform limits, local DEF precedence and draw ordering.
+    const swConstant = (dev, kind, start, values) => {
+        const schema = "SetShaderConstantF";
+        return cmd(P.OP["SET_VERTEX_SHADER_CONSTANT_" + kind], P.encode(schema, {
+            device_handle: dev, start_register: start, vector_count: values.length / (kind === "B" ? 1 : 4)
+        }), [blob(schema, "data_offset", Uint8Array.from(kind === "F" ? floats(...values) : le32(...values)))]);
+    };
+    const bankedConst = index => [index < 2048 ? R.CONST : index < 4096 ? R.CONST2 : index < 6144 ? R.CONST3 : R.CONST4, index & 2047];
+    for (const behaviorFlags of [0x20, 0x80]) for (const index of [255,256,2047,2048,4095,4096,6143,6144,8191])
+    for (const relative of [false,true]) for (const local of [false,true]) add("software-constants", {
+        name:`extended VS flags=${behaviorFlags} c${index} relative=${relative} local=${local}`, behaviorFlags,
+        body: dev => {
+            const reg=bankedConst(index),vs=dev+0x600000;
+            const instructions=[semanticDcl(0,0,R.INPUT,0),[S.MOV,dst(R.RASTOUT,0),src(R.INPUT,0)]];
+            if(local) instructions.push([S.DEF,dst(...reg),f(0),f(1),f(0),f(1)]);
+            if(relative) instructions.push([S.MOVA,dst(R.ADDR,0,1),src(R.CONST,0,0)],
+                [S.MOV,dst(R.ATTROUT,0),relativeToken(src(R.CONST,0)),src(R.ADDR,0,0)]);
+            else instructions.push([S.MOV,dst(R.ATTROUT,0),src(...reg)]);
+            return [vertexShader(dev,vs,legacyShader("vertex",2,instructions)),bindSemanticVS(dev,vs),rs(dev,7,0),rs(dev,22,1),
+                swConstant(dev,"F",0,[index,0,0,0]),swConstant(dev,"F",index,[1,0,0,1]),
+                ...drawXYZ(dev,fullXYZ(.5,0xffffffff).map(v=>[v[0]*.5-.5,...v.slice(1)])),
+                swConstant(dev,"F",index,[0,0,1,1]),
+                ...drawXYZ(dev,fullXYZ(.5,0xffffffff).map(v=>[v[0]*.5+.5,...v.slice(1)]))];
+        },probes:[{at:[16,32],expect:local?[0,255,0,255]:[255,0,0,255]},
+            {at:[48,32],expect:local?[0,255,0,255]:[0,0,255,255]}]});
+    for (const behaviorFlags of [0x20,0x80]) for (const index of [15,16,2047]) for(const enabled of [false,true])
+    add("software-constants",{name:`extended integer/boolean flags=${behaviorFlags} i${index} b${index} enabled=${enabled}`,behaviorFlags,
+        body:dev=>{const vs=dev+0x600000;return [vertexShader(dev,vs,legacyShader("vertex",2,[semanticDcl(0,0,R.INPUT,0),
+            [S.DEF,dst(R.CONST,0),f(1),f(0),f(0),f(1)],[S.MOV,dst(R.RASTOUT,0),src(R.INPUT,0)],
+            [S.MOV,dst(R.ATTROUT,0),src(R.CONST,0)],[S.IF,src(R.CONSTBOOL,index)],
+            [S.MOV,dst(R.ATTROUT,0),src(R.CONSTINT,index)],[S.ENDIF]])),bindSemanticVS(dev,vs),rs(dev,7,0),rs(dev,22,1),
+            swConstant(dev,"I",index,[0,1,0,1]),swConstant(dev,"B",index,[enabled?1:0]),...drawXYZ(dev,fullXYZ(.5,0xffffffff))];},
+        probes:[{at:[32,32],expect:enabled?[0,255,0,255]:[255,0,0,255]}]});
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

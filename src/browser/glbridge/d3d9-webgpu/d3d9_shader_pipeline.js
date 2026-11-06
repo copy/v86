@@ -596,7 +596,7 @@
                 return String(base);
             }
             this.usesRelativeConstants = true;
-            this.maxFloatConst = Math.max(this.maxFloatConst, 255);
+            this.maxFloatConst = Math.max(this.maxFloatConst, this.constantCapacity() - 1);
             // vs_1_1 has no relative-index token: a0.x is the only legal
             // index register. vs_2_0+ names it (a0 or aL) explicitly.
             let index = "a0.x";
@@ -610,8 +610,7 @@
             } else {
                 this.usesAddress = true;
             }
-            return "clamp(" + index + " + " + base + ", 0, " +
-                (this.constantCapacity() - 1) + ")";
+            return "clamp(" + index + " + " + base + ", 0, d9_float_constant_max)";
         }
 
         relativeRegisterIndex(operand, output) {
@@ -635,7 +634,7 @@
         }
 
         constantCapacity() {
-            return this.kind === "vertex" ? 256 : 224;
+            return this.kind === "vertex" ? (this.options.floatConstantCapacity === 8192 ? 8192 : 256) : 224;
         }
 
         // Raw (unswizzled, unmodified) vec4<f32> read of a source register.
@@ -887,7 +886,9 @@
             for (const instruction of parsed.instructions) {
                 if (instruction.opcode === OP.DCL) this.declare(instruction);
                 else if (instruction.opcode === OP.DEF)
-                    this.floatDefaults.set(instruction.dest.index, instruction.literals);
+                    this.floatDefaults.set(instruction.dest.index +
+                        (instruction.dest.type === REG_CONST2 ? 2048 : instruction.dest.type === REG_CONST3 ? 4096 :
+                            instruction.dest.type === REG_CONST4 ? 6144 : 0), instruction.literals);
                 else if (instruction.opcode === OP.DEFI)
                     this.intDefaults.set(instruction.dest.index, instruction.literals);
                 else if (instruction.opcode === OP.DEFB)
@@ -1839,10 +1840,13 @@
         assemble(routines, bodies, mainBody) {
             const out = [];
             const kind = this.kind;
-            const floatCount = Math.max(1, Math.min(this.constantCapacity(),
-                this.maxFloatConst + 1));
+            const floatCount = Math.max(1, Math.min(kind === "vertex" ? 8192 : 224,
+                Math.max(this.maxFloatConst + 1, this.usesRelativeConstants ? this.constantCapacity() : 0)));
             const intCount = Math.max(1, this.maxIntConst + 1);
             const boolVectors = Math.max(1, Math.ceil((this.maxBoolConst + 1) / 4));
+            // Extended software constants exceed WebGPU's uniform binding limit.
+            // Leave room for viewport, clipping and point expansion parameters.
+            const storage = kind === "vertex" && (floatCount + intCount + boolVectors) * 16 > 65280;
 
             out.push("// translated from " + kind + " shader model " +
                 this.major + "." + this.minor);
@@ -1851,6 +1855,8 @@
             // all the time; Tint rejects those modules unless this is off
             // (naga does not check it at all)
             out.push("diagnostic(off, derivative_uniformity);");
+            if (this.usesRelativeConstants)
+                out.push("const d9_float_constant_max: i32 = " + (this.constantCapacity() - 1) + ";");
             out.push("struct D9Constants {");
             out.push("    f: array<vec4<f32>, " + floatCount + ">,");
             out.push("    i: array<vec4<i32>, " + intCount + ">,");
@@ -1886,7 +1892,7 @@
             }
             out.push("};");
             out.push("@group(0) @binding(" + (kind === "vertex" ? 0 : 1) +
-                ") var<uniform> d9c: D9Constants;");
+                ") var<" + (storage ? "storage, read" : "uniform") + "> d9c: D9Constants;");
 
             const samplerIndices = Array.from(this.samplers.keys()).sort((a, b) => a - b);
             const samplerBindingBase = kind === "vertex" ? 34 : 2;
@@ -2004,7 +2010,7 @@
             if (kind === "vertex") this.assembleVertexEntry(out);
             else this.assemblePixelEntry(out);
 
-            const reflection = this.reflect(floatCount, intCount, boolVectors);
+            const reflection = this.reflect(floatCount, intCount, boolVectors, storage);
             return { wgsl: out.join("\n") + "\n", reflection };
         }
 
@@ -2268,7 +2274,7 @@
             return null;
         }
 
-        reflect(floatCount, intCount, boolVectors) {
+        reflect(floatCount, intCount, boolVectors, storage) {
             const inputs = [];
             for (const register of this.usedInputs.keys()) {
                 const semantic = this.inputSemanticFor(register);
@@ -2346,6 +2352,7 @@
                 outputDeclarations: this.outputDeclarations.map(item => ({...item})),
                 inputDeclarations: this.inputDeclarations.map(item => ({...item})),
                 samplers,
+                constantBufferType: storage ? "read-only-storage" : "uniform",
                 floatConstCount: floatCount,
                 intConstCount: intCount,
                 boolVectorCount: boolVectors,
@@ -2647,6 +2654,7 @@
         VARYING_COUNT, varyingForSemantic,
         OP, REGISTER: {
             TEMP: REG_TEMP, INPUT: REG_INPUT, CONST: REG_CONST, ADDR: REG_ADDR,
+            CONST2: REG_CONST2, CONST3: REG_CONST3, CONST4: REG_CONST4,
             TEXTURE: REG_TEXTURE, RASTOUT: REG_RASTOUT, ATTROUT: REG_ATTROUT,
             OUTPUT: REG_OUTPUT, CONSTINT: REG_CONSTINT, COLOROUT: REG_COLOROUT,
             DEPTHOUT: REG_DEPTHOUT, SAMPLER: REG_SAMPLER,

@@ -564,6 +564,35 @@ async function test(name, body) {
 
 async function main() {
 
+await test("software and mixed constant banks survive Reset with cleared values and device isolation", async () => {
+    const {executor} = makeExecutor();
+    for (const flags of [0x40, 0x20, 0x80]) {
+        const handle = DEVICE + flags;
+        await executor.submit(buildBatch([command(OP.CREATE_DEVICE, encodePayload("CreateDevice", {
+            device_handle: handle, width: 64, height: 64, backbuffer_format: 22, windowed: 1, behavior_flags: flags
+        }))]));
+        await executor.idle();
+        const state = executor.deviceState(handle), extended = flags !== 0x40;
+        assert.equal(state.vsConstF.length, (extended ? 8192 : 256) * 4);
+        assert.equal(state.vsConstI.length, (extended ? 2048 : 16) * 4);
+        assert.equal(state.vsConstB.length, extended ? 2048 : 16);
+        state.vsConstF.fill(7);state.vsConstI.fill(-3);state.vsConstB.fill(1);
+        await executor.submit(buildBatch([command(OP.RESET, encodePayload("ResetDevice", {
+            old_device_handle: handle, new_device_handle: handle + 1, width: 64, height: 64,
+            backbuffer_format: 22, windowed: 1, behavior_flags: flags
+        }))]));
+        await executor.idle();
+        const reset = executor.deviceState(handle + 1);
+        assert.equal(reset.vsConstF.length, (extended ? 8192 : 256) * 4);
+        assert.ok(reset.vsConstF.every(v => v === 0) && reset.vsConstI.every(v => v === 0) && reset.vsConstB.every(v => v === 0));
+    }
+    assert.notEqual(executor.deviceState(DEVICE + 0x21).vsConstF, executor.deviceState(DEVICE + 0x81).vsConstF);
+    await executor.submit(buildBatch([0x40,0x20,0x80].map(flags => command(OP.DESTROY_RESOURCE,
+        encodePayload("DestroyResource", {resource_handle: DEVICE + flags + 1})))));
+    await executor.idle();
+    assert.equal(executor.devices.size, 0);
+});
+
 await test("a frame past the flush threshold submits early and never touches the swap chain",
         async () => {
     // The batch-size test's shape: one PCI batch carrying far more draws than

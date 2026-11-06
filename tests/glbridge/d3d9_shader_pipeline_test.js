@@ -342,7 +342,7 @@ test("vs_1_1 MOV a0.x selects a matrix-palette constant", () => {
         "MOV a0.x must floor as observed by Wine visual.c test_mova on Windows");
     assert.ok(wgsl.includes("a0 = vec4<i32>(a0f);"),
         "MOV a0.x did not update the integer address register:\n" + wgsl);
-    assert.ok(wgsl.includes("clamp(a0.x + 4, 0, 255)"),
+    assert.ok(wgsl.includes("clamp(a0.x + 4, 0, d9_float_constant_max)") && wgsl.includes("const d9_float_constant_max: i32 = 255;"),
         "the bone matrix read did not use the updated address register:\n" + wgsl);
     assert.strictEqual(reflection.usesRelativeConstants, true);
     assert.strictEqual(reflection.floatConstCount, 256);
@@ -401,7 +401,7 @@ test("vs_2_0 flow control: rep/if/mova/relative addressing all translate", () =>
         "rep i0 did not become a bounded loop:\n" + wgsl);
     assert.ok(wgsl.includes("if ((d9c.b[0][0] != 0u))"), "if b0 did not read the bool register");
     assert.ok(wgsl.includes("a0 = vec4<i32>(a0f);"), "mova did not update a0");
-    assert.ok(wgsl.includes("clamp(a0.x + 2, 0, 255)"),
+    assert.ok(wgsl.includes("clamp(a0.x + 2, 0, d9_float_constant_max)") && wgsl.includes("const d9_float_constant_max: i32 = 255;"),
         "relative addressing was not clamped into the constant file:\n" + wgsl);
     // Relative addressing forces the full 256-register file to be uploaded.
     assert.strictEqual(reflection.usesRelativeConstants, true);
@@ -841,7 +841,7 @@ test("loop/endloop drives aL from the integer register's y/z fields", () => {
     ], "loop");
     assert.ok(wgsl.includes("aL = d9c.i[0].y;"), "aL was not initialised from i0.y");
     assert.ok(wgsl.includes("aL = aL + d9c.i[0].z;"), "aL was not stepped by i0.z");
-    assert.ok(wgsl.includes("clamp(aL + 0, 0, 255)"),
+    assert.ok(wgsl.includes("clamp(aL + 0, 0, d9_float_constant_max)") && wgsl.includes("const d9_float_constant_max: i32 = 255;"),
         "c[aL] relative addressing did not use the loop counter:\n" + wgsl);
 });
 
@@ -1132,6 +1132,21 @@ test("deduplicated sampling adapters retain per-instruction fallback counts", ()
     const depth = pipeline.specializeShader(base, {depthSamplers: [0]});
     assert.ok(depth.ok, depth.error);
     assert.strictEqual(depth.reflection.levelZeroSamples, 2);
+});
+
+test("prepared relative constant bodies specialize across hardware and software limits", () => {
+    const shader = [VS(2, 0), instruction(OP.MOV, {length: 3}), dst(REG.RASTOUT, 0),
+        src(REG.CONST, 0, {relative: true}), src(REG.ADDR, 0), END];
+    const base = compileOk(shader), serialized = JSON.stringify(base);
+    for (const capacity of [8192, 256, 8192, 256]) {
+        const variant = pipeline.specializeShader(JSON.parse(serialized), {floatConstantCapacity: capacity});
+        assert.ok(variant.ok, variant.error);
+        assert.equal(variant.reflection.floatConstCount, capacity);
+        assert.equal(variant.reflection.constantBufferType, capacity === 8192 ? "read-only-storage" : "uniform");
+        assert.ok(variant.wgsl.includes("const d9_float_constant_max: i32 = " + (capacity - 1) + ";"));
+        assert.ok(variant.wgsl.includes(capacity === 8192 ? "var<storage, read> d9c" : "var<uniform> d9c"));
+        assert.equal(JSON.stringify(base), serialized);
+    }
 });
 
 // ---- report ----
