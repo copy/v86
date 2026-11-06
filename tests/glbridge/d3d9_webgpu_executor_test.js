@@ -4603,9 +4603,8 @@ await test("a D24S8 mip is used as the explicit depth attachment",
     assert.ok(creation, "CreateTexture(D24S8) must allocate a GPU depth target");
     assert.equal(creation[1].format, "depth24plus-stencil8");
     assert.equal(creation[1].mipLevelCount, 4);
-    assert.equal(creation[1].usage, 0x14,
-        "a depth texture is a render attachment AND sampleable: D3D9 shadow " +
-        "mapping renders into it and then binds it to a sampler");
+    assert.equal(creation[1].usage, 0x17,
+        "single-sample depth supports attachment, sampling and whole-surface StretchRect copies");
 
     const pass = find("beginRenderPass").find(call =>
         call[1].depthStencilAttachment);

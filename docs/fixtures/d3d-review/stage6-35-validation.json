@@ -1,0 +1,426 @@
+{
+  "batch": "stage6-35",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; complete Wine acceptance remains FAIL",
+  "changes": [
+    "Accept valid DEPTH/TESSFACTOR/SAMPLE declaration semantics. POSITIONT passes declared semantics to ps3 with packed masks, type conversion, flat color, perspective interpolation and point sprites.",
+    "Reject invalid partial/flipped/scaled/depth-color StretchRect before command emission; whole depth copies preserve depth and stencil with correct WebGPU texture usages.",
+    "Correct native test fixture interface placement; retain all ownership assertions and prove old production fails new declaration/depth cases."
+  ],
+  "checks": {
+    "executor": {
+      "sha256": "1f608170c0e37e298f9aefc81fab2fe2fd0ece909ffd3f4be875583f104e9957",
+      "output": "183 executor tests passed"
+    },
+    "declaration": {
+      "sha256": "7ea41fe6370c83786ccc65b0c7dfffd0a80c5b8eeac79f6661941496239f13ce",
+      "output": "PASS actual D3D9 texture bindings: 97024 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 cube bindings: 112384 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, six actual cached face constructors and shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 volume bindings: 60032 checks, 768 pool/order profiles, 6144 public-zero revivals, 64 mixed-kind replacement cycles; four sampler slots, two cached volume levels, shared public parent count, exact device pins, public-only Reset blockers and complete final-owner cleanup\nPASS actual D3D9 buffer bindings: 91904 checks, 1024 pool/order profiles, 16384 public-zero revivals; three VB stream slots and one IB slot, exact public/device refs, getter offsets, DEFAULT locks, UP cleanup, shadow/clip teardown and complete final-owner cleanup\nPASS actual D3D9 declaration/shader bindings: 198400 checks, 1024 final-owner profiles, 24576 public-zero QI revivals; exact public/device refs, metadata, getters, FVF, reset-style clear/rebind and complete storage teardown\nPASS actual D3D9 stateblock private bindings: 161364 checks, 512 pool/final-owner profiles, 4096 capture/clear/apply cycles; eight resource families, recorded replacement/FVF, public-zero storage, recording guards, recapture retirement and unfinished-recording cleanup\nPASS actual D3D9 external-child device state: 111616 checks, 2048 pool/anchor/final-owner profiles, 2048 GetDevice recoveries; eight public anchor families preserve all live slots and scalar state, recording stays private until End, exact device pins and final cleanup\nPASS actual D3D9 stream metadata: 40960 checks, 512 pool/slot profiles, 4096 NULL preserves and 512 recorded NULL/capture/apply sequences; ignored incoming metadata, live recording source, exact internal restoration, duplicate filtering, successful-UP zeroing and private storage cleanup\nPASS actual D3D9 FVF declaration cache: 116928 checks, 128 final-owner profiles, 8192 cached switches, 16384 public-zero revivals; six independent layouts, exact identity and device pins, zero no-op, recorded/captured FVF, reset-style retention, atomic failures and idempotent cache teardown\nPASS actual D3D9 user declaration FVF: 63488 checks, 128 owner profiles, 8192 collision pairs; twenty positive/negative layouts, conservative guards, both cache creation orders, stateblock private lifetime and exact final cleanup\nPASS actual D3D9 target bindings: 1058446 checks, 16 lifecycle groups, 1024 public-zero revivals; actual RT/depth setters/getters, one/two internal slots, one public device pin, public-only Reset blockers, same-object rebinding and unbind/device-first/last-public cleanup"
+    },
+    "shaders": {
+      "sha256": "164947ead02f8e2c7ee04322052def021d26fa5f33659c390cf4249e843c71c1",
+      "output": "52 shader pipeline tests passed"
+    },
+    "transformed-mutants": {
+      "sha256": "54a3838209311511cc90bf6de71b2d48bdff6d7a9f699c1a154e955b5d23c87d",
+      "output": "PASS transformed semantic GPU mutations: 4/4 missing semantics, component masks, packed color conversion and generated point coordinates rejected by real pixels without GPU errors"
+    },
+    "depth-contract": {
+      "sha256": "9095633b4d20e8896659b6a85a1d2dbbb2d23d4b065bbee3c00da69f76145b23",
+      "output": "PASS depth StretchRect native contract: 46080 checks; implicit/explicit depth, whole/partial/flipped rectangles, color conversion, extent/format/sample mismatch, filters, scene and atomic transport failure"
+    },
+    "build-final": {
+      "sha256": "a44bd789ef5387768ec7415d5bf8f159b2b0248a40855698ac04faad8be4cd7d",
+      "output": "PASS six canonical DLL builds"
+    },
+    "integration": {
+      "sha256": "e989ce86891b8f571958735a63b5501ae45d42b33da3fb99a91562996eb50f70",
+      "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (3.617541ms)\n✔ rapid launches wait for the previous canvas/device teardown (3.668542ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 101.024584"
+    },
+    "transformed-gpu": {
+      "sha256": "4b7b0494d74b4943eba69b1b7b087e66c02b855f648fe0440ee1efdcbcb34095",
+      "status": "PASS",
+      "details": "PASS 23 cases\nok    POSITIONT to ps3 semantic 1:0\nok    POSITIONT to ps3 semantic 2:0\nok    POSITIONT to ps3 semantic 3:0\nok    POSITIONT to ps3 semantic 11:0\nok    POSITIONT to ps3 semantic 5:0\nok    POSITIONT to ps3 semantic 6:0\nok    POSITIONT to ps3 semantic 7:0\nok    POSITIONT to ps3 semantic 12:0\nok    POSITIONT to ps3 semantic 10:0\nok    POSITIONT to ps3 semantic 10:1\nok    POSITIONT to ps3 semantic 5:1\nok    POSITIONT to ps3 semantic 8:0\nok    POSITIONT to ps3 semantic 13:0\nok    POSITIONT ps3 packed partial masks keep distinct semantic components\nok    POSITIONT ps3 separates flat color and perspective normal flat=false rhw=false\nok    POSITIONT ps3 separates flat color and perspective normal flat=false rhw=true\nok    POSITIONT ps3 separates flat color and perspective normal flat=true rhw=false\nok    POSITIONT ps3 separates flat color and perspective normal flat=true rhw=true\nok    POSITIONT ps3 forty consumed components flat=false\nok    POSITIONT ps3 forty consumed components flat=true\nok    POSITIONT ps3 normalized SHORT2 input expands absent components\nok    POSITIONT ps3 missing diffuse defaults to white\nok    POSITIONT ps3 generated point coordinates and declaration point size"
+    },
+    "depth-copy-gpu": {
+      "sha256": "66e0030983cc5da8ed060ae876bf0e2b347ae190c6c8b8c238efc0726bcf102a",
+      "status": "PASS",
+      "details": "PASS 11 cases\nok    whole depth copy preserves draw depth format=70 linear=false auto=0\nok    whole depth copy preserves draw depth format=70 linear=true auto=0\nok    whole depth copy preserves draw depth format=75 linear=false auto=0\nok    whole depth copy preserves draw depth format=75 linear=false auto=1\nok    whole depth copy preserves draw depth format=75 linear=false auto=2\nok    whole depth copy preserves draw depth format=75 linear=true auto=0\nok    whole depth copy preserves draw depth format=75 linear=true auto=1\nok    whole depth copy preserves draw depth format=75 linear=true auto=2\nok    whole depth copy preserves draw depth format=80 linear=false auto=0\nok    whole depth copy preserves draw depth format=80 linear=true auto=0\nok    whole D24S8 copy preserves stencil aspect"
+    },
+    "semantic-regression": {
+      "sha256": "a0d8e9829475e88ed0ded103b65935664e63cca21156c2fe13fa3a6df5c1adbc",
+      "status": "PASS",
+      "details": "PASS 127 cases\nok    SM3 semantic 3:0 o0 to v9 mask 15\nok    SM3 semantic 3:0 o0 to v9 mask 5\nok    SM3 semantic 3:0 o0 to v9 mask 10\nok    SM3 semantic 3:0 o7 to v0 mask 15\nok    SM3 semantic 3:0 o7 to v0 mask 5\nok    SM3 semantic 3:0 o7 to v0 mask 10\nok    SM3 semantic 3:0 o3 to v4 mask 15\nok    SM3 semantic 3:0 o3 to v4 mask 5\nok    SM3 semantic 3:0 o3 to v4 mask 10\nok    SM3 semantic 3:7 o0 to v9 mask 15\nok    SM3 semantic 3:7 o0 to v9 mask 5\nok    SM3 semantic 3:7 o0 to v9 mask 10\nok    SM3 semantic 3:7 o7 to v0 mask 15\nok    SM3 semantic 3:7 o7 to v0 mask 5\nok    SM3 semantic 3:7 o7 to v0 mask 10\nok    SM3 semantic 3:7 o3 to v4 mask 15\nok    SM3 semantic 3:7 o3 to v4 mask 5\nok    SM3 semantic 3:7 o3 to v4 mask 10\nok    SM3 semantic 6:0 o0 to v9 mask 15\nok    SM3 semantic 6:0 o0 to v9 mask 5\nok    SM3 semantic 6:0 o0 to v9 mask 10\nok    SM3 semantic 6:0 o7 to v0 mask 15\nok    SM3 semantic 6:0 o7 to v0 mask 5\nok    SM3 semantic 6:0 o7 to v0 mask 10\nok    SM3 semantic 6:0 o3 to v4 mask 15\nok    SM3 semantic 6:0 o3 to v4 mask 5\nok    SM3 semantic 6:0 o3 to v4 mask 10\nok    SM3 semantic 7:0 o0 to v9 mask 15\nok    SM3 semantic 7:0 o0 to v9 mask 5\nok    SM3 semantic 7:0 o0 to v9 mask 10\nok    SM3 semantic 7:0 o7 to v0 mask 15\nok    SM3 semantic 7:0 o7 to v0 mask 5\nok    SM3 semantic 7:0 o7 to v0 mask 10\nok    SM3 semantic 7:0 o3 to v4 mask 15\nok    SM3 semantic 7:0 o3 to v4 mask 5\nok    SM3 semantic 7:0 o3 to v4 mask 10\nok    SM3 semantic 5:8 o0 to v9 mask 15\nok    SM3 semantic 5:8 o0 to v9 mask 5\nok    SM3 semantic 5:8 o0 to v9 mask 10\nok    SM3 semantic 5:8 o7 to v0 mask 15\nok    SM3 semantic 5:8 o7 to v0 mask 5\nok    SM3 semantic 5:8 o7 to v0 mask 10\nok    SM3 semantic 5:8 o3 to v4 mask 15\nok    SM3 semantic 5:8 o3 to v4 mask 5\nok    SM3 semantic 5:8 o3 to v4 mask 10\nok    SM3 semantic 5:9 o0 to v9 mask 15\nok    SM3 semantic 5:9 o0 to v9 mask 5\nok    SM3 semantic 5:9 o0 to v9 mask 10\nok    SM3 semantic 5:9 o7 to v0 mask 15\nok    SM3 semantic 5:9 o7 to v0 mask 5\nok    SM3 semantic 5:9 o7 to v0 mask 10\nok    SM3 semantic 5:9 o3 to v4 mask 15\nok    SM3 semantic 5:9 o3 to v4 mask 5\nok    SM3 semantic 5:9 o3 to v4 mask 10\nok    SM3 semantic 5:15 o0 to v9 mask 15\nok    SM3 semantic 5:15 o0 to v9 mask 5\nok    SM3 semantic 5:15 o0 to v9 mask 10\nok    SM3 semantic 5:15 o7 to v0 mask 15\nok    SM3 semantic 5:15 o7 to v0 mask 5\nok    SM3 semantic 5:15 o7 to v0 mask 10\nok    SM3 semantic 5:15 o3 to v4 mask 15\nok    SM3 semantic 5:15 o3 to v4 mask 5\nok    SM3 semantic 5:15 o3 to v4 mask 10\nok    SM3 semantic 10:2 o0 to v9 mask 15\nok    SM3 semantic 10:2 o0 to v9 mask 5\nok    SM3 semantic 10:2 o0 to v9 mask 10\nok    SM3 semantic 10:2 o7 to v0 mask 15\nok    SM3 semantic 10:2 o7 to v0 mask 5\nok    SM3 semantic 10:2 o7 to v0 mask 10\nok    SM3 semantic 10:2 o3 to v4 mask 15\nok    SM3 semantic 10:2 o3 to v4 mask 5\nok    SM3 semantic 10:2 o3 to v4 mask 10\nok    SM3 semantic 10:7 o0 to v9 mask 15\nok    SM3 semantic 10:7 o0 to v9 mask 5\nok    SM3 semantic 10:7 o0 to v9 mask 10\nok    SM3 semantic 10:7 o7 to v0 mask 15\nok    SM3 semantic 10:7 o7 to v0 mask 5\nok    SM3 semantic 10:7 o7 to v0 mask 10\nok    SM3 semantic 10:7 o3 to v4 mask 15\nok    SM3 semantic 10:7 o3 to v4 mask 5\nok    SM3 semantic 10:7 o3 to v4 mask 10\nok    SM3 semantic 10:15 o0 to v9 mask 15\nok    SM3 semantic 10:15 o0 to v9 mask 5\nok    SM3 semantic 10:15 o0 to v9 mask 10\nok    SM3 semantic 10:15 o7 to v0 mask 15\nok    SM3 semantic 10:15 o7 to v0 mask 5\nok    SM3 semantic 10:15 o7 to v0 mask 10\nok    SM3 semantic 10:15 o3 to v4 mask 15\nok    SM3 semantic 10:15 o3 to v4 mask 5\nok    SM3 semantic 10:15 o3 to v4 mask 10\nok    SM3 semantic 0:1 o0 to v9 mask 15\nok    SM3 semantic 0:1 o7 to v0 mask 15\nok    SM3 semantic 0:1 o3 to v4 mask 15\nok    SM3 semantic 11:1 o0 to v9 mask 15\nok    SM3 semantic 11:1 o0 to v9 mask 5\nok    SM3 semantic 11:1 o0 to v9 mask 10\nok    SM3 semantic 11:1 o7 to v0 mask 15\nok    SM3 semantic 11:1 o7 to v0 mask 5\nok    SM3 semantic 11:1 o7 to v0 mask 10\nok    SM3 semantic 11:1 o3 to v4 mask 15\nok    SM3 semantic 11:1 o3 to v4 mask 5\nok    SM3 semantic 11:1 o3 to v4 mask 10\nok    SM3 semantic 1:3 o0 to v9 mask 15\nok    SM3 semantic 1:3 o0 to v9 mask 5\nok    SM3 semantic 1:3 o0 to v9 mask 10\nok    SM3 semantic 1:3 o7 to v0 mask 15\nok    SM3 semantic 1:3 o7 to v0 mask 5\nok    SM3 semantic 1:3 o7 to v0 mask 10\nok    SM3 semantic 1:3 o3 to v4 mask 15\nok    SM3 semantic 1:3 o3 to v4 mask 5\nok    SM3 semantic 1:3 o3 to v4 mask 10\nok    SM3 semantic 2:4 o0 to v9 mask 15\nok    SM3 semantic 2:4 o0 to v9 mask 5\nok    SM3 semantic 2:4 o0 to v9 mask 10\nok    SM3 semantic 2:4 o7 to v0 mask 15\nok    SM3 semantic 2:4 o7 to v0 mask 5\nok    SM3 semantic 2:4 o7 to v0 mask 10\nok    SM3 semantic 2:4 o3 to v4 mask 15\nok    SM3 semantic 2:4 o3 to v4 mask 5\nok    SM3 semantic 2:4 o3 to v4 mask 10\nok    SM3 four packed semantics preserve separate components flat=false\nok    SM3 four packed semantics preserve separate components flat=true\nok    SM3 forty consumed components with mixed flat and smooth packing flat=false\nok    SM3 forty consumed components with mixed flat and smooth packing flat=true\nok    SM3 vertex wrapper follows pixel partner on repeated same-frame switches\nok    SM3 packed color stays flat while neighbouring normal interpolates flat=false\nok    SM3 packed color stays flat while neighbouring normal interpolates flat=true"
+    },
+    "legacy-regression": {
+      "sha256": "7e1d94cd3aa3f6f1a7cbe3dbbdf929c2aa0f1ed72a5187a3a1b5293f0bf166a5",
+      "status": "PASS",
+      "details": "PASS 129 cases\nok    vs1 ps0 saturates colors before rasterization\nok    vs1 ps1 saturates colors before rasterization\nok    vs1 ps2 saturates colors before rasterization\nok    vs1 ps3 saturates colors before rasterization\nok    vs2 ps0 saturates colors before rasterization\nok    vs2 ps1 saturates colors before rasterization\nok    vs2 ps2 saturates colors before rasterization\nok    vs2 ps3 saturates colors before rasterization\nok    vs3 ps0 saturates colors before rasterization\nok    vs3 ps1 saturates colors before rasterization\nok    vs3 ps2 saturates colors before rasterization\nok    vs3 ps3 saturates colors before rasterization\nok    vs1 ps0 unwritten diffuse is white\nok    vs1 ps0 color saturation precedes interpolation\nok    vs1 ps0 fog=specular vertexmode=0\nok    vs1 ps0 fog=specular vertexmode=1\nok    vs1 ps0 fog=specular vertexmode=2\nok    vs1 ps0 fog=specular vertexmode=3\nok    vs1 ps0 fog=explicit vertexmode=0\nok    vs1 ps0 fog=explicit vertexmode=1\nok    vs1 ps0 fog=explicit vertexmode=2\nok    vs1 ps0 fog=explicit vertexmode=3\nok    vs1 ps0 fog=table vertexmode=0\nok    vs1 ps0 fog=table vertexmode=1\nok    vs1 ps0 fog=table vertexmode=2\nok    vs1 ps0 fog=table vertexmode=3\nok    vs1 ps1 unwritten diffuse is white\nok    vs1 ps1 color saturation precedes interpolation\nok    vs1 ps1 fog=specular vertexmode=0\nok    vs1 ps1 fog=specular vertexmode=1\nok    vs1 ps1 fog=specular vertexmode=2\nok    vs1 ps1 fog=specular vertexmode=3\nok    vs1 ps1 fog=explicit vertexmode=0\nok    vs1 ps1 fog=explicit vertexmode=1\nok    vs1 ps1 fog=explicit vertexmode=2\nok    vs1 ps1 fog=explicit vertexmode=3\nok    vs1 ps1 fog=table vertexmode=0\nok    vs1 ps1 fog=table vertexmode=1\nok    vs1 ps1 fog=table vertexmode=2\nok    vs1 ps1 fog=table vertexmode=3\nok    vs1 ps2 unwritten diffuse is white\nok    vs1 ps2 color saturation precedes interpolation\nok    vs1 ps2 fog=specular vertexmode=0\nok    vs1 ps2 fog=specular vertexmode=1\nok    vs1 ps2 fog=specular vertexmode=2\nok    vs1 ps2 fog=specular vertexmode=3\nok    vs1 ps2 fog=explicit vertexmode=0\nok    vs1 ps2 fog=explicit vertexmode=1\nok    vs1 ps2 fog=explicit vertexmode=2\nok    vs1 ps2 fog=explicit vertexmode=3\nok    vs1 ps2 fog=table vertexmode=0\nok    vs1 ps2 fog=table vertexmode=1\nok    vs1 ps2 fog=table vertexmode=2\nok    vs1 ps2 fog=table vertexmode=3\nok    vs1 ps3 unwritten diffuse is white\nok    vs1 ps3 color saturation precedes interpolation\nok    vs1 ps3 fog=specular vertexmode=0\nok    vs1 ps3 fog=specular vertexmode=1\nok    vs1 ps3 fog=specular vertexmode=2\nok    vs1 ps3 fog=specular vertexmode=3\nok    vs1 ps3 fog=explicit vertexmode=0\nok    vs1 ps3 fog=explicit vertexmode=1\nok    vs1 ps3 fog=explicit vertexmode=2\nok    vs1 ps3 fog=explicit vertexmode=3\nok    vs1 ps3 fog=table vertexmode=0\nok    vs1 ps3 fog=table vertexmode=1\nok    vs1 ps3 fog=table vertexmode=2\nok    vs1 ps3 fog=table vertexmode=3\nok    vs2 ps0 unwritten diffuse is white\nok    vs2 ps0 color saturation precedes interpolation\nok    vs2 ps0 fog=specular vertexmode=0\nok    vs2 ps0 fog=specular vertexmode=1\nok    vs2 ps0 fog=specular vertexmode=2\nok    vs2 ps0 fog=specular vertexmode=3\nok    vs2 ps0 fog=explicit vertexmode=0\nok    vs2 ps0 fog=explicit vertexmode=1\nok    vs2 ps0 fog=explicit vertexmode=2\nok    vs2 ps0 fog=explicit vertexmode=3\nok    vs2 ps0 fog=table vertexmode=0\nok    vs2 ps0 fog=table vertexmode=1\nok    vs2 ps0 fog=table vertexmode=2\nok    vs2 ps0 fog=table vertexmode=3\nok    vs2 ps1 unwritten diffuse is white\nok    vs2 ps1 color saturation precedes interpolation\nok    vs2 ps1 fog=specular vertexmode=0\nok    vs2 ps1 fog=specular vertexmode=1\nok    vs2 ps1 fog=specular vertexmode=2\nok    vs2 ps1 fog=specular vertexmode=3\nok    vs2 ps1 fog=explicit vertexmode=0\nok    vs2 ps1 fog=explicit vertexmode=1\nok    vs2 ps1 fog=explicit vertexmode=2\nok    vs2 ps1 fog=explicit vertexmode=3\nok    vs2 ps1 fog=table vertexmode=0\nok    vs2 ps1 fog=table vertexmode=1\nok    vs2 ps1 fog=table vertexmode=2\nok    vs2 ps1 fog=table vertexmode=3\nok    vs2 ps2 unwritten diffuse is white\nok    vs2 ps2 color saturation precedes interpolation\nok    vs2 ps2 fog=specular vertexmode=0\nok    vs2 ps2 fog=specular vertexmode=1\nok    vs2 ps2 fog=specular vertexmode=2\nok    vs2 ps2 fog=specular vertexmode=3\nok    vs2 ps2 fog=explicit vertexmode=0\nok    vs2 ps2 fog=explicit vertexmode=1\nok    vs2 ps2 fog=explicit vertexmode=2\nok    vs2 ps2 fog=explicit vertexmode=3\nok    vs2 ps2 fog=table vertexmode=0\nok    vs2 ps2 fog=table vertexmode=1\nok    vs2 ps2 fog=table vertexmode=2\nok    vs2 ps2 fog=table vertexmode=3\nok    vs2 ps3 unwritten diffuse is white\nok    vs2 ps3 color saturation precedes interpolation\nok    vs2 ps3 fog=specular vertexmode=0\nok    vs2 ps3 fog=specular vertexmode=1\nok    vs2 ps3 fog=specular vertexmode=2\nok    vs2 ps3 fog=specular vertexmode=3\nok    vs2 ps3 fog=explicit vertexmode=0\nok    vs2 ps3 fog=explicit vertexmode=1\nok    vs2 ps3 fog=explicit vertexmode=2\nok    vs2 ps3 fog=explicit vertexmode=3\nok    vs2 ps3 fog=table vertexmode=0\nok    vs2 ps3 fog=table vertexmode=1\nok    vs2 ps3 fog=table vertexmode=2\nok    vs2 ps3 fog=table vertexmode=3\nok    VS3 switches legacy color saturation with its pixel partner\nok    vs3 ps0 color interpolation partner rule\nok    vs3 ps1 color interpolation partner rule\nok    vs3 ps2 color interpolation partner rule\nok    vs3 ps3 color interpolation partner rule"
+    },
+    "declaration-old-control": {
+      "sha256": "08860acae3f568dfc5c3a81f24773f00bb65f385541f742f02758564681800ca",
+      "result": "Pre-change production source fails the corrected fixture; no Wine assertions changed."
+    },
+    "depth-old-control": {
+      "sha256": "9ffb14131575eeca3e6fcbb4215c150832917ca868f3d6157dd0c7ffdcc515c9",
+      "result": "Pre-change production source fails the corrected fixture; no Wine assertions changed."
+    }
+  },
+  "d3d8Audit": {
+    "directory": "stage6-wine8-transformed-depth-copy",
+    "summary": {
+      "checks": 143726,
+      "todos": 0,
+      "flaky": 0,
+      "failures": 2,
+      "skipped": 14
+    },
+    "exit": 2,
+    "observedFailures": 2,
+    "failureGroups": {
+      "test_map_synchronisation": 2
+    },
+    "partialLog": false,
+    "gpuErrors": [],
+    "hostErrors": [],
+    "normalOwnerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "forcedOwnerCleanup": [],
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "fecc5fbf2d304c22e8f6a80c69c23354d8bcd45b3fd921aa2bd9217e92205395",
+      "executableSha256": "50762a265b6e32228d38c686e2df25e09f42cf475cf6758e7179f989d5ddd1b4",
+      "rendererPageSha256": "f63f6b2bc270cbab906a825d2f3d67c4421ee5123ee43895fdbc1d70ab8f72b2",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "c4025306d553dd31e9777c4960862dec78c0642a583d37291847f4d84f6f72c9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "854fb741db4e5fe3e58875c79f053d8e9708bca7d406d0071baae5106b74c2ee",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "WINE.TXT": "2de67e0530f7fc76728f18f59ff78195395dd602937978e4ad063623bb69a10e",
+      "probe-failure.json": "f62a063a6648e56456bcad045fc5946d148086af6b2197eee22c968426e72d66",
+      "source.json": "50371ab1cd6cd042cc6647614b050839acca93ca4cabc3b70f71d8c19ec36377",
+      "live-gpu.json": "10ca38bd836f3bda1ab3648792ae5f7acea39d9d52a586729ed177fa9adfe29b",
+      "audit-groups.json": "b884c31b160965953245db8fe45f5bffba538ca5c37f132c69c5ef8758c4895f"
+    }
+  },
+  "d3d9Audit": {
+    "directory": "stage6-wine9-visual-transformed-audit",
+    "summary": null,
+    "exit": null,
+    "observedFailures": 153,
+    "failureGroups": {
+      "stretchrect_test": 27,
+      "color_fill_test": 54,
+      "test_generate_mipmap": 2,
+      "test_viewport": 25,
+      "stream_test": 45
+    },
+    "partialLog": true,
+    "gpuErrors": [
+      {
+        "source": "uncaptured",
+        "message": "Error while parsing WGSL: :41:21 error: index 256 out of bounds [0..255]\n    let _v0 = d9c.f[256];\n                    ^^^\n\n\n - While calling [Device].CreateShaderModule([ShaderModuleDescriptor \"\"d3d9 vs796029324_760167137_b:|c:_cl0\"\"]).\n"
+      },
+      {
+        "source": "render pipeline",
+        "message": "[Invalid ShaderModule \"d3d9 vs796029324_760167137_b:|c:_cl0\"] is invalid due to a previous error.\n - While validating vertex stage ([Invalid ShaderModule \"d3d9 vs796029324_760167137_b:|c:_cl0\"], entryPoint: \"d9_vs_main\").\n - While validating vertex state.\n - While calling [Device].CreateRenderPipeline([RenderPipelineDescriptor]).\n",
+        "details": {
+          "vertex": "vs796029324_760167137_b:|c:_cl0",
+          "fragment": "ffpixel:[{\"stages\":[{\"index\":0,\"colorOp\":2,\"colorArg0\":1,\"colorArg1\":1,\"colorArg2\":1,\"alphaOp\":2,\"alphaArg0\":1,\"alphaArg1\":1,\"alphaArg2\":1,\"resultArg\":1,\"usesConstant\":false,\"samplesTexture\":false,\"textureType\":\"2d\",\"transformCount\":0,\"projected\":false,\"addressU\":1,\"addressV\":1,\"addressW\":1,\"borderColor\":0,\"texCoordIndex\":0,\"tciMode\":0,\"coordVarying\":0}],\"usesTextureFactor\":false,\"lodBiasUniforms\":false,\"fogMode\":0,\"tableFog\":false,\"screenDepthUnclipped\":false,\"alphaTest\":{\"enabled\":false,\"func\":8},\"clipPlaneCount\":0,\"specularEnable\":false,\"flatShading\":false},\"\"]",
+          "topology": "triangle-strip"
+        }
+      },
+      {
+        "source": "frame",
+        "message": "[Invalid RenderPipeline (unlabeled)] is invalid due to a previous error.\n - While encoding [RenderPassEncoder (unlabeled)].SetPipeline([Invalid RenderPipeline (unlabeled)]).\n - While finishing [CommandEncoder (unlabeled)].\n",
+        "details": {
+          "ops": 1,
+          "present": false
+        }
+      }
+    ],
+    "hostErrors": [],
+    "normalOwnerCleanup": [],
+    "forcedOwnerCleanup": [],
+    "source": {
+      "suite": "d3d9_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+        "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+        "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+      },
+      "dllSha256": "df97ea569c467a12768df4edb18ff1f4205f8d5f83352634b90fc9ea980fdde7",
+      "executableSha256": "0c7015b6e3b17d4a1424cfef96df2cc879189caf71e12db6a0963004188b8a84",
+      "rendererPageSha256": "f63f6b2bc270cbab906a825d2f3d67c4421ee5123ee43895fdbc1d70ab8f72b2",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "c4025306d553dd31e9777c4960862dec78c0642a583d37291847f4d84f6f72c9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "854fb741db4e5fe3e58875c79f053d8e9708bca7d406d0071baae5106b74c2ee",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "probe-failure.json": "f75c05cbbb460bbde9f5fbfa7457a98c0c55253795daa4491ff017b829c738fe",
+      "source.json": "db34e1a7f329a852c8d0ae15da4ec0ed3f1fcc447471bc1e94cf80194ab76ab7",
+      "live-gpu.json": "2ce440cc998ce5728eb939b8fb5eac03fdf3a478ab1b1772de25c57ee60d60f6",
+      "audit-groups.json": "17432c72856d4ddd754faba5589b7cb01b593441266f228278447dd69edd8cc0"
+    }
+  },
+  "earlierInterruptedAudits": [
+    {
+      "directory": "stage6-wine9-visual-transformed",
+      "summary": null,
+      "exit": null,
+      "observedFailures": 153,
+      "failureGroups": {
+        "stretchrect_test": 27,
+        "color_fill_test": 54,
+        "test_generate_mipmap": 2,
+        "test_viewport": 25,
+        "stream_test": 45
+      },
+      "partialLog": true,
+      "gpuErrors": [
+        {
+          "source": "frame",
+          "message": "Multiple aspects (Depth|Stencil) selected in [TextureView of Texture \"D3D9 depth surface\"].\n - While validating entries[1] against { binding: 1, visibility: ShaderStage::Fragment, texture: {sampleType: TextureSampleType::Float, viewDimension: TextureViewDimension::e2D, multisampled: 0} }.\n - While validating [BindGroupDescriptor] against [BindGroupLayout (unlabeled)]\n - While calling [Device].CreateBindGroup([BindGroupDescriptor]).\n",
+          "details": {
+            "ops": 12,
+            "present": false
+          }
+        }
+      ],
+      "hostErrors": [],
+      "normalOwnerCleanup": [],
+      "forcedOwnerCleanup": [],
+      "source": {
+        "suite": "d3d9_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+          "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+          "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+        },
+        "dllSha256": "106a2b20940be49e4dd0b81f15178cdb2c7bee70d1c1c4820e9d6d85c6794c90",
+        "executableSha256": "6859b8f6ded65a47245ad45b9f40c38c619303fffdd992d2024551e48b3f5485",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "69740e8855fde0e68742f6df492cfc47bb9fa064c7a53a1a0cd657bb59d96577",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "c4025306d553dd31e9777c4960862dec78c0642a583d37291847f4d84f6f72c9",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "8cfbf3bc3bdff16114a2dbf460206fb197e75bb49b587c54abe04ac08f7d6506",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "files": {
+        "probe-failure.json": "f75c05cbbb460bbde9f5fbfa7457a98c0c55253795daa4491ff017b829c738fe",
+        "source.json": "fca7c7aa177f19621457ef6748af52b9005267687a26f4d56fe4079218dae34b",
+        "live-gpu.json": "f65dacfbd24900749d4d640440c4110f053f1bddcec7873ff4607b7da1d8a5f7",
+        "audit-groups.json": "17432c72856d4ddd754faba5589b7cb01b593441266f228278447dd69edd8cc0"
+      }
+    },
+    {
+      "directory": "stage6-wine9-visual-transformed-depth-copy",
+      "summary": null,
+      "exit": null,
+      "observedFailures": 153,
+      "failureGroups": {
+        "stretchrect_test": 27,
+        "color_fill_test": 54,
+        "test_generate_mipmap": 2,
+        "test_viewport": 25,
+        "stream_test": 45
+      },
+      "partialLog": true,
+      "gpuErrors": [],
+      "hostErrors": [
+        {},
+        {},
+        {}
+      ],
+      "normalOwnerCleanup": [],
+      "forcedOwnerCleanup": [],
+      "source": {
+        "suite": "d3d9_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+          "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+          "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+        },
+        "dllSha256": "d3b3fdf3028b57cc6302f719ac8fe34c3f9fca46948a9ead0d7a7fd9411afdb6",
+        "executableSha256": "9f201c8b30d276028ceac37a7d30ce3dedcd83367f47f8b86459832d4e6ad22b",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "c4025306d553dd31e9777c4960862dec78c0642a583d37291847f4d84f6f72c9",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "1c8ed2412086bd9c1679817e9e3abc535a0d3c361ed1335de81f0ddd2ac7e192",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "files": {
+        "probe-failure.json": "f75c05cbbb460bbde9f5fbfa7457a98c0c55253795daa4491ff017b829c738fe",
+        "source.json": "dc4a79af6175244da46d31c15603c32038ea3200d9f1808a3f5fc8a3af714125",
+        "live-gpu.json": "323194a91a37a060d59e4d61b88afb42c118791f9fd5094db442e2b92df77709",
+        "audit-groups.json": "17432c72856d4ddd754faba5589b7cb01b593441266f228278447dd69edd8cc0"
+      }
+    },
+    {
+      "directory": "stage6-wine9-visual-transformed-auto-depth",
+      "summary": null,
+      "exit": null,
+      "observedFailures": 160,
+      "failureGroups": {
+        "stretchrect_test": 27,
+        "color_fill_test": 54,
+        "test_generate_mipmap": 2,
+        "test_viewport": 25,
+        "stream_test": 45,
+        "texbem_test": 4,
+        "unbound_sampler_test": 3
+      },
+      "partialLog": true,
+      "gpuErrors": [
+        {
+          "source": "uncaptured",
+          "message": "Error while parsing WGSL: :41:21 error: index 256 out of bounds [0..255]\n    let _v0 = d9c.f[256];\n                    ^^^\n\n\n - While calling [Device].CreateShaderModule([ShaderModuleDescriptor \"\"d3d9 vs796029324_760167137_b:|c:_cl0\"\"]).\n"
+        },
+        {
+          "source": "render pipeline",
+          "message": "[Invalid ShaderModule \"d3d9 vs796029324_760167137_b:|c:_cl0\"] is invalid due to a previous error.\n - While validating vertex stage ([Invalid ShaderModule \"d3d9 vs796029324_760167137_b:|c:_cl0\"], entryPoint: \"d9_vs_main\").\n - While validating vertex state.\n - While calling [Device].CreateRenderPipeline([RenderPipelineDescriptor]).\n",
+          "details": {
+            "vertex": "vs796029324_760167137_b:|c:_cl0",
+            "fragment": "ffpixel:[{\"stages\":[{\"index\":0,\"colorOp\":2,\"colorArg0\":1,\"colorArg1\":1,\"colorArg2\":1,\"alphaOp\":2,\"alphaArg0\":1,\"alphaArg1\":1,\"alphaArg2\":1,\"resultArg\":1,\"usesConstant\":false,\"samplesTexture\":false,\"textureType\":\"2d\",\"transformCount\":0,\"projected\":false,\"addressU\":1,\"addressV\":1,\"addressW\":1,\"borderColor\":0,\"texCoordIndex\":0,\"tciMode\":0,\"coordVarying\":0}],\"usesTextureFactor\":false,\"lodBiasUniforms\":false,\"fogMode\":0,\"tableFog\":false,\"screenDepthUnclipped\":false,\"alphaTest\":{\"enabled\":false,\"func\":8},\"clipPlaneCount\":0,\"specularEnable\":false,\"flatShading\":false},\"\"]",
+            "topology": "triangle-strip"
+          }
+        },
+        {
+          "source": "frame",
+          "message": "[Invalid RenderPipeline (unlabeled)] is invalid due to a previous error.\n - While encoding [RenderPassEncoder (unlabeled)].SetPipeline([Invalid RenderPipeline (unlabeled)]).\n - While finishing [CommandEncoder (unlabeled)].\n",
+          "details": {
+            "ops": 1,
+            "present": false
+          }
+        }
+      ],
+      "hostErrors": [],
+      "normalOwnerCleanup": [],
+      "forcedOwnerCleanup": [],
+      "source": {
+        "suite": "d3d9_visual",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_visual.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+          "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+          "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+        },
+        "dllSha256": "f0f80515d1befd698ad2478e11282ca930d9f2cba04e6319868026135e59e6fb",
+        "executableSha256": "f3f7fa5580a102c40f4de5b52b38982445a7fb694d39023f0e56f4d76e37dccd",
+        "rendererPageSha256": "f63f6b2bc270cbab906a825d2f3d67c4421ee5123ee43895fdbc1d70ab8f72b2",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "c4025306d553dd31e9777c4960862dec78c0642a583d37291847f4d84f6f72c9",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "854fb741db4e5fe3e58875c79f053d8e9708bca7d406d0071baae5106b74c2ee",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "files": {
+        "probe-failure.json": "075a1151001ba5ac571030c58e450480f55034edcc24e8fbc9a625310b3e4921",
+        "source.json": "cea1a56f6fc72ea27a400a9d93f62f549e4219d746f85e03eb03981540e6bda6",
+        "live-gpu.json": "c36c54d888cc198dba400cbf7202b3daac8a805b6a56a8babf3a3a4153dc660e",
+        "audit-groups.json": "505398b176bbee4952196d91adbe7102d9611540ec72509243ad4b17c23fb4cb"
+      }
+    }
+  ],
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "8556ba147f7705771cda633dccbb41b3eda91b2594c604580d1419ac37ef0f9a",
+    "glbridge/ddrawproxy/ddraw.dll": "479d45a8f8a9fbf868bc61f228a7656a732ffd1f4ad81755f8c45c01baa89d51",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "0092b940d062afeb4f86df18b35a08ae2f963a9f3d85f7a30b967a4d9af889d4",
+    "glbridge/d3d8proxy/d3d8.dll": "fecc5fbf2d304c22e8f6a80c69c23354d8bcd45b3fd921aa2bd9217e92205395",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "9b3cbfec37b3f54156604100fbfbc07f65362001aa7a4320bfef9ba64f6a00bc",
+    "glbridge/d3d9proxy/d3d9.dll": "df97ea569c467a12768df4edb18ff1f4205f8d5f83352634b90fc9ea980fdde7"
+  },
+  "remaining": [
+    "Original applicable Wine failures and individually evidenced skips remain to be resolved.",
+    "3DMark performance comparisons are deferred per user request."
+  ]
+}

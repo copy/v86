@@ -20,9 +20,9 @@
         // surface. D3DSHADE_PHONG is in the enum but no D3D9 device ever
         // implemented it; D3D9 treats it as GOURAUD, and so does this.
         const D3DSHADE_FLAT = 1, D3DSHADE_GOURAUD = 2;
-        function varyingDeclaration(slot, flatShading) {
-            const flat = flatShading &&
-                (slot === VARYING_COLOR0 || slot === shaderPipeline.VARYING_COLOR1);
+        function varyingDeclaration(slot, flatShading, flatSlots) {
+            const flat = flatShading && (flatSlots ? flatSlots.includes(slot)
+                : (slot === VARYING_COLOR0 || slot === shaderPipeline.VARYING_COLOR1));
             return "    @location(" + slot + ")" +
                 (flat ? " @interpolate(flat)" : "") +
                 " varying" + slot + ": vec4<f32>,";
@@ -465,6 +465,8 @@
             };
             const inputHelpers = shaderPipeline.vertexInputHelpers(Object.values(conversions));
             const parameters = [parameter(FF_LOCATION_POSITION)];
+            if (signature.passthrough) for (const input of signature.passthrough.inputs)
+                if (input.location) parameters.push(parameter(input.location));
             if (signature.hasColor)
                 parameters.push(parameter(FF_LOCATION_COLOR0));
             if (signature.hasColor1)
@@ -489,7 +491,7 @@
 
             const varyings = [];
             for (let slot = 0; slot < VARYING_COUNT; ++slot)
-                varyings.push(varyingDeclaration(slot, signature.flatShading));
+                varyings.push(varyingDeclaration(slot, signature.flatShading, signature.passthrough?.flatSlots));
             const clipVaryings = [];
             let clipBody = "";
             if (signature.clipPlaneCount) {
@@ -848,9 +850,20 @@
                     (VARYING_TEXCOORD0 + stage.index) + " = " + expression + ";\n";
             }
 
+            let passthroughBody = "";
+            if (signature.passthrough) {
+                passthroughBody = varyings.map((_,slot)=>"    result.varying"+slot+" = vec4<f32>(0.0);\n").join("");
+                for (const write of signature.passthrough.writes) {
+                    const input = signature.passthrough.inputs.find(input=>input.usage===write.usage && input.usageIndex===write.usageIndex);
+                    const value = input ? "in"+input.location+"."+"xyzw"[write.component]
+                        : write.usage===DECLUSAGE_COLOR && !write.usageIndex ? "1.0" : "0.0";
+                    passthroughBody += "    result.varying"+write.slot+"."+"xyzw"[write.channel]+" = "+value+";\n";
+                }
+            }
             let pointBody = "";
             if (signature.pointExpansion) {
-                const baseSize = signature.hasPointSize
+                const baseSize = signature.passthrough && signature.passthrough.pointLocation !== undefined
+                    ? "in" + signature.passthrough.pointLocation + ".x" : signature.hasPointSize
                     ? "in" + FF_LOCATION_PSIZE + ".x" : "uniforms.point_params.x";
                 pointBody +=
                     "    let d9_point_uvs = array<vec2<f32>, 6>(\n" +
@@ -877,7 +890,12 @@
                     "    result.position = vec4<f32>(result.position.xy +\n" +
                     "        d9_point_ndc * result.position.w, result.position.zw);\n";
                 if (signature.pointSprite) {
-                    for (let stage = 0; stage < MAX_TEXCOORD_SETS; ++stage) {
+                    if (signature.passthrough) for (const write of signature.passthrough.writes) {
+                        if (write.usage !== DECLUSAGE_TEXCOORD) continue;
+                        const value = write.component < 2 ? "d9_point_uv."+"xy"[write.component] : write.component===3 ? "1.0" : "0.0";
+                        pointBody += "    result.varying"+write.slot+"."+"xyzw"[write.channel]+" = "+value+";\n";
+                    }
+                    else for (let stage = 0; stage < MAX_TEXCOORD_SETS; ++stage) {
                         pointBody += "    result.varying" +
                             (VARYING_TEXCOORD0 + stage) +
                             " = vec4<f32>(d9_point_uv, 0.0, 1.0);\n";
@@ -928,8 +946,8 @@ ${varyings.map((_, slot) =>
             "    result.varying" + slot + " = vec4<f32>(0.0);").join("\n")}
 ${viewSpaceBody}${colorBody}    result.varying${VARYING_COLOR0} = out_diffuse;
     result.varying${shaderPipeline.VARYING_COLOR1} = out_specular;
-${coordBody}${fogBody}${clipBody}${pointBody}${signature.screenDepthUnclipped ?
-                "    result.varying" + shaderPipeline.VARYING_FOG + ".y = result.position.z;\n" +
+${coordBody}${fogBody}${passthroughBody}${clipBody}${pointBody}${signature.screenDepthUnclipped ?
+                (signature.passthrough ? "" : "    result.varying" + shaderPipeline.VARYING_FOG + ".y = result.position.z;\n") +
                 "    result.position.z = 0.0;\n" : ""}    return result;
 }
 `;

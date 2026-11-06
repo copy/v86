@@ -116,6 +116,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
         save_frame("probe-desktop.png", frame());
         for(let attempt = 0; attempt < 3 && !completed(result_text(), read_logs()); attempt++)
         {
+            const launchBatches = batches;
             console.log("launch RAM probe", elapsed(), "s", "attempt", attempt + 1);
             for(let cancel = 0; cancel < 3; cancel++) { await vm.keyboard_send_scancodes([1, 129], 30);await delay(1000); }
             await vm.keyboard_send_scancodes([0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB], 30);await delay(2000);
@@ -127,7 +128,10 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                 const logs = read_logs();
                 if(text.includes("FAIL ") || Object.values(logs).some(text => text.includes("FAIL ")))
                     throw new Error(JSON.stringify({ text, logs }));
-                if(poll === 29 && !text && Object.values(logs).every(text => !text)) break;
+                // An open redirected log may not have a flushed FAT directory
+                // entry yet. Actual graphics traffic already proves the test
+                // launched; never start a second copy while it is running.
+                if(poll === 29 && batches === launchBatches && !text && Object.values(logs).every(text => !text)) break;
                 if(completed(text, logs)) break;
                 // A loader/modal error can leave a redirected log unchanged.
                 // Preserve a current guest picture so a long suite cannot hide
@@ -138,7 +142,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             }
             // Retry only a missed launch. Starting another process after an
             // active suite times out would corrupt its log and GPU ownership.
-            if(!completed(result_text(), read_logs()) && (result_text() || Object.values(read_logs()).some(Boolean)))
+            if(!completed(result_text(), read_logs()) && (batches > launchBatches || result_text() || Object.values(read_logs()).some(Boolean)))
                 throw new Error("XP probe execution timed out after starting");
         }
         const text = result_text();assert(completed(text, read_logs()), "Owner probe did not finish: " + text);

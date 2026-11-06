@@ -1341,5 +1341,90 @@
             extentStretch(dev,color,rt+2,4),...extentBind(dev,rt,64),wire("SetDepthStencilSurfaceLevel",{device_handle:dev})];
         },probes:[0,1,2].flatMap(target=>[[8,8],[48,8],[8,48],[48,48]].map(at=>({at,target,expect:target===2?[0,255,0,255]:[255,0,0,255]})))});
 
+    // Original Wine pretransformed_varying_test semantics, scaled to 64x64.
+    // The 152-byte declaration deliberately includes non-FFP usages together.
+    const transformedFields=[[0,3,9,0],[16,3,1,0],[32,3,2,0],[48,3,3,0],[64,3,11,0],
+        [80,3,5,0],[96,3,6,0],[112,3,7,0],[128,3,12,0],[144,4,10,0],[148,4,10,1]];
+    const transformedData=()=>{
+        const data=new Uint8Array(4*152),view=new DataView(data.buffer);
+        [[0,0],[64,0],[0,64],[64,64]].forEach(([x,y],i)=>{
+            const values=[x,y,.1,1,...Array(4).fill(.1),...Array(4).fill(.2),...Array(4).fill(.3),...Array(4).fill(.4),
+                .5,.55,.55,.55,.6,.6,.6,.7,.7,.7,.7,.6,...Array(4).fill(.8)];
+            values.forEach((v,k)=>view.setFloat32(i*152+k*4,v,true));
+            view.setUint32(i*152+144,0xe6e6e6e6,true);view.setUint32(i*152+148,0x224488ff,true);
+        });return data;
+    };
+    const transformedDraw=(dev,fields=transformedFields,data=transformedData())=>[
+        cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,fvf:4,element_count:fields.length}),...fields.map(([offset,type,usage,index])=>element(offset,type,usage,index))])),
+        wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:5,primitive_count:2,stride:152,vertex_count:4,vertex_bytes:data.length},[blob("DrawPrimitiveUP","vertex_data_offset",data)])];
+    for(const [usage,index,expected] of [[1,0,[26,26,26,26]],[2,0,[51,51,51,51]],[3,0,[77,77,77,77]],
+        [11,0,[102,102,102,102]],[5,0,[128,140,140,140]],[6,0,[153,153,153,179]],[7,0,[179,179,179,153]],
+        [12,0,[204,204,204,204]],[10,0,[230,230,230,230]],[10,1,[68,136,255,34]],[5,1,[0,0,0,0]],
+        [8,0,[204,204,204,204]],[13,0,[204,204,204,204]]])add("transformed-semantics",{
+        name:`POSITIONT to ps3 semantic ${usage}:${index}`,body:dev=>{
+            const ps=dev+0x600001,fields=transformedFields.map(row=>row.slice());
+            if(usage===8||usage===13)fields[8][2]=usage;
+            return [pixelShader(dev,ps,semanticPS([{usage,index,register:7,mask:15}],[[S.MOV,dst(R.COLOROUT,0),src(R.INPUT,7)]])),bindPS(dev,ps),rs(dev,22,1),
+                ...transformedDraw(dev,fields)];
+        },probes:[{at:[36,24],expect:expected,tolerance:1}]});
+    add("transformed-semantics",{name:"POSITIONT ps3 packed partial masks keep distinct semantic components",body:dev=>{
+        const ps=dev+0x600001;
+        return [pixelShader(dev,ps,semanticPS([{usage:1,index:0,register:3,mask:5},{usage:12,index:0,register:3,mask:10}],
+            [[S.MOV,dst(R.COLOROUT,0),src(R.INPUT,3)]])),bindPS(dev,ps),rs(dev,22,1),...transformedDraw(dev)];
+        },probes:[{at:[36,24],expect:[26,204,26,204],tolerance:1}]});
+
+    for(const flat of [false,true])for(const rhw of [false,true])add("transformed-semantics",{
+        name:`POSITIONT ps3 separates flat color and perspective normal flat=${flat} rhw=${rhw}`,body:dev=>{
+            const ps=dev+0x600001,data=transformedData(),view=new DataView(data.buffer);
+            for(let i=0;i<4;i++){
+                const right=i%2;view.setFloat32(i*152+12,rhw&&right?2:1,true);
+                view.setFloat32(i*152+52,right,true);view.setUint32(i*152+144,right?0xffff0000:0xff000000,true);
+            }
+            return [pixelShader(dev,ps,semanticPS([{usage:10,index:0,register:3,mask:1},{usage:3,index:0,register:3,mask:2}],
+                [[S.DEF,dst(R.CONST,0),0,0,0,f(1)],[S.MOV,dst(R.COLOROUT,0),src(R.CONST,0)],
+                [S.MOV,dst(R.COLOROUT,0,3),src(R.INPUT,3)]])),bindPS(dev,ps),rs(dev,9,flat?1:2),rs(dev,22,1),
+                ...transformedDraw(dev,transformedFields,data)];
+        },probes:[16,48].map(x=>{const value=rhw?2*x/(64+x):x/64;return {at:[x,x],expect:[flat?(x===16?0:255):clamp(value),clamp(value),0,255],tolerance:1};})});
+    for(const flat of [false,true])add("transformed-semantics",{name:"POSITIONT ps3 forty consumed components flat="+flat,body:dev=>{
+        const ps=dev+0x600001,declarations=transformedFields.slice(1).map(([,type,usage,index],register)=>({usage,index,register,mask:15}));
+        return [pixelShader(dev,ps,semanticPS(declarations,[[S.DEF,dst(R.CONST,0),f(.1),f(.1),f(.1),f(.1)],
+            [S.MOV,dst(R.TEMP,0),src(R.INPUT,0)],...Array.from({length:9},(_,i)=>[S.ADD,dst(R.TEMP,0),src(R.TEMP,0),src(R.INPUT,i+1)]),
+            [S.MUL,dst(R.COLOROUT,0),src(R.TEMP,0),src(R.CONST,0)]])),bindPS(dev,ps),rs(dev,9,flat?1:2),rs(dev,22,1),...transformedDraw(dev)];
+        },probes:[{at:[36,24],expect:[122,130,142,120],tolerance:1}]});
+    add("transformed-semantics",{name:"POSITIONT ps3 normalized SHORT2 input expands absent components",body:dev=>{
+        const ps=dev+0x600001,data=transformedData(),view=new DataView(data.buffer),fields=transformedFields.map(r=>r.slice());
+        fields[3][1]=9;
+        for(let i=0;i<4;i++){view.setInt16(i*152+48,16384,true);view.setInt16(i*152+50,8192,true);}
+        return [pixelShader(dev,ps,semanticPS([{usage:3,index:0,register:8,mask:15}],[[S.MOV,dst(R.COLOROUT,0),src(R.INPUT,8)]])),bindPS(dev,ps),rs(dev,22,1),...transformedDraw(dev,fields,data)];
+        },probes:[{at:[36,24],expect:[128,64,0,255],tolerance:1}]});
+    add("transformed-semantics",{name:"POSITIONT ps3 missing diffuse defaults to white",body:dev=>{
+        const ps=dev+0x600001;
+        return [pixelShader(dev,ps,semanticPS([{usage:10,index:0,register:8,mask:15}],[[S.MOV,dst(R.COLOROUT,0),src(R.INPUT,8)]])),bindPS(dev,ps),rs(dev,22,1),...transformedDraw(dev,transformedFields.filter(row=>row[2]!==10))];
+        },probes:[{at:[36,24],expect:[255,255,255,255]}]});
+    add("transformed-semantics",{name:"POSITIONT ps3 generated point coordinates and declaration point size",body:dev=>{
+        const ps=dev+0x600001,data=new Uint8Array(20),view=new DataView(data.buffer);
+        [32,32,.1,1,32].forEach((v,i)=>view.setFloat32(i*4,v,true));
+        return [pixelShader(dev,ps,semanticPS([{usage:5,index:3,register:8,mask:15}],[[S.MOV,dst(R.COLOROUT,0),src(R.INPUT,8)]])),bindPS(dev,ps),rs(dev,156,1),rs(dev,22,1),
+            cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,fvf:4,element_count:2}),element(0,3,9),element(16,0,4)])),
+            wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:1,primitive_count:1,stride:20,vertex_count:1,vertex_bytes:20},[blob("DrawPrimitiveUP","vertex_data_offset",data)])];
+        },probes:[{at:[24,24],expect:[64,64,0,255],tolerance:5},{at:[40,40],expect:[191,191,0,255],tolerance:5}]});
+
+    for(const format of [70,75,80])for(const linear of [false,true])for(const auto of (format===75?[0,1,2]:[0]))add("depth-copy",{name:`whole depth copy preserves draw depth format=${format} linear=${linear} auto=${auto}`,body:dev=>{
+        const from=auto===1?0xffffffff:dev+0x700000,to=auto===2?0xffffffff:dev+0x700001;
+        const depth=handle=>handle===0xffffffff?[]:[wire("CreateTexture2D",{device_handle:dev,resource_handle:handle,width:64,height:64,level_count:1,format,usage:2})];
+        const bind=handle=>wire("SetDepthStencilSurfaceLevel",{device_handle:dev,depth_texture_handle:handle,width:64,height:64});
+        const vp=size=>wire("SetViewport",{device_handle:dev,width:size,height:size,min_z:0,max_z:1});
+        return [...depth(from),...depth(to),bind(from),extentClear(dev,2,0,0),vp(48),extentClear(dev,2,0,.5),vp(32),extentClear(dev,2,0,1),vp(64),
+            wire("StretchRect",{device_handle:dev,source_texture_handle:from,source_right:64,source_bottom:64,destination_texture_handle:to,destination_right:64,destination_bottom:64,filter_point:+!linear}),
+            bind(to),extentClear(dev,1,0xffff0000),rs(dev,7,1),rs(dev,14,0),rs(dev,23,4),rs(dev,22,1),
+            ...drawXYZ(dev,fullXYZ(.33,0xff00ff00)),...drawXYZ(dev,fullXYZ(.66,0xff0000ff))];
+        },probes:[8,24,40,56].flatMap(y=>[8,24,40,56].map(x=>({at:[x,y],expect:x<32&&y<32?[0,0,255,255]:x<48&&y<48?[0,255,0,255]:[255,0,0,255]})))});
+    add("depth-copy",{name:"whole D24S8 copy preserves stencil aspect",body:dev=>{
+        const from=dev+0x700000,to=dev+0x700001;
+        return [...extentDepth(dev,from,64),extentClear(dev,4,0,1,5),...extentDepth(dev,to,64),extentClear(dev,4,0,1,0),
+            wire("StretchRect",{device_handle:dev,source_texture_handle:from,source_right:64,source_bottom:64,destination_texture_handle:to,destination_right:64,destination_bottom:64,filter_point:1}),
+            extentClear(dev,1,0xffff0000),rs(dev,7,0),rs(dev,22,1),rs(dev,52,1),rs(dev,56,3),rs(dev,57,5),...drawXYZ(dev,fullXYZ(.5,0xff00ff00))];
+        },probes:[{at:[32,32],expect:[0,255,0,255]}]});
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

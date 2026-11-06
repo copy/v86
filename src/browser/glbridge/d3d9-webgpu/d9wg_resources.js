@@ -389,7 +389,8 @@
                               // compare against it. Leaving the binding usage off
                               // made that second half impossible -- see the
                               // `view` field below.
-                              (sampleCount > 1 ? 0 : TEXTURE_USAGE_TEXTURE_BINDING)
+                              (sampleCount > 1 ? 0 : TEXTURE_USAGE_TEXTURE_BINDING |
+                                  TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_COPY_DST)
                             : TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_COPY_SRC |
                               TEXTURE_USAGE_TEXTURE_BINDING) |
                         // A blit writes through a render pass, so anything that can

@@ -2121,6 +2121,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             state.backBufferWidth = width;
             state.backBufferHeight = height;
             state.backBufferD3DFormat = view.getUint32(offset + D9WG.F.CreateDevice.backbuffer_format, true);
+            state.depthD3DFormat = view.getUint32(offset + D9WG.F.CreateDevice.auto_depth_stencil_format, true);
             this.configureBackBufferMSAA(state, width, height,
                 multisampleType, multisampleQuality);
             this.ensureDepthTarget(state, width, height, enableAutoDepth !== 0);
@@ -2170,6 +2171,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             state.backBufferWidth = width;
             state.backBufferHeight = height;
             state.backBufferD3DFormat = view.getUint32(offset + D9WG.F.ResetDevice.backbuffer_format, true);
+            state.depthD3DFormat = view.getUint32(offset + D9WG.F.ResetDevice.auto_depth_stencil_format, true);
             this.configureBackBufferMSAA(state, width, height,
                 multisampleType, multisampleQuality);
             this.ensureDepthTarget(state, width, height, enableAutoDepth !== 0);
@@ -2178,10 +2180,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.notifySurface(state, "reset");
         }
 
-        // Creates (or drops) the device's auto depth-stencil target. D3D9
-        // reports many depth formats but the guest can never read any of
-        // them back in M1, so one depth24plus-stencil8 target satisfies all
-        // of them; only whether a depth buffer exists at all is observable.
+        // Auto depth uses the same storage as explicit depth surfaces. Keep
+        // its D3D format identity separately for native copy compatibility.
         ensureDepthTarget(state, width, height, enabled) {
             if (state.depthTexture) {
                 // Never destroy it inline: the frame currently being recorded
@@ -2201,7 +2201,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 size: { width, height, depthOrArrayLayers: 1 },
                 format: DEPTH_FORMAT,
                 sampleCount: state.sampleCount || 1,
-                usage: TEXTURE_USAGE_RENDER_ATTACHMENT,
+                usage: TEXTURE_USAGE_RENDER_ATTACHMENT | ((state.sampleCount || 1) === 1
+                    ? TEXTURE_USAGE_COPY_SRC | TEXTURE_USAGE_COPY_DST : 0),
             });
             state.depthView = state.depthTexture.createView();
             state.depthWidth = width;
@@ -3237,9 +3238,12 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const destinationFace = D9WG.has(length, "StretchRect", "destination_face")
                 ? view.getUint32(offset + D9WG.F.StretchRect.destination_face, true) : 0;
 
-            const source = sourceHandle ? this.resources.get(sourceHandle) : null;
-            const destination = destinationHandle
-                ? this.resources.get(destinationHandle) : null;
+            const surfaceFor = handle => handle === D9WG_AUTO_DEPTH_STENCIL_HANDLE
+                ? state.depthTexture && {isDepth:true,format:state.depthD3DFormat,gpuFormat:DEPTH_FORMAT,
+                    width:state.depthWidth,height:state.depthHeight,gpuTexture:state.depthTexture}
+                : handle ? this.resources.get(handle) : null;
+            const source = surfaceFor(sourceHandle);
+            const destination = surfaceFor(destinationHandle);
             // Handle 0 means the back buffer; a non-zero handle the host does not
             // know is a real error, not a back buffer.
             if ((sourceHandle && !source) || (destinationHandle && !destination) ||
@@ -3269,6 +3273,16 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 return;
             }
 
+            if ((source && source.isDepth) || (destination && destination.isDepth)) {
+                const whole = (resource,level,rect) => resource && !level &&
+                    !rect.left && !rect.top && rect.right === resource.width && rect.bottom === resource.height;
+                if (!source || !destination || !source.isDepth || !destination.isDepth ||
+                        source.format !== destination.format || source.width !== destination.width || source.height !== destination.height ||
+                        !whole(source,sourceLevel,sourceRect) || !whole(destination,destinationLevel,destinationRect)) {
+                    this.protocolViolation("stretchrect-depth", "Depth StretchRect requires matching whole depth surfaces", {sourceHandle,destinationHandle});
+                    return;
+                }
+            }
             const sourceFormat = source ? formatToGPU(source.format) : this.format;
             const destinationFormat = destination
                 ? formatToGPU(destination.format) : this.format;
@@ -4483,9 +4497,18 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // ps_3_0 owns fog; the legacy post-shader blend is only ps<3.
             if (psResource && psResource.translated.ok && psResource.translated.reflection.version.major >= 3) { fogMode = 0;tableFog = false; }
 
+            const pixelInterface = psResource && psResource.translated.ok ? psResource.translated.reflection : null;
+            // POSITIONT bypasses transform/lighting. With ps_3_0, every declared
+            // vertex semantic can feed a pixel input, not only COLOR/TEXCOORD.
+            // Pack only consumed components so this fits WebGPU's varying budget.
+            const passthrough = fixedVertexSignature && fixedVertexSignature.positionType === "screen" &&
+                pixelInterface && pixelInterface.version.major >= 3;
+            const passthroughOutputs = passthrough ? (pixelInterface.inputDeclarations || pixelInterface.inputs)
+                .map(input => ({...input,mask:input.mask === undefined ? 15 : input.mask})) : null;
             const semanticPair = shaderPipeline.linkShaderSemantics(
-                vsResource && vsResource.translated.ok ? vsResource.translated.reflection : null,
-                psResource && psResource.translated.ok ? psResource.translated.reflection : null);
+                passthrough ? {version:{major:3},outputDeclarations:passthroughOutputs}
+                    : vsResource && vsResource.translated.ok ? vsResource.translated.reflection : null,
+                pixelInterface);
             if (!semanticPair.ok) return {error: "shader semantic link failed: " + semanticPair.error, shaderError: true};
             const semanticLink = semanticPair.link;
             const semanticKey = semanticPair.key ? "|link:" + semanticPair.key : "";
@@ -4883,11 +4906,36 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     signature.coordStages.some(stage =>
                         stage.tciMode !== D3DTSS_TCI_PASSTHRU));
                 signature.flatShading = flatShading;
+                if (passthrough) {
+                    const inputs = [{usage:DECLUSAGE_POSITIONT,usageIndex:0,location:0}];
+                    const addInput = (usage,usageIndex) => {
+                        if (inputs.some(input=>input.usage===usage && input.usageIndex===usageIndex)) return;
+                        if (elements.some(element=>element.usage===usage && element.usageIndex===usageIndex))
+                            inputs.push({usage,usageIndex,location:inputs.length});
+                    };
+                    for (const output of passthroughOutputs) addInput(output.usage,output.usageIndex);
+                    if (signature.pointExpansion) addInput(DECLUSAGE_PSIZE,0);
+                    signature.passthrough = {inputs,writes:semanticLink.vertex,flatSlots:semanticLink.flatSlots,
+                        pointLocation:inputs.find(input=>input.usage===DECLUSAGE_PSIZE && !input.usageIndex)?.location};
+                    signature.inputConversions = {};
+                    for (const input of inputs) {
+                        const element = elements.find(element=>element.usage===input.usage && element.usageIndex===input.usageIndex);
+                        const binding = element && state.streams.get(element.stream);
+                        const conversion = element && shaderPipeline.vertexInputConversion(element.type);
+                        if (conversion && binding && (binding.bufferHandle || binding.userPointer))
+                            signature.inputConversions[input.location] = conversion;
+                    }
+                    signature.hasColor = signature.hasColor1 = signature.hasNormal = signature.hasPointSize = false;
+                    signature.lighting = signature.vertexBlend = null;
+                    signature.texCoordSets = [];signature.coordStages = [];signature.fogMode = 0;
+                    signature.needsViewSpace = false;
+                }
                 vertexKey = ffp.signatureKey("vertex", signature);
                 vertexModule = this.fixedModuleFor(vertexKey, "vertex", signature);
                 vertexReflection = null;
-                locationFor = element =>
-                    fixedFunctionLocationFor(element, signature.vertexBlend);
+                locationFor = signature.passthrough ? element =>
+                    signature.passthrough.inputs.find(input=>input.usage===element.usage && input.usageIndex===element.usageIndex)?.location ?? -1
+                    : element => fixedFunctionLocationFor(element, signature.vertexBlend);
                 fixedFunctionSignature = signature;
             }
 
