@@ -1,0 +1,237 @@
+{
+  "batch": "stage6-29",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "二维MANAGED纹理按实际脏矩形延迟到绘制或PreLoad上传，初始状态及EvictManagedResources覆盖全部mip；READONLY和NO_DIRTY_UPDATE不新增脏区域，分离矩形之间的未标记写入保持不可见。SYSTEMMEM的UpdateTexture只复制脏区域并在全部成功后消费记录，CopyRects目的写入会标脏。增加块边界与mip投影、分配失败原子性、上传失败重试、显式生成mipmap前上传的检查；116项带ASan/UBSan的实际C检查和11个运行期反例通过。未修改原版Wine源码：确认修复11条dirty-rect和5条mipmap像素失败。D3D8本次计时用例因估算绘制量超过上限而额外skip，原来的两条计时失败不能算修复；143568项34失败15未审查skip，仍未通过验收。此批范围为二维纹理，立方体和体积纹理的脏区域行为尚待后续审查。",
+  "checks": {
+    "dirty": {
+      "output": "PASS actual texture dirty C: 116 checks; both APIs, exact regions/mips, READONLY/NO_DIRTY_UPDATE, preload/eviction, locked UpdateTexture, OOM atomicity and upload retry",
+      "sha256": "8aeb78f14372e352c9a6fb2d832d5f441bd7823445edd2f96905bc19b55e52fd"
+    },
+    "dirty-mutants": {
+      "output": "PASS texture dirty mutations: 11/11; original pixel/region/state assertions reject each fault",
+      "sha256": "7bbb48aec734118464889e7ab00a2cc52812a93cb06403570911ac581de518ab"
+    },
+    "d8wg_backend_texture_lock_test": {
+      "output": "PASS actual backend8 texture lock/upload: 108440 checks,50128 cases;both APIs/all registry formats/odd andBC extents,subrect source offset andwhole pitch,read-only/duplicate/null/level/target refusals,upload failure unlock cleanup",
+      "sha256": "be7c3b2dad30edab60245b253bac66f0873faf0a21bb878d6b432620f23174ea"
+    },
+    "d8wg_update_texture_core_test": {
+      "output": "PASS UpdateTexture shared policy/private8: 663622 checks,221186 cases (73728 public8/73728 ordinary9/73728 core8);420 actualold8 wrong-pool dispatches blocked;SDK pool enums,2D/cube/volume/type/format/parents/null/pool bounds,unaltered inputs,exact extents/pointers/status andactualold9 oracle",
+      "sha256": "9433c1f724634eff54fb833ef22f6d18a4d830e26c5e335f7d95bedf8bfe73cf"
+    },
+    "d8wg_update_texture_core_mutation_test": {
+      "output": "PASS UpdateTexture policy/private8 mutations: 17/17;strict compile then C runtime pool/type/owner/format/extent/profile/dispatch/result assertions",
+      "sha256": "946154482da40eb50857a44ed23b31c146ade3e64c998cbeb3eb36b6eccc860c"
+    },
+    "d9wg_bound_draw_test": {
+      "output": "PASS actual D3D9 bound draw C: ignored/overflowing hints, NumVertices=0, signed base/offset and multi-stream CPU ClipStatus/recovery, six zero-primitive no-ops, exact IB/stream bounds, programmable/constant/instance declarations and atomic transport failure",
+      "sha256": "920e4258f49ff4ab902a24ed954b5c8fd0a90963420973a72c923ed08581dc0a"
+    },
+    "d9wg_target_binding_test": {
+      "output": "PASS actual D3D9 target bindings: 4336 checks, 16 lifecycle groups, 1024 public-zero revivals; actual RT/depth setters/getters, one/two internal slots, one public device pin, public-only Reset blockers, same-object rebinding and unbind/device-first/last-public cleanup",
+      "sha256": "bc6e08444fcb4b3a3ce2b907738cf96d67f7573ce14a8f046a6499f91c2aa0d4"
+    },
+    "d9wg_recording_object_test": {
+      "output": "PASS actual D3D9 object C recording: live queries, separate public/private VB/IB/texture/shader/declaration refs, kind replacement, sparse default lights, atomic OOM, Begin/End isolation and final release",
+      "sha256": "617286ffec62d3ac94f88c14f8c0e33d5abdea6612fffe4596965c0eb9135431"
+    },
+    "d9wg_recording_object_mutation_test": {
+      "output": "PASS D3D9 object recording mutations: 11/11; COM ownership, live isolation, sparse defaults, invalid End retention and completed block lifetime",
+      "sha256": "1fe6dea3cf04fe3d68c851813829f7cec4c26be68f1acfdb788856b132dd77f6"
+    },
+    "d9wg_draw_bounds_mutation_test": {
+      "output": "PASS indexed draw bounds mutations: 28/28; shared ranges/status hints and actual API 8/9 zero/optional-hint/status behavior",
+      "sha256": "205a20857eb1fda021c9be267dc86e05026ad6b690887f69d9515889db80bb4c"
+    },
+    "d9wg_texture_binding_mutation_test": {
+      "output": "KILL sampler exposes public reference\nKILL target exposes public parent reference\nKILL public-zero leaks device pin\nKILL revival omits device pin\nKILL every public ref adds device pin\nKILL zero public Release underflows\nKILL private retain counts twice\nKILL private release omitted\nKILL Reset discounts sampler private refs\nKILL Reset discounts target private ref\nKILL GetTexture fails to revive\nKILL level query adds duplicate public ref\nKILL device cleanup uses public release\nPASS D3D9 texture binding mutations: 13/13, strict compilation and runtime assertions",
+      "sha256": "78051c4df94d7e4a75fac87d8ce809259b54f6738c4239a0a0198b01ae55e5d6"
+    },
+    "d9wg_up_failure_mutation_test": {
+      "output": "KILL successful UP host stream stays bound\nKILL successful UP host index stays bound\nKILL failed UP host stream stays bound\nKILL failed UP keeps stream0 bound\nKILL failed UP zeroes offset\nKILL failed UP zeroes stride\nKILL failed UP leaks private vertex hold\nKILL failed UP releases public vertex view\nKILL nonindexed failure clears indices\nKILL indexed failure keeps indices\nKILL nonindexed missing format skips cleanup\nKILL indexed missing format skips cleanup\nKILL patch missing format clears public bindings\nKILL successful nonindexed loses cleanup\nKILL successful indexed loses cleanup\nPASS D3D9 missing-format UP mutations: 15/15, strict compilation and runtime assertions",
+      "sha256": "447497f8664816463e6db717f6cbfe6c73b07bc1acfbc48c031a0ea3e87a2cb2"
+    },
+    "d9wg_zero_up_mutation_test": {
+      "output": "KILL nonindexed zero count still refused\nKILL indexed zero count still refused\nKILL nonindexed ignores zero stride precedence\nKILL indexed ignores zero stride precedence\nKILL nonindexed no-op clears stream metadata\nKILL indexed no-op clears indices\nKILL nonindexed still requires data\nKILL indexed still requires declaration\nKILL nonzero nonindexed becomes no-op\nKILL nonzero indexed becomes no-op\nPASS D3D9 zero-primitive UP mutations: 10/10, strict compilation and runtime assertions",
+      "sha256": "76dec5de8fccb77681bc143b40cc1eba1c25c2d4351b890039ce8619c8f446dd"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine8-dirty2d-final",
+    "checks": 143568,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 34,
+    "skipped": 15,
+    "exit": 34,
+    "failureGroups": {
+      "lighting_test": 1,
+      "offscreen_test": 1,
+      "depth_buffer_test": 9,
+      "zenable_test": 8,
+      "fog_special_test": 4,
+      "test_negative_fixedfunction_fog": 2,
+      "test_updatetexture": 7,
+      "test_max_index16": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "38a9e06825b1ada205c7d039deccdb887ce77a895fc7220ec43fdaf5940c43c3",
+      "source.json": "15db67b2d892bb61b7fcb67ba730d1027f01f5cc3457f7cc91759c949da12b19",
+      "live-gpu.json": "b9e9d3c6061b0267716e9098171f4a49523d707a9c3bdb0c2ba9a029a2be181f",
+      "audit-groups.json": "14f9cbf290a9235f22e303edf254a8c836b7970ca389f120c3e9ab4ba28d3857"
+    },
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "884e518b7e9ded73757430848bb5f883fe0e46de6f64ce3b8eac04a8496a58b3",
+      "executableSha256": "aaa91972e210e06b32b93011235b5b40250f0a27dfd69ea930addf8501f1a395",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "d5aeb6fd107de43e60c13a90f33213e370ddedb63f4a90ef952775dda4f4d6df",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "f133e78ad8feb1a3f14d87ba001b6e50c73dec971bf0bc8a6f17e9f59337c2f1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "501bbf7832c9b10bf8f76976d8de6f99d87560eb546b51af5593b981af80ea9f",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "08017d5fc948b0e70299dbae298bd6f16a00716790a08b3fe3d16ade64c82086",
+    "glbridge/ddrawproxy/ddraw.dll": "f0027ecb6f8ba9f95e3f091017a355aa6b34d45a5e194caeae0c90fd354640b1",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "376c1da16185bcda3db4ea1c978df06eab2700cf1999764300740d3da89302ed",
+    "glbridge/d3d8proxy/d3d8.dll": "884e518b7e9ded73757430848bb5f883fe0e46de6f64ce3b8eac04a8496a58b3",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "c2f1570b11ab8f85ffe30116e77ed360ff6b127bf0c2e7c86b7a2346e1c41740",
+    "glbridge/d3d9proxy/d3d9.dll": "4b2a9f687818d06c6e477160ecf105e6a6a7dae16ccc338fc53af7575614c217"
+  },
+  "build": "Six DLLs and local tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ],
+  "d3d9RegressionAudit": {
+    "directory": "stage6-wine9-device-dirty2d-final",
+    "checks": 157735,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 26,
+    "skipped": 9,
+    "failuresDetailed": [
+      "d3d9_device.c:3786: Test failed: Received unexpected message 0x46 for window 000300D4.",
+      "d3d9_device.c:4652: Test failed: Expected focus 00000000, got 001A0144.",
+      "d3d9_device.c:4654: Test failed: Expected foreground window 001900F4, got 00000000.",
+      "d3d9_device.c:4671: Test failed: Expected focus 00000000, got 001A0144.",
+      "d3d9_device.c:4673: Test failed: Expected foreground window 001900F4, got 00000000.",
+      "d3d9_device.c:5234: Test failed: Expected device window style 0x34cf0000, got 0x14cf0000, i=0.",
+      "d3d9_device.c:5254: Test failed: Failed to set foreground window.",
+      "d3d9_device.c:5234: Test failed: Expected device window style 0x34cf0000, got 0x14cf0000, i=1.",
+      "d3d9_device.c:5238: Test failed: Expected device window extended style 0x108, got 0x100, i=1.",
+      "d3d9_device.c:5254: Test failed: Failed to set foreground window.",
+      "d3d9_device.c:6619: Test failed: Occlusion query returned an unexpected result (0x00000001).",
+      "d3d9_device.c:6631: Test failed: Occlusion query returned an unexpected result (0xffff0001).",
+      "d3d9_device.c:6640: Test failed: Occlusion query returned an unexpected result (0x00000001).",
+      "d3d9_device.c:7114: Test failed: Unexpected consts_swvp 256.",
+      "d3d9_device.c:7118: Test failed: Got unexpected hr 0x8876086c.",
+      "d3d9_device.c:7121: Test failed: Got unexpected hr 0x8876086c.",
+      "d3d9_device.c:7124: Test failed: Got unexpected hr 0x8876086c.",
+      "d3d9_device.c:7149: Test failed: Got unexpected hr 0x8876086c.",
+      "d3d9_device.c:7157: Test failed: Got unexpected hr 0x8876086c.",
+      "d3d9_device.c:12178: Test failed: Failed to set foreground window.",
+      "d3d9_device.c:12195: Test failed: Got unexpected hr 0.",
+      "d3d9_device.c:12199: Test failed: Failed to set foreground window.",
+      "d3d9_device.c:13854: Test failed: Test 2D 6: Got unexpected hr 0.",
+      "d3d9_device.c:14043: Test failed: Test 28: Got unexpected hr 0x8876086c.",
+      "d3d9_device.c:15066: Test failed: Adapter 0: Expect window rect (0,0)-(800,600), got (0,0)-(799,599).",
+      "d3d9_device.c:15107: Test failed: Adapter 0: SetForegroundWindow failed, error 0."
+    ],
+    "skipsDetailed": [
+      "d3d9_device.c:1132: Tests skipped: Multisampling not supported for D3DFMT_X8R8G8B8, skipping test.",
+      "d3d9_device.c:5676: Tests skipped: Following tests require two adapters.",
+      "d3d9_device.c:7561: Tests skipped: This GPU supports SM3, skipping unsupported shader test.",
+      "d3d9_device.c:8070: Tests skipped: Mipmapping not supported for D3DFMT_D16, skipping test.",
+      "d3d9_device.c:8133: Tests skipped: D3DFMT_A32B32G32R32F supports filtering, skipping tests.",
+      "d3d9_device.c:13252: Tests skipped: Multisampling not supported for D3DFMT_A8R8G8B8.",
+      "d3d9_device.c:14007: Tests skipped: ATI2N volume texture not supported.",
+      "d3d9_device.c:15133: Tests skipped: Could not load dxgi.dll",
+      "d3d9_device.c:15218: Tests skipped: Failed to load d3d9on12 modules, skipping d3d9on12 tests."
+    ],
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "source": {
+      "suite": "d3d9_device",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_device.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+        "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+      },
+      "dllSha256": "4b2a9f687818d06c6e477160ecf105e6a6a7dae16ccc338fc53af7575614c217",
+      "executableSha256": "6b92dcff0d72ba2a1b87a6dbc2b0254dcf04c5fb68d52891b62c51a0e6ccf39c",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "d5aeb6fd107de43e60c13a90f33213e370ddedb63f4a90ef952775dda4f4d6df",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "f133e78ad8feb1a3f14d87ba001b6e50c73dec971bf0bc8a6f17e9f59337c2f1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "501bbf7832c9b10bf8f76976d8de6f99d87560eb546b51af5593b981af80ea9f",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "WINE.TXT": "408e4fd5b321cbc22116e1d8cd5071dd3aaadaaad633339024198b9135993529",
+      "source.json": "250c8894c6fb127c423a9b043c5a51d814de2aa897c9336f1a3ef534a1385fbc",
+      "live-gpu.json": "ba7f948a680ea0420a4a9083b9ded2b9261e42ca598edf254e199ddc21017e58"
+    }
+  },
+  "confirmedFixes": {
+    "dirtyRectAssertions": 11,
+    "mipmapAssertions": 5,
+    "timingAssertions": 0
+  }
+}
