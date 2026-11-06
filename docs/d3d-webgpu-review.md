@@ -3141,3 +3141,9 @@ ATI1/ATI2的公开字节步长、连续mip偏移与GPU压缩块传输步长分�
 GetDC补齐六种原生格式及555/565掩码，失败时保留调用方输出。GDI绘图句柄取得后锁定整个父纹理，覆盖所有面和mip；普通CPU映射仍可分别锁定不同级别，UnlockRect不会提前解除GDI所有权。二维纹理重复UnlockRect按原生XP返回成功。像素写回、行填充、错误句柄、分配失败释放及跨级别互斥通过内存安全检查，相关纹理/生命周期和56项故障注入回归通过。
 
 原版D3D9完整157,967项，仍有**360条失败、9项未审查skip，验收未通过**；GetDC失败由120降至6，剩余为DIBSECTION图像大小元数据差异，正在进行原生系统对照。GPU/宿主错误零，进程结束前资源仍未全部释放。六个DLL及工具镜像已重建；发布D3D9与完整XP测试哈希一致。证据见`fixtures/d3d-review/stage6-15-validation.json`。正式四版新旧性能比较仍未开始。
+
+### 原生GDI内存表面验收通过（2026-11-06）
+
+XP原生对照确认普通DIB与DirectDraw内存表面的`DIBSECTION.biSizeImage`不同。API9 GetDC现通过绝对SYSTEM32路径加载系统DirectDraw，仅创建CPU/GDI内存表面；像素仍由当前代理映射、复制并上传WebGPU，没有委托3D绘制或呈现。API8保留原DIB路径。资源销毁会释放尚未归还的GDI句柄及系统对象。系统运行库不可用或加载自身时明确失败。
+
+新增XP原生测试1,614项通过，覆盖六种格式、奇数宽度、颜色、行方向和填充；本地130组绘图/失败释放检查、生命周期及12项故障注入通过。原版Wine `test_getdc`和`test_lockable_backbuffer`零失败。完整D3D9仍有**354条失败/157,967项、9项未审查skip，整体验收未通过**，GPU/宿主错误零，结束前仍有2设备/13资源。六个DLL和工具镜像重建，发布D3D9与完整XP运行哈希一致；证据见`fixtures/d3d-review/stage6-16-validation.json`。
