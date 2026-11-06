@@ -481,9 +481,11 @@
         case D3DFMT_X8R8G8B8:
         case D3DFMT_A2B10G10R10:
         case D3DFMT_A2R10G10B10:
+        case D3DFMT_G16R16:
         case D3DFMT_G16R16F:
         case D3DFMT_R32F:
             return 4;
+        case D3DFMT_A16B16G16R16:
         case D3DFMT_A16B16G16R16F:
         case D3DFMT_G32R32F:
             return 8;
@@ -585,6 +587,15 @@
                     (unorm(b, 1023) | (unorm(g, 1023) << 10) |
                     (unorm(r, 1023) << 20) | (unorm(a, 3) << 30)) >>> 0,
                     true);
+                break;
+            case D3DFMT_G16R16:
+            case D3DFMT_A16B16G16R16:
+                destinationView.setUint16(destinationAt, unorm(r, 65535), true);
+                destinationView.setUint16(destinationAt + 2, unorm(g, 65535), true);
+                if (format === D3DFMT_A16B16G16R16) {
+                    destinationView.setUint16(destinationAt + 4, unorm(b, 65535), true);
+                    destinationView.setUint16(destinationAt + 6, unorm(a, 65535), true);
+                }
                 break;
             case D3DFMT_R16F:
                 destinationView.setUint16(destinationAt,

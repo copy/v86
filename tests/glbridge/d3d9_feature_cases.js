@@ -561,6 +561,25 @@
     add("resources", { name: "D3D9 ColorFill takes D3DCOLOR and forces opaque X8 alpha", targetFormat: 22,
         body: (dev, rt) => [wire("ColorFill", { device_handle: dev, texture_handle: rt, color: 0x00996633, right: 64, bottom: 64 })],
         probes: [{ at: [32, 32], expect: [153, 102, 51, 255] }] });
+    for (const format of [21,22,23,34,36,111,112,113,114,115,116]) for (const implicit of [false,true]) {
+        if (implicit && format !== 22) continue;
+        add("surface-fill", {name: "ColorFill " + (implicit ? "implicit backbuffer" : "format " + format) + " preserves outside partial fill",
+            body: (dev,rt) => {
+                const target=implicit?0:rt+1;
+                return [...(implicit?[]:[wire("CreateTexture2D",{device_handle:dev,resource_handle:target,width:64,height:64,level_count:1,format})]),
+                    wire("ColorFill",{device_handle:dev,texture_handle:target,color:0xff0000ff,right:64,bottom:64}),
+                    wire("ColorFill",{device_handle:dev,texture_handle:target,color:0xffadbeef,left:16,top:16,right:48,bottom:48}),
+                    ...(implicit ? [wire("StretchRect",{device_handle:dev,source_texture_handle:target,destination_texture_handle:rt,source_right:64,source_bottom:64,destination_right:64,destination_bottom:64,filter_point:1})] : [
+                        wire("SetTexture",{device_handle:dev,texture_handle:target}),tss(dev,0,1,2),tss(dev,0,2,2),tss(dev,0,4,2),tss(dev,0,5,2),
+                        rs(dev,174,1),wire("SetScissorRect",{device_handle:dev,right:16,bottom:64}),...texturedQuad(dev,.125),
+                        wire("SetScissorRect",{device_handle:dev,left:16,right:64,bottom:64}),...texturedQuad(dev,.5)])];
+            },probes:[{at:[8,8],expect:[0,format===111||format===114?255:0,255,255]},
+                {at:[32,32],expect:[173,format===111||format===114?255:190,[34,111,112,114,115].includes(format)?255:239,255],tolerance:2}]});
+    }
+    for (const format of [21,22]) add("surface-fill",{name:"implicit ColorFill alpha format "+format,backBufferFormat:format,
+        body:(dev,rt)=>[wire("ColorFill",{device_handle:dev,texture_handle:0,color:0x80402010,right:64,bottom:64}),
+            wire("StretchRect",{device_handle:dev,source_texture_handle:0,destination_texture_handle:rt,source_right:64,source_bottom:64,destination_right:64,destination_bottom:64,filter_point:1})],
+        probes:[{at:[32,32],expect:[64,32,16,format===21?128:255]}]});
     for (const destination of [false, true]) for (const key of [0x336699, 0x33669a, 0x33669b]) add("ddraw", {
         name: "DirectDraw " + (destination ? "destination" : "source") + " inclusive key " + key.toString(16),
         body: (dev, rt) => {

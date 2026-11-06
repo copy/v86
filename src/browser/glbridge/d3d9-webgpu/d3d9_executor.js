@@ -3413,7 +3413,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         }
 
         onColorFill(bytes, view, offset, length) {
-            const resource = this.resources.get(view.getUint32(offset + D9WG.F.ColorFill.texture_handle, true));
+            const handle = view.getUint32(offset + D9WG.F.ColorFill.texture_handle, true);
+            const state = this.devices.get(view.getUint32(offset + D9WG.F.ColorFill.device_handle, true));
+            const resource = handle ? this.resources.get(handle) : state && {
+                gpuTexture: this.deviceBackBuffer(state), width: this.backBufferWidthOf(state),
+                height: this.backBufferHeightOf(state), format: state.backBufferD3DFormat || 22,
+                textureDescriptor: { usage: TEXTURE_USAGE_RENDER_ATTACHMENT }
+            };
             const level = view.getUint32(offset + D9WG.F.ColorFill.level, true);
             const color = view.getUint32(offset + D9WG.F.ColorFill.color, true);
             const face = D9WG.has(length, "ColorFill", "face") ? view.getUint32(offset + D9WG.F.ColorFill.face, true) : 0;
@@ -3439,8 +3445,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // Shares targetViewFor's cache and its single-layer descriptor.
             // Building a view here by hand left the array layers unbounded,
             // which on a cube map is a six-layer view where the pass wants one.
-            const targetView = this.targetViewFor(resource, level, false,
-                Math.min(face, (resource.layerCount || 1) - 1));
+            const targetView = handle ? this.targetViewFor(resource, level, false,
+                Math.min(face, (resource.layerCount || 1) - 1)) : state.backBufferView;
             const left = view.getInt32(offset + D9WG.F.ColorFill.left, true);
             const top = view.getInt32(offset + D9WG.F.ColorFill.top, true);
             const right = view.getInt32(offset + D9WG.F.ColorFill.right, true);
@@ -3461,15 +3467,16 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     resource.format === formats.D3DFMT_X4R4G4B4 || resource.format === formats.D3DFMT_X8B8G8R8 ||
                     resource.format === formats.D3DFMT_R5G6B5 || resource.format === formats.D3DFMT_R8G8B8
                     ? 1 : ((color >>> 24) & 0xff) / 255];
+            if (resource.format === formats.D3DFMT_G16R16) { rgba[2] = 1; rgba[3] = 1; }
             const isFull = clippedLeft === 0 && clippedTop === 0 &&
                 clippedRight === fullWidth && clippedBottom === fullHeight;
             const frame = this.ensureFrame();
             frame.record({ kind: "color-fill", targetView,
-                writes: resource.msaaTexture ? resource : null,
-                format: formatToGPU(resource.format), rgba, isFull,
+                writes: handle ? (resource.msaaTexture ? resource : null) : (state.backBufferMsaaView ? state : null),
+                format: handle ? formatToGPU(resource.format) : this.format, rgba, isFull,
                 left: clippedLeft, top: clippedTop,
                 right: clippedRight, bottom: clippedBottom });
-            this.markTextureSubresourceWritten(resource, level, face);
+            if (handle) this.markTextureSubresourceWritten(resource, level, face);
             resource.frameReferenced = frame.serial;
             ++this.stats.colorFills;
         }

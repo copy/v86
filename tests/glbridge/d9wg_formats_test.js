@@ -13,6 +13,17 @@ assert.deepEqual([...rgba.subarray(0x2204 * 4, 0x2204 * 4 + 4)], [33, 65, 33, 25
 F.packGPUReadbackRow(23, "rgba8unorm", rgba, 0, 65536, roundtrip, 0);assert.deepEqual(roundtrip, packed);
 const rg16 = new Uint8Array(8);F.expandRowToGPU(34, Uint8Array.of(0xff, 0xff, 0, 0), 0, 1, rg16, 0);
 assert.deepEqual([...rg16], [0, 0x3c, 0, 0, 0, 0x3c, 0, 0x3c]);
+// Read back exact binary16 channel values with nonzero source/destination
+// offsets and sentinels. Quantization follows UNORM16, not byte replication.
+for (const format of [34, 36]) {
+    const input = new Uint8Array(24), view = new DataView(input.buffer);
+    [0x3800,0x3400,0x3c00,0,0x3c00,0x3800,0,0x3c00].forEach((h,i)=>view.setUint16(4+i*2,h,true));
+    const output = new Uint8Array(24).fill(0x55), stride=format===34?4:8;
+    F.packGPUReadbackRow(format,"rgba16float",input,4,2,output,2);
+    const actual=new DataView(output.buffer), expected=format===34?[32768,16384,65535,32768]:[32768,16384,65535,0,65535,32768,0,65535];
+    expected.forEach((v,i)=>assert.equal(actual.getUint16(2+i*2,true),v));
+    assert(output.subarray(0,2).every(v=>v===0x55));assert(output.subarray(2+2*stride).every(v=>v===0x55));
+}
 for (const format of [111, 112, 113]) {
     const bpp = F.gpuBytesPerTexel(format), source = Uint8Array.from([1, 0x7e, 0, 0xfc, 0x01, 0x80, 0x55, 0x7c].slice(0, bpp));
     const upload = new Uint8Array(bpp), readback = new Uint8Array(bpp);
