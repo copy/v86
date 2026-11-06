@@ -1,0 +1,122 @@
+{
+  "batch": "stage6-32",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "原版D3D8的7条UpdateTexture失败全部消除：ARGB、XRGB、RGB565之间实际转换像素，二维纹理继续只复制脏区域，立方纹理覆盖全部面和mip；不同长宽比按最大尺寸选择源mip，仅复制两端有效区域，保留目标其余像素。D3D9不同格式仍拒绝，未知和压缩格式转换未放宽。先验证全部布局并预留目标存储，传输失败保留脏区域以便重试。10884项真实C字节检查、221186项分派组合及19+17项运行时故障注入通过。原版Wine本次执行了此前经常跳过的map_synchronization，两条NOOVERWRITE竞态断言失败仍保留，未将其视为已修复。",
+  "checks": {
+    "dirty": {
+      "output": "PASS actual texture dirty C: 10884 checks; both APIs, exact regions/mips, READONLY/NO_DIRTY_UPDATE, preload/eviction, locked UpdateTexture, OOM atomicity/upload retry, legacy color conversion across all cube faces/mips, exact dirty regions and mismatched aspect bounds",
+      "sha256": "9fae41dae49d3ff7ff1b9b46e1c8ded6e6926856f20c8b60b609931bcc7d90bd"
+    },
+    "dirty-mutants": {
+      "output": "PASS texture dirty mutations: 19/19; original pixel/region/state assertions reject each fault",
+      "sha256": "a924758d3f0b756337e10e9aba916f822fc3370deab0e9cc3fe80f616db47508"
+    },
+    "update": {
+      "output": "PASS UpdateTexture shared policy/private8: 663630 checks,221186 cases (73728 public8/73728 ordinary9/73728 core8);420 actualold8 wrong-pool dispatches blocked;SDK pool enums,2D/cube/volume/type/format/parents/null/pool bounds,unaltered inputs,exact extents/pointers/status andactualold9 oracle",
+      "sha256": "33cb49f58ac96e278b3392df5e88cb7e1344976a7964692d72089578605301d0"
+    },
+    "update-mutants": {
+      "output": "PASS UpdateTexture policy/private8 mutations: 17/17;strict compile then C runtime pool/type/owner/format/extent/profile/dispatch/result assertions",
+      "sha256": "946154482da40eb50857a44ed23b31c146ade3e64c998cbeb3eb36b6eccc860c"
+    },
+    "integration": {
+      "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (3.330083ms)\n✔ rapid launches wait for the previous canvas/device teardown (3.576875ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 97.7395\n\nPASS site graphics integration 2/2",
+      "sha256": "f06e52a6355e10b1b014d52403680a027fac50ff42a66e72fb38cbd0157b4f58"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine8-legacy-color",
+    "checks": 143726,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 12,
+    "skipped": 14,
+    "exit": 12,
+    "failureGroups": {
+      "offscreen_test": 1,
+      "depth_buffer_test": 9,
+      "test_map_synchronisation": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "1537624373d0c169464dfa8e915b74e9e264cca588fc2e65c4816952d93b3c5a",
+      "source.json": "cb5dc9684863d419c82fa97e4c2eca5b79fbe15b886682515c3dd7dfbaf2d90e",
+      "live-gpu.json": "de7d338bcdebecbb7ce982763aff67e039e65b5ad8a378941ba486369b8ec113",
+      "audit-groups.json": "a88e0cc85392bb25a5680ba9343c188eb83152a0b18f3234ae1ac79f2942861c"
+    },
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "703eb1272f5a3ed7d5b5888463202c5078d4a342ca01ac90b94d4295b91db74e",
+      "executableSha256": "35fe965fe179719111da7e7f61629587297fe37d2589c8537ea327fc00a2acd8",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "5a00b4b4080876da8bac9e42d1ce01db2bce160cda9aa4db63df81fc81133c83",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "769e9c938d10444ce3d6cc10fdcc39030e7680225294e33ec940a013e69dd2b9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "f133e78ad8feb1a3f14d87ba001b6e50c73dec971bf0bc8a6f17e9f59337c2f1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "01f4e49147520ee29f0a99f6e4c9c39ca899fa0cb38f5eb3218901845ec5ee80",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "dbd012f1ba00fdbb92a6827a808b346142ad3a99cbe6eaf8f9a79a477b537052",
+    "glbridge/ddrawproxy/ddraw.dll": "b751b3dbb47de7a6a6ba9ddf4f3647bb5674754833fcaa97ef68c3c2b790d599",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "fee539eb6825d11f199193bd0d466776b660ba6316ecdc5da480cf6b2e418412",
+    "glbridge/d3d8proxy/d3d8.dll": "703eb1272f5a3ed7d5b5888463202c5078d4a342ca01ac90b94d4295b91db74e",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "9484b05b769f9047b4d5ed2a68a7b8ec1edef3e0c2a508f61f18fa0d28003d02",
+    "glbridge/d3d9proxy/d3d9.dll": "291dfa04f3e94eec1dce4fc9157c0fee16df0d86ca870b2a63ddbd91d3dc4641"
+  },
+  "build": "Six DLLs and local tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ],
+  "confirmedFixes": {
+    "d3d8UpdateTexture": 7,
+    "mapSynchronization": 0
+  },
+  "mapSynchronizationReview": {
+    "source": "tests/glbridge/wine/d3d8_visual.c:10734",
+    "rawFailures": 2,
+    "flags": [
+      "0x1000",
+      "0x3000"
+    ],
+    "status": "Pending applicability review; not waived and not a passing test.",
+    "finding": "The original test overwrites the last quad referenced by an already-issued draw and infers unsynchronized mapping from a changed pixel. This is not a direct measurement of Lock blocking. NOOVERWRITE promises not to modify referenced data; guest Lock itself accesses CPU shadow without waiting for GPU, and WebGPU uploads preserve command order.",
+    "references": [
+      "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dlock",
+      "https://learn.microsoft.com/en-us/windows/win32/direct3d9/locking-resources",
+      "https://learn.microsoft.com/en-us/previous-versions/ms889736(v=msdn.10)"
+    ]
+  },
+  "scope": "Guest-only change. Host executor unchanged from batch31. API9 strict format rejection verified by native dispatch/byte tests; full API9 Device not rerun in batch32."
+}
