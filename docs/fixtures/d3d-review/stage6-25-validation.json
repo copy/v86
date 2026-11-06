@@ -1,0 +1,107 @@
+{
+  "batch": "stage6-25",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "修复 API9 全屏 Reset 使用 SW_SHOW 保留最小化状态的问题，先恢复窗口再调整尺寸，保留 API8 与 NOWINDOWCHANGES 行为。GetAvailableTextureMem 改为统计本设备 DEFAULT/MANAGED 的二维、立方体、体纹理及顶点/索引缓冲，覆盖 mip、压缩块、多重采样、释放回收与大于4GiB饱和；256MiB 是逻辑预算，并非浏览器物理显存读数。完整原版 Wine 失败从上一批55条降至39条，其中纹理内存两条失败消除；窗口问题仍未全部解决。独立内存检查25项、13个运行时故障变体，窗口检查322项及18个故障变体通过。曾试验的 AttachThreadInput 激活修改无有效改善，已撤回，没有进入发布DLL。",
+  "checks": {
+    "memory": {
+      "output": "PASS actual memory budget: 25 checks; live 20-target allocation/release, four pools, cube/volume/mips/BC/MSAA, buffers, >4GiB saturation, device isolation and MiB rounding",
+      "sha256": "347ac1878807b4361721360d05fe01f57fe4f86f729825ae14b37cd2579e7b5e"
+    },
+    "memory-mutants": {
+      "output": "PASS memory budget mutations: 13/13 compiled faults rejected by runtime accounting assertions",
+      "sha256": "d73da9bd14e8091c58718a20bc64b7e0b21b5cd9d5a259a4a68c95c99e76d5e7"
+    },
+    "exclusive": {
+      "output": "PASS exclusive window native: 322 checks; ANSI/Unicode, separate focus/output, lost/recovery ordering, shared hooks, callback teardown, destroyed/replaced windows and allocation/property/proc failure cleanup",
+      "sha256": "86244f7de642afbf64d2c2983c670531643a882131d052d0540a3c95a3ef2402"
+    },
+    "exclusive-mutants": {
+      "output": "PASS exclusive window mutations: 18 compiled faults rejected at runtime, including callback lifetime and state/dispatch invariants",
+      "sha256": "0bad8ad118de7140fd66939ff97e3b24b256987087de7818a670b2af36f9793f"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine9-device-restore-memory",
+    "checks": 157734,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 39,
+    "skipped": 9,
+    "exit": 39,
+    "failureGroups": {
+      "test_reset": 1,
+      "test_draw_primitive": 3,
+      "test_null_stream": 1,
+      "test_wndproc": 1,
+      "test_multi_device": 1,
+      "test_wndproc_windowed": 4,
+      "test_window_style": 6,
+      "test_occlusion_query": 4,
+      "test_vertex_shader_constant": 6,
+      "test_lost_device": 8,
+      "test_resource_access": 2,
+      "test_window_position": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "34bf96aab9b4ae2436be594113be68c7dc76f0905730703a01bd31b8ca594fd7",
+      "source.json": "d554332c87bf3c6d6c56069f56ce14456562f657925287593077ab9fc4c1a4a4",
+      "live-gpu.json": "977a6b497d831ab5c3b73bc21a5e61ea7b95dd92a6403c4492e15369a72616af",
+      "audit-groups.json": "791164ba4d66d3f0a4cb3813a9ae26a1c945428451d5b39da813cc493582ca23"
+    },
+    "source": {
+      "suite": "d3d9_device",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_device.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+        "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+      },
+      "dllSha256": "c859f09dd87a1b5b745bd33d48bfdeeec6474a1a45d44afde0a42a5286eba485",
+      "executableSha256": "fd1f26c7c1c0ce2cce5ddef5f3e4f590d669026aacb2633714d1b204f7d03728",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "dfc9c3d8786e14eb573c194f72fd1f322843bb07d5da5088e221efc510b8fdbd",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "b192f26cd8e10c1a757b8a5d8177d86bb1b53cf86520ceaa9b9996c994e87d15",
+    "glbridge/ddrawproxy/ddraw.dll": "5419039a29d0522f48457b78b88cf6f627117d7929237db8d6c09d515fb00f8a",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "5b241366aa7e60082958bb9bbf230a89aba7ccbe4811d0b64975718a783cf2e6",
+    "glbridge/d3d8proxy/d3d8.dll": "19e0ae4ccc04850dd485dc4c40be45c8f4247ee7af5c7931515ff0ebcb4fab59",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "06de67bbb99638c2c4263a0bffc2d243844765ae3e72be48d80da59fad827a82",
+    "glbridge/d3d9proxy/d3d9.dll": "c859f09dd87a1b5b745bd33d48bfdeeec6474a1a45d44afde0a42a5286eba485"
+  },
+  "build": "Six DLLs and local tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ]
+}
