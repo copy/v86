@@ -1239,5 +1239,40 @@
             wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:2,stride:28,vertex_count:6,vertex_bytes:data.length},[blob("DrawPrimitiveUP","vertex_data_offset",data)])];
         },probes:[{at:[32,32],expect:[0,0,row.blue,255],tolerance:1}]});
 
+    // D3D has no primitive restart in these strip draws: 65535 is a vertex.
+    function maxIndexVertices(base=0,line=false) {
+        const data=new Uint8Array((65537+Math.max(0,base))*16),v=new DataView(data.buffer);
+        const put=(i,x,y,color)=>{v.setFloat32(i*16,x,true);v.setFloat32(i*16+4,y,true);v.setFloat32(i*16+8,.5,true);v.setUint32(i*16+12,color,true);};
+        const points=line?[[-.75,.75],[.75,.75],[.75,-.75],[-.75,-.75]]:[[-1,1],[1,1],[-1,-1],[1,-1]];
+        [1,2,3,65535].forEach((i,j)=>put(i+base,...points[j],0xff00ff00));
+        return {data,put};
+    }
+    const maxIndexDecl=dev=>cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,fvf:0x42,element_count:2}),element(0,2,0),element(12,4,10)]));
+    function maxIndexBuffers(dev,data,indices,wide) {
+        const vb=dev+0x600000,ib=dev+0x600001;
+        return [wire("CreateBuffer",{device_handle:dev,resource_handle:vb,resource_kind:1,byte_count:data.length}),
+            wire("UpdateBuffer",{resource_handle:vb,byte_count:data.length},[blob("UpdateBuffer","data_offset",data)]),
+            wire("CreateBuffer",{device_handle:dev,resource_handle:ib,resource_kind:2,byte_count:indices.length,fvf:wide?102:101}),
+            wire("UpdateBuffer",{resource_handle:ib,byte_count:indices.length},[blob("UpdateBuffer","data_offset",indices)]),
+            wire("SetStreamSource",{device_handle:dev,buffer_handle:vb,stride:16}),wire("SetIndices",{device_handle:dev,buffer_handle:ib})];
+    }
+    for(const up of [false,true])for(const line of [false,true])for(const wide of [false,true])for(const base of (up?[0]:[-1,1]))
+        add("max-index",{name:`valid index65535 up=${up} line=${line} wide=${wide} base=${base}`,body:dev=>{
+            const {data}=maxIndexVertices(base,line),indices=Uint8Array.from((wide?le32:le16)(...(up?[]:[99]),1,2,3,65535));
+            return [rs(dev,7,0),rs(dev,22,1),maxIndexDecl(dev),...(up?[
+                wire("DrawIndexedPrimitiveUP",{device_handle:dev,primitive_type:line?3:5,primitive_count:line?3:2,stride:16,vertex_count:65536,vertex_bytes:data.length,index_format:wide?102:101,index_bytes:indices.length},
+                    [blob("DrawIndexedPrimitiveUP","vertex_data_offset",data),blob("DrawIndexedPrimitiveUP","index_data_offset",indices)])
+            ]:[...maxIndexBuffers(dev,data,indices,wide),wire("DrawIndexedPrimitive",{device_handle:dev,primitive_type:line?3:5,primitive_count:line?3:2,base_vertex_index:base,start_index:1})])];
+        },probes:(line?[[32,8],[56,32],[32,56]]:[[8,8],[32,32],[56,56]]).map(at=>({at,expect:[0,255,0,255]}))});
+    add("max-index",{name:"cached strip partial unaligned update preserves earlier draw",body:dev=>{
+        const {data,put}=maxIndexVertices();[[257,-1,1],[258,1,1],[259,-1,-1],[0xfeff,1,-1]].forEach(v=>put(...v,0xffff0000));
+        const indices=Uint8Array.from(le16(99,1,2,3,65535)),ib=dev+0x600001;
+        const dip=wire("DrawIndexedPrimitive",{device_handle:dev,primitive_type:5,primitive_count:2,start_index:1});
+        return [rs(dev,7,0),rs(dev,22,1),maxIndexDecl(dev),...maxIndexBuffers(dev,data,indices,false),rs(dev,174,1),
+            wire("SetScissorRect",{device_handle:dev,left:0,top:0,right:32,bottom:64}),dip,
+            wire("UpdateBuffer",{resource_handle:ib,destination_offset:3,byte_count:7},[blob("UpdateBuffer","data_offset",Uint8Array.from([1,2,1,3,1,255,254]))]),
+            wire("SetScissorRect",{device_handle:dev,left:32,top:0,right:64,bottom:64}),dip];
+        },probes:[{at:[16,32],expect:[0,255,0,255]},{at:[48,32],expect:[255,0,0,255]}]});
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

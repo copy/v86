@@ -112,6 +112,7 @@
             retireResourceState(resource) {
                 if (!resource) return;
                 this.retireGPUObject(resource.gpuBuffer);
+                this.retireGPUObject(resource.stripIndexBuffer);
                 this.retireGPUObject(resource.gpuTexture);
                 this.retireGPUObject(resource.srgbCopyTexture);
                 this.retireGPUObject(resource.msaaTexture);
@@ -195,10 +196,37 @@
                 const source = new Uint8Array(bytes.buffer, bytes.byteOffset + sourceOffset, byteCount);
                 shadow.set(source, destinationOffset);
 
+                // A cached uint32 strip mirror preserves D3D's valid 0xffff
+                // index. Apply only changed indices, in command order, so
+                // earlier draws in this frame keep the previous contents.
+                if (resource.stripIndexBuffer) {
+                    const first = destinationOffset >> 1;
+                    const end = Math.min(resource.byteCount >> 1, Math.ceil((destinationOffset + byteCount) / 2));
+                    const indices = new Uint16Array(shadow.buffer, shadow.byteOffset, resource.byteCount >> 1);
+                    const widened = new Uint32Array(indices.subarray(first, end));
+                    this.stageBufferUpload(resource.stripIndexBuffer, first * 4, new Uint8Array(widened.buffer));
+                }
+
                 const alignedStart = destinationOffset & ~3;
                 const alignedEnd = Math.min(shadow.length, alignUp(destinationOffset + byteCount, 4));
                 if (alignedEnd > alignedStart)
                     this.stageBufferUpload(resource.gpuBuffer, alignedStart, shadow.subarray(alignedStart, alignedEnd));
+            },
+
+            stripIndexBufferFor(resource) {
+                if (resource.indexFormat !== "uint16") return resource.gpuBuffer;
+                if (!resource.stripIndexBuffer) {
+                    const indices = new Uint16Array(resource.shadow.buffer,
+                        resource.shadow.byteOffset, resource.byteCount >> 1);
+                    const widened = new Uint32Array(indices);
+                    resource.stripIndexBuffer = this.device.createBuffer({
+                        label: "D3D strip indices without uint16 restart",
+                        size: Math.max(4, widened.byteLength),
+                        usage: BUFFER_USAGE_INDEX | BUFFER_USAGE_COPY_DST,
+                    });
+                    this.stageBufferUpload(resource.stripIndexBuffer, 0, new Uint8Array(widened.buffer));
+                }
+                return resource.stripIndexBuffer;
             },
 
             // WebGPU requires writeBuffer's size (and destination offset) to be a

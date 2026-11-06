@@ -1,0 +1,297 @@
+{
+  "batch": "stage6-31",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "托管顶点和索引缓冲首次使用或PreLoad上传完整CPU副本，随后继续按锁定范围增量上传；EvictManagedResources与上传失败保留正确的重新上传状态。宿主将16位条带索引缓存为32位，保留合法索引65535，局部改写仅转换对应索引并保持同帧绘制顺序，资源结束释放缓存。原版D3D8最大索引两条画面失败消除，没有新增D3D8失败。208项真实C检查、13个真实GPU场景、181项执行器检查及相关故障注入通过。D3D8计时用例仍因估算三角形数异常而skip，未宣称修复。",
+  "checks": {
+    "managed": {
+      "output": "PASS actual managed VB/IB C: 208 checks; both APIs, full initial residency including vertex65535, READONLY, exact later ranges, duplicate streams, non-indexed isolation, eviction, preload, failed-upload retry and mapped draw",
+      "sha256": "597c1b5274882942d3a08c32c9ff7147f1359dd3ec24ba5d59dc42ec6a493fa7"
+    },
+    "managed-mutants": {
+      "output": "PASS managed buffer mutations: 6/6 residency/range/retry/eviction/isolation faults rejected by actual C assertions",
+      "sha256": "1edfdfcc3f408b2e5e6de6173a65ba63a7f9767992489566a6ce0f45e20ec9c9"
+    },
+    "bound": {
+      "output": "PASS actual D3D9 bound draw C: ignored/overflowing hints, NumVertices=0, signed base/offset and multi-stream CPU ClipStatus/recovery, six zero-primitive no-ops, exact IB/stream bounds, programmable/constant/instance declarations and atomic transport failure",
+      "sha256": "920e4258f49ff4ab902a24ed954b5c8fd0a90963420973a72c923ed08581dc0a"
+    },
+    "mapped": {
+      "output": "PASS actual API 8 mapped draw bridge and Lock/Unlock: 17 buffers, exact ranges/data/order, duplicate bindings, repeat writes, readonly/static/conflicting hints, one DISCARD per map, partial transport receipts, zero-size maps, owner/range atomicity and retained locks\nPASS actual API 9 mapped draw bridge and Lock/Unlock: 17 buffers, exact ranges/data/order, duplicate bindings, repeat writes, readonly/static/conflicting hints, one DISCARD per map, partial transport receipts, zero-size maps, owner/range atomicity and retained locks",
+      "sha256": "678461972cc50b2a16d0b749f66e4def4e394165a4c48ec2f32e43512b25d3cb"
+    },
+    "mapped-mutants": {
+      "output": "PASS mapped draw mutations: 25/25; exact uploads, readonly/dedup, partial receipts, retained locks, VB/IB DISCARD and actual draw/CPU-input ordering",
+      "sha256": "7b085831694fc06d418280074255ee499ee4da0ae9ddce5c0218f00025c239c2"
+    },
+    "lock": {
+      "output": "PASS actual API 8 VB/IB Lock: 1344 frozen policy cases, seven XP HRESULT observations, ignored/combined hints, exact uploads/read-only preservation, range/failure atomicity bounded DISCARD shadow access and production API8 nested range/readonly/last-unlock semantics\nPASS actual API 9 VB/IB Lock: 1472 frozen policy cases, seven XP HRESULT observations, ignored/combined hints, exact uploads/read-only preservation, range/failure atomicity bounded DISCARD shadow access and production API8 nested range/readonly/last-unlock semantics",
+      "sha256": "e2275ca72b8a019a6823927ac5a09d4bdea66490ec2e78d383c2c9e2bc992be8"
+    },
+    "lock-mutants": {
+      "output": "PASS buffer Lock mutations: 27/27 (23 runtime assertions,4 controlled protected-page faults),strict compilation;retail access/streaming policy, four frontend adapters, exact uploads, clip invalidation, unlock failure cleanup and protected DISCARD shadow pages",
+      "sha256": "d687fa03bbc807a58f1ba2a4f3421a29b467100cf3f36e8c7f3f01e5e4f83b83"
+    },
+    "creation": {
+      "output": "PASS actual backend8 VB/IB creation: 302782 checks,73942 cases (36960 API8/36960 ordinary9),12606864 zeroed bytes;frozen8/9 allocation/descriptor oracle plus Wine pool/usage expectations and 16-byte buffer storage alignment,realSDK24/20-byte layouts,unaligned indices/pools/length/usage/FVF/output/OOM/transport/zero storage/list/pins,private sharedNULL dispatch",
+      "sha256": "b248ada532b65e5e57411b5945d9599ff35ec3e6ab1144cfcbe3492c33eee222"
+    },
+    "creation-mutants": {
+      "output": "PASS backend8 buffers mutations: 30/30;strict compilation then actual constructor/lock/upload runtime assertions,profile/length/usage/FVF/format/pool/sharedNULL/output/list/zero-storage/descriptor guards",
+      "sha256": "a3810250c349510d28a5df99cdf8efe195ac7d015704637313f33a8365fb953d"
+    },
+    "indexed": {
+      "output": "PASS actual D3D9 bound draw C: ignored/overflowing hints, NumVertices=0, signed base/offset and multi-stream CPU ClipStatus/recovery, six zero-primitive no-ops, exact IB/stream bounds, programmable/constant/instance declarations and atomic transport failure\nPASS actual core8 indexed draw: 115729 checks / 50006 cases (4941 emitted successes/42375 refused/2459 zero/225 transport failures); raw32 signed extrema,independent physical-vertex enumeration,multi-stream offsets/constant strides,16/32bit IB bounds/opaque hints,actual9 emitter/state and unchanged bindings",
+      "sha256": "a32b54a8a4c3590bca267e4ff122141b75e9080cb87be39939b2e1ee99ac8f8b"
+    },
+    "process": {
+      "output": "PASS actual D3D9 bound draw C: ignored/overflowing hints, NumVertices=0, signed base/offset and multi-stream CPU ClipStatus/recovery, six zero-primitive no-ops, exact IB/stream bounds, programmable/constant/instance declarations and atomic transport failure\nPASS actual core8 ProcessVertices: 392170 checks / 364469 cases (362144 frozen8 layouts/2325 execution-control cases); independent projected coordinates/complete bytes,raw8 bit14 versusnormalized/explicit9/frozen9,alias snapshots/offsets/attributes/flags/zeroW,guarded failures/OOM/transport and exact scratch cleanup",
+      "sha256": "539359d8a4977dd521bb63aaff40caa1fa6101dca391c2ba4de47e5395e69928"
+    },
+    "bound-mutants": {
+      "output": "PASS indexed draw bounds mutations: 28/28; shared ranges/status hints and actual API 8/9 zero/optional-hint/status behavior",
+      "sha256": "205a20857eb1fda021c9be267dc86e05026ad6b690887f69d9515889db80bb4c"
+    },
+    "dirty": {
+      "output": "PASS actual texture dirty C: 116 checks; both APIs, exact regions/mips, READONLY/NO_DIRTY_UPDATE, preload/eviction, locked UpdateTexture, OOM atomicity and upload retry",
+      "sha256": "8aeb78f14372e352c9a6fb2d832d5f441bd7823445edd2f96905bc19b55e52fd"
+    },
+    "dirty-mutants": {
+      "output": "PASS texture dirty mutations: 11/11; original pixel/region/state assertions reject each fault",
+      "sha256": "7bbb48aec734118464889e7ab00a2cc52812a93cb06403570911ac581de518ab"
+    },
+    "executor": {
+      "output": "181 executor tests passed",
+      "sha256": "3d2942ad6b4d9bff02c9fabf73e6ee291e1b6a6971efaf545b0b7c2886315166"
+    },
+    "index-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS 13 cases\\nok    valid index65535 up=false line=false wide=false base=-1\\nok    valid index65535 up=false line=false wide=false base=1\\nok    valid index65535 up=false line=false wide=true base=-1\\nok    valid index65535 up=false line=false wide=true base=1\\nok    valid index65535 up=false line=true wide=false base=-1\\nok    valid index65535 up=false line=true wide=false base=1\\nok    valid index65535 up=false line=true wide=true base=-1\\nok    valid index65535 up=false line=true wide=true base=1\\nok    valid index65535 up=true line=false wide=false base=0\\nok    valid index65535 up=true line=false wide=true base=0\\nok    valid index65535 up=true line=true wide=false base=0\\nok    valid index65535 up=true line=true wide=true base=0\\nok    cached strip partial unaligned update preserves earlier draw\"}\n\nPASS real GPU max-index: 13/13 cases, no GPU or host errors",
+      "sha256": "0aaa37a5ce4bf6a3a4516675f1cce2deeb3368f3cf294eaa07597793559812a2"
+    },
+    "index-mutants": {
+      "output": "PASS max index GPU mutations: 3/3 bound/UP index loss and stale partial updates rejected by pixel readbacks without GPU validation errors",
+      "sha256": "98f163665f7990fc42aaa097d736b0938882070b42a174bcf7cefabd0cb1cfa9"
+    },
+    "integration": {
+      "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (4.561459ms)\n✔ rapid launches wait for the previous canvas/device teardown (8.068417ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 184.328375\n\nPASS site graphics integration 2/2",
+      "sha256": "a886a54d9000eaef93176549679c3143d39748f20ce6a100150e713daf7c99e5"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine8-max-index",
+    "checks": 143568,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 17,
+    "skipped": 15,
+    "exit": 17,
+    "failureGroups": {
+      "offscreen_test": 1,
+      "depth_buffer_test": 9,
+      "test_updatetexture": 7
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "05978467707c35362c0098064f56bd755cf1172679cc4a7c24ffcbf0f098b51a",
+      "source.json": "16eff3b4ceae5acf1969b860d33fb7ba4995cfa439d8acff0988ad13cc549951",
+      "live-gpu.json": "9f99d688bb6fa703e37ac5105831ec208b510bc2345a40e51bc0a43f4c5559a0",
+      "audit-groups.json": "de8fd0af91dc02976e20fe3445c88a99c31197558ada8c12c82a00a050e032de"
+    },
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "f5fe77b037249a7d76b9979e09ba6bb14595f1607c83103a5e425565fb139577",
+      "executableSha256": "36864baaec25712f1c9883df759077fdec9e4e0086b29131c027eaaf1bd536ab",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "5a00b4b4080876da8bac9e42d1ce01db2bce160cda9aa4db63df81fc81133c83",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "769e9c938d10444ce3d6cc10fdcc39030e7680225294e33ec940a013e69dd2b9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "f133e78ad8feb1a3f14d87ba001b6e50c73dec971bf0bc8a6f17e9f59337c2f1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "01f4e49147520ee29f0a99f6e4c9c39ca899fa0cb38f5eb3218901845ec5ee80",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "68da6c8432e699bc4cb0ee3aca5367749f082abc18bb2b397545862616920993",
+    "glbridge/ddrawproxy/ddraw.dll": "dc3eff4ae465a3c6691da7243b68d02e3ac364b7be7ce3e2296130395a62d214",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "60b4e10e0b0300d985762f4323a68f98cf0d4428843719c17bdb358a1586bc17",
+    "glbridge/d3d8proxy/d3d8.dll": "f5fe77b037249a7d76b9979e09ba6bb14595f1607c83103a5e425565fb139577",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "d8be0268c4804673afa27f547764f5c5713e4faed85ff32a25f7d2678e6bb2c8",
+    "glbridge/d3d9proxy/d3d9.dll": "127e0c8b050197fa18ff4835923ff18b120fe4e6d3aeb67fb46deeb37e4cbec4"
+  },
+  "build": "Six DLLs and local tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ],
+  "confirmedFixes": {
+    "d3d8MaxIndex16": 2,
+    "timing": 0
+  },
+  "d3d9RegressionAudit": {
+    "directory": "stage6-wine9-device-managed-buffers",
+    "checks": 157734,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 35,
+    "skipped": 9,
+    "exit": 35,
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "failureCountsByLine": {
+      "4315": 1,
+      "4324": 1,
+      "4325": 1,
+      "3786": 1,
+      "4652": 1,
+      "4654": 1,
+      "4671": 1,
+      "4673": 1,
+      "5234": 2,
+      "5254": 3,
+      "5238": 1,
+      "6619": 1,
+      "6631": 1,
+      "6640": 1,
+      "7114": 1,
+      "7118": 1,
+      "7121": 1,
+      "7124": 1,
+      "7149": 1,
+      "7157": 1,
+      "12140": 1,
+      "12142": 1,
+      "12147": 1,
+      "12149": 1,
+      "12151": 1,
+      "12178": 1,
+      "12195": 1,
+      "12199": 1,
+      "13854": 1,
+      "14043": 1,
+      "15066": 1,
+      "15107": 1
+    },
+    "increasedCountsVsBatch29": {
+      "4315": 1,
+      "4324": 1,
+      "4325": 1,
+      "5254": 1,
+      "12140": 1,
+      "12142": 1,
+      "12147": 1,
+      "12149": 1,
+      "12151": 1
+    },
+    "priorOccurrences": {
+      "4315": {
+        "directory": "stage6-wine9-device-ati-edges",
+        "logSha256": "4baac7351bbf71d6ae788e3beb46e6422b928e3dc6e1991f2c9b6c60f78fc739"
+      },
+      "4324": {
+        "directory": "stage6-wine9-device-ati-edges",
+        "logSha256": "4baac7351bbf71d6ae788e3beb46e6422b928e3dc6e1991f2c9b6c60f78fc739"
+      },
+      "4325": {
+        "directory": "stage6-wine9-device-ati-edges",
+        "logSha256": "4baac7351bbf71d6ae788e3beb46e6422b928e3dc6e1991f2c9b6c60f78fc739"
+      },
+      "5254": {
+        "directory": "stage6-wine9-device-bc-edges",
+        "logSha256": "ce2cd962c131e164e6124cb23038548946766df556ef8903a7d137d77911acba"
+      },
+      "12140": {
+        "directory": "stage6-wine9-device-binding-contracts",
+        "logSha256": "35aae6a68b99464dba04336387698dce576057f99eae762a8df1fc6cd10e17e7"
+      },
+      "12142": {
+        "directory": "stage6-wine9-device-binding-contracts",
+        "logSha256": "35aae6a68b99464dba04336387698dce576057f99eae762a8df1fc6cd10e17e7"
+      },
+      "12147": {
+        "directory": "stage6-wine9-device-binding-contracts",
+        "logSha256": "35aae6a68b99464dba04336387698dce576057f99eae762a8df1fc6cd10e17e7"
+      },
+      "12149": {
+        "directory": "stage6-wine9-device-binding-contracts",
+        "logSha256": "35aae6a68b99464dba04336387698dce576057f99eae762a8df1fc6cd10e17e7"
+      },
+      "12151": {
+        "directory": "stage6-wine9-device-binding-contracts",
+        "logSha256": "35aae6a68b99464dba04336387698dce576057f99eae762a8df1fc6cd10e17e7"
+      }
+    },
+    "interpretation": "Nine additional window/display/focus/lost-device assertions compared with batch29; these locations failed in earlier audits too. This run does not claim full D3D9 conformance or resolution of window nondeterminism. Buffer assertions have no new failures.",
+    "files": {
+      "WINE.TXT": "d6c9876182c41afee64aa42995f121153ab40cecfcfae723e4d00876c8d09f8e",
+      "source.json": "ac2bdb171c3fd99940d45a1d795c9ab5657d845c83b9eaf6ee9453bc49163241",
+      "live-gpu.json": "e119023b90e426168053ad0c9d8b46aa6cab424686c6201708a13a1508f0b175"
+    },
+    "source": {
+      "suite": "d3d9_device",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_device.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+        "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+      },
+      "dllSha256": "127e0c8b050197fa18ff4835923ff18b120fe4e6d3aeb67fb46deeb37e4cbec4",
+      "executableSha256": "c1c2b30ca3202a67b44447fbd80fb651f37e1382df3585db608cdd5e9fc85f32",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "5a00b4b4080876da8bac9e42d1ce01db2bce160cda9aa4db63df81fc81133c83",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "769e9c938d10444ce3d6cc10fdcc39030e7680225294e33ec940a013e69dd2b9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "f133e78ad8feb1a3f14d87ba001b6e50c73dec971bf0bc8a6f17e9f59337c2f1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "01f4e49147520ee29f0a99f6e4c9c39ca899fa0cb38f5eb3218901845ec5ee80",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  }
+}

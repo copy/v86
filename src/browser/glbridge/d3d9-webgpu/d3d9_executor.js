@@ -6253,11 +6253,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 return;
             }
             const topology = topologyFor(primitiveType);
+            const strip = isStripTopology(topology);
+            const indexBuffer = strip ? this.stripIndexBufferFor(ib) : ib.gpuBuffer;
+            const format = strip ? "uint32" : ib.indexFormat;
             this.recordDraw(state, elements, "DrawIndexedPrimitive", {
                 topology, streams,
-                stripIndexFormat: isStripTopology(topology) ? ib.indexFormat : undefined,
+                stripIndexFormat: strip ? format : undefined,
                 indexResource: ib,
-                indexInfo: { buffer: ib.gpuBuffer, format: ib.indexFormat, offset: 0,
+                indexInfo: { buffer: indexBuffer, format, offset: 0,
                     count: indexCount, firstIndex: startIndex,
                     baseVertex: baseVertexIndex },
             });
@@ -6385,16 +6388,21 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 size: Math.max(4, alignUp(vertexBytes, 4)),
                 usage: BUFFER_USAGE_VERTEX | BUFFER_USAGE_COPY_DST,
             });
+            const topology = topologyFor(primitiveType);
+            const widen = isStripTopology(topology) && indexFormatValue !== D3DFMT_INDEX32;
+            const widened = widen ? new Uint32Array(elementCount) : null;
+            if (widen) for (let i = 0; i < elementCount; ++i)
+                widened[i] = view.getUint16(indexDataOffset + i * 2, true);
             const indexBuffer = this.device.createBuffer({
-                size: Math.max(4, alignUp(indexBytes, 4)),
+                size: Math.max(4, widen ? widened.byteLength : alignUp(indexBytes, 4)),
                 usage: BUFFER_USAGE_INDEX | BUFFER_USAGE_COPY_DST,
             });
             this.writeBufferAligned(vertexBuffer, 0, bytes, vertexDataOffset, vertexBytes);
-            this.writeBufferAligned(indexBuffer, 0, bytes, indexDataOffset, indexBytes);
+            if (widen) this.device.queue.writeBuffer(indexBuffer, 0, widened);
+            else this.writeBufferAligned(indexBuffer, 0, bytes, indexDataOffset, indexBytes);
             this.retireAfterSubmit(vertexBuffer);
             this.retireAfterSubmit(indexBuffer);
-            const format = indexFormatValue === D3DFMT_INDEX32 ? "uint32" : "uint16";
-            const topology = topologyFor(primitiveType);
+            const format = widen || indexFormatValue === D3DFMT_INDEX32 ? "uint32" : "uint16";
             if (primitiveType === D3DPT_TRIANGLEFAN) {
                 this.noteDroppedDraw("DrawIndexedPrimitiveUP", state,
                     ["indexed triangle fans are not converted on the UP path"]);
@@ -6405,7 +6413,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 streams: new Map([[0, { buffer: vertexBuffer, offset: 0 }]]),
                 stripIndexFormat: isStripTopology(topology) ? format : undefined,
                 indexInfo: { buffer: indexBuffer, format, offset: 0,
-                    count: elementCount, firstIndex: 0, baseVertex: 0 },
+                    count: elementCount, firstIndex: 0, baseVertex: 0,
+                    cpuIndices: widened },
             }, stride);
             ++this.stats.upDrawCalls;
         }

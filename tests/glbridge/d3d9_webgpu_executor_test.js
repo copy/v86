@@ -2629,7 +2629,37 @@ await test("indexed triangle strips declare the strip index format", async () =>
     await executor.idle();
     const pipeline = find("createRenderPipeline").pop()[1];
     assert.equal(pipeline.primitive.topology, "triangle-strip");
-    assert.equal(pipeline.primitive.stripIndexFormat, "uint16");
+    assert.equal(pipeline.primitive.stripIndexFormat, "uint32");
+});
+
+await test("uint16 strip mirror reuses storage, uploads only touched indices and retires with owner", async () => {
+    const {executor,find,fake}=makeExecutor();
+    await executor.submit(buildBatch([
+        command(OP.CREATE_DEVICE,createDevicePayload(64,64)),
+        command(OP.CREATE_BUFFER,createBufferPayload(0x202,2,10,101)),
+    ]));
+    const r=executor.resources.get(0x202),source=Uint8Array.from([99,0,1,0,2,0,3,0,255,255]);
+    executor.applyBufferUpdate(r,0,source,0,source.length,0);
+    let cacheUploads=0;const originalStage=executor.stageBufferUpload;
+    executor.stageBufferUpload=function(...args){cacheUploads++;return originalStage.apply(this,args);};
+    const before=find("createBuffer").length,mirror=executor.stripIndexBufferFor(r);
+    assert.equal(find("createBuffer").length,before+1);
+    assert.equal(cacheUploads,1);
+    for(let i=0;i<100;i++)assert.equal(executor.stripIndexBufferFor(r),mirror);
+    assert.equal(find("createBuffer").length,before+1);
+    assert.equal(cacheUploads,1);
+    executor.finishFrame(false);await executor.idle();
+    assert.deepEqual([...new Uint32Array(mirror.data.buffer)],[99,1,2,3,65535]);
+    const records=[],stage=executor.stageBufferUpload;
+    executor.stageBufferUpload=function(buffer,offset,bytes){records.push([buffer,offset,bytes.slice()]);return stage.call(this,buffer,offset,bytes);};
+    executor.applyBufferUpdate(r,3,Uint8Array.from([1,2,1,3,1,255,254]),0,7,0);
+    const changed=records.filter(row=>row[0]===mirror);
+    assert.equal(changed.length,1);assert.equal(changed[0][1],4);assert.equal(changed[0][2].length,16);
+    assert.deepEqual([...new Uint32Array(changed[0][2].buffer)],[257,258,259,65279]);
+    executor.finishFrame(false);await executor.idle();
+    assert.deepEqual([...new Uint32Array(mirror.data.buffer)],[99,257,258,259,65279]);
+    executor.retireResourceState(r);fake.completeSubmittedWork();await settle();
+    assert.equal(mirror.destroyed,true);assert.equal(r.gpuBuffer.destroyed,true);
 });
 
 await test("triangle fans become an indexed triangle list", async () => {
