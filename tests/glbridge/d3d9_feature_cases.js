@@ -1426,5 +1426,40 @@
             extentClear(dev,1,0xffff0000),rs(dev,7,0),rs(dev,22,1),rs(dev,52,1),rs(dev,56,3),rs(dev,57,5),...drawXYZ(dev,fullXYZ(.5,0xff00ff00))];
         },probes:[{at:[32,32],expect:[0,255,0,255]}]});
 
+    for(const screen of [false,true])for(const programmable of [false,true])
+    for(const [low,high] of [[0,0],[.5,0],[.5,.5002],[.5,.5],[1,1],[-.001,-.001]])for(const side of [-1,1]){
+        const z=.5,mapped=screen?z:Math.min(1,Math.max(0,low+(Math.max(high,Math.fround(low+.001))-low)*z));
+        const limit=mapped+side*.0001;
+        if(limit<0||limit>1)continue;
+        add("viewport-minimum",{name:`minimum native viewport span ${low}:${high} screen=${screen} ps=${programmable} side=${side}`,body:dev=>[
+            clearDepth(dev,limit),rs(dev,7,1),rs(dev,23,side<0?5:2),rs(dev,22,1),
+            wire("SetViewport",{device_handle:dev,width:64,height:64,min_z:low,max_z:high}),
+            ...(programmable?bindLegacyPS(dev,[0xffff0200,...asm.def(0,0,1,0,1),asm.ins(S.MOV,2),dst(R.COLOROUT,0),src(R.CONST,0),0xffff]):[]),
+            ...(screen?[draw(dev,quad(0,0,64,64,z,0xff00ff00))]:drawXYZ(dev,fullXYZ(z,0xff00ff00)))],probes:[{at:[32,32],expect:[0,255,0,255]}]});
+    }
+    const streamOrder={position:[0,1,2],color:[1,0,2],unused:[1,2,3]};
+    for(const [order,streams] of Object.entries(streamOrder))for(const divisor of [0,1,2])for(const indexed of [false,true])
+    for(const count of [0,4])add("stream-frequency",{name:`stream zero owns instance count ${order} divisor=${divisor} indexed=${indexed} count=${count}`,body:dev=>{
+        const vs=dev+0x600000,ib=dev+0x600001;
+        const tokens=legacyShader("vertex",2,[semanticDcl(0,0,R.INPUT,0),semanticDcl(10,0,R.INPUT,1),semanticDcl(5,0,R.INPUT,2),
+            [S.ADD,dst(R.RASTOUT,0),src(R.INPUT,0),src(R.INPUT,2)],[S.MOV,dst(R.ATTROUT,0),src(R.INPUT,1)]]);
+        const arrays=[[-.25,.25,0,1,.25,.25,0,1,-.25,-.25,0,1,.25,-.25,0,1],Array(4).fill([1,0,0,1]).flat(),[-.5,.5,0,0,.5,.5,0,0,-.5,-.5,0,0,.5,-.5,0,0]];
+        const commands=[vertexShader(dev,vs,tokens),bindSemanticVS(dev,vs),rs(dev,7,0),rs(dev,22,1),
+            cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,element_count:3}),...[0,10,5].map((usage,i)=>P.encode("VertexElement",{stream:streams[i],offset:0,type:3,usage,usage_index:0}))]))];
+        for(let i=0;i<3;i++){
+            const data=Uint8Array.from(floats(...arrays[i])),handle=dev+0x700000+i;
+            commands.push(wire("CreateBuffer",{device_handle:dev,resource_handle:handle,resource_kind:1,byte_count:data.length}),
+                wire("UpdateBuffer",{resource_handle:handle,byte_count:data.length},[blob("UpdateBuffer","data_offset",data)]),
+                wire("SetStreamSource",{device_handle:dev,buffer_handle:handle,stream:streams[i],stride:16}),
+                wire("SetStreamSourceFreq",{device_handle:dev,stream:streams[i],divider:i===2?(0x80000000|divisor)>>>0:0x40000007}));
+        }
+        commands.push(wire("SetStreamSourceFreq",{device_handle:dev,stream:0,divider:0x40000000|count}));
+        if(indexed){const data=Uint8Array.from(le16(0,1,2,3));commands.push(wire("CreateBuffer",{device_handle:dev,resource_handle:ib,resource_kind:2,byte_count:8,fvf:101}),
+            wire("UpdateBuffer",{resource_handle:ib,byte_count:8},[blob("UpdateBuffer","data_offset",data)]),wire("SetIndices",{device_handle:dev,buffer_handle:ib}),
+            wire("DrawIndexedPrimitive",{device_handle:dev,primitive_type:5,primitive_count:2}));}
+        else commands.push(wire("DrawPrimitive",{device_handle:dev,primitive_type:5,primitive_count:2}));
+        return commands;
+        },probes:[[16,16],[48,16],[16,48],[48,48]].map((at,i)=>({at,expect:(indexed?(count>0&&(divisor===0?i===0:i<Math.ceil(count/divisor))):i===0)?[255,0,0,255]:[0,0,0,255]}))});
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

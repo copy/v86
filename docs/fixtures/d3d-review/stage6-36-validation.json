@@ -1,0 +1,207 @@
+{
+  "batch": "stage6-36",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; complete Wine acceptance remains FAIL",
+  "changes": [
+    "Accept finite reversed/equal viewport endpoints; retain raw guest values while rasterization uses native minimum .001 span.",
+    "Accept legal indexed-data streams and flag-only zero frequencies; stream zero owns indexed instance count even when unused; non-indexed draws one instance; zero instance divisor repeats first record.",
+    "Preserve live frequency on failed transport emission."
+  ],
+  "checks": {
+    "executor": {
+      "sha256": "8fe7049b776dda3684e46cbb2178e254211b33416734124590d8c35a86ca858e",
+      "output": "183 executor tests passed"
+    },
+    "native": {
+      "sha256": "b59136402e27b323a860888f5c1d0a208fedbc5234d351eaa138c6305ec31711",
+      "output": "PASS native draw state contracts: 5232 checks; legal stream modes/zero divisors, rejected modes and atomic transport failure; raw finite viewport endpoints, recording and API8 target bounds"
+    },
+    "mutants": {
+      "sha256": "33fc1cb12cadb34bf54255817f769c894bc336665b5eaadce7031654eb5fc077",
+      "output": "PASS draw state GPU mutations: 4/4 minimum depth span, non-indexed draw count, zero instance divisor and zero instance count detected by pixels without GPU errors"
+    },
+    "build": {
+      "sha256": "0359999e68a0f31b4aed13f1ebbf5e82dbc545f78f79f780ddc322cdd42aaa37",
+      "output": "PASS six canonical DLL builds"
+    },
+    "integration": {
+      "sha256": "ed1b624a6a571fb057ac0c22ec6666d05972c20a86ac71a215936d4068a99a23",
+      "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (3.269083ms)\n✔ rapid launches wait for the previous canvas/device teardown (3.793333ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 109.759167"
+    },
+    "viewport-gpu": {
+      "sha256": "71c692e094d39584ae383046c29e4ef36c3b84b01a7570184de2d3cdad1220fc",
+      "status": "PASS",
+      "details": "PASS 44 cases\nok    minimum native viewport span 0:0 screen=false ps=false side=-1\nok    minimum native viewport span 0:0 screen=false ps=false side=1\nok    minimum native viewport span 0.5:0 screen=false ps=false side=-1\nok    minimum native viewport span 0.5:0 screen=false ps=false side=1\nok    minimum native viewport span 0.5:0.5002 screen=false ps=false side=-1\nok    minimum native viewport span 0.5:0.5002 screen=false ps=false side=1\nok    minimum native viewport span 0.5:0.5 screen=false ps=false side=-1\nok    minimum native viewport span 0.5:0.5 screen=false ps=false side=1\nok    minimum native viewport span 1:1 screen=false ps=false side=-1\nok    minimum native viewport span -0.001:-0.001 screen=false ps=false side=1\nok    minimum native viewport span 0:0 screen=false ps=true side=-1\nok    minimum native viewport span 0:0 screen=false ps=true side=1\nok    minimum native viewport span 0.5:0 screen=false ps=true side=-1\nok    minimum native viewport span 0.5:0 screen=false ps=true side=1\nok    minimum native viewport span 0.5:0.5002 screen=false ps=true side=-1\nok    minimum native viewport span 0.5:0.5002 screen=false ps=true side=1\nok    minimum native viewport span 0.5:0.5 screen=false ps=true side=-1\nok    minimum native viewport span 0.5:0.5 screen=false ps=true side=1\nok    minimum native viewport span 1:1 screen=false ps=true side=-1\nok    minimum native viewport span -0.001:-0.001 screen=false ps=true side=1\nok    minimum native viewport span 0:0 screen=true ps=false side=-1\nok    minimum native viewport span 0:0 screen=true ps=false side=1\nok    minimum native viewport span 0.5:0 screen=true ps=false side=-1\nok    minimum native viewport span 0.5:0 screen=true ps=false side=1\nok    minimum native viewport span 0.5:0.5002 screen=true ps=false side=-1\nok    minimum native viewport span 0.5:0.5002 screen=true ps=false side=1\nok    minimum native viewport span 0.5:0.5 screen=true ps=false side=-1\nok    minimum native viewport span 0.5:0.5 screen=true ps=false side=1\nok    minimum native viewport span 1:1 screen=true ps=false side=-1\nok    minimum native viewport span 1:1 screen=true ps=false side=1\nok    minimum native viewport span -0.001:-0.001 screen=true ps=false side=-1\nok    minimum native viewport span -0.001:-0.001 screen=true ps=false side=1\nok    minimum native viewport span 0:0 screen=true ps=true side=-1\nok    minimum native viewport span 0:0 screen=true ps=true side=1\nok    minimum native viewport span 0.5:0 screen=true ps=true side=-1\nok    minimum native viewport span 0.5:0 screen=true ps=true side=1\nok    minimum native viewport span 0.5:0.5002 screen=true ps=true side=-1\nok    minimum native viewport span 0.5:0.5002 screen=true ps=true side=1\nok    minimum native viewport span 0.5:0.5 screen=true ps=true side=-1\nok    minimum native viewport span 0.5:0.5 screen=true ps=true side=1\nok    minimum native viewport span 1:1 screen=true ps=true side=-1\nok    minimum native viewport span 1:1 screen=true ps=true side=1\nok    minimum native viewport span -0.001:-0.001 screen=true ps=true side=-1\nok    minimum native viewport span -0.001:-0.001 screen=true ps=true side=1"
+    },
+    "stream-gpu": {
+      "sha256": "24b32f10e3a80c68d28689330de06a022c5edae56a683d7491dd713b792a8565",
+      "status": "PASS",
+      "details": "PASS 36 cases\nok    stream zero owns instance count position divisor=0 indexed=false count=0\nok    stream zero owns instance count position divisor=0 indexed=false count=4\nok    stream zero owns instance count position divisor=0 indexed=true count=0\nok    stream zero owns instance count position divisor=0 indexed=true count=4\nok    stream zero owns instance count position divisor=1 indexed=false count=0\nok    stream zero owns instance count position divisor=1 indexed=false count=4\nok    stream zero owns instance count position divisor=1 indexed=true count=0\nok    stream zero owns instance count position divisor=1 indexed=true count=4\nok    stream zero owns instance count position divisor=2 indexed=false count=0\nok    stream zero owns instance count position divisor=2 indexed=false count=4\nok    stream zero owns instance count position divisor=2 indexed=true count=0\nok    stream zero owns instance count position divisor=2 indexed=true count=4\nok    stream zero owns instance count color divisor=0 indexed=false count=0\nok    stream zero owns instance count color divisor=0 indexed=false count=4\nok    stream zero owns instance count color divisor=0 indexed=true count=0\nok    stream zero owns instance count color divisor=0 indexed=true count=4\nok    stream zero owns instance count color divisor=1 indexed=false count=0\nok    stream zero owns instance count color divisor=1 indexed=false count=4\nok    stream zero owns instance count color divisor=1 indexed=true count=0\nok    stream zero owns instance count color divisor=1 indexed=true count=4\nok    stream zero owns instance count color divisor=2 indexed=false count=0\nok    stream zero owns instance count color divisor=2 indexed=false count=4\nok    stream zero owns instance count color divisor=2 indexed=true count=0\nok    stream zero owns instance count color divisor=2 indexed=true count=4\nok    stream zero owns instance count unused divisor=0 indexed=false count=0\nok    stream zero owns instance count unused divisor=0 indexed=false count=4\nok    stream zero owns instance count unused divisor=0 indexed=true count=0\nok    stream zero owns instance count unused divisor=0 indexed=true count=4\nok    stream zero owns instance count unused divisor=1 indexed=false count=0\nok    stream zero owns instance count unused divisor=1 indexed=false count=4\nok    stream zero owns instance count unused divisor=1 indexed=true count=0\nok    stream zero owns instance count unused divisor=1 indexed=true count=4\nok    stream zero owns instance count unused divisor=2 indexed=false count=0\nok    stream zero owns instance count unused divisor=2 indexed=false count=4\nok    stream zero owns instance count unused divisor=2 indexed=true count=0\nok    stream zero owns instance count unused divisor=2 indexed=true count=4"
+    },
+    "viewport-regression": {
+      "sha256": "29fceed3de69128c377852f8245611d6c68bd96582b604b530fe713f56ae9d3b",
+      "status": "PASS",
+      "details": "PASS 24 cases\nok    viewport affine clamp false,false,-1,2,0.25,0.125\nok    viewport affine clamp false,false,0,2,0.375,0.5\nok    viewport affine clamp false,false,2,3,0.1,0.125\nok    viewport affine clamp false,false,-3,-2,0.5,0.125\nok    viewport affine clamp false,false,0.2,0.7,0.1,0.2\nok    viewport affine clamp false,true,-1,2,0.25,0.125\nok    viewport affine clamp false,true,0,2,0.375,0.5\nok    viewport affine clamp false,true,2,3,0.1,0.125\nok    viewport affine clamp false,true,-3,-2,0.5,0.125\nok    viewport affine clamp false,true,0.2,0.7,0.1,0.2\nok    viewport affine clamp true,false,-1,2,0.25,0.125\nok    viewport affine clamp true,false,0,2,0.375,0.5\nok    viewport affine clamp true,false,2,3,0.1,0.125\nok    viewport affine clamp true,false,-3,-2,0.5,0.125\nok    viewport affine clamp true,false,0.2,0.7,0.1,0.2\nok    viewport affine clamp true,true,-1,2,0.25,0.125\nok    viewport affine clamp true,true,0,2,0.375,0.5\nok    viewport affine clamp true,true,2,3,0.1,0.125\nok    viewport affine clamp true,true,-3,-2,0.5,0.125\nok    viewport affine clamp true,true,0.2,0.7,0.1,0.2\nok    explicit pixel depth overrides extended viewport depth\nok    viewport larger than attachment clips to target without rescaling\nok    interpolated depth clamps after affine mapping msaa=0\nok    interpolated depth clamps after affine mapping msaa=4"
+    },
+    "old-source-control": {
+      "sha256": "64ff9a6c3c50bb6ebd8d21977fd9021f723e1eedba37c151031c792a0a5be142",
+      "result": "Pre-change source fails new native draw-state assertions."
+    }
+  },
+  "d3d8Audit": {
+    "directory": "stage6-wine8-viewport-stream",
+    "summary": {
+      "checks": 143726,
+      "todos": 0,
+      "flaky": 0,
+      "failures": 2,
+      "skipped": 14
+    },
+    "exit": 2,
+    "observedFailures": 2,
+    "failureGroups": {
+      "test_map_synchronisation": 2
+    },
+    "partialLog": false,
+    "gpuErrors": [],
+    "hostErrors": [],
+    "normalOwnerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "forcedOwnerCleanup": [],
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "06671ac53d310ac28ccbafc30471fbd0f518897edd291e31d701ba471a1f085d",
+      "executableSha256": "c2fc0f9e4a30d6dceed50eeeb485ac0c9c70a0e1bcdc4cbdad51651a0a1658fb",
+      "rendererPageSha256": "f63f6b2bc270cbab906a825d2f3d67c4421ee5123ee43895fdbc1d70ab8f72b2",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "96ab059177fe9a6b76192de0e80a468ac7a87e2ad419a50fbcccd970a805e146",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "463bccbcaf4e6c431a63dc9f3e59133c6d4eb93a5c61ab439ee63b77f0d6e27d",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "WINE.TXT": "e4b5aa7c358c6da9e93f9922ae95a88b167f6e05f17e6cd65f145d1acfbb9ed9",
+      "probe-failure.json": "ac91c490fc24a2249060adef25b3c7985e7a1a6871966709ee37a01604997e01",
+      "source.json": "9ba49453685f32efccf1f0e29e0dae2dd8d9a74df615c82f3f2ffd20ccdfe138",
+      "live-gpu.json": "395e3c42b61a851faae1e8f6feb99bdb98e936f7da2be7d5fe1a60eef90b1bcd",
+      "audit-groups.json": "b884c31b160965953245db8fe45f5bffba538ca5c37f132c69c5ef8758c4895f"
+    }
+  },
+  "d3d9Audit": {
+    "directory": "stage6-wine9-visual-viewport-stream",
+    "summary": null,
+    "exit": null,
+    "observedFailures": 83,
+    "failureGroups": {
+      "stretchrect_test": 27,
+      "color_fill_test": 54,
+      "test_generate_mipmap": 2
+    },
+    "partialLog": true,
+    "gpuErrors": [
+      {
+        "source": "uncaptured",
+        "message": "Error while parsing WGSL: :41:21 error: index 256 out of bounds [0..255]\n    let _v0 = d9c.f[256];\n                    ^^^\n\n\n - While calling [Device].CreateShaderModule([ShaderModuleDescriptor \"\"d3d9 vs796029324_760167137_b:|c:_cl0\"\"]).\n"
+      },
+      {
+        "source": "render pipeline",
+        "message": "[Invalid ShaderModule \"d3d9 vs796029324_760167137_b:|c:_cl0\"] is invalid due to a previous error.\n - While validating vertex stage ([Invalid ShaderModule \"d3d9 vs796029324_760167137_b:|c:_cl0\"], entryPoint: \"d9_vs_main\").\n - While validating vertex state.\n - While calling [Device].CreateRenderPipeline([RenderPipelineDescriptor]).\n",
+        "details": {
+          "vertex": "vs796029324_760167137_b:|c:_cl0",
+          "fragment": "ffpixel:[{\"stages\":[{\"index\":0,\"colorOp\":2,\"colorArg0\":1,\"colorArg1\":1,\"colorArg2\":1,\"alphaOp\":2,\"alphaArg0\":1,\"alphaArg1\":1,\"alphaArg2\":1,\"resultArg\":1,\"usesConstant\":false,\"samplesTexture\":false,\"textureType\":\"2d\",\"transformCount\":0,\"projected\":false,\"addressU\":1,\"addressV\":1,\"addressW\":1,\"borderColor\":0,\"texCoordIndex\":0,\"tciMode\":0,\"coordVarying\":0}],\"usesTextureFactor\":false,\"lodBiasUniforms\":false,\"fogMode\":0,\"tableFog\":false,\"screenDepthUnclipped\":false,\"alphaTest\":{\"enabled\":false,\"func\":8},\"clipPlaneCount\":0,\"specularEnable\":false,\"flatShading\":false},\"\"]",
+          "topology": "triangle-strip"
+        }
+      },
+      {
+        "source": "frame",
+        "message": "[Invalid RenderPipeline (unlabeled)] is invalid due to a previous error.\n - While encoding [RenderPassEncoder (unlabeled)].SetPipeline([Invalid RenderPipeline (unlabeled)]).\n - While finishing [CommandEncoder (unlabeled)].\n",
+        "details": {
+          "ops": 1,
+          "present": false
+        }
+      }
+    ],
+    "hostErrors": [],
+    "normalOwnerCleanup": [],
+    "forcedOwnerCleanup": [],
+    "source": {
+      "suite": "d3d9_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+        "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+        "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+      },
+      "dllSha256": "c14668264235ecc80266f0b7a0d725adfdb5699d0349d82f04b41c5d54c9c95d",
+      "executableSha256": "74ac6d861eefee7c92eaea2610caaef631c503992cefe997602242d15e1d1dbe",
+      "rendererPageSha256": "f63f6b2bc270cbab906a825d2f3d67c4421ee5123ee43895fdbc1d70ab8f72b2",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "d7041515787e8749190f8b5bd1fa5c1b7804d24b0f9149edf27c40358fd26cae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "0ab220f7389e3ebe6dd7f3503c3c272fdde4bd28c4e3ec879f1ab1408aa913eb",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "96ab059177fe9a6b76192de0e80a468ac7a87e2ad419a50fbcccd970a805e146",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "463bccbcaf4e6c431a63dc9f3e59133c6d4eb93a5c61ab439ee63b77f0d6e27d",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "probe-failure.json": "f691df724bbb9650aa08396a94a48930945fe03a9f4fb245d2e1c5e1859296cc",
+      "source.json": "dd916d1e0421f018d19a6852b1946e03dc96bb604478f668cf73d5086a47fc2b",
+      "live-gpu.json": "7d2014f136dcadcaa6fcb4598dc40a201bf3688990dca0f192c76a5d718164f4",
+      "audit-groups.json": "7ba02f7ba53674ddb00cfc098b68347bd38dc00c6259cabe26a309616ff2ad73"
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "1206c4a6d2b3600a06fed6b769a34f201065780d12b4686145b0bc25e3972549",
+    "glbridge/ddrawproxy/ddraw.dll": "cd3f21510b33f73454092eda810d30ea324a2a91b761c272cf5ad0dfcc2338e5",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "bde193bfefcc369f3dcca4cbea9af8fe659d4793ad4d453140a125c212f699f7",
+    "glbridge/d3d8proxy/d3d8.dll": "06671ac53d310ac28ccbafc30471fbd0f518897edd291e31d701ba471a1f085d",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "b739d3c84c102ac111d6af42db699c692c4ae3d97ec8e4ea423eb8d97acbf901",
+    "glbridge/d3d9proxy/d3d9.dll": "c14668264235ecc80266f0b7a0d725adfdb5699d0349d82f04b41c5d54c9c95d"
+  },
+  "references": [
+    "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/wined3d/wined3d_private.h",
+    "tests/glbridge/wine/d3d9_visual.c:test_viewport and stream_test"
+  ],
+  "remaining": [
+    "D3D9 visual remains interrupted at software vertex shader c256 storage; flushed partial log only.",
+    "Applicable original Wine failures and individually evidenced skips remain; 3DMark performance comparisons deferred."
+  ]
+}

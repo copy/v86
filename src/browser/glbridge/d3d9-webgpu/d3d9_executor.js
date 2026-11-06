@@ -4162,10 +4162,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // fragment-depth mapping; clamping the endpoints changes the image.
             let minZ = view.getFloat32(offset + D9WG.F.SetViewport.min_z, true);
             let maxZ = view.getFloat32(offset + D9WG.F.SetViewport.max_z, true);
-            if (!Number.isFinite(minZ) || !Number.isFinite(maxZ) || minZ > maxZ) {
-                this.protocolViolation("viewport-depth", "SetViewport depth range is nonfinite or reversed", {minZ, maxZ});
+            if (!Number.isFinite(minZ) || !Number.isFinite(maxZ)) {
+                this.protocolViolation("viewport-depth", "SetViewport depth range is nonfinite", {minZ, maxZ});
                 return;
             }
+            // Native D3D keeps the API values, but rasterization uses at
+            // least a .001 depth span, including equal or reversed endpoints.
+            // Guest GetViewport still returns its unmodified stored values.
+            maxZ = Math.max(maxZ, Math.fround(minZ + .001));
             state.viewport = {
                 x: view.getUint32(offset + D9WG.F.SetViewport.x, true),
                 y: view.getUint32(offset + D9WG.F.SetViewport.y, true),
@@ -6072,9 +6076,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const frequency = (binding.frequency ?? 1) >>> 0;
                 if ((frequency & D3DSTREAMSOURCE_INSTANCEDATA) === 0) continue;
                 const divisor = frequency & D3DSTREAMSOURCE_FREQUENCY_MASK;
-                if (!divisor)
-                    return { error: "instance stream " + streamIndex +
-                        " has a zero step rate" };
                 // Zero stride already repeats one record for every instance,
                 // independently of its divisor; no expansion is necessary.
                 if (divisor === 1 || binding.stride === 0) continue;
@@ -6089,7 +6090,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const output = new Uint8Array(alignUp(outputBytes, 4));
                 for (let instance = 0; instance < instanceCount; ++instance) {
                     const source = binding.offset +
-                        Math.floor(instance / divisor) * stride;
+                        (divisor ? Math.floor(instance / divisor) : 0) * stride;
                     if (source < 0 || source + stride > shadow.length)
                         return { error: "instance stream " + streamIndex +
                             " references data outside its vertex buffer" };

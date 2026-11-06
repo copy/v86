@@ -107,15 +107,13 @@
                 // for, and a wireframe-mode triangle mesh asked for neither.
                 const pointExpansion = geometry.topology === "point-list" &&
                     !geometry.indexInfo && !geometry.fromFillMode;
-                const instanceCount = this.drawInstanceCount(state);
+                // Native non-indexed draws ignore stream zero's instance
+                // count, while still reading the first instance record.
+                const instanceCount = geometry.indexInfo ? this.drawInstanceCount(state) : 1;
+                if (!instanceCount) return;
                 const hasInstanceStream = Array.from(state.streams.values()).some(stream =>
                     (((stream.frequency ?? 1) >>> 0) &
                         D3DSTREAMSOURCE_INSTANCEDATA) !== 0);
-                if (instanceCount > 1 && !geometry.indexInfo && !pointExpansion) {
-                    this.noteDroppedDraw(which, state,
-                        ["D3D9 indexed instancing requires an indexed draw"]);
-                    return;
-                }
                 if (pointExpansion && (instanceCount !== 1 || hasInstanceStream)) {
                     this.noteDroppedDraw(which, state,
                         ["point expansion cannot share WebGPU instance slots with D3D9 instancing"]);
