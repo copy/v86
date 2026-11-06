@@ -244,6 +244,71 @@ ${body.join("\n")}
             DDOVER_MIRROR_X, DDOVER_MIRROR_Y
         } = dependencies;
         return {
+            // depth24plus has no portable byte layout. Read its actual values
+            // through a depth view and write them through frag_depth; stencil
+            // and every pixel outside an uploaded rectangle remain untouched.
+            depthTransferPipelineFor(write) {
+                if (!this.depthTransferPipelines) this.depthTransferPipelines = new Map();
+                let entry = this.depthTransferPipelines.get(write);
+                if (entry) return entry;
+                const module = this.moduleFor(`
+@group(0) @binding(0) var source: ${write ? "texture_2d<f32>" : "texture_depth_2d"};
+@group(0) @binding(1) var<uniform> offset: vec4<i32>;
+@vertex fn vs(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
+    var positions = array<vec2<f32>, 3>(vec2<f32>(-1.0,-1.0), vec2<f32>(3.0,-1.0), vec2<f32>(-1.0,3.0));
+    return vec4<f32>(positions[index],0.0,1.0);
+}
+@fragment fn fs(@builtin(position) position: vec4<f32>) -> ${write ? "@builtin(frag_depth)" : "@location(0)"} f32 {
+    return textureLoad(source, vec2<i32>(position.xy) + offset.xy, 0)${write ? ".r" : ""};
+}`, "D3D9 depth transfer " + write);
+                const layout = this.device.createBindGroupLayout({ entries: [
+                    { binding: 0, visibility: SHADER_STAGE_FRAGMENT, texture: { sampleType: write ? "unfilterable-float" : "depth" } },
+                    { binding: 1, visibility: SHADER_STAGE_FRAGMENT, buffer: { type: "uniform" } },
+                ] });
+                const pipeline = this.device.createRenderPipeline({
+                    label: "D3D9 depth transfer " + write,
+                    layout: this.device.createPipelineLayout({ bindGroupLayouts: [layout] }),
+                    vertex: { module, entryPoint: "vs" },
+                    fragment: { module, entryPoint: "fs", targets: write ? [] : [{format:"r32float"}] },
+                    primitive: { topology: "triangle-list" },
+                    ...(write ? { depthStencil: {format:DEPTH_FORMAT,depthWriteEnabled:true,depthCompare:"always",stencilWriteMask:0} } : {}),
+                });
+                entry = {layout,pipeline}; this.depthTransferPipelines.set(write,entry); return entry;
+            },
+
+            encodeDepthTransfer(encoder, source, destination, write, x, y, width, height, firstRow = 0) {
+                const entry = this.depthTransferPipelineFor(write);
+                const uniform = this.device.createBuffer({label:"D3D9 depth transfer offset",size:16,usage:0x40|0x08});
+                this.device.queue.writeBuffer(uniform,0,new Int32Array(write ? [-x,-y,0,0] : [0,firstRow,0,0]));
+                const group = this.device.createBindGroup({layout:entry.layout,entries:[
+                    {binding:0,resource:source},{binding:1,resource:{buffer:uniform}},
+                ]});
+                const pass = encoder.beginRenderPass(write ? {colorAttachments:[],depthStencilAttachment:{
+                    view:destination,depthLoadOp:"load",depthStoreOp:"store",stencilLoadOp:"load",stencilStoreOp:"store",
+                }} : {colorAttachments:[{view:destination,loadOp:"clear",storeOp:"store",clearValue:{r:0,g:0,b:0,a:0}}]});
+                ++this.stats.renderPasses;
+                pass.setPipeline(entry.pipeline);pass.setBindGroup(0,group);
+                pass.setViewport(x,y,width,height,0,1);pass.setScissorRect(x,y,width,height);pass.draw(3);pass.end();
+                return uniform;
+            },
+
+            stageDepthUpload(resource, level, x, y, width, height, rowPitch, source) {
+                if (resource.format !== 70 || (resource.sampleCount || 1) !== 1 || level >= resource.levelCount ||
+                        !width || !height || x + width > Math.max(1,resource.width >> level) ||
+                        y + height > Math.max(1,resource.height >> level) || rowPitch < width*2 ||
+                        source.byteLength < (height-1)*rowPitch + width*2)
+                    throw new Error("invalid lockable depth upload");
+                const values = new Float32Array(width*height), view = new DataView(source.buffer,source.byteOffset,source.byteLength);
+                for(let row=0;row<height;++row)for(let col=0;col<width;++col)
+                    values[row*width+col] = view.getUint16(row*rowPitch+col*2,true)/65535;
+                const texture = this.device.createTexture({label:"D3D9 depth upload values",size:{width,height},format:"r32float",
+                    usage:TEXTURE_USAGE_COPY_DST|TEXTURE_USAGE_TEXTURE_BINDING});
+                this.stageTextureUpload({texture},new Uint8Array(values.buffer),{bytesPerRow:width*4,rowsPerImage:height},{width,height,depthOrArrayLayers:1});
+                this.ensureFrame().record({kind:"depth-upload",source:texture.createView(),destination:this.targetViewFor(resource,level,false),x,y,width,height});
+                this.retireGPUObject(texture);
+                ++this.stats.textureUploads;this.stats.textureBytesUploaded += width*height*2;
+            },
+
             utilityUniform(data) {
                 const bytes = ArrayBuffer.isView(data) ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength) : new Uint8Array(data);
                 const slot = this.allocateUniformSlot(bytes.byteLength, false);

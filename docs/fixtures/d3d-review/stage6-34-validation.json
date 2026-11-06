@@ -1,0 +1,227 @@
+{
+  "batch": "stage6-34",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "D16_LOCKABLE锁定读取GPU实际深度并转换为16位UNORM，局部写回通过深度绘制保持矩形外内容；只读锁定不上传。读回临时资源在成功和超时路径均释放，设备恢复重建转换管线。ColorFill拒绝深度、错误设备/内存池和非渲染目标纹理级，避免错误GPU颜色附件。17080项真实GPU检查、4项GPU故障注入、88593项原生锁定检查、38项原生故障注入、641项ColorFill接口检查、183项执行器检查及既有颜色/共享深度回归通过。D3D8完整回归仍为2条NOOVERWRITE竞态失败和14项未审查skip。D3D9 Visual通过原来的深度锁定中断点，但在预变换顶点声明测试再次崩溃；8组184条失败已记录，未形成完整摘要，尚未验收通过。",
+  "checks": {
+    "executor": {
+      "output": "183 executor tests passed",
+      "sha256": "cbfd5954d3333eb3d102af576f66fb4d5f5552b7c62af1e8d8b401beab620e4b"
+    },
+    "depth-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS 17080 depth lock checks: GPU clear and draw depth, sliced reads and padded pitch; partial D16 writeback and unchanged surrounding depth; actual draws consume uploaded depth; read-only draw preserves it\"}\n\nPASS depth GPU lock readback/writeback",
+      "sha256": "fa5af404d3a5a25889b91c719f279f97c18afa608df698442ce4088168d4709c"
+    },
+    "depth-mutants": {
+      "output": "PASS depth lock GPU mutations: 4/4 sliced reads, real depth values, padded upload pitch and actual GPU depth writes",
+      "sha256": "cd3a5eed96c8a8786492b437b2e4f791845effe11a6fd513b47b2e27a1e62e15"
+    },
+    "lock": {
+      "output": "PASS actual8/9 renderable locks: 88593 checks,43008 pureplans,104 adapter scenarios;six formats/padded pitches/partial writes,real shared upload bytes,readonly GPU refresh,no-upload,output guards,MSAA/flags/doublelock,readback/OOM/emission failure cleanup andCPU/texture/cube dispatch;standalone/additional targets,target flags/identity,level lock Reset tracking,stale-mirror invalidation andNULL scratch mapping",
+      "sha256": "f9d852a0038f692573b7fe8eaf84ef5e5b5fd11516035753443de1ff6d33115b"
+    },
+    "lock-mutants": {
+      "output": "PASS backbuffer lock mutations: 38/38; shared plan,actual8/9 implicit/target dispatch,permissions,identity,level locks,stale mirrors,copy guards andupload cleanup",
+      "sha256": "23d3fcdfd3395f9b0037b00bf8390efa2b98cff2ac13ceb12027888eabb677f8"
+    },
+    "color-fill": {
+      "output": "PASS ColorFill native contracts: 641 checks; depth/texture/pool/device rejection before wire emission, cube/mip identity and transport failure",
+      "sha256": "2811db41b53b3245642068f4d7fd055de6ed81f39a57637c2a518a2e6e7ee294"
+    },
+    "shared-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS 24 cases\\nok    shared depth across 32/48/64 targets msaa=0 auto=false bb=false\\nok    shared depth across 32/48/64 targets msaa=0 auto=false bb=true\\nok    shared depth across 32/48/64 targets msaa=0 auto=true bb=false\\nok    shared depth across 32/48/64 targets msaa=0 auto=true bb=true\\nok    shared depth across 32/48/64 targets msaa=4 auto=false bb=false\\nok    shared depth across 32/48/64 targets msaa=4 auto=false bb=true\\nok    shared depth across 32/48/64 targets msaa=4 auto=true bb=false\\nok    shared depth across 32/48/64 targets msaa=4 auto=true bb=true\\nok    shared stencil preserves regions and increments msaa=0\\nok    shared stencil preserves regions and increments msaa=4\\nok    promoted color load/store retains untouched pixels msaa=0 format=21 srgb=false\\nok    promoted color load/store retains untouched pixels msaa=0 format=21 srgb=true\\nok    promoted color load/store retains untouched pixels msaa=0 format=113 srgb=false\\nok    promoted color load/store retains untouched pixels msaa=4 format=21 srgb=false\\nok    promoted color load/store retains untouched pixels msaa=4 format=21 srgb=true\\nok    promoted color load/store retains untouched pixels msaa=4 format=113 srgb=false\\nok    multisample color adapter preserves distinct sample values format=21\\nok    multisample color adapter preserves distinct sample values format=113\\nok    cube face and mip color adapter restores selected subresource\\nok    MRT extent adapter preserves slot identity and pixels outside target0 size=32\\nok    MRT extent adapter preserves slot identity and pixels outside target0 size=128\\nok    implicit back buffer restores promoted color before present msaa=0\\nok    implicit back buffer restores promoted color before present msaa=4\\nok    large viewport clears each differently sized color and depth attachment\"}\n\nPASS shared-gpu",
+      "sha256": "d0a0a11dc7ab44a3faca2c00af2c1784caab2c3baf39e1b785594e9ce7f97214"
+    },
+    "backbuffer-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS actual XP shared backbuffer locks:baseline8/9 refusal,current public8/ordinary9/privatecore8,partial/full writes and4x4Reset,27 images/1536 real RGBA pixels,zero error\"}\n\nPASS backbuffer-gpu",
+      "sha256": "79d2e412801f3b7cacb9fb412564fcbd856cc6263bd903d3cca29cccee2a2b0e"
+    },
+    "renderable-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS actual XP renderable locks:old8 retained/old9 refused,current public8/ordinary9/privatecore8,partial/full writes andzero-public Reset,46 images/2944 real RGBA pixels,zero error\"}\n\nPASS renderable-gpu",
+      "sha256": "e535c96f9f2b8393212ba1ace84aeedc55ee4b076697a32bbe463ee3f26c5e56"
+    },
+    "formats": {
+      "output": "D9WG formats: native BGRA upload/readback, all 65536 RGB565 round trips and missing channels checked\n\nPASS formats",
+      "sha256": "a9be1da85092e5cbbebfbac67467e8e756bce69ede5e0c799d8c258ae8e725ec"
+    },
+    "surfaces": {
+      "output": "[d3d9-webgpu] this batch carried no guest-memory writer, so the guest cannot be told the host is alive and will time out any readback it waits on \n[d3d9-webgpu] a single frame outran 1 x 0 MiB of uniform storage; the remaining draws each allocate their own buffer and bind group, which is slow and memory-hungry. Raise uniformRingChunks if this frame is legitimate. { chunkBytes: 256, maxChunks: 1, requestedBytes: 256 }\n[d3d9-webgpu] this batch carried no guest-memory writer, so the guest cannot be told the host is alive and will time out any readback it waits on \nD9WG surfaces: 128 mixed fill/blit passes use distinct uniform ranges and allocate no steady-state buffers\n\nPASS surfaces",
+      "sha256": "b90555459bbb2d95a343307d27954d201043c927c8b5f0984141a995e231c0a3"
+    },
+    "integration": {
+      "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (2.995583ms)\n✔ rapid launches wait for the previous canvas/device teardown (3.712417ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 105.214208\n\nPASS site graphics integration 2/2",
+      "sha256": "e170175aab532fb785e8122f0ba4823051e3ffbff6763f7fe0e7e1a7e8e1ef64"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine8-depth-lock-regression",
+    "checks": 143726,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 2,
+    "skipped": 14,
+    "exit": 2,
+    "failureGroups": {
+      "test_map_synchronisation": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "c78fb2ee4479d759794cfba12ba31bf942633534d570441481bd2f3b123b6d6e",
+      "source.json": "7e606db72ada58b6f5eed988abcc0adb6d0b32f1f598a79ef916e3aaea38adc3",
+      "live-gpu.json": "4e870b1e47d326ba9d9226bbcd2576af1107abbbd39e5efd1b63d401bdbe4a3b",
+      "audit-groups.json": "fde828c389be8d3120071dfc9ba499d822147cd0b7f31ad8c3978f7828f10eb2"
+    },
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "420092129489d045ed23f87ed522a56f0648a55483c1d9d90b87b4dcf64c9926",
+      "executableSha256": "63d1720953fea909835387310a6104ee49d209eb2f9984dd32f579dbb9626fdb",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "69740e8855fde0e68742f6df492cfc47bb9fa064c7a53a1a0cd657bb59d96577",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "769e9c938d10444ce3d6cc10fdcc39030e7680225294e33ec940a013e69dd2b9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "c4025306d553dd31e9777c4960862dec78c0642a583d37291847f4d84f6f72c9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "1ebfdd63905d24058f2914ba58a65dc5231eb95b7b10946166a22350f8deee61",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "e6fa75f39b3bc490250173a3b3e498da79842c45b0f2ba5517fc5d620c03275e",
+    "glbridge/ddrawproxy/ddraw.dll": "6cd74382d59ee34d195b656013b34503f8995aff553efad0b6c091cc75e210f4",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "72a428d296c3f5dccac103555ca891ac77b3dfe99dbfe84075daabf15719b843",
+    "glbridge/d3d8proxy/d3d8.dll": "420092129489d045ed23f87ed522a56f0648a55483c1d9d90b87b4dcf64c9926",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "950ac44ead4722746efe88ccf0b45d04bf5215efb1b04284a18125eee8481112",
+    "glbridge/d3d9proxy/d3d9.dll": "5515622e50860b9913d6cb34975122f5e952ff63a90fe35d9bac056501bf9c76"
+  },
+  "build": "Six DLLs and local tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ],
+  "d3d9VisualAudit": {
+    "status": "INCOMPLETE: original suite crashed; not acceptance PASS",
+    "directory": "stage6-wine9-visual-depth-fill",
+    "failuresObserved": 184,
+    "failureGroups": {
+      "stretchrect_test": 27,
+      "color_fill_test": 54,
+      "test_generate_mipmap": 2,
+      "test_viewport": 25,
+      "stream_test": 45,
+      "texbem_test": 4,
+      "unbound_sampler_test": 3,
+      "pretransformed_varying_test": 24
+    },
+    "exit": -1073741819,
+    "exception": "c0000005 at WINE.EXE 0044A6F3, pretransformed_varying_test line7606 releases a NULL declaration after CreateVertexDeclaration returned INVALIDCALL at7559",
+    "depthClearAssertions": "No failures in original clear_test or test_clear_different_size_surfaces; D16 readback assertions1638/1644/1648 completed",
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 2,
+        "resources": 4,
+        "remainingResources": [
+          {
+            "handle": 1048606,
+            "kind": 3,
+            "deviceHandle": 1048605,
+            "format": 21,
+            "width": 1,
+            "height": 1
+          },
+          {
+            "handle": 1048607,
+            "kind": 3,
+            "deviceHandle": 1048605,
+            "format": 21,
+            "width": 1,
+            "height": 2
+          },
+          {
+            "handle": 1048608,
+            "kind": 3,
+            "deviceHandle": 1048605,
+            "format": 70,
+            "width": 4,
+            "height": 4
+          },
+          {
+            "handle": 1073742047,
+            "kind": 8
+          }
+        ]
+      }
+    ],
+    "cleanupCaveat": "2 devices/4 resources still alive at process owner release; forced owner cleanup leaves0/0, not counted as normal guest cleanup. Original different-size-clear test also omits Device.Release; no waiver applied.",
+    "files": {
+      "WINE.TXT": "c508605366644e97b8c069a84a0d086d4f8540e3b4d1a3abf4890ddc8db4ac5c",
+      "source.json": "6e00bc2501eb3854151ce6a8905119eb714746a77de82405fa1084464c993dfe",
+      "live-gpu.json": "1a5b3f0a7b0ee9e17313890a5001ef0882a7e85b42e864272f7d8cd5ba1dddbd",
+      "audit-groups.json": "80a82b3d6baa5201d20a9908e23a94da204e214b4dd1f7f7d19a4bc71bd370cd"
+    },
+    "source": {
+      "suite": "d3d9_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/visual.c",
+        "sha256": "2b28a56f2edf538c1021fe0aadd42c4fe6b7ba2a4f2cd23acec5197910231540",
+        "gitBlob": "8cb932dd3bb5ab6a27d6ff444dbe916ba3092c76"
+      },
+      "dllSha256": "5515622e50860b9913d6cb34975122f5e952ff63a90fe35d9bac056501bf9c76",
+      "executableSha256": "70004f13c8d7b5f35f3519e2175532b96d26f4cd74dba902b09ee4927b6b3178",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "d413cdee53010d8919322956547afbd83c29ebd927ce937b60688ccd5fedbaae",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "69740e8855fde0e68742f6df492cfc47bb9fa064c7a53a1a0cd657bb59d96577",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "53336df471e31f09b12e2ef4c153b68a3f6f483a2f030cd890594eeaf50fd863",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "769e9c938d10444ce3d6cc10fdcc39030e7680225294e33ec940a013e69dd2b9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "c4025306d553dd31e9777c4960862dec78c0642a583d37291847f4d84f6f72c9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "c36c48a70a8eb026cadca9e29f2020fbab1a0ce716121aa2a4bc414d6d7153c1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "1ebfdd63905d24058f2914ba58a65dc5231eb95b7b10946166a22350f8deee61",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "previousAttempt": {
+      "directory": "stage6-wine9-visual-depth-lock",
+      "status": "FAILED with GPU color attachment error on ColorFill(depth); fixed by native rejection and host attachment guard"
+    }
+  }
+}

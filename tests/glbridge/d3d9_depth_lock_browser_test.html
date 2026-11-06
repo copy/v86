@@ -1,0 +1,73 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>D3D9 pixel conformance</title>
+<canvas id="screen" width="64" height="64"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script src="d3d9_feature_cases.js"></script>
+<script src="d3d_test_device.js"></script>
+<script>
+(async()=>{
+ const P=D9WGProtocol,C=P.C,{cmd,draw,quad,rs}=D3D9Conformance.builders;
+ const lines=[];let gpu,checks=0;
+ const check=(v,m)=>{++checks;if(!v)throw Error(m);};
+ const opcodes={};for(const [op,entry] of Object.entries(P.COMMANDS))opcodes[Array.isArray(entry)?entry[0]:entry]=P.OP[op];
+ const wire=(name,fields,blobs=[])=>{check(opcodes[name]!==undefined,'fixture opcode '+name);for(const k of Object.keys(fields))check(k in P.F[name],'fixture field '+k);return cmd(opcodes[name],P.encode(name,fields),blobs);};
+ const batch=commands=>P.encodeBatch(commands.map(c=>({opcode:c.opcode,payload:c.payload,blobs:c.blobs.map(b=>({field:b.offsetField,data:b.data}))})),{session_id_low:1});
+ try{
+  gpu=new D3D9WebGPUExecutor(document.querySelector('canvas'),{strict:true,useShaderWorker:false});await gpu.initialize();
+  const depth=0x700001,expected=new Uint16Array(64*64);
+  for(let y=0;y<64;y++)for(let x=0;x<64;x++)expected[y*64+x]=Math.round((y<16?.125:x<32?.25:.75)*65535);
+  const {dev,rt,bytes}=D3D9Conformance.caseBatch(0,{body:dev=>[
+   wire('CreateTexture2D',{device_handle:dev,resource_handle:depth,width:64,height:64,level_count:1,format:70,usage:2}),
+   wire('SetDepthStencilSurfaceLevel',{device_handle:dev,depth_texture_handle:depth,width:64,height:64}),
+   wire('Clear',{device_handle:dev,clear_flags:2,depth:.75}),rs(dev,7,1),rs(dev,14,1),rs(dev,23,4),
+   draw(dev,quad(0,0,32,64,.25,0xff00ff00)),draw(dev,quad(0,0,64,16,.125,0xff0000ff)),
+  ]});
+  await gpu.submit(bytes,{writeGuestMemory(){}});await gpu.idle();
+  let request=0;
+  async function read(format,texture,first,count,pitch){
+   let response;const id=++request,address=(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET;
+   await gpu.submit(batch([wire('ReadbackSurface',{device_handle:dev,texture_handle:texture,format,width:64,height:64,first_row:first,row_count:count,destination_pitch:pitch,destination_bytes:pitch*count,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:id})]),{
+    writeGuestMemory(at,data){if(at===address)response=data.slice();}
+   });await gpu.idle();check(response&&response.length===16+pitch*count,'readback length');
+   const view=new DataView(response.buffer);check(view.getUint32(0,true)===id&&view.getUint32(12,true)===C.D9WG_RESPONSE_OK,'readback status');return response.subarray(16);
+  }
+  async function depthCheck(first,count,pitch){
+   const result=await read(70,depth,first,count,pitch),view=new DataView(result.buffer,result.byteOffset,result.byteLength);
+   for(let y=0;y<count;y++)for(let x=0;x<64;x++)check(Math.abs(view.getUint16(y*pitch+x*2,true)-expected[(first+y)*64+x])<=1,`depth ${x},${first+y}: ${view.getUint16(y*pitch+x*2,true)} != ${expected[(first+y)*64+x]}`);
+   for(let y=0;y<count;y++)for(let x=128;x<pitch;x++)check(result[y*pitch+x]===0,'readback padding');
+  }
+  await depthCheck(0,64,134);await depthCheck(31,2,130);await depthCheck(63,1,128);lines.push('GPU clear and draw depth, sliced reads and padded pitch');
+  const patch=new Uint8Array(40*11),pv=new DataView(patch.buffer),values=[0,1,8191,32767,32768,49151,65534,65535];patch.fill(0xcd);
+  for(let y=0;y<11;y++)for(let x=0;x<17;x++){const value=values[(x+y)%values.length];pv.setUint16(y*40+x*2,value,true);expected[(y+9)*64+x+7]=value;}
+  await gpu.submit(batch([wire('UpdateTexture',{resource_handle:depth,x:7,y:9,width:17,height:11,depth:1,row_pitch:40,data_bytes:patch.length},[{offsetField:'data_offset',data:patch}])]),{writeGuestMemory(){}});
+  await depthCheck(0,64,128);lines.push('partial D16 writeback and unchanged surrounding depth');
+  await gpu.submit(batch([wire('Clear',{device_handle:dev,clear_flags:1,color:0xff000000}),rs(dev,14,0),draw(dev,quad(0,0,64,64,.5,0xffff0000))]),{writeGuestMemory(){}});
+  const color=await read(21,rt,0,64,256);
+  for(let i=0;i<4096;i++){const red=expected[i]>=32768?255:0;check(color[i*4]===0&&color[i*4+1]===0&&color[i*4+2]===red&&color[i*4+3]===255,'uploaded depth test at '+i);}
+  await depthCheck(0,64,128);lines.push('actual draws consume uploaded depth; read-only draw preserves it');
+  await gpu.submit(D3D9Conformance.endCaseBatch(1),{writeGuestMemory(){}});await gpu.idle();await gpu.device.queue.onSubmittedWorkDone();
+  for(let i=0;i<4;i++)await new Promise(r=>setTimeout(r,0));
+  check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.commandsFailed&&!gpu.stats.renderTargetReadbackFailures,'GPU/host error');
+  check(!gpu.devices.size&&!gpu.resources.size&&!gpu.sessionStates.size,'owner cleanup');
+  document.querySelector('#result').textContent='PASS '+checks+' depth lock checks: '+lines.join('; ');
+ }catch(e){document.querySelector('#result').textContent='FAIL '+e.stack+'\n'+JSON.stringify({errors:gpu?.gpuErrors.errors,host:gpu?.hostErrors.map(e=>String(e.stack||e.message||e))});}
+})();
+</script>

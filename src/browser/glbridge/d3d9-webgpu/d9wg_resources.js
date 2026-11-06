@@ -345,9 +345,8 @@
                             sampleCount });
                     return;
                 }
-                // Every D3D9 depth format collapses onto one real depth target: the
-                // guest cannot read any of them back, so only "a depth buffer
-                // exists" is observable (same argument as ensureDepthTarget).
+                // Keep shared depth/stencil storage; lockable depth values are
+                // read and written through shader transfers, not opaque bytes.
                 // D3DUSAGE_AUTOGENMIPMAP means the app owns level 0 and the driver
                 // owns everything under it. The guest therefore reports one level
                 // -- which is what D3D9's GetLevelCount says for such a texture --
@@ -510,6 +509,11 @@
                 const resource = this.resources.get(handle);
                 if (!resource || !resource.gpuTexture) return;
                 const source = new Uint8Array(bytes.buffer, bytes.byteOffset + dataOffset, dataBytes);
+                if (resource.isDepth) {
+                    if (z || depth !== 1) throw new Error("invalid depth upload layer");
+                    this.stageDepthUpload(resource,level,x,y,width,height,rowPitch,source);
+                    return;
+                }
                 const compressed = isCompressedFormat(resource.format) && !resource.bcExpanded;
                 let payload = source;
                 let bytesPerRow = rowPitch;

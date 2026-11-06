@@ -310,6 +310,11 @@
                             frame.transientBuffers.push(transient);
                         continue;
                     }
+                    if (op.kind === "depth-upload") {
+                        closePass();
+                        frame.transientBuffers.push(executor.encodeDepthTransfer(encoder,op.source,op.destination,true,op.x,op.y,op.width,op.height));
+                        continue;
+                    }
                     if (op.kind === "rect-clear") {
                         closePass();
                         const transient = executor.replayRectClear(encoder, op,

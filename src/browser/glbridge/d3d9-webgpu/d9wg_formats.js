@@ -470,6 +470,7 @@
 
     function d3dBytesPerTexel(format) {
         switch (format) {
+        case 70: // D16_LOCKABLE CPU representation
         case D3DFMT_R5G6B5:
         case D3DFMT_X1R5G5B5:
         case D3DFMT_A1R5G5B5:
@@ -545,6 +546,9 @@
                 b = source[sourceAt + 2] / 255; a = source[sourceAt + 3] / 255;
             }
             switch (format) {
+            case 70: // actual GPU depth transferred to r32float
+                destinationView.setUint16(destinationAt, unorm(r,65535),true);
+                break;
             case D3DFMT_A8R8G8B8:
             case D3DFMT_X8R8G8B8:
                 destination[destinationAt] = unorm(b, 255);

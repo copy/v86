@@ -1639,6 +1639,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
             this.multisampleCopyPipelines = null;
+            this.depthTransferPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.samplerCache.clear();
@@ -2304,6 +2305,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
             this.multisampleCopyPipelines = null;
+            this.depthTransferPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.samplerCache.clear();
@@ -2574,6 +2576,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             };
             let buffer = null;
             let mapped = false;
+            const depthTransients = [];
             try {
                 const resource = textureHandle
                     ? this.resources.get(textureHandle) : null;
@@ -2608,7 +2611,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     ? resource.gpuTexture : null;
                 if (!textureHandle)
                     sourceTexture = state && this.deviceBackBuffer(state);
-                const gpuFormat = resource ? resource.gpuFormat : this.format;
+                let gpuFormat = resource ? resource.gpuFormat : this.format;
                 if (!sourceTexture || !gpuFormat)
                     throw new Error("readback source is unavailable");
                 const sourceWidth = resource
@@ -2635,8 +2638,19 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     usage: BUFFER_USAGE_COPY_DST | BUFFER_USAGE_MAP_READ,
                 });
                 const encoder = this.device.createCommandEncoder();
+                let copyLevel = level, copyRow = firstRow;
+                if (resource && resource.isDepth) {
+                    if (format !== 70 || resource.format !== 70 || (resource.sampleCount || 1) !== 1 || face)
+                        throw new Error("unsupported lockable depth readback");
+                    const converted = this.device.createTexture({label:"D3D9 depth readback values",
+                        size:{width,height:rowCount},format:"r32float",usage:TEXTURE_USAGE_RENDER_ATTACHMENT|TEXTURE_USAGE_COPY_SRC});
+                    depthTransients.push(converted);
+                    depthTransients.push(this.encodeDepthTransfer(encoder,sourceTexture.createView({aspect:"depth-only",baseMipLevel:level,mipLevelCount:1}),
+                        converted.createView(),false,0,0,width,rowCount,firstRow));
+                    sourceTexture = converted; gpuFormat = "r32float"; copyLevel = copyRow = 0;
+                }
                 encoder.copyTextureToBuffer({ texture: sourceTexture,
-                    mipLevel: level, origin: { x: 0, y: firstRow, z: face } },
+                    mipLevel: copyLevel, origin: { x: 0, y: copyRow, z: face } },
                     { buffer, bytesPerRow: gpuRowPitch,
                         rowsPerImage: copiedRows },
                     { width: blockAlignedCopyExtent(width, compressed),
@@ -2695,6 +2709,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     try { buffer.destroy(); } catch (_) {}
                 }
                 fail(error);
+            } finally {
+                for (const object of depthTransients) object.destroy();
             }
         }
 
@@ -2814,6 +2830,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.moduleCache.clear();
             this.fixedModuleCache.clear();
             this.multisampleCopyPipelines = null;
+            this.depthTransferPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.shaderCacheDirty = false;
@@ -3383,7 +3400,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // ColorFill is nevertheless defined on it -- that is most of what
             // the call exists for -- and the GPU texture behind it is
             // attachable all the same.
-            const attachable = resource && resource.textureDescriptor &&
+            const attachable = resource && !resource.isDepth && resource.textureDescriptor &&
                 (resource.textureDescriptor.usage &
                     TEXTURE_USAGE_RENDER_ATTACHMENT) !== 0;
             if (!resource || !resource.gpuTexture || !attachable) {
