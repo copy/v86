@@ -1,0 +1,720 @@
+{
+  "batch": "stage6-11",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; complete Wine acceptance still blocked by actual failures/crashes",
+  "scopeDecisions": [
+    "Complete Wine applicable tests first; then compare99/2001SE/03/06 with old default branches, requiring no graphics-score regression.",
+    "Document each platform/mutually-exclusive Wine branch with exact location/message/count and reason/evidence. Missing functionality is not waived.",
+    "3DMark03 three audio tests remain incomplete; finish other acceptance first."
+  ],
+  "changes": [
+    "API9 SCRATCH volumes use runtime CPU format/storage rules and emit no GPU create/upload/destroy; binding is rejected without changing the active texture. API8 behavior remains distinct.",
+    "DXT volume creation and sub-box locks enforce block boundaries while smaller mip edges remain valid.",
+    "ATI compressed GPU volumes were previously advertised although the host rejects compressed3D storage; correct the unsupported GPU-format query and keep CPU scratch available. This is a remaining rendering capability gap, not implemented ATI volume sampling.",
+    "API9 stateblock Apply ignores a captured NULL declaration, preserving the current one. Explicit API8 NULL restoration remains unchanged.",
+    "Wine result parser accepts only exact individually reviewed platform/alternative skips, retains skipped counts, rejects unmatched/unused records and still rejects all failures/todo/flaky. Harness pins applicability records to suite/source hash."
+  ],
+  "checks": {
+    "volumeCreationAssertions": 16572915,
+    "volumeCreationCases": 3364355,
+    "volumeLockAssertions": 4312230,
+    "volumeLockCases": 1653696,
+    "volumeMutations": 36,
+    "volumeLifecycleAssertions": 53888,
+    "volumeLifecycleProfiles": 768,
+    "volumeBindingMutations": 14,
+    "stateBindingAssertions": 682442,
+    "stateBindingMutations": 38,
+    "cleanupAssertions": 1923814,
+    "cleanupMutations": 19,
+    "formatAssertions": 1653415,
+    "formatCases": 826686,
+    "wineResultGate": "PASS, exact reviewed skip identities and contradictions covered",
+    "siteGraphicsIntegration": "2/2 PASS",
+    "build": "Six final DLLs and shipping tools ISO rebuilt"
+  },
+  "audits": [
+    {
+      "directory": "stage6-wine9-device-scratch-volume",
+      "status": "CRASH",
+      "completeSummary": null,
+      "exit": -1073741819,
+      "recordedFailures": 1738,
+      "skips": [
+        {
+          "line": 1132,
+          "message": "Multisampling not supported for D3DFMT_X8R8G8B8, skipping test."
+        },
+        {
+          "line": 5676,
+          "message": "Following tests require two adapters."
+        },
+        {
+          "line": 7561,
+          "message": "This GPU supports SM3, skipping unsupported shader test."
+        },
+        {
+          "line": 8070,
+          "message": "Mipmapping not supported for D3DFMT_D16, skipping test."
+        },
+        {
+          "line": 8133,
+          "message": "D3DFMT_A32B32G32R32F supports filtering, skipping tests."
+        }
+      ],
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "982e498a46c89a5002025e2283d34964a97a54477434fe5fa88cb930f235c3ad",
+        "executableSha256": "1fde086920e50ebda741aadce0f0919cdd08a9373c45ffb6ba1a1ce044639c4a",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "dfc9c3d8786e14eb573c194f72fd1f322843bb07d5da5088e221efc510b8fdbd",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "bcad4ff603b31f450c953a2d0973ef3fb4701dbbfc696dc24abcc72f7c3ac3da",
+      "failureGroups": {
+        "test_vertex_declaration_alignment": 3,
+        "test_unused_declaration_type": 7,
+        "test_display_formats": 11,
+        "test_reset": 1,
+        "test_scene": 1,
+        "test_depthstenciltest": 1,
+        "test_draw_primitive": 3,
+        "test_null_stream": 1,
+        "test_wndproc": 47,
+        "test_multi_device": 66,
+        "test_wndproc_windowed": 7,
+        "test_window_style": 21,
+        "test_device_window_reset": 2,
+        "test_set_rt_vp_scissor": 3,
+        "test_vertex_buffer_alignment": 32,
+        "test_query_support": 23,
+        "test_occlusion_query": 16,
+        "test_timestamp_query": 20,
+        "test_get_set_vertex_shader": 2,
+        "test_vertex_shader_constant": 6,
+        "test_get_set_pixel_shader": 2,
+        "test_unsupported_shaders": 9,
+        "test_mipmap_gen": 3,
+        "test_get_set_texture": 2,
+        "test_surface_alignment": 2,
+        "test_lockrect_offset": 4,
+        "test_lockrect_invalid": 16,
+        "test_getdc": 120,
+        "test_surface_blocks": 1284,
+        "test_set_palette": 1,
+        "test_vidmem_accounting": 2,
+        "test_volume_locking": 2,
+        "test_update_volumetexture": 2,
+        "test_create_rt_ds_fail": 2,
+        "test_shared_handle": 13,
+        "test_vdecl_apply": 1
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "cleanupBeforeOwnerRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 3,
+          "resources": 24,
+          "remainingResources": [
+            {
+              "handle": 1073741839,
+              "kind": 7
+            },
+            {
+              "handle": 1073741841,
+              "kind": 7
+            },
+            {
+              "handle": 1073741843,
+              "kind": 7
+            },
+            {
+              "handle": 1073741845,
+              "kind": 7
+            },
+            {
+              "handle": 1073741847,
+              "kind": 8
+            },
+            {
+              "handle": 1073741849,
+              "kind": 8
+            },
+            {
+              "handle": 1073741851,
+              "kind": 8
+            },
+            {
+              "handle": 1048922,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048924,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048926,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048928,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048930,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048932,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055894,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055895,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055896,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055897,
+              "kind": 1
+            },
+            {
+              "handle": 1055898,
+              "kind": 1
+            },
+            {
+              "handle": 1055899,
+              "kind": 4,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 8,
+              "height": 8
+            },
+            {
+              "handle": 1055900,
+              "kind": 4,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 8,
+              "height": 8
+            },
+            {
+              "handle": 1055901,
+              "kind": 5,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 4,
+              "height": 4
+            },
+            {
+              "handle": 1055902,
+              "kind": 5,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 4,
+              "height": 4
+            },
+            {
+              "handle": 1055903,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055904,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 77,
+              "width": 128,
+              "height": 128
+            }
+          ]
+        }
+      ],
+      "afterOwnerRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    },
+    {
+      "directory": "stage6-wine9-device-null-declaration",
+      "status": "CRASH",
+      "completeSummary": null,
+      "exit": -1073741819,
+      "recordedFailures": 3830,
+      "skips": [
+        {
+          "line": 1132,
+          "message": "Multisampling not supported for D3DFMT_X8R8G8B8, skipping test."
+        },
+        {
+          "line": 5676,
+          "message": "Following tests require two adapters."
+        },
+        {
+          "line": 7561,
+          "message": "This GPU supports SM3, skipping unsupported shader test."
+        },
+        {
+          "line": 8070,
+          "message": "Mipmapping not supported for D3DFMT_D16, skipping test."
+        },
+        {
+          "line": 8133,
+          "message": "D3DFMT_A32B32G32R32F supports filtering, skipping tests."
+        },
+        {
+          "line": 13252,
+          "message": "Multisampling not supported for D3DFMT_A8R8G8B8."
+        },
+        {
+          "line": 14007,
+          "message": "ATI2N volume texture not supported."
+        }
+      ],
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "a2c1f0fcbb45edf1011b1ebc328e2cae375df10ad8cc1815511a111f0ed3360d",
+        "executableSha256": "07b16945fd58bf23b0ab85fb5b279e610f153e031ca162c2fe17ed7dbf6584de",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "dfc9c3d8786e14eb573c194f72fd1f322843bb07d5da5088e221efc510b8fdbd",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      },
+      "logSha256": "1a2767511164b9a84db9f39e7f571b8cb61128c6b3b21bc02f1d3e99448003d4",
+      "failureGroups": {
+        "test_vertex_declaration_alignment": 3,
+        "test_unused_declaration_type": 7,
+        "test_display_formats": 11,
+        "test_reset": 1,
+        "test_scene": 1,
+        "test_depthstenciltest": 1,
+        "test_draw_primitive": 3,
+        "test_null_stream": 1,
+        "test_wndproc": 47,
+        "test_multi_device": 66,
+        "test_wndproc_windowed": 7,
+        "test_window_style": 21,
+        "test_device_window_reset": 2,
+        "test_set_rt_vp_scissor": 3,
+        "test_vertex_buffer_alignment": 48,
+        "test_query_support": 23,
+        "test_occlusion_query": 16,
+        "test_timestamp_query": 20,
+        "test_get_set_vertex_shader": 2,
+        "test_vertex_shader_constant": 6,
+        "test_get_set_pixel_shader": 2,
+        "test_unsupported_shaders": 9,
+        "test_mipmap_gen": 3,
+        "test_get_set_texture": 2,
+        "test_surface_alignment": 2,
+        "test_lockrect_offset": 4,
+        "test_lockrect_invalid": 16,
+        "test_getdc": 120,
+        "test_surface_blocks": 1284,
+        "test_set_palette": 1,
+        "test_vidmem_accounting": 2,
+        "test_volume_locking": 2,
+        "test_update_volumetexture": 2,
+        "test_create_rt_ds_fail": 2,
+        "test_shared_handle": 13,
+        "test_mipmap_lock": 1,
+        "test_lost_device": 8,
+        "test_resource_priority": 5,
+        "test_check_device_format": 22,
+        "test_miptree_layout": 915,
+        "test_format_unknown": 2,
+        "test_lockable_backbuffer": 1,
+        "test_clip_planes_limits": 582,
+        "test_stretch_rect": 477,
+        "test_resource_access": 64
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "commandsFailed": 0,
+      "cleanupBeforeOwnerRelease": [
+        {
+          "reason": "owner-released",
+          "devices": 3,
+          "resources": 24,
+          "remainingResources": [
+            {
+              "handle": 1073741839,
+              "kind": 7
+            },
+            {
+              "handle": 1073741841,
+              "kind": 7
+            },
+            {
+              "handle": 1073741843,
+              "kind": 7
+            },
+            {
+              "handle": 1073741845,
+              "kind": 7
+            },
+            {
+              "handle": 1073741847,
+              "kind": 8
+            },
+            {
+              "handle": 1073741849,
+              "kind": 8
+            },
+            {
+              "handle": 1073741851,
+              "kind": 8
+            },
+            {
+              "handle": 1048922,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048924,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048926,
+              "kind": 3,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048928,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048930,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048932,
+              "kind": 4,
+              "deviceHandle": 1048920,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055894,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055895,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055896,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055897,
+              "kind": 1
+            },
+            {
+              "handle": 1055898,
+              "kind": 1
+            },
+            {
+              "handle": 1055899,
+              "kind": 4,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 8,
+              "height": 8
+            },
+            {
+              "handle": 1055900,
+              "kind": 4,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 8,
+              "height": 8
+            },
+            {
+              "handle": 1055901,
+              "kind": 5,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 4,
+              "height": 4
+            },
+            {
+              "handle": 1055902,
+              "kind": 5,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 4,
+              "height": 4
+            },
+            {
+              "handle": 1055903,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1055904,
+              "kind": 3,
+              "deviceHandle": 1055893,
+              "format": 77,
+              "width": 128,
+              "height": 128
+            }
+          ]
+        }
+      ],
+      "afterOwnerRelease": {
+        "devices": 0,
+        "resources": 0
+      }
+    }
+  ],
+  "auditLimits": [
+    "Latest full run passed test_volume_blocks and test_vdecl_apply but has3830 recorded failures and no complete summary. The increased count reflects newly reached test groups.",
+    "Latest crash is a null function call: upstream resolves Direct3DShaderValidatorCreate9, proxy export table omits it, and test_shader_validator invokes it without checking. Last assertion was test_multi_adapter line14557.",
+    "Published final binaries additionally restore explicit API8 NULL behavior, verified by profile/lifecycle tests; complete API9 run used the immediately preceding equivalent API9 branch. No complete acceptance pass is claimed."
+  ],
+  "completed99BeforeReorder": {
+    "directory": "stage6-99-batch10",
+    "tests": 26,
+    "graphicsScore": 1876,
+    "cpuScore": 9378,
+    "raceFPS": 25.3,
+    "firstPersonFPS": 14.9,
+    "qualityComparison": [
+      {
+        "image": 1,
+        "width": 256,
+        "height": 320,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      },
+      {
+        "image": 2,
+        "width": 256,
+        "height": 320,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      },
+      {
+        "image": 3,
+        "width": 256,
+        "height": 320,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      },
+      {
+        "image": 4,
+        "width": 256,
+        "height": 320,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      },
+      {
+        "image": 5,
+        "width": 256,
+        "height": 320,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      },
+      {
+        "image": 6,
+        "width": 256,
+        "height": 320,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      },
+      {
+        "image": 7,
+        "width": 256,
+        "height": 320,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      },
+      {
+        "image": 8,
+        "width": 800,
+        "height": 664,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      },
+      {
+        "image": 9,
+        "width": 800,
+        "height": 664,
+        "excludedTopRows": 64,
+        "differentBytes": 0
+      }
+    ],
+    "dllSha256": "d42ece22c82d732e0aeeb8dbdbd400c4e9bcaf8011bfe8572d4b3cd373c89513",
+    "resultSha256": "4a133b3ec0d9582d535a838604b7b36d78b1fa1ae4910f29127f6d9d2e0a136e",
+    "reportSha256": "31286d40c396c87d9e6762a5b4ead04fb35bae00f40bbc74e8f0ccab28cde9c6",
+    "extractedManifestSha256": "03b0a37eb6477f113c9da84a82a81d4aa22831c4f2ec17471fdbe90db329f729",
+    "normalExit": {
+      "devices": 0,
+      "resources": 0
+    },
+    "browserErrors": [],
+    "hostErrors": [],
+    "gpuErrors": [],
+    "role": "Earlier completed run only, not post-Wine formal old/new comparison."
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw.dll": {
+      "bytes": 145408,
+      "sha256": "67a2028973067c13e6bd3f86f7da32b50e73b8033ef4b322045a5ac63263d774"
+    },
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": {
+      "bytes": 177664,
+      "sha256": "3be3c5917925577d892b5c4b310692c5dd61d0554328f11e9af8b7fa16af455c"
+    },
+    "glbridge/d3d8proxy/d3d8.dll": {
+      "bytes": 202752,
+      "sha256": "7afa7854c3829ba18214b1247a9cedf861741248cc161bd72b1c6da637582c9e"
+    },
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": {
+      "bytes": 254464,
+      "sha256": "1edd280ad613fa972b43a546712561041f6b94c6072e5b7142265b658898c140"
+    },
+    "glbridge/d3d9proxy/d3d9.dll": {
+      "bytes": 159744,
+      "sha256": "b116565af2a36e9a5c72b79d15fbb27444a0aa508a544093551dc8183ddb116b"
+    },
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": {
+      "bytes": 208384,
+      "sha256": "8d068a94f56e9ae93e8a7b75bdc9ce99aeb40318d2dde743114615251de6b670"
+    }
+  },
+  "webgpuRevision": "ce2e3593ba41e7d3dcb9",
+  "remaining": [
+    "Unimplemented shader validator export; full9 surface/lock,resource validation,query/window/API failures and lifetime leaks.",
+    "Full8 visual53 failures and14 unreviewed skips; full9 visual depth-readback crash; DirectDraw1 interface crash and remaining original suites.",
+    "Review and document platform/alternative skips individually; never silently waive missing graphics capabilities.",
+    "After applicable Wine acceptance passes, rerun formal99/2001/03/06 performance comparisons and fix any graphics-score regression; other graphics/cross-backend acceptance remains open."
+  ]
+}

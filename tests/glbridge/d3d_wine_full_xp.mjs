@@ -19,7 +19,15 @@ assert(api,"Unknown complete Wine suite");
 const vendor=root+"tests/glbridge/wine/",out=path.resolve(process.env.D3D_WINE_OUT||root+"build/d3d-review/wine-full-"+suite);
 const manifest=JSON.parse(fs.readFileSync(vendor+"manifest.json"));
 for(const file of manifest.files)assert.equal(createHash("sha256").update(fs.readFileSync(vendor+file.path)).digest("hex"),file.sha256,"Modified upstream source: "+file.path);
+const applicabilityFile=process.env.D3D_WINE_APPLICABILITY;
+const applicability=applicabilityFile?JSON.parse(fs.readFileSync(applicabilityFile)):null;
+if(applicability) {
+    assert.equal(applicability.suite,suite,"Applicability suite mismatch");
+    assert.equal(applicability.sourceSha256,manifest.files.find(f=>f.path===suite+".c").sha256,"Applicability source mismatch");
+    assert(Array.isArray(applicability.inapplicable),"Missing applicability records");
+}
 fs.mkdirSync(out,{recursive:true});
+if(applicability)fs.writeFileSync(out+"/applicability.json",JSON.stringify(applicability,null,2)+"\n");
 const cc=process.env.D9WG_CC||"i686-w64-mingw32-gcc";
 execFileSync(cc,["-std=gnu99","-O1","-g","-DDECLSPEC_EXPORT=","-I"+vendor+"include","-c",root+"tests/glbridge/wine_debug_standalone.c","-o",out+"/debug.o"],{stdio:"inherit"});
 // XP provides the PSAPI exports, not the Win7+ K32 aliases selected by newer
@@ -47,10 +55,10 @@ try {
     const result=await run_xp_ram_probe({root,out,files,image:process.env.XP_IMAGE||site+"/windowsxp/windowsxp_multidisk_C_4G.img",
         success:"COMPLETE Wine full suite",log_files:["WINE.TXT"],log_completion:{"WINE.TXT":"exit="},graphics_renderer:live,
         probe_timeout_seconds:1800,
-        rendering:"Complete upstream "+suite+" with Windows expectations and actual GPU readbacks; no skipped test or failed assertion is accepted.",
+        rendering:"Complete upstream "+suite+" with Windows expectations and actual GPU readbacks; no failed assertion or unreviewed skip is accepted.",
         inspect(result) {
             fs.writeFileSync(out+"/WINE.TXT",result.logs["WINE.TXT"]);
-            result.wineSummary=parse_wine_result(result.logs["WINE.TXT"],suite);
+            result.wineSummary=parse_wine_result(result.logs["WINE.TXT"],suite,{inapplicable:applicability?.inapplicable||[]});
             assert.deepEqual([...result.releases].sort(),[...result.owners].sort(),"Unreleased transport owner");
             assert(live.stats.snapshot.sessionCleanup.length>0,"Missing cleanup evidence");
             assert(live.stats.snapshot.sessionCleanup.every(row=>!row.devices&&!row.resources),"Guest left graphics resources alive");

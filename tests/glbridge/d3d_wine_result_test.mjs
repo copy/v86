@@ -8,3 +8,14 @@ assert.throws(()=>parse_wine_result(passed.replace("9283","99"),"short group",{m
 for(const minimumChecks of [0,-1,NaN,1.5])assert.throws(()=>parse_wine_result(passed,"invalid threshold",{minimumChecks}));
 for(const log of ["", "exit=0\n", passed.replace("9283","0"),passed.replace("9283","1"),passed.replace("0 failures","16 failures"),passed.replace("0 failures","1 failure"),passed.replace("0 marked","1 marked"),passed.replace("0 as flaky","1 as flaky"),passed.replace("0 skipped","1 skipped"),passed.replace("exit=0","exit=16"),passed.replace("exit=0", ""),passed+passed,"Test failed: wrong state\n"+passed])assert.throws(()=>parse_wine_result(log,"invalid"));
 console.log("PASS Wine result gate: two real suite counts, 13 incomplete/failed/skipped/contradictory results rejected");
+const skip="device.c:123: Tests skipped: Alternative unsupported-format branch.\r\n";
+const reviewed={location:"device.c:123",message:"Alternative unsupported-format branch.",category:"mutually-exclusive",reason:"The supported-format branch executed instead.",evidence:["Pinned source condition and successful runtime format query"],count:1};
+const withSkip=skip+passed.replace("0 skipped","1 skipped");
+assert.equal(parse_wine_result(withSkip,"reviewed",{inapplicable:[reviewed]}).skipped,1);
+for(const row of [{...reviewed,reason:""},{...reviewed,evidence:[]},{...reviewed,category:"missing-feature"},{...reviewed,count:0},{...reviewed,count:2},{...reviewed,location:"device.c:124"},{...reviewed,message:"Different branch"}])
+    assert.throws(()=>parse_wine_result(withSkip,"bad applicability",{inapplicable:[row]}));
+assert.throws(()=>parse_wine_result(withSkip,"duplicate",{inapplicable:[reviewed,reviewed]}));
+assert.throws(()=>parse_wine_result(passed,"unused",{inapplicable:[reviewed]}));
+assert.throws(()=>parse_wine_result(skip+passed,"contradictory"));
+assert.throws(()=>parse_wine_result(withSkip.replace("0 failures","1 failure"),"actual failure",{inapplicable:[reviewed]}));
+console.log("PASS reviewed applicability: exact location/message/count, reason/evidence, categories and contradictions; failures remain fatal");
