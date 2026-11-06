@@ -3978,7 +3978,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     continue;
                 }
                 const stream = state.streams.get(element.stream);
-                if (!stream || (!stream.stride && !stream.bufferHandle)) continue;
+                if (!stream || (!stream.bufferHandle && !stream.userPointer)) continue;
                 let entry = perStream.get(element.stream);
                 if (!entry) {
                     const frequency = (stream.frequency ?? 1) >>> 0;
@@ -4751,6 +4751,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const bgra = [];
                 const inputConversions = {};
                 for (const element of elements) {
+                    const binding = state.streams.get(element.stream);
+                    if (!binding || (!binding.bufferHandle && !binding.userPointer)) continue;
                     const location = inputLocations.get(
                         element.usage * 16 + element.usageIndex);
                     if (location !== undefined && element.type === DECLTYPE_D3DCOLOR)
@@ -5055,11 +5057,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // (0, 0, 0, 1), as D3D9 hardware does, instead of leaving the
             // pipeline without the attribute (an invalid pipeline invalidates
             // the whole command buffer and with it the frame)
-            if (vertexReflection && vertexReflection.inputs) {
+            {
+                const inputLocations = vertexReflection && vertexReflection.inputs
+                    ? vertexReflection.inputs.map(input => input.location)
+                    : elements.map(locationFor);
                 const supplied = new Set();
                 for (const layout of vertexBuffers)
                     for (const attribute of layout.attributes) supplied.add(attribute.shaderLocation);
-                const missing = vertexReflection.inputs.map(input => input.location)
+                const missing = inputLocations
                     .filter(location => location >= 0 && !supplied.has(location));
                 if (missing.length) {
                     if (vertexBuffers.length >= MAX_VERTEX_BUFFERS_PER_DRAW)
@@ -5072,9 +5077,6 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                                 format: "float32x4" })) });
                 }
             }
-            if (!vertexBuffers.length)
-                return { error: "no vertex stream supplies any attribute the " +
-                    "vertex stage reads" };
             const pixelUniformLayout = pixelSignature
                 ? fixedPixelUniformLayout(pixelSignature) : null;
             // r32/rg32/rgba32 textures are sampleable on baseline WebGPU, but

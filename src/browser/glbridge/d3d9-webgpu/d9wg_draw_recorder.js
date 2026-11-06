@@ -250,7 +250,7 @@
             // state.streams -- needs stream 0 temporarily standing in for it.
             recordDrawWithStride(state, elements, which, geometry, stride) {
                 const saved = state.streams.get(0);
-                state.streams.set(0, { bufferHandle: 0, stride, offsetInBytes: 0,
+                state.streams.set(0, { bufferHandle: 0, userPointer: true, stride, offsetInBytes: 0,
                     frequency: 1 });
                 try {
                     this.recordDraw(state, elements, which, geometry);

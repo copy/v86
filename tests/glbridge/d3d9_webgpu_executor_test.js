@@ -2511,6 +2511,42 @@ await test("indexed instancing maps D3D9 stream frequencies to WebGPU instances"
     assert.equal(executor.stats.expandedInstanceStreams, 0);
 });
 
+await test("NULL streams default attributes and do not reuse stale strides or buffers", async () => {
+    for (const programmable of [false, true]) for (const boundPosition of [false, true]) {
+        const {executor, fake, find} = makeExecutor();
+        const vs = shaderCreatePayload(0x401, [0xfffe0101,0x0000001f,0x80000000,0x900f0000,0x00000001,0xc00f0000,0x90e40000,0x0000ffff]);
+        const elements = [element(0,0,DECLTYPE.FLOAT3,DECLUSAGE.POSITION),
+            element(1,0,DECLTYPE.D3DCOLOR,DECLUSAGE.COLOR)];
+        await executor.submit(buildBatch([
+            command(OP.CREATE_DEVICE, createDevicePayload(64,64)),
+            command(OP.CREATE_BUFFER, createBufferPayload(0x201,1,96)),
+            command(OP.CREATE_VERTEX_DECLARATION, declarationPayload(0x301,elements)),
+            command(OP.SET_VERTEX_DECLARATION, encodePayload("SetVertexDeclaration",{device_handle:DEVICE,declaration_handle:0x301})),
+            ...(programmable ? [command(OP.CREATE_VERTEX_SHADER,vs.payload,vs.blob,vs.blobOffsetField),
+                command(OP.SET_VERTEX_SHADER,encodePayload("SetShader",{device_handle:DEVICE,shader_handle:0x401}))] : []),
+            command(OP.SET_STREAM_SOURCE,setStreamSourcePayload(0,0x201,12)),
+            command(OP.SET_STREAM_SOURCE,setStreamSourcePayload(1,0x201,4)),
+            command(OP.DRAW_PRIMITIVE,drawPrimitivePayload(4,0,1)),
+            command(OP.SET_STREAM_SOURCE,setStreamSourcePayload(0,boundPosition?0x201:0,12,0)),
+            command(OP.SET_STREAM_SOURCE,setStreamSourcePayload(1,0,4,92)),
+            command(OP.DRAW_PRIMITIVE,drawPrimitivePayload(4,0,1)),
+            command(OP.PRESENT,encodePayload("Present",{device_handle:DEVICE,hwnd:0x1234,x:0,y:0,width:64,height:64})),
+        ],{present:true}));
+        await executor.idle();
+        assert.equal(executor.stats.droppedDraws,0);
+        const descriptors=find("createRenderPipeline").map(row=>row[1]).filter(row=>row.vertex.buffers?.length);
+        const layouts=descriptors.at(-1).vertex.buffers;
+        if (boundPosition && programmable) assert.equal(layouts.length,1,"unused NULL color stream needs no binding");
+        else {
+            const defaults=layouts.find(row=>row.arrayStride===0);
+            assert.ok(defaults,"missing inputs use a constant default buffer");
+            assert.ok(defaults.attributes.every(row=>row.offset===0&&row.format==="float32x4"));
+            assert.deepEqual(Array.from(new Float32Array(executor.defaultAttributes.data.buffer,0,4)),[0,0,0,1]);
+        }
+        assert.equal(fake.calls.filter(c=>c[0]==="beginRenderPass").flatMap(c=>c[2].ops).filter(op=>op[0]==="draw").length,2);
+    }
+});
+
 await test("D3D9 instance divisors greater than one are expanded exactly",
         async () => {
     const { executor, fake, find } = makeExecutor();

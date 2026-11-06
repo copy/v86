@@ -1,0 +1,116 @@
+{
+  "batch": "stage6-26",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "原版空顶点流相关4条失败全部消除：未绑定流由宿主提供(0,0,0,1)常量属性，忽略其保留的offset/stride；全部顶点流与索引均未绑定时，提交等价的真实非索引绘制。非空流保留所有权与范围检查，ProcessVertices读取规则未放宽。固定管线、可编程管线、空声明、UP临时流分别处理；缺失流不套用压缩顶点格式转换。UP成功及缺失格式失败后的解绑发送到宿主，内部patch绘制继续保留绑定。原版完整检查157735项，28失败、9未审查skip；比上一批39失败减少的另7项是窗口焦点波动，未宣称修复。原版源码未修改。绑定/越界/UP测试、28+15+12个运行时故障变体及180项宿主执行器测试通过。",
+  "checks": {
+    "bound": {
+      "output": "PASS actual D3D9 bound draw C: ignored/overflowing hints, NumVertices=0, signed base/offset and multi-stream CPU ClipStatus/recovery, six zero-primitive no-ops, exact IB/stream bounds, programmable/constant/instance declarations and atomic transport failure",
+      "sha256": "920e4258f49ff4ab902a24ed954b5c8fd0a90963420973a72c923ed08581dc0a"
+    },
+    "up": {
+      "output": "PASS actual D3D9 texture bindings: 97024 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 cube bindings: 112384 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, six actual cached face constructors and shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 volume bindings: 60032 checks, 768 pool/order profiles, 6144 public-zero revivals, 64 mixed-kind replacement cycles; four sampler slots, two cached volume levels, shared public parent count, exact device pins, public-only Reset blockers and complete final-owner cleanup\nPASS actual D3D9 buffer bindings: 91904 checks, 1024 pool/order profiles, 16384 public-zero revivals; three VB stream slots and one IB slot, exact public/device refs, getter offsets, DEFAULT locks, UP cleanup, shadow/clip teardown and complete final-owner cleanup\nPASS actual D3D9 declaration/shader bindings: 198400 checks, 1024 final-owner profiles, 24576 public-zero QI revivals; exact public/device refs, metadata, getters, FVF, reset-style clear/rebind and complete storage teardown\nPASS actual D3D9 stateblock private bindings: 161364 checks, 512 pool/final-owner profiles, 4096 capture/clear/apply cycles; eight resource families, recorded replacement/FVF, public-zero storage, recording guards, recapture retirement and unfinished-recording cleanup\nPASS actual D3D9 external-child device state: 111616 checks, 2048 pool/anchor/final-owner profiles, 2048 GetDevice recoveries; eight public anchor families preserve all live slots and scalar state, recording stays private until End, exact device pins and final cleanup\nPASS actual D3D9 stream metadata: 40960 checks, 512 pool/slot profiles, 4096 NULL preserves and 512 recorded NULL/capture/apply sequences; ignored incoming metadata, live recording source, exact internal restoration, duplicate filtering, successful-UP zeroing and private storage cleanup\nPASS actual D3D9 FVF declaration cache: 116928 checks, 128 final-owner profiles, 8192 cached switches, 16384 public-zero revivals; six independent layouts, exact identity and device pins, zero no-op, recorded/captured FVF, reset-style retention, atomic failures and idempotent cache teardown\nPASS actual D3D9 user declaration FVF: 60800 checks, 128 owner profiles, 8192 collision pairs; seventeen Windows positive/negative layouts, conservative guards, both cache creation orders, stateblock private lifetime and exact final cleanup\nPASS actual D3D9 missing-format UP: 58112 checks, 256 pool/owner profiles, 8192 missing-declaration failures; preserved failure metadata, indexed storage retirement, slot isolation, recording exclusion, patch isolation, successful zeroing and unchanged other failures\nPASS actual D3D9 target bindings: 1113871 checks, 16 lifecycle groups, 1024 public-zero revivals; actual RT/depth setters/getters, one/two internal slots, one public device pin, public-only Reset blockers, same-object rebinding and unbind/device-first/last-public cleanup",
+      "sha256": "38eb2fc00746793a8d63411579562de8c5f0fcb36e48126917bddb804a5692cb"
+    },
+    "stream": {
+      "output": "PASS actual D3D9 texture bindings: 97024 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 cube bindings: 112384 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, six actual cached face constructors and shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 volume bindings: 60032 checks, 768 pool/order profiles, 6144 public-zero revivals, 64 mixed-kind replacement cycles; four sampler slots, two cached volume levels, shared public parent count, exact device pins, public-only Reset blockers and complete final-owner cleanup\nPASS actual D3D9 buffer bindings: 91904 checks, 1024 pool/order profiles, 16384 public-zero revivals; three VB stream slots and one IB slot, exact public/device refs, getter offsets, DEFAULT locks, UP cleanup, shadow/clip teardown and complete final-owner cleanup\nPASS actual D3D9 declaration/shader bindings: 198400 checks, 1024 final-owner profiles, 24576 public-zero QI revivals; exact public/device refs, metadata, getters, FVF, reset-style clear/rebind and complete storage teardown\nPASS actual D3D9 stateblock private bindings: 161364 checks, 512 pool/final-owner profiles, 4096 capture/clear/apply cycles; eight resource families, recorded replacement/FVF, public-zero storage, recording guards, recapture retirement and unfinished-recording cleanup\nPASS actual D3D9 external-child device state: 111616 checks, 2048 pool/anchor/final-owner profiles, 2048 GetDevice recoveries; eight public anchor families preserve all live slots and scalar state, recording stays private until End, exact device pins and final cleanup\nPASS actual D3D9 stream metadata: 40960 checks, 512 pool/slot profiles, 4096 NULL preserves and 512 recorded NULL/capture/apply sequences; ignored incoming metadata, live recording source, exact internal restoration, duplicate filtering, successful-UP zeroing and private storage cleanup\nPASS actual D3D9 target bindings: 878028 checks, 16 lifecycle groups, 1024 public-zero revivals; actual RT/depth setters/getters, one/two internal slots, one public device pin, public-only Reset blockers, same-object rebinding and unbind/device-first/last-public cleanup",
+      "sha256": "c1b150524d9dccb9901d5b960bdfb9fe366e515f276508650d0bedde9c0a8d12"
+    },
+    "bounds-mutants": {
+      "output": "PASS indexed draw bounds mutations: 28/28; shared ranges/status hints and actual API 8/9 zero/optional-hint/status behavior",
+      "sha256": "205a20857eb1fda021c9be267dc86e05026ad6b690887f69d9515889db80bb4c"
+    },
+    "up-mutants": {
+      "output": "KILL successful UP host stream stays bound\nKILL successful UP host index stays bound\nKILL failed UP host stream stays bound\nKILL failed UP keeps stream0 bound\nKILL failed UP zeroes offset\nKILL failed UP zeroes stride\nKILL failed UP leaks private vertex hold\nKILL failed UP releases public vertex view\nKILL nonindexed failure clears indices\nKILL indexed failure keeps indices\nKILL nonindexed missing format skips cleanup\nKILL indexed missing format skips cleanup\nKILL patch missing format clears public bindings\nKILL successful nonindexed loses cleanup\nKILL successful indexed loses cleanup\nPASS D3D9 missing-format UP mutations: 15/15, strict compilation and runtime assertions",
+      "sha256": "447497f8664816463e6db717f6cbfe6c73b07bc1acfbc48c031a0ea3e87a2cb2"
+    },
+    "stream-mutants": {
+      "output": "KILL NULL loses live offset\nKILL NULL loses live stride\nKILL recorded NULL skips normalization\nKILL recorded NULL reads prior recording offset\nKILL recorded NULL reads prior recording stride\nKILL internal NULL loses captured offset\nKILL internal NULL loses captured stride\nKILL successful UP keeps old offset\nKILL successful UP keeps old stride\nKILL NULL getter hides retained offset\nKILL NULL getter hides retained stride\nKILL Apply routes NULL through public normalization\nPASS D3D9 stream metadata mutations: 12/12, strict compilation and runtime assertions",
+      "sha256": "92ca69136e46a5790475e014c5fef7e8f6ff4c296bfe96608d720a9c9cfd03eb"
+    },
+    "executor": {
+      "output": "180 executor tests passed",
+      "sha256": "a47496900d8f447c81adeef7317483b06949af218c4e61b602d59acd7094637e"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine9-device-null-streams",
+    "checks": 157735,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 28,
+    "skipped": 9,
+    "exit": 28,
+    "failureGroups": {
+      "test_reset": 1,
+      "test_multi_device": 1,
+      "test_wndproc_windowed": 4,
+      "test_window_style": 5,
+      "test_occlusion_query": 4,
+      "test_vertex_shader_constant": 6,
+      "test_lost_device": 3,
+      "test_resource_access": 2,
+      "test_window_position": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "02df3054159f7eca01fc8c02a0988ffb72e35b868e921f0764405d4307459646",
+      "source.json": "eca1fc9b572ebdc621a5b553c956cb53cfb2c34ec214a864eaccdb323b44697c",
+      "live-gpu.json": "3a3cd2181d4db5a67ba03c4dd769754200b6b06af27c74c0e143c0b4150838ba",
+      "audit-groups.json": "7b0605f009dd998da573b49f66f8c6953d8ac6f9820cafe2ad6300d560772b26"
+    },
+    "source": {
+      "suite": "d3d9_device",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_device.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+        "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+      },
+      "dllSha256": "afe50dcd7b57661c6aea3361580c05652f79f9c6eb2938d47ff1e1b05a7b66fc",
+      "executableSha256": "02bb6bed1ba47491dade066d1acac56d4cfe3702c0b27d32b8ba882a456be4d0",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "1d8d8e6742591e5d2672a1f09f2b8de3cd8189b20f365c25c47422b2d484282a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "8b7a1aeee5ff4fe3410aa8ec7efdd6171845d3a2176f10e461f5af443bb9db0b",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "f8f14f714f4266b679c1a07088644617d3bafa9f668d5e4556fde0744234fd74",
+    "glbridge/ddrawproxy/ddraw.dll": "242e1c1856adb7ef4a7df2de107f93efe5a2ca3b0aea596ab0439f6ae7e9b714",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "7d3e788ce6e8340add60e06c13e5b57877910c9eb88831ae8958170e20a393d5",
+    "glbridge/d3d8proxy/d3d8.dll": "23e8d8793ef9e6df82623546fd465eb556f8ad6273d0cdda558e33d2b8ff284a",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "7f8cada0b927f452469f25c2c164a74a2d42782b1eaa9caa897e0582dc818ed8",
+    "glbridge/d3d9proxy/d3d9.dll": "afe50dcd7b57661c6aea3361580c05652f79f9c6eb2938d47ff1e1b05a7b66fc"
+  },
+  "build": "Six DLLs and local tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ]
+}
