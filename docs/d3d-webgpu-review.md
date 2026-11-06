@@ -3129,3 +3129,9 @@ git -C wine sparse-checkout set dlls/d3d8 dlls/d3d9 dlls/ddraw dlls/wined3d libs
 逐条的 Wine 文件和行号、测试名称和期望值，见共享笔记目录 `d3d-review/` 下的 `wine-check-lead.md`、`wine-check-shader-d3d8.md`、`wine-check-ddraw.md`。
 
 Wine 的测试里有不少可以直接作为阶段 1 像素一致性套件的期望值来源：d3d9 `visual.c` 的 `clear_test`、`fog_test`、`test_color_clamping`、`constant_clamp_ps_test`、`test_mova`、`test_color_vertex`、`texop_test`，d3d8 `visual.c` 的 `fog_with_shader_test`、`cnd_test`、`intz_test`，以及 ddraw1/2/4/7 中的颜色填充、颜色键、执行缓冲和视口测试。
+
+### ATI压缩格式与CPU映射验收（2026-11-06）
+
+ATI1/ATI2的公开字节步长、连续mip偏移与GPU压缩块传输步长分别计算，分配空间覆盖最后一个完整压缩块。API9 CPU池保留XP允许越界矩形的映射语义，但上传只访问自身分配的有效存储；DEFAULT静态普通纹理拒绝锁定，普通离屏表面的私有存储仍可锁定。
+
+原版D3D9完整执行157,919项，失败从1,226降至466；`test_surface_blocks`与`test_miptree_layout`均零失败。9项skip尚未逐项审查，GPU/宿主错误零，结束前仍有2设备/13资源，**Wine验收未通过**。构造、锁定、内存安全、生命周期及56项故障注入检查通过；六个DLL和工具镜像重建，发布D3D9与完整XP运行哈希一致。记录见`fixtures/d3d-review/stage6-14-validation.json`。继续修复GDI绘图、资源和窗口等剩余问题；正式性能对比等待Wine适用项通过。
