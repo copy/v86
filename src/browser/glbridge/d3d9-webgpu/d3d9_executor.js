@@ -859,14 +859,34 @@
     // n' = n * (M^-1)^T for the transformed geometry to keep its perpendicular
     // relationship, and for a 3x3 that expression reduces to the cofactor
     // matrix divided by the determinant -- no explicit inverse or transpose
-    // needed. Only the upper 3x3 participates: a normal has w = 0, so the
-    // translation row can never reach it.
+    // needed for affine transforms. Projective transforms require the full
+    // inverse even though the input normal has w = 0.
     //
     // A singular matrix (a degenerate scale, which engines do produce for
     // collapsed geometry) has no inverse; falling back to identity keeps the
     // draw legal and unlit rather than filling the buffer with NaN, which would
     // propagate into the position and make the whole mesh vanish.
     function inverseTranspose3x3(m) {
+        // A projective world/view transform couples the translation and W
+        // terms into the inverse. Keep the ordinary affine fast path below.
+        if (m[3] || m[7] || m[11] || m[15] !== 1) {
+            const rows = Array.from({length: 4}, (_, r) =>
+                [...m.slice(r * 4, r * 4 + 4), ...Array.from({length: 4}, (_, c) => +(r === c))]);
+            for (let c = 0; c < 4; ++c) {
+                let pivot = c;
+                for (let r = c + 1; r < 4; ++r)
+                    if (Math.abs(rows[r][c]) > Math.abs(rows[pivot][c])) pivot = r;
+                const value = rows[pivot][c];
+                if (!value || !Number.isFinite(value)) return new Float32Array(IDENTITY4x4);
+                [rows[c], rows[pivot]] = [rows[pivot], rows[c]];
+                for (let k = 0; k < 8; ++k) rows[c][k] /= value;
+                for (let r = 0; r < 4; ++r) if (r !== c) {
+                    const scale = rows[r][c];
+                    for (let k = 0; k < 8; ++k) rows[r][k] -= scale * rows[c][k];
+                }
+            }
+            return Float32Array.from({length: 16}, (_, i) => rows[i % 4][4 + Math.floor(i / 4)]);
+        }
         const a = m[0], b = m[1], c = m[2];
         const d = m[4], e = m[5], f = m[6];
         const g = m[8], h = m[9], i = m[10];
@@ -4435,6 +4455,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const rs = state.renderStates;
             const pretransformed = elements.some(element =>
                 element.usage === DECLUSAGE_POSITIONT && element.usageIndex === 0);
+            const screenDepthUnclipped = pretransformed && !pipelineState.depthEnabled;
             const viewportDepthRange = !pretransformed &&
                 (state.viewport.minZ < 0 || state.viewport.maxZ > 1)
                 ? [state.viewport.minZ, state.viewport.maxZ] : null;
@@ -4601,8 +4622,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         mirrorOnceKey += "_m" + sampler.index + ":" + axes;
                     }
                 }
-                const fogBlend = ffp.fogBlendSource({ fogMode, tableFog }, "d9c", "result.color0");
-                const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") : "";
+                const fogBlend = ffp.fogBlendSource({ fogMode, tableFog, screenDepthUnclipped }, "d9c", "result.color0");
+                const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") + (screenDepthUnclipped ? "u" : "") : "";
                 const pixelVariantKey = semanticKey + fogKey + alphaTestKey + clipKey + depthKey + viewportDepthKey +
                     lodBiasKey + mirrorOnceKey + legacySamplerKey + legacyProjectionKey + swizzleKey +
                     (flatShading ? "_flat" : "");
@@ -4709,7 +4730,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     stages: cascade.stages,
                     usesTextureFactor: cascade.usesTextureFactor,
                     lodBiasUniforms: cascade.stages.some(stage => stage.samplesTexture),
-                    fogMode, tableFog, alphaTest: { enabled: alphaTest.enabled, func: alphaTest.func }, clipPlaneCount,
+                    fogMode, tableFog, screenDepthUnclipped, alphaTest: { enabled: alphaTest.enabled, func: alphaTest.func }, clipPlaneCount,
                     // D3D9 adds the specular colour after the cascade whenever
                     // D3DRS_SPECULARENABLE is set, whether it came from lighting
                     // or straight off the vertex.
@@ -4809,6 +4830,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     ++this.stats.drawsWithCompactVertexInputs;
             } else {
                 const signature = fixedVertexSignature;
+                signature.screenDepthUnclipped = screenDepthUnclipped;
                 signature.pointExpansion = !!drawOptions.pointExpansion;
                 signature.pointSprite = signature.pointExpansion &&
                     (rs.get(D3DRS_POINTSPRITEENABLE) || 0) !== 0;

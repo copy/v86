@@ -1197,5 +1197,47 @@
         probes:[{at:[8,32],expect:[0,255,0,255]},{at:[32,32],expect:[0,0,0,255]},
             {at:[56,32],expect:[0,0,0,255]}]});
 
+    // Native Wine D3D8 visual.c: screen vertices skip Z clipping when depth
+    // testing is disabled; regular XYZ still passes through homogeneous clip.
+    const depthSpan = (rhw = false) => quad(0,0,64,64,0,0xff00ff00)
+        .map(v => [v[0],v[1],v[0] === 0 ? -.5 : 1.5,v[3],0xff000000,rhw && v[0] !== 0 ? 2 : 1]);
+    const diffusePS = dev => bindLegacyPS(dev,[0xffff0101,1,0x800f0000,0x90e40000,0x0000ffff]);
+    for (const programmable of [false,true]) for (const enabled of [false,true]) for (const rhw of [false,true])
+        add("legacy-raster",{name:"screen Z clipping enabled="+enabled+" ps="+programmable+" varying RHW="+rhw,body:dev=>[
+            rs(dev,7,+enabled),rs(dev,23,8),rs(dev,22,1),...(programmable?diffusePS(dev):[]),draw(dev,depthSpan(rhw))],
+            probes:[{at:[8,32],expect:enabled?[0,0,0,255]:[0,255,0,255]},
+                {at:[32,32],expect:[0,255,0,255]},{at:[56,32],expect:enabled?[0,0,0,255]:[0,255,0,255]}]});
+    for (const programmable of [false,true]) for (const rhw of [false,true])
+        add("legacy-raster",{name:"unclipped screen depth remains available to table fog ps="+programmable+" varying RHW="+rhw,body:dev=>[
+            rs(dev,7,0),rs(dev,22,1),rs(dev,28,1),rs(dev,34,0xffff0000),rs(dev,35,3),rs(dev,36,f(0)),rs(dev,37,f(1)),
+            ...(programmable?diffusePS(dev):[]),draw(dev,depthSpan(rhw))],
+            probes:[{at:[8,32],expect:[0,255,0,255]}, {at:[32,32],expect:[128,128,0,255],tolerance:3},
+                {at:[56,32],expect:[255,0,0,255]}]});
+    for (const programmable of [false,true]) for (const table of [false,true])
+        add("legacy-raster",{name:"equal fog endpoints "+(table?"table":"vertex")+" ps="+programmable,body:dev=>[
+            rs(dev,7,0),rs(dev,22,1),rs(dev,28,1),rs(dev,34,0xffff0000),rs(dev,35,table?3:0),rs(dev,140,table?0:3),
+            rs(dev,36,f(.5)),rs(dev,37,f(.5)),...(programmable?diffusePS(dev):[]),
+            ...drawXYZ(dev,[[-1,1,0,0xff00ff00],[1,1,1,0xff00ff00],[-1,-1,0,0xff00ff00],
+                [1,1,1,0xff00ff00],[1,-1,1,0xff00ff00],[-1,-1,0,0xff00ff00]])],
+            probes:[{at:[24,32],expect:table?[0,255,0,255]:[255,0,0,255]}, {at:[40,32],expect:[255,0,0,255]}]});
+    for (const enabled of [false,true]) add("legacy-raster",{name:"XYZ retains homogeneous clipping with Z enabled="+enabled,body:dev=>[
+        rs(dev,7,+enabled),rs(dev,23,8),rs(dev,22,1),...drawXYZ(dev,[[-1,1,-.5,0xff00ff00],[1,1,1.5,0xff00ff00],[-1,-1,-.5,0xff00ff00],
+            [1,1,1.5,0xff00ff00],[1,-1,1.5,0xff00ff00],[-1,-1,-.5,0xff00ff00]])],
+        probes:[{at:[8,32],expect:[0,0,0,255]},{at:[32,32],expect:[0,255,0,255]},{at:[56,32],expect:[0,0,0,255]}]});
+    const normalTransforms = [
+        {name:"affine",matrix:[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],point:v=>[v[0],v[1],0],blue:255},
+        {name:"projective",matrix:[1,0,0,0,0,1,0,0,0,0,1,-1,10,10,10,0],point:v=>[v[0]*10-10,v[1]*10-10,-10],blue:0},
+        {name:"affine scaled normal",matrix:[1,0,0,0,0,1,0,0,0,0,2,0,0,0,0,1],point:v=>[v[0],v[1],0],blue:128},
+    ];
+    for (const row of normalTransforms) add("legacy-raster",{name:"normal inverse transpose "+row.name,body:dev=>{
+        const list=fullXYZ(0,0xff0000ff),data=new Uint8Array(list.length*28),view=new DataView(data.buffer);
+        list.forEach((v,i)=>{[...row.point(v),0,0,-1].forEach((x,j)=>view.setFloat32(i*28+j*4,x,true));view.setUint32(i*28+24,0xff0000ff,true);});
+        return [rs(dev,7,0),rs(dev,22,1),rs(dev,137,1),rs(dev,141,1),rs(dev,145,1),rs(dev,143,0),
+            material(dev,{}),wire("SetTransform",{device_handle:dev,state:256,matrix:row.matrix}),
+            wire("SetLight",{device_handle:dev,type:3,diffuse:[1,1,1,1],direction:[0,0,1]}),wire("LightEnable",{device_handle:dev,enable:1}),
+            cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,fvf:0x52,element_count:3}),element(0,2,0),element(12,2,3),element(24,4,10)])),
+            wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:2,stride:28,vertex_count:6,vertex_bytes:data.length},[blob("DrawPrimitiveUP","vertex_data_offset",data)])];
+        },probes:[{at:[32,32],expect:[0,0,row.blue,255],tolerance:1}]});
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

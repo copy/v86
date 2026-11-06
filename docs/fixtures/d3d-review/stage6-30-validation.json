@@ -1,0 +1,99 @@
+{
+  "batch": "stage6-30",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "对POSITIONT且深度测试关闭的路径取消Z裁剪，保留原始片元深度用于表雾；XYZ和可编程顶点的齐次裁剪保持有效。顶点线性雾在起止值相等时输出完全雾化，表雾继续按片元阶跃计算。非仿射世界/视图矩阵使用完整逆转置，普通仿射矩阵保留原有快速路径。21个独立GPU像素场景覆盖固定/可编程像素阶段、变化RHW、启停深度、雾模式和缩放/投影法线；四种错误实现均被无GPU验证错误的像素反例检出。原版Wine确认消除8条ZENABLE、4条等值雾、2条负深度表雾及1条非仿射光照失败，失败34→19，无新增失败；计时负荷估算跳过仍未归类。当前还剩共享深度与不同目标尺寸10条、UpdateTexture兼容7条、顶点索引边界2条等未完成工作。",
+  "checks": {
+    "executor": {
+      "output": "180 executor tests passed",
+      "sha256": "db7d3567a77d2de15ab8515942d783993c287700da45152a77d1c52e8b42cfca"
+    },
+    "shader": {
+      "output": "52 shader pipeline tests passed\n\nPASS shader pipeline 52 tests",
+      "sha256": "ebf0ae35b8d74200415662a862bc7feabb3822c06c5bc4f854129fe05ff19599"
+    },
+    "raster-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS 21 cases\\nok    screen Z clipping enabled=false ps=false varying RHW=false\\nok    screen Z clipping enabled=false ps=false varying RHW=true\\nok    screen Z clipping enabled=true ps=false varying RHW=false\\nok    screen Z clipping enabled=true ps=false varying RHW=true\\nok    screen Z clipping enabled=false ps=true varying RHW=false\\nok    screen Z clipping enabled=false ps=true varying RHW=true\\nok    screen Z clipping enabled=true ps=true varying RHW=false\\nok    screen Z clipping enabled=true ps=true varying RHW=true\\nok    unclipped screen depth remains available to table fog ps=false varying RHW=false\\nok    unclipped screen depth remains available to table fog ps=false varying RHW=true\\nok    unclipped screen depth remains available to table fog ps=true varying RHW=false\\nok    unclipped screen depth remains available to table fog ps=true varying RHW=true\\nok    equal fog endpoints vertex ps=false\\nok    equal fog endpoints table ps=false\\nok    equal fog endpoints vertex ps=true\\nok    equal fog endpoints table ps=true\\nok    XYZ retains homogeneous clipping with Z enabled=false\\nok    XYZ retains homogeneous clipping with Z enabled=true\\nok    normal inverse transpose affine\\nok    normal inverse transpose projective\\nok    normal inverse transpose affine scaled normal\"}\n\nPASS 21 real GPU legacy raster cases; no GPU/host errors",
+      "sha256": "4356965dc9d212c3d44db1e869a1ff5c65c38e0728fca6611708916c0f0d4258"
+    },
+    "gpu-mutants": {
+      "output": "PASS legacy raster GPU mutations: 4/4 clipping, fog-depth, degenerate fog and normal-transform faults rejected by pixel readbacks without GPU validation errors",
+      "sha256": "5107dbf9cd9cf0a46dfc15b326daa8e53e4a9d49e20d806c2dff6f7ec10a7487"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine8-legacy-raster",
+    "checks": 143568,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 19,
+    "skipped": 15,
+    "exit": 19,
+    "failureGroups": {
+      "offscreen_test": 1,
+      "depth_buffer_test": 9,
+      "test_updatetexture": 7,
+      "test_max_index16": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "d4fd32d5c7e709c24ab26430d75e59a62de7ec62a3650b43b1de58f21513d3bc",
+      "source.json": "06c589b2c416aee550e9508b1ba2986f31c46cb639ae72e21db77e5d52cf11d7",
+      "live-gpu.json": "96e614671c7b0c44b9ce100489d5905786cdcd3cc5cb05fe62dafef156d6642d",
+      "audit-groups.json": "726cbfa352ed7cbf61bed3b7717a86d11ce59339268b4c560e9756d3a7184a58"
+    },
+    "source": {
+      "suite": "d3d8_visual",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d8_visual.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d8/tests/visual.c",
+        "sha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+        "gitBlob": "310a16cb153aac103a2732f01acb6d8977a7b185"
+      },
+      "dllSha256": "320d254a5eae1d495f5f0d2ed837f403efb7123cd84e7a4ff8be050f45b6576c",
+      "executableSha256": "edb3b583e29b325c6b18aac3991f33d0938ee9d885e801670538d98454e15de2",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "769e9c938d10444ce3d6cc10fdcc39030e7680225294e33ec940a013e69dd2b9",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "f133e78ad8feb1a3f14d87ba001b6e50c73dec971bf0bc8a6f17e9f59337c2f1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "e75888bf10da681f3103d4d5a02ed2b68cb674619ed56bfef910d87188771ac2",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "08017d5fc948b0e70299dbae298bd6f16a00716790a08b3fe3d16ade64c82086",
+    "glbridge/ddrawproxy/ddraw.dll": "f0027ecb6f8ba9f95e3f091017a355aa6b34d45a5e194caeae0c90fd354640b1",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "376c1da16185bcda3db4ea1c978df06eab2700cf1999764300740d3da89302ed",
+    "glbridge/d3d8proxy/d3d8.dll": "320d254a5eae1d495f5f0d2ed837f403efb7123cd84e7a4ff8be050f45b6576c",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "c2f1570b11ab8f85ffe30116e77ed360ff6b127bf0c2e7c86b7a2346e1c41740",
+    "glbridge/d3d9proxy/d3d9.dll": "4b2a9f687818d06c6e477160ecf105e6a6a7dae16ccc338fc53af7575614c217"
+  },
+  "build": "Host graphics assets and local tools ISO rebuilt; guest source unchanged; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ]
+}

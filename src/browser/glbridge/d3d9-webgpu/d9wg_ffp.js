@@ -312,11 +312,13 @@
             return uniformBlockLayout(fields);
         }
 
-        function fixedFogFactorExpression(mode, distance) {
+        function fixedFogFactorExpression(mode, distance, vertex = false) {
+            const linear = "clamp((uniforms.fog_params.y - " + distance + ") / " +
+                "select(uniforms.fog_params.y - uniforms.fog_params.x, 1e-30, " +
+                "uniforms.fog_params.y == uniforms.fog_params.x), 0.0, 1.0)";
             return {
-                [D3DFOG_LINEAR]: "clamp((uniforms.fog_params.y - " + distance + ") / " +
-                    "select(uniforms.fog_params.y - uniforms.fog_params.x, 1e-30, " +
-                    "uniforms.fog_params.y == uniforms.fog_params.x), 0.0, 1.0)",
+                [D3DFOG_LINEAR]: vertex ? "select(" + linear + ", 0.0, " +
+                    "uniforms.fog_params.y == uniforms.fog_params.x)" : linear,
                 [D3DFOG_EXP]: "clamp(exp(-(uniforms.fog_params.z * " + distance + ")), " +
                     "0.0, 1.0)",
                 [D3DFOG_EXP2]: "clamp(exp(-((uniforms.fog_params.z * " + distance + ") * " +
@@ -344,7 +346,9 @@
                 : "clamp(stage_in.varying" + shaderPipeline.VARYING_FOG + ".x, 0.0, 1.0)";
             const distance = signature.tableFog && tableFactor
                 ? "    let fog_distance = select(1.0 / max(abs(stage_in.position.w), 1e-6), " +
-                    "stage_in.position.z, " + uniforms + ".fog_params.w != 0.0);\n" : "";
+                    (signature.screenDepthUnclipped ? "stage_in.varying" + shaderPipeline.VARYING_FOG +
+                        ".y * stage_in.position.w" : "stage_in.position.z") +
+                    ", " + uniforms + ".fog_params.w != 0.0);\n" : "";
             return distance + "    " + target + " = vec4<f32>(mix(" + uniforms + ".fog_color.rgb, " + target + ".rgb,\n" +
                 "        " + factor + "), " + target + ".a);\n";
         }
@@ -765,7 +769,7 @@
             const fogDistance = !signature.needsViewSpace ? "abs(result.position.w)"
                 : signature.fogRange ? "length(position_view.xyz)" : "abs(position_view.z)";
             const fogFactor = fixedFogFactorExpression(signature.fogMode,
-                "fog_distance");
+                "fog_distance", true);
             const fogBody = signature.fogMode && (signature.positionType === "screen" || signature.fogMode === "factor")
                 ? "    result.varying" + shaderPipeline.VARYING_FOG + " = vec4<f32>(" +
                     (signature.hasColor1 ? "clamp(vertex_specular.a, 0.0, 1.0)" : "1.0") + ", 0.0, 0.0, 0.0);\n"
@@ -924,7 +928,9 @@ ${varyings.map((_, slot) =>
             "    result.varying" + slot + " = vec4<f32>(0.0);").join("\n")}
 ${viewSpaceBody}${colorBody}    result.varying${VARYING_COLOR0} = out_diffuse;
     result.varying${shaderPipeline.VARYING_COLOR1} = out_specular;
-${coordBody}${fogBody}${clipBody}${pointBody}    return result;
+${coordBody}${fogBody}${clipBody}${pointBody}${signature.screenDepthUnclipped ?
+                "    result.varying" + shaderPipeline.VARYING_FOG + ".y = result.position.z;\n" +
+                "    result.position.z = 0.0;\n" : ""}    return result;
 }
 `;
         }
