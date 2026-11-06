@@ -4966,7 +4966,7 @@ await test("a palette change repaints P8 textures without a re-upload",
             blob.writeUInt32LE(colorFor(entry) >>> 0, entry * 4);
         return command(OP.SET_PALETTE, payload, blob, "data_offset");
     };
-    // Index 1 is opaque red under palette 0, opaque blue under palette 1.
+    // Index 1 retains independent alpha under each palette, including Reset.
     const indices = Buffer.from([1, 1, 1, 1]);
     const update = encodePayload("UpdateTexture", { resource_handle: 0xA01, width: 2, height: 2, depth: 1, row_pitch: 2, data_bytes: 4 });
 
@@ -4974,15 +4974,15 @@ await test("a palette change repaints P8 textures without a re-upload",
         command(OP.CREATE_DEVICE, createDevicePayload(640, 480)),
         command(OP.CREATE_TEXTURE_2D, encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0xA01, width: 2, height: 2, level_count: 1, format: D3DFMT_P8, usage: 0, pool: 1, multisample_type: 0, multisample_quality: 0 })),
         command(OP.UPDATE_TEXTURE, update, indices, "data_offset"),
-        paletteCommand(0, entry => entry === 1 ? 0xffff0000 : 0xff000000),
-        paletteCommand(65535, entry => entry === 1 ? 0xff0000ff : 0xff000000),
+        paletteCommand(0, entry => entry === 1 ? 0x80ff0000 : 0xff000000),
+        paletteCommand(65535, entry => entry === 1 ? 0x3f0000ff : 0xff000000),
     ]));
     await executor.idle();
 
     assert.equal(executor.stats.palettesSet, 2);
     assert.equal(executor.stats.texturesRejected, 0);
     const first = Array.from(flushTextureUploads(executor, find).pop()[2]).slice(0, 4);
-    assert.deepEqual(first, [255, 0, 0, 255],
+    assert.deepEqual(first, [255, 0, 0, 128],
         "updating default palette 0 repaints an existing texture without selecting it");
 
     // The whole point of a palettized format: switching tables repaints the
@@ -4997,7 +4997,7 @@ await test("a palette change repaints P8 textures without a re-upload",
         "a palette swap is not a guest upload");
     assert.equal(executor.stats.palettizedRepaints, 2);
     const second = Array.from(flushTextureUploads(executor, find).pop()[2]).slice(0, 4);
-    assert.deepEqual(second, [0, 0, 255, 255],
+    assert.deepEqual(second, [0, 0, 255, 63],
         "palette 65535 makes the same indices blue");
     const NEW_DEVICE = 0x100099;
     await executor.submit(buildBatch([
@@ -5006,13 +5006,13 @@ await test("a palette change repaints P8 textures without a re-upload",
     await executor.idle();
     assert.equal(executor.devices.get(NEW_DEVICE).currentPalette, 0);
     assert.deepEqual(Array.from(flushTextureUploads(executor, find).pop()[2]).slice(0, 4),
-        [255, 0, 0, 255], "Reset repaints surviving P8 indices with the preserved palette zero");
+        [255, 0, 0, 128], "Reset repaints surviving P8 indices with the preserved palette zero");
     await executor.submit(buildBatch([
         command(OP.SET_CURRENT_PALETTE, encodePayload("SetCurrentTexturePalette", { device_handle: NEW_DEVICE, palette_index: 65535 })),
     ]));
     await executor.idle();
     assert.deepEqual(Array.from(flushTextureUploads(executor, find).pop()[2]).slice(0, 4),
-        [0, 0, 255, 255], "palette 65535 survives the device handle change");
+        [0, 0, 255, 63], "palette 65535 survives the device handle change");
 
 });
 

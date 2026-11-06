@@ -1,0 +1,152 @@
+{
+  "batch": "stage6-24",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "修复显示/回缓冲格式配对、UNKNOWN与非法资源类型的返回值、SRGBWRITE及自动mipmap查询；RGB555回缓冲创建与查询保持一致。声明实际存在的调色板alpha能力，并验证P8调色板切换和Reset后的alpha字节。SetRenderTarget隐含的视口和裁剪重置直接修改实时状态，避免污染正在录制的状态块。初次完整审计47条失败，最终发布构建55条失败，差异均为尚未解决的窗口焦点边界；不取较低值作为通过证据。格式、调色板和渲染目标相关原版失败均已消除。",
+  "checks": {
+    "checks": {
+      "output": "PASS actual D3D8 checks/core C: 230211 checks,49005 type,29700 MSAA,13365 depth matrix cases; Wine8/9 explicit display pair tables / unchanged MSAA results and9 quality outputs,all argument forwarding,version restrictions/legacy acceptance and observed common-predicate propagation",
+      "sha256": "a817bb7ba83a47b91512c3c50cb2df61dd8b361f2818575a0a19ce6276b34760"
+    },
+    "format": {
+      "output": "PASS actual D3D8 format/core C: 1653457 checks,826686 resource/usage/format/profile cases,63 formats,27 usages,six shader/host configurations; prior8 plus reviewed native9 argument/query rules,all arguments,API8 layout/packed-surface/volume restrictions,host-feature query equivalence and observed shared-layout propagation",
+      "sha256": "06a65d843a5816978c1ce10634aba2194fee02c547ceefcba5fb83f241eec0d5"
+    },
+    "caps": {
+      "output": "PASS actual D3D8 caps/core C: 62403 checks, 1344 profile/provider cases, 10176 D3D8 baseline words plus four stage6 texops; all53 prefix fields, full D3D9 profiles with native alpha-palette support, precise212-byte copy, backend propagation, version masks/limits and API guards",
+      "sha256": "9fa871f222c73d6748b65b48b2af977ed8cde2923de3e9a5b35f960bf395e16e"
+    },
+    "recording": {
+      "output": "PASS actual D3D9 scalar C recording: live queries, all 266 matrices, ordered Multiply, RS/TSS/sampler/viewport/material/planes/scissor/NPatch/frequency, six constant banks, invalid atomicity and live Multiply emissions",
+      "sha256": "b07ae79d435d5a23b40b82106fc03140b14d764e974dc6202e72f236d79dffc7"
+    },
+    "target-owner": {
+      "output": "PASS actual D3D9 target owner: 3851 checks, 1222 cases; nine foreign/invalid shapes, all four slots, exact rejection atomicity, bare-interface safety, local texture/cube/backbuffer, same-target references and live viewport/scissor resets during state-block recording",
+      "sha256": "205cfd2e9ec3c3fd32aa9a5c0ed4e9e6d3abc3a45f77f52933683fb08ceacf4d"
+    },
+    "target-binding": {
+      "output": "PASS actual D3D9 target bindings: 4336 checks, 16 lifecycle groups, 1024 public-zero revivals; actual RT/depth setters/getters, one/two internal slots, one public device pin, public-only Reset blockers, same-object rebinding and unbind/device-first/last-public cleanup",
+      "sha256": "bc6e08444fcb4b3a3ce2b907738cf96d67f7573ce14a8f046a6499f91c2aa0d4"
+    },
+    "target-mutants": {
+      "output": "PASS D3D9 target-owner mutations: 11/11; foreign ownership/vtable, local controls, reference/slot rejection atomicity and failure HRESULT",
+      "sha256": "ee9760012680c0b3d953740f319a177f2a78780b898d267f45895ce688aaeef9"
+    },
+    "palette": {
+      "output": "PASS shared palettes and actual D3D8/9 setters: all 65536 IDs, default white, RGBA packing, deferred selection, live resource contents, allocation failure atomicity and complete release",
+      "sha256": "e69008a6074354e90a67cf59020af8cdc6e14f1f0f96e813409d3c410f4d57d5"
+    },
+    "check-mutants": {
+      "output": "KILL type query drops adapter\nKILL type query drops windowed\nKILL type query drops display format\nKILL depth query drops render format\nKILL depth query drops depth format\nKILL MSAA query drops format\nKILL MSAA query drops sample count\nKILL D3D8 type restrictions not selected\nKILL D3D8 type restrictions leak to ordinary9\nKILL D3D8 render predicate ignores common capability\nKILL D3D8 depth predicate ignores common capability\nKILL D3D9-only depth formats leak to8\nKILL D3D8 depth restrictions not selected\nKILL D3D8 MSAA receives D3D9 format checks\nKILL D3D8 MSAA rules leak to ordinary9\nKILL private MSAA adds quality output\nKILL ordinary9 failed MSAA reports one quality\nPASS D3D8 checks/core mutations:17/17, strict compilation then runtime assertions",
+      "sha256": "64e888742c74791a966907a232f645f3a6466a0723d9a525299df8fe0955b3e4"
+    },
+    "caps-mutants": {
+      "output": "KILL D3D8 bypasses shared table\nKILL private prefix copy loses last word\nKILL private prefix copy overwrites next word\nKILL legacy ZBIAS mapping omitted\nKILL private caps depend on D3D9 shader profile\nKILL private caps leak permissive D3D9 mode\nKILL D3D9-only device caps exposed\nKILL D3D9-only raster caps exposed\nKILL D3D8 flat shade flags lost\nKILL D3D9 alpha palette flag lost\nKILL D3D8 volume addressing relation lost\nKILL D3D9 vertex constant limit exposed\nKILL D3D9 shader version exposed\nKILL packed FVF count treated as flag mask\nKILL D3D8 stream array bound not applied\nKILL old frozen texture limit bypasses backend\nPASS D3D8 caps/core mutations:16/16, strict compilation then runtime assertions",
+      "sha256": "1b1cf626eadbc511e137777e281c2333526b5dbab8cf8189e7c727fbf6203eb9"
+    },
+    "format-mutants": {
+      "output": "KILL drops adapter\nKILL drops device type\nKILL drops adapter format\nKILL drops usage\nKILL drops resource type\nKILL drops queried format\nKILL legacy query profile not selected\nKILL legacy query rules leak to ordinary9\nKILL D3D9 layout formats leak to8\nKILL packed image surfaces accepted\nKILL image check applied to sampled textures\nKILL compressed volume texture accepted\nKILL cube render-target usage broadened\nKILL depth usage mask changed to equality\nKILL D3D9 render formats leak to8\nKILL D3D9 depth formats leak to8\nKILL ordinary9 bypasses host capability query\nPASS D3D8 format/core mutations:17/17, strict compilation then runtime assertions",
+      "sha256": "8e41fafe604ca01932552163c940f2d556d092295cae124c03f1292a00376a33"
+    },
+    "executor": {
+      "output": "179 executor tests passed",
+      "sha256": "517e8739e22b8221c9e82c7e5875cbf158ff117c61d2d0ad92e962907bd035ee"
+    },
+    "present-geometry": {
+      "output": "PASS actual API 8 present geometry: 1140 checks, 162 constructors; zero/explicit/client dimensions, fallback windows, count normalization, front storage/viewport, exact caller outputs and failure atomicity\nPASS actual API 9 present geometry: 1149 checks, 165 constructors; zero/explicit/client dimensions, fallback windows, count normalization, front storage/viewport, exact caller outputs and failure atomicity",
+      "sha256": "4bf1ad17d9d7b191f69a17986f5853339e22596fdca0e3fa1e7d298a6344c29e"
+    },
+    "reset-status": {
+      "output": "PASS actual API8 Reset depth Size: 36 checks,12 format/MSAA cases; odd-width aligned cached depth metadata andparent/output state\nPASS actual API 8 Reset geometry: 70 checks; zero/partial dimensions, effective parameters, caller version rules, cached color/depth surfaces and failed replay/mode output atomicity\nPASS actual API 8 Reset recording: 42 checks, six input/resource/allocation/transport/replay paths, detached callbacks and exactly-once resource finalization\nPASS actual API 8 Reset status: 581 checks, 13 failure paths; repeated queries/retries, device isolation, no lost Present commands/timing and complete recovery and native Scene reset boundaries\nPASS actual API 9 Reset geometry: 39 checks; zero/partial dimensions, effective parameters, caller version rules, cached color/depth surfaces and failed replay/mode output atomicity\nPASS actual API 9 Reset default format: 14 checks; live desktop instead of old buffer format, explicit preservation and fullscreen refusal/recovery\nPASS actual API 9 Reset recording: 42 checks, six input/resource/allocation/transport/replay paths, detached callbacks and exactly-once resource finalization\nPASS actual API 9 Reset status: 564 checks, 14 failure paths; repeated queries/retries, device isolation, no lost Present commands/timing and complete recovery and native Scene reset boundaries",
+      "sha256": "f593143be7af753325bd54bd6dc0765c6df231b88706c78fc6c5455071fdf51a"
+    },
+    "publish": {
+      "output": "Built /tmp/d3d-stage6-batch24-publish/ddraw.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt diagnostic /tmp/d3d-stage6-batch24-publish/ddraw-diagnostic.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt private D3D9 core /var/folders/27/s5frsjn90q1f8pxgj82fvmp80000gn/T//d9wg-link.mmnN8e/libd9wg_d3d9.a\nBuilt /tmp/d3d-stage6-batch24-publish/d3d8.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt private diagnostic D3D9 core /var/folders/27/s5frsjn90q1f8pxgj82fvmp80000gn/T//d9wg-link.0yNWwD/libd9wg_d3d9.a\nBuilt diagnostic /tmp/d3d-stage6-batch24-publish/d3d8-diagnostic.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nBuilt diagnostic /tmp/d3d-stage6-batch24-publish/d3d9-diagnostic.dll\nGDI32.dll\nKERNEL32.dll\nUSER32.dll\nPASS six shipping/diagnostic DLLs built and published; D3D9 exact XP binary",
+      "sha256": "8a96fe4eaff0efa757c1fdc4925301b27e0d16aacea2cfaf54519552ac4e2276"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine9-device-capability-pairs",
+    "checks": 157733,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 55,
+    "skipped": 9,
+    "exit": 55,
+    "failureGroups": {
+      "test_reset": 1,
+      "test_draw_primitive": 3,
+      "test_null_stream": 1,
+      "test_multi_device": 3,
+      "test_wndproc": 12,
+      "test_wndproc_windowed": 4,
+      "test_window_style": 6,
+      "test_occlusion_query": 4,
+      "test_vertex_shader_constant": 6,
+      "test_vidmem_accounting": 2,
+      "test_lost_device": 9,
+      "test_resource_access": 2,
+      "test_window_position": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "0d3dc43ece84e0f779580323f3b7ccef41c28f4bff56872f79c1c1620b576a8e",
+      "source.json": "7fd9ebfd3f0ca5f29efb27cf7e0f181981b31f82f4fcf1b7a8f002206aeed3ab",
+      "live-gpu.json": "6b8d9810590220d498fa6afc509c84660d02d57ac2e846579c2dd46dfa96b313",
+      "audit-groups.json": "70e449e81dd30de186fcf84257b9e43559d3ceb55dc20d4d2ad24bc904c18f17"
+    },
+    "source": {
+      "suite": "d3d9_device",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_device.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+        "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+      },
+      "dllSha256": "5a8098042d79b79d69a84897d839c1481901d8ee7d8bd81f57b5fb00f7a85f47",
+      "executableSha256": "d5ca2fb10cc336be345c11f8dab3043181997915922403ad3b7122a33f9eb01d",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "dfc9c3d8786e14eb573c194f72fd1f322843bb07d5da5088e221efc510b8fdbd",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "01c1b3cf18d00f6c9f909a8a30181d6550a5fb8b540865a80d4faaa9601073eb",
+    "glbridge/ddrawproxy/ddraw.dll": "b11447d3479f75338209409772546b99927dfa3d8ab9d33d633016d04049e57d",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "ae10d150f734878690925d3a9bd31f91b1844b401f2acee73cfd12feb1eeba84",
+    "glbridge/d3d8proxy/d3d8.dll": "c7b88131246af9f5b86ae825edc95f06de90c36727d62c55dd232e2c3db3c5a8",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "4f3022db79b8fc3ab0fd21248b0f9646dc474999dd23df23e78a452c40c732b8",
+    "glbridge/d3d9proxy/d3d9.dll": "5a8098042d79b79d69a84897d839c1481901d8ee7d8bd81f57b5fb00f7a85f47"
+  },
+  "build": "Six DLLs and local tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ]
+}
