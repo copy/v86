@@ -1,0 +1,443 @@
+{
+  "batch": "stage6-13",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; Wine acceptance still FAIL",
+  "changes": [
+    "API9 CPU-pool 2D/cube mip chains share contiguous storage, retaining face alignment, atomic overflow/OOM cleanup and auto-generated visible-level rules. Existing API8 storage remains unchanged. ATI public-pitch translation is explicitly still pending.",
+    "API9 out-of-range clip-plane indices alias the last hardware plane, including getter and recording paths; API8 continues rejecting out-of-range indices.",
+    "API9 color StretchRect enforces same device, DEFAULT pools and native filter/surface roles: render-target destinations or plain-to-plain. Rejected calls emit no GPU work; API8 and depth-copy paths remain separate."
+  ],
+  "checks": {
+    "texture": {
+      "output": "PASS actual backend8 texture creation: 25759902 checks,4908803 cases (2454400 API8/2454400 ordinary9),265943 mip comparisons; frozen8/9 metadata plus Wine retail rules and independent contiguous allocation/offset expectations,all registry formats,4096/8192 bounds,levels/pools/usage/autogen,zero CPU storage,allocation/transport unwind/output/list/parent pins",
+      "sha256": "8a73adfc38cd9b22b3a0960be77ade5ab206b902f7150a8995ecd30599557c2d"
+    },
+    "cube": {
+      "output": "PASS actual backend8 cube creation: 22984263 checks,4248003 cases (2124000 API8/2124000 ordinary9),456882 face/mip comparisons; frozen8/9 metadata plus Wine retail rules and independent contiguous allocation/offset expectations,all registry formats,4096/8192 bounds,levels/pools/usage/autogen,zero CPU storage,allocation/transport unwind/output/list/parent pins",
+      "sha256": "60801f69e632aac31a6f59a73bcb218ab32fc7cf8a8e0e69f54f4ec1c882f160"
+    },
+    "texture-mutants": {
+      "output": "PASS backend8 texture mutations: 27/27;strict compilation then actual constructor/lock/upload runtime assertions,profile/bounds/formats/mips/pools/output/list/storage/read-only/pitch/status guards",
+      "sha256": "9cd9815c554a21820b3f01855ba6141114f16eeeef9c2e923273b89a46ad5e6b"
+    },
+    "cube-mutants": {
+      "output": "PASS backend8 cube mutations: 29/29;strict compilation then actual constructor/lock/upload runtime assertions,profile/bounds/formats/mips/pools/output/list/storage/read-only/pitch/status guards",
+      "sha256": "8a1cb868e7196d08d135019ebe7b8bc3d9d0d4eefaed96b59bac187b0369eeda"
+    },
+    "mip-storage": {
+      "output": "PASS production mip allocator: 9310567 checks, 103 format/size/face/failure cases; contiguous levels, 16-byte faces, zeroed isolated writes, atomic OOM/overflow",
+      "sha256": "3d05279a3f0c894e3b000e2536da300f427c93ad854b3fca785052f6848c77f7"
+    },
+    "copy-clip": {
+      "output": "PASS actual copy/clip contracts: 35082 checks; native color surface/pool/filter/owner matrix, normalized rectangles, no transport on refusal, failed-submit mirror safety, API8 limits, API9 clip aliases and recorded state isolation",
+      "sha256": "83f1a564049f8767da8b63764ca28731a1119a26a31a5f2222c38cb410b43883"
+    },
+    "copy-clip-mutants": {
+      "output": "PASS copy/clip mutations: 11/11; real C contract assertions, strict compilation, ASan/UBSan",
+      "sha256": "0b2b946630505be0f5bb7f3e0ef663657918a01b277b73ce33992eb817e79e7e"
+    },
+    "cleanup": {
+      "output": "PASS actual D3D9 texture bindings: 86784 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 cube bindings: 104192 checks, 1024 pool/order profiles, 8192 public-zero revivals; four sampler slots plus two texture-level targets, six actual cached face constructors and shared public parent count, exact device pin transitions, private-only Reset and complete explicit/device-first/last-public cleanup\nPASS actual D3D9 volume bindings: 53888 checks, 768 pool/order profiles, 6144 public-zero revivals, 64 mixed-kind replacement cycles; four sampler slots, two cached volume levels, shared public parent count, exact device pins, public-only Reset blockers and complete final-owner cleanup\nPASS actual D3D9 buffer bindings: 91904 checks, 1024 pool/order profiles, 16384 public-zero revivals; three VB stream slots and one IB slot, exact public/device refs, getter offsets, DEFAULT locks, UP cleanup, shadow/clip teardown and complete final-owner cleanup\nPASS actual D3D9 declaration/shader bindings: 179968 checks, 1024 final-owner profiles, 24576 public-zero QI revivals; exact public/device refs, metadata, getters, FVF, reset-style clear/rebind and complete storage teardown\nPASS actual D3D9 stateblock private bindings: 161364 checks, 512 pool/final-owner profiles, 4096 capture/clear/apply cycles; eight resource families, recorded replacement/FVF, public-zero storage, recording guards, recapture retirement and unfinished-recording cleanup\nPASS actual D3D9 external-child device state: 111616 checks, 2048 pool/anchor/final-owner profiles, 2048 GetDevice recoveries; eight public anchor families preserve all live slots and scalar state, recording stays private until End, exact device pins and final cleanup\nPASS actual D3D9 stream metadata: 40960 checks, 512 pool/slot profiles, 4096 NULL preserves and 512 recorded NULL/capture/apply sequences; ignored incoming metadata, live recording source, exact internal restoration, duplicate filtering, successful-UP zeroing and private storage cleanup\nPASS actual D3D9 FVF declaration cache: 116928 checks, 128 final-owner profiles, 8192 cached switches, 16384 public-zero revivals; six independent layouts, exact identity and device pins, zero no-op, recorded/captured FVF, reset-style retention, atomic failures and idempotent cache teardown\nPASS actual D3D9 user declaration FVF: 60032 checks, 128 owner profiles, 8192 collision pairs; seventeen Windows positive/negative layouts, conservative guards, both cache creation orders, stateblock private lifetime and exact final cleanup\nPASS actual core8 FVF bindings: 622117 checks / 40970 cases (36832 accepted/4128 refused); frozen8/9 decoder,versioned layouts,zero clears VS/layout,real9 cachepublic-zero/identity/parentpins,state-blockrecord/apply/cache-reacquire,ordinary9 no-op/cache separation andexact cleanup\nPASS actual core8 program pair bindings: 33440 checks / 1036 cases; prevalidated owners/types,program/FFP/zero,duplicate versus recording,actual state-block/public-zero/device-first lifetime,submission-prefix failures and exact cleanup\nPASS actual core8 snapshot blocks: 19488 checks / 1037 cases; synchronous frontend callback,real9 recording/publish/abort,detached snapshots/rebuild,program/FFP/public-zero/device-first lifetime,existing recording preserved,callback andallocation/emission failures,coldFVF cache ownership and exact cleanup\nPASS actual core8 DWORD state blocks: 19161 checks / 1117 cases; no device parent cycle,all8 resource families,stable Capture replacement/OOM/abort,ordinary9 coexistence,invalid/cross-profile/stale tokens,recording guards,collision skip,reentrant delete/no resurrection,actual private-data finalizers anddevice revival,exact cleanup\nPASS actual core8 incremental state blocks: 79400 checks / 1038 cases; actual9 Begin/End todevice-owned DWORD,all8 resource families,duplicate recording/live isolation,public-zero/fourcleanuporders,invalid End preservesrecording,profile/teardown/OOM guards,ordinary9 interop andabandonedrecording cleanup\nPASS actual core8 weak object views: 112181 checks / 1038 cases; perstorage identity/public-zero/cache revival,no object/device pins,5 resource parents/3levelviews/implicit surfaces,private-data-before-retire,duplicate/OOM/profile guards,tombstone recursion/nested head retirement,additionalchain type recognition andexact cleanup\nPASS actual core8 weak device views: 7560 checks / 772 cases; 768logical-zero/backend-pin/implicit-public/bound-private andfinalizer-revival groups,device metadata lastafterimplicit/resource callbacks,private-data-before-retire,tombstone recursion,noobject/device pins,ordinary9/type/OOM/duplicate/output guards;explicit native metadata contexts,notfullDevice8facade\nPASS actual core8 shader storage holds: 10008 checks / 525 cases; declaration/VS/PS private storage,no public/device pins,public-zero clone/query revival,live andcaptured bindings,finalizer device revival,late metadata cleanup whiledevice/root alive,profile/type/owner/underflow guards;explicit frontend handle-metadata context,notfullDevice8facade\nPASS actual core8 device cleanup observers: 8468 checks / 521 cases; before recording/block/live/cache destruction,outside transportlock,temporary pin,nested rejection,idempotent explicit/final cleanup,public child pins,callback drops last other refs orrevives device,weak identity/retirement andprofile/type/null/OOM/duplicate guards;explicit frontend rawsnapshot metadata fixture,not fullDevice8facade\nPASS actual D3D9 target bindings: 1923814 checks, 16 lifecycle groups, 1024 public-zero revivals; actual RT/depth setters/getters, one/two internal slots, one public device pin, public-only Reset blockers, same-object rebinding and unbind/device-first/last-public cleanup",
+      "sha256": "ab66dac8ddb7e5cc93fb713d5b417a7d3abac01aea06f4416d98950f18ece6ae"
+    }
+  },
+  "build": "Six shipping/diagnostic DLLs and tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "audits": [
+    {
+      "directory": "stage6-wine9-device-mips-clip",
+      "status": "COMPLETED_WITH_FAILURES",
+      "completeSummary": {
+        "checks": 157123,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 1703,
+        "skipped": 9
+      },
+      "exit": 255,
+      "failureGroups": {
+        "test_stretch_rect": 477,
+        "test_surface_blocks": 384,
+        "test_miptree_layout": 366,
+        "test_getdc": 120,
+        "test_multi_device": 66,
+        "test_resource_access": 50,
+        "test_wndproc": 47,
+        "test_check_device_format": 22,
+        "test_window_style": 21,
+        "test_timestamp_query": 20,
+        "test_occlusion_query": 16,
+        "test_lockrect_invalid": 16,
+        "test_display_formats": 11,
+        "test_unsupported_shaders": 9,
+        "test_lost_device": 8,
+        "test_unused_declaration_type": 7,
+        "test_wndproc_windowed": 7,
+        "test_vertex_shader_constant": 6,
+        "test_resource_priority": 5,
+        "test_lockrect_offset": 4,
+        "test_vertex_declaration_alignment": 3,
+        "test_draw_primitive": 3,
+        "test_set_rt_vp_scissor": 3,
+        "test_mipmap_gen": 3,
+        "test_device_window_reset": 2,
+        "test_get_set_vertex_shader": 2,
+        "test_get_set_pixel_shader": 2,
+        "test_get_set_texture": 2,
+        "test_surface_alignment": 2,
+        "test_vidmem_accounting": 2,
+        "test_volume_locking": 2,
+        "test_update_volumetexture": 2,
+        "test_create_rt_ds_fail": 2,
+        "test_format_unknown": 2,
+        "test_window_position": 2,
+        "test_reset": 1,
+        "test_scene": 1,
+        "test_depthstenciltest": 1,
+        "test_null_stream": 1,
+        "test_set_palette": 1,
+        "test_mipmap_lock": 1,
+        "test_lockable_backbuffer": 1
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "ownerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 2,
+          "resources": 13,
+          "remainingResources": [
+            {
+              "handle": 1073741839,
+              "kind": 7
+            },
+            {
+              "handle": 1073741841,
+              "kind": 7
+            },
+            {
+              "handle": 1073741843,
+              "kind": 7
+            },
+            {
+              "handle": 1073741845,
+              "kind": 7
+            },
+            {
+              "handle": 1073741847,
+              "kind": 8
+            },
+            {
+              "handle": 1073741849,
+              "kind": 8
+            },
+            {
+              "handle": 1073741851,
+              "kind": 8
+            },
+            {
+              "handle": 1048910,
+              "kind": 3,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048912,
+              "kind": 3,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048914,
+              "kind": 3,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048916,
+              "kind": 4,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048918,
+              "kind": 4,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048920,
+              "kind": 4,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            }
+          ]
+        }
+      ],
+      "finalDevices": 0,
+      "finalResources": 0,
+      "files": {
+        "WINE.TXT": "06604de1dbb91a21fd1b557d6b99f6a3dcd88e642796106b577f17dc6605f1a1",
+        "source.json": "78cc726ec402ac9ead7a4eec9978a48fec459f47284171329af0ac0db71cc2f5",
+        "live-gpu.json": "7a1835ef7c6090707ca993a268173c6b0c94d644e8a2fbadae999a9c2de1b66e",
+        "audit-groups.json": "1e35885ca5796c0119c7ba58c5f8c43ceaef2a1af0b8279f4ccf75b93fe5e0ae"
+      },
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "af458b981125f566d596574172247fd976658853ca1e6ac33ca4fe5f5b9b82ce",
+        "executableSha256": "f890ecac0c110f8246eaa62d019729cdc400a28c5f8ec7effcb7ffe7e0102f2f",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "dfc9c3d8786e14eb573c194f72fd1f322843bb07d5da5088e221efc510b8fdbd",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      }
+    },
+    {
+      "directory": "stage6-wine9-device-copy-contracts",
+      "status": "COMPLETED_WITH_FAILURES",
+      "completeSummary": {
+        "checks": 157123,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 1226,
+        "skipped": 9
+      },
+      "exit": 255,
+      "failureGroups": {
+        "test_surface_blocks": 384,
+        "test_miptree_layout": 366,
+        "test_getdc": 120,
+        "test_multi_device": 66,
+        "test_resource_access": 50,
+        "test_wndproc": 47,
+        "test_check_device_format": 22,
+        "test_window_style": 21,
+        "test_timestamp_query": 20,
+        "test_occlusion_query": 16,
+        "test_lockrect_invalid": 16,
+        "test_display_formats": 11,
+        "test_unsupported_shaders": 9,
+        "test_lost_device": 8,
+        "test_unused_declaration_type": 7,
+        "test_wndproc_windowed": 7,
+        "test_vertex_shader_constant": 6,
+        "test_resource_priority": 5,
+        "test_lockrect_offset": 4,
+        "test_vertex_declaration_alignment": 3,
+        "test_draw_primitive": 3,
+        "test_set_rt_vp_scissor": 3,
+        "test_mipmap_gen": 3,
+        "test_device_window_reset": 2,
+        "test_get_set_vertex_shader": 2,
+        "test_get_set_pixel_shader": 2,
+        "test_get_set_texture": 2,
+        "test_surface_alignment": 2,
+        "test_vidmem_accounting": 2,
+        "test_volume_locking": 2,
+        "test_update_volumetexture": 2,
+        "test_create_rt_ds_fail": 2,
+        "test_format_unknown": 2,
+        "test_window_position": 2,
+        "test_reset": 1,
+        "test_scene": 1,
+        "test_depthstenciltest": 1,
+        "test_null_stream": 1,
+        "test_set_palette": 1,
+        "test_mipmap_lock": 1,
+        "test_lockable_backbuffer": 1
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "ownerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 2,
+          "resources": 13,
+          "remainingResources": [
+            {
+              "handle": 1073741839,
+              "kind": 7
+            },
+            {
+              "handle": 1073741841,
+              "kind": 7
+            },
+            {
+              "handle": 1073741843,
+              "kind": 7
+            },
+            {
+              "handle": 1073741845,
+              "kind": 7
+            },
+            {
+              "handle": 1073741847,
+              "kind": 8
+            },
+            {
+              "handle": 1073741849,
+              "kind": 8
+            },
+            {
+              "handle": 1073741851,
+              "kind": 8
+            },
+            {
+              "handle": 1048910,
+              "kind": 3,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048912,
+              "kind": 3,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048914,
+              "kind": 3,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048916,
+              "kind": 4,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048918,
+              "kind": 4,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            },
+            {
+              "handle": 1048920,
+              "kind": 4,
+              "deviceHandle": 1048908,
+              "format": 21,
+              "width": 128,
+              "height": 128
+            }
+          ]
+        }
+      ],
+      "finalDevices": 0,
+      "finalResources": 0,
+      "files": {
+        "WINE.TXT": "8b1aef690a2b77376fc58ff2696908a03e580b94967d644c97af566849c222d5",
+        "source.json": "37523e0fd2d2ff0a8305b3e8d470128947439710c8a5320008928e1420810aff",
+        "live-gpu.json": "640f33a1c65a3fcf42fe7118345699108ec4684cf115c5292249e17ee021508e",
+        "audit-groups.json": "d519cc3868a1a5aa9c2c55235ea3e3ce1c9d6125a4b6c785e84a6fe5dc78bf30"
+      },
+      "source": {
+        "suite": "d3d9_device",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "d3d9_device.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+          "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+          "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+        },
+        "dllSha256": "4b98ed9c15eeef49b6c80dc4fbd193728c00445499019e74db8a3b0089734cbe",
+        "executableSha256": "6614f8df5e5557482a201dfe853279f54c17ab964e52f4d37fb186d5a4e0e9f1",
+        "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "31926f08cca8bb92df237fbe7067f3bf51f611e1f8c462bb14f2de121b116520",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "07008710c3e76dafa0a784b68f9dcb2db97c42e79190e1708722132a103f6278",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "012f993f4e0b855692d3cc1b5f0459ac83c25708a16d45619dc24f0f285bf2c4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "dfc9c3d8786e14eb573c194f72fd1f322843bb07d5da5088e221efc510b8fdbd",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+        }
+      }
+    }
+  ],
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw.dll": {
+      "bytes": 145408,
+      "sha256": "b119d84c8efd82f22a2af871e6c9bebb958c2b975190faaca475fab800015eb2"
+    },
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": {
+      "bytes": 177664,
+      "sha256": "057f0e986af55c3d3e5037f4062d8d9a6100de81a5a70a7b7338573740c0622a"
+    },
+    "glbridge/d3d8proxy/d3d8.dll": {
+      "bytes": 202752,
+      "sha256": "e9b3cf1069983d54c683566784ee5b99771c095736150969f4bb20b40f2ee11f"
+    },
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": {
+      "bytes": 255488,
+      "sha256": "a77f257d43279ed65bbaaf18d1cc6de766fef3de1a530fc5727e180c74d59a19"
+    },
+    "glbridge/d3d9proxy/d3d9.dll": {
+      "bytes": 160768,
+      "sha256": "4b98ed9c15eeef49b6c80dc4fbd193728c00445499019e74db8a3b0089734cbe"
+    },
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": {
+      "bytes": 209408,
+      "sha256": "a962574f84fea225ce048eacee107704b099849285e4987eb3d785cba66373c0"
+    }
+  },
+  "webgpuRevision": "ce2e3593ba41e7d3dcb9",
+  "remaining": [
+    "ATI1/ATI2 public lock pitch and contiguous mip offsets; CPU surface lock semantics and GetDC.",
+    "Shader validation, resource access/query behavior, window/focus/reset contracts, remaining guest owner resources and other original Wine suites.",
+    "Review platform/alternative skips individually, preserving actual feature failures.",
+    "Only after applicable Wine passes: formal old/new 99/2001SE/03/06 performance comparisons, with no graphics-score regression."
+  ]
+}
