@@ -1,0 +1,108 @@
+{
+  "batch": "stage6-27",
+  "date": "2026-11-06",
+  "status": "Functional batch verified; full Wine acceptance still FAIL",
+  "changes": "修复 SetViewport 错误地限制到当前渲染目标及0～1深度范围的问题。有限的扩展深度先按原始范围插值，再逐片元限幅；屏幕坐标顶点仍跳过视口深度变换，像素着色器显式深度输出优先。保留8K适配器对应的WebGPU坐标边界，超出目标的视口使用目标范围裁剪。24个真实GPU像素场景通过，包括固定/可编程像素阶段、跨三角形深度变化和MSAA4；两种错误端点限幅实现均被独立像素反例检出，没有GPU验证错误。原版Wine的Reset及大视口两条失败消除；完整157734项仍29失败9未审查skip，窗口波动使总数较上轮增加1，不能仅按总数判断修复效果。失焦时清空活动窗口的实验未改善完整结果并引入额外skip，已撤回。",
+  "checks": {
+    "scalar": {
+      "output": "PASS actual D3D9 scalar C recording: live queries, all 266 matrices, ordered Multiply, RS/TSS/sampler/viewport/material/planes/scissor/NPatch/frequency, six constant banks, invalid atomicity and live Multiply emissions",
+      "sha256": "b07ae79d435d5a23b40b82106fc03140b14d764e974dc6202e72f236d79dffc7"
+    },
+    "scalar-mutants": {
+      "output": "PASS D3D9 scalar recording mutations: 12/12; live isolation, matrices, constants, normalization, stream and struct masks",
+      "sha256": "3d9cbbcc7a106b19424bb53ede82465f1007050f054f6cab9be6e3151ca9a587"
+    },
+    "executor": {
+      "output": "180 executor tests passed",
+      "sha256": "26e57bb2f541b17f6124daded1bd2d0cfb51bb684d209d7332666c042b5f6890"
+    },
+    "viewport-gpu": {
+      "output": "{\"status\":\"PASS\",\"details\":\"PASS 24 cases\\nok    viewport affine clamp false,false,-1,2,0.25,0.125\\nok    viewport affine clamp false,false,0,2,0.375,0.5\\nok    viewport affine clamp false,false,2,3,0.1,0.125\\nok    viewport affine clamp false,false,-3,-2,0.5,0.125\\nok    viewport affine clamp false,false,0.2,0.7,0.1,0.2\\nok    viewport affine clamp false,true,-1,2,0.25,0.125\\nok    viewport affine clamp false,true,0,2,0.375,0.5\\nok    viewport affine clamp false,true,2,3,0.1,0.125\\nok    viewport affine clamp false,true,-3,-2,0.5,0.125\\nok    viewport affine clamp false,true,0.2,0.7,0.1,0.2\\nok    viewport affine clamp true,false,-1,2,0.25,0.125\\nok    viewport affine clamp true,false,0,2,0.375,0.5\\nok    viewport affine clamp true,false,2,3,0.1,0.125\\nok    viewport affine clamp true,false,-3,-2,0.5,0.125\\nok    viewport affine clamp true,false,0.2,0.7,0.1,0.2\\nok    viewport affine clamp true,true,-1,2,0.25,0.125\\nok    viewport affine clamp true,true,0,2,0.375,0.5\\nok    viewport affine clamp true,true,2,3,0.1,0.125\\nok    viewport affine clamp true,true,-3,-2,0.5,0.125\\nok    viewport affine clamp true,true,0.2,0.7,0.1,0.2\\nok    explicit pixel depth overrides extended viewport depth\\nok    viewport larger than attachment clips to target without rescaling\\nok    interpolated depth clamps after affine mapping msaa=0\\nok    interpolated depth clamps after affine mapping msaa=4\"}\n\nPASS real GPU viewport/depth: 24 cases, including interpolated depth and MSAA4, no GPU/host errors",
+      "sha256": "7c82d42f65939ddb8f1d97940e2f92ef433c3d64dc54875cd8b9c38400f50ee9"
+    },
+    "gpu-mutants": {
+      "output": "PASS viewport GPU mutations: 2/2 endpoint-clamp faults rejected by independent pixel readbacks, with no GPU validation error",
+      "sha256": "91583ba294741541cb9ff50b6576688d46a5c2d15f5adbd530e8efc81314f68c"
+    }
+  },
+  "audit": {
+    "directory": "stage6-wine9-device-viewport-range",
+    "checks": 157734,
+    "todos": 0,
+    "flaky": 0,
+    "failures": 29,
+    "skipped": 9,
+    "exit": 29,
+    "failureGroups": {
+      "test_wndproc": 3,
+      "test_multi_device": 1,
+      "test_wndproc_windowed": 4,
+      "test_window_style": 5,
+      "test_occlusion_query": 3,
+      "test_vertex_shader_constant": 6,
+      "test_lost_device": 3,
+      "test_resource_access": 2,
+      "test_window_position": 2
+    },
+    "gpuErrors": [],
+    "hostErrors": [],
+    "ownerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": []
+      }
+    ],
+    "files": {
+      "WINE.TXT": "3a2c0d4682173eba669b8268e501e7e2ea38caa9b650b4587bd1391cf0a022e7",
+      "source.json": "4c18096aa58f8e1801e398358986c3f699a54e5cd802a519b08d8376be66faa5",
+      "live-gpu.json": "f0bc25f88a490fa92c2017d9f6cda3af1b5a66b197a86a7a432c5634652ea18b",
+      "audit-groups.json": "ca5ed9b8d5f577fe409ac76964a3843901ca498380840d021f73f0fe7d2bd247"
+    },
+    "source": {
+      "suite": "d3d9_device",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_device.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+        "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+      },
+      "dllSha256": "762ffcee2cd001fb2a5896faa4a9934954ed140c809b5d9217d405ff7b6694b2",
+      "executableSha256": "386f927763f6d2e368c51c7835545ffee354c56b2a4e07c29e07f41c0fc56c13",
+      "rendererPageSha256": "a5937316af1a1febce94948e9cbf9ebc3d8d0696b35933024640db5384fd402a",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "669033666270c1a00c1c3fe748d96eba9209ad4da447c0d12067458333c7734a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "2f8f6d1815d1b65bdb823edba0bf134c82677347a2f4deba225c91f96282922a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "a37ef71f25a158ca4ae2e4397282f3d6cc7c1e4f33e0e541478f7ba8a150ec96",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "93c0e03ac5e154ddcc0d2c40218341dc5a71d4012ce338860718c4cf5b370e60",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "eba538fe097e4e541966f92505f2bff1156209d14d7a5b98d991a900eaa12ce4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "d5aeb6fd107de43e60c13a90f33213e370ddedb63f4a90ef952775dda4f4d6df",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "6f25279ad7ef9c9341ab87d2bb4d28ab031d65529bd352bdf1a8eaab90119095",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "f133e78ad8feb1a3f14d87ba001b6e50c73dec971bf0bc8a6f17e9f59337c2f1",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "5c11bbd581303237efdc597b784c47930042fe9645ada7af6fa6b800629ba958",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "fc22d1dc46124be79d00d476e151f89abdc5e24ce59cb439486e0e7d5d5a0501",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "501bbf7832c9b10bf8f76976d8de6f99d87560eb546b51af5593b981af80ea9f",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    }
+  },
+  "publishedDlls": {
+    "glbridge/ddrawproxy/ddraw-diagnostic.dll": "29c5242df1eda95d4c3ca3a27136b7c92aa5bb255b24dc4a648aefdf41dfb647",
+    "glbridge/ddrawproxy/ddraw.dll": "9a9535694af83e03bcd79cafecf0b3703317df294ae706ba8096a9480c24fef1",
+    "glbridge/d3d8proxy/d3d8-diagnostic.dll": "3b668b77e25bcbf51c7a06f06a8de6061db49cdf7d2e54cc308348e662679c46",
+    "glbridge/d3d8proxy/d3d8.dll": "f8a57f438fc5eb60323cc64cf932a313fb88218f52400e9569cff0d36b381f98",
+    "glbridge/d3d9proxy/d3d9-diagnostic.dll": "8355faf034c22147967e1b851e14a79f1f0813c2359a5b90d72849f82b87b22c",
+    "glbridge/d3d9proxy/d3d9.dll": "762ffcee2cd001fb2a5896faa4a9934954ed140c809b5d9217d405ff7b6694b2"
+  },
+  "build": "Six DLLs and local tools ISO rebuilt; site graphics integration 2/2 PASS",
+  "remaining": [
+    "Applicable Wine failures and individually evidenced skips; other original Wine suites.",
+    "Formal 3DMark99/2001SE/03/06 old/new comparisons have not started and remain gated on Wine acceptance."
+  ]
+}

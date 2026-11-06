@@ -1227,6 +1227,11 @@ ${coordBody}${fogBody}${clipBody}${pointBody}    return result;
                     Math.floor(plane / 4) + "." + "xyzw"[plane & 3] +
                     " < 0.0) { discard; }\n";
 
+            const range = signature.viewportDepthRange;
+            const depthOutput = range ? "struct D9FixedPixelOutput { @location(0) color: vec4<f32>, @builtin(frag_depth) depth: f32, };" : "";
+            const returnType = range ? "D9FixedPixelOutput" : "@location(0) vec4<f32>";
+            const returnValue = range ? "D9FixedPixelOutput(result, clamp(mix(f32(" + range[0] +
+                "), f32(" + range[1] + "), stage_in.position.z), 0.0, 1.0))" : "result";
             return `${layout.entries.length
                 ? uniformBlockStruct("D9FixedPixelUniforms", layout) +
                   "\n@group(0) @binding(1) var<uniform> uniforms: D9FixedPixelUniforms;"
@@ -1239,12 +1244,13 @@ ${varyings.join("\n")}
 ${clipVaryings.join("\n")}
 };
 
+${depthOutput}
 @fragment
-fn d9_ps_main(stage_in: D9PixelInput) -> @location(0) vec4<f32> {
+fn d9_ps_main(stage_in: D9PixelInput) -> ${returnType} {
 ${clipDiscard}
 ${samples.join("\n")}
 ${cascadeBody}    var result = ${value};
-${specularBody}${alphaTestDiscard(signature.alphaTest, "result.a", "uniforms.alpha_test.x")}${fogBody}    return result;
+${specularBody}${alphaTestDiscard(signature.alphaTest, "result.a", "uniforms.alpha_test.x")}${fogBody}    return ${returnValue};
 }
 `;
         }

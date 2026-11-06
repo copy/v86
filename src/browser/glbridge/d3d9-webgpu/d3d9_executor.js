@@ -4166,23 +4166,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         onSetViewport(bytes, view, offset) {
             const deviceHandle = view.getUint32(offset + D9WG.F.SetViewport.device_handle, true);
             const state = this.deviceState(deviceHandle);
-            // MinZ/MaxZ have been on the wire since M1 (D9WGSetViewport) and
-            // used to be dropped here, with recordDraw hardcoding 0..1 into
-            // setViewport. D3D9's viewport depth range is not decoration: an app
-            // that composites a 3D object into a 2D panel routinely restricts it
-            // so the object cannot collide in depth with the interface around
-            // it, and discarding that puts the object at its natural depth --
-            // where whatever the app expected to be in front of it no longer is.
-            // MinZ = MaxZ = 0 is legal ("draw on the near plane", HUDs and
-            // first-person weapons); values outside 0 <= MinZ <= MaxZ <= 1
-            // are the guest's SetViewport to refuse
+            // Native XP stores finite ranges outside [0,1]. Those need a
+            // fragment-depth mapping; clamping the endpoints changes the image.
             let minZ = view.getFloat32(offset + D9WG.F.SetViewport.min_z, true);
             let maxZ = view.getFloat32(offset + D9WG.F.SetViewport.max_z, true);
-            if (!(minZ >= 0 && minZ <= maxZ && maxZ <= 1)) {
-                this.protocolViolation("viewport-depth", "SetViewport depth range outside 0 <= MinZ <= MaxZ <= 1",
-                    { minZ, maxZ });
-                minZ = Math.min(Math.max(minZ || 0, 0), 1);
-                maxZ = Math.min(Math.max(maxZ || 0, minZ), 1);
+            if (!Number.isFinite(minZ) || !Number.isFinite(maxZ) || minZ > maxZ) {
+                this.protocolViolation("viewport-depth", "SetViewport depth range is nonfinite or reversed", {minZ, maxZ});
+                return;
             }
             state.viewport = {
                 x: view.getUint32(offset + D9WG.F.SetViewport.x, true),
@@ -4445,6 +4435,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const rs = state.renderStates;
             const pretransformed = elements.some(element =>
                 element.usage === DECLUSAGE_POSITIONT && element.usageIndex === 0);
+            const viewportDepthRange = !pretransformed &&
+                (state.viewport.minZ < 0 || state.viewport.maxZ > 1)
+                ? [state.viewport.minZ, state.viewport.maxZ] : null;
+            const viewportDepthKey = viewportDepthRange ? "_viewportDepth:" + viewportDepthRange.join(":") : "";
             const clipMask = (rs.get(D3DRS_CLIPPLANEENABLE) || 0) & 0x3f;
             if (clipMask) state.clipPlaneCapacity = 6;
             // POSITIONT has already completed vertex processing, including
@@ -4609,12 +4603,12 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 }
                 const fogBlend = ffp.fogBlendSource({ fogMode, tableFog }, "d9c", "result.color0");
                 const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") : "";
-                const pixelVariantKey = semanticKey + fogKey + alphaTestKey + clipKey + depthKey +
+                const pixelVariantKey = semanticKey + fogKey + alphaTestKey + clipKey + depthKey + viewportDepthKey +
                     lodBiasKey + mirrorOnceKey + legacySamplerKey + legacyProjectionKey + swizzleKey +
                     (flatShading ? "_flat" : "");
                 if (semanticLink || alphaTest.enabled || clipPlaneCount || depthSamplers.length
                         || lodBiasKey || mirrorOnceKey || legacySamplerKey || legacyProjectionKey || swizzleKey ||
-                        flatShading || fogBlend) {
+                        flatShading || fogBlend || viewportDepthRange) {
                     variant = psResource.variants.get(pixelVariantKey);
                     if (!variant) {
                         variant = shaderPipeline.specializeShader(psResource.translated, {
@@ -4627,7 +4621,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             samplerLodBiasUniform, samplerSwizzles,
                             samplerMirrorOnce,
                             legacySamplerTypes, legacyProjection,
-                            flatShading, fogBlend, semanticLink,
+                            flatShading, fogBlend, semanticLink, viewportDepthRange,
                         });
                         psResource.variants.set(pixelVariantKey, variant);
                         if (variant.ok) ++this.stats.shaderVariantsTranslated;
@@ -4722,6 +4716,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     specularEnable: (rs.get(D3DRS_SPECULARENABLE) || 0) !== 0,
                     flatShading,
                 };
+                if (viewportDepthRange) pixelSignature.viewportDepthRange = viewportDepthRange;
                 fragmentKey = ffp.signatureKey("pixel", pixelSignature, debugMode);
                 fragmentModule = this.fixedModuleFor(fragmentKey, "pixel", pixelSignature, debugMode);
             }
@@ -5132,7 +5127,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 vertexReflection, pixelReflection, samplerIndices,
                 samplerDimensions, samplerBindingTypes, vertexSamplers,
                 vertexBuffers,
-                fixedFunctionSignature, pixelSignature, pixelUniformLayout,
+                fixedFunctionSignature, pixelSignature, pixelUniformLayout, viewportDepthRange,
                 vertexUniformLayout: fixedFunctionSignature
                     ? fixedVertexUniformLayout(fixedFunctionSignature) : null,
                 // A translated pixel shader brings its own register file; the

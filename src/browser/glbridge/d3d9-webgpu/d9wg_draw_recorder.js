@@ -212,7 +212,7 @@
                 // Record the effective range so replay's viewport cache also
                 // switches correctly between screen and clip-space draws.
                 const viewport = { ...state.viewport };
-                if (program.fixedFunctionSignature?.positionType === "screen") {
+                if (program.fixedFunctionSignature?.positionType === "screen" || program.viewportDepthRange) {
                     viewport.minZ = 0;viewport.maxZ = 1;
                 }
                 frame.record({

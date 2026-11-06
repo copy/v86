@@ -1165,5 +1165,37 @@
     }, probes: [{at: [8, 32], expect: [144, 96, 32, 255]}, {at: [24, 32], expect: [160, 0, 0, 255]},
         {at: [40, 32], expect: [144, 96, 192, 255]}, {at: [56, 32], expect: [144, 96, 32, 255]}]});
 
+    // The oracle applies the affine depth transform first, then clamps each
+    // fragment. Clamping viewport endpoints would fail the -1..2 and 0..2 cases.
+    for (const programmable of [false,true]) for (const screen of [false,true])
+        for (const [low,high,z,limit] of [[-1,2,.25,.125],[0,2,.375,.5],[2,3,.1,.125],[-3,-2,.5,.125],[.2,.7,.1,.2]]) {
+            const mapped=screen?z:Math.min(1,Math.max(0,low+(high-low)*z));
+            add("viewport-range",{name:"viewport affine clamp "+[programmable,screen,low,high,z,limit],body:dev=>[
+                clearDepth(dev,limit),rs(dev,7,1),rs(dev,23,2),rs(dev,22,1),
+                wire("SetViewport",{device_handle:dev,x:0,y:0,width:64,height:64,min_z:low,max_z:high}),
+                ...(programmable?[...bindLegacyPS(dev,[0xffff0200,...asm.def(0,0,1,0,1),asm.ins(S.MOV,2),dst(R.COLOROUT,0),src(R.CONST,0),0x0000ffff])]:[]),
+                ...(screen?[draw(dev,quad(0,0,64,64,z,0xff00ff00))]:drawXYZ(dev,fullXYZ(z,0xff00ff00)))],
+                probes:[{at:[32,32],expect:mapped<limit?[0,255,0,255]:[0,0,0,255]}]});
+        }
+    add("viewport-range",{name:"explicit pixel depth overrides extended viewport depth",body:dev=>[
+        clearDepth(dev,.125),rs(dev,7,1),rs(dev,23,2),rs(dev,22,1),
+        wire("SetViewport",{device_handle:dev,x:0,y:0,width:64,height:64,min_z:2,max_z:3}),
+        ...bindLegacyPS(dev,[0xffff0200,...asm.def(0,0,1,0,1),...asm.def(1,.1,.1,.1,.1),
+            asm.ins(S.MOV,2),dst(R.COLOROUT,0),src(R.CONST,0),
+            asm.ins(S.MOV,2),dst(R.DEPTHOUT,0,1),src(R.CONST,1,0),0x0000ffff]),
+        ...drawXYZ(dev,fullXYZ(.5,0xff00ff00))],probes:[{at:[32,32],expect:[0,255,0,255]}]});
+    add("viewport-range",{name:"viewport larger than attachment clips to target without rescaling",body:dev=>[
+        rs(dev,7,0),rs(dev,22,1),wire("SetViewport",{device_handle:dev,x:16,y:8,width:8192,height:8192,min_z:0,max_z:1}),
+        ...drawXYZ(dev,fullXYZ(.5,0xff00ff00))],probes:[{at:[8,32],expect:[0,0,0,255]},
+            {at:[32,4],expect:[0,0,0,255]},{at:[32,32],expect:[0,255,0,255]}]});
+
+    for (const msaa of [0,4]) add("viewport-range",{name:"interpolated depth clamps after affine mapping msaa="+msaa,msaa,body:dev=>[
+        clearDepth(dev,.125),rs(dev,7,1),rs(dev,23,2),rs(dev,22,1),
+        wire("SetViewport",{device_handle:dev,x:0,y:0,width:64,height:64,min_z:-1,max_z:2}),
+        ...drawXYZ(dev,[[-1,1,0,0xff00ff00],[1,1,1,0xff00ff00],[-1,-1,0,0xff00ff00],
+            [1,1,1,0xff00ff00],[1,-1,1,0xff00ff00],[-1,-1,0,0xff00ff00]])],
+        probes:[{at:[8,32],expect:[0,255,0,255]},{at:[32,32],expect:[0,0,0,255]},
+            {at:[56,32],expect:[0,0,0,255]}]});
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);
