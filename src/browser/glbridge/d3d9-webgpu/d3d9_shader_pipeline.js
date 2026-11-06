@@ -1157,7 +1157,7 @@
                     s(1) + ").xyz), 0.0)");
                 return;
             case OP.NRM:
-                this.store(dest, "vec4<f32>(d9_normalize((" + s(0) + ").xyz), 0.0)");
+                this.store(dest, "d9_normalize(" + s(0) + ")");
                 return;
             case OP.SGN: this.store(dest, "sign(" + s(0) + ")"); return;
             case OP.LIT: this.store(dest, "d9_lit(" + s(0) + ")"); return;
@@ -1921,8 +1921,8 @@
             out.push("    if (x == 0.0 && y > 0.0) { return 0.0; }");
             out.push("    return pow(abs(x), y);");
             out.push("}");
-            out.push("fn d9_normalize(v: vec3<f32>) -> vec3<f32> { let l = " +
-                "dot(v, v); return select(v * inverseSqrt(l), vec3<f32>(0.0), l == 0.0); }");
+            out.push("fn d9_normalize(v: vec4<f32>) -> vec4<f32> { let l = " +
+                "dot(v.xyz, v.xyz); return select(v * inverseSqrt(l), vec4<f32>(0.0), l == 0.0); }");
             out.push("fn d9_lit(s: vec4<f32>) -> vec4<f32> {");
             out.push("    let power = clamp(s.w, -127.9961, 127.9961);");
             out.push("    let specular = select(0.0, pow(max(s.y, 0.0), power), " +

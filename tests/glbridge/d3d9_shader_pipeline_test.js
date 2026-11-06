@@ -784,7 +784,7 @@ test("arithmetic opcodes translate to their WGSL equivalents", () => {
         [OP.RCP, 1, "d9_rcp((vin0).x)"],
         [OP.RSQ, 1, "d9_rsq((vin0).x)"],
         [OP.LIT, 1, "d9_lit(vin0)"],
-        [OP.NRM, 1, "d9_normalize((vin0).xyz)"],
+        [OP.NRM, 1, "d9_normalize(vin0)"],
         [OP.CRS, 2, "cross((vin0).xyz, (vin0).xyz)"],
         [OP.POW, 2, "d9_pow((vin0).x, (vin0).x)"],
     ];

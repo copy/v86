@@ -3814,6 +3814,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const transformFlags =
                     stageState(index, D3DTSS_TEXTURETRANSFORMFLAGS, 0);
                 stage.transformCount = transformFlags & 0xFF;
+                // World fixed-function outputs place the projection divisor in W;
+                // programmable VS outputs already have their native W component.
+                stage.projectionComponent = options && options.screenVertexStage
+                    ? (["w", "x", "y", "z", "w"][stage.transformCount] || "w") : "w";
                 stage.projected = (transformFlags & D3DTTFF_PROJECTED) !== 0;
                 const coordIndex = stageState(index, D3DTSS_TEXCOORDINDEX, index);
                 stage.texCoordIndex = coordIndex & 0xFFFF;
@@ -3882,15 +3886,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     stage.coordVarying = this.debug.texcoordFromStageIndex
                         ? Math.min(stage.index, MAX_TEXCOORD_SETS - 1)
                         : Math.min(stage.texCoordIndex, MAX_TEXCOORD_SETS - 1);
-                    if (stage.tciMode !== D3DTSS_TCI_PASSTHRU ||
-                            stage.transformCount) {
-                        unsupported.push("stage " + stage.index + " asks for " +
-                            "fixed-function coordinate generation/transform " +
-                            "while a vertex shader is bound, which D3D9 does " +
-                            "not apply either");
-                        stage.transformCount = 0;
-                        stage.projected = false;
-                    }
+                    // A programmable VS bypasses coordinate generation and
+                    // matrices, but projection remains a pixel sampling operation.
+                    stage.transformCount = 0;
                 }
             } else {
                 for (const stage of stages) stage.coordVarying = stage.index;
@@ -4558,7 +4556,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         const flags = state.textureStageStates.get(sampler.index * 64 + D3DTSS_TEXTURETRANSFORMFLAGS) || 0;
                         if (variant.reflection.version.minor < 4 && (flags & D3DTTFF_PROJECTED)) {
                             const count = flags & 0xff;
-                            legacyProjection[sampler.index] = ["w", "x", "y", "z", "w"][count] || "w";
+                            legacyProjection[sampler.index] = fixedVertexSignature && fixedVertexSignature.positionType === "screen"
+                                ? (["w", "x", "y", "z", "w"][count] || "w") : "w";
                             legacyProjectionKey += "_q" + sampler.index + legacyProjection[sampler.index];
                         }
                         const texture = this.resources.get(state.textures.get(sampler.index));
@@ -4678,7 +4677,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 fragmentModule = this.moduleFor(variant.wgsl, "d3d9 " + fragmentKey);
             } else {
                 cascade = this.textureCascadeSignature(state,
-                    { fixedVertexStage: !!fixedVertexSignature });
+                    { fixedVertexStage: !!fixedVertexSignature,
+                        screenVertexStage: fixedVertexSignature && fixedVertexSignature.positionType === "screen" });
                 coordStageCount = cascade.stages.length;
                 for (const stage of cascade.stages) {
                     if (!stage.samplesTexture) continue;
@@ -5207,7 +5207,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     inputDimensions: !signature ? 4 : signature.positionType === "screen" || !(coordIndex & D3DTSS_TCI_MASK)
                         ? signature.texCoordDimensions[coordIndex & 0xFFFF] || 4
                         : (coordIndex & D3DTSS_TCI_MASK) === D3DTSS_TCI_SPHEREMAP ? 2 : 3,
-                    transformCount: flags & 0xFF,
+                    // COUNT1 and malformed flags preserve the untransformed input.
+                    transformCount: (flags & ~D3DTTFF_PROJECTED) >= 2 && (flags & ~D3DTTFF_PROJECTED) <= 4
+                        ? flags & ~D3DTTFF_PROJECTED : 0,
                     projected: (flags & D3DTTFF_PROJECTED) !== 0 });
             }
             return stages;

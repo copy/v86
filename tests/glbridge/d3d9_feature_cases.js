@@ -1496,5 +1496,63 @@
             swConstant(dev,"I",index,[0,1,0,1]),swConstant(dev,"B",index,[enabled?1:0]),...drawXYZ(dev,fullXYZ(.5,0xffffffff))];},
         probes:[{at:[32,32],expect:enabled?[0,255,0,255]:[255,0,0,255]}]});
 
+    // Independent native table from Wine test_texture_transform_flags: four
+    // input widths, fixed/screen/generated/programmed VS and four pixel paths.
+    const transformFlags=[0,1,2,3,4,0x100,0x101,0x102,0x103,0x104,0xfffffeff,0xffffffff,0xffffff03];
+    for(const width of [1,2,3,4])for(const vertex of ["screen","fixed","normal","shader"])
+    for(const pixel of ["fixed","ps1","ps2","coords"])for(const flags of transformFlags){
+        const projected=!!(flags&0x100),count=(flags&~0x100)>>>0,transforms=count>=2&&count<=4;
+        if(projected&&vertex==="screen"&&(pixel==="fixed"||pixel==="ps1"))continue; // Native driver-dependent cases are excluded upstream.
+        const source=(vertex==="normal"?[.1,.3,.6]:[.8,.2,.4,.5].slice(0,width)).map(Math.fround),coord=[0,0,0,0];
+        if(vertex==="fixed"||vertex==="normal"){
+            if(transforms){const attrib=[...source];if(attrib.length<4)attrib.push(1);while(attrib.length<4)attrib.push(0);
+                for(let k=0;k<count;k++)coord[k]=attrib[3-k];if(projected&&count<4)coord[3]=coord[count-1];}
+            else{source.forEach((v,i)=>coord[i]=v);if(projected)coord[3]=source.at(-1);}
+        }else{coord[3]=1;source.forEach((v,i)=>coord[i]=v);}
+        const uv=coord.slice(0,2).map(v=>projected&&pixel!=="ps2"?(coord[3]?Math.fround(v/coord[3]):0):v);
+        const expected=pixel==="coords"?coord.map(clamp):[...uv.map(v=>Math.round(Math.floor((v-Math.floor(v))*64)*255/64)),0,0];
+        add("texture-transform-flags",{name:`texture transform width=${width} vs=${vertex} ps=${pixel} flags=${flags.toString(16)}`,body:dev=>{
+            const tex=dev+0x500000,vs=dev+0x600000,ps=vs+1;
+            const data=Uint8Array.from(Array.from({length:4096},(_,i)=>[0,Math.round(Math.floor(i/64)*255/64),Math.round((i%64)*255/64),0]).flat());
+            const commands=[wire("CreateTexture2D",{device_handle:dev,resource_handle:tex,width:64,height:64,level_count:1,format:21}),
+                wire("UpdateTexture",{resource_handle:tex,width:64,height:64,depth:1,row_pitch:256,slice_pitch:data.length,data_bytes:data.length},[blob("UpdateTexture","data_offset",data)]),
+                wire("SetTexture",{device_handle:dev,texture_handle:tex}),rs(dev,7,0),rs(dev,22,1),rs(dev,137,0),tss(dev,0,1,2),tss(dev,0,2,2),tss(dev,0,4,2),tss(dev,0,5,2),
+                tss(dev,0,24,flags),tss(dev,0,11,vertex==="normal"?0x10000:0),
+                wire("SetTransform",{device_handle:dev,state:16,matrix:[0,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0]})];
+            if(vertex==="shader")commands.push(vertexShader(dev,vs,legacyShader("vertex",2,[semanticDcl(0,0,R.INPUT,0),semanticDcl(5,0,R.INPUT,1),
+                [S.MOV,dst(R.RASTOUT,0),src(R.INPUT,0)],[S.MOV,dst(R.OUTPUT,0),src(R.INPUT,1)]])),bindSemanticVS(dev,vs));
+            if(pixel!=="fixed"){
+                const tokens=pixel==="ps1"?ps1(1,[[S.TEX,dst(R.TEXTURE,0)],[S.MOV,dst(R.TEMP,0),src(R.TEXTURE,0)]])
+                    :legacyShader("pixel",2,[[S.DCL,0x80000000,dst(R.TEXTURE,0)],...(pixel==="coords"?[[S.MOV,dst(R.COLOROUT,0),src(R.TEXTURE,0)]]:
+                        [[S.DCL,0x90000000,dst(R.SAMPLER,0)],[S.TEX,dst(R.TEMP,0),src(R.TEXTURE,0),src(R.SAMPLER,0)],[S.MOV,dst(R.COLOROUT,0),src(R.TEMP,0)]])]);
+                commands.push(pixelShader(dev,ps,tokens),bindPS(dev,ps));
+            }
+            const screen=vertex==="screen",stride=screen?32:40,vertices=new Uint8Array(stride*6),view=new DataView(vertices.buffer);
+            const positions=screen?quad(0,0,64,64,.5,0):fullXYZ(.5,0);
+            positions.forEach((p,i)=>{const row=screen?[...p.slice(0,3),1,.8,.2,.4,.5]:[...p.slice(0,3),.1,.3,.6,.8,.2,.4,.5];row.forEach((v,j)=>view.setFloat32(i*stride+j*4,v,true));});
+            commands.push(cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,element_count:screen?2:3}),element(0,screen?3:2,screen?9:0),
+                ...(!screen?[element(12,2,3)]:[]),element(screen?16:24,width-1,5)])),
+                wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:2,stride,vertex_count:6,vertex_bytes:vertices.length},[blob("DrawPrimitiveUP","vertex_data_offset",vertices)]));
+            return commands;
+        },probes:[{at:[32,32],expect:expected,tolerance:pixel==="coords"?1:4}]});
+    }
+
+    for(const stage of ["vertex","pixel"])for(const major of [2,3])for(const mask of [7,15])for(const swizzle of [0xe4,0x39])
+    for(const value of [[2,0,0,.5],[1,1,1,1],[0,0,0,0],[1,1,0,2],[-2,0,0,.5],[.1,.3,.6,.5]]){
+        const input=Array.from({length:4},(_,i)=>value[swizzle>>(i*2)&3]),length=Math.hypot(...input.slice(0,3));
+        const expected=input.map((v,i)=>i===3&&mask===7?.4:length?v/length:0).map(clamp);
+        add("shader-normalize",{name:`NRM ${stage}${major} mask=${mask} swizzle=${swizzle} value=${value}`,body:dev=>{
+            const handle=dev+0x600000,body=[[S.DEF,dst(R.CONST,0),...value.map(f)],[S.DEF,dst(R.CONST,1),f(.1),f(.2),f(.3),f(.4)],
+                [S.MOV,dst(R.TEMP,0),src(R.CONST,1)],[S.NRM,dst(R.TEMP,0,mask),src(R.CONST,0,swizzle)]];
+            let tokens;
+            if(stage==="pixel")tokens=legacyShader("pixel",major,[...body,[S.MOV,dst(R.COLOROUT,0),src(R.TEMP,0)]]);
+            else tokens=legacyShader("vertex",major,[semanticDcl(0,0,R.INPUT,0),...(major===3?[semanticDcl(0,0,R.OUTPUT,11),semanticDcl(10,0,R.OUTPUT,0)]:[]),
+                ...body,[S.MOV,dst(major===3?R.OUTPUT:R.RASTOUT,major===3?11:0),src(R.INPUT,0)],
+                [S.MOV,dst(major===3?R.OUTPUT:R.ATTROUT,0),src(R.TEMP,0)]]);
+            return [stage==="pixel"?pixelShader(dev,handle,tokens):vertexShader(dev,handle,tokens),stage==="pixel"?bindPS(dev,handle):bindSemanticVS(dev,handle),
+                rs(dev,7,0),rs(dev,22,1),tss(dev,0,1,2),tss(dev,0,2,0),tss(dev,0,4,2),tss(dev,0,5,0),...drawXYZ(dev,fullXYZ(.5,0xffffffff))];
+        },probes:[{at:[32,32],expect:expected,tolerance:1}]});
+    }
+
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

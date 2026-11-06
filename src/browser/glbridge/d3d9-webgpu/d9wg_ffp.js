@@ -846,6 +846,20 @@
                     expression = "(uniforms.texture_transform" + stage.index +
                         " * " + padded + ")";
                 }
+                if (signature.positionType !== "screen") {
+                    // Native FFP exposes exactly COUNT output components (or the
+                    // declaration's input count when transforms are disabled).
+                    // Missing components are zero, including W. Projection copies
+                    // the last used coordinate to W for both FFP and ps_1_x.
+                    const count = stage.transformCount || stage.inputDimensions || 4;
+                    const name = "coord" + stage.index;
+                    coordBody += "    var " + name + " = " + (count === 4 ? expression
+                        : "vec4<f32>(" + expression + "." + "xyzw".slice(0, count) +
+                            ", " + Array(4 - count).fill("0.0").join(", ") + ")") + ";\n";
+                    if (stage.projected && count < 4)
+                        coordBody += "    " + name + ".w = " + name + "." + "xyzw"[count - 1] + ";\n";
+                    expression = name;
+                }
                 coordBody += "    result.varying" +
                     (VARYING_TEXCOORD0 + stage.index) + " = " + expression + ";\n";
             }
@@ -1001,7 +1015,7 @@ ${coordBody}${fogBody}${passthroughBody}${clipBody}${pointBody}${signature.scree
                     // transformed coordinate, so the divisor follows the transform's
                     // component count, not the texture's dimensionality.
                     const divisor = coord + "." +
-                        ["x", "x", "y", "z", "w"][stage.transformCount || 4];
+                        (stage.projectionComponent || ["x", "x", "y", "z", "w"][stage.transformCount || 4] || "w");
                     // Preserve the sign of q. Clamping a negative divisor with
                     // max(q, epsilon) turns every behind-projector coordinate into
                     // an enormous positive UV; Warcraft III's projected tree
