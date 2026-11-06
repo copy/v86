@@ -34,8 +34,8 @@ volume. Build the current adapter and import the firmware again to pick up
 the application fixes on a previously imported phone.
 The graphics path needs WebGPU and the `make glbridge` assets. Boot
 without the graphics adapter only for serial diagnostics.
-Graphics mode advances guest time at one fifth of wall time by default
-to give native apps enough CPU time before their launch deadlines.
+The guest clock runs at wall-clock speed (1.0×) by default, including
+with graphics enabled. API callers can set `cpu_clock.rate` for diagnostics.
 
 The browser prepares the simulated phone for offline use. It selects
 10B329 lockdownd's existing local activation path and seeds the Setup
