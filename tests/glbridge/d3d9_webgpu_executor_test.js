@@ -3718,7 +3718,7 @@ await test("blend data with D3DRS_VERTEXBLEND disabled is ignored, as D3D9 does"
 
     const pipeline = find("createRenderPipeline").pop()[1];
     const wgsl = pipeline.vertex.module.code;
-    assert.ok(wgsl.includes("uniforms.world_view_projection * in0"),
+    assert.ok(wgsl.includes("uniforms.world_view_projection * vec4<f32>(in0.xyz, 1.0)"),
         "an unblended draw keeps the folded matrix chain:\n" + wgsl);
     assert.ok(!wgsl.includes("blend_worlds"), "no palette is uploaded");
     // A vertex attribute the shader never declares is a pipeline the driver
@@ -5983,7 +5983,8 @@ await test("shadow render states map to signed projection, exact blend and depth
             operation: "add" },
         alpha: { srcFactor: "one", dstFactor: "zero", operation: "add" },
     });
-    assert.equal(pipeline.depthStencil.depthBias, 1);
+    assert.equal(pipeline.depthStencil.depthBias, 0);
+    assert.match(pipeline.fragment.module.code, /D9FixedPixelOutput\(result, clamp\(stage_in\.position\.z \+ f32\(5\.960464477539063e-8\), 0\.0, 1\.0\)\)/);
     assert.equal(pipeline.depthStencil.depthBiasSlopeScale, 1.5);
     assert.deepEqual(pipeline.depthStencil.stencilFront, {
         compare: "greater-equal", failOp: "replace",
@@ -6714,7 +6715,7 @@ await test("enabled user clip planes reach both fixed shader stages", async () =
     assert.match(pipeline.vertex.module.code,
         /dot\(d9_clip_position, uniforms\.clip_planes\[0\]\)/);
     assert.match(pipeline.vertex.module.code,
-        /d9_clip_position = uniforms\.world_matrix \* in0/);
+        /d9_clip_position = uniforms\.world_matrix \* vec4<f32>\(in0\.xyz, 1\.0\)/);
     assert.match(pipeline.fragment.module.code,
         /if \(stage_in\.clip0\.x < 0\.0\) \{ discard; \}/);
     assert.deepEqual(executor.devices.get(DEVICE).clipPlanes[0],

@@ -625,6 +625,46 @@
         wire("SetLight", { device_handle: dev, type: 3, diffuse: [1, 1, 1, 1], direction: [0, 0, 1] }),
         wire("LightEnable", { device_handle: dev, enable: 1 }), ...litQuad(dev, 0, false)],
         probes: [{ at: [32, 32], expect: [0, 0, 0, 0] }] });
+    // Four flat triangles separate Z/W inputs so the fog oracle does not
+    // depend on perspective interpolation or the implementation's matrices.
+    for (const table of [0,3,1,2]) for (const vertex of [0,3,1,2]) for (const mode of [0,1,2,3]) for (const ortho of [false,true]) {
+        const zs=[.2,.2,.5,.5],ws=[.5,.9,.5,.9],spec=[192/255,64/255,64/255,64/255];
+        const fogAt=i=>{
+            if(!table) {
+                if(mode===3)return .8;
+                if(mode===2)return .96;
+                if(mode===0||!vertex)return 1-spec[i];
+            }
+            const distance=!table?zs[i]*3:!ortho?(mode===0?1/ws[i]:mode===1?2.02:ws[i]):(mode===0?zs[i]:mode===1?zs[i]*3:zs[i]);
+            const fn=table||vertex;
+            return fn===3?distance/10:fn===1?1-Math.exp(-distance):1-Math.exp(-distance*distance);
+        };
+        add("fog-coordinate-modes",{name:`fog table=${table} vertex=${vertex} mode=${mode} ortho=${ortho}`,targetFormat:116,
+            body:dev=>{
+                const v=[[-2,0],[0,2],[0,0],[0,0],[0,2],[2,0],[0,-2],[-2,0],[0,0],[0,-2],[0,0],[2,0]],data=new Uint8Array(12*24),dv=new DataView(data.buffer);
+                v.forEach(([x,y],i)=>{const q=Math.floor(i/3),values=mode===0?[(x+1)*32,(1-y)*32,zs[q],ws[q]]:[x,y,zs[q],ws[q]];
+                    values.forEach((n,c)=>dv.setFloat32(i*24+c*4,n,true));dv.setUint32(i*24+16,0xff0000ff,true);dv.setUint32(i*24+20,(Math.round(spec[q]*255)<<24)>>>0,true);});
+                const projection=[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,ortho?1:1.01],view=[1,0,0,0,0,1,0,0,0,0,3,0,0,0,0,2];
+                const shader=mode<2?[]:[vertexShader(dev,dev+0x700000,[0xfffe0101,...def(0,.2,0,0,.04),
+                    ins(S.DCL,0),0x80000000,dst(R.INPUT,0),ins(S.DCL,0),0x8000000a,dst(R.INPUT,1),
+                    ins(S.MOV,0),dst(R.RASTOUT,0),src(R.INPUT,0),ins(S.MOV,0),dst(R.ATTROUT,0),src(R.INPUT,1),
+                    ins(S.MOV,0),dst(R.ATTROUT,1),src(R.CONST,0,0xff),...(mode===3?[ins(S.MOV,0),dst(R.RASTOUT,1),src(R.CONST,0,0)]:[]),0xffff]),
+                    cmd(P.OP.SET_VERTEX_SHADER,P.encode("SetShader",{device_handle:dev,shader_handle:dev+0x700000}))];
+                return [rs(dev,28,1),rs(dev,34,0xff00ffff),rs(dev,35,table),rs(dev,140,vertex),rs(dev,36,f(0)),rs(dev,37,f(10)),rs(dev,38,f(1)),rs(dev,195,f(.1)),
+                    wire("SetTransform",{device_handle:dev,state:3,matrix:projection}),wire("SetTransform",{device_handle:dev,state:2,matrix:view}),
+                    cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,fvf:mode===0?0xc4:0x40c2,element_count:3}),element(0,3,mode===0?9:0),element(16,4,10),element(20,4,10,1)])),...shader,
+                    wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:4,stride:24,vertex_count:12,vertex_bytes:data.length},[blob("DrawPrimitiveUP","vertex_data_offset",data)])];
+            },probes:[[30,30],[34,30],[30,34],[34,34]].map((at,i)=>({at,expect:[0,clamp(fogAt(i)),255,255],tolerance:1}))});
+    }
+    for(const inputW of [.25,.5,2])for(const translation of [0,1]) add("fixed-position-w",{
+        name:`FFP POSITION float4 W=${inputW} world translation=${translation}`,clear:0xffff0000,
+        body:dev=>{
+            const list=[[-.5,-.5],[-.5,.5],[.5,-.5],[.5,-.5],[-.5,.5],[.5,.5]],data=new Uint8Array(6*20),dv=new DataView(data.buffer);
+            list.forEach(([x,y],i)=>{[x,y,.5,inputW].forEach((v,j)=>dv.setFloat32(i*20+j*4,v,true));dv.setUint32(i*20+16,0xff0000ff,true);});
+            return [wire("SetTransform",{device_handle:dev,state:256,matrix:[1,0,0,0,0,1,0,0,0,0,1,0,translation,0,0,1]}),
+                cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,fvf:0x4002,element_count:2}),element(0,3,0),element(16,4,10)])),
+                wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:2,stride:20,vertex_count:6,vertex_bytes:data.length},[blob("DrawPrimitiveUP","vertex_data_offset",data)])];
+        },probes:translation?[{at:[47,32],expect:[255,0,0]},{at:[49,32],expect:[0,0,255]}]:[{at:[15,32],expect:[255,0,0]},{at:[17,32],expect:[0,0,255]},{at:[47,32],expect:[0,0,255]},{at:[49,32],expect:[255,0,0]}]});
     function coordinateQuad(dev, dimensions, coords, z = 0.5) {
         const list = fullXYZ(z, 0xffffffff), stride = 12 + dimensions * 4;
         const data = new Uint8Array(list.length * stride), view = new DataView(data.buffer);
@@ -1196,6 +1236,23 @@
                 ...(screen?[draw(dev,quad(0,0,64,64,z,0xff00ff00))]:drawXYZ(dev,fullXYZ(z,0xff00ff00)))],
                 probes:[{at:[32,32],expect:mapped<limit?[0,255,0,255]:[0,0,0,255]}]});
         }
+    // D3DRS_DEPTHBIAS adds to the normalised depth value itself, independent of the
+    // primitive's depth magnitude (Wine test_depthbias).
+    for (const z of [.05,.3,.6,.9]) for (const bias of [-.4,-.2,0,.2,.4]) {
+        const biased=z+bias;
+        if (Math.abs(biased-.5)<.02) continue;
+        add("depth-bias",{name:`constant depth bias z=${z} bias=${bias}`,body:dev=>[
+            clearDepth(dev,.5),rs(dev,7,1),rs(dev,14,0),rs(dev,23,2),rs(dev,22,1),rs(dev,195,f(bias)),
+            ...drawXYZ(dev,fullXYZ(z,0xff00ff00))],
+            probes:[{at:[32,32],expect:biased<.5?[0,255,0,255]:[0,0,0,255]}]});
+    }
+    for (const slope of [0,16]) for (const bias of [0,.05]) {
+        add("depth-bias",{name:`slope depth bias ${slope} constant ${bias}`,body:dev=>[
+            clearDepth(dev,.65),rs(dev,7,1),rs(dev,14,0),rs(dev,23,2),rs(dev,22,1),
+            rs(dev,175,f(slope)),rs(dev,195,f(bias)),
+            ...drawXYZ(dev,fullXYZ(0,0xff00ff00).map(v=>[v[0],v[1],v[0] < 0 ? .2 : .8,v[3]]))],
+            probes:[{at:[32,32],expect:slope ? [0,0,0,255] : [0,255,0,255]}]});
+    }
     add("viewport-range",{name:"explicit pixel depth overrides extended viewport depth",body:dev=>[
         clearDepth(dev,.125),rs(dev,7,1),rs(dev,23,2),rs(dev,22,1),
         wire("SetViewport",{device_handle:dev,x:0,y:0,width:64,height:64,min_z:2,max_z:3}),

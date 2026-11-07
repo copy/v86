@@ -2219,7 +2219,8 @@
             for (let target = 0; target < targetCount; ++target)
                 out.push("    @location(" + target + ") color" + target +
                     ": vec4<f32>,");
-            if (this.usesDepthOutput || viewportDepthRange)
+            const depthBias = this.options.depthBias;
+            if (this.usesDepthOutput || viewportDepthRange || depthBias)
                 out.push("    @builtin(frag_depth) depth: f32,");
             out.push("};");
             out.push("");
@@ -2256,9 +2257,11 @@
             if (this.options.fogBlend) out.push(this.options.fogBlend.replace(/\n$/, ""));
             if (this.usesDepthOutput)
                 out.push("    result.depth = o_depthv.x;");
-            else if (viewportDepthRange)
-                out.push("    result.depth = clamp(mix(f32(" + viewportDepthRange[0] + "), f32(" +
-                    viewportDepthRange[1] + "), stage_in.position.z), 0.0, 1.0);");
+            else if (viewportDepthRange || depthBias)
+                out.push("    result.depth = clamp(" + (viewportDepthRange
+                    ? "mix(f32(" + viewportDepthRange[0] + "), f32(" + viewportDepthRange[1] +
+                        "), stage_in.position.z)" : "stage_in.position.z") +
+                    (depthBias ? " + f32(" + depthBias + ")" : "") + ", 0.0, 1.0);");
             out.push("    return result;");
             out.push("}");
 

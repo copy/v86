@@ -4401,11 +4401,12 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const stride = stream0 ? stream0.stride : 0;
             const frequency = stream0 ? stream0.frequency : undefined;
             const alphaMode = pipelineState.alphaTest.enabled ? pipelineState.alphaTest.func : 0;
+            const depthBias = pipelineState.depthEnabled ? pipelineState.depthBiasValue : 0;
             const debug = this.debug, cached = state.lastProgram;
             if (cached && cached.serial === this.programSerial &&
                     cached.elements === elements && cached.stride === stride && cached.frequency === frequency &&
                     cached.pointExpansion === pointExpansion && cached.pointSprite === pointSprite &&
-                    cached.alphaMode === alphaMode && cached.shaderMode === debug.shaderMode &&
+                    cached.alphaMode === alphaMode && cached.depthBias === depthBias && cached.shaderMode === debug.shaderMode &&
                     cached.forceSolidAllDraws === debug.forceSolidAllDraws &&
                     cached.skipProgrammableDraws === debug.skipProgrammableDraws &&
                     cached.highlightMissingTexture === debug.highlightMissingTexture &&
@@ -4426,7 +4427,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 return delta ? [[name, delta]] : [];
             });
             state.lastProgram = {
-                serial: this.programSerial, elements, stride, frequency, alphaMode, pointExpansion, pointSprite, program,
+                serial: this.programSerial, elements, stride, frequency, alphaMode, depthBias, pointExpansion, pointSprite, program,
                 shaderMode: debug.shaderMode, forceSolidAllDraws: debug.forceSolidAllDraws,
                 skipProgrammableDraws: debug.skipProgrammableDraws,
                 highlightMissingTexture: debug.highlightMissingTexture,
@@ -4449,7 +4450,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const viewportDepthRange = !pretransformed &&
                 (state.viewport.minZ < 0 || state.viewport.maxZ > 1)
                 ? [state.viewport.minZ, state.viewport.maxZ] : null;
-            const viewportDepthKey = viewportDepthRange ? "_viewportDepth:" + viewportDepthRange.join(":") : "";
+            const depthBias = pipelineState.depthEnabled ? pipelineState.depthBiasValue : 0;
+            const viewportDepthKey = (viewportDepthRange ? "_viewportDepth:" + viewportDepthRange.join(":") : "") +
+                (depthBias ? "_bias:" + depthBias : "");
             const clipMask = (rs.get(D3DRS_CLIPPLANEENABLE) || 0) & 0x3f;
             if (clipMask) state.clipPlaneCapacity = 6;
             // POSITIONT has already completed vertex processing, including
@@ -4622,14 +4625,14 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         mirrorOnceKey += "_m" + sampler.index + ":" + axes;
                     }
                 }
-                const fogBlend = ffp.fogBlendSource({ fogMode, tableFog, screenDepthUnclipped }, "d9c", "result.color0");
-                const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") + (screenDepthUnclipped ? "u" : "") : "";
+                const fogBlend = ffp.fogBlendSource({ fogMode, tableFog, screenDepthUnclipped, screenPosition: pretransformed }, "d9c", "result.color0");
+                const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") + (screenDepthUnclipped ? "u" : pretransformed ? "s" : "") : "";
                 const pixelVariantKey = semanticKey + fogKey + alphaTestKey + clipKey + depthKey + viewportDepthKey +
                     lodBiasKey + mirrorOnceKey + legacySamplerKey + legacyProjectionKey + swizzleKey +
                     (flatShading ? "_flat" : "");
                 if (semanticLink || alphaTest.enabled || clipPlaneCount || depthSamplers.length
                         || lodBiasKey || mirrorOnceKey || legacySamplerKey || legacyProjectionKey || swizzleKey ||
-                        flatShading || fogBlend || viewportDepthRange) {
+                        flatShading || fogBlend || viewportDepthRange || depthBias) {
                     variant = psResource.variants.get(pixelVariantKey);
                     if (!variant) {
                         variant = shaderPipeline.specializeShader(psResource.translated, {
@@ -4642,7 +4645,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             samplerLodBiasUniform, samplerSwizzles,
                             samplerMirrorOnce,
                             legacySamplerTypes, legacyProjection,
-                            flatShading, fogBlend, semanticLink, viewportDepthRange,
+                            flatShading, fogBlend, semanticLink, viewportDepthRange, depthBias,
                         });
                         psResource.variants.set(pixelVariantKey, variant);
                         if (variant.ok) ++this.stats.shaderVariantsTranslated;
@@ -4731,7 +4734,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     stages: cascade.stages,
                     usesTextureFactor: cascade.usesTextureFactor,
                     lodBiasUniforms: cascade.stages.some(stage => stage.samplesTexture),
-                    fogMode, tableFog, screenDepthUnclipped, alphaTest: { enabled: alphaTest.enabled, func: alphaTest.func }, clipPlaneCount,
+                    fogMode, tableFog, screenDepthUnclipped, screenPosition: pretransformed, alphaTest: { enabled: alphaTest.enabled, func: alphaTest.func }, clipPlaneCount,
                     // D3D9 adds the specular colour after the cascade whenever
                     // D3DRS_SPECULARENABLE is set, whether it came from lighting
                     // or straight off the vertex.
@@ -4739,6 +4742,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     flatShading,
                 };
                 if (viewportDepthRange) pixelSignature.viewportDepthRange = viewportDepthRange;
+                if (depthBias) pixelSignature.depthBias = depthBias;
                 fragmentKey = ffp.signatureKey("pixel", pixelSignature, debugMode);
                 fragmentModule = this.fixedModuleFor(fragmentKey, "pixel", pixelSignature, debugMode);
             }

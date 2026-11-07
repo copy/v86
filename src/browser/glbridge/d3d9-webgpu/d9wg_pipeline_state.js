@@ -187,6 +187,7 @@
 
                 const sampleCount = (targets && targets.sampleCount) || 1;
                 return { depthEnabled, depthWrite, depthCompare, depthBias,
+                    depthBiasValue: Number.isFinite(rawDepthBias) ? rawDepthBias : 0,
                     depthBiasSlopeScale, blendEnabled, srcFactor, dstFactor,
                     blendOp, alphaSrcFactor, alphaDstFactor, alphaBlendOp,
                     blendConstant, cullMode, writeMask, alphaTest, hasDepth,
@@ -472,9 +473,10 @@
                             ? pipelineState.depthWrite : false,
                         depthCompare: pipelineState.depthEnabled
                             ? pipelineState.depthCompare : "always",
-                        // WebGPU allows no depth bias on point and line topologies
-                        // (deviation: D3D biases them too)
-                        depthBias: triangles ? pipelineState.depthBias : 0,
+                        // The constant bias is added to depth in the pixel shader
+                        // (every topology; hardware bias scales with the primitive's
+                        // depth exponent on some GPUs). Only the slope term stays here.
+                        depthBias: 0,
                         depthBiasSlopeScale: triangles ? pipelineState.depthBiasSlopeScale : 0,
                         stencilFront: pipelineState.stencilEnabled
                             ? pipelineState.stencilFront : {},

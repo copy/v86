@@ -346,8 +346,12 @@
                 : "clamp(stage_in.varying" + shaderPipeline.VARYING_FOG + ".x, 0.0, 1.0)";
             const distance = signature.tableFog && tableFactor
                 ? "    let fog_distance = select(1.0 / max(abs(stage_in.position.w), 1e-6), " +
+                    // Orthographic fog reads the vertex output Z (NVIDIA's reading of
+                    // Wine test_fog, which also accepts it); pre-transformed Z is already
+                    // the depth value.
                     (signature.screenDepthUnclipped ? "stage_in.varying" + shaderPipeline.VARYING_FOG +
-                        ".y * stage_in.position.w" : "stage_in.position.z") +
+                        ".y * stage_in.position.w" : signature.screenPosition ? "stage_in.position.z"
+                        : "stage_in.position.z / stage_in.position.w") +
                     ", " + uniforms + ".fog_params.w != 0.0);\n" : "";
             return distance + "    " + target + " = vec4<f32>(mix(" + uniforms + ".fog_color.rgb, " + target + ".rgb,\n" +
                 "        " + factor + "), " + target + ".a);\n";
@@ -451,7 +455,10 @@
             const lighting = signature.lighting;
             const blend = signature.vertexBlend;
             const hasNormal = signature.hasNormal || !!(blend && blend.tween && blend.hasNormal2);
-            const position = "in" + FF_LOCATION_POSITION;
+            // The fixed-function transform ignores a FLOAT4 position's W and uses 1.0
+            // (Wine test_ffp_w); only pre-transformed XYZRHW vertices carry a real W.
+            const position = signature.positionType === "screen" ? "in" + FF_LOCATION_POSITION
+                : "vec4<f32>(in" + FF_LOCATION_POSITION + ".xyz, 1.0)";
 
             const conversions = signature.inputConversions || {}, inputLines = [];
             const parameter = location => {
@@ -1265,11 +1272,13 @@ ${coordBody}${fogBody}${passthroughBody}${clipBody}${pointBody}${signature.scree
                     Math.floor(plane / 4) + "." + "xyzw"[plane & 3] +
                     " < 0.0) { discard; }\n";
 
-            const range = signature.viewportDepthRange;
-            const depthOutput = range ? "struct D9FixedPixelOutput { @location(0) color: vec4<f32>, @builtin(frag_depth) depth: f32, };" : "";
-            const returnType = range ? "D9FixedPixelOutput" : "@location(0) vec4<f32>";
-            const returnValue = range ? "D9FixedPixelOutput(result, clamp(mix(f32(" + range[0] +
-                "), f32(" + range[1] + "), stage_in.position.z), 0.0, 1.0))" : "result";
+            const range = signature.viewportDepthRange, depthBias = signature.depthBias;
+            const depthOutput = range || depthBias ? "struct D9FixedPixelOutput { @location(0) color: vec4<f32>, @builtin(frag_depth) depth: f32, };" : "";
+            const returnType = range || depthBias ? "D9FixedPixelOutput" : "@location(0) vec4<f32>";
+            const returnValue = range || depthBias ? "D9FixedPixelOutput(result, clamp(" + (range
+                ? "mix(f32(" + range[0] + "), f32(" + range[1] + "), stage_in.position.z)"
+                : "stage_in.position.z") + (depthBias ? " + f32(" + depthBias + ")" : "") +
+                ", 0.0, 1.0))" : "result";
             return `${layout.entries.length
                 ? uniformBlockStruct("D9FixedPixelUniforms", layout) +
                   "\n@group(0) @binding(1) var<uniform> uniforms: D9FixedPixelUniforms;"
