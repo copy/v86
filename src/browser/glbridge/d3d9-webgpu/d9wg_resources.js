@@ -674,6 +674,7 @@
                     ++this.stats.texturesRejected;
                     return;
                 }
+                const srgbFormat = srgbSiblingOf(gpuFormat);
                 const textureDescriptor = {
                     label: "D3D9 volume texture",
                     size: { width, height, depthOrArrayLayers: depth },
@@ -682,6 +683,7 @@
                     mipLevelCount: levelCount,
                     usage: TEXTURE_USAGE_COPY_DST | TEXTURE_USAGE_COPY_SRC |
                         TEXTURE_USAGE_TEXTURE_BINDING,
+                    ...(srgbFormat ? { viewFormats: [srgbFormat] } : {}),
                 };
                 const gpuTexture = this.createTextureOrNull(textureDescriptor,
                     format);
@@ -691,7 +693,7 @@
                 this.resources.set(handle, {
                     kind: RESOURCE_TEXTURE_VOLUME, textureType: "3d",
                     deviceHandle: view.getUint32(offset + D9WG.F.CreateTextureVolume.device_handle, true),
-                    gpuTexture, gpuFormat, format, usage,
+                    gpuTexture, gpuFormat, srgbFormat, format, usage,
                     width, height, depth,
                     gpuBytesPerTexel: gpuBytesPerTexel(format),
                     textureDescriptor, levelCount,
@@ -1130,7 +1132,8 @@
                 if (!texture.srgbView) {
                     texture.srgbView = texture.gpuTexture.createView({
                         format: texture.srgbFormat,
-                        dimension: texture.textureType === "cube" ? "cube" : "2d",
+                        dimension: texture.textureType === "cube" ? "cube"
+                            : texture.textureType === "3d" ? "3d" : "2d",
                     });
                     ++this.stats.srgbViewsCreated;
                 }
@@ -1143,17 +1146,19 @@
             // dimension but is threaded through the same cache because it plays
             // the same role: the stand-in a depth slot reads when nothing usable
             // is bound.
-            fallbackViewFor(dimension, unfilterable) {
+            // `black` selects the opaque black (0, 0, 0, 1) D3D9 returns for a
+            // translated shader's unbound sampler.
+            fallbackViewFor(dimension, unfilterable, black = false) {
                 if (dimension === "depth") return this.fallbackDepthView();
-                if ((dimension === "2d" || !dimension) && !unfilterable)
+                if (!black && (dimension === "2d" || !dimension) && !unfilterable)
                     return this.fallbackView;
                 if (!this.fallbackViews) this.fallbackViews = new Map();
-                const key = (dimension || "2d") + (unfilterable ? "|f32" : "|u8");
+                const key = (dimension || "2d") + (unfilterable ? "|f32" : "|u8") + (black ? "|black" : "");
                 let view = this.fallbackViews.get(key);
                 if (view) return view;
                 const layers = dimension === "cube" ? 6 : 1;
                 const texture = this.device.createTexture({
-                    label: "D3D9 fallback white " + key,
+                    label: "D3D9 fallback " + (black ? "black " : "white ") + key,
                     size: { width: 1, height: 1, depthOrArrayLayers: layers },
                     format: unfilterable ? "rgba32float" : "rgba8unorm",
                     dimension: dimension === "3d" ? "3d" : "2d",
@@ -1163,8 +1168,8 @@
                     this.device.queue.writeTexture(
                         { texture, origin: { x: 0, y: 0, z: layer } },
                         unfilterable
-                            ? new Float32Array([1, 1, 1, 1])
-                            : new Uint8Array([255, 255, 255, 255]),
+                            ? new Float32Array(black ? [0, 0, 0, 1] : [1, 1, 1, 1])
+                            : new Uint8Array(black ? [0, 0, 0, 255] : [255, 255, 255, 255]),
                         { bytesPerRow: unfilterable ? 16 : 4, rowsPerImage: 1 },
                         { width: 1, height: 1, depthOrArrayLayers: 1 });
                 }

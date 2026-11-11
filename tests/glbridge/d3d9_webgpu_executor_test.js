@@ -1215,16 +1215,19 @@ await test("SM1 sampler variants follow cube/2D/volume bindings without poisonin
     }
     const shader = executor.resources.get(psHandle);
     assert.equal(shader.translated.reflection.samplers[0].type, "2d");
-    // SM2 really does declare 2D; the same binding is still invalid for it.
     for (const variant of executor.resources.get(psHandle).variants.values())
         assert.strictEqual(variant.program, preparedPixel, "draw variant did not reuse its prepared body");
+    // SM2 declares 2D but the cube binding stays in place: the draw runs and samples the bound texture.
     const explicit = shaderCreatePayload(0x40000200, PS_BYTECODE);
     await executor.submit(buildBatch([
         command(OP.CREATE_PIXEL_SHADER, explicit.payload, explicit.blob, explicit.blobOffsetField),
         command(OP.SET_PIXEL_SHADER, encodePayload("SetShader", { device_handle: DEVICE, shader_handle: 0x40000200 })),
         command(OP.DRAW_PRIMITIVE, drawPrimitivePayload(4, 0, 1)),
     ]));
-    assert.equal(executor.stats.droppedDraws, 1);
+    assert.equal(executor.stats.droppedDraws, 0);
+    const explicitGroup = find("setBindGroup").filter(call =>
+        call[2].entries.some(entry => entry.binding === 3)).pop()[2];
+    assert.equal(explicitGroup.layout.descriptor.entries.find(entry => entry.binding === 2).texture.viewDimension, "cube");
 });
 
 await test("all-draw solid probe overrides programmable shading and rejecting state",
@@ -2417,6 +2420,45 @@ await test("a zero D3DSAMP_MIPMAPLODBIAS uses the same uniform sampling path",
     const entry = find("createBindGroup").pop()[1].entries.find(item => item.binding === 1);
     const block = constantBlock(find, entry.resource.buffer);
     assert.equal(new Float32Array(block.buffer, block.byteOffset + entry.resource.offset, 4)[0], 0);
+});
+
+await test("D3DSAMP_MIPMAPLODBIAS 'GET4' gathers single-channel 2D textures and leaves other formats alone", async () => {
+    const D3DSAMP_MIPMAPLODBIAS = 8, GET4 = 0x34544547, GET1 = 0x31544547;
+    const elements = [
+        element(0, 0, DECLTYPE.FLOAT3, DECLUSAGE.POSITION),
+        element(0, 12, DECLTYPE.FLOAT2, DECLUSAGE.TEXCOORD),
+    ];
+    const draw = (bias) => [
+        command(OP.SET_SAMPLER_STATE, encodePayload("SetSamplerState", { device_handle: DEVICE, sampler: 0, state: D3DSAMP_MIPMAPLODBIAS, value: bias })),
+        command(OP.DRAW_PRIMITIVE, drawPrimitivePayload(4, 0, 1)),
+    ];
+    const wgslFor = async (format, biases) => {
+        const { executor, find } = makeExecutor();
+        await executor.submit(buildBatch([
+            command(OP.CREATE_DEVICE, createDevicePayload(640, 480)),
+            command(OP.CREATE_BUFFER, createBufferPayload(0x201, 1, 96)),
+            command(OP.CREATE_TEXTURE_2D, encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0x401, width: 8, height: 8, level_count: 1, format, usage: 0, pool: 1, multisample_type: 0, multisample_quality: 0 })),
+            command(OP.SET_FVF, fvfPayload(0x102, elements)),
+            command(OP.SET_STREAM_SOURCE, setStreamSourcePayload(0, 0x201, 20)),
+            command(OP.SET_TEXTURE, encodePayload("SetTexture", { device_handle: DEVICE, stage: 0, texture_handle: 0x401, reserved: 0 })),
+            ...biases.flatMap(draw),
+            command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 640, height: 480 })),
+        ], { present: true }));
+        await executor.idle();
+        assert.equal(executor.stats.droppedDraws, 0);
+        return find("createShaderModule").map(call => call[1].code).filter(code => code.includes("d9_tex0"));
+    };
+    for (const [format, channel] of [[50, 0], [28, 3], [81, 0], [111, 0], [114, 0]]) {
+        const [gather] = await wgslFor(format, [GET4]);
+        assert.match(gather, new RegExp("textureGather\\(" + channel + ", d9_tex0, d9_smp0, .*textureDimensions\\(d9_tex0\\)\\)\\)\\)\\.zxyw"), "format " + format);
+        assert.ok(!/textureSample/.test(gather), "format " + format + " must not also sample");
+        for (const bias of [GET1, 0]) assert.ok(!(await wgslFor(format, [bias]))[0].includes("textureGather"), "bias " + bias + " samples normally");
+    }
+    // Multi-channel formats ignore the state, and switching it re-selects the shader between draws.
+    assert.ok(!(await wgslFor(21, [GET4]))[0].includes("textureGather"));
+    const switching = await wgslFor(50, [GET4, GET1, GET4]);
+    assert.equal(switching.filter(code => code.includes("textureGather")).length, 1);
+    assert.equal(switching.filter(code => !code.includes("textureGather")).length, 1);
 });
 
 await test("a second draw with the same sampler state reuses the cached sampler", async () => {
@@ -5153,6 +5195,40 @@ await test("FOURCC depth textures read the stored value, not a comparison",
         call[1].code.includes("texture_depth_2d") &&
         !call[1].code.includes("sampler_comparison")),
         "the stage must be a depth fetch, not a shadow-map comparison");
+});
+
+await test("a compare-mode depth texture on a fixed-function stage is a hardware shadow map", async () => {
+    const D3DFMT_D24X8 = 77, D3DUSAGE_DEPTHSTENCIL = 2;
+    const run = async format => {
+        const { executor, find } = makeExecutor();
+        await executor.submit(buildBatch([
+            command(OP.CREATE_DEVICE, createDevicePayload(640, 480)),
+            command(OP.CREATE_BUFFER, createBufferPayload(0x201, 1, 96)),
+            command(OP.CREATE_TEXTURE_2D,
+                encodePayload("CreateTexture2D", { device_handle: DEVICE, resource_handle: 0xB11, width: 256, height: 256, level_count: 1, format, usage: D3DUSAGE_DEPTHSTENCIL, pool: 0, multisample_type: 0, multisample_quality: 0 })),
+            command(OP.SET_FVF, fvfPayload(0x102, [element(0, 0, DECLTYPE.FLOAT3, DECLUSAGE.POSITION), element(0, 12, DECLTYPE.FLOAT2, DECLUSAGE.TEXCOORD)])),
+            command(OP.SET_STREAM_SOURCE, setStreamSourcePayload(0, 0x201, 20)),
+            command(OP.SET_TEXTURE, encodePayload("SetTexture", { device_handle: DEVICE, stage: 0, texture_handle: 0xB11, reserved: 0 })),
+            command(OP.DRAW_PRIMITIVE, drawPrimitivePayload(4, 0, 1)),
+            command(OP.PRESENT, encodePayload("Present", { device_handle: DEVICE, hwnd: 0x1234, x: 0, y: 0, width: 640, height: 480 })),
+        ], { present: true }));
+        await executor.idle();
+        assert.equal(executor.stats.droppedDraws, 0);
+        return { executor, find };
+    };
+    const { executor, find } = await run(D3DFMT_D24X8);
+    const layout = find("createBindGroupLayout").pop()[1];
+    assert.equal(layout.entries.find(e => e.binding === 2).texture.sampleType, "depth");
+    assert.equal(layout.entries.find(e => e.binding === 3).sampler.type, "comparison");
+    const code = find("createShaderModule").map(call => call[1].code).find(text => text.includes("d9_tex0"));
+    assert.match(code, /var d9_tex0: texture_depth_2d;/);
+    assert.match(code, /var d9_smp0: sampler_comparison;/);
+    assert.match(code, /vec4<f32>\(textureSampleCompare\(d9_tex0, d9_smp0, stage_in\.varying2\.xy, stage_in\.varying2\.z\)\)/);
+    assert.equal(executor.stats.drawsWithTexture, 1, "the shadow map counts as a bound texture");
+    assert.equal(executor.stats.depthTextureOnNonDepthStage || 0, 0);
+    // A raw-depth (INTZ) texture keeps the neutral fallback on the fixed-function path.
+    const raw = await run(0x5A544E49);
+    assert.ok(!raw.find("createShaderModule").some(call => call[1].code.includes("sampler_comparison")));
 });
 
 await test("a cube render target attaches one face per pass", async () => {

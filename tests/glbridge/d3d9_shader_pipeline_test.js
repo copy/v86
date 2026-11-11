@@ -280,12 +280,18 @@ test("ps_1_x tex/texld take sampler dimensions from the bound texture", () => {
             if (type !== "2d") assert.match(result.wgsl, /textureSample\(d9_tex0, d9_smp0, [^\n]*\.xyz\)/);
         }
     }
+    // A mismatched SM2+ declaration still samples the bound texture instead of dropping the draw.
     const sm2 = pipeline.compileShader(tokens(PS_2_0_TEXTURED), {
         legacySamplerTypes: { 0: "cube" },
     });
     assert.ok(sm2.ok, sm2.error);
-    assert.equal(sm2.reflection.samplers[0].type, "2d",
-        "SM2 explicit declarations must not be overridden by bindings");
+    assert.equal(sm2.reflection.samplers[0].type, "cube");
+    assert.ok(sm2.wgsl.includes("var d9_tex0: texture_cube<f32>"));
+    const declared = pipeline.compileShader(tokens(PS_2_0_TEXTURED), {});
+    assert.equal(declared.reflection.samplers[0].type, "2d", "the base declaration stays 2D");
+    const base = pipeline.specializeShader(declared, { legacySamplerTypes: { 0: "3d", 5: "cube" } });
+    assert.equal(base.reflection.samplers[0].type, "3d");
+    assert.equal(declared.reflection.samplers[0].type, "2d", "specialization does not poison the base shader");
 });
 
 test("a vs_1_1 with no dcl gets the API's fixed v# semantics", () => {
@@ -999,13 +1005,20 @@ test("SM3 semantic linking rejects incompatible declarations before GPU pipeline
     const vertex = outputDeclarations => ({version: {major: 3}, outputDeclarations});
     const pixel = inputDeclarations => ({version: {major: 3}, inputDeclarations});
     for (const [outputs, inputs] of [
-        [[item], [{...item, usageIndex: 1}]], [[item], [{...item, mask: 15}]],
         [[item, {...item, register: 1}], [item]], [[item], [item, {...item, register: 1}]],
         [[item, {...item, usageIndex: 1}], [item]],
         [[item, {...item, usageIndex: 1, register: 1}], [item, {...item, usageIndex: 1}]],
         [[{...item, register: 12}], [item]], [[item], [{...item, register: 10}]],
     ]) assert.strictEqual(pipeline.linkShaderSemantics(vertex(outputs), pixel(inputs)).ok, false);
     assert.strictEqual(pipeline.linkShaderSemantics(null, pixel([item])).ok, false);
+    // An SM3 pixel input the vertex shader never writes (or writes only in part) is legal: it
+    // keeps a varying slot but has no vertex-side writer, so it reads zero.
+    for (const [outputs, inputs, writers, readers] of [[[item], [{...item, usageIndex: 1}], 0, 3], [[item], [{...item, mask: 15}], 3, 4], [[], [item], 0, 3]]) {
+        const pair = pipeline.linkShaderSemantics(vertex(outputs), pixel(inputs));
+        assert.ok(pair.ok, pair.error);
+        assert.strictEqual(pair.link.vertex.length, writers);
+        assert.strictEqual(pair.link.pixel.length, readers);
+    }
     const legacy = pipeline.linkShaderSemantics(null, pixel([{...item, usage: 10, mask: 15}]));
     assert.ok(legacy.ok);
     assert.strictEqual(legacy.link.vertex, null);
@@ -1147,6 +1160,51 @@ test("prepared relative constant bodies specialize across hardware and software 
         assert.ok(variant.wgsl.includes(capacity === 8192 ? "var<storage, read> d9c" : "var<uniform> d9c"));
         assert.equal(JSON.stringify(base), serialized);
     }
+});
+
+const fetch4Shader = (opcode, options = {}) => compileOk([PS(3, 0),
+    instruction(OP.DCL, {length: 2}), dclToken(USAGE.TEXCOORD, 0), dst(REG.INPUT, 0),
+    instruction(OP.DCL, {length: 2}), dclToken(0, 0, 2), dst(REG.SAMPLER, 0),
+    instruction(opcode, {length: 3, control: options.control || 0}), dst(REG.TEMP, 0), src(REG.INPUT, 0),
+        src(REG.SAMPLER, 0, {swizzle: options.swizzle === undefined ? NOSWIZZLE : options.swizzle}),
+    instruction(OP.MOV, {length: 2}), dst(REG.COLOROUT, 0), src(REG.TEMP, 0), END]);
+
+test("Fetch4 replaces every ps_3_0 sampling form with a half-texel shifted level-0 gather", () => {
+    for (const [name, opcode, control] of [["texld", OP.TEX, 0], ["texldp", OP.TEX, 1], ["texldb", OP.TEX, 2], ["texldl", OP.TEXLDL, 0]]) {
+        const base = fetch4Shader(opcode, {control});
+        const variant = pipeline.specializeShader(base, {fetch4Samplers: {0: 0}});
+        assert.ok(variant.ok, variant.error);
+        assert.match(variant.wgsl, /textureGather\(0, d9_tex0, d9_smp0, \(\(.*_uv\d+\.xy.*\) \+ vec2<f32>\(0\.5\) \/ vec2<f32>\(textureDimensions\(d9_tex0\)\)\)\)\.zxyw/, name);
+        assert.ok(!/textureSample/.test(variant.wgsl), name + " must not also sample");
+        assert.ok(/textureSample/.test(pipeline.specializeShader(base, {}).wgsl), name + " samples normally without Fetch4");
+    }
+});
+
+test("Fetch4 selects the alpha component for A8 and the plain depth gather for raw depth textures", () => {
+    const base = fetch4Shader(OP.TEX);
+    assert.match(pipeline.specializeShader(base, {fetch4Samplers: {0: 3}}).wgsl, /textureGather\(3, d9_tex0, d9_smp0/);
+    const depth = pipeline.specializeShader(base, {depthSamplers: [0], depthFetchSamplers: [0], fetch4Samplers: {0: "depth"}});
+    assert.ok(depth.ok, depth.error);
+    assert.match(depth.wgsl, /textureGather\(d9_tex0, d9_smp0, \(\(_uv\d+\.xy[^\n]*\) \+ vec2<f32>\(0\.5\)/);
+    // A depth-compare sampler is not a Fetch4 target, nor is a colour gather on a depth-fetch slot.
+    const mismatched = pipeline.specializeShader(base, {depthSamplers: [0], depthFetchSamplers: [0], fetch4Samplers: {0: 0}});
+    assert.ok(!/textureGather/.test(mismatched.wgsl));
+});
+
+test("Fetch4 does not apply to vertex texture fetch", () => {
+    const vertex = compileOk([VS(3, 0), instruction(OP.DCL, {length: 2}), dclToken(0, 0, 2), dst(REG.SAMPLER, 0),
+        instruction(OP.DCL, {length: 2}), dclToken(USAGE.POSITION), dst(REG.OUTPUT, 0),
+        instruction(OP.TEXLDL, {length: 3}), dst(REG.TEMP, 0), src(REG.CONST, 0), src(REG.SAMPLER, 0),
+        instruction(OP.MOV, {length: 2}), dst(REG.OUTPUT, 0), src(REG.TEMP, 0), END]);
+    assert.ok(!/textureGather/.test(pipeline.specializeShader(vertex, {fetch4Samplers: {0: 0}}).wgsl));
+});
+
+test("a texld sampler-register swizzle selects components of the fetched texel", () => {
+    const plain = fetch4Shader(OP.TEX), swizzled = fetch4Shader(OP.TEX, {swizzle: swizzle("yzwx")});
+    assert.ok(!/\)\.yzwx;/.test(pipeline.specializeShader(plain, {}).wgsl));
+    assert.match(pipeline.specializeShader(swizzled, {}).wgsl, /r0 = \(d9_sample\d+\(v0\)\)\.yzwx;|= \(d9_sample\d+\([^\n]*\)\)\.yzwx;/);
+    // The swizzle follows the Fetch4 gather, matching the order a driver applies it.
+    assert.match(pipeline.specializeShader(swizzled, {fetch4Samplers: {0: 0}}).wgsl, /\.zxyw;?/);
 });
 
 // ---- report ----

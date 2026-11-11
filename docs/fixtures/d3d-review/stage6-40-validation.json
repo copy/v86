@@ -1,0 +1,66 @@
+{
+  "batch": "stage6-40",
+  "date": "2026-11-07",
+  "status": "Functional batch verified; complete Wine acceptance remains FAIL",
+  "changes": [
+    "Use W=1 for fixed-function non-pretransformed position inputs.",
+    "Use clip-space Z for orthographic table fog and retain screen-space handling for pretransformed vertices.",
+    "Apply constant depth bias in fragment depth across supported topologies while retaining hardware slope-scale bias."
+  ],
+  "checks": {
+    "executor": {
+      "file": "build/d3d-review/stage6-wine9-fog-bias/executor.log",
+      "sha256": "d3874efb2829ec58ee9b6ccc6865be38cff92cb32a9d31d65cb70fc4c6cfe0f9",
+      "output": "184 executor tests passed"
+    },
+    "shader": {
+      "file": "build/d3d-review/stage6-wine9-fog-bias/shader.log",
+      "sha256": "8c51a18af76ed07310ddb62bf82f060da0e76a796dde21f8ed5d539712ebe7bb",
+      "output": "53 shader pipeline tests passed"
+    },
+    "gpu": {
+      "file": "build/d3d-review/stage6-wine9-fog-bias/conformance-gpu.json",
+      "sha256": "1723dbc4e96d63b07e6150bebfefb8f2ea504f327a2136aaa2728af43e22e4ab",
+      "output": "PASS 2501 cases"
+    },
+    "depthBiasGpu": {
+      "file": "build/d3d-review/stage6-wine9-fog-bias/depth-bias-gpu.json",
+      "sha256": "54b1062017c46bf383aeb476ca5e62279f561c5b1b55ef21021b50c8a2563e1b",
+      "output": "PASS 22 cases, including four constant and slope-scale combinations"
+    }
+  },
+  "d3d9VisualAudit": {
+    "directory": "build/d3d-review/stage6-wine9-fog-bias",
+    "summary": "203885 tests executed, 227 failures, 29 skipped",
+    "exit": 227,
+    "runnerExit": 1,
+    "wineLogSha256": "9386e37a960e001f103b6046db38cb65ff2776ce66537c93c14a3cee371932cc",
+    "liveGpuSha256": "a39e90b90081c6b74dcbac2b3c2138d5a0a9cdaa31ec7e0f9aa85ce4f883d17a",
+    "sourceSha256": "8e248177b13f2abd8fe78fec323c72d691b09b2d2e38512ea9969396658df37d",
+    "dllSha256": "db124d83021b8146ae95f5c2484a8b57ec152c8105ab656d394743c28378b807",
+    "changesFromPrevious": "224 fewer failures: fog 200, depth bias 20, fixed-function position W 4; all three groups report zero failures",
+    "gpuErrors": 0,
+    "hostErrors": 0,
+    "ownerReleasedCleanup": {"devices": 2, "resources": 7}
+  },
+  "d3d8Audit": {
+    "directory": "build/d3d-review/stage6-wine8-fog-bias",
+    "summary": "143726 tests executed, 2 failures, 14 skipped",
+    "exit": 2,
+    "runnerExit": 1,
+    "wineLogSha256": "1be04c8c0f670d3e4024c4924e1a2c5a33fe870db9bac07b95c69e70ec14a3f6",
+    "liveGpuSha256": "01d17863f2c338b54aadecbbcbd04e2d034ab190aea784c30554ad6f8c908e14",
+    "sourceSha256": "95bb7272665f8fd3d9487913bd857735a938d0acfaef59281c4cd34311b68c70",
+    "dllSha256": "5acaa6f9375690f441b177ea66c1c6b5d5a9f1143778744b0b8cfaf87db5f05a",
+    "failureGroups": ["Two pre-existing NOOVERWRITE synchronisation failures"],
+    "gpuErrors": 0,
+    "hostErrors": 0,
+    "ownerReleasedCleanup": {"devices": 0, "resources": 0}
+  },
+  "remaining": [
+    "D3D9 visual has 227 failures and 29 unreviewed skips; D3D8 visual has 2 failures and 14 unreviewed skips.",
+    "D3D9 owner release retains 2 devices and 7 resources.",
+    "Complete all applicable Wine suites and review skips; do not treat failed tests as passes.",
+    "3DMark performance comparison remains deferred."
+  ]
+}

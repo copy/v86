@@ -63,10 +63,10 @@
         (typeof require === "function" ? require("./d9wg_formats.js") : null);
     if (!formats) throw new Error("d3d9_executor.js requires d9wg_formats.js to be loaded first");
     const {
-        D3DFMT_A8R8G8B8, D3DFMT_INDEX32, srgbSiblingOf, isCompressedFormat, compressedBlockBytes,
+        D3DFMT_A8R8G8B8, D3DFMT_INDEX32, D3DFMT_NULL, srgbSiblingOf, isCompressedFormat, compressedBlockBytes,
         blockAlignedCopyExtent, bcNeedsExpansion, expandBCBlocks, isFourCCDepthFormat, isPalettizedFormat, gpuBytesPerTexel, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
         isRenderableGPUFormat, isFloat32GPUFormat, isBlendableGPUFormat, formatToGPU, d3dBytesPerTexel,
-        packGPUReadbackRow, expandRowToGPU, samplingSwizzle
+        packGPUReadbackRow, expandRowToGPU, samplingSwizzle, fetch4Channel
     } = formats;
     const Uploads = global.D9WGUploads ||
         (typeof require === "function" ? require("./d9wg_uploads.js") : null);
@@ -622,6 +622,9 @@
     // Float bits in a DWORD. WebGPU samplers carry no LOD bias, so this one is
     // applied at the sample call instead -- see lodBiasFor().
     const D3DSAMP_MIPMAPLODBIAS = 8;
+    // MAKEFOURCC('G','E','T','4'): written to D3DSAMP_MIPMAPLODBIAS to enable
+    // AMD's Fetch4 on that sampler.
+    const D3DFETCH4_ENABLE = 0x34544547;
     // The floor on which mip level may be sampled, as a level index. WebGPU
     // spells the same restriction as a LOD clamp, so both this and the
     // per-texture SetLOD become lodMinClamp -- see samplerFor().
@@ -2944,6 +2947,17 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return resource.depthReadsRaw ? "depth-fetch" : "depth-compare";
         }
 
+        // Fetch4 channel for one sampler: the component to gather, "depth" for a
+        // raw-depth texture, or undefined when the sampler samples normally
+        // (3D/cube textures, multi-channel formats and compare-mode depth ignore it).
+        fetch4ChannelFor(state, index, texture) {
+            if (!texture || (state.samplerStates.get(index * 64 + D3DSAMP_MIPMAPLODBIAS) >>> 0) !== D3DFETCH4_ENABLE ||
+                    (texture.textureType || "2d") !== "2d") return undefined;
+            if (texture.isDepth) return texture.depthReadsRaw ? "depth" : undefined;
+            const channel = fetch4Channel(texture.format);
+            return channel < 0 ? undefined : channel;
+        }
+
         onSetScissorRect(bytes, view, offset) {
             const state = this.deviceState(view.getUint32(offset + D9WG.F.SetScissorRect.device_handle, true));
             const left = view.getInt32(offset + D9WG.F.SetScissorRect.left, true);
@@ -3128,6 +3142,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 key += "dauto";
             } else {
                 key += "dnone";
+            }
+            // A NULL-format target has no storage of its own: its draws extend over
+            // the viewport and are bounded only by the depth surface, whatever size
+            // either one is.
+            if (depthView && colors[0] && colors[0].resource && colors[0].resource.format === D3DFMT_NULL) {
+                width = depthWidth;
+                height = depthHeight;
             }
             if (forClear) {
                 const sampleCount = colors[0].sampleCount || 1;
@@ -3749,7 +3770,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // stage never touches -- and, worse, would leave the app's stale
                 // arg0 deciding what gets bound.
                 const texture = this.resources.get(state.textures.get(index));
-                const usable = texture && !texture.isDepth;
+                // A compare-mode depth texture is a hardware shadow map, which the
+                // cascade samples as a comparison against the third coordinate.
+                const shadowMap = this.depthSampleModeFor(state.textures.get(index)) === "depth-compare";
+                const usable = texture && (!texture.isDepth || shadowMap);
                 for (const channel of ["color", "alpha"]) {
                     const normalized = ffp.normalizeTextureOperation(stage[channel + "Op"],
                         [0, 1, 2].map(argument => stage[channel + "Arg" + argument]), !!usable);
@@ -3805,6 +3829,12 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     stage.textureType = usable ? (texture.textureType || "2d") : "2d";
                     stage.hasTextureBound = !!usable;
                     stage.sampleSwizzle = usable ? samplingSwizzle(texture.format) : "";
+                    if (shadowMap) stage.depthCompare = true;
+                    const fetch4 = usable ? this.fetch4ChannelFor(state, index, texture) : undefined;
+                    if (fetch4 !== undefined) {
+                        stage.fetch4 = fetch4;
+                        stage.sampleSwizzle = "";
+                    }
                     // DirectDraw stores four independent key kinds. Texture
                     // rendering uses SRCBLT (kind 0), the same source-domain
                     // key used by a keyed blit.  Keep the widened integer
@@ -4556,11 +4586,23 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // SM1 tex/texld have implicit sampler types. A shader can be
                 // used with 2D, cube or volume textures on different draws, so
                 // specialize its WGSL and cache key from the current bindings.
-                // SM2+ dcl_* types remain authoritative and are checked below.
+                // An SM2+ dcl_* type that disagrees with the bound texture is
+                // also followed by the texture (drivers sample it rather than
+                // fail), so a mismatched draw still runs.
                 const legacySamplerTypes = {};
                 let legacySamplerKey = "";
                 const legacyProjection = {};
                 let legacyProjectionKey = "";
+                if (variant.reflection.version.major >= 2) {
+                    for (const sampler of variant.reflection.samplers) {
+                        const texture = this.resources.get(state.textures.get(sampler.index));
+                        const type = texture && (texture.textureType || "2d");
+                        if (type && type !== sampler.type) {
+                            legacySamplerTypes[sampler.index] = type;
+                            legacySamplerKey += "_t" + sampler.index + ":" + type;
+                        }
+                    }
+                }
                 if (variant.reflection.version.major === 1) {
                     for (const sampler of variant.reflection.samplers) {
                         const flags = state.textureStageStates.get(sampler.index * 64 + D3DTSS_TEXTURETRANSFORMFLAGS) || 0;
@@ -4610,9 +4652,16 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 // mirror. Address modes remain part of the variant key.
                 const samplerMirrorOnce = {};
                 let mirrorOnceKey = "";
+                const fetch4Samplers = {};
+                let fetch4Key = "";
                 for (const sampler of psResource.translated.reflection.samplers) {
                     const texture = this.resources.get(state.textures.get(sampler.index));
-                    const swizzle = texture && samplingSwizzle(texture.format);
+                    const fetch4 = this.fetch4ChannelFor(state, sampler.index, texture);
+                    if (fetch4 !== undefined) {
+                        fetch4Samplers[sampler.index] = fetch4;
+                        fetch4Key += "_f" + sampler.index + ":" + fetch4;
+                    }
+                    const swizzle = fetch4 === undefined && texture && samplingSwizzle(texture.format);
                     if (swizzle) { samplerSwizzles[sampler.index] = swizzle;swizzleKey += "_w" + sampler.index + ":" + swizzle; }
                     const axes = [
                         [D3DSAMP_ADDRESSU, "x"], [D3DSAMP_ADDRESSV, "y"],
@@ -4628,10 +4677,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const fogBlend = ffp.fogBlendSource({ fogMode, tableFog, screenDepthUnclipped, screenPosition: pretransformed }, "d9c", "result.color0");
                 const fogKey = fogBlend ? "_fog" + fogMode + (tableFog ? "t" : "v") + (screenDepthUnclipped ? "u" : pretransformed ? "s" : "") : "";
                 const pixelVariantKey = semanticKey + fogKey + alphaTestKey + clipKey + depthKey + viewportDepthKey +
-                    lodBiasKey + mirrorOnceKey + legacySamplerKey + legacyProjectionKey + swizzleKey +
+                    lodBiasKey + mirrorOnceKey + fetch4Key + legacySamplerKey + legacyProjectionKey + swizzleKey +
                     (flatShading ? "_flat" : "");
                 if (semanticLink || alphaTest.enabled || clipPlaneCount || depthSamplers.length
-                        || lodBiasKey || mirrorOnceKey || legacySamplerKey || legacyProjectionKey || swizzleKey ||
+                        || lodBiasKey || mirrorOnceKey || fetch4Key || legacySamplerKey || legacyProjectionKey || swizzleKey ||
                         flatShading || fogBlend || viewportDepthRange || depthBias) {
                     variant = psResource.variants.get(pixelVariantKey);
                     if (!variant) {
@@ -4643,7 +4692,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                             depthSamplers,
                             depthFetchSamplers,
                             samplerLodBiasUniform, samplerSwizzles,
-                            samplerMirrorOnce,
+                            samplerMirrorOnce, fetch4Samplers,
                             legacySamplerTypes, legacyProjection,
                             flatShading, fogBlend, semanticLink, viewportDepthRange, depthBias,
                         });
@@ -5146,6 +5195,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 .map(sampler => [sampler.index,
                     sampler.depth === "fetch" ? "depth-fetch"
                         : "depth-compare"]));
+            if (pixelSignature)
+                for (const stage of pixelSignature.stages)
+                    if (stage.samplesTexture && stage.depthCompare) declaredDepth.set(stage.index, "depth-compare");
             const samplerBindingTypes = {};
             for (const index of samplerIndices) {
                 if (declaredDepth.has(index)) {
@@ -5796,10 +5848,12 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // command queued behind it along with it. A visibly wrong stage is a
         // far smaller fault than a silently truncated command stream.
         viewForStage(texture, stage, depth, dimension, unfilterable, wantsSRGB,
-                isCurrentDepthAttachment) {
+                isCurrentDepthAttachment, programmable) {
+            // A translated shader samples an unbound stage as opaque black; the
+            // fixed-function cascade keeps its neutral white stand-in.
             if (!texture)
                 return this.fallbackViewFor(depth ? "depth" : dimension,
-                    unfilterable);
+                    unfilterable, !!programmable && !depth);
             // WebGPU forbids a texture being an attachment and a sampled
             // resource in the same pass, and enforces it by failing the submit
             // rather than the draw. The normal shadow-map sequence unbinds the
@@ -5967,7 +6021,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     : null;
                 const view = indexedView || this.viewForStage(texture, index,
                     depth, dimension, unfilterable, wantsSRGB,
-                    !!handle && handle === state.depthTargetHandle);
+                    !!handle && handle === state.depthTargetHandle, !program.pixelSignature);
                 const sampler = compare
                     ? this.comparisonSamplerFor(state, index)
                     : this.samplerFor(state, index, depth || unfilterable,
@@ -5990,7 +6044,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     (state.samplerStates.get(binding.stage * 64 +
                         D3DSAMP_SRGBTEXTURE) || 0) !== 0;
                 const view = this.viewForStage(texture, binding.stage, false,
-                    binding.type, unfilterable, wantsSRGB);
+                    binding.type, unfilterable, wantsSRGB, false, true);
                 const sampler = this.samplerFor(state, binding.stage,
                     unfilterable, texture);
                 entries.push(

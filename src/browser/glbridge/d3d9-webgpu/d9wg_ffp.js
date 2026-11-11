@@ -823,14 +823,10 @@
                         "normalize(normal_view)), 1.0)";
                     break;
                 case D3DTSS_TCI_SPHEREMAP:
-                    // The classic sphere-map projection of the eye-space
-                    // reflection vector: the same formula OpenGL's GL_SPHERE_MAP
-                    // and wined3d use, which is what titles authored their
-                    // sphere-map art against. m is twice the length of
-                    // (R.x, R.y, R.z + 1), and the +0.5 recentres the result into
-                    // the [0,1] texture domain.
-                    raw = "(func_sphere_map(reflect(normalize(position_view.xyz), " +
-                        "normalize(normal_view))))";
+                    // Direct3D reflects the eye-to-vertex vector around the
+                    // camera-space normal. NORMALIZENORMALS was applied above;
+                    // preserve the original length when it is disabled.
+                    raw = "(func_sphere_map(reflect(normalize(position_view.xyz), normal_view)))";
                     break;
                 default:
                     raw = signature.texCoordSets.includes(stage.texCoordIndex)
@@ -940,10 +936,9 @@
             const sphereMapHelper = signature.coordStages.some(stage =>
                 stage.tciMode === D3DTSS_TCI_SPHEREMAP) ? `
 fn func_sphere_map(r: vec3<f32>) -> vec4<f32> {
-    // m = 2 * |(R.x, R.y, R.z + 1)|. The guard keeps the division finite for
-    // the one reflection vector that degenerates it, R = (0, 0, -1), which is
-    // the direction looking straight down the reflected axis.
-    let m = 2.0 * sqrt(r.x * r.x + r.y * r.y + (r.z + 1.0) * (r.z + 1.0));
+    // Direct3D uses the opposite reflected Z pole from GL_SPHERE_MAP.
+    // Guard the degenerate reflection R = (0, 0, 1).
+    let m = 2.0 * sqrt(r.x * r.x + r.y * r.y + (r.z - 1.0) * (r.z - 1.0));
     return vec4<f32>(r.x / max(m, 1e-6) + 0.5, r.y / max(m, 1e-6) + 0.5,
         0.0, 1.0);
 }
@@ -1006,17 +1001,22 @@ ${coordBody}${fogBody}${passthroughBody}${clipBody}${pointBody}${signature.scree
             const samples = [];
             for (const stage of signature.stages) {
                 if (!stage.samplesTexture) continue;
-                const wgslType = { cube: "texture_cube<f32>", "3d": "texture_3d<f32>" }[
-                    stage.textureType] || "texture_2d<f32>";
+                // A hardware shadow map (depth texture bound to a fixed-function
+                // stage) is compared against the third texture coordinate.
+                const wgslType = stage.depthCompare ? "texture_depth_2d"
+                    : { cube: "texture_cube<f32>", "3d": "texture_3d<f32>" }[
+                        stage.textureType] || "texture_2d<f32>";
                 declarations.push("@group(0) @binding(" + (2 + stage.index * 2) +
                     ") var d9_tex" + stage.index + ": " + wgslType + ";");
                 declarations.push("@group(0) @binding(" + (3 + stage.index * 2) +
-                    ") var d9_smp" + stage.index + ": sampler;");
+                    ") var d9_smp" + stage.index + ": " +
+                    (stage.depthCompare ? "sampler_comparison" : "sampler") + ";");
                 const coord = "stage_in.varying" +
                     (VARYING_TEXCOORD0 + stage.coordVarying);
                 const components = stage.textureType === "2d" ? 2 : 3;
                 let coordExpression = coord +
                     (components === 2 ? ".xy" : ".xyz");
+                let shadowReference = coord + ".z";
                 if (stage.projected) {
                     // D3DTTFF_PROJECTED divides by the last component of the
                     // transformed coordinate, so the divisor follows the transform's
@@ -1033,6 +1033,7 @@ ${coordBody}${fogBody}${passthroughBody}${clipBody}${pointBody}${signature.scree
                         divisor + " >= 0.0)";
                     coordExpression = "(" + coordExpression + " / (" +
                         safeDivisor + "))";
+                    shadowReference = "(" + shadowReference + " / (" + safeDivisor + "))";
                 }
                 // D3DTOP_BUMPENVMAP: the previous stage sampled a (du, dv) pair,
                 // and this stage's coordinate is displaced by it through that
@@ -1070,7 +1071,12 @@ ${coordBody}${fogBody}${passthroughBody}${clipBody}${pointBody}${signature.scree
                             ? "abs((" + coordExpression + ")." + axis + ")"
                             : "(" + coordExpression + ")." + axis)).join(", ") + ")";
                 }
-                const rawSample = signature.lodBiasUniforms
+                const rawSample = stage.depthCompare
+                    ? "vec4<f32>(textureSampleCompare(d9_tex" + stage.index + ", d9_smp" + stage.index + ", " +
+                        coordExpression + ", " + shadowReference + "))"
+                    : stage.fetch4 !== undefined
+                    ? shaderPipeline.fetch4Expression("d9_tex" + stage.index, "d9_smp" + stage.index, coordExpression, stage.fetch4)
+                    : signature.lodBiasUniforms
                     ? "textureSampleBias(d9_tex" + stage.index + ", d9_smp" + stage.index + ", " + coordExpression +
                         ", uniforms.sampler_lod_bias[" + Math.floor(stage.index / 4) + "][" + (stage.index & 3) + "])"
                     : stage.lodBias

@@ -277,7 +277,10 @@
                 if (semantics.has(key)) throw new Error("duplicate pixel input semantic " + key);
                 semantics.add(key);
                 const output = bySemantic.get(key);
-                if (!output || input.mask & ~output.mask)
+                // Between two programmable SM3 stages an input the vertex shader
+                // never writes is legal and reads zero; only the fixed canonical
+                // slots of a legacy vertex stage must match exactly.
+                if (!programmable3 && (!output || input.mask & ~output.mask))
                     throw new Error("unmatched pixel input semantic " + key + " mask " + input.mask);
                 for (let component = 0; component < 4; ++component) if (input.mask & 1 << component) {
                     const address = input.register * 4 + component;
@@ -285,6 +288,7 @@
                         throw new Error("overlapping or out-of-range pixel input declaration");
                     occupied.add(address);
                     matched.push({input, output, component,
+                        written: !!output && !!(output.mask & 1 << component),
                         flat: input.usage === DECLUSAGE_COLOR && input.usageIndex < 2});
                 }
             }
@@ -298,7 +302,7 @@
                     if (slot >= VARYING_COUNT) throw new Error("inter-stage component budget exceeded");
                     if (flat && !link.flatSlots.includes(slot)) link.flatSlots.push(slot);
                     link.pixel.push({register: item.input.register, component: item.component, slot, channel});
-                    if (programmable3) link.vertex.push({register: item.output.register,
+                    if (programmable3 && item.written) link.vertex.push({register: item.output.register,
                         component: item.component, slot, channel,
                         usage: item.input.usage, usageIndex: item.input.usageIndex});
                     ++cursor;
@@ -470,6 +474,17 @@
         if (swizzle === "rrrr") return "vec4<f32>((" + expression + ").r)";
         if (swizzle === "gr11") return "vec4<f32>((" + expression + ").gr, 1.0, 1.0)";
         throw new Error("Unsupported D3D texture sample swizzle " + swizzle);
+    }
+
+    // AMD Fetch4 (D3DSAMP_MIPMAPLODBIAS = 'GET4'): one gather of level 0 in place
+    // of every sampling form, returning the 2x2 footprint whose first texel is
+    // floor(coord * size) as (top-right, bottom-left, bottom-right, top-left).
+    // textureGather itself starts at floor(coord * size - 0.5), hence the
+    // half-texel shift; the sampler's address modes still apply.
+    function fetch4Expression(texture, sampler, coord, channel) {
+        const shifted = "((" + coord + ") + vec2<f32>(0.5) / vec2<f32>(textureDimensions(" + texture + ")))";
+        return "textureGather(" + (channel === "depth" ? "" : channel + ", ") + texture + ", " +
+            sampler + ", " + shifted + ").zxyw";
     }
 
     const PROGRAM_MAPS = ["usedInputs", "outputSemantics", "samplers", "floatDefaults", "intDefaults", "boolDefaults"];
@@ -1279,13 +1294,14 @@
                 this.bumpStages.add(index);
                 const bump = "d9c.bump[" + index + "]";
                 const source = this.sourceExpression(sources[0]);
-                const perturbed = this.fresh("bem");
-                this.emit("let " + perturbed + " = t" + index + ".xy + vec2<f32>(" +
+                // The displacement is added to the stage's own coordinate after
+                // D3DTTFF_PROJECTED has divided it, as the plain tex form would.
+                const displacement = "vec2<f32>(" +
                     bump + ".x * (" + source + ").x + " + bump + ".z * (" +
                     source + ").y, " + bump + ".y * (" + source + ").x + " +
-                    bump + ".w * (" + source + ").y);");
+                    bump + ".w * (" + source + ").y)";
                 const sampled = this.sampleExpression(index,
-                    { coord: perturbed, ref: null }, {});
+                    this.coordinateFor(index, "t" + index, "legacy"), { offset: displacement });
                 if (instruction.opcode === OP.TEXBEM) {
                     this.store(dest, sampled);
                 } else {
@@ -1627,9 +1643,10 @@
                 const params = [], args = [coordinate.rawExpression ||
                     "vec4<f32>(" + coordinate.coord + ", 0.0, 1.0)"];
                 const dimension = (this.samplers.get(index) || "2d") === "2d" ? 2 : 3;
-                for (const name of ["lod", "bias", "ddx", "ddy"]) {
+                for (const name of ["lod", "bias", "ddx", "ddy", "offset"]) {
                     if (!options || options[name] === undefined) continue;
-                    params.push({name, type: name === "ddx" || name === "ddy" ? "vec" + dimension + "<f32>" : "f32"});
+                    params.push({name, type: name === "ddx" || name === "ddy" ? "vec" + dimension + "<f32>"
+                        : name === "offset" ? "vec2<f32>" : "f32"});
                     args.push(options[name]);
                 }
                 const operation = {index, projected: coordinate.projected || false, params,
@@ -1650,7 +1667,13 @@
         rawSampleExpression(index, coordinate, options) {
             const texture = "d9_tex" + index;
             const sampler = "d9_smp" + index;
-            const coord = this.mirrorOnceCoord(index, coordinate.coord);
+            const coord = this.mirrorOnceCoord(index, options && options.offset !== undefined
+                ? "(" + coordinate.coord + " + " + options.offset + ")" : coordinate.coord);
+            const fetch4 = this.kind === "pixel" && this.options.fetch4Samplers
+                ? this.options.fetch4Samplers[index] : undefined;
+            if (fetch4 !== undefined && (this.samplers.get(index) || "2d") === "2d" &&
+                    (fetch4 === "depth") === this.isDepthFetchSampler(index))
+                return fetch4Expression(texture, sampler, coord, fetch4);
             if (this.isDepthSampler(index) && !this.isDepthFetchSampler(index))
                 return this.compareExpression(texture, sampler, coord,
                     coordinate.ref === null || coordinate.ref === undefined ? "0.0" : coordinate.ref, options);
@@ -1819,7 +1842,13 @@
             } else if (biased) {
                 sampleOptions.bias = "(" + coordinateExpression + ").w";
             }
-            this.store(dest, this.sampleExpression(index, coordinate, sampleOptions));
+            let sampled = this.sampleExpression(index, coordinate, sampleOptions);
+            // The swizzle written on a texld sampler register selects components
+            // of the returned texel (ps_2_0 and later have a sampler operand).
+            const samplerSwizzle = sources.length > 1 && sources[1].type === REG_SAMPLER
+                ? swizzleString(sources[1].swizzle) : "xyzw";
+            if (samplerSwizzle !== "xyzw") sampled = "(" + sampled + ")." + samplerSwizzle;
+            this.store(dest, sampled);
         }
 
         // ps_1_x texreg2ar/gb/rgb: build the coordinate from components of a
@@ -2114,8 +2143,10 @@
             const clampColors = this.major < 3 || this.options.legacyColorClamp;
             for (let slot = 0; slot < VARYING_COUNT; ++slot) {
                 let value = "o_varying" + slot;
+                // Colour interpolators hold 8-bit values: round to even on the
+                // fp32 product like the hardware, so a 0.3 input stores 76, not 77.
                 if (clampColors && (slot === VARYING_COLOR0 || slot === VARYING_COLOR1))
-                    value = "clamp(" + value + ", vec4<f32>(0.0), vec4<f32>(1.0))";
+                    value = "round(clamp(" + value + ", vec4<f32>(0.0), vec4<f32>(1.0)) * 255.0) / 255.0";
                 if (this.major < 3 && slot === VARYING_FOG && !this.writtenVaryings.has(slot))
                     value = "vec4<f32>(clamp(o_varying1.a, 0.0, 1.0), 0.0, 0.0, 0.0)";
                 out.push("    result.varying" + slot + " = " + value + ";");
@@ -2475,6 +2506,11 @@
             translator.sampleOperations = program.sampleOperations;
             if (program.kind === "pixel" && program.major === 1)
                 for (const index of translator.samplers.keys()) translator.samplers.set(index, translator.legacySamplerType(index));
+            else if (program.kind === "pixel" && options && options.legacySamplerTypes)
+                for (const index of translator.samplers.keys()) {
+                    const type = options.legacySamplerTypes[index];
+                    if (type) translator.samplers.set(index, type);
+                }
             const result = translator.assemble({subroutines: program.subroutines}, new Map(program.bodies), program.mainBody);
             return {ok: true, wgsl: result.wgsl, reflection: result.reflection, program};
         } catch (error) {
@@ -2650,7 +2686,7 @@
     }
 
     const api = {
-        compileShader, specializeShader, parseShader, hashTokens, D3D9ShaderCache, sampleSwizzleExpression, linkShaderSemantics,
+        compileShader, specializeShader, parseShader, hashTokens, D3D9ShaderCache, sampleSwizzleExpression, fetch4Expression, linkShaderSemantics,
         vertexInputConversion, vertexInputType, vertexInputValue, vertexInputHelpers,
         TRANSLATOR_REVISION,
         VARYING_COLOR0, VARYING_COLOR1, VARYING_TEXCOORD0, VARYING_FOG,

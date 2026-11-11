@@ -2,6 +2,7 @@
 // interpretation stays in the executor/DirectDraw semantic layer.
 (function(global) {
     "use strict";
+    const D3DFMT_NULL = 0x4C4C554E;
     const UNIFORM_BYTES = 128;
     const PALETTE_ENTRIES = 256, PALETTE_BYTES = PALETTE_ENTRIES * 16;
     // eight vec4s, see WGSL below
@@ -551,8 +552,10 @@ ${body.join("\n")}
                     owner.colorPromotions.set(key, entry);
                 }
                 ++this.stats.colorTargetPromotions;
+                // A NULL-format surface is write-only and holds nothing to preserve.
+                const discard = !!(color.resource && color.resource.format === D3DFMT_NULL);
                 return { ...color, view: entry.view, msaaView: null,
-                    promotion: { ...entry, original: color,
+                    promotion: { ...entry, original: color, discard,
                         width: Math.min(color.width, width), height: Math.min(color.height, height) } };
             },
 
@@ -617,13 +620,13 @@ ${body.join("\n")}
 
             prepareColorPromotions(encoder, targets) {
                 if (!targets.promotedColors) return;
-                for (const color of targets.colors) if (color && color.promotion)
+                for (const color of targets.colors) if (color && color.promotion && !color.promotion.discard)
                     this.copyColorPromotion(encoder, color, false);
             },
 
             restoreColorPromotions(encoder, targets) {
                 if (!targets || !targets.promotedColors) return;
-                for (const color of targets.colors) if (color && color.promotion)
+                for (const color of targets.colors) if (color && color.promotion && !color.promotion.discard)
                     this.copyColorPromotion(encoder, color, true);
             },
 

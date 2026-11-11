@@ -408,6 +408,17 @@
         return "";
     }
 
+    // AMD's Fetch4 applies to uncompressed single-channel formats (Wine test_fetch4
+    // keeps ATI1N sampling normally). Returns the component of the stored GPU
+    // texel that carries the channel (A8 keeps it in alpha), or -1.
+    function fetch4Channel(format) {
+        switch (format) {
+        case D3DFMT_A8: return 3;
+        case D3DFMT_L8: case D3DFMT_L16: case D3DFMT_R16F: case D3DFMT_R32F: return 0;
+        default: return -1;
+        }
+    }
+
     const HALF_BITS_BUFFER = new ArrayBuffer(4);
 
     const HALF_BITS_F32 = new Float32Array(HALF_BITS_BUFFER);
@@ -1092,6 +1103,7 @@
         expandRowToGPU,
         expandUNorm8,
         samplingSwizzle,
+        fetch4Channel,
         nativeFillRGBA
     };
     global.D9WGFormats = api;

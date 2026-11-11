@@ -1170,6 +1170,78 @@
                 : [[S.TEX, dst(R.TEXTURE, 0)], [S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, 0)]])), ...legacyCoordinates(dev, [coord])],
         probes: [{at: [32, 32], expect: [...uv.slice(0, 2).map(x => (Math.min(3, Math.max(0, Math.floor(x * 4))) + 1) * 48), 32, 255]}]});
     }
+    // Wine test_default_attribute_components: legacy colour outputs hold 8-bit values rounded to even,
+    // so 0.3 (76.5 as fp32) stores 76 where round-half-up would store 77.
+    for (const major of [1, 2]) add("shader-semantics", {name: `vs_${major}_${major === 1 ? 1 : 0} oD0 quantises to 8 bits with round-to-even`, body: dev => {
+        const vs = dev + 0x700000, value = [.3, .2, .3, .2];
+        const tokens = major === 1 ? [0xfffe0101, ...asm.def(0, ...value), ins(S.DCL, 0), 0x80000000, dst(R.INPUT, 0), ins(S.MOV, 0), dst(R.RASTOUT, 0), src(R.INPUT, 0), ins(S.MOV, 0), dst(R.ATTROUT, 0), src(R.CONST, 0), 0xffff]
+            : [0xfffe0200, ins(S.DCL, 2), 0x80000000, dst(R.INPUT, 0), ...asm.def(0, ...value), ins(S.MOV, 2), dst(R.RASTOUT, 0), src(R.INPUT, 0), ins(S.MOV, 2), dst(R.ATTROUT, 0), src(R.CONST, 0), 0xffff];
+        return [vertexShader(dev, vs, tokens), bindSemanticVS(dev, vs), ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+    }, probes: [{at: [32, 32], expect: [76, 51, 76, 51], tolerance: 0}]});
+    // Wine test_mismatched_sample_types: a sampler whose declared dimension differs from the bound texture
+    // samples that texture instead of dropping the draw.
+    for (const [name, declared, bound, mask, expect, tolerance] of [
+        ["2d sampler with a volume bound (xyz coordinate)", 0x90000000, "3d", 0x90070000, [48, 48, 48, 48], 2],
+        ["2d sampler with a volume bound (xy coordinate)", 0x90000000, "3d", 0x90030000, [48, 48, 48, 48], 17],
+        ["volume sampler with a 2d texture bound", 0xa0000000, "2d", 0x90070000, [112, 112, 112, 112], 1],
+        ["cube sampler with a 2d texture bound", 0x98000000, "2d", 0x90070000, [112, 112, 112, 112], 1]])
+        add("shader-legacy-sampling", {name: "ps_3_0 mismatched " + name, clear: 0x80808080, body: dev => {
+            const handle = dev + 0x500000, commands = bound === "3d"
+                ? [wire("CreateTextureVolume", {device_handle: dev, resource_handle: handle, width: 2, height: 2, depth: 2, level_count: 1, format: 21}),
+                    ...[0x20, 0x40].map((value, layer) => wire("UpdateTexture", {resource_handle: handle, z: layer, width: 2, height: 2, depth: 1, row_pitch: 8, slice_pitch: 16, data_bytes: 16},
+                        [blob("UpdateTexture", "data_offset", new Uint8Array(16).fill(value))]))]
+                : [wire("CreateTexture2D", {device_handle: dev, resource_handle: handle, width: 2, height: 2, level_count: 1, format: 21}),
+                    wire("UpdateTexture", {resource_handle: handle, width: 2, height: 2, depth: 1, row_pitch: 8, slice_pitch: 16, data_bytes: 16}, [blob("UpdateTexture", "data_offset", new Uint8Array(16).fill(0x70))])];
+            return [...commands, wire("SetTexture", {device_handle: dev, texture_handle: handle}),
+                ...[1, 2, 3].map(state => wire("SetSamplerState", {device_handle: dev, state, value: 3})), wire("SetSamplerState", {device_handle: dev, state: 5, value: 2}),
+                ...bindLegacyPS(dev, [0xffff0300, 0x05000051, 0xa00f0000, 0x3f333333, 0x3f4ccccd, 0x3f666666, 0,
+                    0x0200001f, 0x80000005, mask, 0x0200001f, declared, 0xa00f0800,
+                    0x03000042, 0x800f0001, 0x90e40000, 0xa0e40800, 0x02020029, 0x80ff0001, 0xa0ff0000, 0x02000001, 0x800f0001, 0xa0e40000, 0x0000002b,
+                    0x02000001, 0x800f0800, 0x80e40001, 0x0000ffff]), ...legacyCoordinates(dev, [[.5, .5, .5, 1]])];
+        }, probes: [{at: [32, 32], expect, tolerance}]});
+    // Wine test_uninitialized_varyings: an SM3 pixel input the vertex shader never writes still draws, reading zero.
+    for (const [name, semantic] of [["COLOR1", [0x8001000a, 1]], ["TEXCOORD0", [0x80000005, 0]]]) for (const written of [false, true])
+        add("shader-legacy-sampling", {name: `vs_3_0/ps_3_0 ${name} input ${written ? "written" : "never written"} by the vertex shader`, clear: 0xff00ff00, body: dev => {
+            const vs = dev + 0x700000, positionTokens = [0xfffe0300, 0x0200001f, 0x80000000, 0x900f0000, 0x0200001f, 0x80000000, 0xe00f0000,
+                ...(written ? [0x0200001f, semantic[0], 0xe00f0001, 0x05000051, 0xa00f0000, f(.5), f(.5), f(.5), f(.5), 0x02000001, 0xe00f0001, 0xa0e40000] : []),
+                0x02000001, 0xe00f0000, 0x90e40000, 0x0000ffff];
+            return [vertexShader(dev, vs, positionTokens), bindSemanticVS(dev, vs),
+                ...bindLegacyPS(dev, [0xffff0300, 0x0200001f, semantic[0], 0x900f0000 | semantic[1], 0x02000001, 0x800f0800, 0x90e40000 | semantic[1], 0x0000ffff]),
+                ...drawXYZ(dev, fullXYZ(.5, 0xffffffff))];
+        }, probes: [{at: [32, 32], expect: written ? [128, 128, 128] : [0, 0, 0], tolerance: 1}]});
+    // Wine volume_srgb_test: D3DSAMP_SRGBTEXTURE decodes volume textures too, and toggles per draw.
+    add("srgb", {name: "volume texture sRGB read toggles on and off", body: dev => {
+        const volume = dev + 0x500000, commands = [wire("CreateTextureVolume", {device_handle: dev, resource_handle: volume, width: 1, height: 1, depth: 1, level_count: 1, format: 21}),
+            wire("UpdateTexture", {resource_handle: volume, width: 1, height: 1, depth: 1, row_pitch: 4, slice_pitch: 4, data_bytes: 4},
+                [blob("UpdateTexture", "data_offset", Uint8Array.from([0x7f, 0x7f, 0x7f, 0x7f]))]),
+            wire("SetTexture", {device_handle: dev, texture_handle: volume}), tss(dev, 0, 1, 2), tss(dev, 0, 2, 2), tss(dev, 0, 4, 2), tss(dev, 0, 5, 2), rs(dev, 174, 1)];
+        [false, true, false].forEach((srgb, i) => commands.push(wire("SetSamplerState", {device_handle: dev, state: 11, value: srgb ? 1 : 0}),
+            wire("SetScissorRect", {device_handle: dev, left: i * 20, top: 0, right: i * 20 + 20, bottom: 64}), ...coordinateQuad(dev, 3, [0, 0, 0])));
+        return commands;
+    }, probes: [{at: [10, 32], expect: [127, 127, 127, 127], tolerance: 2}, {at: [30, 32], expect: [54, 54, 54, 127], tolerance: 2}, {at: [50, 32], expect: [127, 127, 127, 127], tolerance: 2}]});
+    // Wine unbound_sampler_test: a translated shader samples an unbound stage as opaque black.
+    for (const [type, declaration] of [["2d", 0x90000000], ["cube", 0x98000000], ["volume", 0xa0000000]]) for (const major of [2, 3])
+        add("shader-legacy-sampling", {name: `ps_${major}_0 unbound ${type} sampler reads opaque black`, clear: 0x56ffffff, body: dev => [
+            ...bindLegacyPS(dev, [0xffff0000 | major << 8, 0x0200001f, declaration, 0xa00f0800, 0x0200001f, major === 3 ? 0x80000005 : 0x80000000, major === 3 ? 0x900f0000 : 0xb00f0000,
+                0x03000042, 0x800f0000, major === 3 ? 0x90e40000 : 0xb0e40000, 0xa0e40800, 0x02000001, 0x800f0800, 0x80e40000, 0x0000ffff]),
+            ...legacyCoordinates(dev, [[.5, .5, .5, 1]])], probes: [{at: [32, 32], expect: [0, 0, 0, 255]}]});
+    // texbem displaces the stage's own coordinate after D3DTTFF_PROJECTED has divided it (Wine texbem_test).
+    for (const [name, flags, scale] of [["plain", 0, 1], ["projected q=2", 0x104, 2], ["projected q=-1", 0x104, -1], ["projected q=.5", 0x104, .5]])
+        add("shader-legacy-sampling", {name: "ps1.1 texbem " + name, body: dev => {
+            const bumpMap = dev + 0x500001, uv = [.625, .375];
+            return [...legacyPattern(dev, dev + 0x500000, "2d", 1),
+                wire("CreateTexture2D", {device_handle: dev, resource_handle: bumpMap, width: 4, height: 4, level_count: 1, format: 60}),
+                wire("UpdateTexture", {resource_handle: bumpMap, width: 4, height: 4, depth: 1, row_pitch: 8, slice_pitch: 32, data_bytes: 32},
+                    [blob("UpdateTexture", "data_offset", Uint8Array.from(Array.from({length: 16}, () => [64, 0]).flat()))]),
+                wire("SetTexture", {device_handle: dev, stage: 0, texture_handle: bumpMap}),
+                ...[1, 2, 3].map(state => wire("SetSamplerState", {device_handle: dev, sampler: 0, state, value: 3})),
+                tss(dev, 1, 7, f(0)), tss(dev, 1, 8, f(.5)), tss(dev, 1, 9, f(-.5)), tss(dev, 1, 10, f(0)), tss(dev, 1, 24, flags),
+                ...bindLegacyPS(dev, ps1(1, [[S.TEX, dst(R.TEXTURE, 0)], [S.TEXBEM, dst(R.TEXTURE, 1), src(R.TEXTURE, 0)], [S.MOV, dst(R.TEMP, 0), src(R.TEXTURE, 1)]])),
+                ...legacyCoordinates(dev, [[0, 0, 0, 1], [uv[0] * scale, uv[1] * scale, 0, scale]])];
+        }, probes: [{at: [32, 32], expect: (() => {
+            const du = 64 / 127, col = Math.floor(.625 * 4), row = Math.floor((.375 + .5 * du) * 4);
+            return [(col + 1) * 48, (row + 1) * 48, 32, 255];
+        })(), tolerance: 1}]});
     for (const kind of ["texreg2rgb", "texm3x3tex", "texm3x3spec", "texm3x3vspec"]) for (const type of ["2d", "cube", "3d"]) {
         const vector = [.625, .375, .875, 1], rows = [[1, 0, 0, 1], [0, 1, 0, 1], [0, 0, 1, 1]];
         let coord = vector.slice(0, 3);
@@ -1630,5 +1702,181 @@
         },probes:[{at:[32,32],expect:expected,tolerance:1}]});
     }
 
+    // Wine test_null_format: a NULL-format target has no storage; its draws and clears extend over
+    // the viewport and are bounded only by the depth surface.
+    {
+        const NULL = fourcc("NULL"), partial = z => [[-1, .5, z, 0xff0000ff], [.5, .5, z, 0xff0000ff], [-1, -1, z, 0xff0000ff],
+            [.5, .5, z, 0xff0000ff], [.5, -1, z, 0xff0000ff], [-1, -1, z, 0xff0000ff]];
+        const depthState = dev => [rs(dev, 7, 1), rs(dev, 14, 1), rs(dev, 23, 4)];
+        for (const [name, format, expect] of [["NULL", NULL, [0, 0, 0, 255]], ["ordinary", 21, [0, 255, 0, 255]]])
+            add("null-target", { name: `${name} 32x32 target: depth writes ${format === NULL ? "reach" : "stay inside"} the viewport beyond the target`, body: (dev, rt) => {
+                const small = dev + 0x700000;
+                return [extentTarget(dev, small, 32, 0, format), ...depthState(dev), ...extentBind(dev, small, 64), extentClear(dev, 2, 0, 1),
+                    ...drawXYZ(dev, fullXYZ(.5, 0xffff0000)), ...extentBind(dev, rt, 64), ...drawXYZ(dev, fullXYZ(.75, 0xff00ff00))];
+            }, probes: [{ at: [16, 16], expect: [0, 0, 0, 255] }, { at: [48, 48], expect }, { at: [48, 16], expect }] });
+        add("null-target", { name: "NULL target larger than the depth surface still depth-tests and writes inside it", body: (dev, rt) => {
+            const target = dev + 0x700000;
+            return [extentTarget(dev, target, 128, 0, NULL), ...depthState(dev), ...extentBind(dev, target, 128), extentClear(dev, 2, 0, .6),
+                wire("SetViewport", { device_handle: dev, width: 64, height: 64, min_z: 0, max_z: 1 }), ...drawXYZ(dev, partial(.1)),
+                ...extentBind(dev, rt, 64), extentClear(dev, 1, 0xff000000), ...drawXYZ(dev, fullXYZ(.5, 0xffff0000))];
+        }, probes: [{ at: [24, 40], expect: [0, 0, 0, 255] }, { at: [56, 8], expect: [255, 0, 0, 255] },
+            { at: [56, 40], expect: [255, 0, 0, 255] }, { at: [24, 8], expect: [255, 0, 0, 255] }] });
+    }
+    // AMD Fetch4 (Wine test_fetch4): D3DSAMP_MIPMAPLODBIAS = 'GET4' on a one-channel 2D
+    // texture returns the 2x2 footprint starting at floor(coord * size) as (top-right,
+    // bottom-left, bottom-right, top-left); every LOD form reads level zero.
+    {
+        const GET4 = 0x34544547, GET1 = 0x31544547, rows = [[0x13,0x12,0x11,0x10],[0x02,0xf2,0xf1,0x01],[0x04,0xf4,0xf3,0x03],[0x23,0x22,0x21,0x20]];
+        const half = x => { if (!x) return 0;const e = Math.floor(Math.log2(x));return ((e + 15) << 10) + Math.round((x / 2 ** e - 1) * 1024); };
+        // 8-value BC4 block (a0 > a1) whose indices walk the palette.
+        const bc4Index = i => (i * 5 + 1) % 8, bc4Palette = [255, 0, ...[2, 3, 4, 5, 6, 7].map(k => Math.round((8 - k) * 255 / 7))];
+        const bc4 = new Uint8Array(8);bc4[0] = 255;
+        for (let i = 0; i < 16; i++) for (let bit = 0; bit < 3; bit++) if (bc4Index(i) >> bit & 1) bc4[2 + ((i * 3 + bit) >> 3)] |= 1 << ((i * 3 + bit) & 7);
+        const flat = rows.flat();
+        const f4formats = [
+            { name: "L8", format: 50, vals: flat, data: Uint8Array.from(flat), pitch: 4, plain: v => [v, v, v, 255] },
+            { name: "A8", format: 28, vals: flat, data: Uint8Array.from(flat), pitch: 4, plain: v => [0, 0, 0, v] },
+            { name: "L16", format: 81, vals: flat, data: Uint8Array.from(le16(...flat.map(v => v * 257))), pitch: 8, plain: v => [v, v, v, 255] },
+            { name: "R16F", format: 111, vals: flat, data: Uint8Array.from(le16(...flat.map(v => half(v / 255)))), pitch: 8, plain: v => [v, 255, 255, 255] },
+            { name: "R32F", format: 114, vals: flat, data: Uint8Array.from(le32(...flat.map(v => f(v / 255)))), pitch: 16, plain: v => [v, 255, 255, 255] },
+        ];
+        const ati1n = { name: "ATI1N", format: fourcc("ATI1"), vals: flat.map((_, i) => bc4Palette[bc4Index(i)]), data: bc4, pitch: 8, plain: v => [v, v, v, v] };
+        const vsTokens = [0xfffe0300, 0x0200001f, 0x80000000, 0x900f0000, 0x0200001f, 0x80000005, 0x900f0001, 0x0200001f, 0x80000000, 0xe00f0000,
+            0x0200001f, 0x80000005, 0xe00f0001, 0x02000001, 0xe00f0000, 0x90e40000, 0x02000001, 0xe00f0001, 0x90e40001, 0x0000ffff];
+        const psHead = [0xffff0300, 0x0200001f, 0x80000005, 0x900f0000, 0x0200001f, 0x90000000, 0xa00f0800], psTail = [0x02000001, 0x800f0800, 0x80e40000, 0x0000ffff];
+        const programs = {
+            texld: { p: 1, tokens: [...psHead, 0x03000042, 0x800f0000, 0x90e40000, 0xa0e40800, ...psTail] },
+            texldp: { p: 2, tokens: [...psHead, 0x05000051, 0xa00f0000, 0, 0, 0x40800000, 0x40000000, 0x02000001, 0x80030000, 0x90f40000,
+                0x02000001, 0x800c0000, 0xa0e00000, 0x03010042, 0x800f0000, 0x80e40000, 0xa0e40800, ...psTail] },
+            texld_yzwx: { p: 1, rotate: true, tokens: [...psHead, 0x03000042, 0x800f0000, 0x90e40000, 0xa0390800, ...psTail] },
+            texldd: { p: 1, tokens: [...psHead, 0x05000051, 0xa00f0000, 0x3f000000, 0x3f000000, 0x3f000000, 0x3f000000,
+                0x05000051, 0xa00f0001, 0x3f800000, 0x3f800000, 0x3f800000, 0x3f800000, 0x02000001, 0x800f0002, 0xa0e40000,
+                0x0500005d, 0x800f0000, 0x90e40000, 0xa0e40800, 0xa0e40000, 0x80e40002, ...psTail] },
+            texldb: { p: 1, tokens: [...psHead, 0x05000051, 0xa00f0000, 0, 0, 0x40a00000, 0x40a00000, 0x03000002, 0x800f0000, 0x90e40000, 0xa0e40000,
+                0x03020042, 0x800f0000, 0x80e40000, 0xa0e40800, ...psTail] },
+            texldl: { p: 1, tokens: [...psHead, 0x05000051, 0xa00f0000, 0, 0, 0x3f000000, 0x3f000000, 0x03000002, 0x800f0000, 0x90e40000, 0xa0e40000,
+                0x0300005f, 0x800f0000, 0x80e40000, 0xa0e40800, ...psTail] },
+            FFP: { p: 1 },
+            FFP_proj: { p: 2, flags: 0x100 },
+            FFP_proj3: { p: 4, flags: 0x103 },
+        };
+        const fetch4Quad = dev => {
+            const data = new Uint8Array(6 * 28), view = new DataView(data.buffer);
+            fullXYZ(.5, 0).forEach((v, i) => [v[0], v[1], v[2], (v[0] + 1) / 2, (1 - v[1]) / 2, 4, 2].forEach((x, j) => view.setFloat32(i * 28 + j * 4, x, true)));
+            return [cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, fvf: 0x20102, element_count: 2 }), element(0, 2, 0), element(12, 3, 5)])),
+                wire("DrawPrimitiveUP", { device_handle: dev, primitive_type: 4, primitive_count: 2, stride: 28, vertex_count: 6, vertex_bytes: data.length },
+                    [blob("DrawPrimitiveUP", "vertex_data_offset", data)])];
+        };
+        const samplerSetup = (dev, bias) => [[1, 3], [2, 3], [5, 1], [6, 1], [7, 1], [8, bias]].map(([state, value]) => wire("SetSamplerState", { device_handle: dev, state, value }));
+        const bindProgram = (dev, name) => {
+            const program = programs[name];
+            if (!program.tokens) return [tss(dev, 0, 24, program.flags || 0)];
+            return [vertexShader(dev, dev + 0x700000, vsTokens), bindSemanticVS(dev, dev + 0x700000),
+                pixelShader(dev, dev + 0x600000, program.tokens), bindPS(dev, dev + 0x600000)];
+        };
+        const points = [0, 1, 2, 3].flatMap(cy => [0, 1, 2, 3].map(cx => [cx, cy]));
+        const footprint = (vals, cx, cy, p) => {
+            const at = (x, y) => vals[Math.min(3, y) * 4 + Math.min(3, x)], bx = Math.floor((cx + .28125) / p), by = Math.floor((cy + .28125) / p);
+            return [at(bx + 1, by), at(bx, by + 1), at(bx + 1, by + 1), at(bx, by)];
+        };
+        const plainAt = (spec, cx, cy, p) => spec.plain(spec.vals[Math.min(3, Math.floor((cy + .28125) / p)) * 4 + Math.min(3, Math.floor((cx + .28125) / p))]);
+        const texture4 = (dev, spec) => [wire("CreateTexture2D", { device_handle: dev, resource_handle: dev + 0x500000, width: 4, height: 4, level_count: 1, format: spec.format }),
+            wire("UpdateTexture", { resource_handle: dev + 0x500000, width: 4, height: 4, depth: 1, row_pitch: spec.pitch, slice_pitch: spec.data.length, data_bytes: spec.data.length },
+                [blob("UpdateTexture", "data_offset", spec.data)]),
+            wire("SetTexture", { device_handle: dev, texture_handle: dev + 0x500000 }), tss(dev, 0, 1, 2), tss(dev, 0, 2, 2), tss(dev, 0, 4, 2), tss(dev, 0, 5, 2)];
+        const probesFor = (spec, p, rotate, fetch) => points.map(([cx, cy]) => {
+            let expect = fetch ? footprint(spec.vals, cx, cy, p) : plainAt(spec, cx, cy, p);
+            if (rotate) expect = [expect[1], expect[2], expect[3], expect[0]];
+            return { at: [16 * cx + 4, 16 * cy + 4], expect, tolerance: 1 };
+        });
+        for (const spec of f4formats) for (const name of ["FFP", "texld", "texldp"]) {
+            add("fetch4", { name: `Fetch4 ${name} on ${spec.name} gathers the 2x2 footprint`, body: dev => [
+                ...texture4(dev, spec), ...samplerSetup(dev, GET4), ...bindProgram(dev, name), ...fetch4Quad(dev)],
+                probes: probesFor(spec, programs[name].p, false, true) });
+        }
+        for (const name of Object.keys(programs)) if (name !== "FFP" && name !== "texld" && name !== "texldp") add("fetch4", { name: `Fetch4 ${name} on L8`, body: dev => [
+            ...texture4(dev, f4formats[0]), ...samplerSetup(dev, GET4), ...bindProgram(dev, name), ...fetch4Quad(dev)],
+            probes: probesFor(f4formats[0], programs[name].p, !!programs[name].rotate, true) });
+        for (const spec of [f4formats[0], f4formats[1], f4formats[3]]) for (const name of ["FFP", "texld"]) add("fetch4", { name: `GET1 leaves ${spec.name} ${name} sampling normal`, body: dev => [
+            ...texture4(dev, spec), ...samplerSetup(dev, GET1), ...bindProgram(dev, name), ...fetch4Quad(dev)],
+            probes: probesFor(spec, 1, false, false) });
+        for (const name of ["FFP", "texld"]) add("fetch4", { name: `Fetch4 leaves compressed ATI1N ${name} sampling normal`, body: dev => [
+            ...texture4(dev, ati1n), ...samplerSetup(dev, GET4), ...bindProgram(dev, name), ...fetch4Quad(dev)],
+            probes: probesFor(ati1n, 1, false, false) });
+        const argb = flat.flatMap(v => [0x40, 255 - v, v, 255]);
+        for (const name of ["FFP", "texld"]) add("fetch4", { name: `Fetch4 ignores multi-channel A8R8G8B8 ${name}`, body: dev => [
+            ...texture4(dev, { format: 21, data: Uint8Array.from(argb), pitch: 16 }), ...samplerSetup(dev, GET4), ...bindProgram(dev, name), ...fetch4Quad(dev)],
+            probes: points.map(([cx, cy]) => ({ at: [16 * cx + 4, 16 * cy + 4], expect: [rows[cy][cx], 255 - rows[cy][cx], 0x40, 255], tolerance: 1 })) });
+        // Raw depth formats gather depth values the same way; compare-mode depth ignores the state.
+        for (const format of [fourcc("DF16"), fourcc("DF24"), fourcc("INTZ")]) {
+            const depthAt = x => .2 + .6 * (Math.min(63, x) + .5) / 64;
+            add("fetch4", { name: `Fetch4 gathers raw depth format ${format.toString(16)}`, body: dev => {
+                const depth = dev + 0x500000, tilted = fullXYZ(0, 0).map(v => [v[0], v[1], v[0] < 0 ? .2 : .8, 0]);
+                return [wire("CreateTexture2D", { device_handle: dev, resource_handle: depth, width: 64, height: 64, level_count: 1, format, usage: 2 }),
+                    wire("SetDepthStencilSurfaceLevel", { device_handle: dev, depth_texture_handle: depth, width: 64, height: 64 }), clearDepth(dev, 1),
+                    rs(dev, 7, 1), rs(dev, 23, 8), rs(dev, 14, 1), rs(dev, 168, 0), ...drawXYZ(dev, tilted),
+                    wire("SetDepthStencilSurfaceLevel", { device_handle: dev, depth_texture_handle: 0, width: 64, height: 64 }), rs(dev, 7, 0), rs(dev, 168, 15),
+                    wire("SetTexture", { device_handle: dev, texture_handle: depth }), ...samplerSetup(dev, GET4), ...bindProgram(dev, "texld"), ...fetch4Quad(dev)];
+            }, probes: [4, 20, 36, 52, 63].map(px => ({ at: [px, 32], expect: [depthAt(px + 1), depthAt(px), depthAt(px + 1), depthAt(px)].map(clamp), tolerance: 2 })) });
+        }
+    }
+
+    // Wine shadow_test: a depth texture bound to the fixed-function pipeline is a hardware
+    // shadow map. The result of `reference <= stored depth` fills all four channels.
+    for (const format of [70, 71, 73, 75, 77, 79, 80]) for (const projected of [false, true]) {
+        add("shadow-ffp", { name: `fixed-function shadow map format ${format}${projected ? " projected" : ""}`, body: dev => {
+            const depth = dev + 0x500000, gradient = fullXYZ(0, 0).map(v => [v[0], v[1], v[0] < 0 ? 0 : 1, 0]);
+            const vertices = new Uint8Array(6 * 28), view = new DataView(vertices.buffer), scale = projected ? 2 : 1;
+            fullXYZ(.5, 0).forEach((v, i) => [v[0], v[1], v[2], (v[0] + 1) / 2 * scale, (v[1] + 1) / 2 * scale, (v[1] + 1) / 2 * scale, scale]
+                .forEach((x, j) => view.setFloat32(i * 28 + j * 4, x, true)));
+            return [wire("CreateTexture2D", { device_handle: dev, resource_handle: depth, width: 64, height: 64, level_count: 1, format, usage: 2 }),
+                wire("SetDepthStencilSurfaceLevel", { device_handle: dev, depth_texture_handle: depth, width: 64, height: 64 }), clearDepth(dev, 0),
+                rs(dev, 7, 1), rs(dev, 23, 8), rs(dev, 14, 1), rs(dev, 168, 0), ...drawXYZ(dev, gradient),
+                wire("SetDepthStencilSurfaceLevel", { device_handle: dev, depth_texture_handle: 0, width: 64, height: 64 }), rs(dev, 7, 0), rs(dev, 168, 15),
+                wire("SetTexture", { device_handle: dev, texture_handle: depth }), tss(dev, 0, 1, 2), tss(dev, 0, 2, 2), tss(dev, 0, 4, 2), tss(dev, 0, 5, 2),
+                tss(dev, 0, 24, projected ? 0x100 : 0),
+                ...[[1, 3], [2, 3], [5, 1], [6, 1], [7, 1]].map(([state, value]) => wire("SetSamplerState", { device_handle: dev, state, value })),
+                cmd(P.OP.SET_FVF, cat([P.encode("SetFVF", { device_handle: dev, fvf: 0x20102, element_count: 2 }), element(0, 2, 0), element(12, 3, 5)])),
+                wire("DrawPrimitiveUP", { device_handle: dev, primitive_type: 4, primitive_count: 2, stride: 28, vertex_count: 6, vertex_bytes: vertices.length },
+                    [blob("DrawPrimitiveUP", "vertex_data_offset", vertices)])];
+        }, probes: [[10, 6], [50, 6], [10, 30], [50, 30], [10, 58], [50, 58], [30, 6], [30, 58]].map(([px, py]) => {
+            const s = (px + .5) / 64, p = 1 - (py + .5) / 64, lit = p <= s;
+            return { at: [px, py], expect: lit ? [255, 255, 255, 255] : [0, 0, 0, 0] };
+        }) });
+    }
+    // A swizzle on the sampler register of texld selects components of the fetched texel.
+    for (const [name, swizzle, expected] of [["yzwx", 0x39, [20, 30, 40, 10]], ["wzyx", 0x1b, [40, 30, 20, 10]], ["xxxx", 0x00, [10, 10, 10, 10]], ["zzyw", 0xda, [30, 30, 20, 40]]])
+        add("sampler-swizzle", { name: "texld sampler register swizzle ." + name, body: dev => [
+            ...texture(dev, dev + 0x500000, ["A8R8G8B8", 21, [30, 20, 10, 40]]),
+            pixelShader(dev, dev + 0x600000, [0xffff0300, ins(S.DCL, 2), 0x80000005, dst(R.INPUT, 0), ins(S.DCL, 2), 0x90000000, dst(R.SAMPLER, 0),
+                ins(S.TEX, 3), dst(R.TEMP, 0), src(R.INPUT, 0), src(R.SAMPLER, 0, swizzle), ins(S.MOV, 2), dst(R.COLOROUT, 0), src(R.TEMP, 0), 0xffff]),
+            bindPS(dev, dev + 0x600000), ...texturedQuad(dev)], probes: [{ at: [32, 32], expect: expected }] });
+
+    // D3D's sphere map uses r.z - 1, with the camera-space normal left at its
+    // declared length unless NORMALIZENORMALS is enabled. Compute vertices and
+    // screen barycentrics independently from the generated shader.
+    for (const normal of [[.8,0,.7],[.3,.6,.8],[-.6,.4,.5]]) for (const normalize of [false,true]) for (const shift of [0,.4]) {
+        const xy=[[2,-2],[-2,-2],[0,2]],positions=xy.map(([x,y])=>[x+shift,y+shift,.1]);
+        const norm=normalize?normal.map(v=>v/Math.hypot(...normal)):normal;
+        const coords=positions.map(p=>{
+            const incident=p.map(v=>v/Math.hypot(...p)),dot=incident.reduce((s,v,i)=>s+v*norm[i],0),reflected=incident.map((v,i)=>v-2*dot*norm[i]);
+            const den=2*Math.hypot(reflected[0],reflected[1],reflected[2]-1);
+            return [reflected[0]/den+.5,reflected[1]/den+.5,0,1];
+        });
+        const expected=(px,py)=>{
+            const [a,b,c]=positions,p=[px/32-1,1-py/32],area=(b[1]-c[1])*(a[0]-c[0])+(c[0]-b[0])*(a[1]-c[1]);
+            const w0=((b[1]-c[1])*(p[0]-c[0])+(c[0]-b[0])*(p[1]-c[1]))/area,w1=((c[1]-a[1])*(p[0]-c[0])+(a[0]-c[0])*(p[1]-c[1]))/area;
+            return [0,1,2].map(j=>clamp(coords[0][j]*w0+coords[1][j]*w1+coords[2][j]*(1-w0-w1))).concat(0);
+        };
+        add("sphere-map",{name:`sphere map N=${normal} normalize=${normalize} shift=${shift}`,
+            body:dev=>{
+                const data=new Uint8Array(72),dv=new DataView(data.buffer);
+                xy.forEach(([x,y],i)=>[x,y,.1,...normal].forEach((v,j)=>dv.setFloat32(i*24+j*4,v,true)));
+                return [rs(dev,7,0),rs(dev,143,normalize?1:0),wire("SetTransform",{device_handle:dev,state:256,matrix:[1,0,0,0,0,1,0,0,0,0,1,0,shift,shift,0,1]}),
+                    tss(dev,0,11,0x40000),pixelShader(dev,dev+0x600000,[0xffff0101,S.TEXCOORD,dst(R.TEXTURE,0),S.MOV,dst(R.TEMP,0),src(R.TEXTURE,0),0xffff]),bindPS(dev,dev+0x600000),
+                    cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,fvf:0x12,element_count:2}),element(0,2,0),element(12,2,3)])),
+                    wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:1,stride:24,vertex_count:3,vertex_bytes:72},[blob("DrawPrimitiveUP","vertex_data_offset",data)])];
+            },probes:[[32,32],[24,36],[40,40]].map(at=>({at,expect:expected(...at),tolerance:1}))});
+    }
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);
