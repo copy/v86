@@ -314,7 +314,7 @@
                 // routinely created with usage 0 and then bound as the depth
                 // surface, which is exactly the trick it exists for.
                 const isDepth = (usage & D3DUSAGE_DEPTHSTENCIL) !== 0 ||
-                    isFourCCDepthFormat(format);
+                    isFourCCDepthFormat(format) || [70,71,73,75,77,79,80].includes(format);
                 const isTarget = (usage & D3DUSAGE_RENDERTARGET) !== 0;
                 const ddIndexed = (usage & D9WG_USAGE_DDRAW_INDEXED) !== 0 &&
                     isPalettizedFormat(format) && !isDepth;

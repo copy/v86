@@ -1197,6 +1197,11 @@ ${coordBody}${fogBody}${passthroughBody}${clipBody}${pointBody}${signature.scree
                 // like meaningful data.
                 "    var temp = vec4<f32>(0.0);\n";
             for (const stage of signature.stages) {
+                // Both bump operations affect sampling above, without writing
+                // CURRENT or TEMP. Copying COLORARG2 into RESULTARG corrupts a
+                // previously saved TEMP when those name different registers.
+                if (stage.colorOp === D3DTOP_BUMPENVMAP ||
+                        stage.colorOp === D3DTOP_BUMPENVMAPLUMINANCE) continue;
                 const rgb = argument => argumentExpression(argument, stage.index, "rgb");
                 const alpha = argument => argumentExpression(argument, stage.index, "a");
                 const blendAlpha = {

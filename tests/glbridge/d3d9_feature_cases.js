@@ -22,6 +22,23 @@
         item.group = group;(groups[group] ||= []).push(item);suite.CASES.push(item);
         if (known) suite.KNOWN_FAILURES[item.name] = known;
     };
+    // Bump operations only alter the following texture lookup. Neither result
+    // register is written, regardless of RESULTARG or the otherwise active args.
+    for (const operation of [22, 23]) for (const destination of [1, 5])
+        for (const observed of [1, 5]) for (const alphaOperation of [2, 7])
+            add("bump-registers", {name: `bump op ${operation} result ${destination} preserves register ${observed}, alpha op ${alphaOperation}`, body: dev => {
+                const bump = dev + 0x500000;
+                return [wire("CreateTexture2D", {device_handle: dev, resource_handle: bump, width: 1, height: 1, level_count: 1, format: 60}),
+                    wire("UpdateTexture", {resource_handle: bump, width: 1, height: 1, depth: 1, row_pitch: 2, slice_pitch: 2, data_bytes: 2},
+                        [blob("UpdateTexture", "data_offset", Uint8Array.from([0x40, 0x20]))]),
+                    ...[0, 1].flatMap(stage => [tss(dev, stage, 1, 2), tss(dev, stage, 2, 6), tss(dev, stage, 4, 2), tss(dev, stage, 5, 6),
+                        tss(dev, stage, 28, stage ? 5 : 1), tss(dev, stage, 32, stage ? 0x89abcdef : 0xff234567)]),
+                    wire("SetTexture", {device_handle: dev, stage: 2, texture_handle: bump}),
+                    tss(dev, 2, 1, operation), tss(dev, 2, 2, 0), tss(dev, 2, 3, 0), tss(dev, 2, 4, alphaOperation), tss(dev, 2, 5, 0), tss(dev, 2, 6, 0),
+                    tss(dev, 2, 28, destination), tss(dev, 2, 11, 0), tss(dev, 2, 22, f(1)),
+                    tss(dev, 3, 1, 2), tss(dev, 3, 2, observed), tss(dev, 3, 4, 2), tss(dev, 3, 5, observed), tss(dev, 4, 1, 1),
+                    ...drawXYZ(dev, fullXYZ(.5, 0x80ffff02))];
+            }, probes: [{at: [32, 32], expect: observed === 5 ? [0xab, 0xcd, 0xef, 0x89] : [0x23, 0x45, 0x67, 255], tolerance: 1}]});
     // Each 4x4 texture is constant, so addressing/filtering cannot affect the
     // format oracle. Sample all RGBA channels, including undefined-channel 1s.
     const formats = [
@@ -1878,5 +1895,22 @@
                     wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:1,stride:24,vertex_count:3,vertex_bytes:72},[blob("DrawPrimitiveUP","vertex_data_offset",data)])];
             },probes:[[32,32],[24,36],[40,40]].map(at=>({at,expect:expected(...at),tolerance:1}))});
     }
+    for (const format of [70,71,73,75,77,79,80]) for(const dynamic of [false,true]) add("sampled-depth-storage",{
+        name:`depth format ${format} upload and comparison without attachment usage dynamic=${dynamic}`,body:dev=>{
+            const depth=dev+0x500000,bpp=[70,73,80].includes(format)?2:4,pitch=64*bpp+8,data=new Uint8Array(pitch*64).fill(0xa5),v=new DataView(data.buffer);
+            for(let y=0;y<64;y++)for(let x=0;x<64;x++){
+                const d=x<32?.25:.75,at=y*pitch+x*bpp;
+                if(format===73)v.setUint16(at,Math.round(d*32767)*2+1,true);
+                else if(bpp===2)v.setUint16(at,Math.round(d*65535),true);
+                else v.setUint32(at,format===71?Math.round(d*4294967295):(Math.round(d*16777215)*256+0xa5)>>>0,true);
+            }
+            const vertices=new Uint8Array(6*24),vv=new DataView(vertices.buffer);
+            fullXYZ(.5,0).forEach((p,i)=>[...p.slice(0,3),(p[0]+1)/2,(1-p[1])/2,.5].forEach((n,j)=>vv.setFloat32(i*24+j*4,n,true)));
+            return [wire("CreateTexture2D",{device_handle:dev,resource_handle:depth,width:64,height:64,level_count:1,format,usage:dynamic?0x200:0}),
+                wire("UpdateTexture",{resource_handle:depth,width:64,height:64,depth:1,row_pitch:pitch,slice_pitch:data.length,data_bytes:data.length},[blob("UpdateTexture","data_offset",data)]),
+                rs(dev,7,0),wire("SetTexture",{device_handle:dev,texture_handle:depth}),tss(dev,0,1,2),tss(dev,0,2,2),tss(dev,0,4,2),tss(dev,0,5,2),
+                cmd(P.OP.SET_FVF,cat([P.encode("SetFVF",{device_handle:dev,fvf:0x10102,element_count:2}),element(0,2,0),element(12,2,5)])),
+                wire("DrawPrimitiveUP",{device_handle:dev,primitive_type:4,primitive_count:2,stride:24,vertex_count:6,vertex_bytes:vertices.length},[blob("DrawPrimitiveUP","vertex_data_offset",vertices)])];
+        },probes:[{at:[16,32],expect:[0,0,0,0]},{at:[48,32],expect:[255,255,255,255]}]});
     suite.FEATURE_GROUPS = groups;suite.FORMAT_CASES = formats;
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -294,20 +294,26 @@ ${body.join("\n")}
             },
 
             stageDepthUpload(resource, level, x, y, width, height, rowPitch, source) {
-                if (resource.format !== 70 || (resource.sampleCount || 1) !== 1 || level >= resource.levelCount ||
+                const sixteen = [70,73,80].includes(resource.format), bytes = sixteen ? 2 : 4;
+                if (![70,71,73,75,77,79,80].includes(resource.format) || (resource.sampleCount || 1) !== 1 || level >= resource.levelCount ||
                         !width || !height || x + width > Math.max(1,resource.width >> level) ||
-                        y + height > Math.max(1,resource.height >> level) || rowPitch < width*2 ||
-                        source.byteLength < (height-1)*rowPitch + width*2)
+                        y + height > Math.max(1,resource.height >> level) || rowPitch < width*bytes ||
+                        source.byteLength < (height-1)*rowPitch + width*bytes)
                     throw new Error("invalid lockable depth upload");
                 const values = new Float32Array(width*height), view = new DataView(source.buffer,source.byteOffset,source.byteLength);
-                for(let row=0;row<height;++row)for(let col=0;col<width;++col)
-                    values[row*width+col] = view.getUint16(row*rowPitch+col*2,true)/65535;
+                for(let row=0;row<height;++row)for(let col=0;col<width;++col) {
+                    const at=row*rowPitch+col*bytes;
+                    const packed=sixteen?view.getUint16(at,true):view.getUint32(at,true);
+                    values[row*width+col] = resource.format===73 ? (packed>>>1)/32767
+                        : sixteen ? packed/65535
+                        : resource.format===71 ? packed/4294967295 : (packed>>>8)/16777215;
+                }
                 const texture = this.device.createTexture({label:"D3D9 depth upload values",size:{width,height},format:"r32float",
                     usage:TEXTURE_USAGE_COPY_DST|TEXTURE_USAGE_TEXTURE_BINDING});
                 this.stageTextureUpload({texture},new Uint8Array(values.buffer),{bytesPerRow:width*4,rowsPerImage:height},{width,height,depthOrArrayLayers:1});
                 this.ensureFrame().record({kind:"depth-upload",source:texture.createView(),destination:this.targetViewFor(resource,level,false),x,y,width,height});
                 this.retireGPUObject(texture);
-                ++this.stats.textureUploads;this.stats.textureBytesUploaded += width*height*2;
+                ++this.stats.textureUploads;this.stats.textureBytesUploaded += width*height*bytes;
             },
 
             utilityUniform(data) {
