@@ -111,6 +111,8 @@
 
             retireResourceState(resource) {
                 if (!resource) return;
+                if (this.recordingOcclusion === resource) this.recordingOcclusion = null;
+                if (this.activeOcclusion && this.activeOcclusion.query === resource) this.activeOcclusion = null;
                 this.retireColorPromotions(resource);
                 this.retireGPUObject(resource.gpuBuffer);
                 this.retireGPUObject(resource.stripIndexBuffer);

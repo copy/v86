@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {parse_wine_result} from "../lib/wine_test_result.mjs";
+import {parse_wine_result,assert_wine_graphics_cleanup} from "../lib/wine_test_result.mjs";
 const passed="0180:stateblock: 9283 tests executed (0 marked as todo, 0 as flaky, 0 failures), 0 skipped.\r\nexit=0 \r\n";
 assert.deepEqual(parse_wine_result(passed,"8"),{checks:9283,todos:0,flaky:0,failures:0,skipped:0});
 assert.equal(parse_wine_result("RUNNING Wine9\n"+passed.replace("9283","14738"),"9").checks,14738);
@@ -19,3 +19,10 @@ assert.throws(()=>parse_wine_result(passed,"unused",{inapplicable:[reviewed]}));
 assert.throws(()=>parse_wine_result(skip+passed,"contradictory"));
 assert.throws(()=>parse_wine_result(withSkip.replace("0 failures","1 failure"),"actual failure",{inapplicable:[reviewed]}));
 console.log("PASS reviewed applicability: exact location/message/count, reason/evidence, categories and contradictions; failures remain fatal");
+const cleaned={devices:0,resources:0,sessions:0,sessionCleanup:[{devices:1,resources:3,after:{devices:0,resources:0,pendingFrame:false,activeQuery:false}}]};
+assert_wine_graphics_cleanup(cleaned);
+for(const after of [undefined,{...cleaned.sessionCleanup[0].after,devices:1},{...cleaned.sessionCleanup[0].after,resources:1},{...cleaned.sessionCleanup[0].after,pendingFrame:true},{...cleaned.sessionCleanup[0].after,activeQuery:true}])
+    assert.throws(()=>assert_wine_graphics_cleanup({...cleaned,sessionCleanup:[{after}]}));
+for(const field of ['devices','resources','sessions'])assert.throws(()=>assert_wine_graphics_cleanup({...cleaned,[field]:1}));
+assert.throws(()=>assert_wine_graphics_cleanup({...cleaned,sessionCleanup:[]}));
+console.log('PASS owner cleanup gate: retain pre-cleanup counts; reject surviving graphics state, sessions or missing post-cleanup evidence');

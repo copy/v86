@@ -2051,6 +2051,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 hotspotX: 0, hotspotY: 0, x: 0, y: 0, visible: false,
                 pipeline: null, sampler: null, uniform: null };
             this.activeOcclusion = null;
+            this.recordingOcclusion = null;
             this.presentingDevice = null;
             this.windowState = null;
             if (this.diagnosticsEnabled) this.lastDraws = { fixed: null, programmable: null };
@@ -2326,6 +2327,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 pipeline: null, sampler: null, uniform: null,
                 bindGroupLayout: null, visible: false };
             this.activeOcclusion = null;
+            this.recordingOcclusion = null;
             this.presentingDevice = null;
             this.lastSwapTexture = null;
             this.windowState = null;
@@ -2425,6 +2427,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const requestId = view.getUint32(offset + D9WG.F.QueryIssue.request_id, true);
             if (responseOffset !== query.responseOffset) return;
             query.active = true;
+            if (query.type === D3DQUERYTYPE_OCCLUSION) this.recordingOcclusion = query;
             query.requestId = requestId;
             query.metadata = metadata || {};
             const frame = this.ensureFrame();
@@ -2445,6 +2448,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             frame.record({ kind: "query-end", query, requestId,
                 metadata: resultMetadata });
             query.active = false;
+            if (this.recordingOcclusion === query) this.recordingOcclusion = null;
             ++this.stats.queryEnds;
             /* A GetData call submits the partial guest batch without Present.
              * Ask executeBatch() to submit this frame too so polling can make
@@ -2917,7 +2921,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 shadersCached: shaderCache.cached,
                 shaderWGSLBytesCached: shaderCache.totalWGSLBytes,
                 shaderCompileLatencyMs: { ...shaderCache.compileLatencyMs },
-                occlusionQueries: { mode: "webgpu-query-set",
+                occlusionQueries: { mode: this.options.occlusionMode === "native" ? "webgpu-query-set" : "gpu-sample-counter",
                     active: this.activeOcclusion ? 1 : 0,
                     perFrameCapacity: 8192,
                     resolved: this.stats.occlusionQueriesResolved },
@@ -4371,6 +4375,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             let module = this.moduleCache.get(wgsl);
             if (module) return module;
             module = this.device.createShaderModule({ label, code: wgsl });
+            module._d9wgSource = wgsl;
             ++this.stats.shaderModulesCreated;
             this.moduleCache.set(wgsl, module);
             if (typeof module.getCompilationInfo === "function") {

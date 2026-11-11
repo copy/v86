@@ -7,7 +7,7 @@ import {createHash} from "node:crypto";
 import {execFileSync} from "node:child_process";
 import {fileURLToPath} from "node:url";
 import {site_directory} from "../lib/site.mjs";
-import {parse_wine_result} from "../lib/wine_test_result.mjs";
+import {parse_wine_result,assert_wine_graphics_cleanup} from "../lib/wine_test_result.mjs";
 import {run_xp_ram_probe} from "../lib/xp_ram_probe.mjs";
 import {create_d3d_live_renderer} from "../lib/d3d_live_renderer.mjs";
 
@@ -60,8 +60,7 @@ try {
             fs.writeFileSync(out+"/WINE.TXT",result.logs["WINE.TXT"]);
             result.wineSummary=parse_wine_result(result.logs["WINE.TXT"],suite,{inapplicable:applicability?.inapplicable||[]});
             assert.deepEqual([...result.releases].sort(),[...result.owners].sort(),"Unreleased transport owner");
-            assert(live.stats.snapshot.sessionCleanup.length>0,"Missing cleanup evidence");
-            assert(live.stats.snapshot.sessionCleanup.every(row=>!row.devices&&!row.resources),"Guest left graphics resources alive");
+            assert_wine_graphics_cleanup(live.stats.snapshot);
         }});
     console.log(JSON.stringify(result));
 } finally {

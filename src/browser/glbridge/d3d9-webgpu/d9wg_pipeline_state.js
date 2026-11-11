@@ -434,6 +434,11 @@
                         }
                         return target;
                     });
+                if (program.queryCounter)
+                    colorTargets.push({format: "r16float", writeMask: 1, blend: {
+                        color: {srcFactor: "one", dstFactor: "one", operation: "add"},
+                        alpha: {srcFactor: "one", dstFactor: "one", operation: "add"},
+                    }});
                 const primitive = { topology,
                     cullMode: program.pointExpansion ? "none" : pipelineState.cullMode,
                     frontFace: "cw" };

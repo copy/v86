@@ -2,10 +2,207 @@
 // executor reference; session/device data stay with the active owner.
 (function(global) {
     "use strict";
+    // Direct3D queries require an exact number of passing samples. WebGPU may
+    // return only a boolean from a native occlusion query (notably on Metal).
+    // An additive attachment participates in the original draw's depth,
+    // stencil, shader discard and sample coverage, so it counts those samples
+    // without replaying or changing their effects on the application's targets.
+    const COUNTER_FORMAT = "r16float", COUNTER_PRIMITIVE_BUDGET = 256;
+
+    function counterFitsFormats(formats, limits) {
+        let bytes = 0;
+        for (const format of formats) {
+            if (!format) continue;
+            const components = /^(rgba|bgra)/.test(format) ? 4 : /^rg/.test(format) ? 2 : 1;
+            const width = /32/.test(format) ? 4 : /16/.test(format) ? 2 : 1;
+            // Normalized RGBA8/BGRA8 attachments have an eight-byte render
+            // target cost in WebGPU, independent of their copy footprint.
+            const cost = /^(rgba|bgra)8.*norm/.test(format) ? 8
+                : /^(rgb10a2|rg11b10)/.test(format) ? 8 : components * width;
+            bytes = Math.ceil(bytes / width) * width + cost;
+        }
+        return formats.length + 1 <= (limits.maxColorAttachments || 8)
+            && Math.ceil(bytes / 2) * 2 + 2 <= (limits.maxColorAttachmentBytesPerSample || 32);
+    }
+
+    function countedDrawSegments(topology, count, instances = 1) {
+        const step = topology === "triangle-list" ? 3 : topology === "line-list" ? 2 : 1;
+        const overlap = topology === "triangle-strip" ? 2 : topology === "line-strip" ? 1 : 0;
+        const primitives = Math.max(0, Math.floor((count - overlap) / step));
+        if (!primitives || !instances) return [];
+        const segments = [];
+        // Preserve primitive and instance order. A draw larger than the budget
+        // must finish all chunks of one instance before starting the next.
+        if (primitives <= COUNTER_PRIMITIVE_BUDGET) {
+            const batch = Math.max(1, Math.floor(COUNTER_PRIMITIVE_BUDGET / primitives));
+            for (let instance = 0; instance < instances; instance += batch)
+                segments.push({first: 0, count, firstInstance: instance,
+                    instanceCount: Math.min(batch, instances - instance)});
+        } else {
+            for (let instance = 0; instance < instances; ++instance)
+                for (let first = 0; first < primitives; first += COUNTER_PRIMITIVE_BUDGET) {
+                    const length = Math.min(COUNTER_PRIMITIVE_BUDGET, primitives - first);
+                    segments.push({first: first * step, count: length * step + overlap,
+                        firstInstance: instance, instanceCount: 1});
+                }
+        }
+        return segments;
+    }
+
+    // Wrap generated WGSL rather than changing the guest shader body. The
+    // wrapper retains each bound colour output and frag_depth, and adds one
+    // independent additive output. Discards inside the body still kill it.
+    function countedFragmentSource(source, location) {
+        const entry = /@fragment\s+fn\s+d9_ps_main\s*\(/.exec(source);
+        if (!entry) throw new Error("Missing D3D9 fragment entry point");
+        const paramsAt = entry.index + entry[0].length;
+        let end = paramsAt, nesting = 1;
+        for (; end < source.length && nesting; ++end) {
+            if (source[end] === "(") ++nesting;
+            else if (source[end] === ")") --nesting;
+        }
+        if (nesting) throw new Error("Unterminated D3D9 fragment parameters");
+        const params = source.slice(paramsAt, end - 1);
+        const bodyAt = source.indexOf("{", end);
+        const returned = source.slice(end, bodyAt).replace(/^\s*->\s*/, "").trim();
+        const returnType = returned.replace(/@\w+\([^)]*\)\s*/g, "");
+        const simple = /^@location\(0\)\s+vec4<f32>$/.test(returned);
+        let members;
+        if (simple) members = [{attribute: "@location(0)", name: "color0", type: "vec4<f32>", simple: true}];
+        else {
+            const structure = new RegExp("struct\\s+" + returnType + "\\s*\\{([^}]+)\\}").exec(source);
+            if (!structure) throw new Error("Unknown D3D9 fragment result " + returnType);
+            members = [...structure[1].matchAll(/((?:@\w+\([^)]*\)\s*)+)(\w+)\s*:\s*([^,;]+)[,;]/g)]
+                .map(([, attribute, name, type]) => ({attribute: attribute.trim(), name, type: type.trim()}))
+                .filter(member => {
+                    const output = /@location\((\d+)\)/.exec(member.attribute);
+                    return !output || Number(output[1]) < location;
+                });
+        }
+        const argumentsList = params.split(",").filter(p => p.trim()).map(p =>
+            p.replace(/@\w+\([^)]*\)\s*/g, "").trim().split(":")[0].trim()).join(", ");
+        const helper = "fn d9_query_body(" + params.replace(/@\w+\([^)]*\)\s*/g, "") + ") -> " + returnType + " ";
+        const body = source.slice(0, entry.index) + helper + source.slice(bodyAt);
+        return body + "\nstruct D9QueryOutput {\n" + members.map(member =>
+            "    " + member.attribute + " " + member.name + ": " + member.type + ",").join("\n") +
+            "\n    @location(" + location + ") samples: vec4<f32>,\n};\n" +
+            "@fragment\nfn d9_ps_main(" + params + ") -> D9QueryOutput {\n" +
+            "    let value = d9_query_body(" + argumentsList + ");\n    var result: D9QueryOutput;\n" +
+            members.map(member => "    result." + member.name + " = value" + (member.simple ? "" : "." + member.name) + ";").join("\n") +
+            "\n    result.samples = vec4<f32>(1.0);\n    return result;\n}\n";
+    }
+
+    function sampleReductionSource(sampleCount) {
+        const multisampled = sampleCount > 1;
+        return `
+@group(0) @binding(0) var counts: ${multisampled ? "texture_multisampled_2d<f32>" : "texture_2d<f32>"};
+struct Total { low: atomic<u32>, high: atomic<u32>, };
+@group(0) @binding(1) var<storage, read_write> total: Total;
+var<workgroup> sums: array<u32, 64>;
+@compute @workgroup_size(8, 8)
+fn main(@builtin(global_invocation_id) pos: vec3<u32>,
+        @builtin(local_invocation_index) lane: u32) {
+    let size = textureDimensions(counts);
+    var value = 0u;
+    if (pos.x < size.x && pos.y < size.y) {
+        ${multisampled ? `for (var sample = 0; sample < ${sampleCount}; sample++) {
+            value += u32(round(textureLoad(counts, vec2<i32>(pos.xy), sample).r));
+        }` : "value = u32(round(textureLoad(counts, vec2<i32>(pos.xy), 0).r));"}
+    }
+    sums[lane] = value;
+    workgroupBarrier();
+    for (var stride = 32u; stride > 0u; stride >>= 1u) {
+        if (lane < stride) { sums[lane] += sums[lane + stride]; }
+        workgroupBarrier();
+    }
+    if (lane == 0u) {
+        let addend = sums[0];
+        let previous = atomicAdd(&total.low, addend);
+        if (previous > 0xffffffffu - addend) { atomicAdd(&total.high, 1u); }
+    }
+}`;
+    }
+
+    class SampleCounter {
+        constructor(executor, encoder, frame) {
+            this.executor = executor;this.encoder = encoder;this.frame = frame;
+            this.textures = new Map();this.totals = new Map();this.current = null;
+        }
+        attachment(targets, record) {
+            const device = this.executor.device, samples = targets.sampleCount || 1;
+            const key = [targets.width, targets.height, samples].join(":");
+            let texture = this.textures.get(key);
+            if (!texture) {
+                texture = device.createTexture({label: "D3D9 passing sample counter",
+                    size: [targets.width, targets.height], format: COUNTER_FORMAT,
+                    sampleCount: samples, usage: 0x10 | 0x04});
+                this.textures.set(key, texture);this.frame.transientBuffers.push(texture);
+            }
+            this.current = {texture, targets, record};
+            return {view: texture.createView(), loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0]};
+        }
+        finishPass() {
+            if (!this.current) return false;
+            const {texture, targets, record} = this.current;this.current = null;
+            if (!record) return false;
+            const executor = this.executor, device = executor.device;
+            let total = this.totals.get(record);
+            if (!total) {
+                const buffer = device.createBuffer({label: "D3D9 64-bit passing sample total", size: 16, usage: 0x80 | 0x04});
+                total = {buffer};this.totals.set(record, total);
+            }
+            const samples = targets.sampleCount || 1;
+            const pipelines = executor.sampleReductionPipelines ||= new Map();
+            let pipeline = pipelines.get(samples);
+            if (!pipeline) {
+                pipeline = device.createComputePipeline({label: "D3D9 passing sample reduction", layout: "auto",
+                    compute: {module: executor.moduleFor(sampleReductionSource(samples), "D3D9 sample reduction"), entryPoint: "main"}});
+                pipelines.set(samples, pipeline);
+            }
+            const group = device.createBindGroup({layout: pipeline.getBindGroupLayout(0), entries: [
+                {binding: 0, resource: texture.createView()}, {binding: 1, resource: {buffer: total.buffer}},
+            ]});
+            const pass = this.encoder.beginComputePass();pass.setPipeline(pipeline);pass.setBindGroup(0, group);
+            pass.dispatchWorkgroups(Math.ceil(targets.width / 8), Math.ceil(targets.height / 8));pass.end();
+            return true;
+        }
+        readbacks(completions) {
+            const result = [];
+            for (const [record, total] of this.totals) {
+                const matching = completions.filter(completion => completion.record === record);
+                if (!matching.length) {this.frame.transientBuffers.push(total.buffer);continue;}
+                const read = this.executor.device.createBuffer({label: "D3D9 passing sample readback", size: 16, usage: 0x08 | 0x01});
+                this.encoder.copyBufferToBuffer(total.buffer, 0, read, 0, 8);
+                result.push({kind: "occlusion", count: 1, completions: matching,
+                    querySet: null, resolve: total.buffer, read});
+            }
+            return result;
+        }
+    }
+
     function createClass(dependencies) {
         const { D3DQUERYTYPE_OCCLUSION, MAX_QUERY_SET_COUNT, EMPTY_OFFSETS, intersectRects, alignUp, BUFFER_USAGE_QUERY_RESOLVE, BUFFER_USAGE_COPY_SRC, BUFFER_USAGE_COPY_DST, BUFFER_USAGE_MAP_READ, MAP_MODE_READ, D9WG_RESPONSE_FAILED, D9WG_RESPONSE_OK, D3DQUERYTYPE_EVENT, D3DQUERYTYPE_TIMESTAMP, D3DQUERYTYPE_TIMESTAMPFREQ, D3DQUERYTYPE_TIMESTAMPDISJOINT } = dependencies;
         return class FrameReplayer {
             constructor(executor) { this.executor = executor; }
+            counterProgram(program, location) {
+                const variants = program.counterPrograms ||= new Map();
+                let variant = variants.get(location);
+                if (!variant) {
+                    const fragmentKey = program.fragmentKey + ":sample-counter:" + location;
+                    variant = {...program, fragmentKey, queryCounter: true,
+                        fragmentModule: this.executor.moduleFor(countedFragmentSource(
+                            program.fragmentModule._d9wgSource, location), fragmentKey),
+                        pipelineVariants: undefined, pipelineLayoutKey: undefined};
+                    variants.set(location, variant);
+                }
+                return variant;
+            }
+            counterFitsFormats(formats) {
+                return counterFitsFormats(formats, this.executor.device.limits || {});
+            }
+            countedDrawSegments(topology, count, instances) {
+                return countedDrawSegments(topology, count, instances);
+            }
             finishFrame(present = true) {
                 const executor = this.executor;
                 /*
@@ -95,7 +292,9 @@
                 /* Any op can force a render-pass boundary through a target
                  * switch. One slot per recorded op is therefore a safe upper
                  * bound on the number of query segments. */
-                const occlusionBudget = hasOcclusion
+                const exactOcclusion = executor.options.occlusionMode !== "native";
+                const counter = hasOcclusion && exactOcclusion ? new SampleCounter(executor, encoder, frame) : null;
+                const occlusionBudget = hasOcclusion && !exactOcclusion
                     ? Math.min(MAX_QUERY_SET_COUNT, Math.max(1, frame.ops.length)) : 0;
                 const occlusionQuerySet = occlusionBudget
                     ? executor.device.createQuerySet({ type: "occlusion",
@@ -184,6 +383,8 @@
                     if (!pass) return;
                     endOcclusionSegment();
                     pass.end();
+                    if (counter && counter.finishPass() && !activeOcclusionSlots.length)
+                        activeOcclusionSlots.push(0);
                     executor.restoreColorPromotions(encoder, openTargets);
                     openTargets = null;
                     pass = null;
@@ -201,6 +402,8 @@
                             ...(clearColor ? { clearValue: clearColor } : {}),
                         }),
                     };
+                    if (targets.queryCounter && counter)
+                        descriptor.colorAttachments.push(counter.attachment(targets, activeOcclusion));
                     if (occlusionQuerySet)
                         descriptor.occlusionQuerySet = occlusionQuerySet;
                     if (targets.depthView) {
@@ -242,7 +445,13 @@
                         executor.uploads.replay(encoder, op);continue;
                     }
                     if (op.writes) op.writes.msaaStale = true;
+                    // Preserve the application's draw when the adapter has no
+                    // spare attachment capacity. Report an unavailable query,
+                    // rather than fabricate a count or submit an invalid pass.
+                    if (op.queryCounterUnavailable && activeOcclusion)
+                        activeOcclusion.failed = true;
                     if (op.kind === "query-begin") {
+                        if (op.query.destroyed) continue;
                         if (op.query.type === D3DQUERYTYPE_OCCLUSION) {
                             closePass();
                             activeOcclusion = { query: op.query,
@@ -255,7 +464,7 @@
                     }
                     if (op.kind === "query-end") {
                         if (op.query.type === D3DQUERYTYPE_OCCLUSION) {
-                            endOcclusionSegment();
+                            closePass();
                             const record = activeOcclusion || {
                                 query: op.query, requestId: op.requestId,
                                 metadata: op.metadata, value: 0n,
@@ -430,23 +639,32 @@
                             bound.indexFormat = op.indexInfo.format;
                             bound.indexOffset = op.indexInfo.offset;
                         } else ++executor.stats.redundantStateSkipped;
-                        pass.drawIndexed(op.indexInfo.count, op.instanceCount || 1,
+                        if (op.firstInstance !== undefined)
+                            pass.drawIndexed(op.indexInfo.count, op.instanceCount || 1,
+                                op.indexInfo.firstIndex, op.indexInfo.baseVertex, op.firstInstance);
+                        else
+                            pass.drawIndexed(op.indexInfo.count, op.instanceCount || 1,
                                 op.indexInfo.firstIndex, op.indexInfo.baseVertex);
                     } else {
                         // StartVertex is already folded into each stream's
                         // setVertexBuffer offset (see boundStreams), so
                         // firstVertex stays 0 here.
-                        if ((op.instanceCount || 1) === 1)
+                        if (op.firstInstance !== undefined)
+                            pass.draw(op.vertexCount || 0, op.instanceCount || 1, op.firstVertex || 0, op.firstInstance);
+                        else if ((op.instanceCount || 1) === 1)
                             pass.draw(op.vertexCount || 0);
                         else
                             pass.draw(op.vertexCount || 0, op.instanceCount);
                     }
+                    // Every instrumented op has at most 256 primitives, keeping
+                    // each per-sample half-float sum exact even under overdraw.
+                    if (op.targets.queryCounter) closePass();
                 }
                 closePass();
                 // D3D9 permits an occlusion query to cross Present. Resolve
                 // this frame's segments now, retain the accumulator, and open
                 // a fresh WebGPU segment when the next frame starts.
-                if (activeOcclusion) {
+                if (activeOcclusion && !activeOcclusion.query.destroyed) {
                     if (activeOcclusionSlots.length)
                         occlusionCompletions.push({ record: activeOcclusion,
                             query: activeOcclusion.query,
@@ -456,7 +674,7 @@
                             final: false });
                     executor.activeOcclusion = activeOcclusion;
                 }
-                const queryReadbacks = [];
+                const queryReadbacks = counter ? counter.readbacks(occlusionCompletions) : [];
                 const encodeQueryReadback = (querySet, count, completions,
                         kind) => {
                     if (!querySet || !count || !completions.length) return;
@@ -481,6 +699,8 @@
                 encodeQueryReadback(occlusionQuerySet, occlusionSlot,
                     occlusionCompletions.filter(item => item.slots.length),
                     "occlusion");
+                if (occlusionQuerySet && !occlusionSlot)
+                    frame.transientBuffers.push(occlusionQuerySet);
                 /* A query enclosing no draws still has a real answer: zero
                  * visible samples. It needs only the queue fence, not a query
                  * buffer mapping. */
@@ -505,7 +725,7 @@
                     const release = () => {
                         pending.read.destroy();
                         pending.resolve.destroy();
-                        pending.querySet.destroy();
+                        if (pending.querySet) pending.querySet.destroy();
                     };
                     const mapping = Promise.all([pending.read.mapAsync(MAP_MODE_READ), frameValid]).then(([, valid]) => {
                         const source = new DataView(pending.read.getMappedRange());
@@ -590,7 +810,7 @@
             }
         };
     }
-    const api = { createClass };
+    const api = { createClass, countedDrawSegments, countedFragmentSource, sampleReductionSource, counterFitsFormats };
     global.D9WGFrameReplayer = api;
     if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof globalThis !== "undefined" ? globalThis : this);

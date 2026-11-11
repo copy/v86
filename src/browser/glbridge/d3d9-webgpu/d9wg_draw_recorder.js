@@ -67,6 +67,7 @@
                 const frame = this.frame;
                 // An occlusion query open across the dropped work has lost samples
                 if (this.activeOcclusion) this.activeOcclusion.failed = true;
+                this.recordingOcclusion = null;
                 if (!frame) return;
                 this.frame = null;
                 this.failDroppedQueries(frame.ops);
@@ -87,7 +88,7 @@
             // (NORMAL, extra texcoords, padding) and every vertex after the first
             // would then be fetched from the wrong offset.
             recordDraw(state, elements, which, geometry) {
-                const targets = this.renderTargetsFor(state);
+                let targets = this.renderTargetsFor(state);
                 if (!targets) {
                     this.noteDroppedDraw(which, state,
                         ["no usable colour render target is bound"]);
@@ -121,12 +122,18 @@
                 }
                 const pointSprite = pointExpansion &&
                     (state.renderStates.get(D3DRS_POINTSPRITEENABLE) || 0) !== 0;
-                const program = this.programFor(state, elements, pipelineState,
+                let program = this.programFor(state, elements, pipelineState,
                     { pointExpansion, pointSprite });
                 if (program.error) {
                     if (program.shaderError) ++this.stats.drawsSkippedForBadShader;
                     this.noteDroppedDraw(which, state, [program.error]);
                     return;
+                }
+                const counted = !!this.recordingOcclusion && this.options.occlusionMode !== "native";
+                const counterAvailable = counted && this.frameReplayer.counterFitsFormats(targets.formats);
+                if (counterAvailable) {
+                    targets = {...targets, key: targets.key + ":sample-counter", queryCounter: true};
+                    program = this.frameReplayer.counterProgram(program, targets.colors.length);
                 }
                 const pipeline = this.pipelineFor(program, pipelineState,
                     pointExpansion ? "triangle-list" : geometry.topology,
@@ -207,7 +214,7 @@
                 if (program.fixedFunctionSignature?.positionType === "screen" || program.viewportDepthRange) {
                     viewport.minZ = 0;viewport.maxZ = 1;
                 }
-                frame.record({
+                const draw = {
                     kind: "draw", pipeline, bindGroup: binding.group,
                     dynamicOffsets: binding.dynamicOffsets, targets,
                     viewport,
@@ -217,7 +224,17 @@
                     vertexBuffers, indexInfo: geometry.indexInfo,
                     vertexCount: pointExpansion ? 6 : geometry.vertexCount,
                     instanceCount: pointExpansion ? geometry.vertexCount : instanceCount,
-                });
+                    queryCounterUnavailable: counted && !counterAvailable,
+                };
+                if (counterAvailable) {
+                    const topology = pointExpansion ? "triangle-list" : geometry.topology;
+                    const count = draw.indexInfo ? draw.indexInfo.count : draw.vertexCount;
+                    for (const segment of this.frameReplayer.countedDrawSegments(topology, count, draw.instanceCount))
+                        frame.record({...draw, vertexCount: segment.count, firstVertex: segment.first,
+                            firstInstance: segment.firstInstance, instanceCount: segment.instanceCount,
+                            indexInfo: draw.indexInfo ? {...draw.indexInfo, count: segment.count,
+                                firstIndex: (draw.indexInfo.firstIndex || 0) + segment.first} : undefined});
+                } else frame.record(draw);
                 if (pointExpansion) {
                     ++this.stats.pointSpriteDraws;
                     this.stats.pointSpriteInstances += geometry.vertexCount || 0;

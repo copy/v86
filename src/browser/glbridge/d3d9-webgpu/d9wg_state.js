@@ -284,7 +284,7 @@
             devices: new Map(),
             resources: new Map(),
             frame: null,
-            activeOcclusion: null,
+            activeOcclusion: null, recordingOcclusion: null,
             presentingDevice: null,
             lastSwapTexture: null,
             backBufferTexture: null,
@@ -311,7 +311,7 @@
 
 
     const SESSION_FIELDS = Object.freeze([
-        "devices", "resources", "frame", "activeOcclusion", "presentingDevice", "lastSwapTexture",
+        "devices", "resources", "frame", "activeOcclusion", "recordingOcclusion", "presentingDevice", "lastSwapTexture",
         "backBufferTexture", "backBufferView", "backBufferSrgbView", "backBufferTextureWidth",
         "backBufferTextureHeight", "palettes", "ddPaletteBuffers", "ddPaletteSerials", "windowState",
         "cursor", "lastDraws", "uploads", "uniformRingChunks", "uniformStaging", "uniformRingIndex", "uniformRingCursor",

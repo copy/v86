@@ -1,5 +1,11 @@
 // A completed process is not sufficient: Wine can skip every test and exit 0.
 import assert from "node:assert/strict";
+export function assert_wine_graphics_cleanup(snapshot) {
+    assert(snapshot && snapshot.sessionCleanup?.length, "Missing cleanup evidence");
+    for (const row of snapshot.sessionCleanup)
+        assert.deepEqual(row.after, {devices:0,resources:0,pendingFrame:false,activeQuery:false}, "Graphics state survived process-owner cleanup");
+    assert.deepEqual([snapshot.devices,snapshot.resources,snapshot.sessions], [0,0,0], "Graphics owner/session remained alive");
+}
 export function parse_wine_result(log, name, {minimumChecks = 1001, inapplicable = []} = {}) {
     const summaries=[...log.matchAll(/(\d+) tests executed \((\d+) marked as todo, (\d+) as flaky, (\d+) failures?\), (\d+) skipped\./g)];
     assert.equal(summaries.length,1,"Missing or duplicate Wine completion summary: "+name);

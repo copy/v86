@@ -498,7 +498,9 @@ function makeExecutor(options = {}) {
     const fake = makeFakeWebGPU(fakeOptions);
     const canvas = { width: 1, height: 1, getContext: () => fake.context };
     const executor = new D3D9WebGPUExecutor(canvas,
-        { gpu: fake.gpu, strict: true, diagnostics: true, ...executorOptions });
+        // This fake validates native query encoding and supplies synthetic
+        // query-set values. Real GPU tests exercise the default exact counter.
+        { gpu: fake.gpu, strict: true, diagnostics: true, occlusionMode: "native", ...executorOptions });
     liveExecutors.push(executor);
     return { fake, executor, calls: fake.calls,
         find: name => fake.calls.filter(call => call[0] === name),

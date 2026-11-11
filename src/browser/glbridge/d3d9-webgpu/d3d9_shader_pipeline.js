@@ -2277,7 +2277,8 @@
             // ps_1_x leaves its result in r0; ps_2_0+ writes oC0 explicitly.
             out.push("    result.color0 = " + (this.major === 1 ? "r0" : "oC0") + ";");
             for (let target = 1; target < targetCount; ++target)
-                out.push("    result.color" + target + " = oC" + target + ";");
+                out.push("    result.color" + target + " = " +
+                    (this.colorOutputs.has(target) ? "oC" + target : "vec4<f32>(0.0)") + ";");
             // D3D9's alpha test runs after the shader, on the colour it
             // produced. WebGPU has no such stage, so the caller passes the
             // comparison in and it becomes a discard here -- which is why an

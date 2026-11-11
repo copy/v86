@@ -1,0 +1,135 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>D3D9 pixel conformance</title>
+<canvas id="screen" width="64" height="64"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script src="d3d9_feature_cases.js"></script>
+<script src="d3d_test_device.js"></script>
+<script>
+(async()=>{
+ const P=D9WGProtocol,C=P.C,{cmd,draw,quad,rs,pixelShader,asm}=D3D9Conformance.builders;
+ const lines=[];let gpu,checks=0;
+ const check=(v,m)=>{++checks;if(!v)throw Error(m);};
+ const names={};for(const [op,entry] of Object.entries(P.COMMANDS))names[Array.isArray(entry)?entry[0]:entry]=P.OP[op];
+ const wire=(name,fields,blobs=[])=>{for(const key of Object.keys(fields))if(!(key in P.F[name]))throw Error('Unknown field '+name+'.'+key);return cmd(names[name],P.encode(name,fields),blobs);};
+ const giantStrip=(d,indexed=false,instances=1,cull=1)=>{
+  const count=515,stride=24,data=new Uint8Array(count*stride),v=new DataView(data.buffer),corners=[[-100,-100],[300,-100],[-100,300]];
+  for(let i=0;i<count;i++){const [x,y]=corners[i%3];[x,y,.5,1].forEach((n,j)=>v.setFloat32(i*stride+j*4,n,true));v.setUint32(i*stride+16,0xffff0000,true);}
+  if(!indexed)return [rs(d,22,cull),wire('DrawPrimitiveUP',{device_handle:d,primitive_type:5,primitive_count:count-2,stride,vertex_count:count,vertex_bytes:data.length},[{offsetField:'vertex_data_offset',data}])];
+  const vb=d+0x710000,ib=d+0x720000,indices=new Uint8Array((count+3)*2),iv=new DataView(indices.buffer);
+  for(let i=0;i<count;i++)iv.setUint16((i+3)*2,i,true);
+  return [rs(d,22,cull),wire('CreateBuffer',{device_handle:d,resource_handle:vb,resource_kind:1,byte_count:data.length}),
+   wire('UpdateBuffer',{resource_handle:vb,byte_count:data.length},[{offsetField:'data_offset',data}]),
+   wire('CreateBuffer',{device_handle:d,resource_handle:ib,resource_kind:2,byte_count:indices.length,fvf:101}),
+   wire('UpdateBuffer',{resource_handle:ib,byte_count:indices.length},[{offsetField:'data_offset',data:indices}]),
+   wire('SetStreamSource',{device_handle:d,buffer_handle:vb,stride}),wire('SetIndices',{device_handle:d,buffer_handle:ib}),
+   wire('SetStreamSourceFreq',{device_handle:d,divider:0x40000000|instances}),
+   wire('DrawIndexedPrimitive',{device_handle:d,primitive_type:5,primitive_count:count-2,start_index:3})];
+ };
+ const batch=(session,commands)=>P.encodeBatch(commands.map(c=>({opcode:c.opcode,payload:c.payload,blobs:c.blobs.map(b=>({field:b.offsetField,data:b.data}))})),{session_id_low:session});
+ try{
+  gpu=new D3D9WebGPUExecutor(document.querySelector('canvas'),{strict:true,useShaderWorker:false,occlusionMode:new URLSearchParams(location.search).has('native_occlusion')?'native':undefined});await gpu.initialize();
+  const cases=[
+   ['empty query',0,()=>[]],
+   ['rectangle exact count',44*34,d=>[draw(d,quad(5,7,49,41,.5,0xffff0000))]],
+   ['scissor exact count',20*15,d=>[rs(d,174,1),wire('SetScissorRect',{device_handle:d,left:10,top:11,right:30,bottom:26}),draw(d,quad(0,0,64,64,.5,0xffff0000))]],
+   ['depth rejects covered left strip',44*64,d=>[rs(d,7,1),rs(d,14,0),draw(d,quad(0,0,64,64,.5,0xffff0000))],d=>[rs(d,7,1),rs(d,14,1),draw(d,quad(0,0,20,64,.25,0xff00ff00))]],
+   ['stencil admits covered left strip',20*64,d=>[rs(d,52,1),rs(d,56,3),rs(d,53,1),rs(d,54,1),rs(d,55,1),rs(d,57,1),draw(d,quad(0,0,64,64,.5,0xffff0000))],d=>[rs(d,52,1),rs(d,56,8),rs(d,55,3),rs(d,57,1),draw(d,quad(0,0,20,64,.5,0xff00ff00))]],
+   ['alpha test discards',0,d=>[rs(d,15,1),rs(d,24,128),rs(d,25,5),draw(d,quad(0,0,64,64,.5,0x40ff0000))]],
+   ['alpha test admits',4096,d=>[rs(d,15,1),rs(d,24,128),rs(d,25,5),draw(d,quad(0,0,64,64,.5,0xc0ff0000))]],
+   ['color write mask does not suppress counting',4096,d=>[rs(d,168,0),draw(d,quad(0,0,64,64,.5,0xffff0000))]],
+   ['clear does not count',0,d=>[wire('Clear',{device_handle:d,clear_flags:3,color:0xff00ffff,depth:1})]],
+   ['counts accumulate across Present',8192,d=>[draw(d,quad(0,0,64,64,.5,0xffff0000)),draw(d,quad(0,0,64,64,.5,0xff0000ff))],null,{crossPresent:true}],
+   ['3001 overlapping pixels remain exact',3001,d=>[draw(d,Array.from({length:3001},()=>quad(0,0,1,1,.5,0xffff0000)).flat())]],
+   ['triangle strip chunks preserve primitive coverage',513*4096,d=>giantStrip(d)],
+   ['indexed strip chunks retain nonzero first index',513*4096,d=>giantStrip(d,true)],
+   ['indexed instances preserve chunk order',3*513*4096,d=>giantStrip(d,true,3)],
+   ['strip chunk winding keeps front faces',257*4096,d=>giantStrip(d,true,1,3)],
+   ['strip chunk winding keeps back faces',256*4096,d=>giantStrip(d,true,1,2)],
+   ['shader depth output participates in testing',4096,d=>[
+    rs(d,7,1),rs(d,14,0),wire('Clear',{device_handle:d,clear_flags:2,depth:.5}),
+    pixelShader(d,d+0x600000,[0xffff0200,0x0200001f,0x80000000,0x900f0000,...asm.def(0,.25,0,0,1),
+      asm.ins(asm.OP.MOV,2),asm.dst(asm.REG.DEPTHOUT,0,1),asm.src(asm.REG.CONST,0,0),0x02000001,0x800f0800,0x90e40000,0x0000ffff]),
+    cmd(P.OP.SET_PIXEL_SHADER,P.encode('SetShader',{device_handle:d,shader_handle:d+0x600000})),draw(d,quad(0,0,64,64,.75,0xffff0000))]],
+   ['shader texkill discards counted output',0,d=>[
+    pixelShader(d,d+0x600000,[0xffff0200,0x0200001f,0x80000000,0x900f0000,...asm.def(0,-1,-1,-1,-1),
+      asm.ins(asm.OP.MOV,2),asm.dst(asm.REG.TEMP,0),asm.src(asm.REG.CONST,0),asm.ins(asm.OP.TEXKILL,1),asm.dst(asm.REG.TEMP,0),
+      0x02000001,0x800f0800,0x90e40000,0x0000ffff]),
+    cmd(P.OP.SET_PIXEL_SHADER,P.encode('SetShader',{device_handle:d,shader_handle:d+0x600000})),draw(d,quad(0,0,64,64,.5,0xffff0000))]],
+   ['unbound shader MRT output cannot collide with counter',4096,d=>[
+    pixelShader(d,d+0x600000,[0xffff0200,0x0200001f,0x80000000,0x900f0000,0x02000001,0x800f0800,0x90e40000,0x02000001,0x800f0803,0x90e40000,0x0000ffff]),
+    cmd(P.OP.SET_PIXEL_SHADER,P.encode('SetShader',{device_handle:d,shader_handle:d+0x600000})),draw(d,quad(0,0,64,64,.5,0xffff0000))]],
+   ['4x MSAA counts samples',16384,d=>[draw(d,quad(-1,-1,65,65,.5,0xffff0000))],null,{msaa:4}],
+   ['4x MSAA sample mask',8192,d=>[rs(d,162,5),draw(d,quad(-1,-1,65,65,.5,0xffff0000))],null,{msaa:4}],
+   ['4x alpha coverage rejects transparent samples',0,d=>[rs(d,181,0x434f5441),draw(d,quad(-1,-1,65,65,.5,0x00ff0000))],null,{msaa:4}],
+   ['MRT keeps count independent of attachment count',4096,d=>[draw(d,quad(0,0,64,64,.5,0xffff0000))],null,{mrt:true}],
+   ['translated ps2 output',4096,d=>[pixelShader(d,d+0x600000,[0xffff0200,0x0200001f,0x80000000,0x900f0000,0x02000001,0x800f0800,0x90e40000,0x0000ffff]),cmd(P.OP.SET_PIXEL_SHADER,P.encode('SetShader',{device_handle:d,shader_handle:d+0x600000})),draw(d,quad(0,0,64,64,.5,0xffff0000))]],
+  ];
+  for(let i=0;i<cases.length;i++){
+   const [name,expected,body,before,options={}]=cases[i],q=0x700000+i,responses=[];
+   // QueryIssue is shared by BEGIN_QUERY / END_QUERY; use the explicit opcode.
+   const begin=d=>cmd(P.OP.BEGIN_QUERY,P.encode('QueryIssue',{device_handle:d,resource_handle:q,request_id:1,response_offset:0}));
+   const end=d=>cmd(P.OP.END_QUERY,P.encode('QueryIssue',{device_handle:d,resource_handle:q,request_id:2,response_offset:0}));
+   const fixture=D3D9Conformance.caseBatch(i,{...options,body:d=>[rs(d,7,0),...(before?before(d):[]),
+    wire('CreateQuery',{device_handle:d,resource_handle:q,query_type:9,response_offset:0}),begin(d),...(options.crossPresent?body(d).slice(0,1):body(d)),...(options.crossPresent?[]:[end(d)])]});
+   const metadata={writeGuestMemory(at,data){
+    const address=(16<<20)-C.D9WG_RESPONSE_REGION_BYTES;
+    if(at===address)responses.push(data.slice());
+   }};
+   await gpu.submit(fixture.bytes,metadata);await gpu.idle();
+   if(options.crossPresent){
+    check(responses.length===0,'query must remain pending at the first Present');
+    await gpu.submit(batch(i+1,[...body(fixture.dev).slice(1),end(fixture.dev)]),metadata);await gpu.idle();
+   }
+   await gpu.device.queue.onSubmittedWorkDone();
+   for(let k=0;k<4;k++)await new Promise(r=>setTimeout(r,0));
+   check(responses.length===1,name+': missing or duplicate query response '+responses.length);
+   const result=new DataView(responses[0].buffer,responses[0].byteOffset,responses[0].byteLength);
+   check(result.getUint32(0,true)===2&&result.getUint32(12,true)===C.D9WG_RESPONSE_OK,name+': failed query response');
+   const value=result.getBigUint64(4,true);check(value===BigInt(expected),name+': count '+value+' expected '+expected);
+   async function picture(session,device,target){
+    let pixels;const address=(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET;
+    await gpu.submit(D3D9Conformance.readbackBatch(session,device,target),{writeGuestMemory(at,data){if(at===address)pixels=data.slice();}});await gpu.idle();
+    check(pixels&&new DataView(pixels.buffer,pixels.byteOffset).getUint32(12,true)===C.D9WG_RESPONSE_OK,name+': image readback');return pixels.subarray(16);
+   }
+   const queried=await picture(i+1,fixture.dev,fixture.rt);
+   await gpu.submit(D3D9Conformance.endCaseBatch(i+1),{writeGuestMemory(){}});await gpu.idle();
+   const referenceIndex=i+cases.length,reference=D3D9Conformance.caseBatch(referenceIndex,{...options,body:d=>[rs(d,7,0),...(before?before(d):[]),...body(d)]});
+   await gpu.submit(reference.bytes,{writeGuestMemory(){}});await gpu.idle();
+   const unqueried=await picture(referenceIndex+1,reference.dev,reference.rt);
+   check(queried.length===unqueried.length&&queried.every((b,index)=>b===unqueried[index]),name+': query altered application pixels');
+   await gpu.submit(D3D9Conformance.endCaseBatch(referenceIndex+1),{writeGuestMemory(){}});await gpu.idle();
+   check(!gpu.devices.size&&!gpu.resources.size&&!gpu.sessionStates.size,name+': owner cleanup');lines.push(name);
+  }
+  const counterTexture=gpu.device.createTexture({size:[8,8],format:'r16float',usage:0x04|0x02});
+  const halfs=new Uint16Array(64).fill(0x3c00);gpu.device.queue.writeTexture({texture:counterTexture},halfs,{bytesPerRow:16},{width:8,height:8});
+  const total=gpu.device.createBuffer({size:16,usage:0x80|0x04|0x08}),read=gpu.device.createBuffer({size:16,usage:0x08|0x01});
+  gpu.device.queue.writeBuffer(total,0,Uint32Array.from([0xffffffe0,3,0,0]));
+  const reduction=gpu.device.createComputePipeline({layout:'auto',compute:{module:gpu.moduleFor(D9WGFrameReplayer.sampleReductionSource(1),'carry test'),entryPoint:'main'}});
+  const group=gpu.device.createBindGroup({layout:reduction.getBindGroupLayout(0),entries:[{binding:0,resource:counterTexture.createView()},{binding:1,resource:{buffer:total}}]});
+  const encoder=gpu.device.createCommandEncoder(),pass=encoder.beginComputePass();pass.setPipeline(reduction);pass.setBindGroup(0,group);pass.dispatchWorkgroups(1);pass.end();encoder.copyBufferToBuffer(total,0,read,0,8);gpu.device.queue.submit([encoder.finish()]);
+  await read.mapAsync(GPUMapMode.READ);check(new DataView(read.getMappedRange()).getBigUint64(0,true)===(4n<<32n)+32n,'GPU 64-bit reduction carry');read.unmap();
+  counterTexture.destroy();total.destroy();read.destroy();lines.push('64-bit GPU carry');
+  await gpu.device.queue.onSubmittedWorkDone();for(let k=0;k<4;k++)await new Promise(r=>setTimeout(r,0));
+  check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.commandsFailed&&!gpu.stats.droppedDraws,'GPU/host error');
+  document.querySelector('#result').textContent='PASS '+checks+' exact occlusion checks: '+lines.join('; ');
+ }catch(e){document.querySelector('#result').textContent='FAIL '+e.stack+'\n'+JSON.stringify({errors:gpu?.gpuErrors.errors,host:gpu?.hostErrors.map(e=>String(e.stack||e.message||e))});}
+})();
+</script>
