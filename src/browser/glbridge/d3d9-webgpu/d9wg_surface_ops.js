@@ -168,10 +168,9 @@ fn d9dd_vs_main(@builtin(vertex_index) index: u32) -> D9DDBlitOutput {
             else if (variant.paletteResolve)
                 body.push("    return d9dd_palette.entries[index];");
             else
-                // No palette bound: the indices are all the host has, and
-                // inventing colours for them would be a picture the app never
-                // asked for. Grey ramp, and the guest is told through the
-                // ddPaletteMissing counter.
+                // Native unkeyed P8 -> RGB surface copies use a grey ramp.
+                // This also supplies the fallback for a missing palette in
+                // a presentation/keyed path (tracked by ddPaletteMissing).
                 body.push("    let level = f32(index) / 255.0;\n" +
                     "    return vec4<f32>(level, level, level, 1.0);");
         } else {

@@ -356,7 +356,10 @@
             }
 
             let paletteBuffer = null;
-            if (sourceIndexed && !destinationIndexed) {
+            // Native ordinary P8 -> RGB surface copies use the index grey
+            // ramp. Presentation and keyed conversions resolve the palette.
+            if (sourceIndexed && !destinationIndexed &&
+                    (!destination || colorKey || destinationColorKey)) {
                 paletteBuffer = this.ddPaletteBufferFor(source);
                 if (!paletteBuffer)
                     this.stats.ddPaletteMissing =

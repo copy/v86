@@ -1,0 +1,64 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>DirectDraw native P8 conversion pixels</title>
+<canvas id="screen" width="64" height="64"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script src="d3d9_feature_cases.js"></script>
+<script src="d3d_test_device.js"></script>
+<script>
+(async()=>{
+ const P=D9WGProtocol,C=P.C,{cmd}=D3D9Conformance.builders;
+ const errors=[];window.addEventListener('error',e=>errors.push(String(e.message)));window.addEventListener('unhandledrejection',e=>errors.push(String(e.reason)));
+ const opcodes={};for(const [name,entry]of Object.entries(P.COMMANDS))opcodes[Array.isArray(entry)?entry[0]:entry]=P.OP[name];
+ const wire=(name,fields,blobs=[])=>cmd(opcodes[name],P.encode(name,fields),blobs);
+ const batch=(commands,options={})=>P.encodeBatch(commands.map(c=>({opcode:c.opcode,payload:c.payload,blobs:c.blobs.map(b=>({field:b.offsetField,data:b.data}))})),{session_id_low:1,...options});
+ let gpu,checks=0,request=0,dev;const cases=[];const check=(v,m)=>{checks++;if(!v)throw Error(m);};
+ const indices=new Uint8Array([16,1,2,3,4,5,255,128]);
+ const paletteColor=i=>(0xff000000|((i*17&255)<<16)|((255-i)<<8)|(i*3&255))>>>0;
+ try{
+  gpu=new D3D9WebGPUExecutor(document.querySelector('canvas'),{strict:true,useShaderWorker:false});await gpu.initialize();
+  const initial=D3D9Conformance.caseBatch(0,{body:()=>[]});dev=initial.dev;await gpu.submit(initial.bytes,{writeGuestMemory(){}});
+  const source=0x870001,missing=0x870002,destination=0x870003,indexed=0x870004;
+  const submit=async commands=>{await gpu.submit(batch(commands),{writeGuestMemory(){}});await gpu.idle();};
+  const palette=new Uint8Array(1024),pv=new DataView(palette.buffer);for(let i=0;i<256;i++)pv.setUint32(i*4,paletteColor(i),true);
+  const upload=handle=>wire('UpdateTexture',{resource_handle:handle,width:8,height:1,depth:1,row_pitch:8,slice_pitch:8,data_bytes:8},[{offsetField:'data_offset',data:indices}]);
+  await submit([
+   ...[source,missing,indexed].map(resource_handle=>wire('CreateTexture2D',{device_handle:dev,resource_handle,width:8,height:1,level_count:1,format:41,usage:0x80000000})),
+   wire('CreateTexture2D',{device_handle:dev,resource_handle:destination,width:8,height:1,level_count:1,format:21,usage:1}),
+   upload(source),upload(missing),wire('SetPalette',{device_handle:dev,palette_index:3,entry_count:256},[{offsetField:'data_offset',data:palette}]),
+   wire('DDSetSurfacePalette',{surface_handle:source,palette_index:3,flags:1})
+  ]);
+  const blit=(from,to,flags=0,fill=0,size=[8,1])=>wire('DDBlt',{device_handle:dev,source_handle:from,destination_handle:to,source_rect:[0,0,8,1],destination_rect:[0,0,...size],flags,fill_color:fill});
+  async function read(handle,format,width=8,height=1){const bpp=format===41?1:4,pitch=width*bpp,address=(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET;let reply;await gpu.submit(batch([wire('ReadbackSurface',{device_handle:dev,texture_handle:handle,format,width,height,row_count:height,destination_pitch:pitch,destination_bytes:pitch*height,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:++request})]),{writeGuestMemory(at,data){if(at===address)reply=data.slice();}});await gpu.idle();check(reply&&new DataView(reply.buffer,reply.byteOffset).getUint32(12,true)===C.D9WG_RESPONSE_OK,'pixel readback status');return new DataView(reply.buffer,reply.byteOffset+16,reply.byteLength-16);}
+  async function rgb(label,from,flags,want){await submit([blit(0,destination,16,0xff123456),blit(from,destination,flags)]);const data=await read(destination,21);for(let x=0;x<8;x++)check((data.getUint32(x*4,true)&0xffffff)===(want(indices[x])&0xffffff),`P8 conversion ${label} pixel ${x}: ${data.getUint32(x*4,true).toString(16)}`);cases.push(label);}
+  await rgb('plain concrete with palette',source,0,i=>i*0x10101);
+  await rgb('plain concrete without palette',missing,0,i=>i*0x10101);
+  check(!(gpu.stats.ddPaletteMissing||0),'ordinary native conversion does not report a missing palette');
+  await submit([wire('DDSetColorKey',{surface_handle:source,key_kind:0,color_low:2,color_high:2,present:1})]);
+  await rgb('source keyed',source,1,i=>i===2?0xff123456:paletteColor(i));
+  await submit([wire('DDSetColorKey',{surface_handle:destination,key_kind:1,color_low:0xff123456,color_high:0xff123456,present:1})]);
+  await rgb('destination keyed',source,2,paletteColor);
+  await submit([blit(0,indexed,16,0x7f),blit(source,indexed,1)]);const raw=await read(indexed,41);for(let x=0;x<8;x++)check(raw.getUint8(x)===(indices[x]===2?0x7f:indices[x]),'keyed raw P8 copy '+x);cases.push('keyed raw indexed copy');
+  await gpu.submit(batch([blit(source,0,0,0,[64,64]),wire('Present',{device_handle:dev,hwnd:0x1234,width:64,height:64})],{flags:1}),{writeGuestMemory(){}});await gpu.idle();const screen=await read(0,22,64,64);for(let y=0;y<64;y++)for(let x=0;x<64;x++)check((screen.getUint32((y*64+x)*4,true)&0xffffff)===(paletteColor(indices[Math.floor(x/8)])&0xffffff),'palette screen pixel '+x+','+y);cases.push('palette screen presentation');
+  await gpu.submit(D3D9Conformance.endCaseBatch(1),{writeGuestMemory(){}});await gpu.idle();await gpu.device.queue.onSubmittedWorkDone();for(let n=0;n<4;n++)await new Promise(r=>setTimeout(r,0));check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.commandsFailed&&!gpu.stats.renderTargetReadbackFailures&&!errors.length,'GPU/host/browser errors');check(!gpu.devices.size&&!gpu.resources.size&&!gpu.sessionStates.size,'session cleanup');
+  const result={checks,cases,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors,browserErrors:errors};await fetch('/__test_file?name=ddraw-p8-native-pixels.json',{method:'POST',body:JSON.stringify(result,null,2)});document.querySelector('#result').textContent='PASS '+checks+' P8 conversion checks: native concrete grey copy, keyed palettes, raw indexed copy, palette presentation, zero GPU/host/browser errors';
+ }catch(e){document.querySelector('#result').textContent='FAIL '+e.stack+'\n'+JSON.stringify({cases,errors:gpu?.gpuErrors.errors,host:gpu?.hostErrors.map(e=>String(e.stack||e.message||e)),browserErrors:errors});}
+})();
+</script>
