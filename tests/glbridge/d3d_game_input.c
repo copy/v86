@@ -9,11 +9,14 @@ int main(int argc, char **argv)
     RECT client;
     POINT point;
     if (argc != 4 || !(window = FindWindowA(NULL, argv[1]))) return 1;
+    /* A minimized XP window has a zero-sized client. Restore it before
+     * validating client coordinates, otherwise the test cannot regain focus. */
+    ShowWindow(window, SW_RESTORE);
+    Sleep(300);
     point.x = atoi(argv[2]); point.y = atoi(argv[3]);
     if (!GetClientRect(window, &client) || point.x < 0 || point.y < 0
             || point.x >= client.right || point.y >= client.bottom) return 2;
     if (!ClientToScreen(window, &point)) return 3;
-    ShowWindow(window, SW_RESTORE);
     SetForegroundWindow(window);
     Sleep(300);
     SetCursorPos(point.x, point.y);

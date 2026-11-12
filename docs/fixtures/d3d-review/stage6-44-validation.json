@@ -1,0 +1,396 @@
+{
+  "batch": "stage6-44",
+  "date": "2026-11-12",
+  "status": "GTASA startup regression fixed; original Wine Device remains zero failures; overall Wine acceptance incomplete.",
+  "changes": [
+    "Handle WM_NCCALCSIZE for D3D9 fullscreen when the focus and output are the same window; retain style bits while using the whole window as the client. Separate output windows, API8, NOWINDOWCHANGES and lost modes retain ordinary client calculation.",
+    "Recalculate the frame even when entering fullscreen at unchanged outer dimensions; restore ordinary nonclient calculation on leave.",
+    "Restore a minimized XP game window before the test mouse helper validates its client coordinates."
+  ],
+  "regression": {
+    "firstBadSiteCommit": "c18e275979fd7ce001af0436d297c48ef62dc9b7",
+    "lastGoodSiteCommit": "79dd2739508d49fefc471718a02ff5188b7c7800",
+    "baseline": "Batch43 shipping exits with code 0 before any Present; diagnostic calls reach device and depth-surface creation. Its fullscreen 800x600 outer window reports a 792x573 client.",
+    "controls": [
+      {
+        "index": 93,
+        "commit": "cbcec99",
+        "presents": 602,
+        "goodStartup": true,
+        "dllSha256": "efd5db8bf88d70c915d39a8dc7fe9c9a4e107f77a9a4d90bf9a08f53ae26dc76",
+        "expectedAndObservedModuleBase": "0x6fcc0000",
+        "expectedAndObservedModuleImageBytes": 196608
+      },
+      {
+        "index": 140,
+        "commit": "2b66065",
+        "presents": 602,
+        "goodStartup": true,
+        "dllSha256": "ab59e930394684815817ca7b3463a79fe2e9c292da9b888a49d48cf4d501c061",
+        "expectedAndObservedModuleBase": "0x65f80000",
+        "expectedAndObservedModuleImageBytes": 200704
+      },
+      {
+        "index": 163,
+        "commit": "3691417",
+        "presents": 602,
+        "goodStartup": true,
+        "dllSha256": "28a4aa5123d238d80cae0a2c33be8c63ffad88aad3db6a96c0e67fb4fe699c3b",
+        "expectedAndObservedModuleBase": "0x64380000",
+        "expectedAndObservedModuleImageBytes": 208896
+      },
+      {
+        "index": 175,
+        "commit": "e6a9246",
+        "presents": 0,
+        "goodStartup": false,
+        "dllSha256": "1e37d411aa4c7d3c03ded5a10ca8148e5c5f8c440da178392375c878ed1b4541",
+        "expectedAndObservedModuleBase": "0x69800000",
+        "expectedAndObservedModuleImageBytes": 212992
+      },
+      {
+        "index": 169,
+        "commit": "79dd273",
+        "presents": 602,
+        "goodStartup": true,
+        "dllSha256": "58f7fe5c87d386e39f231be98ca2b5d48c5269c8033e88b9fd0d207e9f0eceab",
+        "expectedAndObservedModuleBase": "0x681c0000",
+        "expectedAndObservedModuleImageBytes": 212992
+      },
+      {
+        "index": 172,
+        "commit": "d83d400",
+        "presents": 0,
+        "goodStartup": false,
+        "dllSha256": "c859f09dd87a1b5b745bd33d48bfdeeec6474a1a45d44afde0a42a5286eba485",
+        "expectedAndObservedModuleBase": "0x65c80000",
+        "expectedAndObservedModuleImageBytes": 208896
+      },
+      {
+        "index": 170,
+        "commit": "c18e275",
+        "presents": 0,
+        "goodStartup": false,
+        "dllSha256": "396b69c9b08c8efbf57ac58c43e9ed2e191be4e49c07df945762fe150ab7cd50",
+        "expectedAndObservedModuleBase": "0x70380000",
+        "expectedAndObservedModuleImageBytes": 208896
+      }
+    ],
+    "bisectionDirectory": "build/d3d-review/gtasa-full-call-trace-20261112",
+    "bisectionScope": "Diagnostic only; base and image-size observations matched each candidate DLL. Earlier malformed-input diagnostics and a repeated midpoint are excluded from acceptance.",
+    "beforeFixNativeControl": {
+      "file": "build/d3d-review/stage6-44-window-checks/before-fix-runtime.log",
+      "sha256": "d4f48d264b2568d82ea8574efd3f2e9633579af619f5accb61834745f2b0076a",
+      "result": "Original production runtime compiles, then fails the added fullscreen client-width runtime assertion."
+    }
+  },
+  "gtasa": {
+    "scope": "Cold-boot startup and main menu, not world/gameplay acceptance.",
+    "directory": "build/d3d-review/gtasa-shipping-fullscreen-client-fixed-20261112",
+    "worker": true,
+    "shippingDllSha256": "c008d167ced145520c0cca183edf0fe057d84e1617e7a81700c043351cb4dc82",
+    "window": {
+      "hwnd": 65860,
+      "foregroundHwnd": 65860,
+      "isWindow": true,
+      "visible": true,
+      "iconic": false,
+      "foreground": true,
+      "fullscreen": true,
+      "windowX": 0,
+      "windowY": 0,
+      "windowWidth": 800,
+      "windowHeight": 600,
+      "clientWidth": 800,
+      "clientHeight": 600,
+      "noSurface": false,
+      "occluded": false,
+      "visibleRegion": null
+    },
+    "presents": 3467,
+    "indexedDrawCalls": 22304,
+    "sampledRealPresents": 32,
+    "width": 800,
+    "height": 600,
+    "goldenSha256": "2b39cfed6909b1e6a934da27da5e28a74c4ed8e0e8e1497a65d15739907dc720",
+    "browserErrors": [],
+    "monitorErrors": [],
+    "gpuErrors": [],
+    "hostErrors": [],
+    "commandsFailed": 0,
+    "droppedDraws": 0,
+    "visualInspection": "Main Menu / Start Game / Options / Quit Game and Vinewood background render correctly; no Windows error overlay.",
+    "startupWarnings": "Two window visibility/foreground warnings during startup and the XP driver restart prompt; game recovered to an 800x600 visible, non-iconic foreground window.",
+    "files": {
+      "d9wg-gtasa-worker-golden.bgra.gz": "3b2c47d7551b49af2bf8c9a2b03ec5ede6f9803b4cf67af253446dc3f3bf9865",
+      "d9wg-gtasa-worker.json": "0b91eba88c334d13e7409bdeef0fdec3c861ea686911ebe13eba189f7d3ebdc1",
+      "core-assets.json": "96176beea2f53840aec4a79ff7e02add9d59a2b3f8237bf190ecb061dcccf845",
+      "startup-menu-status.json": "828db2707eb13a5560f5643afe3a72eef76198deeda51d9d62dfd49b46988aa1",
+      "host-manifest.json": "26f1e6a6a37176a4f2a4be97f451e58a4a463d8a605d594c4943b59131256e13",
+      "runner-exit.json": "8eb590fd01a34850e20aaac6b1220df5c5f47e849b2a59a6289f83c5e0778d19",
+      "inputs.json": "4c193758b1ef0b00c598d047ee699f28691b77607db3d5f2c5397a5d3fd43414",
+      "d9wg-gtasa-worker-journal.bin": "148bbcbff9bddac5ed286dfaf1559b388e6db1aabc691c8ce67e0e587fff95df",
+      "d9wg-gtasa-worker-scene.png": "f618e393aae06422d07d676073dbe75de5d482d966dd0546f2c7e10143437574",
+      "native-source.json": "1e8677f09263e2ceac769fcd94266e80a344610ede834a891749ecf132b7be16"
+    }
+  },
+  "wineDevice": {
+    "directory": "stage6-wine9-device-fullscreen-client",
+    "summary": {
+      "checks": 157758,
+      "todos": 0,
+      "flaky": 0,
+      "failures": 0,
+      "skipped": 9
+    },
+    "exit": 0,
+    "failureGroups": {},
+    "gpuErrors": [],
+    "hostErrors": [],
+    "normalOwnerCleanup": [
+      {
+        "reason": "owner-released",
+        "devices": 0,
+        "resources": 0,
+        "remainingResources": [],
+        "after": {
+          "devices": 0,
+          "resources": 0,
+          "pendingFrame": false,
+          "activeQuery": false
+        }
+      }
+    ],
+    "forcedOwnerCleanup": [],
+    "postOwnerCleanup": {
+      "devices": 0,
+      "resources": 0
+    },
+    "source": {
+      "suite": "d3d9_device",
+      "commit": "415a275e3844c252ad385b46023095e9401ca234",
+      "source": {
+        "path": "d3d9_device.c",
+        "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/d3d9/tests/device.c",
+        "sha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+        "gitBlob": "eb168cb32e6d15513e004f7e1e94f915f8bbd359"
+      },
+      "dllSha256": "83fa9be0ab4b8b4aed6d5834b1698e5e1b3010f602a8d6fa33dc24bff0344173",
+      "executableSha256": "a47ea97b3482bda66f4bb5b2a66ed59b56aae8d81dad8be8bbfa08604f373014",
+      "rendererPageSha256": "ef29dd374ad561fe28894c4baad83208518e404cec65255da315d6fcc6029397",
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "8cafe25bb78d736671fcfa089f85c7d156f644d09d5d26fe7635f1334cf198a2",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "5c490d11dfc2d093bbc3265b43c076f68dea3205770cdb16bbc1f4664b1ceb3a",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "7bd15807422d596bcf50f35aadf1be57504fbd098a14ee8d69a2d23b6475541b",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "643c506a985f32314c24eb0d98325d35d0789dd2976b70e7e09c0b69c2da0d15",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "3ef94474988b83326a54063aae3281fe9f99332ead7c4ce0eb0a39c5571e6d03",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "29326196f1fcfd37e8e0c62f2694964671a4486fdfabfa54ebdc288fa26277ff"
+      }
+    },
+    "files": {
+      "WINE.TXT": "f32bbea3e4b6a57ea2a2934bce5ea88d486cba693b4be159e02b807fb3eb3dc8",
+      "source.json": "86a58abd4d66ce6b608c7b24d066596fea9548a96c324e7724a5466ac74f608e",
+      "live-gpu.json": "8d7800c1c7f9a99a65a4dad9986df6132fed5e6880b44ed7e93f57833ff97618",
+      "audit-groups.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+    }
+  },
+  "winePostCleanup": {
+    "devices": 0,
+    "resources": 0,
+    "sessions": 0
+  },
+  "dllComparison": {
+    "dlls": [
+      {
+        "file": "../retro-gaming-site/glbridge/d3d9proxy/d3d9.dll",
+        "sha256": "c008d167ced145520c0cca183edf0fe057d84e1617e7a81700c043351cb4dc82",
+        "normalizedSha256": "a722e39beaf5b56174036cd61348c06a1841de202a787ecb2359e7109a89f7a4",
+        "ignoredPEMetadataOffsets": [
+          136,
+          216,
+          163844
+        ],
+        "imageBase": "0x6e680000",
+        "normalizedHighLowRelocations": 1814
+      },
+      {
+        "file": "build/d3d-review/stage6-wine9-device-fullscreen-client/d3d9.dll",
+        "sha256": "83fa9be0ab4b8b4aed6d5834b1698e5e1b3010f602a8d6fa33dc24bff0344173",
+        "normalizedSha256": "a722e39beaf5b56174036cd61348c06a1841de202a787ecb2359e7109a89f7a4",
+        "ignoredPEMetadataOffsets": [
+          136,
+          216,
+          163844
+        ],
+        "imageBase": "0x63580000",
+        "normalizedHighLowRelocations": 1814
+      }
+    ],
+    "normalization": "Normalize PE32 HIGHLOW relocations and ImageBase to zero; zero COFF/export timestamps and optional-header checksum; compare every remaining byte. Original DLLs are not modified.",
+    "identicalAfterLoaderRelocationAndPEMetadataNormalization": true
+  },
+  "nativeSources": {
+    "scope": "Native D3D9 compilation inputs; source unchanged between canonical shipping build, GTASA cold run and independent complete Wine rebuild.",
+    "files": {
+      "glbridge/d3d9proxy/build.sh": "8935b076dd0ec502cc0850e323f1692fde36860d4fdcfac224c39cb5bf613be3",
+      "glbridge/d3d9proxy/d3d9.def": "7fc0efe356b956a1fd0ba1ed597e8e575de9e5e23f0d2626a6c60acb803b2aeb",
+      "glbridge/d3d9proxy/d3d9_core.h": "a5958c7d7beb911515a2226fd083497636f1f2db9e59e41ea8a0ca874411a626",
+      "glbridge/d3d9proxy/d3d9_gdi_memory.inc": "4819b909f62d400bed33f7fc92c7976e03a4cb39c48a42e1d349663f824a0fed",
+      "glbridge/d3d9proxy/d3d9_protocol.h": "ff4fc2f00393328401fe43e8284419d247a204cec4b39f327795a5ecd46521b3",
+      "glbridge/d3d9proxy/d3d9_proxy.c": "21ac0b8f2fba85db9ab983b42f9190d9ffb5fa6ee5eece4c8bddc8ebedda12ca",
+      "glbridge/d3d9proxy/d3d9_shader_validator.inc": "515e4c2fc7e3ac41e56419776cc931be14817d5b4b18c2f085d50f3d5df9b14e",
+      "glbridge/runtime/d9wg_backbuffer_upload.h": "2e237d86d473b4cc86c37d11c1cb17741336743ca9e6df1312cd7ad3eb5b0896",
+      "glbridge/runtime/d9wg_blend.c": "93b00e722c9ae92a2fd3b36bbea517f7499bdc59f52f2ee81d5979831ebca856",
+      "glbridge/runtime/d9wg_blend.h": "5a66686cf17d9fdd28e04c7709b10c46fa0037dee0f9ff4bb6b0817d88be208f",
+      "glbridge/runtime/d9wg_buffer_lock.c": "7fddcc6432c082ea3e8e3630571421cdef0a13eacb3334ec1fd7cf6987334f43",
+      "glbridge/runtime/d9wg_buffer_lock.h": "b11602a194ad28c145f031747b0a991913be62dffec8f0fe82601104fd3fd4d2",
+      "glbridge/runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
+      "glbridge/runtime/d9wg_clip.h": "8d4f1852cb8d43967d581890d897b61d6d1146e55999e7c5fd0bc243e0e0a9ed",
+      "glbridge/runtime/d9wg_clip_draw.c": "8165363125e96beff66d5a3e94263e32dfe73ba59cf9f1f674594a99dc070068",
+      "glbridge/runtime/d9wg_clip_draw.h": "5bf38f9ecd683d42c441b025848776045e8a6fa5098cff80d0294b7078054c69",
+      "glbridge/runtime/d9wg_color_fill_pixel.h": "dfcb398a9af8cdcaef525dfe49d0b91b68e120e1f7e1344d855813461f7f222e",
+      "glbridge/runtime/d9wg_copy_rects_bridge8.h": "52d9c85ee2beef3049f1c8e011552a15fb9f5308dc55271ae39a67933fe81a68",
+      "glbridge/runtime/d9wg_cpu_texture_layout.h": "f001077b6d6f9ecbdc9042f482be24d63ad3f94af4a1b23f74e3a437cf7e8593",
+      "glbridge/runtime/d9wg_cursor.h": "49e1903e11f433331eda66dd01ecaa542c610039f4ed6c6a558b06ba831e45fd",
+      "glbridge/runtime/d9wg_cursor_bridge.h": "e5181eb4c59284987f26391c645d530709ba72e7a3a1b6239a16f9dbf4ca3b35",
+      "glbridge/runtime/d9wg_ddraw_color_key.h": "a8d5b6556cc192bc37bd7566de283100f8c884496427fef42b81f71937509500",
+      "glbridge/runtime/d9wg_declaration8.h": "822fe57ca9b31fcc60140084a3fe41f64873d3c024e420cab64c3bc18aa39686",
+      "glbridge/runtime/d9wg_declaration8_policy.h": "6d85ec040699475dae6fc8286fc7e321513f2ebbeae4944ef580f285e088d830",
+      "glbridge/runtime/d9wg_depth_surface_layout8.h": "759871e5d919f2b809a890417f64fe3e42d61d954b525eae8510c22cf7ee32d3",
+      "glbridge/runtime/d9wg_display_mode.h": "d6abc7d1c99e77117674445740958b708487158ae7e9ecec6fb984a5a41ff042",
+      "glbridge/runtime/d9wg_exclusive_window.c": "952345a6935109e4a44ac514eff77079f5fa1a5329a6cd07ea4bf5cd8c9c0127",
+      "glbridge/runtime/d9wg_exclusive_window.h": "387f9fc41330d91714b179b3efcd7c3f4a1f47439a6f09eba1dc1c950b7a4055",
+      "glbridge/runtime/d9wg_format_layouts.h": "2ee801b4f814cf5a184c339aa901f5432a5111f06f9c0062a5f453458b5dcebf",
+      "glbridge/runtime/d9wg_format_queries.h": "e9c4989b24edfc597df470e8bcce2aa1e038784c23d9f65c040103d6c83babd8",
+      "glbridge/runtime/d9wg_fpu.c": "980ac46edbbee1ef7ea98420785334cac59b5a5b39ce5bc5fce139e42fdf37cb",
+      "glbridge/runtime/d9wg_fpu.h": "3e527bd5f2fb286d71837235843a1f4fbbd3a6b79f38ff3df0907cb47a33d6ff",
+      "glbridge/runtime/d9wg_front_buffer_bridge8.h": "892afb0a665f9ddfbfd94f5591f55bd8502fe8bd19b816d81b8a952dd8ed0850",
+      "glbridge/runtime/d9wg_fvf.c": "53158c1190f037d8d67c35493e145594380453d65962479658569ffd3e597d80",
+      "glbridge/runtime/d9wg_fvf.h": "b4eb6839c94b6dae66d6cfbf114fb00992a0589f1d9a4f991148c850715ecbd3",
+      "glbridge/runtime/d9wg_gamma_bridge.h": "4c1f2093aa73c1aaf95cc620c6e14f11636fc7956a72835838534132b41d6004",
+      "glbridge/runtime/d9wg_host_caps.h": "2574cba1d1ddad434f8b56900c64aac597e8063f784ecc067591dbc77fbf5a60",
+      "glbridge/runtime/d9wg_legacy_device_defaults.h": "80230e9811c879b75d467f47fe6c478ea6653cc1aa872c0bb1c740cf17c0338c",
+      "glbridge/runtime/d9wg_legacy_viewport.h": "2fdfd2ad17a3cfe5d50997a9671e2f066e509e6d9c953bab1c9c8e3fb9b8b943",
+      "glbridge/runtime/d9wg_light_state.h": "2d61763e98cba86fbe796caf434cf13a13441372c0b8909c5d7c2385e89143a7",
+      "glbridge/runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
+      "glbridge/runtime/d9wg_lighting.h": "c80367615a5c71ed11486466a9daa0daf45c9f0266e8318abc471e9e37763542",
+      "glbridge/runtime/d9wg_lighting_bridge.h": "77ca02faa6b6dc46a279d1aebcadd324a7f649b4840011129d2673730588982e",
+      "glbridge/runtime/d9wg_mapped_draw_bridge.h": "e0bc764c19c091fb03bc1dd7be21085d408df90507e293014766743b424fee2e",
+      "glbridge/runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+      "glbridge/runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+      "glbridge/runtime/d9wg_palette_state.h": "9cdb3fa99ece7364ee3e37c053e90a873f0e22d0aea2d59dfde719e51c5a88b5",
+      "glbridge/runtime/d9wg_present_multisample.h": "9ed7105c383ead5b8dccfa4df967e1cc9a46de4c1a415afc6c612b50741eca57",
+      "glbridge/runtime/d9wg_present_pacing.c": "2d4162feeeba458b925ee6fb281ed6a5f4f4cc18564db2458ae053db4a8951fb",
+      "glbridge/runtime/d9wg_present_pacing.h": "4242319df86e7666d625b79b38b33d503bfe8a6b50af02b15ec69b5e0530d851",
+      "glbridge/runtime/d9wg_present_pacing_bridge.h": "e4323c447e55d7e9b8523b978fd996ef8baff532b404f620bc366e8b3d26dbc8",
+      "glbridge/runtime/d9wg_present_parameters.h": "f1c9510b2e6fddea2b6e616208154eed0b50d608deba07d66732e450c8167a98",
+      "glbridge/runtime/d9wg_private_data.c": "51f35158629e2fbe3dc21bcef7b72ad3eca5ae51a0a3477a373357ccb215024c",
+      "glbridge/runtime/d9wg_private_data.h": "6acefe7d3f269243601d131f3e72433e5eb2af435115fb7d2f20e47f48e47720",
+      "glbridge/runtime/d9wg_private_data_bridge.h": "c0d697722a15e8e2542f472f1554ca0e2b76a98d73788b031ba9c8520cdb87c5",
+      "glbridge/runtime/d9wg_process.c": "6ce8a28eca62d3bb3e12235f049f1ca186f79017dd414e4fb837223c0d55fe74",
+      "glbridge/runtime/d9wg_process.h": "cbe050a47c3d18452f70599a3a7c032c8dcc5d31b1979177e43423b141946daf",
+      "glbridge/runtime/d9wg_process_aliases.h": "bfa186b2f8bd7b9f63cc805dba37e5ed94e794d6c6839764366710c8a8235168",
+      "glbridge/runtime/d9wg_process_layout8.h": "ee48035103d1be3f4efafc7dd49261a441dcedeac94da09b78c2a1023358079b",
+      "glbridge/runtime/d9wg_reset.h": "c31a0dc0cdde7dccb495df6483c0cbc9196bbfd5929304de6b9ea5dbdc55bad9",
+      "glbridge/runtime/d9wg_runtime.c": "d8178e7fa7af63f6fe5bf0a646b5d2ed1550c04539fef287f8d3aafe461937f5",
+      "glbridge/runtime/d9wg_runtime.h": "5b1722c05918cfaa511a25bf44c7ce5fa7606b6eec73c988a1d7de13db6d9196",
+      "glbridge/runtime/d9wg_screen_clip_cache.h": "21fc567d5ff1df5e58e32afd6eab4b719d39b243291209c16e174de0cbcd6676",
+      "glbridge/runtime/d9wg_shader8_local_defs.h": "e83e9d0b7bd6e4b557588d47914b01b3b64fe8e91fd2c7564e3490333131ce45",
+      "glbridge/runtime/d9wg_shader9_constants.h": "927b2555b255e0190cbcf169eb14c02731df78142d9ae7d933ada42d9e5e390b",
+      "glbridge/runtime/d9wg_state_block_scope.h": "feaab35ff6532a1746d94b3409d8ecceef447dc1d884126f002282718fcda4d7",
+      "glbridge/runtime/d9wg_state_bridge8.h": "5f50917c2b7b8ab022f5a257d07f516286ed15b47cc0e8ef6b356fb49ebb3edb",
+      "glbridge/runtime/d9wg_state_defaults.h": "dc479a49aad241deed78208ea656bdadf8b093f4d4f3b9cd4130503252336bba",
+      "glbridge/runtime/d9wg_state_defaults_bridge.h": "dbbe0e18d3f798df4c97a2dac15daa98638082893ed79aea8b8a285c668a475f",
+      "glbridge/runtime/d9wg_surface_lock.h": "c36750253d4eac14c7d3137b19f6df11f0bde5e0e7a78f4d86b0bc76de8032bf",
+      "glbridge/runtime/d9wg_surface_readback.c": "77214570a082b1e2d0079ed1c39cd634ef12444ee63327afe27adc7b514a930d",
+      "glbridge/runtime/d9wg_surface_readback.h": "a0f8ef0c089f5248d6066591ca729f6a848b0026b09d14f4433e75b061ec89b7",
+      "glbridge/runtime/d9wg_swap_effect.h": "ab8f4dabcd7e7f8a6f0b118dc595c149e896334ceba4fcaef54db04c46049a9a",
+      "glbridge/runtime/d9wg_texture_copy_bridge.h": "aad32120be32aea3e74a4180504c4f22618b56d833519295d5925231be9089c0",
+      "glbridge/runtime/d9wg_texture_copy_policy.h": "6ac79b1b3a069a6766d468cbde5e6f77dc641e380ca472f35e8aa73ba451796d",
+      "glbridge/runtime/d9wg_texture_dirty2d.h": "eab47069642d74c51902e47836f6617b85f2dfa16b28d7b0c4e362293d1136c8",
+      "glbridge/runtime/d9wg_texture_dirty_copy2d.h": "175c0e7432567091cc9db76d7c79d94057495c0c5dc171d9e295a59e63534ca6",
+      "glbridge/runtime/d9wg_texture_legacy_color.h": "49f3b29c22cb44a2e93000330d4364282a6e2e10100be0306744299c945e64d7",
+      "glbridge/runtime/d9wg_texture_lod_bridge.h": "e187b9346749b16a6476efec95571badc3c83272d9a75dfdfb08ff23e1e52364",
+      "glbridge/runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
+      "glbridge/runtime/d9wg_tnl_math.h": "8cd101ee7ba0765acf6b85dc254a3226219b988ee32f40828fadf0f1352eaf75",
+      "glbridge/runtime/d9wg_transport.c": "ef63cf0f19da41a7302c4d19b8b400bb7e8c40158e126382418c48ea4f4304ab",
+      "glbridge/runtime/d9wg_transport.h": "223597b8da9fa7f92b1cb5cd3192be462233d36fddcca5bb086454cb19fabc38",
+      "glbridge/runtime/d9wg_upload_bridge.h": "52f4233d5f374e41392988c2e08c12389d79cc0b0e6088b83d3de3cf5966b29e",
+      "glbridge/runtime/d9wg_vertex.c": "cf43f2f79078d096644c989474b171be92702db44180ae2ab7f2894603bafff6",
+      "glbridge/runtime/d9wg_vertex.h": "672051d37aa8053957855063482ce39998294627a7cb138f52671d17838de073",
+      "glbridge/runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+      "glbridge/runtime/d9wg_vertex_windows.h": "eaa23d2c09ba0c8ffd726a6dd1dd9668e8f2c23ef619c54b3793da208e6051d6",
+      "glbridge/runtime/d9wg_window_geometry.c": "e16c129b4b4bc6c14e31639b755773bee03b4a9d65ee4deee3838e9ecc544b7c",
+      "glbridge/runtime/d9wg_window_mode.h": "58ed44ecaafdeeb4f988280360bb47b09a6813f237b2c159584339fa3cd3faf9",
+      "glbridge/runtime/d9wg_window_probe.c": "81ca22962480598602f9a0b4d1154b8c888727bd55de665a919bc51ca069817b",
+      "glbridge/runtime/d9wg_window_probe.h": "da48ec8b32f8b3d7861064ab45bea340f56e4353bbc60a8b41036206237d3408",
+      "glbridge/runtime/d9wg_window_reset.h": "6cf3661b8892038430e52800d0d100665687d88f000d0e766fb477182a94aab5",
+      "glbridge/runtime/d9wg_window_state.c": "49a67a2d57cc88df8c679dbb95c3ceac498c45d981b37e63425ab7835accf45a",
+      "glbridge/runtime/d9wg_window_state.h": "d0d64fa0ae341a6c3ffbb9254b3432534b014329cb8646889a40a91b82cbf60e",
+      "glbridge/runtime/d9wg_window_watch.c": "f105d0f511b48951776adbd2349fd5ed3269933ded0d22801274838efb155d68",
+      "glbridge/runtime/d9wg_window_watch.h": "ce3346cabd1274f8154fd708b7368faa26a87c6fd3b1991e70dc12e3212d5a6a"
+    },
+    "shippingDLLs": {
+      "d3d8": "11bc7904c09d9ac7726d7fdf7027d962aed5da171cccca13e4f80a1ed806ccc1",
+      "d3d9": "c008d167ced145520c0cca183edf0fe057d84e1617e7a81700c043351cb4dc82"
+    }
+  },
+  "checks": {
+    "d9wg_exclusive_mode_entry_test.js.log": {
+      "file": "build/d3d-review/stage6-44-window-checks/d9wg_exclusive_mode_entry_test.js.log",
+      "sha256": "4d403d819c4ecce778e3cdc3724fce96446e955868f612f3b1eed7198a1442be",
+      "output": "PASS native fullscreen entry: 80 checks; actual API8/9 dispatch, focus/output identity, dimensions, NOWINDOWCHANGES, failure propagation and windowed/final detach"
+    },
+    "d9wg_exclusive_window_mutation_test.js.log": {
+      "file": "build/d3d-review/stage6-44-window-checks/d9wg_exclusive_window_mutation_test.js.log",
+      "sha256": "12efc6539c24cf6041b0dae5651c822e4628e53db41a0e74bc71b8e884c3cf98",
+      "output": "PASS exclusive window mutations: 24 compiled faults rejected at runtime, including callback lifetime and state/dispatch invariants"
+    },
+    "d9wg_exclusive_window_test.js.log": {
+      "file": "build/d3d-review/stage6-44-window-checks/d9wg_exclusive_window_test.js.log",
+      "sha256": "a492582d80cae7b15fbd878693e3ec735531b3c1763e0a10f94391605328f999",
+      "output": "PASS exclusive window native: 406 checks; ANSI/Unicode, separate focus/output, lost/recovery ordering, shared hooks, callback teardown, destroyed/replaced windows and allocation/property/proc failure cleanup"
+    },
+    "d9wg_reset_mode_entry_test.js.log": {
+      "file": "build/d3d-review/stage6-44-window-checks/d9wg_reset_mode_entry_test.js.log",
+      "sha256": "c2e36bada5f536111ab9d532d3dfc8d1f1d37065c8f388ae5249a54ab9662237",
+      "output": "PASS actual API 8 Reset mode entry: 29 checks; window/fullscreen/resize/replacement/restore, saved styles, fallback/failure, foreground, three-window guards and complete unwind\nPASS native fullscreen entry: 80 checks; actual API8/9 dispatch, focus/output identity, dimensions, NOWINDOWCHANGES, failure propagation and windowed/final detach"
+    },
+    "d9wg_reset_mode_mutation_test.js.log": {
+      "file": "build/d3d-review/stage6-44-window-checks/d9wg_reset_mode_mutation_test.js.log",
+      "sha256": "0e1b4f0ab7117f0151f64fa535c5e56fa654dddb884d6257bf2fac52ee4da009",
+      "output": "PASS Reset mode mutations: 40/40; message dispatch/lifetime/Unicode/nesting, mode/style/foreground cleanup and both public Reset failure/report boundaries"
+    },
+    "d9wg_window_present_test.js.log": {
+      "file": "build/d3d-review/stage6-44-window-checks/d9wg_window_present_test.js.log",
+      "sha256": "0c7b2ea636ae5b87eb6fd6ec118e7fa2b7ac938a0c7ac72953acd062f2a5c996",
+      "output": "PASS actual API 8 Present: single Win32 capture, shared geometry/state observations explicit fullscreen/reclaim policy, event/Present ordering and failure unlocks\nPASS actual API 9 Present: single Win32 capture, shared geometry/state observations explicit fullscreen/reclaim policy, event/Present ordering and failure unlocks\nPASS actual API 7 Present: single Win32 capture, shared geometry/state observations explicit fullscreen/reclaim policy, event/Present ordering and failure unlocks"
+    },
+    "site-integration.log": {
+      "file": "build/d3d-review/stage6-44-window-checks/site-integration.log",
+      "sha256": "5e2d0fe5f322805e5cfc1ca0af72d92cc08755ae985ae2bd4ea818fdc59ec31b",
+      "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (3.465541ms)\n✔ rapid launches wait for the previous canvas/device teardown (3.826334ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 103.6735"
+    }
+  },
+  "remaining": [
+    "DirectDraw1/2/4/7 complete original suites and remaining implementation failures.",
+    "Review the existing applicability records individually; this batch applies no waivers.",
+    "Existing D3D8/9 Visual NOOVERWRITE raw failures remain recorded, not silently passed.",
+    "GTASA world/gameplay acceptance and the earlier in-world stall are not certified by this startup fix.",
+    "3DMark performance comparison remains deferred by user instruction."
+  ],
+  "sources": [
+    "https://learn.microsoft.com/en-us/windows/win32/winmsg/wm-nccalcsize",
+    "https://learn.microsoft.com/en-us/windows/win32/direct3d9/working-with-device-windows"
+  ]
+}
