@@ -3515,3 +3515,15 @@ SetExecuteData 按原生契约保存大小正确的完整元数据，不再因�
 完整原始 DDraw1 为 **23,567 项、294 条失败、20 条 flaky、6 项未审查 skip**，执行数据和执行缓冲区更新相关的 14 条失败全部消除；DDraw2 回归仍为 **25,776 项、308 条失败、21 条 flaky、7 项未审查 skip**。没有其他失败组增加，GPU/宿主错误、拒绝命令、丢弃绘制及读回失败均零，原始源码/断言未改、未新增豁免。DDraw2 不含 Device1 执行缓冲区测试，这次作为共享实现的回归。正式 DLL 与 DDraw2 审计逐字节相同，两份审计 DLL 除装载重定位、时间戳和 PE 校验和外相同，诊断 DLL、宿主资产和工具镜像已更新。
 
 **整体 Wine 验收仍未通过**。继续剩余资源/附件、窗口/丢失状态及渲染问题，并运行完整 DDraw4/7。GTASA 已有启动/菜单修复，游戏内场景未认证；3DMark 对比保持暂停。证据见 `fixtures/d3d-review/stage6-60-validation.json`。
+
+### 阶段6-61：表面私有数据、DC 查询与内容失效（2026-11-13）
+
+补齐 GUID 私有数据、COM 持有/替换/销毁、返回长度和 volatile 失效。独立 XP 系统 DirectDraw4/7 探针完成 **46 项观察**，确认 getter 借用指针、不增加引用，错误非零 IUnknown 大小清除旧值而零大小保留，写入 Lock/颜色填充使数据过期，只读 Lock 保留，过期时返回大小零。参考 [SetPrivateData 文档](https://learn.microsoft.com/en-us/windows/win32/api/ddraw/nf-ddraw-idirectdrawsurface7-setprivatedata)；当前 [GetPrivateData 文档](https://learn.microsoft.com/en-us/windows/win32/api/ddraw/nf-ddraw-idirectdrawsurface7-getprivatedata) 的 getter AddRef 描述与目标 XP 实测及冻结 Wine 断言不同，实现按 XP 行为处理。共享内容版本覆盖 CPU/GDI 写入、GPU 绘制/清理/拷贝、YUV 填充及 Flip，私有数据仍按表面隔离。
+
+实现导出和接口 GetSurfaceFromDC，校验输出清理顺序，只匹配已获取的活动 DC，正确返回 Surface1（导出/DD3/DD4）或 Surface7（DD7）及对应引用。原生 RGB DC 复用其显示 DC，DIB 路径缓存并释放显示 DC；查询过程保留内部引用，支持重入释放。另修正无效压缩目标操作：尚无 BC 编码路径的 Blt 在发出 GPU 命令前返回失败，避免把 BC1 当颜色渲染目标的 WebGPU 验证错误。**本批没有实现或认证压缩目标编码/转换/原始块拷贝**，相关失败和原测试的驱动失败跳过仍待处理/审查。
+
+**76 个本地回归脚本及站点 2/2 通过**。私有数据实际 C/SDK 方法 103,585 项、14 个故障对照；DC 查询实际 C 11,392 项、10 个故障对照；像素填充、Lock、Flip 增加真实内容版本观察，分别 12,890/11,231/4,111 项，压缩目标无命令副作用和重入/内存失败路径亦覆盖。
+
+原始 DDraw1 完整回归 **23,567 项、294 条失败、20 条 flaky、6 项未审查 skip**，DDraw2 **25,776 项、308 条失败、21 条 flaky、7 项未审查 skip**，均与上一批完全一致。DDraw7 首次完整跑到结束：**30,636 项、1,738 条失败、21 条 flaky、35 项未审查 skip**。DDraw4/7 的原始私有数据和 DC 查询断言均通过；DDraw4 随后在第 16,540 行的顶点缓冲区计时测试中断，**没有完整汇总，不能算整套完成**。下一批修复顶点数量错误返回、接口身份/父引用及描述契约。最终这些运行的 GPU/宿主错误、拒绝命令、丢弃绘制和读回失败均零；中间一次压缩目标 GPU 错误及先前异常记录也保留，不混作成功结果。
+
+正式 DLL 与本批 DDraw2 审计逐字节相同，四个接口运行的 DLL 除装载重定位、时间戳和 PE 校验和外相同；诊断 DLL、宿主资产和工具镜像已更新。**整体 Wine 验收仍未通过，原始源码/断言未改，也未应用任何适用性豁免**。DDraw7 主要剩余为块格式创建（940）、高光光照（135）、显示模式/合作级别（80）、压缩拉伸（60）等，另有窗口/丢失状态与资源问题。GTASA 已有启动/菜单修复，游戏内场景未认证；3DMark 对比继续暂停。证据见 `fixtures/d3d-review/stage6-61-validation.json`。
