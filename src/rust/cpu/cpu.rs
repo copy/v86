@@ -2132,7 +2132,7 @@ pub unsafe fn do_page_walk(
             (page_dir_addr, page_dir_entry as i32)
         }
         else {
-            let page_dir_addr = *cr.offset(3) as u32 + (((addr as u32) >> 22) << 2);
+            let page_dir_addr = (*cr.offset(3) as u32 & !0xFFF) + (((addr as u32) >> 22) << 2);
             let page_dir_entry = memory::read32s(page_dir_addr);
             (page_dir_addr, page_dir_entry)
         };
@@ -2956,29 +2956,25 @@ pub unsafe fn set_cr0(cr0: i32) {
     *segment_access_bytes.offset(CS as isize) = 0x80 | 0x10 | 0x08 | 0x02; // P dpl0 S E RW
 }
 
-pub unsafe fn set_cr3(mut cr3: i32) {
+pub unsafe fn set_cr3(cr3: i32) {
     if false {
         dbg_log!("cr3 <- {:x}", cr3);
     }
-    if *cr.offset(4) & CR4_PAE != 0 {
-        cr3 &= !0b1111;
-        if *cr.offset(0) & CR0_PG != 0 {
-            load_pdpte(cr3);
-        }
-    }
-    else {
-        cr3 &= !0b111111100111;
-        dbg_assert!(cr3 & 0xFFF == 0, "TODO");
+    // The register keeps every bit the guest writes, as a real processor does.
+    // Each reader masks the bits its paging mode ignores: the low 12 for the
+    // 32-bit page directory, the low 5 for the PAE pointer table.
+    if *cr.offset(4) & CR4_PAE != 0 && *cr.offset(0) & CR0_PG != 0 {
+        load_pdpte(cr3);
     }
     *cr.offset(3) = cr3;
     clear_tlb();
 }
 
 pub unsafe fn load_pdpte(cr3: i32) {
-    dbg_assert!(cr3 & 0b1111 == 0);
+    let pdpt_addr = cr3 as u32 & !0b11111;
     // dbg_log!("load_pdpte cr3={:#010x}", cr3 as u32);
     for i in 0..4 {
-        let mut pdpt_entry = memory::read64s(cr3 as u32 + 8 * i as u32) as u64;
+        let mut pdpt_entry = memory::read64s(pdpt_addr + 8 * i as u32) as u64;
         pdpt_entry &= !0b1110_0000_0000;
         // bits 3 (PWT) and 4 (PCD) are valid in PDPTE; ignore them (no cache emulation)
         pdpt_entry &= !0b11000;
