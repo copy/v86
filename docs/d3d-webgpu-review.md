@@ -3397,3 +3397,13 @@ D3D8 完整执行 **143,646 项，0 条观察到的失败、15 项未审查 skip
 原版 Wine DDraw1 的 **color_fill、colorkey_precision、range_colorkey、shademode、blt、blt_z_alpha、texture_load、depth_readback** 组已执行完且无失败。测试推进到 **15039 行 Clipper 引用计数验证后崩溃**，记录 **709 条部分失败、4 项未审查 skip**；GPU/宿主错误、拒绝命令、丢弃绘制及读回失败均零。执行范围扩大，不能把 709 与之前中断日志的 383 当作完整总数比较。原版源码和断言未改，未应用豁免。
 
 **Wine 整体验收仍未通过。** 下一批修复 Clipper 生命周期与后续失败；3DMark 性能对比继续暂缓。证据见 `fixtures/d3d-review/stage6-47-validation.json`。
+
+### 阶段6-48：Clipper 活对象校验与首次完整 DDraw1（2026-11-12）
+
+Clipper 调用先检查活对象注册表，拒绝仅复制 vtable 的伪造对象和已释放指针。保持原生损坏 vtable 的特殊计数：活对象 AddRef 仍增加，Release 返回零且不扣引用；恢复 vtable 后可继续释放。销毁时注销对象并解除全部表面的悬挂绑定，包含跨 DirectDraw 对象的绑定和客户端强行偷走的公有引用。窗口裁剪范围改为屏幕坐标，已销毁 HWND 查询失败，窗口绑定期间保留原自定义区域。
+
+通过 **960 项 Clipper 原生检查、4/4 运行故障对照、114,497 项所有权检查及 35/35 反例**；33 个 DDraw 本地脚本全部通过，站点集成 2/2。正式 DDraw DLL 与本次 XP 审计逐字节一致，另重建诊断 DLL。
+
+原版 Wine DDraw1 **首次完整结束：24,140 项检查，816 条失败、20 个 flaky 标记、6 项未审查 skip**，退出码 255，按失败门禁保留为未通过。Clipper 引用计数组无失败，裁剪组由上轮 9 条变为 6 条，仍需修复裁剪缩放及部分 API 行为。GPU/宿主错误、拒绝命令、丢弃绘制和读回失败均零。进程 owner 清理前仍有 **8 设备/41 资源**，清理后为 **0 设备/0 资源/0 会话**；不能把进程清理当成应用完整 Release 验收。未修改 Wine 源码、断言或应用豁免。
+
+**Wine 整体验收仍未通过。** 继续原版 DDraw2/4/7 及共用 API、窗口/丢失状态、旧版渲染和生命周期失败；3DMark 性能对比继续暂缓。证据见 `fixtures/d3d-review/stage6-48-validation.json`。
