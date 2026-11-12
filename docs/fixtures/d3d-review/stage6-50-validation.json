@@ -1,0 +1,341 @@
+{
+  "batch": "stage6-50",
+  "date": "2026-11-12",
+  "status": "Native device interface boundaries and current viewport contracts repaired; applicable Wine acceptance remains incomplete.",
+  "changes": [
+    "Device2 supports Device1/2; Device3 supports Device1/2/3; Device7 supports only Device7. IUnknown names the creation interface and successful queries share its reference group. Aggregated Device1 still delegates to its surface.",
+    "Unset attached viewports may become current without applying missing descriptors. Invalid current assignment returns INVALIDPARAMS. No-current queries preserve the caller output and return NOCURRENTVIEWPORT even for a NULL output.",
+    "Current viewport carries its own reference. Device2 retains this reference after detachment/destruction as native XP does; Device3 releases it. Device1 execution retains its existing non-owning current-view behavior. Failed viewport application leaves the previous current object and references intact."
+  ],
+  "nativeSources": {
+    "glbridge/ddrawproxy/ddraw_proxy.c": "6c94953253ebd92b27840031d989900a4d8af9c894b2aa2a5a42ac8607f7e6d6",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "e71102b5febef708a071c0c9ced987d24f6015c1768383f203b3b4a972e69ecb",
+    "glbridge/ddrawproxy/d3d_legacy_proxy.inc": "09ef12962a3efab1776c4982cce9c87319305d67c276d9d61757f4fc3347bd50",
+    "glbridge/runtime/d9wg_format_layouts.h": "2eff964c5ad834ed29d266785f6509ca419548e9f44e4dd434e9d892153cc9f5"
+  },
+  "hostSources": {
+    "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "ee77fd005ce8dd83b5aeb656c6b9f9a25542cab7e4dde5419af178573812840f",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "3f0ae8899056678454d5abca978995a220d0b90a44a966d0150a6b37837511f5",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "257ddbfc6d4208f0af38ac8efd66eab40cd7da8c9f3fd077324e1db4df75b2d4",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "88fde84c0356b99fb94ebe75e6ee47e9edd7e2a920af304f79f132d5029c6f09",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "7bd15807422d596bcf50f35aadf1be57504fbd098a14ee8d69a2d23b6475541b",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "ba414e9fcb47956b4c2a8960e11ed408220edbbed456ec713e311a1096df284e",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "8a0011afc5df7fffb2f5c9015f8ac3aa7c418005d1c78202c32b285b3d409ce0",
+    "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "e34eab113f5c4883bacdada2d573fb94b1c135ab6c4772583e99e46fa88747e4"
+  },
+  "pinnedWineCommit": "415a275e3844c252ad385b46023095e9401ca234",
+  "nativeChecks": {
+    "scripts": 35,
+    "exitCodes": {
+      "ddraw_attachment_query_mutation_test.js": 0,
+      "ddraw_attachment_query_test.js": 0,
+      "ddraw_channel_expansion_test.js": 0,
+      "ddraw_class_factory_test.js": 0,
+      "ddraw_clipper_mutation_test.js": 0,
+      "ddraw_clipper_test.js": 0,
+      "ddraw_color_key_mutation_test.js": 0,
+      "ddraw_color_key_test.js": 0,
+      "ddraw_d3d7_vtable_test.js": 0,
+      "ddraw_d3d_legacy_vtable_test.js": 0,
+      "ddraw_depth_memory_mutation_test.js": 0,
+      "ddraw_depth_memory_test.js": 0,
+      "ddraw_device_context_mutation_test.js": 0,
+      "ddraw_device_context_test.js": 0,
+      "ddraw_indexed_span_test.js": 0,
+      "ddraw_legacy_viewport_test.js": 0,
+      "ddraw_lock_preservation_mutation_test.js": 0,
+      "ddraw_lock_preservation_test.js": 0,
+      "ddraw_overlay_flip_mutation_test.js": 0,
+      "ddraw_overlay_flip_test.js": 0,
+      "ddraw_ownership_mutation_test.js": 0,
+      "ddraw_ownership_test.js": 0,
+      "ddraw_palette_presentation_mutation_test.js": 0,
+      "ddraw_palette_presentation_test.js": 0,
+      "ddraw_primary_write_mutation_test.js": 0,
+      "ddraw_primary_write_test.js": 0,
+      "ddraw_protocol_consistency_test.js": 0,
+      "ddraw_rop_dc_mutation_test.js": 0,
+      "ddraw_rop_dc_test.js": 0,
+      "ddraw_screen_clip_cache_test.js": 0,
+      "ddraw_surface_identity_mutation_test.js": 0,
+      "ddraw_surface_identity_test.js": 0,
+      "ddraw_vtable_layout_test.js": 0,
+      "ddraw_yuv_surface_mutation_test.js": 0,
+      "ddraw_yuv_surface_test.js": 0
+    },
+    "contextChecks": 19200,
+    "mutationsKilled": 7,
+    "logs": {
+      "ddraw_screen_clip_cache_test.log": {
+        "sha256": "bdcba15819a8464fa951fe1aa2ebc403197771a1f805d986e947e2794f4ed17e",
+        "output": "PASS actual DDraw screen ClipStatus cache: 1000 reuse hits, mutable/unreferenced positions, viewport/count invalidation, non-finite bit patterns, invalid-index atomicity and allocation fallback"
+      },
+      "ddraw_surface_identity_mutation_test.log": {
+        "sha256": "813faab79a5686bbf8aaf78794a2e120e39e76c0fd35d1d89ed9efd1ce31c2dd",
+        "output": "KILL implicit factory count discarded\nKILL public groups shared\nKILL IUnknown names Surface7\nKILL GammaControl shares Surface1\nKILL Texture ignores factory view\nKILL Device1 retains its outer render target\nKILL Device1 query bypasses outer\nKILL Device1 releases cached inner directly\nKILL Device1 cache is not reused\nPASS DirectDraw identity mutations: 9/9 compiled actual C implementations rejected by runtime ownership/identity assertions"
+      },
+      "ddraw_channel_expansion_test.log": {
+        "sha256": "fc41d9643f29e34779f09a32a78651a6f58c89082384d02580516a973fb83227",
+        "output": "510 channel expansions agree between the guest DLL and the executor"
+      },
+      "ddraw_rop_dc_test.log": {
+        "sha256": "6cbadb48b25890cff8d9a3acfcb1054cfe9eac97134eecac1e5fdf4eb2596eac",
+        "output": "PASS actual DDraw ROP/DC C: 73621 checks, 1024 source-independent raster fills, seven depth fill layouts, incompatible formats/sources/flags, invalid rectangle isolation, 256 full DC palette snapshots, own/primary/none precedence, clipping, caller guards and accepted failure prefixes"
+      },
+      "ddraw_device_context_mutation_test.log": {
+        "sha256": "ef86ff02c346a7bb13930a7a4424c699a1655769ebdb02bdbdd61d03f9b063c0",
+        "output": "KILL Device2 exposes Device3\nKILL IUnknown names Device7\nKILL current reference omitted\nKILL unset viewport rejected\nKILL failed query overwrites output\nKILL Device2 detach frees native retained reference\nKILL Device3 destroy misses current reference\nPASS legacy device context mutations: 7/7 compiled implementations rejected by native contract assertions"
+      },
+      "site-integration.log": {
+        "sha256": "e71214ee93d8130456b4b9a2d1b2aa370abc13924e313213f51cb9e833104522",
+        "output": "✔ site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (2.815833ms)\n✔ rapid launches wait for the previous canvas/device teardown (3.429042ms)\nℹ tests 2\nℹ suites 0\nℹ pass 2\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 100.466583"
+      },
+      "ddraw_color_key_mutation_test.log": {
+        "sha256": "08619f1b9ac01053cf85d1d073178d45e3aac669bf2604c57ed04bd4106750ce",
+        "output": "PASS DDraw color-key mutations: 16/16; shared canonicalization, explicit ranges, cache/description/wire agreement, overlay failure atomicity, full creation preflight, all selectors and ignored unflagged values"
+      },
+      "ddraw_yuv_surface_test.log": {
+        "sha256": "142a16241490170bc83c9c5a8ef2cb03f616a31777b4f9489ce1471284a23887",
+        "output": "PASS actual DDraw packed YUV: 18744 checks; both layouts, odd/even widths and lock edges, exact raw fills, neighbouring bytes and padding, upload metadata, dirty refusal, allocation/upload failure and retry debt"
+      },
+      "ddraw_overlay_flip_test.log": {
+        "sha256": "05ca24e2b24adba20c0f85344a4a909993a6c829f0b6fc270ba47056182fc558",
+        "output": "PASS actual DDraw overlay Flip: 2831 checks, 512 two/three-buffer default/named flips, coupled storage/pending state, stable overlay identity, source/destination rebinding, primary base preservation, silent hidden/offscreen flips and invalid-target isolation"
+      },
+      "ddraw_palette_presentation_test.log": {
+        "sha256": "877809955a99ed7ee51a4ca65dd37960552eca2322b337faec3cb51835f16801",
+        "output": "PASS actual DDraw palette presentation: 375706 checks, 1445 range/profile cases, immediate table/resolve/Present ordering, no unrelated presentation, input preservation and failed-present retries"
+      },
+      "ddraw_indexed_span_test.log": {
+        "sha256": "dd70859d0a09c3a9c55815a37532a8f79e5fe77b004f4b400d3cb7ef68ee04b7",
+        "output": "PASS actual DDraw indexed upload: 120 rebased ranges preserve every addressed vertex, full ClipStatus input, invalid bounds and failure atomicity"
+      },
+      "ddraw_attachment_query_mutation_test.log": {
+        "sha256": "864fca40532f12da6449a062edbdf0c5eb3b8afdffe81553920bed75dd7f77e2",
+        "output": "KILL leaf loses complex membership\nKILL query requires mipmap selector\nKILL unrelated caps return a mip\nKILL query returns current level\nPASS actual mip attachment faults: 4/4, including the original leaf-cap and selector failures"
+      },
+      "ddraw_clipper_test.log": {
+        "sha256": "ee12aa1aedc477efef7b994ed3006f14c0d6383d2654f44b6932dc06e878858d",
+        "output": "PASS actual DirectDraw Clipper C: 960 checks; live/freed/fake identities, damaged-vtable counts, standalone registration, HWND screen coordinates and destruction, retained custom region and invalid-call output preservation"
+      },
+      "ddraw_depth_memory_mutation_test.log": {
+        "sha256": "4f9d0df370aea1a6226d635fb93af7af02a3691bef3e217b92f8483de9285ebf",
+        "output": "KILL partial dirty shadow accepted\nKILL shadow ignores row pitch\nKILL depth fill overwrites stencil\nKILL exact integer mirror omitted\nKILL failed emission writes mirror\nKILL depth upload discarded\nPASS DDraw depth memory mutations: 6/6, compilation and runtime assertions"
+      },
+      "ddraw_primary_write_test.log": {
+        "sha256": "69c7144f8eb2b12326aed4b611f8802f19d741d3887932c909716ed7c0c56e30",
+        "output": "PASS actual DDraw primary writes: 23658 checks, 10800 window/dirty intersections, overflow and probe failures, primary/offscreen with/without flip chain, actual Unlock/DC routing and accepted-prefix presentation errors"
+      },
+      "tools-build.log": {
+        "sha256": "86b38b6dc9d933cd0dbd77ea4b6a715620034b86cf71fb4ee0a4a5a71dbb9a61",
+        "output": "Prepared build/d3d-review with current guest DLLs; image writes remain RAM overlays"
+      },
+      "ddraw_ownership_mutation_test.log": {
+        "sha256": "5e38d65d88a3059764a77520150382c2efda25ffe7072d0b1e9a1a348ea2d6c8",
+        "output": "KILL invalid clipper accepted by copied vtable\nKILL damaged clipper vtable decrements count\nKILL freed clipper remains attached\nKILL primary factory omits visible cap\nKILL automatic flip root omits frontbuffer\nKILL all automatic children marked backbuffer\nKILL child inherits requested backbuffer count\nKILL D3D7 surface accepts manual non-depth attachment\nKILL manual closing edge loses native root pin\nKILL detached member retains public attachment pin\nKILL manual backbuffer count not updated\nKILL detached member keeps flip caps\nKILL self detach misclassified as root detach\nKILL primary keeps freed palette identity\nKILL attached primary palette cap omitted\nKILL duplicate backbuffer rewires ring\nKILL live backbuffer stolen from another ring\nKILL DD4/7 surface creator not retained\nKILL DD1/2 palette changes public parent count\nKILL duplicate creator not retained\nKILL child allocation has no private hold\nKILL public AddRef omits physical hold\nKILL child private hold leaked\nKILL palette parent pin leaked\nKILL surface parent pin leaked\nKILL same palette released before retain\nKILL same clipper released before retain\nKILL implicit count zero frees ring member\nKILL root flip chain ignored\nKILL implicit flip child uses public Release\nKILL implicit mip uses public Release\nKILL implicit cube uses public Release\nKILL soft flip attachment never releases\nKILL implicit mip can detach and leak\nKILL partial flip allocation reported success\nPASS DDraw ownership mutations: 35/35, strict compilation and runtime assertions"
+      },
+      "ddraw_color_key_test.log": {
+        "sha256": "e25eb4b3af7dbc575540fa3d915847856ba92de89fab9cab982f2c9e8fcdaa09",
+        "output": "PASS actual DDraw surface color keys: 1870 checks; 288 setter cases, 300 full creation preflights with allocation stubs, four key kinds, canonical descriptions/wire values, explicit range refusal, overlay atomicity, ignored unflagged description values and unchanged inputs"
+      },
+      "ddraw_depth_memory_test.log": {
+        "sha256": "a088aa9d82283d226d5ff750e549018d27155c6978e2c332f518cf919d0a6e10",
+        "output": "PASS actual DDraw depth memory: 23132 checks; seven packed formats, exact D32 fill bits, immediate system-memory writes, partial/stencil dirty retention, transport failure atomicity, depth uploads and draw/clear invalidation"
+      },
+      "ddraw_protocol_consistency_test.log": {
+        "sha256": "4c69e230a849daf424c5779faee78fb7044775695ae3f44d4cb69e5cbf105208",
+        "output": "20 ddraw protocol consistency checks passed"
+      },
+      "ddraw_vtable_layout_test.log": {
+        "sha256": "81e5647331dd55baeecfc856b9e0556c06c6880752295673bc5f0a5d04e29b46",
+        "output": "355 vtable slots across 12 interfaces match the SDK's declaration order"
+      },
+      "ddraw_class_factory_test.log": {
+        "sha256": "6084f416d3dd47021218027cdbd3b16de310c4b6d8e74c870abc0c8e251d9aa4",
+        "output": "PASS actual DirectDraw COM factory C: 10881 checks, three classes, interface selection, one-shot Initialize, failure atomicity and unload lifetimes"
+      },
+      "ddraw_surface_identity_test.log": {
+        "sha256": "301b599b4ffd6d684fdee026e125ff61adaf8c46fd24c3814d6187d9f2f614c5",
+        "output": "PASS actual DirectDraw surface identity C: 43681 checks, independent public views, common IUnknown, legacy texture groups, GammaControl, Device1 aggregation/revival, factory failure atomicity and complete cleanup"
+      },
+      "ddraw_attachment_query_test.log": {
+        "sha256": "b28b135ab914425ed9d5cc8dfefad03e3d63c1d49f620cb107ef75e7347792ef",
+        "output": "PASS actual DirectDraw attachment query C: 17472 checks, actual mip construction including leaf COMPLEX, TEXTURE/COMPLEX/MIPMAP subsets, sublevel and non-cube caps2, endpoint/failure isolation and retained depth/flip paths"
+      },
+      "ddraw_lock_preservation_mutation_test.log": {
+        "sha256": "0591ea277930a07017025ceab116772ff6507beb07ec960512256f0721a7976b",
+        "output": "KILL WRITEONLY skips GPU preservation\nKILL all locks skip GPU preservation\nKILL readback failure exposes stale shadow\nKILL invalid rectangle triggers readback\nKILL failed lock changes caller description\nKILL failed lock commits flags\nKILL READONLY unexpectedly uploads\nKILL WRITEONLY silently drops upload\nKILL partial upload covers entire surface\nKILL partial lock ignores row offset\nPASS DDraw lock preservation mutations: 10/10, strict compilation and runtime assertions"
+      },
+      "ddraw_clipper_mutation_test.log": {
+        "sha256": "66f72f0edef378ebf7a094fa3cc897c7f55516fe428c5ff0c8a23091385e2368",
+        "output": "KILL HWND clip list uses client coordinates\nKILL destroyed HWND has a region\nKILL HWND binding loses custom region\nKILL corrupt vtable Release decrements\nPASS Clipper mutations: 4/4, compilation and runtime assertions"
+      },
+      "ddraw_device_context_test.log": {
+        "sha256": "8d1353a8868698d9ce157e720e558545f4c5f2a0dea7e04c012c27c5161cb27a",
+        "output": "PASS actual legacy device context C: 19200 checks, creation-version QI matrices/canonical IUnknown, nested queries, unset viewport output, current references, Device2/3 detachment and destruction, failed-apply atomicity"
+      },
+      "ddraw_d3d_legacy_vtable_test.log": {
+        "sha256": "db61e85a8efcbb83905835f60c6b8adbeaa3ed2f6ead7d8e18f48f3452ba32cc",
+        "output": "241 Direct3D 1-6 vtable slots match the SDK declaration"
+      },
+      "ddraw_lock_preservation_test.log": {
+        "sha256": "d0cab1e8c9a6e96d18c0620e9dc58bec48f88df4b57170da6f822f00e4a96080",
+        "output": "PASS actual DDraw Lock/Unlock: 7648 checks, 768 full/partial GPU-dirty locks, all write modes, shared aliases, untouched pixels, compressed offsets, invalid-call isolation and readback failure/retry"
+      },
+      "ddraw_rop_dc_mutation_test.log": {
+        "sha256": "d7b90422588615fc4024cb836960f7c3a6367a0033dda7208d150970c1267673",
+        "output": "KILL mixed depth/color copy accepted\nKILL mismatched depth layout copy accepted\nKILL color fill accepts depth\nKILL depth fill ignores supplied source\nKILL depth fill clamps instead of masks\nKILL invalid destination emitted\nKILL source required before ROP\nKILL WHITENESS becomes black\nKILL ARGB white sets alpha\nKILL P8 white is zero\nKILL unsupported ROP accepted\nKILL ROP mutates caller fill field\nKILL primary overrides own palette\nKILL primary fallback omitted\nKILL DC red channel copied from blue\nKILL DC fallback binds surface palette\nKILL failed ROP emission ignored\nPASS DDraw ROP/DC mutations: 17/17, strict compilation and runtime assertions"
+      },
+      "ddraw_palette_presentation_mutation_test.log": {
+        "sha256": "455a362b96dd4449e1dc58f05e50b88d924adf379b2cd242094a9e28b5dafad9",
+        "output": "KILL visible palette never presents\nKILL unrelated palette presents\nKILL true-color primary presents\nKILL table not emitted\nKILL resolve skipped\nKILL Present skipped\nKILL resolve failure ignored\nKILL Present failure ignored\nKILL partial update changes wrong entries\nKILL empty end range refused\nPASS DDraw palette presentation mutations: 10/10, strict compilation and runtime assertions"
+      },
+      "ddraw_overlay_flip_mutation_test.log": {
+        "sha256": "64b64812d8179750372e71cf8159bd37caefd971bff6bd220c932f037ce8852f",
+        "output": "KILL backbuffer can initiate Flip\nKILL overlay overwrites primary base\nKILL overlay source not rebound\nKILL destination relationship ignored\nKILL hidden/offscreen Flip presents\nKILL named target selects first back\nKILL named self accepted\nKILL unrelated named target accepted\nKILL storage pointer not moved\nKILL memory pointer not moved\nKILL upload debt not moved\nKILL external-memory status not moved\nKILL failed overlay update ignored\nKILL failed Present ignored\nPASS DDraw overlay Flip mutations: 14/14, strict compilation and runtime assertions"
+      },
+      "ddraw_yuv_surface_mutation_test.log": {
+        "sha256": "013d65a4b00aa7f4a7ddcd0da867b5d10e4c2cbb2eb064bfa0863ed682637e4d",
+        "output": "KILL packed format allocation omitted\nKILL odd left edge not widened\nKILL odd width upload omits shared chroma\nKILL raw pair halves reversed\nKILL neighbouring row written\nKILL failed upload loses retry debt\nPASS packed YUV mutations: 6/6, compilation and runtime assertions"
+      },
+      "ddraw_ownership_test.log": {
+        "sha256": "4dd6f8a2a05d8da88a914617f1b762510e18409696464ab00e14f6637e1632f3",
+        "output": "PASS actual DDraw ownership C: 114497 checks, 160 factory profiles, 10240 same-pointer bindings per kind, 32 complex chains, 32 soft attachments, implicit zero-count retention, manual attach/detach and native root-reference migration, automatic flip roles/counts for DD1/2/4/7, invalid/freed/corrupt clipper identities and forced cross-owner detachment, complete storage/memory cleanup, DD1/2 private lifetime, DD4/7 public pins, four allocation failures and final-owner ordering"
+      },
+      "ddraw_d3d7_vtable_test.log": {
+        "sha256": "70fca67c11630552ef8d684f7d6bf2144fd693ebcf3dcac3c40753377f467610",
+        "output": "66 Direct3D 7 vtable slots match the SDK declaration"
+      },
+      "ddraw_primary_write_mutation_test.log": {
+        "sha256": "f3dcff33dd215f6c2f74b8ae1ff1003ea8f0d431d17b6534dec29687fc1dc61f",
+        "output": "KILL windowed primary not clipped\nKILL fullscreen clipped as windowed\nKILL offscreen surface clipped as primary\nKILL dirty intersection ignored\nKILL clipper window ignored\nKILL failed origin accepted\nKILL window right overflow\nKILL screen emitter bypasses clipped area\nKILL flip-chain front never presents\nKILL Unlock skips presentation\nKILL ReleaseDC skips presentation\nKILL resolve failure ignored\nKILL Present failure ignored\nPASS DDraw primary write mutations: 13/13, strict compilation and runtime assertions"
+      },
+      "host-build.log": {
+        "sha256": "c3923144b757090898a412e0ac86a7f5270a69ba5c78f8c23844b1a9d003cb26",
+        "output": "Finished `release` profile [optimized] target(s) in 0.09s\nBuilt WebGPU graphics 3e572c90709ebe482ec1 in /Users/renruisi/Desktop/Code/v86/build/glbridge/"
+      },
+      "ddraw_legacy_viewport_test.log": {
+        "sha256": "a8b8dc212eda3e6c83a21b89b7035f78f8aa2a5b5a8f95e465e646f3d39dd128",
+        "output": "PASS actual legacy viewport C: 13312 checks, exact descriptor sizes, private parent lifetime, unbound state, both coordinate conversions, native depth ranges, device-version bounds and failed-call atomicity"
+      }
+    }
+  },
+  "originalWine": {
+    "directory": "build/d3d-review/stage6-wine-ddraw2-device-context",
+    "completed": false,
+    "summary": null,
+    "accepted": false,
+    "rawFailures": 1043,
+    "unreviewedSkips": 5,
+    "failureGroups": {
+      "test_coop_level_create_device_window": 3,
+      "test_clipper_blt": 6,
+      "test_coop_level_d3d_state": 4,
+      "test_depth_blit": 24,
+      "test_wndproc": 5,
+      "test_window_style": 16,
+      "test_redundant_mode_set": 2,
+      "test_coop_level_mode_set": 80,
+      "test_coop_level_mode_set_multi": 13,
+      "test_coop_level_surf_create": 3,
+      "test_coop_level_versions": 3,
+      "test_lighting_interface_versions": 12,
+      "test_coop_level_activateapp": 4,
+      "test_unsupported_formats": 2,
+      "test_rt_caps": 88,
+      "test_primary_caps": 22,
+      "test_flip": 13,
+      "test_set_surface_desc": 7,
+      "test_user_memory_getdc": 1,
+      "test_sysmem_overlay": 1,
+      "test_primary_palette": 5,
+      "test_surface_attachment": 2,
+      "test_create_surface_pitch": 39,
+      "test_mipmap": 15,
+      "test_palette_complex": 8,
+      "test_p8_blit": 8,
+      "test_material": 5,
+      "test_lighting": 7,
+      "test_specular_lighting": 39,
+      "test_palette_alpha": 3,
+      "test_lost_device": 24,
+      "test_shademode": 12,
+      "test_lockrect_invalid": 104,
+      "test_offscreen_overlay": 3,
+      "test_overlay_rect": 5,
+      "test_cross_device_blt": 7,
+      "test_getdc": 109,
+      "test_draw_primitive": 4,
+      "test_edge_antialiasing_blending": 6,
+      "test_transform_vertices": 6,
+      "test_surface_desc_size": 10,
+      "test_ck_operation": 14,
+      "ddraw_get_identifier": 12,
+      "test_enum_surfaces": 10,
+      "test_clear": 4,
+      "check_rect": 40,
+      "test_find_device": 26,
+      "test_killfocus": 1,
+      "test_gdi_surface": 2,
+      "test_alphatest": 8,
+      "test_caps": 12,
+      "test_d32_support": 1,
+      "test_cursor_clipping": 4,
+      "test_get_display_mode": 1,
+      "test_texture_wrong_caps": 2,
+      "test_filling_convention": 175,
+      "test_multiple_devices": 1
+    },
+    "repairedGroups": [
+      "test_viewport_object",
+      "test_device_qi"
+    ],
+    "lastCheckpoints": [
+      "653"
+    ],
+    "gpuErrors": [],
+    "hostErrors": [],
+    "commandsFailed": 0,
+    "droppedDraws": 0,
+    "renderTargetReadbackFailures": 0,
+    "files": {
+      "WINE.TXT": "7866596e0b8cf3507dda830820d94be5016692738e8ad4f5ca1fdb5e2797647f",
+      "source.json": "ddaa3e873db938c2e77cd63c887f77cf86760a1d6b38fc174cbff04524a64277",
+      "live-gpu.json": "b643aa261a1d9ebb5e8e399d07baebff1ae11c9cb1e77cff3d4309a2cdcdd702",
+      "failure-groups.json": "1db30401eb24a08c1c0d9e18673b6ea5d9094740496f74a06ce44e03a1d02af8",
+      "native-source.json": "97d94b5a30ccdb48575a50bce9d09dffc1794efeeb2ba970c21054cacc8110c6",
+      "probe-failure.json": "3ce83be6cbdc51986d77f621fe963bd8525f2b0409f4f646b59f6dbd480067c9"
+    },
+    "stoppedAt": {
+      "test": "test_multiple_devices",
+      "failedCreateLine": 16858,
+      "lastCheckLine": 653,
+      "exception": "c0000005 at 0040324A",
+      "cause": "The second device created on the same DirectDraw owner is rejected; upstream subsequently uses the NULL device."
+    },
+    "postProcessCleanup": {
+      "devices": 0,
+      "resources": 0
+    }
+  },
+  "shipping": {
+    "ddraw": "94b47f9333ff8e4dcf2b659891448129887bd27931ccc96b210fe6fa426c4e93",
+    "ddrawDiagnostic": "e3f17ea2151a6d49442e80b06c009e8d768c491a45de53cadf9d1ebe0d34d793",
+    "auditDllIdenticalToShipping": true
+  },
+  "remaining": [
+    "Multiple D3D devices on the same DirectDraw owner are currently rejected and cause the later native test to crash.",
+    "Legacy vertex-type/flag driven lighting and the original depth_blit color failures.",
+    "Lock/DC and descriptor contracts, caps/placement, windows/mode/lost state, and other original DDraw failures.",
+    "Historical custom guest samples that relied on cross-version Device7 queries are not evidence of the repaired native identity contract; original pinned tests and the actual-entry-point matrix are authoritative here.",
+    "No Wine assertions or source changed, no applicability waiver applied, no 3DMark performance comparison."
+  ]
+}
