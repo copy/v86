@@ -428,9 +428,21 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
                 dump_packet(data, "send");
             }
 
-            if(this.mac_address_in_state)
+            if(this.mac_address_translation)
             {
                 data = new Uint8Array(data); // make a copy
+
+                if(!this.mac_address_in_state)
+                {
+                    this.mac_address_in_state = new Uint8Array(6);
+                }
+
+                // Forcefully learn the guest mac from the ethernet source field (bytes 6-11)
+                for(var i = 0; i < 6; i++)
+                {
+                    this.mac_address_in_state[i] = data[6 + i];
+                }
+
                 translate_mac_address(data, this.mac_address_in_state, this.mac);
             }
 
@@ -906,7 +918,15 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
         else if(pg === 1)
         {
             dbg_log("mac[3] = " + h(data_byte), LOG_NET);
-            this.mac[3] = data_byte;
+            if(this.mac_address_translation)
+            {
+                if(!this.mac_address_in_state) this.mac_address_in_state = new Uint8Array(6);
+                this.mac_address_in_state[3] = data_byte;
+            }
+            else
+            {
+                this.mac[3] = data_byte;
+            }
         }
         else
         {
@@ -976,7 +996,7 @@ export function Ne2k(cpu, bus, preserve_mac_from_state_image, mac_address_transl
         else if(pg === 1)
         {
             dbg_log("Read pg1/06 (mac[5])", LOG_NET);
-            return this.mac[5];
+            return this.mac_address_translation && this.mac_address_in_state ? this.mac_address_in_state[5] : this.mac[5];
         }
         else if(pg === 3)
         {
