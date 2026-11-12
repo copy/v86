@@ -3423,3 +3423,9 @@ Clipper 调用先检查活对象注册表，拒绝仅复制 vtable 的伪造对�
 修复 DDraw2 设备 QI 崩溃：Device2 只开放 Device1/2，Device3 开放 Device1/2/3，Device7 只开放 Device7；IUnknown 返回创建版本的接口，成功查询共享设备引用组。聚合 Device1 继续由表面控制身份。修正未初始化视口成为当前视口、无当前视口的错误优先级/输出保持、切换引用及应用失败隔离。原始测试要求 Device2 删除/销毁后保留当前引用、Device3 释放，已明确区分；Device1 Execute 不新增公开引用。
 
 **19,200 项实际入口 C 检查、7/7 故障对照、35 个 DDraw 脚本及站点 2/2 通过。** XP 原始 DDraw2 记录 1043 条部分失败，5 项未审查 skip，在靠后的 test_multiple_devices 中创建第二个设备失败后崩溃，尚未取得完整汇总；当前视口与设备 QI 两组无失败，GPU/宿主错误均零。其他失败继续保留，整体 Wine 验收未通过；下批继续旧版顶点光照和 Lock/DC。正式 DDraw 与审计 DLL 相同，诊断 DLL、宿主资产与工具镜像已重建。旧自定义客体样例曾依赖跨版本 Device7 查询，本批不把这些历史样例当成新原生接口契约的有效证据。Wine 原始源码和断言未修改，未应用豁免，3DMark 对比仍暂缓。证据见 `fixtures/d3d-review/stage6-50-validation.json`。
+
+### 阶段6-51：旧版逐次绘制光照（2026-11-12）
+
+D3D1/2/3 的光照由顶点 NORMAL 与 DONOTLIGHT 决定，不能使用这些接口会忽略的 LIGHTING 状态。修复预光照 LVERTEX 被再次照明成黑色，保留其原始保留字段/步长；UP、索引、Strided、VB 提交前选择光照，提交状态失败则停止绘制。Begin/BeginIndexed 的标志保留至 End。D3D7 继续使用显式光照状态。
+
+**527,360 项实际 UP/索引/Strided C 入口检查、5/5 故障对照、37 个 DDraw 脚本、既有状态块回归及站点 2/2 全过。** 原始 XP DDraw2 的部分失败由 **1,043 降至 851，减少 192 条**；depth_blit、lighting_interface_versions、shademode、edge_antialiasing_blending 四组均无失败，GPU/宿主错误、拒绝命令、丢弃绘制和读回失败均零。仍有 **5 项未审查 skip**，且继续在同一 DirectDraw 对象创建第二设备失败后崩溃；没有完整汇总，整体 Wine 验收仍失败。正式 DDraw 与审计 DLL 相同，已重建诊断 DLL、宿主资产及工具镜像。没有修改原始 Wine 或豁免功能失败；继续 Lock/DC 与多设备支持，3DMark 对比仍暂停。证据见 `fixtures/d3d-review/stage6-51-validation.json`。
