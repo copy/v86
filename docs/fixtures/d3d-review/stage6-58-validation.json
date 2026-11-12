@@ -828,7 +828,7 @@
   "remaining": [
     "DDraw1 323 failures/20 flaky/6 unreviewed skips; DDraw2 323 failures/21 flaky/7 unreviewed skips remain. No assertion/source changes or applicability waivers.",
     "EnumSurfaces, legacy execute-buffer/resource ownership and descriptors, attachments, remaining capabilities, windows/modes/lost state and legacy rendering remain. Legacy Device1/2/3 GetCaps historical caller-buffer behavior and additional FindDevice primitive filters were not newly certified.",
-    "The remaining one failure attributed by the simple audit helper to filling_convention is an unreleased execute-buffer/parent public-reference observation before the enum callback; the actual enumeration callback assertions now all pass. Full original DDraw4/7 audits remain outstanding; their inventory shapes have local SDK tests, not a full native acceptance claim.",
+    "The remaining one failure attributed by the simple audit helper to filling_convention is a final IDirectDraw_Release public-count observation before the enum callback (the earlier execute-buffer attribution was incorrect; execute buffers already use private inner-device retention); the actual enumeration callback assertions now all pass. Full original DDraw4/7 audits remain outstanding; their inventory shapes have local SDK tests, not a full native acceptance claim.",
     "Existing logical Ramp/MMX execution aliases were not newly certified as native rendering profiles here. GTASA world gameplay remains unverified. 3DMark comparisons remain deferred."
   ]
 }
