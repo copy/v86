@@ -6513,15 +6513,15 @@ await test("GPU render-target readback writes a converted D3D surface response",
 });
 
 await test("depth readback retires temporary GPU objects on success and timeout", async () => {
-    for (const hang of [false, true]) {
+    for (const format of [70,71,73,75,77,79,80]) for (const hang of [false, true]) {
         const {executor, find} = makeExecutor({readbackTimeoutMs:10,fakeOptions:{hangMapAsync:hang}});
         await executor.submit(buildBatch([
             command(OP.CREATE_DEVICE,createDevicePayload(64,64)),
-            command(OP.CREATE_TEXTURE_2D,encodePayload("CreateTexture2D",{device_handle:DEVICE,resource_handle:0x904,width:2,height:2,level_count:1,format:70,usage:2})),
+            command(OP.CREATE_TEXTURE_2D,encodePayload("CreateTexture2D",{device_handle:DEVICE,resource_handle:0x904,width:2,height:2,level_count:1,format,usage:2})),
         ]));
         const actual = executor.resources.get(0x904).gpuTexture, replies=[];
         await executor.submit(buildBatch([command(OP.READBACK_SURFACE,encodePayload("ReadbackSurface",{
-            device_handle:DEVICE,texture_handle:0x904,format:70,width:2,height:2,first_row:1,row_count:1,
+            device_handle:DEVICE,texture_handle:0x904,format,width:2,height:2,first_row:1,row_count:1,
             destination_pitch:8,destination_bytes:8,response_offset:16*1024,request_id:8,
         }))]),{writeGuestMemory(at,data){if(at!==HEARTBEAT_WRITE_OFFSET)replies.push(Buffer.from(data));}});
         await executor.idle();

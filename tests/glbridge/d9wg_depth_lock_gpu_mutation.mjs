@@ -9,8 +9,10 @@ const html=fs.readFileSync(root+'tests/glbridge/d3d9_depth_lock_browser_test.htm
 const cases=[
  ['readback-ignores-first-row','d9wg_surface_ops.js','[0,firstRow,0,0]','[0,0,0,0]'],
  ['readback-fakes-full-depth','d9wg_formats.js','unorm(r,65535)','65535'],
- ['upload-discards-source-pitch','d9wg_surface_ops.js','row*rowPitch+col*2','row*width*2+col*2'],
+ ['upload-discards-source-pitch','d9wg_surface_ops.js','row*rowPitch+col*bytes','row*width*bytes+col*bytes'],
  ['upload-does-not-write-depth','d9wg_surface_ops.js','depthWriteEnabled:true,depthCompare:"always",stencilWriteMask:0','depthWriteEnabled:false,depthCompare:"always",stencilWriteMask:0'],
+ ['stencil-bits-omitted','d3d9_executor.js','mappedBytes[stencilOffset + (firstRow + row) * stencilPitch + x] & mask','mappedBytes[stencilOffset + (firstRow + row) * stencilPitch + x] & (mask & 0)'],
+ ['stencil-ignores-first-row','d3d9_executor.js','mappedBytes[stencilOffset + (firstRow + row) * stencilPitch + x] & mask','mappedBytes[stencilOffset + row * stencilPitch + x] & mask'],
 ];
 for(const [name,file,before,after] of cases){
  const source=fs.readFileSync(root+'src/browser/glbridge/d3d9-webgpu/'+file,'utf8');assert.equal(source.split(before).length,2);
@@ -18,8 +20,8 @@ for(const [name,file,before,after] of cases){
  fs.writeFileSync(directory+'/test.html',html.replace('src="/src/browser/glbridge/d3d9-webgpu/'+file+'"','src="/build/d3d-review/depth-lock-gpu-mutations/'+file+'"'));
  const run=spawnSync(process.execPath,[root+'tests/glbridge/gl_multipass_browser_runner.js','../../build/d3d-review/depth-lock-gpu-mutations/test.html'],{cwd:root,encoding:'utf8',timeout:120000});
  assert.equal(run.status,1,name+run.stderr);const result=JSON.parse(run.stdout);
- assert.equal(result.status,'FAIL');assert.match(result.details,/FAIL Error: depth \d+,\d+/);
+ assert.equal(result.status,'FAIL');assert.match(result.details,/FAIL Error: (?:depth \d+,\d+|stencil format \d+ at \d+,\d+)/);
  assert(result.details.includes('"errors":[],"host":[]'),result.details);
  fs.writeFileSync(directory+'/'+name+'.json',JSON.stringify(result,null,2)+'\n');
 }
-console.log('PASS depth lock GPU mutations: 4/4 sliced reads, real depth values, padded upload pitch and actual GPU depth writes');
+console.log('PASS depth lock GPU mutations: 6/6 sliced depth/stencil reads, real depth values, stencil packing, padded upload pitch and actual GPU depth writes');

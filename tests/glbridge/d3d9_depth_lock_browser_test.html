@@ -63,6 +63,30 @@
   const color=await read(21,rt,0,64,256);
   for(let i=0;i<4096;i++){const red=expected[i]>=32768?255:0;check(color[i*4]===0&&color[i*4+1]===0&&color[i*4+2]===red&&color[i*4+3]===255,'uploaded depth test at '+i);}
   await depthCheck(0,64,128);lines.push('actual draws consume uploaded depth; read-only draw preserves it');
+  for (const format of [71,73,75,77,79,80]) {
+   const handle=depth+format,bpp=[73,80].includes(format)?2:4,stencil=[73,75,79].includes(format);
+   await gpu.submit(batch([
+    wire('CreateTexture2D',{device_handle:dev,resource_handle:handle,width:64,height:64,level_count:1,format,usage:2}),
+    wire('SetDepthStencilSurfaceLevel',{device_handle:dev,depth_texture_handle:handle,width:64,height:64}),
+    wire('Clear',{device_handle:dev,clear_flags:stencil?6:2,depth:.25,stencil:0xa5}),
+    rs(dev,14,1),draw(dev,quad(0,0,32,64,.125,0xff00ff00)),
+   ]),{writeGuestMemory(){}});
+   if(stencil)await gpu.submit(batch([cmd(P.OP.CLEAR,new Uint8Array([
+    ...P.encode('Clear',{device_handle:dev,clear_flags:4,depth:0,stencil:0xa0,rect_count:1}),
+    ...P.encode('Rect',{left:0,top:0,right:64,bottom:17}),
+   ]))]),{writeGuestMemory(){}});
+   const pitch=64*bpp+6,result=await read(format,handle,17,3,pitch),view=new DataView(result.buffer,result.byteOffset,result.byteLength);
+   for(let y=0;y<3;y++)for(let x=0;x<64;x++) {
+    const z=x<32?.125:.25,s=format===73?1:format===75?0xa5:format===79?5:0;
+    const expected=format===80?Math.round(z*65535):format===71?Math.round(z*4294967295):format===73?(Math.round(z*32767)<<1)|s:(Math.round(z*16777215)*256+s)>>>0;
+    const actual=bpp===2?view.getUint16(y*pitch+x*bpp,true):view.getUint32(y*pitch+x*bpp,true);
+    const tolerance=format===71?128:format===73?2:[75,77,79].includes(format)?256:1;
+    check(Math.abs(actual-expected)<=tolerance,`depth format ${format} at ${x},${y}: ${actual} != ${expected}`);
+    if(stencil)check((actual&(format===73?1:format===75?255:15))===s,`stencil format ${format} at ${x},${y}`);
+   }
+   for(let y=0;y<3;y++)for(let x=64*bpp;x<pitch;x++)check(result[y*pitch+x]===0,'depth format padding '+format);
+  }
+  lines.push('all seven standard depth formats read real clear/draw values, stencil bits, sliced rows and padding');
   await gpu.submit(D3D9Conformance.endCaseBatch(1),{writeGuestMemory(){}});await gpu.idle();await gpu.device.queue.onSubmittedWorkDone();
   for(let i=0;i<4;i++)await new Promise(r=>setTimeout(r,0));
   check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.commandsFailed&&!gpu.stats.renderTargetReadbackFailures,'GPU/host error');

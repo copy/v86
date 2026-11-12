@@ -481,7 +481,9 @@
 
     function d3dBytesPerTexel(format) {
         switch (format) {
-        case 70: // D16_LOCKABLE CPU representation
+        case 70: // D16_LOCKABLE
+        case 73: // D15S1
+        case 80: // D16
         case D3DFMT_R5G6B5:
         case D3DFMT_X1R5G5B5:
         case D3DFMT_A1R5G5B5:
@@ -489,6 +491,10 @@
         case D3DFMT_R16F:
             return 2;
         case D3DFMT_A8R8G8B8:
+        case 71: // D32
+        case 75: // D24S8
+        case 77: // D24X8
+        case 79: // D24X4S4
         case D3DFMT_X8R8G8B8:
         case D3DFMT_A2B10G10R10:
         case D3DFMT_A2R10G10B10:
@@ -560,7 +566,19 @@
             }
             switch (format) {
             case 70: // actual GPU depth transferred to r32float
+            case 80:
                 destinationView.setUint16(destinationAt, unorm(r,65535),true);
+                break;
+            case 71:
+                destinationView.setUint32(destinationAt, unorm(r,4294967295),true);
+                break;
+            case 73:
+                destinationView.setUint16(destinationAt, unorm(r,32767) << 1,true);
+                break;
+            case 75:
+            case 77:
+            case 79:
+                destinationView.setUint32(destinationAt, unorm(r,16777215) * 256,true);
                 break;
             case D3DFMT_A8R8G8B8:
             case D3DFMT_X8R8G8B8:

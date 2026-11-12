@@ -2649,16 +2649,21 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const rawRowBytes = compressed
                     ? Math.ceil(width / 4) * blockBytes : width * sourceBpp;
                 const gpuRowPitch = alignUp(rawRowBytes, 256);
+                const depthReadback = !!(resource && resource.isDepth);
+                if (depthReadback && (![70,71,73,75,77,79,80].includes(format) ||
+                        resource.format !== format || (resource.sampleCount || 1) !== 1 || face))
+                    throw new Error("unsupported depth readback descriptor");
+                const stencilReadback = depthReadback && [73,75,79].includes(format);
+                const stencilOffset = gpuRowPitch * copiedRows;
+                const stencilPitch = alignUp(width, 256);
                 buffer = this.device.createBuffer({
                     label: "D3D9 render-target readback",
-                    size: gpuRowPitch * copiedRows,
+                    size: stencilOffset + (stencilReadback ? stencilPitch * height : 0),
                     usage: BUFFER_USAGE_COPY_DST | BUFFER_USAGE_MAP_READ,
                 });
                 const encoder = this.device.createCommandEncoder();
                 let copyLevel = level, copyRow = firstRow;
-                if (resource && resource.isDepth) {
-                    if (format !== 70 || resource.format !== 70 || (resource.sampleCount || 1) !== 1 || face)
-                        throw new Error("unsupported lockable depth readback");
+                if (depthReadback) {
                     const converted = this.device.createTexture({label:"D3D9 depth readback values",
                         size:{width,height:rowCount},format:"r32float",usage:TEXTURE_USAGE_RENDER_ATTACHMENT|TEXTURE_USAGE_COPY_SRC});
                     depthTransients.push(converted);
@@ -2673,6 +2678,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     { width: blockAlignedCopyExtent(width, compressed),
                         height: blockAlignedCopyExtent(rowCount, compressed),
                         depthOrArrayLayers: 1 });
+                // WebGPU requires a whole depth/stencil subresource copy,
+                // even when the guest requested only a row slice.
+                if (stencilReadback)
+                    encoder.copyTextureToBuffer({texture:resource.gpuTexture,
+                        mipLevel:level,origin:{x:0,y:0,z:0},aspect:"stencil-only"},
+                        {buffer,offset:stencilOffset,bytesPerRow:stencilPitch,rowsPerImage:height},
+                        {width,height,depthOrArrayLayers:1});
                 this.device.queue.submit([encoder.finish()]);
                 ++this.stats.queueSubmits;
                 /*
@@ -2709,6 +2721,13 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                         packGPUReadbackRow(format, gpuFormat, mappedBytes,
                             row * gpuRowPitch, width, packed,
                             row * destinationPitch);
+                    if (stencilReadback) {
+                        const mask = format === 73 ? 1 : format === 79 ? 15 : 255;
+                        for (let row = 0; row < rowCount; ++row)
+                            for (let x = 0; x < width; ++x)
+                                packed[row * destinationPitch + x * destinationBpp] |=
+                                    mappedBytes[stencilOffset + (firstRow + row) * stencilPitch + x] & mask;
+                    }
                 }
                 buffer.unmap();
                 mapped = false;
