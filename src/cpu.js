@@ -2225,7 +2225,7 @@ CPU.prototype.dump_page_structures = function()
         dbg_log("PAE enabled");
 
         for(var i = 0; i < 4; i++) {
-            var addr = this.cr[3] + 8 * i;
+            var addr = (this.cr[3] & ~0x1F) + 8 * i;
             var dword = this.read32s(addr);
             if(dword & 1)
             {
@@ -2236,7 +2236,7 @@ CPU.prototype.dump_page_structures = function()
     else
     {
         dbg_log("PAE disabled");
-        this.dump_page_directory(this.cr[3], false, 0);
+        this.dump_page_directory(this.cr[3] & ~0xFFF, false, 0);
     }
 };
 
