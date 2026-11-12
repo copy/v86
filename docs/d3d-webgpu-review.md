@@ -3437,3 +3437,13 @@ D3D1/2/3 的光照由顶点 NORMAL 与 DONOTLIGHT 决定，不能使用这些接
 **39 个 DDraw 脚本及站点 2/2 全过**：Lock 10,463 项/14 个故障对照，ROP/DC 73,628 项/20 个故障对照，描述形状 176,640 项/2 个故障对照。完整原始 XP DDraw1 跑完 **23,909 项，606 条失败、20 条 flaky、6 项未审查 skip**；相比上次完整的 816 条失败减少 **210 条**。lockrect_invalid 与 surface_desc_size 两组无失败；GetDC 从 **109 降至 9 条**，剩余均为 GDI 的 biSizeImage 字段，另用原生 XP 探针检查。支持性修复使不支持的 GDI 格式走回原测试的失败分支，成功后才检查的位图项不再执行，因此检查总数变化；没有删改断言、增加 skip 或应用豁免。
 
 GPU/宿主错误、拒绝命令、丢弃绘制和读回失败均零。正式 DDraw 与审计 DLL 完全一致，已重建诊断 DLL、宿主资产与工具镜像。**整体 Wine 验收仍未通过**；DDraw2 此批尚未重跑，仍需修复同一所有者的多设备、其余 API/画面/Win32 失败。证据见 `fixtures/d3d-review/stage6-52-validation.json`，3DMark 性能对比继续暂停。
+
+### 阶段6-53：原生 GDI 系统内存 DC（2026-11-12）
+
+RGB GetDC 改用 GDI 的[系统内存表面对象](https://learn.microsoft.com/en-us/windows/win32/api/ddrawgdi/nf-ddrawgdi-ddcreatesurfaceobject)与[表面 DC](https://learn.microsoft.com/en-us/windows/win32/api/ddrawgdi/nf-ddrawgdi-ddgetdc)，直接映射 CPU 影子，保留原生位图元数据；[释放 DC](https://learn.microsoft.com/en-us/windows/win32/api/ddrawgdi/nf-ddrawgdi-ddreleasedc)后按顺序销毁 GDI 表面/父对象，再上传及呈现 WebGPU。初始化 SDK 的局部/全局 more 链、进程及系统内存布局，失败与部分分配均回滚，表面最终销毁也清理活跃 DC；索引格式保留既有调色板 DIB。
+
+独立原生 XP 对照确认普通/identity DIB 的 40 种配置均返回非零图像大小，系统 ddraw 的系统内存 DC 返回零；直接 GDI 表面路径的 **16/32 位元数据和内存别名正确**，SetPixel 的真实原始像素为 **0x4459 / 0x004488cc**。两份参考程序及本地只读 XP 入口已入库；新入口的编译/解析用实际已保存输出验证，未另重复启动相同参考程序。
+
+**41 个 DDraw 脚本、站点 2/2 通过**；GDI 构造/生命周期 90,432 项、6/6 故障对照，所有权 114,526 项，写入/呈现 23,918 项。完整原始 DDraw1 为 **23,909 项，597 条失败、20 条 flaky、6 项未审查 skip**；GetDC 的 **9 条失败清零**，其余失败数量未变。GPU/宿主错误、拒绝命令、丢弃绘制及读回失败均零。正式 DDraw 与审计 DLL 相同，已重建诊断 DLL、宿主资产和工具镜像。
+
+整体 Wine 验收仍失败；继续同一 DirectDraw 所有者的多设备创建及其他原始失败，DDraw2 此批尚未重跑。原始源码/断言未修改，未应用豁免，3DMark 对比仍暂停。证据见 `fixtures/d3d-review/stage6-53-validation.json`。
