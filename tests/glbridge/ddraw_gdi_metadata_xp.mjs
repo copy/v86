@@ -20,6 +20,8 @@ const result=await run_xp_ram_probe({root,out,image:process.env.XP_IMAGE||site+"
 fs.writeFileSync(out+"/DIBMETA.TXT",result.text);
 if(bitmap){
     for(const kind of ["CreateDIBSection","GdiEntry9"]){const lines=result.text.split(/\r?\n/).filter(line=>line.startsWith("META kind="+kind+" "));assert.equal(lines.length,20);assert(lines.every(line=>/objectSize=84/.test(line)&&!/imageSize=0 /.test(line)));}
+    const locks=result.text.split(/\r?\n/).filter(line=>line.startsWith("LOCK "));
+    assert.equal(locks.length,2);assert(locks.every(line=>/hr=00000000 flags=0000100F ptr=(?!00000000)/.test(line)),"Native Lock returns bits without DDSD_LPSURFACE");
     const native=result.text.split(/\r?\n/).filter(line=>line.startsWith("META kind=SystemDirectDraw "));assert.equal(native.length,2);assert(native.every(line=>line.includes("imageSize=0 ")));
 }else{
     for(const [depth,pixel]of [[16,"00004459"],[32,"004488CC"]]){
