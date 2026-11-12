@@ -1,5 +1,5 @@
 {
-  "description": "Independent SDK block geometry; API membership preserves pre-refactor frontend layout helpers, not hardware capability claims. Depth layouts are software shadows, not promises of a hardware byte ordering.",
+  "description": "Independent SDK block geometry; API membership preserves pre-refactor frontend layout helpers, not hardware capability claims. Depth layouts are software shadows, not promises of a hardware byte ordering. Explicit frontendExtensions record subsequently implemented layouts without altering the frozen baseline ranges.",
   "sources": [
     "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dformat",
     "https://learn.microsoft.com/en-us/windows/win32/direct3d9/dxtn-compression-instructions"
@@ -486,5 +486,24 @@
     "glbridge/d3d8proxy/d3d8_proxy.c": "71f871bae333dc510f7a42f65b53ae95b4b7fd4e8e3ffb8c772a38afc2241258",
     "glbridge/d3d9proxy/d3d9_proxy.c": "e92126a5d11d0ec2a535ef0fb11aa721e0bd4ffb76c9a4d5f6647868d60af5ca",
     "glbridge/ddrawproxy/ddraw_proxy.c": "1ed20ac2e4f936f678f430584acb748fe3b914f4918bc573fdea3b51a0c26075"
+  },
+  "frontendExtensions": {
+    "7": [
+      844715353,
+      1498831189
+    ],
+    "9": [
+      70,
+      71,
+      73,
+      75,
+      77,
+      79,
+      80
+    ]
+  },
+  "extensionNotes": {
+    "7": "YUY2/UYVY packed DirectDraw storage added in stage6-47.",
+    "9": "Standard depth textures enabled in stage6-42; recorded here separately from frozen baseline ranges."
   }
 }

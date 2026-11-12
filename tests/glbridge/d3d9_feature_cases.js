@@ -121,6 +121,17 @@
         body: dev => [...texture(dev, dev + 0x500000, spec), ...texturedQuad(dev)],
         probes: [{ at: [32, 32], expect: spec[3], tolerance: 1 }] });
 
+    for (const name of ["YUY2", "UYVY"]) for (const [pair, samples] of [
+        [[16,128,235,128], [[0,0,0,255],[255,255,255,255]]],
+        [[81,90,41,240], [[255,0,0,255],[208,0,0,255]]],
+    ]) for (const phase of [0,1]) add("formats", {
+        name: name + " distinct pair luma/chroma " + pair.join(",") + " phase " + phase,
+        body: dev => {
+            const packed = name === "YUY2" ? pair : [pair[1],pair[0],pair[3],pair[2]];
+            return [...texture(dev,dev+0x500000,[name,fourcc(name),packed,[],"pair"]),...texturedQuad(dev,phase ? .375 : .125)];
+        }, probes:[{at:[32,32],expect:samples[phase],tolerance:1}],
+    });
+
     for (const [name, format, value, rgba] of [
         ["R5G6B5", 23, (4 << 11) | (16 << 5) | 4, [33, 65, 33, 255]],
         ["X1R5G5B5", 24, (4 << 10) | (8 << 5) | 16, [33, 66, 132, 255]],

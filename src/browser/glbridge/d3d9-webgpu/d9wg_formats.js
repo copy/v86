@@ -112,13 +112,13 @@
         Object.freeze([D3DFMT_DXT1, 4, 4, 8, 7, 0]),
         Object.freeze([D3DFMT_ATI2N, 4, 4, 16, 4, 0]),
         Object.freeze([D3DFMT_DXT2, 4, 4, 16, 7, 0]),
-        Object.freeze([D3DFMT_YUY2, 2, 1, 4, 6, 0]),
+        Object.freeze([D3DFMT_YUY2, 2, 1, 4, 7, 0]),
         Object.freeze([D3DFMT_DXT3, 4, 4, 16, 7, 0]),
         Object.freeze([D3DFMT_DXT4, 4, 4, 16, 7, 0]),
         Object.freeze([D3DFMT_DXT5, 4, 4, 16, 7, 0]),
         Object.freeze([D3DFMT_G8R8_G8B8, 2, 1, 4, 4, 0]),
         Object.freeze([D3DFMT_R8G8_B8G8, 2, 1, 4, 4, 0]),
-        Object.freeze([D3DFMT_UYVY, 2, 1, 4, 6, 0]),
+        Object.freeze([D3DFMT_UYVY, 2, 1, 4, 7, 0]),
     ]);
     const FORMAT_LAYOUTS = new Map(FORMAT_LAYOUT_ROWS.map(row => [row[0], row]));
     function formatLayout(format, api) {
