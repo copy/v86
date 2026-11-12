@@ -870,26 +870,45 @@
     // collapsed geometry) has no inverse; falling back to identity keeps the
     // draw legal and unlit rather than filling the buffer with NaN, which would
     // propagate into the position and make the whole mesh vanish.
+    function inverseTranspose4(m) {
+        const rows = Array.from({length: 4}, (_, r) =>
+            [...m.slice(r * 4, r * 4 + 4), ...Array.from({length: 4}, (_, c) => +(r === c))]);
+        for (let c = 0; c < 4; ++c) {
+            let pivot = c;
+            for (let r = c + 1; r < 4; ++r)
+                if (Math.abs(rows[r][c]) > Math.abs(rows[pivot][c])) pivot = r;
+            const value = rows[pivot][c];
+            if (!value || !Number.isFinite(value)) return null;
+            [rows[c], rows[pivot]] = [rows[pivot], rows[c]];
+            for (let k = 0; k < 8; ++k) rows[c][k] /= value;
+            for (let r = 0; r < 4; ++r) if (r !== c) {
+                const scale = rows[r][c];
+                for (let k = 0; k < 8; ++k) rows[r][k] -= scale * rows[c][k];
+            }
+        }
+        return Float32Array.from({length: 16}, (_, i) => rows[i % 4][4 + Math.floor(i / 4)]);
+    }
+
+    function legacyLightingMatrices(world, view) {
+        const inverseView = inverseTranspose4(view) || IDENTITY4x4;
+        const eye = [3, 7, 11].map(index => inverseView[15] ? inverseView[index] / inverseView[15] : 0);
+        const position = Float32Array.from(world), normal = new Float32Array(16);
+        position[3] = position[7] = position[11] = 0;
+        position[15] = normal[15] = 1;
+        for (let row = 0; row < 3; ++row) {
+            const base = row * 4, length = Math.hypot(world[base], world[base + 1], world[base + 2]);
+            for (let c = 0; c < 3; ++c)
+                normal[base + c] = length > 0 && Number.isFinite(length) ? world[base + c] / length : 0;
+            position[12 + row] -= eye[row];
+        }
+        return {position, normal, eye};
+    }
+
     function inverseTranspose3x3(m) {
         // A projective world/view transform couples the translation and W
         // terms into the inverse. Keep the ordinary affine fast path below.
         if (m[3] || m[7] || m[11] || m[15] !== 1) {
-            const rows = Array.from({length: 4}, (_, r) =>
-                [...m.slice(r * 4, r * 4 + 4), ...Array.from({length: 4}, (_, c) => +(r === c))]);
-            for (let c = 0; c < 4; ++c) {
-                let pivot = c;
-                for (let r = c + 1; r < 4; ++r)
-                    if (Math.abs(rows[r][c]) > Math.abs(rows[pivot][c])) pivot = r;
-                const value = rows[pivot][c];
-                if (!value || !Number.isFinite(value)) return new Float32Array(IDENTITY4x4);
-                [rows[c], rows[pivot]] = [rows[pivot], rows[c]];
-                for (let k = 0; k < 8; ++k) rows[c][k] /= value;
-                for (let r = 0; r < 4; ++r) if (r !== c) {
-                    const scale = rows[r][c];
-                    for (let k = 0; k < 8; ++k) rows[r][k] -= scale * rows[c][k];
-                }
-            }
-            return Float32Array.from({length: 16}, (_, i) => rows[i % 4][4 + Math.floor(i / 4)]);
+            return inverseTranspose4(m) || new Float32Array(IDENTITY4x4);
         }
         const a = m[0], b = m[1], c = m[2];
         const d = m[4], e = m[5], f = m[6];
@@ -1822,6 +1841,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
 
         createDeviceState(handle, autoDepth = true, behaviorFlags = 0) {
             const state = stateFactory.createDeviceState(handle, DEVICE_STATE_CONSTANTS, autoDepth);
+            if (behaviorFlags & D9WG.C.D9WG_DEVICE_LEGACY_LIGHTING)
+                state.legacyLighting = true;
             if (behaviorFlags & (0x20 | 0x80)) {
                 state.vsConstF = new Float32Array(8192 * 4);
                 state.vsConstI = new Int32Array(2048 * 4);
@@ -4987,6 +5008,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 }
                 signature.clipPlaneCount = clipPlaneCount;
                 signature.vertexBlend = this.vertexBlendPlan(state, signature);
+                if (signature.lighting && state.legacyLighting && !signature.vertexBlend)
+                    signature.lighting.legacyWorld = true;
                 // Skinning data in the declaration that no world matrix past 0
                 // will act on. This is now usually *correct* -- D3D9 ignores it
                 // too whenever D3DRS_VERTEXBLEND is DISABLE, and engines share
@@ -5525,6 +5548,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             // blend_worlds, so what is pre-multiplied here stops at the view.
             const preVertex = blend ? view : multiply4x4(
                 state.transforms.get(D3DTS_WORLD) || IDENTITY4x4, view);
+            const legacyLighting = signature.lighting && signature.lighting.legacyWorld
+                ? legacyLightingMatrices(state.transforms.get(D3DTS_WORLD) || IDENTITY4x4, view) : null;
 
             if (blend) {
                 floats.set(multiply4x4(view,
@@ -5566,6 +5591,10 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             if (layout.byName.has(viewSpaceField)) {
                 floats.set(preVertex, at(viewSpaceField));
                 floats.set(inverseTranspose3x3(preVertex), at("normal_matrix"));
+            }
+            if (legacyLighting) {
+                floats.set(legacyLighting.position, at("lighting_position_matrix"));
+                floats.set(legacyLighting.normal, at("lighting_normal_matrix"));
             }
             if (layout.byName.has("fog_params")) {
                 // FOGSTART/FOGEND/FOGDENSITY are floats carried inside a DWORD.
@@ -5643,13 +5672,15 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 floats.set(light.ambient, base + 8);
                 // D3D7 parallel-point lights use the normalized view-space
                 // position as a direction, with no range or attenuation.
-                const transformedPosition = transformPoint(view, light.position);
+                const transformedPosition = legacyLighting
+                    ? light.position.map((value, index) => value - (light.type === D3DLIGHT_PARALLELPOINT ? 0 : legacyLighting.eye[index]))
+                    : transformPoint(view, light.position);
                 const position = light.type === D3DLIGHT_PARALLELPOINT ? normalize3(transformedPosition) : transformedPosition;
                 floats[base + 12] = position[0];
                 floats[base + 13] = position[1];
                 floats[base + 14] = position[2];
                 floats[base + 15] = 1;
-                const direction = normalize3(transformDirection(view, light.direction));
+                const direction = normalize3(legacyLighting ? light.direction : transformDirection(view, light.direction));
                 floats[base + 16] = direction[0];
                 floats[base + 17] = direction[1];
                 floats[base + 18] = direction[2];

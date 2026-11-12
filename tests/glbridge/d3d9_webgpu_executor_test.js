@@ -3930,6 +3930,50 @@ await test("fixed-function lighting accepts a sparse light index",
         "the light position must be transformed into view space");
 });
 
+await test("legacy lighting keeps camera-space fog and texgen independent", async () => {
+    for (const legacy of [false, true]) {
+        const {executor, find} = makeExecutor();
+        const create = createDevicePayload(64, 64);
+        create.writeUInt32LE(legacy ? P.C.D9WG_DEVICE_LEGACY_LIGHTING : 0, P.F.CreateDevice.behavior_flags);
+        const world = [2,0,0,0,0,3,0,0,0,0,.5,0,0,0,0,1];
+        const view = [3,0,0,0,0,.5,0,0,0,0,2,0,0,0,0,1];
+        const rs = (state,value) => command(OP.SET_RENDER_STATE, encodePayload("SetRenderState", {device_handle:DEVICE,state,value}));
+        await executor.submit(buildBatch([
+            command(OP.CREATE_DEVICE,create),
+            command(OP.CREATE_BUFFER,createBufferPayload(0x201,1,72)),
+            command(OP.SET_FVF,fvfPayload(0x12,[element(0,0,DECLTYPE.FLOAT3,DECLUSAGE.POSITION),element(0,12,DECLTYPE.FLOAT3,DECLUSAGE.NORMAL)])),
+            command(OP.SET_STREAM_SOURCE,setStreamSourcePayload(0,0x201,24)),
+            command(OP.SET_TRANSFORM,transformPayload(256,world)),command(OP.SET_TRANSFORM,transformPayload(2,view)),
+            rs(137,1),rs(141,0),rs(143,1),rs(28,1),rs(140,3),
+            command(OP.CREATE_TEXTURE_2D,encodePayload("CreateTexture2D",{device_handle:DEVICE,resource_handle:0x301,width:1,height:1,level_count:1,format:21})),
+            command(OP.SET_TEXTURE,encodePayload("SetTexture",{device_handle:DEVICE,stage:0,texture_handle:0x301})),
+            command(OP.SET_TEXTURE_STAGE_STATE,encodePayload("SetTextureStageState",{device_handle:DEVICE,stage:0,state:11,value:0x10000})),
+            command(OP.SET_LIGHT,lightPayload(0,1,{position:[1,2,3]})),
+            command(OP.LIGHT_ENABLE,encodePayload("LightEnable",{device_handle:DEVICE,index:0,enable:1})),
+            command(OP.DRAW_PRIMITIVE,drawPrimitivePayload(4,0,1)),
+            command(OP.PRESENT,encodePayload("Present",{device_handle:DEVICE,hwnd:0x1234,width:64,height:64})),
+        ],{present:true}));
+        await executor.idle();
+        const wgsl=find("createRenderPipeline").pop()[1].vertex.module.code;
+        assert.ok(wgsl.includes("let fog_distance = abs(position_view.z);"));
+        assert.ok(wgsl.includes("vec4<f32>(normal_view, 1.0)"));
+        assert.equal(wgsl.includes("lighting_normal_matrix"),legacy);
+        assert.ok(wgsl.includes(legacy?"dot(normal_lighting, light_direction)":"dot(normal_view, light_direction)"));
+        const block=constantBlock(find,find("createBindGroup").pop()[1].entries[0].resource.buffer);
+        const data=new Float32Array(block.buffer,block.byteOffset);
+        const diagonal=[0,5,10,15].map(i=>data[20+i]);
+        assert.deepEqual(diagonal,[6,1.5,1,1],"fog/texgen retain combined world-view");
+        for(const[i,want]of [[0,1/6],[5,2/3],[10,1]])assert.ok(Math.abs(data[36+i]-want)<1e-6);
+        if(legacy){
+            assert.deepEqual([...data.slice(56,72)],world,"lighting position retains world scale");
+            assert.deepEqual([...data.slice(72,88)],[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1],"legacy basis row normalization");
+        }
+        const lightBase=(legacy?88:56)+20;
+        assert.deepEqual([...data.slice(lightBase+12,lightBase+15)],legacy?[1,2,3]:[3,1,6]);
+        assert.equal(executor.stats.commandsFailed,0);assert.equal(executor.stats.droppedDraws,0);
+    }
+});
+
 await test("D3DRS_LIGHTING with no NORMAL preserves ambient and emissive",
         async () => {
     // D3D9 supplies a zero normal when the declaration has no NORMAL. The

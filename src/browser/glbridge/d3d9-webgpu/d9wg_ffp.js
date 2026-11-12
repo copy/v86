@@ -251,6 +251,10 @@
                         type: "mat4x4<f32>", bytes: 64, source: stage.index });
             }
             if (signature.lighting) {
+                if (signature.lighting.legacyWorld)
+                    fields.push(
+                        { name: "lighting_position_matrix", type: "mat4x4<f32>", bytes: 64 },
+                        { name: "lighting_normal_matrix", type: "mat4x4<f32>", bytes: 64 });
                 fields.push(
                     { name: "material_diffuse", type: "vec4<f32>", bytes: 16 },
                     { name: "material_ambient", type: "vec4<f32>", bytes: 16 },
@@ -654,6 +658,13 @@
                 }
             }
 
+            if (signature.lighting && signature.lighting.legacyWorld) {
+                viewSpaceBody += "    let position_lighting = uniforms.lighting_position_matrix * " + blendedPosition + ";\n";
+                viewSpaceBody += hasNormal
+                    ? "    let normal_lighting = (uniforms.lighting_normal_matrix * vec4<f32>(in" + FF_LOCATION_NORMAL + ".xyz, 0.0)).xyz;\n"
+                    : "    let normal_lighting = vec3<f32>(0.0);\n";
+            }
+
             // Vertex colours, before any material-source selection.
             const vertexDiffuse = signature.hasColor
                 ? "in" + FF_LOCATION_COLOR0 + (signature.colorIsBGRA ? ".bgra" : "")
@@ -665,6 +676,8 @@
             let colorBody = "    let vertex_diffuse = " + vertexDiffuse + ";\n" +
                 "    let vertex_specular = " + vertexSpecular + ";\n";
             if (lighting) {
+                const lightingPosition = lighting.legacyWorld ? "position_lighting" : "position_view";
+                const lightingNormal = lighting.legacyWorld ? "normal_lighting" : "normal_view";
                 // D3DRS_COLORVERTEX off forces every channel to the material;
                 // otherwise D3DRS_*MATERIALSOURCE picks between the material and
                 // the two vertex colours. The D3D9 defaults are COLOR1 for diffuse
@@ -692,7 +705,7 @@
                     // (0,0,-1) of D3D9's left-handed view space, which is the
                     // cheaper approximation engines of this era normally leave on.
                     "    let eye_direction = " + (lighting.localViewer
-                        ? "normalize(-position_view.xyz)"
+                        ? "normalize(-" + lightingPosition + ".xyz)"
                         : "vec3<f32>(0.0, 0.0, -1.0)") + ";\n";
                 lighting.lights.forEach((light, index) => {
                     colorBody += "    {\n" +
@@ -703,7 +716,7 @@
                             "        let attenuation = 1.0;\n";
                     } else {
                         colorBody +=
-                            "        let to_light = light.position.xyz - position_view.xyz;\n" +
+                            "        let to_light = light.position.xyz - " + lightingPosition + ".xyz;\n" +
                             "        let light_distance = length(to_light);\n" +
                             "        let light_direction = select(vec3<f32>(0.0, 0.0, 1.0),\n" +
                             "            to_light / max(light_distance, 1e-6), light_distance > 0.0);\n" +
@@ -733,14 +746,14 @@
                         }
                     }
                     colorBody +=
-                        "        let n_dot_l = max(dot(normal_view, light_direction), 0.0);\n" +
+                        "        let n_dot_l = max(dot(" + lightingNormal + ", light_direction), 0.0);\n" +
                         "        total_diffuse = total_diffuse + light.diffuse.xyz *\n" +
                         "            (n_dot_l * attenuation);\n" +
                         "        total_ambient = total_ambient + light.ambient.xyz * attenuation;\n";
                     if (lighting.specularEnable) {
                         colorBody +=
                             "        let half_vector = normalize(light_direction + eye_direction);\n" +
-                            "        let n_dot_h = max(dot(normal_view, half_vector), 0.0);\n" +
+                            "        let n_dot_h = max(dot(" + lightingNormal + ", half_vector), 0.0);\n" +
                             // Back faces contribute no highlight, and pow(0, p) is
                             // only well-defined for p > 0, hence both guards.
                             "        let highlight = select(0.0,\n" +

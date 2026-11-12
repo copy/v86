@@ -1,0 +1,3048 @@
+{
+  "description": "Original XP Microsoft system RGB D3D3/7 CPU and drawn normal-transform observations. RGB GPU results are not a blanket HAL reference; original Wine HAL singular expectations differ.",
+  "source": "glbridge/sample/ddraw_normal_reference.c",
+  "sourceSha256": "d087aff5af113e63066031393d6a70f2bfe625ab0f31dd6f60e156743b5db2be",
+  "executableSha256": "fceb7366d6e867b4fcb01d99df3d2fb93df3095875fe7488daea473934712f9e",
+  "cpu": [
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190224,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190224,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190224,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190224,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190140,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190140,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190140,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190140,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190224,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190224,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190224,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190224,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190330,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190330,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190330,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190330,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190241,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190241,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190241,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190241,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190132,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190132,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190132,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190132,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190178,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190178,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190178,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190178,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190132,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190132,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190132,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190132,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190196,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190196,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190196,
+      "specular": 0
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190196,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190152,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190152,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190152,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190152,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 0,
+      "vertex": 0,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 0,
+      "vertex": 1,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 0,
+      "vertex": 2,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 0,
+      "vertex": 3,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190260,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190335,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190152,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190152,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190152,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190152,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190080,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 1,
+      "vertex": 0,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 1,
+      "vertex": 1,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 1,
+      "vertex": 2,
+      "diffuse": 4278190217,
+      "specular": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 1,
+      "vertex": 3,
+      "diffuse": 4278190217,
+      "specular": 0
+    }
+  ],
+  "pixels": [
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 0,
+      "color": 0
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 0,
+      "color": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 0,
+      "color": 144
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 0,
+      "color": 60
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 0,
+      "color": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 0,
+      "color": 144
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 0,
+      "normalize": 1,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 1,
+      "normalize": 1,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 2,
+      "normalize": 1,
+      "color": 255
+    },
+    {
+      "api": 7,
+      "matrix": 3,
+      "normalize": 1,
+      "color": 0
+    },
+    {
+      "api": 7,
+      "matrix": 4,
+      "normalize": 1,
+      "color": 250
+    },
+    {
+      "api": 7,
+      "matrix": 5,
+      "normalize": 1,
+      "color": 161
+    },
+    {
+      "api": 7,
+      "matrix": 6,
+      "normalize": 1,
+      "color": 52
+    },
+    {
+      "api": 7,
+      "matrix": 7,
+      "normalize": 1,
+      "color": 98
+    },
+    {
+      "api": 7,
+      "matrix": 8,
+      "normalize": 1,
+      "color": 0
+    },
+    {
+      "api": 7,
+      "matrix": 9,
+      "normalize": 1,
+      "color": 52
+    },
+    {
+      "api": 7,
+      "matrix": 10,
+      "normalize": 1,
+      "color": 180
+    },
+    {
+      "api": 7,
+      "matrix": 11,
+      "normalize": 1,
+      "color": 180
+    },
+    {
+      "api": 7,
+      "matrix": 12,
+      "normalize": 1,
+      "color": 116
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 0,
+      "color": 180
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 0,
+      "color": 255
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 0,
+      "color": 137
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 0,
+      "color": 137
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 0,
+      "color": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 0,
+      "color": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 0,
+      "color": 72
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 0,
+      "color": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 0,
+      "color": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 0,
+      "color": 137
+    },
+    {
+      "api": 3,
+      "matrix": 0,
+      "normalize": 1,
+      "color": 255
+    },
+    {
+      "api": 3,
+      "matrix": 1,
+      "normalize": 1,
+      "color": 180
+    },
+    {
+      "api": 3,
+      "matrix": 2,
+      "normalize": 1,
+      "color": 255
+    },
+    {
+      "api": 3,
+      "matrix": 3,
+      "normalize": 1,
+      "color": 255
+    },
+    {
+      "api": 3,
+      "matrix": 4,
+      "normalize": 1,
+      "color": 255
+    },
+    {
+      "api": 3,
+      "matrix": 5,
+      "normalize": 1,
+      "color": 137
+    },
+    {
+      "api": 3,
+      "matrix": 6,
+      "normalize": 1,
+      "color": 137
+    },
+    {
+      "api": 3,
+      "matrix": 7,
+      "normalize": 1,
+      "color": 0
+    },
+    {
+      "api": 3,
+      "matrix": 8,
+      "normalize": 1,
+      "color": 0
+    },
+    {
+      "api": 3,
+      "matrix": 9,
+      "normalize": 1,
+      "color": 72
+    },
+    {
+      "api": 3,
+      "matrix": 10,
+      "normalize": 1,
+      "color": 0
+    },
+    {
+      "api": 3,
+      "matrix": 11,
+      "normalize": 1,
+      "color": 0
+    },
+    {
+      "api": 3,
+      "matrix": 12,
+      "normalize": 1,
+      "color": 137
+    }
+  ],
+  "history": [
+    {
+      "normalize": 0,
+      "sequence": 0,
+      "step": 0,
+      "diffuse": 4278190200
+    },
+    {
+      "normalize": 0,
+      "sequence": 0,
+      "step": 1,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 0,
+      "sequence": 0,
+      "step": 2,
+      "diffuse": 4278190200
+    },
+    {
+      "normalize": 0,
+      "sequence": 1,
+      "step": 0,
+      "diffuse": 4278190200
+    },
+    {
+      "normalize": 0,
+      "sequence": 1,
+      "step": 1,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 0,
+      "sequence": 1,
+      "step": 2,
+      "diffuse": 4278190200
+    },
+    {
+      "normalize": 0,
+      "sequence": 2,
+      "step": 0,
+      "diffuse": 4278190200
+    },
+    {
+      "normalize": 0,
+      "sequence": 2,
+      "step": 1,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 0,
+      "sequence": 2,
+      "step": 2,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 1,
+      "sequence": 0,
+      "step": 0,
+      "diffuse": 4278190191
+    },
+    {
+      "normalize": 1,
+      "sequence": 0,
+      "step": 1,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 1,
+      "sequence": 0,
+      "step": 2,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 1,
+      "sequence": 1,
+      "step": 0,
+      "diffuse": 4278190191
+    },
+    {
+      "normalize": 1,
+      "sequence": 1,
+      "step": 1,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 1,
+      "sequence": 1,
+      "step": 2,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 1,
+      "sequence": 2,
+      "step": 0,
+      "diffuse": 4278190191
+    },
+    {
+      "normalize": 1,
+      "sequence": 2,
+      "step": 1,
+      "diffuse": 4278190080
+    },
+    {
+      "normalize": 1,
+      "sequence": 2,
+      "step": 2,
+      "diffuse": 4278190080
+    }
+  ],
+  "inputs": [
+    {
+      "matrix": 0,
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -1,
+          -1,
+          0,
+          0,
+          0,
+          -1
+        ],
+        [
+          -1,
+          1,
+          0,
+          0,
+          0,
+          -1
+        ],
+        [
+          1,
+          -1,
+          0,
+          0,
+          0,
+          -1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          -1
+        ]
+      ]
+    },
+    {
+      "matrix": 1,
+      "world": [
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.5,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -1,
+          -1,
+          0,
+          0,
+          0,
+          -1
+        ],
+        [
+          -1,
+          1,
+          0,
+          0,
+          0,
+          -1
+        ],
+        [
+          1,
+          -1,
+          0,
+          0,
+          0,
+          -1
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          0,
+          -1
+        ]
+      ]
+    },
+    {
+      "matrix": 2,
+      "world": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        -1,
+        0,
+        0,
+        0,
+        10,
+        10,
+        10,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -10,
+          -11,
+          11,
+          -1,
+          0,
+          0
+        ],
+        [
+          -10,
+          -9,
+          11,
+          -1,
+          0,
+          0
+        ],
+        [
+          -10,
+          -11,
+          9,
+          -1,
+          0,
+          0
+        ],
+        [
+          -10,
+          -9,
+          9,
+          -1,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "matrix": 3,
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        -1,
+        10,
+        10,
+        10,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -11,
+          -11,
+          -10,
+          0,
+          0,
+          -1
+        ],
+        [
+          -11,
+          -9,
+          -10,
+          0,
+          0,
+          -1
+        ],
+        [
+          -9,
+          -11,
+          -10,
+          0,
+          0,
+          -1
+        ],
+        [
+          -9,
+          -9,
+          -10,
+          0,
+          0,
+          -1
+        ]
+      ]
+    },
+    {
+      "matrix": 4,
+      "world": [
+        2,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        0,
+        0,
+        0,
+        0.5,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -0.5,
+          -0.333333343,
+          0,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          -0.5,
+          0.333333343,
+          0,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          0.5,
+          -0.333333343,
+          0,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          0.5,
+          0.333333343,
+          0,
+          0.600000024,
+          0.800000012,
+          -1
+        ]
+      ]
+    },
+    {
+      "matrix": 5,
+      "world": [
+        1,
+        0.25,
+        0,
+        0,
+        0,
+        1,
+        0.5,
+        0,
+        0.5,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -1,
+          -1,
+          0.5,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          -1,
+          1,
+          0.5,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          1,
+          -1,
+          0.5,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          1,
+          1,
+          0.5,
+          0.600000024,
+          0.800000012,
+          -1
+        ]
+      ]
+    },
+    {
+      "matrix": 6,
+      "world": [
+        1,
+        0.25,
+        0,
+        0,
+        0,
+        1,
+        0.5,
+        0,
+        0.5,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "view": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        0.5,
+        0,
+        0,
+        0,
+        0,
+        2,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -1,
+          -1,
+          0.25,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          -1,
+          1,
+          0.25,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          1,
+          -1,
+          0.25,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          1,
+          1,
+          0.25,
+          0.600000024,
+          0.800000012,
+          -1
+        ]
+      ]
+    },
+    {
+      "matrix": 7,
+      "world": [
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.5,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -1,
+          -1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          -1,
+          1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          -1,
+          0,
+          1,
+          0,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          1,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "matrix": 8,
+      "world": [
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.5,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -1,
+          -1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          -1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          -1,
+          0,
+          0,
+          1,
+          0
+        ],
+        [
+          1,
+          1,
+          0,
+          0,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "matrix": 9,
+      "world": [
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0.5,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -1,
+          -1,
+          0,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          -1,
+          1,
+          0,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          1,
+          -1,
+          0,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          1,
+          1,
+          0,
+          0.600000024,
+          0.800000012,
+          -1
+        ]
+      ]
+    },
+    {
+      "matrix": 10,
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        -1,
+        10,
+        10,
+        10,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -11,
+          -11,
+          -10,
+          1,
+          0,
+          0
+        ],
+        [
+          -11,
+          -9,
+          -10,
+          1,
+          0,
+          0
+        ],
+        [
+          -9,
+          -11,
+          -10,
+          1,
+          0,
+          0
+        ],
+        [
+          -9,
+          -9,
+          -10,
+          1,
+          0,
+          0
+        ]
+      ]
+    },
+    {
+      "matrix": 11,
+      "world": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        -1,
+        10,
+        10,
+        10,
+        0
+      ],
+      "view": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -11,
+          -11,
+          -10,
+          0,
+          1,
+          0
+        ],
+        [
+          -11,
+          -9,
+          -10,
+          0,
+          1,
+          0
+        ],
+        [
+          -9,
+          -11,
+          -10,
+          0,
+          1,
+          0
+        ],
+        [
+          -9,
+          -9,
+          -10,
+          0,
+          1,
+          0
+        ]
+      ]
+    },
+    {
+      "matrix": 12,
+      "world": [
+        1,
+        0.25,
+        0,
+        0,
+        0,
+        1,
+        0.5,
+        0,
+        0.5,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "view": [
+        1,
+        0,
+        0.300000012,
+        0,
+        0.25,
+        1,
+        0,
+        0,
+        0,
+        0.5,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "vertices": [
+        [
+          -1,
+          -1,
+          0.25,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          -1,
+          1,
+          0.25,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          1,
+          -1,
+          0.25,
+          0.600000024,
+          0.800000012,
+          -1
+        ],
+        [
+          1,
+          1,
+          0.25,
+          0.600000024,
+          0.800000012,
+          -1
+        ]
+      ]
+    }
+  ],
+  "inputProvenance": "Float32 input matrices and vertices compiled from the same hashed native C source, with both native API view setups checked. No proxy transform/lighting code."
+}
