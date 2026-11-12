@@ -524,6 +524,11 @@ fn main(@builtin(global_invocation_id) pos: vec3<u32>,
                         frame.transientBuffers.push(executor.encodeDepthTransfer(encoder,op.source,op.destination,true,op.x,op.y,op.width,op.height));
                         continue;
                     }
+                    if (op.kind === "depth-blit") {
+                        closePass();
+                        frame.transientBuffers.push(...executor.encodeDepthBlit(encoder,op));
+                        continue;
+                    }
                     if (op.kind === "rect-clear") {
                         closePass();
                         const transient = executor.replayRectClear(encoder, op,

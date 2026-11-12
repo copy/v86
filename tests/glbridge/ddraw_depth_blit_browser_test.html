@@ -1,0 +1,77 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>D3D9 pixel conformance</title>
+<canvas id="screen" width="64" height="64"></canvas>
+<pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script src="d3d9_feature_cases.js"></script>
+<script src="d3d_test_device.js"></script>
+<script>
+
+(async()=>{
+ const P=D9WGProtocol,C=P.C,{cmd,draw,quad,rs}=D3D9Conformance.builders;
+ let gpu,checks=0;const check=(ok,msg)=>{++checks;if(!ok)throw Error(msg);};
+ const opcodes={};for(const [op,entry]of Object.entries(P.COMMANDS))opcodes[Array.isArray(entry)?entry[0]:entry]=P.OP[op];
+ const wire=(name,fields)=>cmd(opcodes[name],P.encode(name,fields));
+ const batch=commands=>P.encodeBatch(commands.map(c=>({opcode:c.opcode,payload:c.payload,blobs:c.blobs.map(b=>({field:b.offsetField,data:b.data}))})),{session_id_low:1});
+ try{
+  gpu=new D3D9WebGPUExecutor(document.querySelector('canvas'),{strict:true,useShaderWorker:false});await gpu.initialize();
+  const {dev,rt,bytes}=D3D9Conformance.caseBatch(0,{body:()=>[]});await gpu.submit(bytes,{writeGuestMemory(){}});
+  let request=0;
+  const submit=async commands=>{await gpu.submit(batch(commands),{writeGuestMemory(){}});await gpu.idle();};
+  async function read(handle,format){const bpp=[70,73,80].includes(format)?2:4,pitch=64*bpp;let reply;const id=++request,address=(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET;
+   await gpu.submit(batch([wire('ReadbackSurface',{device_handle:dev,texture_handle:handle,format,width:64,height:64,row_count:64,destination_pitch:pitch,destination_bytes:pitch*64,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:id})]),{writeGuestMemory(at,data){if(at===address)reply=data.slice();}});await gpu.idle();
+   check(reply&&new DataView(reply.buffer).getUint32(12,true)===C.D9WG_RESPONSE_OK,'readback status');return new DataView(reply.buffer,reply.byteOffset+16,reply.byteLength-16);
+  }
+  const clearStencil=(value,rect)=>cmd(P.OP.CLEAR,new Uint8Array([...P.encode('Clear',{device_handle:dev,clear_flags:4,stencil:value,rect_count:1}),...P.encode('Rect',{left:rect[0],top:rect[1],right:rect[2],bottom:rect[3]})]));
+  const blit=(source,destination,s,d,flags=0)=>wire('DDBlt',{device_handle:dev,source_handle:source,destination_handle:destination,source_rect:s,destination_rect:d,flags});
+  for(const format of [70,71,73,75,77,79,80]){
+   const source=0x810000+format,destination=0x820000+format,bpp=[70,73,80].includes(format)?2:4,mask=format===73?1:format===75?255:format===79?15:0;
+   const expectedSource=Array.from({length:4096},(_,i)=>({z:i%64<32&&i/64<32?.25:.75,s:((i%64<32?i/64<32?0x3c:0x7e:i/64<32?0xa5:0xe1)&mask)}));
+   await submit([
+    ...[source,destination].map(resource_handle=>wire('CreateTexture2D',{device_handle:dev,resource_handle,width:64,height:64,level_count:1,format,usage:2})),
+    wire('SetDepthStencilSurfaceLevel',{device_handle:dev,depth_texture_handle:source,width:64,height:64}),
+    wire('Clear',{device_handle:dev,clear_flags:6,depth:.75,stencil:0xa5}),rs(dev,7,1),rs(dev,14,1),rs(dev,23,4),rs(dev,52,0),draw(dev,quad(0,0,32,32,.25,0xff00ff00)),
+    clearStencil(0x3c,[0,0,32,32]),clearStencil(0x7e,[0,32,32,64]),clearStencil(0xe1,[32,32,64,64]),
+    wire('SetDepthStencilSurfaceLevel',{device_handle:dev,depth_texture_handle:destination,width:64,height:64}),
+    wire('Clear',{device_handle:dev,clear_flags:6,depth:.125,stencil:0x5a}),
+   ]);
+   let expected=Array.from({length:4096},()=>({z:.125,s:0x5a&mask}));
+   async function verify(label){const data=await read(destination,format);for(let i=0;i<4096;i++){
+    const {z,s}=expected[i];let want,tolerance;if(format===70||format===80){want=Math.round(z*65535);tolerance=1;}else if(format===71){want=Math.round(z*4294967295);tolerance=128;}else if(format===73){want=(Math.round(z*32767)<<1)|s;tolerance=2;}else{want=(Math.round(z*16777215)*256+s)>>>0;tolerance=256;}
+    const actual=bpp===2?data.getUint16(i*bpp,true):data.getUint32(i*bpp,true);check(Math.abs(actual-want)<=tolerance,`depth blit ${label} format ${format} at ${i}: ${actual} != ${want}`);if(mask)check((actual&mask)===s,`stencil blit ${label} format ${format} at ${i}`);
+   }}
+   await verify('initial');
+   const cases=[[[0,0,32,32],[16,8,48,40],0,false],[[0,0,64,64],[0,0,32,32],0,false],[[16,16,48,48],[0,0,64,64],0,false],[[0,0,64,64],[0,0,64,64],12,false],[[0,0,48,48],[16,16,64,64],0,true]];
+   for(let n=0;n<cases.length;n++){
+    const [s,d,flags,self]=cases[n],saved=(self?expected:expectedSource).slice();
+    for(let y=d[1];y<d[3];y++)for(let x=d[0];x<d[2];x++){
+     const u=(x+.5-d[0])/(d[2]-d[0]),v=(y+.5-d[1])/(d[3]-d[1]);const sx=Math.floor(s[0]+(flags&4?1-u:u)*(s[2]-s[0])),sy=Math.floor(s[1]+(flags&8?1-v:v)*(s[3]-s[1]));expected[y*64+x]=saved[sy*64+sx];
+    }
+    await submit([cmd(P.OP.BEGIN_SCENE,P.encode('DeviceOnly',{device_handle:dev})),blit(self?destination:source,destination,s,d,flags),cmd(P.OP.END_SCENE,P.encode('DeviceOnly',{device_handle:dev}))]);await verify('case '+n);
+   }
+   await submit([wire('Clear',{device_handle:dev,clear_flags:1,color:0xff000000}),rs(dev,14,0),draw(dev,quad(0,0,64,64,.5,0xffff0000))]);const color=await read(rt,21);
+   for(let i=0;i<4096;i++)check((color.getUint32(i*4,true)&0xffffff)===(expected[i].z>=.5?0xff0000:0),`depth consumer format ${format} at ${i}`);
+  }
+  await gpu.submit(D3D9Conformance.endCaseBatch(1),{writeGuestMemory(){}});await gpu.idle();await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;i++)await new Promise(r=>setTimeout(r,0));
+  check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.commandsFailed&&!gpu.stats.renderTargetReadbackFailures,'GPU/host errors');check(!gpu.devices.size&&!gpu.resources.size&&!gpu.sessionStates.size,'owner cleanup');
+  document.querySelector('#result').textContent='PASS '+checks+' depth/stencil blit checks: seven packed formats, actual GPU depth source, partial/offset/scaled/mirrored copies, overlapping self snapshots, unchanged surroundings and depth-tested consumer draws';
+ }catch(e){document.querySelector('#result').textContent='FAIL '+e.stack+'\n'+JSON.stringify({errors:gpu?.gpuErrors.errors,host:gpu?.hostErrors.map(e=>String(e.stack||e.message||e))});}
+})();
+</script>

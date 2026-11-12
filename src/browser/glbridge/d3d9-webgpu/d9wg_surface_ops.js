@@ -245,6 +245,88 @@ ${body.join("\n")}
             DDOVER_MIRROR_X, DDOVER_MIRROR_Y
         } = dependencies;
         return {
+            depthBlitPipelineFor(stencilMask = 0, clear = false) {
+                if (!this.depthBlitPipelines) this.depthBlitPipelines = new Map();
+                const key = stencilMask + ":" + clear;
+                let entry = this.depthBlitPipelines.get(key);
+                if (entry) return entry;
+                const module = this.moduleFor(`
+struct Params { source: vec4<f32>, destination: vec4<f32> };
+@group(0) @binding(0) var source: ${stencilMask ? "texture_2d<u32>" : "texture_depth_2d"};
+@group(0) @binding(1) var<uniform> params: Params;
+@vertex fn vs(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
+    var positions = array<vec2<f32>, 3>(vec2<f32>(-1.0,-1.0), vec2<f32>(3.0,-1.0), vec2<f32>(-1.0,3.0));
+    return vec4<f32>(positions[index],0.0,1.0);
+}
+@fragment fn fs(@builtin(position) position: vec4<f32>) ${stencilMask ? "" : "-> @builtin(frag_depth) f32"} {
+    let at = clamp(vec2<i32>(floor(params.source.xy + (position.xy - params.destination.xy) * params.source.zw)),
+        vec2<i32>(0), vec2<i32>(textureDimensions(source)) - vec2<i32>(1));
+    ${stencilMask ? clear ? "" : "if ((textureLoad(source, at, 0).r & u32(params.destination.z)) == 0u) { discard; }"
+        : "return textureLoad(source, at, 0);"}
+}`, "DirectDraw depth blit " + key);
+                const layout = this.device.createBindGroupLayout({entries:[
+                    {binding:0,visibility:SHADER_STAGE_FRAGMENT,texture:{sampleType:stencilMask ? "uint" : "depth"}},
+                    {binding:1,visibility:SHADER_STAGE_FRAGMENT,buffer:{type:"uniform"}},
+                ]});
+                const stencil = {compare:"always",failOp:"keep",depthFailOp:"keep",passOp:"replace"};
+                const pipeline = this.device.createRenderPipeline({label:"DirectDraw depth blit " + key,
+                    layout:this.device.createPipelineLayout({bindGroupLayouts:[layout]}),
+                    vertex:{module,entryPoint:"vs"},fragment:{module,entryPoint:"fs",targets:[]},
+                    primitive:{topology:"triangle-list"},depthStencil:{format:DEPTH_FORMAT,depthWriteEnabled:!stencilMask,
+                        depthCompare:"always",stencilWriteMask:stencilMask,
+                        ...(stencilMask ? {stencilFront:stencil,stencilBack:stencil} : {})},
+                });
+                entry={layout,pipeline};this.depthBlitPipelines.set(key,entry);return entry;
+            },
+
+            encodeDepthBlit(encoder, op) {
+                const transients = [];
+                let source = op.sourceTexture, level = op.sourceLevel;
+                const size = {width:op.sourceWidth,height:op.sourceHeight,depthOrArrayLayers:1};
+                if (source === op.destinationTexture) {
+                    const snapshot = this.device.createTexture({label:"DirectDraw depth blit snapshot",size,
+                        format:DEPTH_FORMAT,usage:TEXTURE_USAGE_COPY_DST|TEXTURE_USAGE_COPY_SRC|TEXTURE_USAGE_TEXTURE_BINDING});
+                    transients.push(snapshot);
+                    // Whole subresources are required for depth/stencil GPU copies.
+                    encoder.copyTextureToTexture({texture:source,mipLevel:level},{texture:snapshot},size);
+                    source=snapshot;level=0;
+                }
+                const [x,y,width,height] = op.viewport, rect = op.sourceRect;
+                const sx = (op.mirrorX ? -1 : 1) * (rect.right-rect.left) / width;
+                const sy = (op.mirrorY ? -1 : 1) * (rect.bottom-rect.top) / height;
+                const draw = (view, mask, clear) => {
+                    const entry=this.depthBlitPipelineFor(mask,clear);
+                    const uniform=this.device.createBuffer({label:"DirectDraw depth blit coordinates",size:32,usage:0x40|0x08});
+                    transients.push(uniform);
+                    this.device.queue.writeBuffer(uniform,0,new Float32Array([
+                        op.mirrorX?rect.right:rect.left,op.mirrorY?rect.bottom:rect.top,sx,sy,x,y,mask,0]));
+                    const group=this.device.createBindGroup({layout:entry.layout,entries:[
+                        {binding:0,resource:view},{binding:1,resource:{buffer:uniform}},
+                    ]});
+                    const pass=encoder.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:op.destinationView,
+                        depthLoadOp:"load",depthStoreOp:"store",stencilLoadOp:"load",stencilStoreOp:"store"}});
+                    ++this.stats.renderPasses;pass.setPipeline(entry.pipeline);pass.setBindGroup(0,group);
+                    if(mask)pass.setStencilReference(clear?0:mask);
+                    pass.setViewport(x,y,width,height,0,1);pass.setScissorRect(x,y,width,height);pass.draw(3);pass.end();
+                };
+                draw(source.createView({aspect:"depth-only",baseMipLevel:level,mipLevelCount:1}),0,false);
+                const mask=op.format===73?1:op.format===75?255:op.format===79?15:0;
+                if (mask) {
+                    const pitch=Math.ceil(op.sourceWidth/256)*256;
+                    const buffer=this.device.createBuffer({label:"DirectDraw stencil blit bytes",size:pitch*op.sourceHeight,usage:0x04|0x08});
+                    const texture=this.device.createTexture({label:"DirectDraw stencil blit values",size,format:"r8uint",
+                        usage:TEXTURE_USAGE_COPY_DST|TEXTURE_USAGE_TEXTURE_BINDING});
+                    transients.push(buffer,texture);
+                    encoder.copyTextureToBuffer({texture:source,mipLevel:level,aspect:"stencil-only"},
+                        {buffer,bytesPerRow:pitch,rowsPerImage:op.sourceHeight},size);
+                    encoder.copyBufferToTexture({buffer,offset:0,bytesPerRow:pitch,rowsPerImage:op.sourceHeight},{texture},size);
+                    const view=texture.createView();
+                    draw(view,mask,true);
+                    for(let bit=1;bit<=mask;bit<<=1)if(mask&bit)draw(view,bit,false);
+                }
+                return transients;
+            },
+
             // depth24plus has no portable byte layout. Read its actual values
             // through a depth view and write them through frag_depth; stencil
             // and every pixel outside an uploaded rectangle remain untouched.

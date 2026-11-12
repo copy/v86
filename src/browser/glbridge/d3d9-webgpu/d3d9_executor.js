@@ -1644,6 +1644,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.fixedModuleCache.clear();
             this.multisampleCopyPipelines = null;
             this.depthTransferPipelines = null;
+            this.depthBlitPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.samplerCache.clear();
@@ -2320,6 +2321,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.fixedModuleCache.clear();
             this.multisampleCopyPipelines = null;
             this.depthTransferPipelines = null;
+            this.depthBlitPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.samplerCache.clear();
@@ -2867,6 +2869,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             this.fixedModuleCache.clear();
             this.multisampleCopyPipelines = null;
             this.depthTransferPipelines = null;
+            this.depthBlitPipelines = null;
             ++this.programSerial;
             ++this.uniformSerial;
             this.shaderCacheDirty = false;

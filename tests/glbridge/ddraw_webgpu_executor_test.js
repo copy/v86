@@ -1087,6 +1087,27 @@ await test("SESSION_END releases every live object owned by the process",
     assert.equal(destroyed[0].visible, false);
 });
 
+await test("depth/stencil blits retire scratch storage and reset device pipelines", async () => {
+    const {executor,find}=makeExecutor();
+    await executor.submit(buildBatch([
+        command(OP.CREATE_DEVICE,createDevicePayload(8,6)),
+        command(OP.CREATE_TEXTURE_2D,createSurfacePayload(0x7401,8,6,75,2)),
+        command(OP.CREATE_TEXTURE_2D,createSurfacePayload(0x7402,8,6,75,2)),
+        command(OP.DD_BLT,bltPayload({sourceHandle:0x7401,destinationHandle:0x7402,sourceRect:[0,0,4,3],destinationRect:[1,2,7,5]})),
+        command(OP.DD_BLT,bltPayload({sourceHandle:0x7402,destinationHandle:0x7402,sourceRect:[0,0,6,4],destinationRect:[2,2,8,6]})),
+    ]));
+    executor.finishFrame(false);await executor.idle();
+    await executor.device.queue.onSubmittedWorkDone();await new Promise(resolve=>setImmediate(resolve));
+    assert.equal(executor.stats.ddDepthBlits,2);
+    const pipelines=find("createRenderPipeline").filter(c=>c[1].label?.startsWith("DirectDraw depth blit"));
+    assert(pipelines.length);assert(pipelines.every(c=>c[1].fragment.targets.length===0));
+    const temporary=[...find("createBuffer"),...find("createTexture")].filter(c=>/^DirectDraw (?:depth|stencil) blit/.test(c[1].label||""));
+    assert(temporary.length>4);assert(temporary.every(c=>c[2].destroyed),"all snapshots, stencil bytes/textures and coordinate buffers must retire");
+    assert(!executor.resources.get(0x7401).gpuTexture.destroyed&&!executor.resources.get(0x7402).gpuTexture.destroyed);
+    const first=executor.depthBlitPipelineFor();executor.recoverDevice();assert.equal(executor.depthBlitPipelines,null);
+    await executor.initialize();assert.notStrictEqual(executor.depthBlitPipelineFor(),first);
+});
+
 // ---- report ----
 
 if (failures.length) {

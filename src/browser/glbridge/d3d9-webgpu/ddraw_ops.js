@@ -210,6 +210,9 @@
                 : (this.deviceBackBuffer(state), state.backBufferView);
 
             if (flags & DDBLT_COLOR_FILL) {
+                if (destination && destination.isDepth) {
+                    this.ddRefuse("depth-color-fill","A color fill cannot target a depth surface",{destinationHandle});return;
+                }
                 noteWindowedScreenWrite();
                 const frame = this.ensureFrame();
                 frame.record({
@@ -260,6 +263,27 @@
             const sourceIndexed = !!(source && source.ddIndexed);
             const sourceFormat = source
                 ? (source.gpuFormat || "rgba8unorm") : this.format;
+
+            if ((source && source.isDepth) || (destination && destination.isDepth)) {
+                if (!source || !destination || !source.isDepth || !destination.isDepth ||
+                        source.format !== destination.format || (flags & ~(DDBLT_MIRROR_X|DDBLT_MIRROR_Y)) || sourceFace || destinationFace ||
+                        (source.sampleCount||1)!==1 || (destination.sampleCount||1)!==1) {
+                    this.ddRefuse("depth-blit-descriptor","DirectDraw depth blit requires matching single-sample depth surfaces",{sourceHandle,destinationHandle,flags});
+                    return;
+                }
+                const src=clipped.source;
+                if(src.left<0||src.top<0||src.right>sourceWidth||src.bottom>sourceHeight) {
+                    this.ddRefuse("depth-blit-source","DirectDraw depth blit source is out of bounds",{sourceHandle});return;
+                }
+                const frame=this.ensureFrame();
+                frame.record({kind:"depth-blit",sourceTexture:source.gpuTexture,sourceLevel,sourceWidth,sourceHeight,
+                    sourceRect:src,destinationTexture:destination.gpuTexture,destinationView,format:destination.format,
+                    viewport:clipped.viewport,mirrorX:!!(flags&DDBLT_MIRROR_X),mirrorY:!!(flags&DDBLT_MIRROR_Y)});
+                source.frameReferenced=destination.frameReferenced=frame.serial;
+                this.markTextureSubresourceWritten(destination,destinationLevel,destinationFace);
+                this.stats.ddDepthBlits=(this.stats.ddDepthBlits||0)+1;
+                return;
+            }
 
             if (!sourceIndexed && destinationIndexed) {
                 // Colour matching an RGB image into someone else's palette is
