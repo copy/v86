@@ -1,14 +1,14 @@
 {
   "caseSha256": "059857a2655482669a0c885687a61e6f35eeea68114047b19169517a08d8227f",
   "sourceSha256": {
-    "runtime/d9wg_lighting.c": "7e0cc4aed18c0831a181165fabaafeefcc5d1286a3104f22a93be7ba6c803627",
+    "runtime/d9wg_lighting.c": "623369156d25847f676e3b316c9d3c1d47a4b89cece270dee6103e794bf6cd79",
     "runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
     "runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
-    "runtime/d9wg_vertex.c": "d4e69cfcce271947f0cfb3248e23704c00f0fe2ddd9a323cf717d91dec77de8c",
+    "runtime/d9wg_vertex.c": "3db1bddc8e8c1f5f1040763e64edff58c05a9c76c15de3671cf411b48baa9f96",
     "runtime/d9wg_fvf.c": "53158c1190f037d8d67c35493e145594380453d65962479658569ffd3e597d80",
     "runtime/d9wg_blend.c": "93b00e722c9ae92a2fd3b36bbea517f7499bdc59f52f2ee81d5979831ebca856",
     "runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
-    "runtime/d9wg_vertex.h": "cdc036514b19b3f9b6fb078379ecf62ff35386dda327985d630ee6d213bf1fd8",
+    "runtime/d9wg_vertex.h": "d4aad5fe2587ca0c7bebbd3913991a85969f5532323dce8bddf9a95d04dcadf3",
     "runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
     "runtime/d9wg_blend.h": "5a66686cf17d9fdd28e04c7709b10c46fa0037dee0f9ff4bb6b0817d88be208f"
   },

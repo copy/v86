@@ -1,0 +1,45 @@
+<!doctype html><meta charset="utf-8"><title>DDraw native light attenuation</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async()=>{
+ const P=D9WGProtocol,C=P.C,suite=D3D9Conformance,{cmd,rs,tss,cat,element}=suite.builders;
+ const gpu=new D3D9WebGPUExecutor(document.querySelector('canvas'),{strict:true,useShaderWorker:false});
+ try{
+  const response=await fetch('fixtures/ddraw_native_specular_grid.json'),fixtureBytes=await response.arrayBuffer(),referenceSha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',fixtureBytes)),v=>v.toString(16).padStart(2,'0')).join(''),data=JSON.parse(new TextDecoder().decode(fixtureBytes));
+  let compared=0,maxError=0;const failures=[],samples=[],frames=[];
+  for(let start=0;start<data.rows.length;start+=256){
+   const group=data.rows.slice(start,start+256),index=frames.length;
+   const body=dev=>{
+    const commands=[rs(dev,7,0),rs(dev,22,1),rs(dev,28,0),rs(dev,137,1),rs(dev,141,0),rs(dev,142,1),rs(dev,143,0),rs(dev,29,1),rs(dev,139,0),rs(dev,154,0x3f800000),tss(dev,0,1,2),tss(dev,0,2,0),tss(dev,0,4,2),tss(dev,0,5,0),cmd(P.OP.SET_FVF,cat([P.encode('SetFVF',{device_handle:dev,fvf:0x12,element_count:2}),element(0,2,0),element(12,2,3)])),cmd(P.OP.LIGHT_ENABLE,P.encode('LightEnable',{device_handle:dev,index:0,enable:1}))];
+    group.forEach((row,j)=>{
+     const x=j%16*2+1,y=Math.floor(j/16)*2+1,projection=[0,0,0,0,0,0,0,0,0,0,0,0,2*x/64-1,1-2*y/64,.5,1],vertices=new Float32Array([(row.vertex%3-1)*.5,(Math.floor(row.vertex/3)-1)*.5,data.depths[row.z],0,0,-1]);
+     commands.push(cmd(P.OP.SET_TRANSFORM,P.encode('SetTransform',{device_handle:dev,state:3,matrix:projection})),cmd(P.OP.SET_MATERIAL,P.encode('SetMaterial',{device_handle:dev,diffuse:[0,0,1,1],ambient:[0,0,0,0],specular:[1,0,0,0],emissive:[0,0,0,0],power:data.powers[row.power]})),cmd(P.OP.SET_LIGHT,P.encode('SetLight',{device_handle:dev,index:0,type:row.kind,diffuse:[1,1,1,0],specular:[1,1,1,0],ambient:[0,0,0,0],position:[0,0,0],direction:[0,0,1],range:data.ranges[row.range],falloff:1,attenuation:data.attenuations[row.attenuation],theta:Math.PI/12,phi:Math.PI/3})),cmd(P.OP.DRAW_PRIMITIVE_UP,P.encode('DrawPrimitiveUP',{device_handle:dev,primitive_type:1,primitive_count:1,stride:24,vertex_count:1,vertex_bytes:24}),[{offsetField:'vertex_data_offset',data:new Uint8Array(vertices.buffer)}]));
+    });return commands;
+   };
+   const batch=suite.caseBatch(index,{behaviorFlags:C.D9WG_DEVICE_LEGACY_LIGHTING,clear:0xffab4e69,body});await gpu.submit(batch.bytes,{writeGuestMemory(){}});
+   let reply;await gpu.submit(suite.readbackBatch(index+1,batch.dev,batch.rt),{writeGuestMemory(offset,bytes){if(offset===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET)reply=bytes.slice();}});
+   if(!reply||reply.length!==16+64*64*4||new DataView(reply.buffer).getUint32(P.F.ReadbackResponse.status,true)!==C.D9WG_RESPONSE_OK)throw Error('Missing GPU readback');const pixels=new DataView(reply.buffer,reply.byteOffset+16,64*64*4);
+   group.forEach((row,j)=>{const x=j%16*2+1,y=Math.floor(j/16)*2+1,actual=pixels.getUint32((y*64+x)*4,true),expected=(0xff000000|((row.specular&255)<<16)|(row.diffuse&255))>>>0;let error=0;for(let shift=0;shift<32;shift+=8)error=Math.max(error,Math.abs((actual>>>shift&255)-(expected>>>shift&255)));maxError=Math.max(maxError,error);const result={row:start+j,actual,expected,error};if(error>1)failures.push(result);if(samples.length<20)samples.push(result);compared++;});
+   frames.push({start,count:group.length});await gpu.submit(suite.endCaseBatch(index+1),{writeGuestMemory(){}});
+  }
+  await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;i++)await new Promise(r=>setTimeout(r,0));
+  const evidence={referenceSha256,sourceSha256:data.sourceSha256,compared,maxError,failures,samples,frames,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch('/__test_file?name=ddraw-attenuation-gpu.json',{method:'POST',body:JSON.stringify(evidence,null,2)});
+  if(compared!==8640||failures.length||gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.droppedDraws||gpu.stats.renderTargetReadbackFailures)throw Error('Native attenuation mismatch '+JSON.stringify(evidence));document.querySelector('#result').textContent='PASS native DDraw attenuation: 8640 diffuse/specular RGB point samples, range/depth/coefficients/power/spot/directional controls, no GPU or host errors';
+ }catch(error){document.querySelector('#result').textContent='FAIL '+error.stack;}
+})();
+</script>

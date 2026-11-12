@@ -720,14 +720,19 @@
                             "        let light_distance = length(to_light);\n" +
                             "        let light_direction = select(vec3<f32>(0.0, 0.0, 1.0),\n" +
                             "            to_light / max(light_distance, 1e-6), light_distance > 0.0);\n" +
-                            // D3D9 attenuates by 1/(a0 + a1*d + a2*d^2) and drops
-                            // the light entirely past its range.
-                            "        var range_attenuation = 1.0 / max(light.attenuation.x +\n" +
-                            "            light.attenuation.y * light_distance +\n" +
-                            "            light.attenuation.z * light_distance * light_distance, 1e-6);\n" +
-                            "        if (light_distance > light.range_falloff.x) {\n" +
-                            "            range_attenuation = 0.0;\n" +
-                            "        }\n";
+                            (lighting.legacyWorld
+                                ? "        let range_fade = 1.0 - light_distance / select(1.0, light.range_falloff.x, light.range_falloff.x > 0.0);\n" +
+                                  "        var range_attenuation = light.attenuation.x + light.attenuation.y * range_fade +\n" +
+                                  "            light.attenuation.z * range_fade * range_fade;\n" +
+                                  "        if (light.range_falloff.x <= 0.0 || light_distance >= light.range_falloff.x) {\n" +
+                                  "            range_attenuation = 0.0;\n" +
+                                  "        }\n"
+                                : "        var range_attenuation = 1.0 / max(light.attenuation.x +\n" +
+                                  "            light.attenuation.y * light_distance +\n" +
+                                  "            light.attenuation.z * light_distance * light_distance, 1e-6);\n" +
+                                  "        if (light_distance > light.range_falloff.x) {\n" +
+                                  "            range_attenuation = 0.0;\n" +
+                                  "        }\n");
                         if (light.type === D3DLIGHT_SPOT) {
                             // range_falloff = (range, falloff, cos(theta/2), cos(phi/2)).
                             colorBody +=
