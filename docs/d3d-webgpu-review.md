@@ -3429,3 +3429,11 @@ Clipper 调用先检查活对象注册表，拒绝仅复制 vtable 的伪造对�
 D3D1/2/3 的光照由顶点 NORMAL 与 DONOTLIGHT 决定，不能使用这些接口会忽略的 LIGHTING 状态。修复预光照 LVERTEX 被再次照明成黑色，保留其原始保留字段/步长；UP、索引、Strided、VB 提交前选择光照，提交状态失败则停止绘制。Begin/BeginIndexed 的标志保留至 End。D3D7 继续使用显式光照状态。
 
 **527,360 项实际 UP/索引/Strided C 入口检查、5/5 故障对照、37 个 DDraw 脚本、既有状态块回归及站点 2/2 全过。** 原始 XP DDraw2 的部分失败由 **1,043 降至 851，减少 192 条**；depth_blit、lighting_interface_versions、shademode、edge_antialiasing_blending 四组均无失败，GPU/宿主错误、拒绝命令、丢弃绘制和读回失败均零。仍有 **5 项未审查 skip**，且继续在同一 DirectDraw 对象创建第二设备失败后崩溃；没有完整汇总，整体 Wine 验收仍失败。正式 DDraw 与审计 DLL 相同，已重建诊断 DLL、宿主资产及工具镜像。没有修改原始 Wine 或豁免功能失败；继续 Lock/DC 与多设备支持，3DMark 对比仍暂停。证据见 `fixtures/d3d-review/stage6-51-validation.json`。
+
+### 阶段6-52：Lock/DC 与描述结构契约（2026-11-12）
+
+修复零面积/非法矩形、重复 Lock、失败输出指针与旧版 thunk 传播；Lock 接受 108/124 字节并保持边界，GetSurfaceDesc 继续按接口精确验证。GetDisplayMode 接受两种输入大小、清空所提供范围、返回调用接口对应的大小字段。GetDC 可在 Lock 期间取得，Lock 在 DC 期间仍 busy；重复 ReleaseDC 返回 NODC，不支持的 GDI 格式清空输出后拒绝，读回失败不再构建陈旧 DC。
+
+**39 个 DDraw 脚本及站点 2/2 全过**：Lock 10,463 项/14 个故障对照，ROP/DC 73,628 项/20 个故障对照，描述形状 176,640 项/2 个故障对照。完整原始 XP DDraw1 跑完 **23,909 项，606 条失败、20 条 flaky、6 项未审查 skip**；相比上次完整的 816 条失败减少 **210 条**。lockrect_invalid 与 surface_desc_size 两组无失败；GetDC 从 **109 降至 9 条**，剩余均为 GDI 的 biSizeImage 字段，另用原生 XP 探针检查。支持性修复使不支持的 GDI 格式走回原测试的失败分支，成功后才检查的位图项不再执行，因此检查总数变化；没有删改断言、增加 skip 或应用豁免。
+
+GPU/宿主错误、拒绝命令、丢弃绘制和读回失败均零。正式 DDraw 与审计 DLL 完全一致，已重建诊断 DLL、宿主资产与工具镜像。**整体 Wine 验收仍未通过**；DDraw2 此批尚未重跑，仍需修复同一所有者的多设备、其余 API/画面/Win32 失败。证据见 `fixtures/d3d-review/stage6-52-validation.json`，3DMark 性能对比继续暂停。
