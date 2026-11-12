@@ -3485,3 +3485,13 @@ GPU/宿主错误、拒绝命令、丢弃绘制、读回失败均零。正式 DDr
 完整原始 DDraw1 为 **23,543 项、422 条失败、20 条 flaky、6 项未审查 skip**；DDraw2 为 **25,729 项、441 条失败、21 条 flaky、7 项未审查 skip**。两套 P8 blit（此前各 8 条失败）和 SYS X 通道组均全部通过，DDraw1 额外减少 1 条 pinned_sysmem 失败；该组仍有未完成项。模式消息组的未触及波动单独记录，不计为修复。未新增 skip，其余此前通过组保持通过。GPU/宿主/浏览器错误、拒绝命令、丢弃绘制和读回失败均零。
 
 正式 DLL 与最终 DDraw2 审计文件逐字节相同，两个审计 DLL 在装载重定位/时间戳/PE 校验和归一化后其余字节相同，诊断 DLL、宿主资产与工具镜像已重建。**整体 Wine 验收仍未通过**，继续其余内存/复制、资源、caps/枚举、窗口/丢失状态及旧版渲染；3DMark 对比保持暂停。证据见 `fixtures/d3d-review/stage6-57-validation.json`。
+
+### 阶段6-58：版本化能力描述、设备枚举与 FindDevice（2026-11-12）
+
+修复 D3D1/2/3 的 172/204/252 字节能力报告，区分 HAL、HAL 旁的 HEL 元数据以及软件逻辑描述，清理旧接口不可见的尾字段。设备名、顺序和类集合按接口版本返回：D3D1 为 Ramp/RGB/HAL，D3D2 加 MMX，D3D3 为 RGB/HAL；D3D7 为 RGB/HAL/TnL，RGB 不再声称硬件/DP2 接口位。FindDevice 支持三种历史结果布局，以调用方大小定位两份描述，以接口版本报告字段大小，匹配 GUID/硬件选择、保持不匹配输出不变，并处理输入 GUID 与输出缓冲区重叠。原生忽略颜色模型筛选的兼容行为保留；额外 primitive 筛选及旧 Device GetCaps 缓冲区契约本批未新增认证。旧版硬件元数据不再继承 TnL/显存执行缓冲区承诺，max-buffer 为零；SORT 位表示调用方输入排序要求，参见 [Microsoft 结构说明](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dhal/ns-d3dhal-_d3ddevicedesc_v1)。
+
+**66 个本地回归脚本与站点 2/2 通过**；SDK 实际结构和 C 方法 14,640 项检查、14 个故障对照，包含回调取消、不同输出步长、边界哨兵、拒绝不修改输出与重叠输入。完整原始 DDraw1 为 **23,520 项、323 条失败、20 条 flaky、6 项未审查 skip**，DDraw2 为 **25,729 项、323 条失败、21 条 flaky、7 项未审查 skip**，分别减少 99/118 条失败。两套 FindDevice 和设备枚举回调断言均全部通过；简单分组脚本把回调前尚存的 1 条父对象引用失败归在 filling_convention，未将其算作枚举通过之外的修复。DDraw1 检查总数减少来自移除错误暴露给 D3D1 的 MMX 枚举项，原始源码/断言没有改动，未新增 skip 或其他失败组。
+
+尝试独立系统 Direct3D 参考时，该 XP 镜像的系统 ddraw 对 D3D1/2/3 查询均返回 E_NOINTERFACE，因此没有把这次尝试当作 caps 像素/实现认证或 Wine 豁免；实际依据为 SDK 布局和未改的原始断言以及代理完整运行。旧有 Ramp/MMX 执行映射没有在本批新增原生渲染认证。GPU/宿主错误、拒绝命令、丢弃绘制、读回失败均零。正式 DLL 与 DDraw2 审计文件逐字节相同，两次审计 DLL 在装载重定位/时间戳/PE 校验和归一化后其余字节相同，诊断 DLL、宿主资产及工具镜像已重建。
+
+**整体 Wine 验收仍未通过**。继续表面枚举、执行缓冲区与其余资源/附件契约、窗口/丢失状态和渲染问题，DDraw4/7 的完整原始测试仍待执行。3DMark 对比保持暂停。证据见 `fixtures/d3d-review/stage6-58-validation.json`。
