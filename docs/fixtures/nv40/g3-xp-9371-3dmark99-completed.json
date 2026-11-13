@@ -1,0 +1,35 @@
+{
+  "stage": "G3 XP native 3DMark99 MAX benchmark completion",
+  "driver": "93.71",
+  "scope": "All 26 selected tests reached the native congratulations/results window, with saved native project. Score-font corruption and reference-frame comparison remain open; this is not the complete G3 gate.",
+  "checkpoints": [
+    "nv40-xp-mark99-clean-start/checkpoint-before-benchmark.state",
+    "nv40-xp-mark99-ramin-sync.state",
+    "nv40-xp-mark99-batch/checkpoint-raster-wait.state"
+  ],
+  "finalRun": "nv40-xp-mark99-rect",
+  "note": "One native benchmark continued across checkpoints as individual emulator defects were repaired. GPU counters cover only the final continuation; not a clean whole-benchmark performance measurement.",
+  "gpu": {
+    "batches": 7733,
+    "draws": 35512,
+    "bytes": 11067375688,
+    "readbacks": 15466,
+    "failures": 0,
+    "uploads": 20433,
+    "uploadBytes": 6074449584
+  },
+  "graphFaults": [],
+  "dmaFaults": [],
+  "visualEvidence": {
+    "file": "capture-0626.png",
+    "sha256": "20f87cff2de34a0b31e70f8068fe4de70a78f871bc44aef0af9592a4bc0f01b3"
+  },
+  "nativeProject": {
+    "file": "NV99.3DP",
+    "size": 3759,
+    "sha256": "38bf740f0554bf0ad2426890b7e217f265201bc1aea748876a90559ba679c7c2"
+  },
+  "imageUnchanged": true,
+  "gameImageUnchanged": true,
+  "harnessStatus": "Manual NV_HOLD run; automatic probe was intentionally not launched. Harness BLOCKED status refers only to that absent probe, not native benchmark completion."
+}

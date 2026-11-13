@@ -1252,3 +1252,8 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   `g2-xp-9371-font-reference.json`。失败时导出参考/实际 BMP，
   `NV_TOOLS_ARTIFACTS` 可选择工具盘根目录诊断文件。比较区避开探针控制台的闪烁光标；
   这未复现 3DMark99 的总分字体问题，该问题仍需单独定位。
+
+- G3 XP 3DMark99 MAX 已跑完全部 26 项并保存原生 `.3DP` 项目。单个原生 benchmark
+  经检查点连续恢复，末段 35512 次绘制、7733 批、0 GPU failure、0 PGRAPH/DMA fault；
+  证据见 `g3-xp-9371-3dmark99-completed.json`。它不是完整冷启动性能结果；总分字体
+  异常和参考帧一致性仍未解决，G3 门禁仍未完成。原盘及游戏盘只读检查通过。
