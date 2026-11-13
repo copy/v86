@@ -15,7 +15,7 @@ function fixture()
         machine: { wake() {}, is_bus_master: () => true, mmio_ram_mark_dirty() {},
             validate_physical_range(at, size) { if(at < 0 || at + size > ram.length) throw new RangeError("RAM"); },
             read_physical: (at, size) => ram.slice(at, at + size), write_physical: (b, at) => ram.set(b, at) },
-        graph: { method: (...args) => { calls.push(args); return true; } } };
+        graph: { bind: (...args) => { device.bound=args; }, method: (...args) => { calls.push(args); return true; } } };
     device.dma = new NVDMA(device);
     const fifo = new NVFIFO(device);
     function word(at, value) { ramin.setUint32(at, value >>> 0, true); }
@@ -70,6 +70,7 @@ const header = (method, count = 1, subc = 0, ni = false) => method | count << 18
     const f = fixture(); f.word(0x44000, 0x3062); f.handle(0xDEADBEEF, 0x44000);
     f.submit([header(0, 1, 3), 0xDEADBEEF, header(0x300, 2, 3), 0x11, 0x22]);
     assert.deepEqual(f.calls, [[0, 3, 0x44000, 0x300, 0x11], [0, 3, 0x44000, 0x304, 0x22]]);
+    assert.deepEqual(f.device.bound,[0,3,0x44000],"SET_OBJECT loads the PGRAPH subchannel cache");
     const g = fixture(); g.submit([header(0), 0x1234]);
     assert(g.regs.get(0x2100) & 1, "missing RAMHT object raises CACHE_ERROR");
     assert.notEqual(g.regs.get(0x3270) || 0, g.regs.get(0x3210), "failed method stays in cache for kernel recovery");

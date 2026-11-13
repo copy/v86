@@ -20,6 +20,7 @@ export class NVGraph
     {
         this.device = device;
         this.objects = new Map();
+        this.bindings = new Map();
         this.program = new Map();
         this.faults = [];
         this.flips = [[0,0,0,0],[0,0,0,0]];
@@ -28,7 +29,7 @@ export class NVGraph
         this.engine3d = new NV40_3D(this);
     }
 
-    reset() { this.flip_offset=-2;this.flip_contexts.clear();this.context=0; this.flips = [[0,0,0,0],[0,0,0,0]]; this.objects.clear(); this.program.clear(); this.engine3d.captured.clear(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
+    reset() { this.flip_offset=-2;this.flip_contexts.clear();this.context=0; this.flips = [[0,0,0,0],[0,0,0,0]]; this.objects.clear(); this.bindings.clear(); this.program.clear(); this.engine3d.captured.clear(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
     get busy()
     {
         if(this.context && !(this.reg(0x40032C)&0x01000000))this.transfer_flips(this.context,false);
@@ -123,6 +124,15 @@ export class NVGraph
             object = { channel, instance, class_id, methods: new Map(), stream: [] };
             this.objects.set(key, object);
         }
+        return object;
+    }
+
+    bind(channel, subc, instance)
+    {
+        // SET_OBJECT loads the RAMIN class/context into a subchannel cache.
+        // Reusing its backing RAMIN cannot change an already loaded object.
+        const object=this.object(channel,instance);
+        this.bindings.set(channel+":"+subc,object);
         return object;
     }
 
@@ -237,7 +247,8 @@ export class NVGraph
         try
         {
             this.activate_context();
-            object = this.object(channel, instance);
+            const cached=this.bindings.get(channel+":"+subc);
+            object=cached?.instance===instance?cached:this.object(channel,instance);
             if(this.engine3d.backend?.barrier(object,method,value))
             {this.engine3d.backend.flush();return false;}
 
@@ -279,15 +290,26 @@ export class NVGraph
 
     get_state()
     {
-        return [3, Array.from(this.objects.values(), o => [o.channel, o.instance, o.class_id, Array.from(o.methods), o.stream]),
+        const current=Array.from(this.objects.values()),objects=[...new Set([...current,...this.bindings.values()])];
+        return [4, objects.map(o=>[o.channel,o.instance,o.class_id,Array.from(o.methods),o.stream]),
             Array.from(this.program),this.flips.map(f=>f.slice()),this.context,
-            Array.from(this.flip_contexts,([instance,flips])=>[instance,flips.map(f=>f.slice())])];
+            Array.from(this.flip_contexts,([instance,flips])=>[instance,flips.map(f=>f.slice())]),
+            Array.from(this.bindings,([key,object])=>[key,objects.indexOf(object)]),current.length];
     }
     set_state(state)
     {
         this.reset();
-        for(const [channel, instance, class_id, methods, stream] of state[1])
-            this.objects.set(channel + ":" + instance, { channel, instance, class_id, methods: new Map(methods), stream });
+        const objects=state[1].map(([channel,instance,class_id,methods,stream])=>
+            ({channel,instance,class_id,methods:new Map(methods),stream}));
+        for(const object of objects.slice(0,state[0]>=4?state[7]:objects.length))
+            this.objects.set(object.channel+":"+object.instance,object);
+        if(state[0]>=4)for(const [key,index]of state[6])this.bindings.set(key,objects[index]);
+        else if(this.device.fifo)for(const [channel,context]of this.device.fifo.channels)
+            for(let subc=0;subc<8;subc++)
+            {
+                const object=this.objects.get(channel+":"+context.bindings[subc]);
+                if(object)this.bindings.set(channel+":"+subc,object);
+            }
         this.program = new Map(state[2]);
         if(state[0]>=2)this.flips=state[3].map(f=>f.slice());
         if(state[0]>=3)

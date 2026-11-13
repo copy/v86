@@ -1275,3 +1275,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   加载地址，避免原先把所有分量复制为 X。112 个 Naga 模块与完整真实 GPU 回归
   通过，像素用例区分 MOV 的四分量、LIT 的 diffuse/specular/power 及 swizzle，
   并从不同的 A1.y 读取相对常量；Closure 构建通过。
+
+- G2/G3 对象绑定缓存：PFIFO SET_OBJECT 装载 PGRAPH 子通道的已解码对象；后续
+  RAMIN 回收/重用不会让已装载类号随每条方法改变。不同子通道可以保留同一实例的
+  不同代对象，重新绑定才装载新内容。PGRAPH 快照 v4 保存共享对象引用和旧代绑定；
+  旧快照从已存对象及 FIFO 绑定迁移。PGRAPH/FIFO/2D/设备、完整真实 GPU 回归与
+  Closure 构建通过。XP 新复测仍遇到 fence 高位选择器，客体门禁尚未通过。

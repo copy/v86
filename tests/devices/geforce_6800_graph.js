@@ -192,3 +192,30 @@ assert.equal(graph.busy,false,"inactive RAMIN READ patch releases its pending fl
 device.registers.set(0x400310,0x40);graph.written(0x400304,1);
 assert.deepEqual(graph.flips[1].slice(0,3),[1,0,3]);
 console.log("PASS: decoded context transfer layout, inactive RAMIN flip patch and request acknowledgement");
+
+// Loaded hardware context is independent of subsequent RAMIN reuse. A fresh
+// SET_OBJECT reads the replacement, while another subchannel keeps the old one.
+word(0x4700,0x19);device.registers.set(0x400720,1);
+graph.bind(0,2,0x4700);graph.bind(0,3,0x4700);
+graph.method(0,2,0x4700,0x300,0x20001);
+word(0x4700,0);graph.method(0,2,0x4700,0x304,0x40003);
+assert.equal(device.registers.get(0x400720),1,"RAMIN overwrite cannot change a loaded clip class");
+word(0x4700,0x43);graph.bind(0,2,0x4700);graph.method(0,2,0x4700,0x300,0xCC);
+graph.method(0,3,0x4700,0x304,0x60005);
+assert.equal(device.registers.get(0x400720),1,"one rebind does not invalidate another loaded subchannel");
+const cachedState=graph.get_state();graph=new NVGraph(device);graph.set_state(cachedState);
+assert.equal(graph.bindings.get("0:2").class_id,0x43);
+assert.equal(graph.bindings.get("0:3").class_id,0x19);
+assert.equal(graph.bindings.get("0:3").methods.get(0x304),0x60005);
+assert.equal(graph.bindings.get("0:2"),graph.object(0,0x4700),"snapshot preserves shared current-object identity");
+word(0x4700,0);graph.method(0,3,0x4700,0x304,0x80007);
+assert.equal(device.registers.get(0x400720),1,"cached old class survives snapshot and further RAMIN reuse");
+graph.set_state([3,...cachedState.slice(1,6)]);
+assert.equal(graph.bindings.size,0,"old graph snapshots have no explicit subchannel cache");
+device.fifo={channels:new Map([[0,{bindings:Uint32Array.of(0,0,0x4700,0,0,0,0,0)}]])};
+graph.set_state([3,...cachedState.slice(1,6)]);
+assert.equal(graph.bindings.get("0:2").class_id,0x19,"old snapshot migrates cached object from saved RAMFC binding");
+word(0x4700,0);graph.method(0,2,0x4700,0x304,0xA0009);
+assert.equal(device.registers.get(0x400720),1,"old snapshot cache migration uses saved class, not recycled RAMIN");
+delete device.fifo;
+console.log("PASS: loaded subchannel classes survive RAMIN reuse, independent rebind and snapshot");

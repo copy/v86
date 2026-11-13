@@ -197,6 +197,7 @@ export class NVFIFO
             {
                 ch.bindings[subc] = object.instance;
                 this.set(0x3280, this.reg(0x3280) & ~(15 << (subc * 4)) | object.engine << (subc * 4));
+                if(object.engine===1)this.device.graph?.bind?.(this.active,subc,object.instance);
                 return object.engine === 1 || this.cache_error(0x100);
             }
             value = object.instance / 16;
