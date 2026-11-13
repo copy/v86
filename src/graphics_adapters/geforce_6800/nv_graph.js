@@ -23,19 +23,23 @@ export class NVGraph
         this.program = new Map();
         this.faults = [];
         this.flips = [[0,0,0,0],[0,0,0,0]];
-        this.flip_contexts = new Map();this.context = 0;
+        this.flip_contexts = new Map();this.context = 0;this.flip_offset=-2;
         this.engine2d = new NV2D(this);
         this.engine3d = new NV40_3D(this);
     }
 
-    reset() { this.flip_contexts.clear();this.context=0; this.flips = [[0,0,0,0],[0,0,0,0]]; this.objects.clear(); this.program.clear(); this.engine3d.captured.clear(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
-    get busy() { return this.engine3d.busy || this.flips.some(f=>!!f[3]); }
+    reset() { this.flip_offset=-2;this.flip_contexts.clear();this.context=0; this.flips = [[0,0,0,0],[0,0,0,0]]; this.objects.clear(); this.program.clear(); this.engine3d.captured.clear(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
+    get busy()
+    {
+        if(this.context && !(this.reg(0x40032C)&0x01000000))this.transfer_flips(this.context,false);
+        return this.engine3d.busy || this.flips.some(f=>!!f[3]);
+    }
     reg(at) { return this.device.registers.get(at) || 0; }
     set(at, value) { this.device.registers.set(at, value >>> 0); }
     implemented(at)
     {
         return [0x400100, 0x400104, 0x400108, 0x40013C, 0x400300, 0x400304,
-            0x400324, 0x400328, 0x40032C, 0x400330, 0x400700, 0x400704, 0x400708, 0x400710, 0x40071C, 0x400720].includes(at);
+            0x400310, 0x400784, 0x400324, 0x400328, 0x40032C, 0x400330, 0x400700, 0x400704, 0x400708, 0x400710, 0x40071C, 0x400720].includes(at);
     }
 
     read(at)
@@ -88,12 +92,20 @@ export class NVGraph
         }
         if(at === 0x400328)
         {
+            this.flip_offset=-2;
             this.program.set(this.reg(0x400324), this.reg(at));
             this.set(0x400324, this.reg(0x400324) + 1);
         }
         // The host saves/restores decoded contexts by channel. Keep uploaded
         // context microcode for readback, without executing foreign firmware.
-        if(at === 0x400304 && value & 1) this.set(0x400300, this.reg(0x400300) & ~1);
+        if(at === 0x400304 && value & 1)
+        {
+            const flags=this.reg(0x400310),instance=this.reg(0x400784)&0xFFFFF;
+            if(flags&0x20)this.transfer_flips(instance,true);
+            if(flags&0x40)this.transfer_flips(instance,false);
+            this.set(0x400310,flags&~0x60);
+            this.set(0x400300,this.reg(0x400300)&~1);
+        }
     }
 
     object(channel, instance)
@@ -139,16 +151,64 @@ export class NVGraph
         }
     }
 
+    flip_context_offset()
+    {
+        // Decode only the declarative register-transfer layout. No branches,
+        // calls, resets or guest microcode are executed. NV40 REG consumes a
+        // literal count (or RA), CMD SET_CTX_POINTER starts a memory block.
+        if(this.flip_offset!==-2)return this.flip_offset<0?null:this.flip_offset;
+        let pointer=0,ra=0;
+        for(const [,word]of [...this.program].sort((a,b)=>a[0]-b[0]))
+        {
+            if(word>>>20===2)ra=word&0xFFFFF;
+            else if(word===0x60000A)pointer=ra;
+            else if(word>>>20===1)
+            {
+                const count=word>>>14&63 || ra,address=(word&0x3FFF)*4+0x400000;
+                if(address<=0x400710 && address+count*4>0x400710)
+                {this.flip_offset=pointer*4+0x400710-address;return this.flip_offset;}
+                pointer+=count;
+            }
+        }
+        this.flip_offset=-1;return null;
+    }
+    transfer_flips(instance,save)
+    {
+        const offset=this.flip_context_offset(),at=instance*16+offset;
+        if(!instance || offset===null || at<0 || at+4>1<<20)return;
+        const vram=this.device.vram(),base=this.device.vram_size-(1<<20)+at;
+        const view=new DataView(vram.buffer,vram.byteOffset+base,4);
+        if(save)
+        {
+            view.setUint32(0,(view.getUint32(0,true)&~0x77777700)|(this.read(0x400710)&0x77777700),true);
+            this.device.machine.mmio_ram_mark_dirty(this.device.vga.lfb_region);
+        }
+        else
+        {
+            const word=view.getUint32(0,true);
+            for(let i=0;i<2;i++)
+            {
+                const f=this.flips[i],shift=8+i*12;
+                f[0]=word>>>(shift+4)&7;f[1]=word>>>shift&7;f[2]=word>>>(shift+8)&7;
+                if(f[0]!==f[1])f[3]=0;
+            }
+        }
+    }
     activate_context()
     {
         const instance=this.reg(0x32E0)&0xFFFFF;
         if(!instance)return;
         if(instance!==this.context)
         {
-            if(this.context)this.flip_contexts.set(this.context,this.flips);
+            if(this.context)
+            {
+                this.transfer_flips(this.context,true);
+                this.flip_contexts.set(this.context,this.flips);
+            }
             this.flips=this.flip_contexts.get(instance)||[[0,0,0,0],[0,0,0,0]];
-            this.context=instance;
+            this.context=instance;this.transfer_flips(instance,false);
         }
+        else if(!(this.reg(0x40032C)&0x01000000))this.transfer_flips(instance,false);
         this.set(0x40032C,0x01000000|instance);
     }
     increment_flip(value,modulo) { return value+1===modulo?0:(value+1)&7; }

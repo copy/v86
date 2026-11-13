@@ -162,3 +162,17 @@ for(const at of [0x184,0x188,0x18C])method(0,0x4600,at,0x410);
 assert.equal(device.registers.get(0x400720),1,"DVD DMA context bindings do not execute a composite");
 method(0,0x4600,0x33C,0);assert.equal(device.registers.get(0x400720),0,"unimplemented DVD composite remains an explicit trap");
 console.log("PASS: NV10 DVD subpicture DMA binding without fabricated drawing completion");
+
+// The driver can freeze/save a context, patch its inactive read counter in
+// RAMIN and restore it. Interpret the transfer descriptors, not a driver offset.
+device.registers.set(0x400720,1);device.registers.set(0x32E0,0x1234);
+graph.flip_offset=-2;graph.program=new Map([[0,0x200008],[1,0x60000A],[2,0x1041C4]]);
+method(0,0x4200,0x120,0);method(0,0x4200,0x124,0);method(0,0x4200,0x128,3);method(0,0x4200,0x130,0);
+assert.equal(graph.busy,true);device.registers.set(0x400784,0x1234);device.registers.set(0x400310,0x20);
+graph.written(0x400304,1);assert.equal(ramin.getUint32(0x12340+32,true)&0x77700000,0x30000000);
+assert.equal(device.registers.get(0x400310)&0x60,0,"completed software transfer clears request flags");
+device.registers.set(0x40032C,0x1234);word(0x12340+32,0x31000000);
+assert.equal(graph.busy,false,"inactive RAMIN READ patch releases its pending flip wait");
+device.registers.set(0x400310,0x40);graph.written(0x400304,1);
+assert.deepEqual(graph.flips[1].slice(0,3),[1,0,3]);
+console.log("PASS: decoded context transfer layout, inactive RAMIN flip patch and request acknowledgement");
