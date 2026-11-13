@@ -264,6 +264,12 @@
   核对后补齐此路径。真实客体 INTA/IRET 回归覆盖撤回、屏蔽、ISR 位及后续 IRQ10，
   debug/release 均通过，加入 devices-test；Win98 冷启动复测继续进行。
 
+- 程序翻译前置：新增 VP/FP 直线代码到 SM3 字节码翻译，输入/输出语义、ALU、纹理
+  采样、内联常量独立绑定；VP 双发射先计算两个结果再提交，避免后一个 slot 读到新值。
+  分支/谓词、相对地址、需打包的半/全寄存器别名及超出预算明确拒绝，保留后续 G4 工作。
+  PGRAPH 可从真实对象生成 shader pair；31 个模块（含 XP 原生捕获）经现有 D3D9 管线
+  转 WGSL 并通过 naga，PGRAPH 集成测试和插件 Closure 构建通过。绘制后端仍待接入。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

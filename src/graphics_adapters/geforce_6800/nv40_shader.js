@@ -1,0 +1,181 @@
+// NV40 decoded straight-line programs -> D3D9 SM3 bytecode. This module only
+// emits bytecode; the existing D3D9 pipeline owns WGSL generation and execution.
+// Unsupported predicates, branches and register aliases fail before any draw.
+const OP = {MOV:1,ADD:2,SUB:3,MAD:4,MUL:5,RCP:6,RSQ:7,DP3:8,DP4:9,MIN:10,MAX:11,
+    SLT:12,SGE:13,LIT:16,DST:17,FRC:19,DCL:31,SINCOS:37,MOVA:46,DEF:81,
+    KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95};
+const bits = type => (type & 7) << 28 | (type & 24) << 8;
+const dst = (type,index,mask=15,saturate=false,shift=0) =>
+    (0x80000000 | bits(type) | index | mask << 16 | +saturate << 20 | shift << 24) >>> 0;
+const src = (type,index,swizzle=[0,1,2,3],negate=false,absolute=false) =>
+    (0x80000000 | bits(type) | index | swizzle.reduce((a,c,i)=>a|c<<(16+i*2),0) |
+        (absolute ? negate ? 12 : 11 : +negate) << 24) >>> 0;
+const semantic = (usage,index=0,texture=0) => (0x80000000 | usage | index << 16 | texture << 27) >>> 0;
+const VERTEX_OUTPUTS = [[0,0],[10,0],[10,1],[10,2],[10,3],[11,0],[4,0],
+    ...Array.from({length:8},(_,i)=>[5,i])];
+const FRAGMENT_INPUTS = [[0,0],[10,0],[10,1],[11,0],...Array.from({length:10},(_,i)=>[5,i])];
+
+class Shader
+{
+    constructor(stage)
+    {
+        this.stage=stage;this.declarations=[];this.body=[];this.inputs=new Map();this.outputs=new Map();
+        this.temps=new Map();this.samplers=new Map();this.constants=new Set();this.aliases=new Map();
+    }
+    emit(op,...operands) { this.body.push((operands.length<<24|op)>>>0,...operands); }
+    declare(type,index,meaning) { this.declarations.push(0x0200001F,semantic(...meaning),dst(type,index)); }
+    temp(key)
+    {
+        if(!this.temps.has(key))
+        {
+            if(this.temps.size>=29) throw new RangeError("NV40 straight-line temporary register budget");
+            this.temps.set(key,this.temps.size);
+        }
+        return this.temps.get(key);
+    }
+    input(index)
+    {
+        if(this.stage==="fragment" && (index===0 || index===14))
+        {
+            const special=index===0?0:1;
+            if(!this.inputs.has(index)) {this.inputs.set(index,[17,special]);this.declare(17,special,[0,0]);}
+        }
+        else if(!this.inputs.has(index))
+        {
+            const meaning=this.stage==="vertex"?[5,index]:FRAGMENT_INPUTS[index];
+            if(!meaning || index>=16) throw new RangeError("NV40 unsupported shader input "+index);
+            const slot=[...this.inputs.values()].filter(([type])=>type===1).length;
+            this.inputs.set(index,[1,slot]);this.declare(1,slot,meaning);
+        }
+        return this.inputs.get(index);
+    }
+    output(index)
+    {
+        if(!this.outputs.has(index))
+        {
+            if(!VERTEX_OUTPUTS[index] || this.outputs.size>=12) throw new RangeError("NV40 unsupported vertex output "+index);
+            const slot=this.outputs.size;this.outputs.set(index,slot);this.declare(6,slot,VERTEX_OUTPUTS[index]);
+        }
+        return this.outputs.get(index);
+    }
+    source(source,constant=-1,scalar=false)
+    {
+        let type,index;
+        if(source.type==="temp")
+        {
+            if(this.stage==="fragment")
+            {
+                const bank=source.half?"h":"r", base=source.half?source.index>>>1:source.index;
+                if(this.aliases.has(base) && this.aliases.get(base)!==bank)
+                    throw new RangeError("NV40 mixed half/full register alias needs packing");
+            }
+            type=0;index=this.temp((source.half?"h":"r")+source.index);
+        }
+        else if(source.type==="input") [type,index]=this.input(source.index);
+        else if(source.type==="constant")
+        {
+            type=2;index=this.stage==="fragment"?constant:source.index;
+            if(index<0 || index>=(this.stage==="fragment"?224:256)) throw new RangeError("NV40 shader constant limit");
+            this.constants.add(index);
+        }
+        else throw new RangeError("NV40 invalid shader operand");
+        const swizzle=scalar?Array(4).fill(source.swizzle[0]):source.swizzle;
+        return src(type,index,swizzle,source.negate,source.absolute);
+    }
+    alu(name,destination,sources)
+    {
+        if(name==="FLR")
+        {
+            this.emit(OP.FRC,dst(0,29),sources[0]);this.emit(OP.SUB,destination,sources[0],src(0,29));return;
+        }
+        if(name==="SIN" || name==="COS")
+        {
+            this.emit(OP.SINCOS,dst(0,29,name==="COS"?1:2),sources[0]);
+            this.emit(OP.MOV,destination,src(0,29,Array(4).fill(name==="COS"?0:1)));return;
+        }
+        const op=OP[name];if(op===undefined) throw new RangeError("NV40 unsupported straight-line opcode "+name);
+        this.emit(op,destination,...sources);
+    }
+    finish()
+    {
+        const bytecode=Uint32Array.from([this.stage==="vertex"?0xFFFE0300:0xFFFF0300,...this.declarations,...this.body,0xFFFF]);
+        return {bytecode,inputs:Array.from(this.inputs),outputs:Array.from(this.outputs),samplers:Array.from(this.samplers),
+            constants:Array.from(this.constants).sort((a,b)=>a-b)};
+    }
+}
+const arity = name => ["MOV","RCP","RSQ","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY"].includes(name)?1:
+    ["MUL","ADD","DP3","DP4","DST","MIN","MAX","SLT","SGE"].includes(name)?2:name==="MAD"?3:0;
+
+export function translate_vertex_program(program)
+{
+    const shader=new Shader("vertex");
+    // r29 is arithmetic scratch; r30/r31 retain both VLIW results until both
+    // slots have read their operands. Commit vector first, then scalar.
+    for(const instruction of program.instructions)
+    {
+        const i=instruction;
+        if(i.predicate.enabled || i.address.input || i.address.constant) throw new RangeError("NV40 vertex predication/relative address needs lowering");
+        const slots=[i.vector,i.scalar], results=[];
+        for(let slot=0;slot<2;slot++)
+        {
+            const op=slots[slot];if(op.name==="NOP" || !op.mask) continue;
+            const count=arity(op.name);if(!count) throw new RangeError("NV40 unsupported vertex opcode "+op.name);
+            const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
+            const sources=selectors.map(index=>shader.source(i.sources[index],-1,slot===1));
+            shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
+            const type=op.type==="output"?6:0,index=type===6?shader.output(op.index):shader.temp("r"+op.index);
+            results.push([dst(type,index,op.mask),src(0,30+slot)]);
+        }
+        for(const operands of results) shader.emit(OP.MOV,...operands);
+    }
+    return shader.finish();
+}
+
+export function translate_fragment_program(program,options={})
+{
+    const shader=new Shader("fragment");
+    const written=new Set();
+    for(const i of program.instructions)
+    {
+        if(i.branch || i.input_relative || i.predicate.condition!==7 && i.predicate.condition!==0)
+            throw new RangeError("NV40 fragment control flow needs lowering");
+        if(i.predicate.condition===0 || i.name==="NOP") continue;
+        const count=arity(i.name),texture=["TEX","TXP","TXB","TXL","TXD"].includes(i.name);
+        if(!count && !texture && i.name!=="KIL") throw new RangeError("NV40 unsupported fragment opcode "+i.name);
+        const sources=i.sources.slice(0,texture?i.name==="TXD"?3:1:i.name==="KIL"?1:count)
+            .map(source=>shader.source(source,i.constant));
+        if(i.name==="KIL")
+        {
+            shader.emit(OP.MOV,dst(0,29),sources[0]);shader.emit(OP.KIL,dst(0,29));continue;
+        }
+        if(i.destination.disabled) throw new RangeError("NV40 destinationless arithmetic needs condition lowering");
+        const key=(i.destination.half?"h":"r")+i.destination.index, target=shader.temp(key);
+        const shift=i.scale<4?i.scale:8-i.scale+12;
+        if(i.scale===4) throw new RangeError("NV40 invalid fragment scale");
+        const destination=dst(0,target,i.destination.mask,i.saturate,shift);
+        if(texture)
+        {
+            if(!shader.samplers.has(i.texture))
+            {
+                const dimension=options.samplers?.[i.texture] || 2;
+                if(![2,3,4].includes(dimension)) throw new RangeError("NV40 unsupported sampler dimension");
+                shader.samplers.set(i.texture,dimension);shader.declare(10,i.texture,[0,0,dimension]);
+            }
+            const sampler=src(10,i.texture);
+            if(i.name==="TXD") shader.emit(OP.TXD,destination,sources[0],sampler,sources[1],sources[2]);
+            else shader.emit((i.name==="TXL"?OP.TXL:OP.TEX) | (i.name==="TXP"?1:i.name==="TXB"?2:0)<<16,
+                destination,sources[0],sampler);
+        }
+        else shader.alu(i.name,destination,sources);
+        const base=i.destination.half?i.destination.index>>>1:i.destination.index;
+        shader.aliases.set(base,i.destination.half?"h":"r");written.add(key);
+    }
+    if(!written.has((options.fp32_outputs?"r":"h")+"0")) throw new RangeError("NV40 fragment color output is not written");
+    for(let color=0;color<(options.targets||1);color++)
+    {
+        const key=(options.fp32_outputs?"r":"h")+(color*2);
+        if(written.has(key)) shader.emit(OP.MOV,dst(8,color),src(0,shader.temp(key)));
+    }
+    if(options.depth && written.has("r1")) shader.emit(OP.MOV,dst(9,0,1),src(0,shader.temp("r1"),[2,2,2,2]));
+    return {...shader.finish(),constant_values:program.constants.map(words=>Uint32Array.from(words))};
+}
