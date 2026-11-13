@@ -231,6 +231,12 @@
   先前相邻两个像素交换，导致 XP 的 I4 抗锯齿文字破碎；已更正提取与像素用例，
   全部 2D 测试和插件构建通过，客体图像继续复核。
 
+- CACHE1 容量续修：NV40 有 512 个物理 cache entries，GET/PUT 的 wrap bit 位于 bit 11；
+  此前误用 256 项和上半区别名，软件 DAC 陷阱恢复时会读错 cache 数据，令模式切换停住。
+  扩展物理数组和指针位宽，并为 v1 FIFO 快照按队列顺序搬迁未完成方法。
+  测试覆盖上半区、512 项背压、0xFFC wrap 和旧队列跨界迁移；设备/快照/构建通过。
+  恢复此前卡住的 XP，27 秒内原生模式切换与 GDI 读回通过；DirectDraw 仍有像素/ROP 失败。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

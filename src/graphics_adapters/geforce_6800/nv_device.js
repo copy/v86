@@ -312,7 +312,7 @@ export class NVDevice
     write_register(offset, value, mask)
     {
         if(this.rma.write(offset, value, mask)) return;
-        if(this.fifo.user(offset) || offset >= 0x90000 && offset < 0x91000)
+        if(this.fifo.user(offset) || offset >= 0x90000 && offset < 0x92000)
         {
             const old = this.fifo.read(offset) || 0;
             this.fifo.write(offset, ((old & ~mask) | value & mask) >>> 0);
@@ -353,6 +353,7 @@ export class NVDevice
                 this.timer_epoch = this.machine.now();
             }
             this.registers.set(offset, ((old & ~mask) | value & mask) >>> 0);
+            if(offset === 0x3210 || offset === 0x3270) this.registers.set(offset, this.registers.get(offset) & 0xFFC);
             if(offset === 0x3204) this.fifo.active = this.registers.get(offset) & 0x10000 ? this.registers.get(offset) & 31 : -1;
             if(offset === 0x9200 || offset === 0x9210) this.registers.set(offset, this.registers.get(offset) & 0xFFFF);
             if(offset === 0x9420) this.registers.set(offset, (this.registers.get(offset) & 0xFFFFFFE0) >>> 0);

@@ -28,7 +28,7 @@ export class NVFIFO
     set(at, value) { this.device.registers.set(at, value >>> 0); }
     implemented(offset)
     {
-        return this.user(offset) !== null || offset >= 0x90000 && offset < 0x91000 ||
+        return this.user(offset) !== null || offset >= 0x90000 && offset < 0x92000 ||
             [0x2210, 0x2220, 0x2400, 0x2500, 0x2504, 0x2508, 0x3200, 0x3204, 0x3210, 0x3214,
                 0x3220, 0x3224, 0x3228, 0x322C, 0x3230, 0x3234, 0x3238, 0x323C, 0x3240, 0x3244,
                 0x3248, 0x324C, 0x3250, 0x3254, 0x3258, 0x3264, 0x3268, 0x326C, 0x3270, 0x3280,
@@ -69,11 +69,11 @@ export class NVFIFO
         }
         if(offset === 0x3214 || offset === 0x2400)
         {
-            const used = (this.reg(0x3210) - this.reg(0x3270)) & 0x7FF;
-            return used === 0 ? 0x10 : used === 0x400 ? 0x100 : 0;
+            const used = (this.reg(0x3210) - this.reg(0x3270)) & 0xFFF;
+            return used === 0 ? 0x10 : used === 0x800 ? 0x100 : 0;
         }
         if(offset === 0x3220) return this.reg(offset) & ~0x110 | (this.reg(0x3244) === this.reg(0x3240) ? 0x100 : 0);
-        if(offset >= 0x90000 && offset < 0x91000) return this.reg(0x90000 + (offset & 0x7FF));
+        if(offset >= 0x90000 && offset < 0x92000) return this.reg(0x90000 + (offset & 0xFFF));
         return null;
     }
 
@@ -93,9 +93,9 @@ export class NVFIFO
             }
             return true;
         }
-        if(offset >= 0x90000 && offset < 0x91000)
+        if(offset >= 0x90000 && offset < 0x92000)
         {
-            this.set(0x90000 + (offset & 0x7FF), value);
+            this.set(0x90000 + (offset & 0xFFF), value);
             return true;
         }
         return false;
@@ -220,9 +220,9 @@ export class NVFIFO
         if(!(this.reg(0x3250) & 1) || this.reg(0x2100) & 1) return false;
         while(this.reg(0x3270) !== this.reg(0x3210))
         {
-            const get = this.reg(0x3270), at = 0x90000 + (get & 0x3FC) * 2, header = this.reg(at);
+            const get = this.reg(0x3270), at = 0x90000 + (get & 0x7FC) * 2, header = this.reg(at);
             if(!this.method(header >>> 13 & 7, header & 0x1FFC, this.reg(at + 4))) return false;
-            this.set(0x3270, (get + 4) & 0x7FC);
+            this.set(0x3270, (get + 4) & 0xFFC);
             if(this.reg(0x3254) & 0x10) return false;
         }
         return true;
@@ -264,7 +264,7 @@ export class NVFIFO
                 this.drain();
                 while(this.reg(0x3244) !== this.reg(0x3240) && budget-- > 0)
                 {
-                    if(((this.reg(0x3210) - this.reg(0x3270)) & 0x7FF) === 0x400) break;
+                    if(((this.reg(0x3210) - this.reg(0x3270)) & 0xFFF) === 0x800) break;
                     const get = this.reg(0x3244);
                     if(get & 3) { this.fault(6); break; }
                     const bytes = this.device.dma.read(dma, get, 4);
@@ -275,9 +275,9 @@ export class NVFIFO
                     {
                         const method = state & 0x1FFC;
                         if(method < 0x100 && !SPECIAL.includes(method)) { this.fault(2); break; }
-                        const put = this.reg(0x3210), at = 0x90000 + (put & 0x3FC) * 2;
+                        const put = this.reg(0x3210), at = 0x90000 + (put & 0x7FC) * 2;
                         this.set(at, state & 0xFFFF); this.set(at + 4, word);
-                        this.set(0x3210, (put + 4) & 0x7FC);
+                        this.set(0x3210, (put + 4) & 0xFFC);
                         count--;
                         state = state & 0x20000 | count << 18 | state & 0xE001 | (state & 1 ? method : method + 4 & 0x1FFC);
                         this.set(0x3228, state);
@@ -322,9 +322,27 @@ export class NVFIFO
         finally { this.running = false; }
     }
 
-    get_state() { return [1, this.active, Array.from(this.channels, ([id, ch]) => [id, ch.bindings, ch.dma, ch.offset])]; }
+    get_state() { return [2, this.active, Array.from(this.channels, ([id, ch]) => [id, ch.bindings, ch.dma, ch.offset])]; }
     set_state(state)
     {
+        if(state[0] !== 1 && state[0] !== 2) throw new Error("NV40 FIFO snapshot version");
+        if(state[0] === 1)
+        {
+            // v1 used a 256-entry ring. Preserve queued methods while expanding
+            // the physical array and moving the wrap bit from 10 to 11.
+            const get = this.reg(0x3270) & 0x7FC, used = (this.reg(0x3210) - get) & 0x7FF;
+            const next = (get & 0x3FC) | (get & 0x400) << 1, pending = [];
+            for(let i = 0; i < used; i += 4)
+            {
+                const at = 0x90000 + ((get + i) & 0x3FC) * 2;
+                pending.push([this.reg(at), this.reg(at + 4)]);
+            }
+            pending.forEach(([header, value], i) => {
+                const at = 0x90000 + ((next + i * 4) & 0x7FC) * 2;
+                this.set(at, header); this.set(at + 4, value);
+            });
+            this.set(0x3270, next); this.set(0x3210, (next + used) & 0xFFC);
+        }
         this.reset(); this.active = state[1];
         for(const [id, bindings, dma, offset] of state[2]) this.channels.set(id, { bindings: new Uint32Array(bindings), dma, offset });
     }

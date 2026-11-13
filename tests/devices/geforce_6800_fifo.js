@@ -111,12 +111,13 @@ for(const [words, code] of [[[0x20000], 3], [[2, 2], 1], [[0xE0000000], 4], [[he
 }
 {
     const f = fixture(); f.regs.set(0x3250, 0);
-    f.submit([header(0x50, 300, 0, true), ...Array.from({ length: 300 }, (_, i) => i + 1)]);
-    for(let i = 0; i < 300; i++) f.fifo.run();
+    f.submit([header(0x50, 600, 0, true), ...Array.from({ length: 600 }, (_, i) => i + 1)]);
+    for(let i = 0; i < 600; i++) f.fifo.run();
     assert.equal(f.fifo.read(0x3214), 0x100, "disabled puller fills cache and stops pusher");
-    assert(f.fifo.read(0xC00044) < 301 * 4); assert.equal(f.fifo.read(0xC00048), 0);
+    assert(f.fifo.read(0xC00044) < 601 * 4); assert.equal(f.fifo.read(0xC00048), 0);
+    assert.equal(f.fifo.read(0x90004),1);assert.equal(f.fifo.read(0x90FFC),512,"NV40 upper cache entries do not alias the lower half");
     f.regs.set(0x3250, 1); f.fifo.run();
-    assert.equal(f.fifo.read(0xC00048), 300); assert.equal(f.fifo.read(0xC00044), 301 * 4);
+    assert.equal(f.fifo.read(0xC00048), 600); assert.equal(f.fifo.read(0xC00044), 601 * 4);
 }
 {
     const f = fixture(); f.submit([0x20000000], 32);
@@ -126,3 +127,16 @@ for(const [words, code] of [[[0x20000], 3], [[2, 2], 1], [[0xE0000000], 4], [[he
     assert.equal(m.regs.get(0x3228) >>> 29, 6, "pushbuffer DMA limit fault");
 }
 console.log("PASS: NV40 RAMFC channels, DMA pusher flow/error/budget, RAMHT, REF and semaphore snapshot/resume");
+
+{
+    const f=fixture();f.fifo.write(0x90000,0x50);f.fifo.write(0x90004,202);
+    f.fifo.write(0x907F8,0x50);f.fifo.write(0x907FC,101);
+    f.regs.set(0x3270,0x3FC);f.regs.set(0x3210,0x404);
+    f.fifo.set_state([1,0,[]]);
+    assert.equal(f.fifo.read(0x90804),202,"old snapshot queue crossing the 256-entry wrap is relocated");
+    f.fifo.drain();assert.equal(f.fifo.read(0xC00048),202);assert.equal(f.regs.get(0x3270),0x404);
+    const g=fixture();g.regs.set(0x3210,0xFFC);g.regs.set(0x3270,0xFFC);
+    g.submit([header(0x50,2,0,true),17,31]);
+    assert.equal(g.regs.get(0x3210),4);assert.equal(g.regs.get(0x3270),4);assert.equal(g.regs.get(0x3248),31);
+    g.fifo.write(0x90004,123);assert.equal(g.fifo.read(0x91004),123,"upper cache aperture is the whole-array alias");
+}
