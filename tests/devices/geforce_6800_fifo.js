@@ -125,6 +125,8 @@ for(const [words, code] of [[[0x20000], 3], [[2, 2], 1], [[0xE0000000], 4], [[he
     assert.equal((f.regs.get(0x3228) || 0) >>> 29, 0);
     const m = fixture(); m.word(0x40004, 2); m.submit([header(0x50), 3]);
     assert.equal(m.regs.get(0x3228) >>> 29, 6, "pushbuffer DMA limit fault");
+    assert.match(m.fifo.faults.at(-1).reason,/limit exceeded/);
+    assert.equal(m.fifo.faults.at(-1).dma,0x40000);
 }
 console.log("PASS: NV40 RAMFC channels, DMA pusher flow/error/budget, RAMHT, REF and semaphore snapshot/resume");
 

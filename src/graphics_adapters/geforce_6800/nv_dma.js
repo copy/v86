@@ -35,7 +35,13 @@ export class NVDMA
         {
             const logical = dma.adjust + offset + done, page = Math.floor(logical / 4096);
             const pte = dma.linear ? dma.pte : this.word(dma.instance + 8 + page * 4);
-            if(!dma.linear && !(pte & 1) || write && !(pte & 2)) throw new RangeError("NV DMA page access fault");
+            if(!dma.linear && !(pte & 1) || write && !(pte & 2))
+            {
+                const error=new RangeError("NV DMA page access fault");
+                error["nv_dma"]={"instance":dma.instance,"offset":offset,"length":length,"write":write,
+                    "page":page,"pte":pte,"adjust":dma.adjust,"linear":dma.linear,"limit":dma.limit};
+                throw error;
+            }
             const address = (pte & 0xFFFFF000) >>> 0;
             const at = dma.linear ? address + logical : address + logical % 4096;
             const count = Math.min(length - done, 4096 - logical % 4096);

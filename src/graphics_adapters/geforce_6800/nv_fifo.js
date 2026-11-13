@@ -13,6 +13,7 @@ export class NVFIFO
     {
         this.device = device;
         this.faults = [];
+        this.commands=[];
         this.active = -1;
         this.channels = new Map();
         this.running = false;
@@ -156,11 +157,11 @@ export class NVFIFO
         return null;
     }
 
-    record_fault(kind,flags)
+    record_fault(kind,flags,reason="",dmaFault=null)
     {
         const get=this.reg(0x3270),at=0x90000+(get&0x7FC)*2,header=this.reg(at);
         this.faults.push({kind,flags,channel:this.active,put:this.reg(0x3240),get:this.reg(0x3244),
-            cache_get:get,subc:header>>>13&7,method:header&0x1FFC,value:this.reg(at+4),sequence:this.device.trace.sequence});
+            dma:this.reg(0x322C)*16,state:this.reg(0x3228),reason,dmaFault,commands:kind==="dma"?this.commands.slice():undefined,cache_get:get,subc:header>>>13&7,method:header&0x1FFC,value:this.reg(at+4),sequence:this.device.trace.sequence});
         if(this.faults.length>64)this.faults.shift();
     }
     cache_error(flags)
@@ -249,9 +250,9 @@ export class NVFIFO
         return true;
     }
 
-    fault(code)
+    fault(code,reason="",dmaFault=null)
     {
-        this.record_fault("dma",code);
+        this.record_fault("dma",code,reason,dmaFault);
         this.set(0x3228, this.reg(0x3228) & 0x1FFFFFFF | code << 29);
         this.set(0x3220, this.reg(0x3220) | 0x1000);
         this.set(0x2100, this.reg(0x2100) | 0x1000);
@@ -282,6 +283,10 @@ export class NVFIFO
                     const word = new DataView(bytes.buffer).getUint32(0, !(this.reg(0x3224) & 0x80000000));
                     this.set(0x3244, get + 4);
                     let state = this.reg(0x3228), count = state >>> 18 & 0x7FF;
+                    if(!count && this.device.trace.enabled)
+                    {
+                        this.commands.push({channel:this.active,get,word});if(this.commands.length>64)this.commands.shift();
+                    }
                     if(count)
                     {
                         const method = state & 0x1FFC;
@@ -328,7 +333,7 @@ export class NVFIFO
         catch(error)
         {
             if(!(error instanceof RangeError)) throw error;
-            this.fault(6);
+            this.fault(6,error.message,error["nv_dma"]||null);
         }
         finally { this.running = false; }
     }
