@@ -6,6 +6,11 @@ const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const COLOR=new Map([[1,[2,24]],[2,[2,24]],[3,[2,23]],[4,[4,22]],[5,[4,22]],
     [8,[4,21]],[9,[1,50]],[11,[8,113]],[12,[16,116]],[13,[4,114]],[15,[4,33]],[16,[4,32]]]);
 const RT_DMA=[0x194,0x18C,0x1B4,0x1B8],RT_OFFSET=[0x210,0x218,0x288,0x28C],RT_PITCH=[0x20C,0x21C,0x280,0x284];
+const f32bits=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
+const half=value=>{
+    const sign=value&0x8000?-1:1,exponent=value>>>10&31,mantissa=value&1023;
+    return sign*(exponent===31?mantissa?NaN:Infinity:exponent?2**(exponent-15)*(1+mantissa/1024):2**-14*mantissa/1024);
+};
 export class NV40State
 {
     constructor(device) {this.device=device;}
@@ -72,6 +77,29 @@ export class NV40State
         if(index<0 || index>=16) throw new RangeError("NV40 invalid vertex attribute");
         return Array.from({length:4},(_,i)=>get(o,0x1C00+index*16+i*4,i===3?0x3F800000:0));
     }
+    vertex_layout(format)
+    {
+        const type=format&15,size=format>>>4&15;
+        if(size>4 || size && ![0,1,2,3,4,5,7].includes(type) || size && type===0 && size!==4)
+            throw new RangeError("NV40 unsupported vertex format");
+        return {type,size,bytes:size*(type===2?4:[1,3,5].includes(type)?2:1)};
+    }
+    vertex_value(layout,bytes)
+    {
+        const {type,size}=layout,view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),values=[0,0,0,0x3F800000];
+        for(let i=0;i<size;i++)
+        {
+            if(type===2) {values[i]=view.getUint32(i*4,true);continue;}
+            let value;
+            if(type===0) value=view.getUint8(i===0?2:i===2?0:i)/255;
+            else if(type===1) value=Math.max(-1,view.getInt16(i*2,true)/32767);
+            else if(type===3) value=half(view.getUint16(i*2,true));
+            else if(type===5) value=view.getInt16(i*2,true);
+            else value=view.getUint8(i)/(type===4?255:1);
+            values[i]=f32bits(value);
+        }
+        return values;
+    }
     // Canonical float4 records make the D3D9 declaration independent of the
     // guest's strides and current attributes. Inline data still consumes every
     // enabled attribute, including attributes the shader does not read.
@@ -116,17 +144,16 @@ export class NV40State
         const bytes=new Uint8Array(indices.length*inputs.length*16),view=new DataView(bytes.buffer);
         for(let slot=0;slot<inputs.length;slot++)
         {
-            const attribute=inputs[slot][0],format=get(o,0x1740+attribute*4),size=format>>>4&15,stride=format>>>8&255;
-            if(size>4 || size && (format&15)!==2) throw new RangeError("NV40 array vertex format needs conversion");
-            const offset=get(o,0x1680+attribute*4),dma=size?this.dma(o,offset&0x80000000?0x1A0:0x19C):null;
+            const attribute=inputs[slot][0],format=get(o,0x1740+attribute*4),layout=this.vertex_layout(format),stride=format>>>8&255;
+            const offset=get(o,0x1680+attribute*4),dma=layout.size?this.dma(o,offset&0x80000000?0x1A0:0x19C):null;
             for(let vertex=0;vertex<indices.length;vertex++)
             {
-                const values=this.attribute(o,attribute),index=indices[vertex]+(get(o,0x173C)|0);
+                let values=this.attribute(o,attribute);const index=indices[vertex]+(get(o,0x173C)|0);
                 if(!Number.isSafeInteger(index) || index<0) throw new RangeError("NV40 invalid vertex index");
-                if(size)
+                if(layout.size)
                 {
-                    const data=this.device.dma.read(dma,(offset&0x0FFFFFFF)+index*stride,size*4),source=new DataView(data.buffer);
-                    for(let i=0;i<size;i++) values[i]=source.getUint32(i*4,true);
+                    const data=this.device.dma.read(dma,(offset&0x0FFFFFFF)+index*stride,layout.bytes);
+                    values=this.vertex_value(layout,data);
                 }
                 const at=(vertex*inputs.length+slot)*16;
                 values.forEach((value,i)=>view.setUint32(at+i*4,value,true));

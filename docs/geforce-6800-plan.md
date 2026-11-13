@@ -332,6 +332,12 @@ NVIDIA 驱动，设备必须从硬件层面的方法流重建 D3D9 级的状态�
   此项不替代原生 DxDiag/3DMark 的 G3 验收。
 
 
+- G3 顶点格式续修（2026-11-14）：数组读取支持 packed BGRA、U8 normalized/scaled、
+  S16 normalized/scaled、FP16 与 FP32，保留 DMA 边界检查。启用的短向量补齐
+  (0,0,0,1)，仅未启用属性使用 current attribute。测试覆盖通道顺序、SNORM 端点、
+  FP16 非正规数/无穷、整数缩放与默认分量，状态/渲染测试和 Closure 构建通过。
+
+
 ## 选型结论
 
 2026-10-26 的选型过程（证据见“规范与实现参考”）：
