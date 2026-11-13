@@ -28,6 +28,14 @@ for(let i = 0; i < rom[bit + 10]; i++)
 }
 assert.equal(rom[entries.get("i").offset + 3], 5);
 assert.equal(rom[word(word(entries.get("I").offset))], 0x71, "terminating initialization script");
+const limits = word(entries.get("C").offset + 8);
+assert.equal(rom[limits], 0x20); assert.equal(rom[limits + 1], 4); assert.equal(rom[limits + 2], 35); assert.equal(rom[limits + 3], 4);
+for(const [i, address] of [0x4000, 0x4020, 0x680508, 0x680520].entries())
+{
+    const at = limits + 4 + i * 35;
+    assert.equal(dword(at), address); assert.equal(word(at + 4), 100); assert.equal(word(at + 6), 500);
+    assert.equal(rom[at + 22], 1); assert.equal(rom[at + 23], 31); assert.equal(dword(at + 31), 13500);
+}
 const dcb = word(0x36);
 assert.equal(rom[dcb], 0x30);
 assert.equal(rom[dcb + 1], 10);

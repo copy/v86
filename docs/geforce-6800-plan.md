@@ -155,6 +155,10 @@
   banked 显存写、800×600×16 清屏和经文本模式的 VBE 状态往返；ROM 表检查、
   完整设备测试通过。固件源码与生成 ROM 同时更新；PLL 限制表及 Win98 驱动门禁仍待完成。
 
+- 固件 PLL 表：增加 BIT/C v1 指向的 v0x20 PLL 限制记录，覆盖 NV40 core、memory
+  与两路 VPLL，提供 13.5 MHz 参考频率及一致的 VCO/N/M/P 范围；VBE 求解器遵守 VCO
+  范围。ROM 指针/字段测试和真实 INT 10h 模式、清屏及文本往返测试通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

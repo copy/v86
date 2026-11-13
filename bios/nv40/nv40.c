@@ -116,6 +116,8 @@ static u32 pll(u32 target)
     {
         int n=((target/1000)*m*(1<<p)+6750)/13500;
         if(n<1 || n>255) continue;
+        u32 vco=13500000u*n/m;
+        if(vco<100000000 || vco>500000000) continue;
         u32 clock=13500000u*n/(m<<p),diff=clock>target?clock-target:target-clock;
         if(diff<error){error=diff;best=p<<16|n<<8|m;}
     }
