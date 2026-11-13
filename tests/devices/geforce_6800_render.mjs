@@ -104,6 +104,17 @@ try
         method(0x308,0x201);method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,128],"passing alpha comparison writes the source");
         method(0x304,0);
+        // Clip before a smaller, offset viewport. Transforming XY into the
+        // full target first would incorrectly paint outside this rectangle.
+        new Float32Array(vram.buffer,0x9010,4).set([.2,.4,.6,1]);
+        new Float32Array(vram.buffer,0x4000,6).set([-1,1,-1,-3,3,1]);vram.fill(0,0x10000,0x10100);
+        const floatWord=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
+        for(const [at,value]of [[0xA20,4],[0xA24,3],[0xA28,0],[0xA30,2],[0xA34,-2],[0xA38,1]])method(at,floatWord(value));
+        method(0x1E94,0x11);method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+        for(let y=0;y<8;y++)for(let x=0;x<8;x++)
+            assert.deepEqual([...vram.subarray(0x10000+(y*8+x)*4,0x10000+(y*8+x)*4+4)],
+                x>=2 && x<6 && y>=1 && y<5?[0x99,0x66,0x33,255]:[0,0,0,0],"offset clip-space viewport "+x+","+y);
+        method(0x1E94,0x101);
         // A real sampled checkerboard also tests Curie's output crossbar:
         // the VP writes raw TBUF5, mapped to the FP's TEX0 input.
         method(0x1E9C,0);

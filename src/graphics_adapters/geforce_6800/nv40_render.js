@@ -131,8 +131,8 @@ export class NV40Render
         const blend=nv40_blend_state(o);
         const target=this.engine.state.target(o);
         if(![21,22,23].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
-        if(!(get(o,0x1E94)&0x100)) throw new RangeError("NV40 clip-space viewport lowering is not connected");
-        const shaders=this.engine.shaders(o,{viewport:{width:target.width,height:target.height,bypass:true}});
+        const viewport=this.engine.state.viewport(o,target);
+        const shaders=this.engine.shaders(o,{viewport});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.read(surface);
             return {unit,surface,bytes};
@@ -146,7 +146,7 @@ export class NV40Render
         // commands or changing the host's resource cache.
         this.initialize();const handle=this.target(target,initial),vs=this.shader(shaders.vertex.bytecode,true),ps=this.shader(shaders.fragment.bytecode,false);
         this.command(OP.SET_RENDER_TARGET,{"target_index":0,"color_texture_handle":handle});
-        this.command(OP.SET_VIEWPORT,{"width":target.width,"height":target.height,"max_z":1});
+        this.command(OP.SET_VIEWPORT,{"x":viewport.x,"y":viewport.y,"width":viewport.width,"height":viewport.height,"max_z":1});
         this.command(OP.SET_VERTEX_DECLARATION,{"declaration_handle":this.declaration(shaders.vertex.inputs)});
         for(const {unit,surface,bytes}of textures)
         {

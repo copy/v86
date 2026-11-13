@@ -116,6 +116,20 @@ export class NV40State
         if(mask!==null && mask&0x3000) throw new RangeError("NV40 extra texture interpolators are not connected");
         return routes;
     }
+    viewport(o,target)
+    {
+        if(get(o,0x1E94)&0x100)return {x:0,y:0,width:target.width,height:target.height,bypass:true};
+        const number=at=>new Float32Array(Uint32Array.of(get(o,at)).buffer)[0];
+        const scale=[0,1,2].map(i=>number(0xA30+i*4)),translate=[0,1,2].map(i=>number(0xA20+i*4));
+        const width=2*Math.abs(scale[0]),height=2*Math.abs(scale[1]);
+        const x=translate[0]-width/2,y=translate[1]-height/2;
+        if(!scale.concat(translate,[x,y,width,height]).every(Number.isFinite) || width<=0 || height<=0 ||
+            x<0 || y<0 || x+width>target.width || y+height>target.height)
+            throw new RangeError("NV40 unsupported viewport bounds");
+        // Keep clip-space XY until host clipping. The host viewport applies
+        // NV's scale/translation afterwards, including a nonzero origin.
+        return {x,y,width,height,bypass:false,scale,translate:[width/2,height/2,translate[2]]};
+    }
     attribute(o,index)
     {
         if(index<0 || index>=16) throw new RangeError("NV40 invalid vertex attribute");
