@@ -18,7 +18,10 @@ const blendState={methods:new Map([[0x310,1],[0x314,0x00010302],[0x318,0x303],[0
 const blendRegisters=new Map(nv40_blend_state(blendState));
 assert.equal(blendRegisters.get(19),5);assert.equal(blendRegisters.get(20),6);
 assert.equal(blendRegisters.get(207),2);assert.equal(blendRegisters.get(209),2,"separate alpha equation");
-blendState.methods.set(0x314,0x18003);assert.throws(()=>nv40_blend_state(blendState),/constant-alpha/);
+blendState.methods.set(0x314,0x18003);blendState.methods.set(0x31C,0x40204060);
+assert.equal(new Map(nv40_blend_state(blendState)).get(193),0x40404040,"constant alpha is replicated without changing alpha factors");
+blendState.methods.set(0x318,0x8001);assert.throws(()=>nv40_blend_state(blendState),/mixed constant-color\/constant-alpha/);
+blendState.methods.set(0x31C,0x40404040);assert.equal(new Map(nv40_blend_state(blendState)).get(193),0x40404040);
 const depthState={methods:new Map([[0xA74,1],[0xA70,1],[0xA6C,0x203],[0x328,1],[0x344,0x8507]])};
 const depthRegisters=new Map(nv40_depth_state(depthState).states);
 assert.equal(depthRegisters.get(23),4);assert.equal(depthRegisters.get(55),7);
@@ -142,6 +145,16 @@ try
         method(0x308,2);method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,128],"passing alpha comparison writes the source");
         method(0x304,0);
+        method(0x310,1);method(0x31C,0x40204060);method(0x320,0x80068006);
+        for(const [src,dst,expected]of [[0x8003,0x8004,[115,76,102,128]],[0x8004,0x8003,[38,26,204,128]]])
+        {
+            for(let at=0x10000;at<0x10100;at+=4)vram.set([153,102,51,255],at);
+            method(0x314,0x10000|src);method(0x318,dst);
+            method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+            const actual=[...vram.subarray(0x10000,0x10004)];
+            expected.forEach((value,i)=>assert(Math.abs(actual[i]-value)<=1,"constant-alpha blend "+src.toString(16)+": "+actual));
+        }
+        method(0x310,0);
         // The affine transform and pixel-center clipping must both survive
         // lowering fractional NV viewports into an integer host viewport.
         new Float32Array(vram.buffer,0x9010,4).set([.2,.4,.6,1]);

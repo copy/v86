@@ -82,10 +82,20 @@ export function nv40_blend_state(o)
     if(!blend)return result;
     const source=get(o,0x314,0x00010001),destination=get(o,0x318),equation=get(o,0x320,0x80068006);
     const convert=(table,value)=>{if(!table.has(value))throw new RangeError("NV40 unsupported blend enum");return table.get(value);};
-    if([source&65535,destination&65535].some(value=>value===0x8003 || value===0x8004))
-        throw new RangeError("NV40 constant-alpha RGB blend is not connected");
+    const rgb=[source&65535,destination&65535],constantAlpha=rgb.some(value=>value===0x8003 || value===0x8004);
+    let constant=get(o,0x31C);
+    if(constantAlpha)
+    {
+        const replicated=((constant>>>24)*0x01010101)>>>0;
+        // WebGPU exposes one constant vector. Replicating A into RGB also
+        // preserves the separate alpha factors. A simultaneous RGB constant
+        // color needs a second vector unless its components already equal A.
+        if(constant!==replicated && rgb.some(value=>value===0x8001 || value===0x8002 || value===0x100E || value===0x100F))
+            throw new RangeError("NV40 mixed constant-color/constant-alpha RGB blend is not connected");
+        constant=replicated;
+    }
     result.push([19,convert(BLEND,source&65535)],[20,convert(BLEND,destination&65535)],
-        [171,convert(EQUATION,equation&65535)],[193,get(o,0x31C)],
+        [171,convert(EQUATION,equation&65535)],[193,constant],
         [206,1],[207,convert(BLEND,source>>>16)],[208,convert(BLEND,destination>>>16)],
         [209,convert(EQUATION,equation>>>16)]);
     return result;

@@ -1428,3 +1428,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   `0x3333` / RGB `0x31659C`，全部通过，无 GPU/PGRAPH/DMA 故障，原盘未变，
   见 `g3-xp-9371-rgb565.json`。这排除所覆盖的顶点/目标/GDI 转换路径；独立的
   3DMark99 固定帧红蓝差异仍未解决，不能据此接受完整 G3。
+
+- G4 常量 alpha 混合：RGB 的 CONSTANT_ALPHA / ONE_MINUS_CONSTANT_ALPHA
+  通过把 blend constant 的 alpha 复制到 RGB 接入宿主混合，独立 alpha 因子仍
+  使用原始 alpha。同一绘制还需要不同 RGB 常量颜色时，继续明确拒绝；常量
+  四分量本就相同则可以共用。CPU 状态回归覆盖兼容/冲突组合，真实 GPU
+  检查非灰色常量下两种因子及独立 alpha，完整渲染回归与 Closure 构建通过。
