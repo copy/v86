@@ -108,6 +108,7 @@
         // Private NV40 arithmetic in D9WG shader bytecode. Never emitted by the guest D3D
         // proxy: control selects RCC, legacy EXP/LOG, LIT, RCP, RSQ or LG2.
         NV_ALU: 0x1000,
+        NV_LOAD: 0x1001, NV_STORE: 0x1002, NV_HALF: 0x1003, NV_COPY: 0x1004,
         PHASE: 0xfffd, COMMENT: 0xfffe, END: 0xffff,
     };
 
@@ -139,6 +140,8 @@
         [OP.TEXCOORD]: [1, 0], [OP.TEXKILL]: [1, 0],
         [OP.EXPP]: [1, 1], [OP.LOGP]: [1, 1], [OP.CND]: [1, 3],
         [OP.NV_ALU]: [1, 1],
+        [OP.NV_LOAD]: [1, 1], [OP.NV_STORE]: [1, 2],
+        [OP.NV_HALF]: [1, 1], [OP.NV_COPY]: [1, 2],
         [OP.CMP]: [1, 3], [OP.DP2ADD]: [1, 3], [OP.DSX]: [1, 1],
         [OP.DSY]: [1, 1], [OP.TEXLDD]: [1, 4], [OP.TEXLDL]: [1, 2],
         [OP.TEXREG2AR]: [1, 1], [OP.TEXREG2GB]: [1, 1],
@@ -495,7 +498,7 @@
     const PROGRAM_SETS = ["temps", "writtenVaryings", "psTexcoordInputs", "bumpStages", "psColorInputs", "colorOutputs"];
     const PROGRAM_VALUES = ["outputDeclarations", "inputDeclarations", "usesAddress", "usesLoopCounter", "usesPredicate",
         "usesPointSize", "usesDepthOutput", "usesFragPosition", "usesFrontFacing", "usesRelativeConstants", "usesRelativeInputs",
-        "maxFloatConst", "maxIntConst", "maxBoolConst", "temporaryId", "warnings", "nvAlu"];
+        "maxFloatConst", "maxIntConst", "maxBoolConst", "temporaryId", "warnings", "nvAlu", "nvRegisters"];
 
     class Translator {
         constructor(parsed, options) {
@@ -508,6 +511,7 @@
             this.indent = 2;
             this.temps = new Set();
             this.nvAlu = false;
+            this.nvRegisters = false;
             this.usedInputs = new Map();       // register -> {usage, usageIndex}
             this.outputSemantics = new Map();  // vs_3_0 o# -> {usage, usageIndex}
             this.outputDeclarations = [];
@@ -1150,6 +1154,44 @@
                 this.nvAlu = true;
                 this.store(dest, "nv40_alu(" + instruction.control + "u, " + s(0) + ")");
                 return;
+            case OP.NV_LOAD: case OP.NV_STORE: case OP.NV_HALF: case OP.NV_COPY: {
+                if (this.kind !== "pixel" || instruction.control > 1 || instruction.predicated ||
+                    dest.relative || dest.type !== REG_TEMP || dest.modifier || dest.shift)
+                    throw new Error("invalid private NV40 fragment register operation");
+                this.nvRegisters = true;
+                const half = instruction.control, physical = opcode === OP.NV_LOAD ? sources[0] : dest;
+                if (opcode !== OP.NV_HALF && (physical.index >= 64 || physical.type !== REG_TEMP || physical.relative))
+                    throw new Error("invalid private NV40 fragment register index");
+                if (opcode === OP.NV_HALF) {
+                    this.store(dest, "nv40_half(" + s(0) + ")"); return;
+                }
+                if (opcode === OP.NV_LOAD) {
+                    if (sources[0].modifier || sources[0].swizzle !== 0xe4)
+                        throw new Error("invalid private NV40 register load source");
+                    this.store(dest, "nv40_load(" + physical.index + "u, " + half + "u)"); return;
+                }
+                const value = this.fresh("nv"), predicate = this.fresh("nv_gate");
+                if (opcode === OP.NV_COPY) {
+                    const source = sources[0];
+                    if (source.type !== REG_TEMP || source.relative || source.index >= 64 ||
+                        ![SRCMOD_NONE, SRCMOD_NEG, SRCMOD_ABS, SRCMOD_ABSNEG].includes(source.modifier))
+                        throw new Error("invalid private NV40 register copy source");
+                    let raw = "nv40_raw(" + source.index + "u, " + half + "u)." + swizzleString(source.swizzle);
+                    const sign = half ? "0x8000u" : "0x80000000u";
+                    if ([SRCMOD_ABS, SRCMOD_ABSNEG].includes(source.modifier)) raw = "(" + raw + " & vec4<u32>(~" + sign + "))";
+                    if ([SRCMOD_NEG, SRCMOD_ABSNEG].includes(source.modifier)) raw = "(" + raw + " ^ vec4<u32>(" + sign + "))";
+                    this.emit("let " + value + " = " + raw + ";");
+                } else {
+                    this.emit("let " + value + " = " + (half ? "nv40_encode(" + s(0) + ")" : "bitcast<vec4<u32>>(" + s(0) + ")") + ";");
+                }
+                this.emit("let " + predicate + " = " + s(1) + ";");
+                for (let lane = 0; lane < 4; lane++) if (dest.writeMask & 1 << lane) {
+                    const component = WRITEMASK_NAMES[lane];
+                    this.emit("if (" + predicate + "." + component + " >= 0.0) { nv40_write(" +
+                        physical.index + "u, " + half + "u, " + lane + "u, " + value + "." + component + "); }");
+                }
+                return;
+            }
             case OP.RSQ: this.store(dest, "vec4<f32>(d9_rsq(" + scalar(0) + "))"); return;
             case OP.EXP: this.store(dest, "vec4<f32>(exp2(" + scalar(0) + "))"); return;
             case OP.LOG: this.store(dest, "vec4<f32>(d9_log(" + scalar(0) + "))"); return;
@@ -1950,6 +1992,71 @@
             }
 
             out.push("");
+            if (this.nvRegisters) out.push(`
+// NV40's R/H names view the same bits. H[2*n].xy/zw occupy R[n].x/y;
+// H[2*n+1].xy/zw occupy R[n].z/w. Integer storage preserves packed NaNs.
+var<private> nv40_registers: array<vec4<u32>, 64>;
+fn nv40_f16(value: f32) -> u32 {
+    let raw = bitcast<u32>(value);
+    let sign = (raw >> 16u) & 0x8000u;
+    let mag = raw & 0x7fffffffu;
+    if (mag >= 0x7f800000u) {
+        if (mag == 0x7f800000u) { return sign | 0x7c00u; }
+        return sign | 0x7e00u | ((mag >> 13u) & 0x3ffu);
+    }
+    if (mag >= 0x477ff000u) { return sign | 0x7c00u; }
+    let exponent = mag >> 23u;
+    if (exponent >= 113u) {
+        return sign | ((mag - 0x38000000u + 0xfffu + ((mag >> 13u) & 1u)) >> 13u);
+    }
+    if (exponent < 102u) { return sign; }
+    let mantissa = (mag & 0x7fffffu) | 0x800000u;
+    let shift = 126u - exponent;
+    let rounded = mantissa + (1u << (shift - 1u)) - 1u + ((mantissa >> shift) & 1u);
+    return sign | (rounded >> shift);
+}
+fn nv40_f32(value: u32) -> f32 {
+    let sign = (value & 0x8000u) << 16u;
+    var mantissa = value & 0x3ffu;
+    var exponent = (value >> 10u) & 31u;
+    if (exponent == 31u) { return bitcast<f32>(sign | 0x7f800000u | (mantissa << 13u)); }
+    if (exponent == 0u) {
+        if (mantissa == 0u) { return bitcast<f32>(sign); }
+        exponent = 113u;
+        loop {
+            if ((mantissa & 0x400u) != 0u) { break; }
+            mantissa <<= 1u; exponent -= 1u;
+        }
+        mantissa &= 0x3ffu;
+    } else { exponent += 112u; }
+    return bitcast<f32>(sign | (exponent << 23u) | (mantissa << 13u));
+}
+fn nv40_encode(value: vec4<f32>) -> vec4<u32> {
+    return vec4<u32>(nv40_f16(value.x), nv40_f16(value.y), nv40_f16(value.z), nv40_f16(value.w));
+}
+fn nv40_half(value: vec4<f32>) -> vec4<f32> {
+    let h = nv40_encode(value);
+    return vec4<f32>(nv40_f32(h.x), nv40_f32(h.y), nv40_f32(h.z), nv40_f32(h.w));
+}
+fn nv40_raw(index: u32, half: u32) -> vec4<u32> {
+    if (half == 0u) { return nv40_registers[index]; }
+    let r = nv40_registers[index >> 1u];
+    let pair = (index & 1u) * 2u;
+    return vec4<u32>(r[pair] & 0xffffu, r[pair] >> 16u, r[pair+1u] & 0xffffu, r[pair+1u] >> 16u);
+}
+fn nv40_load(index: u32, half: u32) -> vec4<f32> {
+    let raw = nv40_raw(index, half);
+    if (half == 0u) { return bitcast<vec4<f32>>(raw); }
+    return vec4<f32>(nv40_f32(raw.x), nv40_f32(raw.y), nv40_f32(raw.z), nv40_f32(raw.w));
+}
+fn nv40_write(index: u32, half: u32, lane: u32, value: u32) {
+    if (half == 0u) { nv40_registers[index][lane] = value; return; }
+    let component = (index & 1u) * 2u + (lane >> 1u);
+    let shift = (lane & 1u) * 16u;
+    let old = nv40_registers[index >> 1u][component];
+    nv40_registers[index >> 1u][component] = (old & ~(0xffffu << shift)) | ((value & 0xffffu) << shift);
+}
+`);
             if (this.nvAlu) out.push(`
 // NV vertex arithmetic differs from D3D's finite-zero helpers and legacy
 // partial-precision instructions. Classification uses bits, including -0.

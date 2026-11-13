@@ -370,6 +370,43 @@ try
             return [...vram.subarray(0x10000,0x10004)];
         };
         const conditions=[()=>false,x=>x<0,x=>x===0,x=>x<=0,x=>x>0,x=>x!==0,x=>x>=0,()=>true];
+        const fpMove=(destination,half,source,sourceHalf,{mask=15,swizzle=[0,1,2,3],condition=7,end=false}={})=>[
+            (1<<24|destination<<1|+half<<7|mask<<9|+end)>>>0,
+            source<<2|+sourceHalf<<8|swizzle.reduce((bits,value,i)=>bits|value<<(9+i*2),0)|condition<<18,0,0];
+        const fpLiteral=(destination,half,values,{mask=15,end=false}={})=>[
+            (1<<24|destination<<1|+half<<7|mask<<9|+end)>>>0,7<<18|0x1C802,0,0,
+            ...new Uint32Array(Float32Array.from(values).buffer)];
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(2,true,[.25,.5,.75,1]),...fpMove(0,false,1,false,{end:true})]),[191,128,64,255],
+            "full-register MOV copies both packed halves to their aliased H output");
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(0,false,[1,1,1,1]),...fpLiteral(0,true,[.25,.5,.75,1],{mask:5}),
+            ...fpMove(2,true,0,true,{swizzle:[3,2,1,0]}),...fpMove(0,false,1,false,{end:true})]),[255,191,255,64],
+            "masked H writes preserve the adjacent half and copies read all old lanes before writing");
+        // NaN payload 0x7fff3800 must survive an R MOV. Changing just H0.y
+        // afterwards makes the low payload observable as H0.x == 0.5.
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(1,false,[new Float32Array(Uint32Array.of(0x7fff3800).buffer)[0],0,0,0]),
+            ...fpMove(0,false,1,false),...fpLiteral(0,true,[0,1,.25,.75],{mask:14,end:true})]),[64,255,128,191],
+            "raw MOV preserves NaN payload bits across full/half aliases");
+        for(const [value,expected]of [[2**-24,255],[2**-25,0],[2**-25+2**-35,255]])
+        {
+            const multiply=[2<<24|128|15<<9|1,7<<18|0x1C900,0x1C802,0,...new Uint32Array(Float32Array.of(2**24,2**24,2**24,2**24).buffer)];
+            assert.deepEqual(await conditionalDraw([...fpLiteral(0,true,Array(4).fill(value)),...multiply]),Array(4).fill(expected),
+                "FP16 subnormal rounding " + value);
+        }
+        for(const [value,expected]of [[1+2**-11,0],[1+3*2**-11,255]])
+        {
+            const add=[3<<24|128|15<<9,7<<18|0x1C900,0x1C802,0,...new Uint32Array(Float32Array.of(-1,-1,-1,-1).buffer)];
+            const scale=[2<<24|128|15<<9|1,7<<18|0x1C900,0x1C802,0,...new Uint32Array(Float32Array.of(512,512,512,512).buffer)];
+            assert.deepEqual(await conditionalDraw([...fpLiteral(0,true,Array(4).fill(value)),...add,...scale]),Array(4).fill(expected),
+                "FP16 normal halfway cases round to the even mantissa");
+        }
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(0,true,[0,0,0,0]),...ccInstruction([2**-25,-(2**-25),2**-24,-(2**-24)],{update:true,disabled:true}),
+            ...ccInstruction([1,1,1,1],{condition:2,end:true})]),[0,255,255,0],
+            "half destination condition codes observe rounded signed zero");
+        console.log("PASS: real WebGPU shared R/H bits, partial half writes, raw NaN MOV, FP16 subnormals and rounded condition codes");
         for(let condition=0;condition<8;condition++)
         {
             const pixel=await conditionalDraw([

@@ -1,6 +1,6 @@
 // NV40 decoded programs -> D3D9 SM3 bytecode. This module only emits bytecode;
 // the existing D3D9 pipeline owns WGSL generation and execution. Unsupported
-// control flow and register aliases fail before any draw.
+// operations fail before any draw.
 const OP = {MOV:1,ADD:2,SUB:3,MAD:4,MUL:5,RCP:6,RSQ:7,DP3:8,DP4:9,MIN:10,MAX:11,
     SLT:12,SGE:13,LIT:16,DST:17,FRC:19,DCL:31,SINCOS:37,MOVA:46,DEF:81,
     CALL:25,RET:28,LABEL:30,IFC:41,ELSE:42,ENDIF:43,LOOP:27,ENDLOOP:29,REP:38,ENDREP:39,BREAKC:45,DEFI:48,KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90,CMP:88};
@@ -20,7 +20,7 @@ class Shader
     constructor(stage,reserved=[])
     {
         this.stage=stage;this.declarations=[];this.body=[];this.inputs=new Map();this.outputs=new Map();
-        this.input_overrides=new Map();this.temps=new Map();this.samplers=new Map();this.constants=new Set(reserved);this.aliases=new Map();this.literals=new Map();
+        this.input_overrides=new Map();this.temps=new Map();this.samplers=new Map();this.constants=new Set(reserved);this.literals=new Map();
     }
     emit(op,...operands) { const words=operands.flat();this.body.push((words.length<<24|op)>>>0,...words); }
     declare(type,index,meaning) { this.declarations.push(0x0200001F,semantic(...meaning),dst(type,index)); }
@@ -67,11 +67,11 @@ class Shader
         {
             if(this.stage==="fragment")
             {
-                const bank=source.half?"h":"r", base=source.half?source.index>>>1:source.index;
-                if(this.aliases.has(base) && this.aliases.get(base)!==bank)
-                    throw new RangeError("NV40 mixed half/full register alias needs packing");
+                index=this.temp("read-"+(source.half?"h":"r")+source.index);
+                this.emit(0x1001|+!!source.half<<16,dst(0,index),src(0,source.index));
             }
-            type=0;index=this.temp((source.half?"h":"r")+source.index);
+            else index=this.temp("r"+source.index);
+            type=0;
         }
         else if(source.type==="input") [type,index]=this.input_overrides.has(source.index)?[0,this.input_overrides.get(source.index)]:this.input(source.index);
         else if(source.type==="constant")
@@ -618,11 +618,11 @@ export function translate_fragment_program(program,options={})
             shader.emit(OP.MOV,dst(0,29),src(0,31,[0,1,2,3],true));shader.emit(OP.KIL,dst(0,29));
             if(flow)shader.emit(OP.ENDIF);if(calls && i.end)terminate();continue;
         }
-        const key=(i.destination.half?"h":"r")+i.destination.index;
-        const target=i.destination.disabled?-1:shader.temp(key),staged=conditional || i.predicate.update || i.destination.disabled;
+        const half=!!i.destination.half,base=half?i.destination.index>>>1:i.destination.index;
         const shift=i.scale<4?i.scale:8-i.scale+12;
         if(i.scale===4) throw new RangeError("NV40 invalid fragment scale");
-        const destination=dst(0,staged?30:target,i.destination.mask,i.saturate,shift);
+        const copy=i.name==="MOV" && i.sources[0].type==="temp" && !!i.sources[0].half===half && !i.scale && !i.saturate;
+        const destination=dst(0,30,i.destination.mask,i.saturate,shift);
         if(texture)
         {
             const size=options.texture_sizes?.[i.texture];
@@ -653,24 +653,27 @@ export function translate_fragment_program(program,options={})
             else shader.emit((i.name==="TXL"?OP.TXL:OP.TEX) | (i.name==="TXP"?1:i.name==="TXB"?2:0)<<16,
                 destination,sources[0],sampler);
         }
-        else shader.alu(i.name,destination,sources);
-        if(staged)
+        else if(!copy)shader.alu(i.name,destination,sources);
+        if(!i.destination.disabled)
         {
-            if(target>=0)
+            const predicate=conditional?src(0,31):shader.literal(1);
+            if(copy)
             {
-                if(conditional)shader.emit(OP.CMP,dst(0,target,i.destination.mask),src(0,31),src(0,30),src(0,target));
-                else shader.emit(OP.MOV,dst(0,target,i.destination.mask),src(0,30));
+                const source=i.sources[0];
+                shader.emit(0x1004|+half<<16,dst(0,i.destination.index,i.destination.mask),
+                    src(0,source.index,source.swizzle,source.negate,source.absolute),predicate);
             }
-            if(i.predicate.update)
-            {
-                if(conditional)shader.emit(OP.CMP,dst(0,writeCC,i.destination.mask),src(0,31),src(0,30),src(0,writeCC));
-                else shader.emit(OP.MOV,dst(0,writeCC,i.destination.mask),src(0,30));
-            }
+            else shader.emit(0x1002|+half<<16,dst(0,i.destination.index,i.destination.mask),src(0,30),predicate);
+            written.add(base);
         }
-        if(target>=0)
+        if(i.predicate.update)
         {
-            const base=i.destination.half?i.destination.index>>>1:i.destination.index;
-            shader.aliases.set(base,i.destination.half?"h":"r");written.add(key);
+            // CREG observes the rounded destination precision, including
+            // underflow to signed zero, even for a disabled result register.
+            if(copy)shader.emit(OP.MOV,dst(0,30,i.destination.mask),sources[0]);
+            if(half)shader.emit(0x1003,dst(0,30,i.destination.mask),src(0,30));
+            if(conditional)shader.emit(OP.CMP,dst(0,writeCC,i.destination.mask),src(0,31),src(0,30),src(0,writeCC));
+            else shader.emit(OP.MOV,dst(0,writeCC,i.destination.mask),src(0,30));
         }
         if(flow)shader.emit(OP.ENDIF);
         if(calls && i.end)terminate();
@@ -680,17 +683,17 @@ export function translate_fragment_program(program,options={})
     if(calls){shader.emit(OP.RET);for(const word of shader.body)functionBodies.push(word);shader.body=[];}
     }
     if(calls){shader.body=prefix;shader.emit(OP.CALL,src(18,0));}
-    const primary=(options.fp32_outputs?"r":"h")+"0";
-    if(calls)written.add(primary); // Unwritten result registers are undefined; choose zero.
-    if(!written.has(primary)) throw new RangeError("NV40 fragment color output is not written");
+    if(calls)written.add(0); // Unwritten result registers are undefined; choose zero.
+    if(!written.has(0)) throw new RangeError("NV40 fragment color output is not written");
     for(let color=0;color<(options.targets||1);color++)
     {
         // R1 is reserved for depth. Color 1/2/3 use R2/R3/R4, or their
         // corresponding even half registers H4/H6/H8.
-        const register=[0,2,3,4][color],key=(options.fp32_outputs?"r":"h")+(register*(options.fp32_outputs?1:2));
-        if(written.has(key)) shader.emit(OP.MOV,dst(8,color),src(0,shader.temp(key)));
+        const register=[0,2,3,4][color];
+        if(written.has(register)) shader.emit(OP.MOV,dst(8,color),shader.source({type:"temp",index:register*(options.fp32_outputs?1:2),
+            half:!options.fp32_outputs,swizzle:[0,1,2,3]}));
     }
-    if(options.depth && written.has("r1")) shader.emit(OP.MOV,dst(9,0,1),src(0,shader.temp("r1"),[2,2,2,2]));
+    if(options.depth && written.has(1)) shader.emit(OP.MOV,dst(9,0,1),shader.source({type:"temp",index:1,half:false,swizzle:[2,2,2,2]}));
     if(calls){shader.emit(OP.RET);shader.body=shader.body.concat(functionBodies);}
     return {...shader.finish(),constant_values:program.constants.map(words=>Uint32Array.from(words)),texture_constants:[...textureConstants.values()]};
 }

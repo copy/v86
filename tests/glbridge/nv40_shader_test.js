@@ -166,7 +166,13 @@ try
     assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:8,instructions:[fpFlow("BRK",0,0),fpMove(4)]}),/outside loop/);
     assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:12,instructions:[fpFlow("IF",0,10),fpMove(4)]}),/scope/);
     const alias=structuredClone(fragment),later=structuredClone(alias.instructions[0]);later.sources[0]={type:"temp",index:0,half:false,swizzle:[0,1,2,3]};alias.instructions.push(later);
-    assert.throws(()=>translate_fragment_program(alias),/alias/);
+    validate("fragment-half-full-alias",translate_fragment_program(alias));
+    for(const half of [false,true])
+    {
+        const p=structuredClone(alias);p.instructions[1].sources[0].half=half;
+        p.instructions[1].destination.half=half;p.instructions[1].predicate.update=true;
+        validate("fragment-raw-copy-"+half,translate_fragment_program(p));
+    }
     for(const full of [false,true])
     {
         const multiple=structuredClone(fragment);

@@ -1309,3 +1309,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   仅生成显示结果路由能观察的写入，越出物理 TBUF 的未定义写入选择忽略。
   122 个 Naga 模块、完整真实 GPU 回归、程序/PGRAPH/FIFO 测试及 Closure 构建
   通过，像素测试覆盖有效/负/溢出目标、掩码、false 条件及双发射地址加载。
+
+- G4 片元 R/H 别名：以共享 u32 寄存器保存物理位，H[2n].xy/zw 对应 R[n].x/y，
+  H[2n+1].xy/zw 对应 R[n].z/w。逐分量谓词、半字掩码写和同精度 MOV 保留相邻
+  位及 NaN payload；FP16 按 ties-to-even 舍入，支持次正规数、signed zero、Inf/NaN，
+  条件码读取舍入后的结果。私有 D9WG LOAD/STORE/HALF/COPY 指令只用于片元前端。
+  125 个 Naga 模块、完整真实 GPU 回归、通用 D3D 57 项/199 个 Naga 验证、
+  PGRAPH/FIFO/解码测试及 Closure/WebGPU bundle 构建通过。指令 precision 字段的
+  低精度算术模式与 pack/unpack 尚待后续步骤，不能据此宣称全部精度语义完成。
