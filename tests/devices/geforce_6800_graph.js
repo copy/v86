@@ -156,3 +156,9 @@ device.registers.set(0x32E0,0x1234);method(0,0x4200,0x100,0);
 assert.equal(graph.read(0x400710)&0x77700000,0x32100000,"context switch and snapshot preserve separate counters");
 graph.written(0x400710,0x33200000);assert.deepEqual(graph.flips[1].slice(0,3),[3,2,3]);
 console.log("PASS: SURF_TYPE flip fields and valid per-GRCTX counters across switches and snapshots");
+
+word(0x4600,0x88);device.registers.set(0x400720,1);
+for(const at of [0x184,0x188,0x18C])method(0,0x4600,at,0x410);
+assert.equal(device.registers.get(0x400720),1,"DVD DMA context bindings do not execute a composite");
+method(0,0x4600,0x33C,0);assert.equal(device.registers.get(0x400720),0,"unimplemented DVD composite remains an explicit trap");
+console.log("PASS: NV10 DVD subpicture DMA binding without fabricated drawing completion");
