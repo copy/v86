@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+<key>application-identifier</key><string>org.v86.app-agent</string>
+<key>platform-application</key><true/>
+<key>com.apple.private.mobileinstall.allowedSPI</key><array><string>Install</string><string>InstallForLaunchServices</string><string>Lookup</string></array>
+<key>com.apple.security.exception.mach-lookup.global-name</key><array><string>com.apple.mobile.installd</string></array>
+</dict></plist>

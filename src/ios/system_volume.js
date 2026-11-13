@@ -4,6 +4,7 @@ import { HFSPlus } from "./hfsplus.js";
 import { catalog_key, catalog_thread } from "./hfsx_data.js";
 import { DISPLAY_DAEMONS, LOCKDOWN_DAEMON, SYSTEM_GL_APPLICATIONS, SYSTEM_GL_LIBRARY,
     check_guest_library, link_guest_gles, offline_lockdown } from "./guest_load.js";
+import { INSTALL_AGENT, INSTALL_BOOTSTRAP, INSTALL_POLICY, INSTALL_DAEMON, check_install_components, link_install_policy } from "./install_components.js";
 
 const view = bytes => new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 const expect = (condition, message) => { if(!condition) throw new Error(message); };
@@ -72,7 +73,7 @@ async function fix_fstab(volume, write, compress)
     throw new Error("Could not locate the fstab attribute leaf");
 }
 
-async function rewrite_daemon(volume, write, path, compress, patch)
+export async function rewrite_daemon(volume, write, path, compress, patch)
 {
     const file = await volume.lookup(path);
     expect(file?.compressed && file.resource.size, "Expected compressed daemon: " + path);
@@ -278,6 +279,16 @@ async function install_system_gl(volume, write, library)
 // insertion fails before overwriting a full catalog leaf.
 export async function install_system_file(volume, write, path, library, mode = 0o644)
 {
+    return install_system_entry(volume, write, path, library, mode, false);
+}
+
+export async function install_system_directory(volume, write, path, mode = 0o755)
+{
+    return install_system_entry(volume, write, path, null, mode, true);
+}
+
+async function install_system_entry(volume, write, path, library, mode, isDirectory)
+{
     expect(path.startsWith("/") && !path.split("/").some(p => p === "." || p === ".."), "Invalid system file path");
     expect(!await volume.lookup(path), "System file already exists: " + path);
     const slash = path.lastIndexOf("/"), directory = await volume.lookup(path.slice(0, slash) || "/"), name = path.slice(slash + 1);
@@ -289,41 +300,47 @@ export async function install_system_file(volume, write, path, library, mode = 0
     const [parentNode, leaf] = parent, size = tree.node_size;
     const parentIndex = leaf.records.findIndex(({ data }) => view(data).getUint16(0) === 1 && view(data).getUint32(8) === directory.id);
 
-    const fileID = view(volume.header).getUint32(64), record = new Uint8Array(248), v = view(record);
-    v.setUint16(0, 2);
-    v.setUint16(2, 2); // has a file thread
+    const fileID = view(volume.header).getUint32(64), record = new Uint8Array(isDirectory ? 88 : 248), v = view(record);
+    v.setUint16(0, isDirectory ? 1 : 2);
+    v.setUint16(2, isDirectory ? 0x10 : 2);
     v.setUint32(8, fileID);
     record.set(leaf.records[parentIndex].data.subarray(12, 32), 12);
-    v.setUint16(42, 0o100000 | mode);
+    v.setUint16(42, (isDirectory ? 0o40000 : 0o100000) | mode);
     v.setUint32(44, 1);
-    const { blocks, extents: [{ start }] } = await extend_system_volume(volume, write, { blocks: 0, extents: [] }, library.length);
-    v.setBigUint64(88, BigInt(library.length));
-    v.setUint32(100, blocks);
-    v.setUint32(104, start);
-    v.setUint32(108, blocks);
-    await write(start * volume.block_size, library);
+    if(!isDirectory)
+    {
+        const { blocks, extents: [{ start }] } = await extend_system_volume(volume, write, { blocks: 0, extents: [] }, library.length);
+        v.setBigUint64(88, BigInt(library.length));
+        v.setUint32(100, blocks);
+        v.setUint32(104, start);
+        v.setUint32(108, blocks);
+        await write(start * volume.block_size, library);
+    }
 
     // Update the directory before inserting records, which can shift offsets in its leaf.
     const parentAt = parentNode * size, node = await volume.read_fork(tree.file_id, tree.fork, parentAt, size), nv = view(node);
     const keyAt = nv.getUint16(size - 2 * (parentIndex + 1)), bodyAt = keyAt + 2 + nv.getUint16(keyAt);
     nv.setUint32(bodyAt + 4, directory.valence + 1);
+    if(isDirectory) nv.setUint32(bodyAt + 84, nv.getUint32(bodyAt + 84) + 1);
     await write_fork(write, volume, tree.file_id, tree.fork, 0, parentAt, node);
     tree.cache.delete(parentNode);
 
     await insert_catalog_record(volume, write, catalog_key(directory.id, name), record);
-    await insert_catalog_record(volume, write, catalog_key(fileID, ""), catalog_thread(directory.id, name, false));
+    await insert_catalog_record(volume, write, catalog_key(fileID, ""), catalog_thread(directory.id, name, isDirectory));
     const catalogHeader = await volume.read_fork(tree.file_id, tree.fork, 0, size), ch = view(catalogHeader);
     ch.setUint32(20, ch.getUint32(20) + 2); // leaf records in BTHeaderRec
     await write_fork(write, volume, tree.file_id, tree.fork, 0, 0, catalogHeader);
     const header = volume.header.slice(), hv = view(header);
-    hv.setUint32(32, hv.getUint32(32) + 1);
+    const counter = isDirectory ? 36 : 32;
+    hv.setUint32(counter, hv.getUint32(counter) + 1);
     hv.setUint32(64, fileID + 1);
     await write_volume_header(volume, write, header);
     const installed = await volume.lookup(path);
-    expect(installed && equals(await volume.contents(installed), library), "Could not read back the system guest library");
+    expect(installed && (isDirectory ? installed.type === "directory" : equals(await volume.contents(installed), library)),
+        "Could not read back the installed system entry: " + path);
 }
 
-export async function prepare_system_volume(read, write, graphics, compress = deflate, offline = false, library = null)
+export async function prepare_system_volume(read, write, graphics, compress = deflate, offline = false, library = null, components = null)
 {
     const volume = await new HFSPlus(read).open(), daemons = [];
     await fix_fstab(volume, write, compress);
@@ -337,6 +354,19 @@ export async function prepare_system_volume(read, write, graphics, compress = de
         for(const path of SYSTEM_GL_APPLICATIONS)
             daemons.push(await rewrite_daemon(volume, write, path, compress, bytes => link_guest_gles(bytes, SYSTEM_GL_LIBRARY)));
     }
-    const lockdown = offline ? await rewrite_daemon(volume, write, LOCKDOWN_DAEMON, compress, offline_lockdown) : null;
-    return { volume, daemons, lockdown };
+    let lockdown = offline ? await rewrite_daemon(volume, write, LOCKDOWN_DAEMON, compress, offline_lockdown) : null;
+    const install_trusted = [];
+    if(components)
+    {
+        check_install_components(components);
+        for(const [path, bytes] of [[INSTALL_AGENT, components.agent], [INSTALL_BOOTSTRAP, components.bootstrap], [INSTALL_POLICY, components.policy]])
+        {
+            await install_system_file(volume, write, path, bytes, 0o755);
+            install_trusted.push(bytes);
+        }
+        install_trusted.push(await rewrite_daemon(volume, write, INSTALL_DAEMON, compress, link_install_policy));
+        lockdown = await rewrite_daemon(volume, write, LOCKDOWN_DAEMON, compress, bytes => link_guest_gles(bytes, INSTALL_BOOTSTRAP));
+        install_trusted.push(lockdown);
+    }
+    return { volume, daemons, lockdown, install_trusted };
 }

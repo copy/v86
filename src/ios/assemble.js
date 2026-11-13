@@ -9,6 +9,7 @@ import { HFSPlus } from "./hfsplus.js";
 import { write_bootstrap_pages } from "./nand_layout.js";
 import { data_capacity, write_volumes } from "./nand_volumes.js";
 import { write_nand_boot } from "./nand_boot.js";
+import { initial_install_state, install_allowlist } from "./install_trust.js";
 import { NAND_BYTES, NAND_SLOT, nand_offset } from "../apple/nand_geometry.js";
 import { N90_RESTORE } from "./catalog.js";
 
@@ -79,7 +80,7 @@ function sparse_data()
     };
 }
 
-export async function assemble_n90(ipsw, keySource, scratch, nand, library, progress = () => {})
+export async function assemble_n90(ipsw, keySource, scratch, nand, library, progress = () => {}, components = null)
 {
     const keys = n90_keys(ipsw, keySource);
     if(library) check_guest_library(library);
@@ -99,19 +100,27 @@ export async function assemble_n90(ipsw, keySource, scratch, nand, library, prog
         progress(stage === "check" ? "Checking root filesystem" : "Extracting system volume", done, entry.compressed_size));
     scratch.resize(system.size);
     progress("Preparing system and data volumes", 0, 1);
-    const { volume, daemons, lockdown } = await prepare_system_volume(scratch.read, scratch.write, !!library, undefined, true, library);
-    kernel = graphics_kernel(kernel, daemons, library, lockdown);
-    await write_prepared_n90(scratch.read, nand, { kernel, tree, logo, library }, progress, volume);
+    const { volume, daemons, lockdown, install_trusted } = await prepare_system_volume(scratch.read, scratch.write, !!library, undefined, true, library, components);
+    kernel = graphics_kernel(kernel, daemons, library, components ? null : lockdown, install_trusted);
+    const install = components ? initial_install_state(kernel) : null;
+    await write_prepared_n90(scratch.read, nand, { kernel, tree, logo, library, install }, progress, volume);
 }
 
 export async function write_prepared_n90(read, nand, boot, progress, volume = null)
 {
     volume ||= await new HFSPlus(read).open();
-    const { kernel, tree, logo, library } = boot;
+    const { kernel, tree, logo, library, install } = boot;
     const files = [{ path: "/keybags/systembag.kb", bytes: systembag(), dir_mode: 0o700, mode: 0o600 }];
     if(library) files.push({ path: "/v86/libv86gles.dylib", bytes: library, dir_mode: 0o755, mode: 0o755 });
     const lockdownd = await volume.lookup(LOCKDOWN_DAEMON);
-    if(lockdownd && has_offline_lockdown(await volume.contents(lockdownd))) files.push(offline_setup_file());
+    if(install?.offline || lockdownd && has_offline_lockdown(await volume.contents(lockdownd))) files.push(offline_setup_file());
+    if(install)
+    {
+        for(const path of ["/mobile/Library/Logs/.v86", "/mobile/Library/Logs/MobileInstallation/.v86"])
+            files.push({ path, bytes: new Uint8Array(0), dir_mode: 0o755, mode: 0o644, uid: 501, gid: 501 });
+        files.push({ path: "/v86/install-token", bytes: Uint8Array.from(install.token.match(/../g), h => parseInt(h, 16)), dir_mode: 0o755, mode: 0o600 });
+        files.push({ path: "/v86/install-trust.bin", bytes: install_allowlist(install), dir_mode: 0o755, mode: 0o644 });
+    }
     const data = sparse_data();
     await write_hfsx_data(volume, data_capacity(volume.block_size * volume.total_blocks), data.write, files);
     nand.resize(NAND_BYTES);
@@ -122,6 +131,6 @@ export async function write_prepared_n90(read, nand, boot, progress, volume = nu
         nand.write(nand_offset(bus, ce, row), slot);
     }
     write_bootstrap_pages(put);
-    write_nand_boot(put, kernel, tree, logo || undefined, library || undefined);
+    write_nand_boot(put, kernel, tree, logo || undefined, library || undefined, install);
     await write_volumes(put, read, data.read, (done, total) => progress("Writing NAND image", done, total), true);
 }

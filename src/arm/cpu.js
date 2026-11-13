@@ -31,6 +31,7 @@ import { PL011 } from "../virt/pl011.js";
 import { PL031 } from "../virt/pl031.js";
 import { GoldfishFb, GoldfishEvents, GoldfishBattery, GoldfishAudio, GoldfishPipe } from "../virt/goldfish.js";
 import { BackdoorA32, BACKDOOR_NOT_HANDLED } from "./backdoor_a32.js";
+import { IOSInstallService } from "../ios/install_service.js";
 import {
     RANCHU_DISPLAY, RANCHU_GOLDFISH_AUDIO, RANCHU_GOLDFISH_BATTERY, RANCHU_GOLDFISH_EVENTS, RANCHU_GOLDFISH_FB, RANCHU_GOLDFISH_PIPE,
     RANCHU_LAYOUT_VERSION, RANCHU_RTC, RANCHU_SPI, ranchu_framebuffer,
@@ -480,6 +481,7 @@ A64CPU.prototype.init = function(settings, device_bus)
 // The guest library uses the same GLES service and connection snapshots on both ARM boards.
 A64CPU.prototype.init_gles_backdoor = function(settings, display, present)
 {
+    let gles = null;
     if(settings.gles_backdoor && settings.gles_plugin)
     {
         this.devices.gles = this.devices.gles || new PluginDevice(/** @type {?} */ (this), GLES_PLUGINS, settings.gles_plugin, -1, {}, {
@@ -489,9 +491,14 @@ A64CPU.prototype.init_gles_backdoor = function(settings, display, present)
             "prepared": settings.gles_prepared || null,
             "max_version": settings.ranchu_gles_version || "2.0",
         });
-        const gles = this.devices.gles;
-        this.devices.backdoor = new BackdoorA32(this, (name, wake, ...saved) => gles.device["service"](name, wake, ...saved));
+        gles = this.devices.gles;
     }
+    if(this.machine_type === "s5l8930" && settings.ios_install_boot)
+        this.devices.ios_install = new IOSInstallService(this.device_bus, settings.ios_install_boot);
+    const install = this.devices.ios_install;
+    if(gles || install)
+        this.devices.backdoor = new BackdoorA32(this, (name, wake, ...saved) =>
+            install?.service(name) || gles?.device["service"](name, wake, ...saved) || null);
 };
 
 A64CPU.prototype.load_boot_files = function()
@@ -501,8 +508,9 @@ A64CPU.prototype.load_boot_files = function()
     {
         const f = this.boot_files;
         const handoff = load_n90_kernel(this.mem8, new Uint8Array(f.kernel), new Uint8Array(f.dtb),
-            f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline, !!this.devices.apple_nand, !!this.devices.backdoor);
-        this.wm.exports["a64_bus_written"](0, handoff.r0 - VIRT_RAM_BASE + 4096);
+            f.initrd ? new Uint8Array(f.initrd) : null, f.cmdline, !!this.devices.apple_nand, !!this.devices.gles, !!this.devices.ios_install);
+        this.wm.exports["a64_bus_written"](0, handoff.memory_end - VIRT_RAM_BASE);
+        this.devices.ios_install?.set_arena(handoff.install_arena);
         this.devices.apple_fmi0.configure(handoff.chip_ids, 0);
         this.devices.apple_fmi1.configure(handoff.chip_ids, 1);
         if(f.logo)
@@ -1190,6 +1198,7 @@ A64CPU.prototype.get_state = function(skip_memory = false)
     state[14] = this.devices.gles ? this.devices.gles.get_state() : null;
     // the GLES backdoor's connections (gles_backdoor)
     state[15] = this.devices.backdoor ? this.devices.backdoor.get_state() : null;
+    state[16] = this.devices.ios_install ? this.devices.ios_install.get_state() : null;
     // (the machine clock: the system counter goes on from where it was, as on x86, src/cpu.js)
     state[95] = this.clock.get_state();
     // extended RAM's pages (P8.5: its contents are records of the snapshot stream)
@@ -1294,6 +1303,8 @@ A64CPU.prototype.validate_state = function(state)
     {
         throw new Error("The snapshot is from a machine with ranchu_gpu \"host\", this one has \"guest\"");
     }
+    if(this.devices.ios_install) this.devices.ios_install.check_state(state[16]);
+    else if(state[16]) throw new Error("The snapshot requires iPhone IPA installation support");
 };
 
 A64CPU.prototype.set_state = function(state, skip_memory = false)
@@ -1328,6 +1339,7 @@ A64CPU.prototype.set_state = function(state, skip_memory = false)
     this.shared_spi_sources = new Map((state[11] || []).map(([intid, sources]) => [intid, new Set(sources)]));
     this.devices.graphics_adapter && this.devices.graphics_adapter.set_state(state[12]);
     // (the backdoor's connections before the GLES host's state, as the pipe's channels)
+    this.devices.ios_install?.set_state(state[16]);
     if(this.devices.backdoor) this.devices.backdoor.set_state(state[15] || [1, []]);
     this.devices.gles && this.devices.gles.set_state(state[14]);
     this.wm.exports["a64_restored"]();

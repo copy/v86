@@ -33,6 +33,7 @@ extern void *malloc(usize), *calloc(usize, usize), *memcpy(void *, const void *,
 extern void free(void *);
 extern int open(const char *, int, ...), close(int), write(int, const void *, usize), read(int, void *, usize);
 extern int fsync(int), unlink(const char *), mkdir(const char *, unsigned short), usleep(unsigned);
+extern int dup2(int, int);
 extern void sync(void), syslog(int, const char *, ...);
 #define UTF8 0x08000100
 static inline CFStringRef string(const char *s) { return CFStringCreateWithCString(0, s, UTF8); }

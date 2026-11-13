@@ -1328,6 +1328,7 @@ V86.prototype.continue_init = async function(emulator, options)
             settings.kernel = boot.kernel;
             settings.dtb = boot.tree;
             settings.ios_bootlogo = boot.logo;
+            if(boot.install) settings.ios_install_boot = boot;
         }
         // (a floppy written back is used as it is: a floppy format's size)
         for(const [name, buffer] of loaded_disks)

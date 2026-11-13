@@ -4,6 +4,7 @@ import { configure_nand_tree } from "./nand.js";
 import { N90_VIDEO } from "./clcd.js";
 import { macho_parse, CPU_TYPE_ARM } from "./macho.js";
 import { dt_parse, dt_serialize, dt_find, dt_name, dt_property, dt_strings, dt_set } from "./devicetree.js";
+import { IOS_TRUST_ARENA_BYTES, IOS_STATIC_TRUST_HEAD } from "../ios/runtime_trust.js";
 
 const PHYS = 0x40000000, VIRT = 0x80000000;
 const page = n => Math.ceil(n / 4096) * 4096;
@@ -17,7 +18,7 @@ function cells(...values)
 }
 
 /** Populate guest RAM and return the physical PC and r0 used at reset. */
-export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, nand = false, gles = false)
+export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, nand = false, gles = false, install = false)
 {
     const kernel = macho_parse(kernelcache);
     if(kernel.is64 || kernel.cputype !== CPU_TYPE_ARM || kernel.filetype !== 2 ||
@@ -139,10 +140,14 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
     dt_set(required("/vram"), "reg", cells(N90_VIDEO.base, N90_VIDEO.height * N90_VIDEO.stride));
     dt_set(required("/chosen"), "chip-id", cells(0x8930));
     if(gles) dt_set(required("/chosen"), "v86,gles-backdoor", cells(1));
+    if(install) dt_set(required("/chosen"), "v86,install-service", cells(1));
     if(ramdisk) dt_set(required("/chosen/memory-map"), "RAMDisk", cells(PHYS + disk, ramdisk.length));
     const dt = dt_serialize(tree);
     const args = page(treeOffset + dt.length);
-    const tables = Math.ceil((args + 4096) / 16384) * 16384;
+    const arena = install ? { physical: PHYS + args + 4096, virtual: VIRT + args + 4096,
+        size: IOS_TRUST_ARENA_BYTES, used: 0, head: IOS_STATIC_TRUST_HEAD } : null;
+    // topOfKernelData excludes the entire arena from the VM page allocator.
+    const tables = Math.ceil((args + 4096 + (arena?.size || 0)) / 16384) * 16384;
     if(tables + 0xA000 > usable) throw new Error("iOS boot data exceeds RAM");
     for(const s of kernel.segments)
     {
@@ -153,11 +158,13 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
     if(ramdisk) ram.set(ramdisk, disk);
     ram.set(dt, treeOffset);
     ram.fill(0, args, args + 4096);
+    if(arena) ram.fill(0, arena.physical - PHYS, arena.physical - PHYS + arena.size);
     ram.set(cells(3 << 16 | 1, VIRT, PHYS, usable, PHYS + tables), args);
     ram.set(cells(N90_VIDEO.base, 0, N90_VIDEO.stride, N90_VIDEO.width, N90_VIDEO.height, 32), args + 0x14);
     ram.set(cells(VIRT + treeOffset, dt.length), args + 0x30);
     ram.set(command, args + 0x38);
     const diskNode = dt_find(tree, "/arm-io/flash-controller0/disk");
     const chipIDs = diskNode && dt_property(diskNode, "dbg-chipids");
-    return { entry: PHYS + kernel.entry - VIRT, r0: PHYS + args, chip_ids: chipIDs ? chipIDs.value : null };
+    return { entry: PHYS + kernel.entry - VIRT, r0: PHYS + args, chip_ids: chipIDs ? chipIDs.value : null, install_arena: arena,
+        memory_end: PHYS + tables };
 }

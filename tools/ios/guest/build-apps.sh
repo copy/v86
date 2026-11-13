@@ -16,16 +16,23 @@ exports:
 ...
 STUB
 }
-stub System /usr/lib/libSystem.B.dylib '_printf, _snprintf, _strcmp, _memcmp, _strlen, _memcpy, _memset, _malloc, _calloc, _free, _open, _close, _read, _write, _fsync, _unlink, _mkdir, _usleep, _sync, _syslog, _dlopen, _dlsym, _dlerror, dyld_stub_binder'
+stub System /usr/lib/libSystem.B.dylib '_printf, _snprintf, _strcmp, _memcmp, _strlen, _memcpy, _memset, _malloc, _calloc, _free, _open, _close, _read, _write, _dup2, _fsync, _unlink, _mkdir, _usleep, _sync, _syslog, _dlopen, _dlsym, _dlerror, _pthread_create, _pthread_detach, _posix_spawn, _waitpid, _lseek, _CC_SHA1, _CC_SHA256_Init, _CC_SHA256_Update, _CC_SHA256_Final, _CCHmac, _rename, _chown, _chmod, _flock, __dyld_get_image_header, dyld_stub_binder'
 stub objc /usr/lib/libobjc.A.dylib '_objc_getClass, _object_getClass, _sel_registerName, _objc_allocateClassPair, _objc_registerClassPair, _class_addMethod, _objc_msgSend, _objc_autoreleasePoolPush, _objc_autoreleasePoolPop'
-stub CoreFoundation /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation '_CFStringCreateWithCString, _CFStringGetCString, _CFDictionaryCreateMutable, _CFDictionarySetValue, _CFDictionaryGetValue, _CFDictionaryGetCount, _CFRelease, _CFShow, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks'
+stub CoreFoundation /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation '_CFStringCreateWithCString, _CFStringGetCString, _CFDictionaryCreateMutable, _CFDictionaryCreateMutableCopy, _CFDictionarySetValue, _CFDictionaryGetValue, _CFDictionaryGetCount, _CFURLCreateWithFileSystemPath, _CFBundleCreate, _CFBundleCopyExecutableURL, _CFURLGetFileSystemRepresentation, _CFRelease, _CFShow, _kCFBooleanTrue, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks'
 stub UIKit /System/Library/Frameworks/UIKit.framework/UIKit '_UIApplicationMain'
 stub OpenGLES /System/Library/Frameworks/OpenGLES.framework/OpenGLES '_glGenRenderbuffers, _glBindRenderbuffer, _glGenFramebuffers, _glBindFramebuffer, _glFramebufferRenderbuffer, _glViewport, _glClearColor, _glClear, _glCreateShader, _glShaderSource, _glCompileShader, _glCreateProgram, _glAttachShader, _glBindAttribLocation, _glLinkProgram, _glUseProgram, _glVertexAttribPointer, _glEnableVertexAttribArray, _glDrawArrays, _glGetError'
 compile() { xcrun clang -target armv7-apple-ios6.0 -marm -Os -fPIC -ffreestanding -fno-stack-protector -I "$src" "$@"; }
 link() { xcrun ld -arch armv7 -segalign 0x1000 -headerpad 0x400 -platform_version ios 6.0 6.1 -L "$out" -lSystem -lobjc -lCoreFoundation "$@"; }
 compile -c "$src/app-agent.c" -o "$out/app-agent.o"
-link -o "$out/v86-app-agent" "$out/app-agent.o"
-codesign -f -s - --identifier org.v86.app-agent --digest-algorithm=sha1,sha256 "$out/v86-app-agent"
+compile -c "$src/app-service.c" -o "$out/app-service.o"
+link -o "$out/v86-app-agent" "$out/app-agent.o" "$out/app-service.o"
+codesign -f -s - --identifier org.v86.app-agent --entitlements "$src/app-agent.entitlements.plist" --digest-algorithm=sha1,sha256 "$out/v86-app-agent"
+compile -c "$src/app-bootstrap.c" -o "$out/app-bootstrap.o"
+link -dylib -install_name /usr/lib/libv86appbootstrap.dylib -o "$out/libv86appbootstrap.dylib" "$out/app-bootstrap.o"
+codesign -f -s - --identifier org.v86.app-bootstrap --digest-algorithm=sha1,sha256 "$out/libv86appbootstrap.dylib"
+compile -c "$src/install-policy.c" -o "$out/install-policy.o"
+link -dylib -install_name /usr/lib/libv86install.dylib -o "$out/libv86install.dylib" "$out/install-policy.o"
+codesign -f -s - --identifier org.v86.install-policy --digest-algorithm=sha1,sha256 "$out/libv86install.dylib"
 for variant in Install GLES2; do
     app="$out/Payload/V86${variant}Test.app"
     mkdir -p "$app"
@@ -50,6 +57,9 @@ for variant in Install GLES2; do
 <key>UIRequiredDeviceCapabilities</key><array><string>armv7</string></array>
 </dict></plist>
 PLIST
-    codesign -f -s - --identifier "org.v86.${variant}Test" --digest-algorithm=sha1,sha256 "$app"
+    cat > "$out/test-$variant.entitlements.plist" <<PLIST
+<plist version="1.0"><dict><key>application-identifier</key><string>org.v86.${variant}Test</string></dict></plist>
+PLIST
+    codesign -f -s - --identifier "org.v86.${variant}Test" --entitlements "$out/test-$variant.entitlements.plist" --digest-algorithm=sha1,sha256 "$app"
     (cd "$out" && /usr/bin/zip -q -r "V86${variant}Test.ipa" "Payload/V86${variant}Test.app")
 done

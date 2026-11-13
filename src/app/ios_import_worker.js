@@ -4,6 +4,7 @@ import { N90_RESTORE } from "../ios/catalog.js";
 import { ipsw_open } from "../ios/ipsw.js";
 import { read_nand_boot } from "../ios/nand_boot.js";
 import { open_sparse_nand } from "../ios/sparse_nand.js";
+import { reset_install_trust } from "../ios/install_trust.js";
 
 const reader = file => async (at, size) => new Uint8Array(await file.slice(at, at + size).arrayBuffer());
 
@@ -79,6 +80,7 @@ globalThis.onmessage = async ({ data }) => {
             await write_prepared_n90(disk_store(scratch).read, nand_store(nand), {
                 kernel: new Uint8Array(files.kernel), tree: new Uint8Array(files.tree),
                 logo: files.logo && new Uint8Array(files.logo), library: files.library && new Uint8Array(files.library),
+                ...(files.install ? (() => { const cleared = reset_install_trust(files.kernel, files.install); return { kernel: cleared.kernel, install: cleared.state }; })() : {}),
             }, progress);
             nand.flush();
             nand.close();
@@ -108,7 +110,14 @@ globalThis.onmessage = async ({ data }) => {
         cleanup = data.id + ".ios-system";
         scratch = await (await directory.getFileHandle(cleanup, { create: true })).createSyncAccessHandle();
         nand = await (await directory.getFileHandle(data.id + ".img", { create: true })).createSyncAccessHandle();
-        await assemble_n90(ipsw, data.keys, disk_store(scratch), nand_store(nand), library, progress);
+        const components = {};
+        for(const [key, name] of [["agent", "v86-app-agent"], ["bootstrap", "libv86appbootstrap.dylib"], ["policy", "libv86install.dylib"]])
+        {
+            const response = await fetch(new URL("ios-install-fixtures/" + name, globalThis.location.href));
+            if(!response.ok) throw new Error("The iPhone installation helper is missing. Build it with make ios-install-fixtures before importing this firmware.");
+            components[key] = new Uint8Array(await response.arrayBuffer());
+        }
+        await assemble_n90(ipsw, data.keys, disk_store(scratch), nand_store(nand), library, progress, components);
         nand.flush();
         nand.close();
         nand = null;
