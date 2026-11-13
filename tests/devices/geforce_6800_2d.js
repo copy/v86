@@ -168,3 +168,37 @@ target.methods.set(0x300,11);target.methods.set(0x30C,0);target.methods.set(0x30
 call(progressive,0x2FC,3);call(progressive,0x300,4);call(progressive,0x308,32<<16|1024);call(progressive,0x30C,32<<16|1024);
 call(progressive,0x400,0x01001E81);
 assert.equal(view.getUint32(0,true),0x01001E81,"a shader word uploads immediately into a wide Y32 row");
+
+// Font DMA records use a size header and a fixed power-of-two record stride.
+target.methods.set(0x300,10);target.methods.set(0x304,0x200020);target.methods.set(0x30C,1800);
+const fonts=graph.object(0,0x5200),fontRam=new DataView(ram.buffer);
+fonts.methods.set(0x184,0x110);fonts.methods.set(0x198,0x500);call(fonts,0x2FC,3);call(fonts,0x304,2);
+call(fonts,0xFF0,3<<28|0x200);call(fonts,0xFF4,0);call(fonts,0xFF8,8<<16|8);call(fonts,0xFFC,0x12345678);
+fontRam.setUint32(0x1210,3<<16|3,true);fontRam.setUint32(0x1214,0x155,true);
+vram.fill(0,1800,2056);call(fonts,0x1000,1<<20|0xFFF<<8|2);
+for(let y=0;y<4;y++)for(let x=0;x<8;x++)assert.equal(view.getUint32(1800+y*32+x*4,true),
+    y>=1 && y<4 && x<2 && ((y-1)*3+x+1)%2===0?0x12345678:0,"F signed twelve-bit origin and transparent pixels");
+call(fonts,0x17F0,3<<28|0x200);call(fonts,0x17FC,0x87654321);
+fontRam.setUint32(0x1000+0x200+0x101*8,3<<16|3,true);fontRam.setUint32(0x1000+0x204+0x101*8,0x000080AA,true);
+call(fonts,0x304,1);call(fonts,0x1FF8,2<<16|1);
+const fontState=graph.get_state();graph.set_state(fontState);
+const restoredFonts=graph.object(0,0x5200);vram.fill(0,1800,2056);call(restoredFonts,0x1804,0xABCD0101);
+for(let y=0;y<8;y++)for(let x=0;x<8;x++)assert.equal(view.getUint32(1800+y*32+x*4,true),
+    y>=2 && y<5 && x>=1 && x<4 && ((y-2)*3+x-1)%2===0?0x87654321:0,
+    "G unsigned sixteen-bit index, shared aliased origin, CGA6 bit order and snapshot");
+const fontBefore=vram.slice(1800,2056);
+word(0x1104,0x200+0x101*8+6);
+assert.throws(()=>call(restoredFonts,0x1804,0x101),/limit/);
+assert.deepEqual(vram.slice(1800,2056),fontBefore,"a truncated font record leaves the destination unchanged");word(0x1104,4095);
+fontRam.setUint32(0x1000+0x200+0x101*8,0xFFFFFFFF,true);
+assert.throws(()=>call(restoredFonts,0x1804,0x101),/exceeds font record/);
+assert.deepEqual(vram.slice(1800,2056),fontBefore,"oversized glyph headers fault before drawing");
+fontRam.setUint32(0x1000+0x200+0x101*8,3<<16|3,true);word(0x1004,1800+3*32+31);
+assert.throws(()=>call(restoredFonts,0x1804,0x101),/limit/);
+assert.deepEqual(vram.slice(1800,2056),fontBefore,"a late destination row fault leaves the entire character unchanged");word(0x1004,4095);
+call(restoredFonts,0x2FC,1);call(restoredFonts,0xFFC,0x00FF00FF);call(restoredFonts,0x1800,0);
+for(let at=1800;at<2056;at+=4)view.setUint32(at,0x11223344,true);
+graph.object(0,0x5100).methods.set(0x300,0x66);call(restoredFonts,0x1804,0x101);
+assert.equal(view.getUint32(1800,true),0x11DD33BB);assert.equal(view.getUint32(1804,true),0x11223344,"font zero bits remain transparent under ROP");
+for(const pitch of [0,2,10,15])assert.throws(()=>call(restoredFonts,0xFF0,pitch<<28),/pitch/);
+console.log("PASS: GDI font DMA F/G records, signed origins, sixteen-bit indices, clipping, bit order, snapshots and atomic faults");

@@ -304,6 +304,22 @@ export class NV2D
         }
         o.stream = [offset + 1];
     }
+    character(o,index,x,y)
+    {
+        // NVIDIA cl004a: fixed 8..512-byte records, each beginning with a
+        // height/width DWORD and followed by packed monochrome DWORDs.
+        const font=m(o,0xFF0),pitch=font>>>28;
+        if(pitch<3 || pitch>9)throw new RangeError("NV GDI font record pitch");
+        const length=1<<pitch,offset=(font&0x0FFFFFFF)+index*length;
+        const bytes=this.device.dma.read(this.dma(o,0x184),offset,length),view=new DataView(bytes.buffer);
+        const [width,height]=wh(view.getUint32(0,true));
+        if(Math.ceil(width*height/32)*4>length-4)throw new RangeError("NV GDI character exceeds font record");
+        const clip=[...xy(m(o,0xFF4)),...xy(m(o,0xFF8))],dst=this.surface(o,0x198),format=this.bitmap_format(o);
+        this.render(o,dst,this.bounds(x,y,width,height,clip),(px,py)=>{
+            const bit=(py-y)*width+px-x,shift=format===1?(bit&~7)%32+7-(bit&7):bit&31;
+            return view.getUint32(4+(bit>>>5)*4,true)>>>shift&1?m(o,0xFFC):null;
+        },[0x188,0x18C,0x190,0x194]);
+    }
     sample(bytes, width, height, pitch, format, x, y)
     {
         x = Math.max(0, Math.min(width - 1, x)); y = Math.max(0, Math.min(height - 1, y));
@@ -474,7 +490,7 @@ export class NV2D
         let accepted = false;
         if(type === 0x39) accepted = [0x184, 0x188, 0x30C, 0x310, 0x314, 0x318, 0x31C, 0x320, 0x324, 0x328].includes(at);
         else if(type === 0x5F || type === 0x9F) accepted = at >= 0x184 && at <= 0x19C || [0x2FC, 0x300, 0x304, 0x308].includes(at);
-        else if(type === 0x4A) accepted = at >= 0x184 && at <= 0x198 || [0x2FC, 0x300, 0x304, 0x3FC, 0x5F4, 0x5F8, 0x5FC, 0xFF0, 0xFF4, 0xFF8, 0xFFC, 0x17F0, 0x17F4, 0x17F8, 0x17FC].includes(at) || at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700 || at >= 0x7EC && at < 0xA00 || at >= 0xBE4 && at < 0xE00;
+        else if(type === 0x4A) accepted = at >= 0x184 && at <= 0x198 || [0x2FC, 0x300, 0x304, 0x3FC, 0x5F4, 0x5F8, 0x5FC, 0xFF0, 0xFF4, 0xFF8, 0xFFC, 0x17F0, 0x17F4, 0x17F8, 0x17FC].includes(at) || at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700 || at >= 0x7EC && at < 0xA00 || at >= 0xBE4 && at < 0xE00 || at>=0x1000 && at<0x1400 || at>=0x1800 && at<0x2000;
         else if(ifc) accepted = at >= 0x184 && at <= 0x19C || at >= 0x2F8 && at <= 0x30C || at >= 0x400 && at < 0x2000;
         else if(indexed) accepted = at >= 0x184 && at <= 0x1A0 || at >= 0x3E0 && at < 0x2000;
         else if([0x77, 0x89, 0x3089].includes(type)) accepted = at >= 0x184 && at <= 0x198 || at >= 0x2FC && at <= 0x31C || at >= 0x400 && at <= 0x40C;
@@ -485,6 +501,12 @@ export class NV2D
         o.methods.set(at, value >>> 0);
         if(type === 0x4A)
         {
+            if(at===0xFF0 || at===0x17F0)
+            {
+                if(value>>>28<3 || value>>>28>9)throw new RangeError("NV GDI font record pitch");
+                o.methods.set(0xFF0,value);o.methods.set(0x17F0,value);
+            }
+            if(at>=0x1800 && at<0x2000 && !(at&4))o.methods.set(0x1800,value);
             // These methods address common PGRAPH clip/color/image registers,
             // rather than independent storage for each GDI primitive family.
             for(const aliases of [[0x5F4, 0x7EC, 0xBE4, 0xFF4, 0x17F4], [0x5F8, 0x7F0, 0xBE8, 0xFF8, 0x17F8],
@@ -499,6 +521,12 @@ export class NV2D
         else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && (at === 0x304 || at === 0x30C) || indexed && (at === 0x3F4 || at === 0x3FC) || sifc && at === 0x318) { o.stream = [0]; o.methods.delete(UPLOAD_COMMITTED); }
         else if(type === 0x4A && at >= 0x800 && at < 0xA00) this.monochrome(o, value, false);
         else if(type === 0x4A && at >= 0xC00 && at < 0xE00) this.monochrome(o, value, true);
+        else if(type===0x4A && at>=0x1000 && at<0x1400)
+        {
+            const x=value<<12>>20,y=value>>20;o.methods.set(0x1800,(y<<16|x&65535)>>>0);
+            this.character(o,value&255,x,y);
+        }
+        else if(type===0x4A && at>=0x1800 && at<0x2000 && at&4)this.character(o,value&65535,...xy(m(o,0x1800)));
         else if((ifc || indexed) && at >= 0x400) this.upload(o, value, indexed);
         else if([0x77, 0x89, 0x3089].includes(type) && at === 0x40C) this.scaled(o);
         else if(sifc && at >= 0x400) this.scaled_upload(o, value);
