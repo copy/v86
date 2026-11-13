@@ -1110,3 +1110,8 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   GPU 回归验证重复绘制不再上传、单 mip 修改只上传一级、客体修改颜色目标后
   scissor 外的像素保留；统计增加 uploads/uploadBytes，Closure 构建通过。
   完整 benchmark 时间分布仍待 G6 验收。
+
+- G3/G6 harness 检查点：control 的 checkpoint 标签在当前输出目录保存暂停后的
+  状态并继续运行；NV_STATE_SAVE_DRAWS 可在指定绘制数保存一次。已在正确 strap
+  冷启动的 XP 3DMark99 Benchmark 界面保存 before-benchmark 状态并继续原程序，
+  用于重现长跑陷阱及后续性能对照；原盘和游戏盘均只读。

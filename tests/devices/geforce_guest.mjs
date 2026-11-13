@@ -246,6 +246,14 @@ export async function run_geforce_guest(win98)
                     const input = fs.readFileSync(control_file, "utf8").trim();
                     const command = input.startsWith("{") ? JSON.parse(input) : { run: input };
                     if(command.stop) {cancelled=true;break;}
+                    if(command.checkpoint)
+                    {
+                        const tag=String(command.checkpoint);assert(/^[a-zA-Z0-9_-]{1,64}$/.test(tag),"invalid checkpoint label");
+                        await vm.stop();
+                        try {fs.writeFileSync(path.join(out,"checkpoint-"+tag+".state"),new Uint8Array(await vm.save_state()));}
+                        finally {await vm.run();}
+                        console.log("NV40 checkpoint",tag,"at",Math.round(elapsed()),"seconds");
+                    }
                     if(command.keys) await vm.keyboard_send_scancodes(command.keys, 30);
                     if(command.run)
                     {
@@ -257,8 +265,10 @@ export async function run_geforce_guest(win98)
                     }
                 }
             }
-            if(process.env.NV_STATE_SAVE && !checkpoint && process.env.NV_STATE_SAVE_AT &&
-                elapsed() >= Number(process.env.NV_STATE_SAVE_AT))
+            if(process.env.NV_STATE_SAVE && !checkpoint &&
+                (process.env.NV_STATE_SAVE_AT && elapsed() >= Number(process.env.NV_STATE_SAVE_AT) ||
+                process.env.NV_STATE_SAVE_DRAWS && nv.graph.engine3d.backend &&
+                    nv.graph.engine3d.backend.stats.draws >= Number(process.env.NV_STATE_SAVE_DRAWS)))
             {
                 await vm.stop();
                 fs.writeFileSync(process.env.NV_STATE_SAVE, new Uint8Array(await vm.save_state()));
