@@ -110,6 +110,12 @@
   后续方法必须继续触发 PFIFO DEVICE_SOFTWARE，由 miniport 执行，不能当作 PGRAPH
   的零类对象解释。已补上按子通道 engine 路由和回归测试。
 
+- CPU 2D 第一部分：实现线性 surface 的 8/16/32-bit GDI 矩形、ROP3、图案取样、
+  clip/色键与重叠安全 blit、PCI RAM/VRAM 间的 M2MF 逐行复制和完成通知器。
+  全部目标行与通知器先验证再写入；测试覆盖 256 种 ROP3 的所有输入组合、
+  重叠和裁剪、像素宽度、M2MF 非连续 pitch 与末行故障不留下部分写入。
+  插件构建通过。IFC/单色文字、缩放/YUV、混合与 swizzle 仍待后续步骤，G2 未验收。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
