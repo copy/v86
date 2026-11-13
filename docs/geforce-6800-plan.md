@@ -218,6 +218,11 @@
   权限、页对齐；不把 fence 当成 16-byte 通知器。PGRAPH、FIFO、DMA、设备测试和
   插件构建通过。draw/query/clear 尚未接入执行器，仍明确报未实现，G3 未验收。
 
+- GDI 单色上下文续修：NV40 对象 word 1 的 bits 24…25 预置单色位序，驱动不必再发
+  SET_MONOCHROME_FORMAT。XP/98 原生对象都预置 CGA6；此前缺省按 LE 导致未显式设置
+  格式的文字错位。读取此上下文字段，并覆盖直接 RAMIN 初始化的像素测试；2D 测试与
+  插件构建通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

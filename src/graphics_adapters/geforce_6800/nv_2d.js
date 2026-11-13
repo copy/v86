@@ -104,6 +104,12 @@ export class NV2D
         else if(input !== 4) rgba[3] = 255;
         return rgba;
     }
+    bitmap_format(o)
+    {
+        // NV40 GROBJ word 1, bits 24..25: drivers can initialize this
+        // in RAMIN without ever issuing SET_MONOCHROME_FORMAT.
+        return m(o, 0x304, this.device.dma.word(o.instance + 4) >>> 24 & 3 || 2);
+    }
     rop(code, s, d, p)
     {
         let out = 0;
@@ -124,7 +130,7 @@ export class NV2D
             const base = bpp === 1 ? 0x400 : bpp === 4 ? 0x700 : format === 4 ? 0x500 : 0x600;
             return m(p, base + Math.floor(index * bpp / 4) * 4) >>> (index * bpp % 4 * 8);
         }
-        const bit = m(p, 0x318 + (index >>> 5) * 4) >>> (m(p, 0x304, 2) === 1 ? (index & ~7) % 32 + 7 - (index & 7) : index & 31) & 1;
+        const bit = m(p, 0x318 + (index >>> 5) * 4) >>> (this.bitmap_format(p) === 1 ? (index & ~7) % 32 + 7 - (index & 7) : index & 31) & 1;
         return m(p, 0x310 + bit * 4);
     }
     bounds(x, y, width, height, clip)
@@ -282,7 +288,7 @@ export class NV2D
             const count = Math.min(32 - consumed, width - column);
             const rect = this.bounds(x + column, y + row, Math.max(0, Math.min(count, outw - column)), row < outh ? 1 : 0, clip);
             this.render(o, dst, rect, px => {
-                const bit = consumed + px - x - column, shift = m(o, 0x304, 2) === 1 ? (bit & ~7) + 7 - (bit & 7) : bit;
+                const bit = consumed + px - x - column, shift = this.bitmap_format(o) === 1 ? (bit & ~7) + 7 - (bit & 7) : bit;
                 return value >>> shift & 1 ? m(o, opaque ? 0xBF0 : 0x7F4) : opaque ? m(o, 0xBEC) : null;
             }, [0x188, 0x18C, 0x190, 0x194]);
             consumed += count;

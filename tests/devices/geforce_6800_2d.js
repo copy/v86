@@ -79,6 +79,9 @@ call(mono, 0xBF4, 2 << 16 | 8); call(mono, 0xBF8, 2 << 16 | 8); call(mono, 0xBFC
 call(mono, 0x800, 0x4080);
 assert.equal(view.getUint16(64,true),0xFFFF); assert.equal(view.getUint16(96+2,true),0xFFFF);
 assert.equal(view.getUint16(96,true),0, "one DWORD spans multiple GDI bitmap rows");
+mono.methods.delete(0x304);word(mono.instance+4,0x31000000);vram.fill(0,64,128);
+call(mono,0xBFC,2<<16);call(mono,0x800,0x4080);
+assert.equal(view.getUint16(64,true),0xFFFF);assert.equal(view.getUint16(96+2,true),0xFFFF,"GDI uses bitmap order initialized directly in its RAMIN context");
 call(mono,0xFF4,1<<16|2);call(mono,0xFF8,3<<16|6);call(mono,0xFFC,0x1234);
 assert.equal(mono.methods.get(0x7EC),1<<16|2,"font clipping aliases the common GDI clip");
 assert.equal(mono.methods.get(0x7F0),3<<16|6);assert.equal(mono.methods.get(0x3FC),0x1234);
