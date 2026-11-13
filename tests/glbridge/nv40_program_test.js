@@ -28,6 +28,13 @@ assert.throws(()=>decode_fragment_program(fp.subarray(0,6)),/truncated/);
 // A branch's offsets may have low bits 2. They are control data, not a literal.
 const branch=decode_fragment_program(Uint32Array.of(0x02000001,0,0x80000002,6));
 assert.equal(branch.instructions[0].name,"IF");assert.equal(branch.constants.length,0);assert.equal(branch.word_count,4);
+
+const selectOnly=decode_vertex_instruction(Uint32Array.of(0x20000000,0,0,1));
+assert.equal(selectOnly.predicate.update,false,"CDST_IS_VEC selects a slot, without enabling a condition write");
+assert.equal(selectOnly.predicate.vector,true);
+const scalarCC=decode_vertex_instruction(Uint32Array.of(0x4000,0,0,1));
+assert.equal(scalarCC.predicate.update,true);assert.equal(scalarCC.predicate.vector,false);
+
 console.log("PASS: NV40 VP/FP decoding, VLIW fields, swizzles, inline constants and constant-independent keys");
 
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -159,12 +159,31 @@ export function translate_vertex_program(program,options={})
 {
     const shader=new Shader("vertex",program.instructions.flatMap(i=>i.sources.filter(s=>s.type==="constant").map(s=>s.index))),raw=new Map();
     const output=index=>{if(!raw.has(index))raw.set(index,shader.temp("output"+index));return raw.get(index);};
+    const conditions=new Map();
+    const condition=register=>{
+        if(!conditions.has(register))
+        {
+            const cc=shader.temp("cc"+register);conditions.set(register,cc);
+            shader.emit(OP.MOV,dst(0,cc),shader.literal(0));
+        }
+        return conditions.get(register);
+    };
+    // Declare condition storage before any instruction can read or update it.
+    for(const i of program.instructions)if(i.predicate.enabled || i.predicate.update)condition(i.predicate.register);
+    const predicate=program.instructions.some(i=>i.predicate.enabled)?shader.temp("predicate"):-1;
     // r29 is arithmetic scratch; r30/r31 retain both VLIW results until both
     // slots have read their operands. Commit vector first, then scalar.
     for(const instruction of program.instructions)
     {
         const i=instruction;
-        if(i.predicate.enabled || i.address.input || i.address.constant) throw new RangeError("NV40 vertex predication/relative address needs lowering");
+        if(i.address.input || i.address.constant) throw new RangeError("NV40 vertex relative address needs lowering");
+        if(i.predicate.enabled && i.predicate.condition===0)continue;
+        const conditional=i.predicate.enabled && i.predicate.condition!==7;
+        if(conditional)
+        {
+            shader.condition(i.predicate.condition,src(0,condition(i.predicate.register),i.predicate.swizzle),predicate);
+            shader.emit(OP.SUB,dst(0,predicate),src(0,predicate),shader.literal(.5));
+        }
         const slots=[i.vector,i.scalar], results=[];
         for(let slot=0;slot<2;slot++)
         {
@@ -174,9 +193,20 @@ export function translate_vertex_program(program,options={})
             const sources=selectors.map(index=>shader.source(i.sources[index],-1,slot===1));
             shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
             const index=op.type==="output"?output(op.index):shader.temp("r"+op.index);
-            results.push([dst(0,index,op.mask),src(0,30+slot)]);
+            results.push({index,mask:op.mask,slot});
         }
-        for(const operands of results) shader.emit(OP.MOV,...operands);
+        for(const {index,mask,slot}of results)
+        {
+            if(conditional)shader.emit(OP.CMP,dst(0,index,mask),src(0,predicate),src(0,30+slot),src(0,index));
+            else shader.emit(OP.MOV,dst(0,index,mask),src(0,30+slot));
+            // CDST_IS_VEC selects which VLIW result supplies condition codes.
+            if(i.predicate.update && slot===(i.predicate.vector?0:1))
+            {
+                const cc=condition(i.predicate.register);
+                if(conditional)shader.emit(OP.CMP,dst(0,cc,mask),src(0,predicate),src(0,30+slot),src(0,cc));
+                else shader.emit(OP.MOV,dst(0,cc,mask),src(0,30+slot));
+            }
+        }
     }
     const routes=options.result_map || VERTEX_OUTPUTS.map((_,index)=>[index,index,-1,null]);
     for(const [semantic,register,component,enabled]of routes)

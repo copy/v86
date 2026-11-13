@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
+import {decode_vertex_program} from "../../src/graphics_adapters/geforce_6800/nv40_program.js";
+import {translate_vertex_program} from "../../src/graphics_adapters/geforce_6800/nv40_shader.js";
 import {NVGraph} from "../../src/graphics_adapters/geforce_6800/nv_graph.js";
 import {NVFIFO} from "../../src/graphics_adapters/geforce_6800/nv_fifo.js";
 import {NVDMA} from "../../src/graphics_adapters/geforce_6800/nv_dma.js";
@@ -447,6 +449,53 @@ try
         assert.equal(engine.backend.stats.uploads,beforeReuse+2,"a guest color attachment change forces one upload");
         console.log("PASS: real WebGPU exact-byte upload reuse, changed-mip uploads and CPU-authoritative attachment edits");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
+        // Feed decoded VLIW programs through the actual GPU, retaining native
+        // fetch, interpolators and fragment exports around vertex predicates.
+        for(let attribute=0;attribute<16;attribute++)method(0x1740+attribute*4,attribute?0:0x42);
+        for(const [at,value]of [[0x1E94,0x101],[0xA74,0],[0x328,0],[0x8C0,8<<16],[0x8C4,8<<16],[0x1FF4,1]])method(at,value);
+        [1<<24|1<<13|15<<9|128|1,7<<18|0x1C801,0,0].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        method(0x1EFC,0);
+        [...new Uint32Array(Float32Array.of(-1,0,1,NaN,.25,.25,.25,.25,.75,.75,.75,.75).buffer)].forEach((word,i)=>method(0x1F00+(i%4)*4,word));
+        const base=decode_vertex_program(Uint32Array.of(0x401F9C6C,0x0040000D,0x81000000,0x0001EF81)).instructions[0];
+        let vertexProgram=null;const nativeShaders=engine.shaders;
+        engine.shaders=function(o,options){return {...nativeShaders.call(this,o,options),vertex:translate_vertex_program(vertexProgram,
+            {...options,result_map:[[0,0,-1,true],[1,1,-1,true]]})};};
+        try
+        {
+            for(let register=0;register<2;register++)for(let condition=0;condition<8;condition++)
+            {
+                const position=structuredClone(base),update=structuredClone(base),initial=structuredClone(base),conditional=structuredClone(base);
+                update.vector={name:"MOV",type:"temp",index:0,mask:15};update.sources[0]={...update.sources[0],type:"constant",index:0};
+                update.predicate={...update.predicate,update:true,vector:true,register};
+                initial.vector.index=1;initial.sources[0]={...initial.sources[0],type:"constant",index:1};
+                conditional.vector.index=1;conditional.sources[0]={...conditional.sources[0],type:"constant",index:2};
+                conditional.predicate={...conditional.predicate,enabled:true,register,condition,swizzle:[3,2,1,0]};
+                vertexProgram={stage:"vertex",instructions:[position,update,initial,conditional]};
+                method(0x1808,5);
+                for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();
+                assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+                const rgba=[NaN,1,0,-1].map(value=>conditions[condition](value)?191:64),expected=[rgba[2],rgba[1],rgba[0],rgba[3]],pixel=[...vram.subarray(0x10000,0x10004)];
+                expected.forEach((value,i)=>assert(Math.abs(pixel[i]-value)<=1,"vertex CC bank "+register+" condition "+condition+": "+pixel));
+            }
+            for(const vector of [false,true])
+            {
+                const position=structuredClone(base),update=structuredClone(base),initial=structuredClone(base),conditional=structuredClone(base);
+                update.vector={name:"STR",type:"temp",index:0,mask:15};update.scalar={name:"MOV",type:"temp",index:1,mask:15};
+                update.sources[2]={...update.sources[2],type:"constant",index:0};
+                update.predicate={...update.predicate,update:true,vector,register:1};
+                initial.vector.index=1;initial.sources[0]={...initial.sources[0],type:"constant",index:1};
+                conditional.vector.index=1;conditional.sources[0]={...conditional.sources[0],type:"constant",index:2};
+                conditional.predicate={...conditional.predicate,enabled:true,register:1,condition:1,swizzle:[0,0,0,0]};
+                vertexProgram={stage:"vertex",instructions:[position,update,initial,conditional]};
+                method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();
+                assert.deepEqual([...vram.subarray(0x10000,0x10004)],Array(4).fill(vector?64:191),"CDST selects the original vector/scalar VLIW result");
+            }
+        }
+        finally {engine.shaders=nativeShaders;}
+        console.log("PASS: real WebGPU vertex condition banks, eight comparisons, NaN and component-swizzled predication");
+
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));
 }

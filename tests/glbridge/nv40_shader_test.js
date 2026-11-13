@@ -68,6 +68,13 @@ try
     for(const mode of [0x2601,0x804,0x800,0x801,0x802,0x803])validate("fog-"+mode,translate_fragment_program(fogged,{fog:{mode,constant:1,linear:1}}));
     assert.throws(()=>translate_fragment_program(fogged,{fog:{mode:0x805,constant:1,linear:1}}),/invalid fog/);
     assert.throws(()=>translate_fragment_program(fogged,{fog:{mode:0x2601,constant:NaN,linear:1}}),/nonfinite fog/);
+    for(let register=0;register<2;register++)for(let condition=0;condition<8;condition++)
+    {
+        const p=structuredClone(vertex),update=structuredClone(p.instructions[0]);
+        update.predicate={...update.predicate,update:true,vector:true,register};p.instructions.unshift(update);
+        p.instructions[1].predicate={...p.instructions[1].predicate,enabled:true,register,condition};
+        validate("vertex-cc-"+register+"-"+condition,translate_vertex_program(p));
+    }
     const relative=structuredClone(vertex);relative.instructions[0].address.constant=true;
     assert.throws(()=>translate_vertex_program(relative),/relative/);
     const conditional=structuredClone(fragment);conditional.instructions[0].predicate.condition=1;
