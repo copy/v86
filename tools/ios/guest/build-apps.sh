@@ -2,6 +2,8 @@
 # ARMv7 test applications and native install probe, using local link stubs.
 set -eu
 out=${1:?usage: build-apps.sh output-directory}
+version=${V86_FIXTURE_VERSION:-1}
+case "$version" in ''|*[!0-9]*) echo "V86_FIXTURE_VERSION must be numeric" >&2; exit 2;; esac
 src=$(dirname "$0")
 mkdir -p "$out"
 stub() {
@@ -20,7 +22,7 @@ stub System /usr/lib/libSystem.B.dylib '_printf, _snprintf, _strcmp, _memcmp, _s
 stub objc /usr/lib/libobjc.A.dylib '_objc_getClass, _object_getClass, _sel_registerName, _objc_allocateClassPair, _objc_registerClassPair, _class_addMethod, _objc_msgSend, _objc_autoreleasePoolPush, _objc_autoreleasePoolPop'
 stub CoreFoundation /System/Library/Frameworks/CoreFoundation.framework/CoreFoundation '_CFStringCreateWithCString, _CFStringGetCString, _CFDictionaryCreateMutable, _CFDictionaryCreateMutableCopy, _CFDictionarySetValue, _CFDictionaryGetValue, _CFDictionaryGetCount, _CFURLCreateWithFileSystemPath, _CFBundleCreate, _CFBundleCopyExecutableURL, _CFURLGetFileSystemRepresentation, _CFRelease, _CFShow, _kCFBooleanTrue, _kCFTypeDictionaryKeyCallBacks, _kCFTypeDictionaryValueCallBacks'
 stub UIKit /System/Library/Frameworks/UIKit.framework/UIKit '_UIApplicationMain'
-stub OpenGLES /System/Library/Frameworks/OpenGLES.framework/OpenGLES '_glGenRenderbuffers, _glBindRenderbuffer, _glGenFramebuffers, _glBindFramebuffer, _glFramebufferRenderbuffer, _glViewport, _glClearColor, _glClear, _glCreateShader, _glShaderSource, _glCompileShader, _glCreateProgram, _glAttachShader, _glBindAttribLocation, _glLinkProgram, _glUseProgram, _glVertexAttribPointer, _glEnableVertexAttribArray, _glDrawArrays, _glGetError'
+stub OpenGLES /System/Library/Frameworks/OpenGLES.framework/OpenGLES '_glGenRenderbuffers, _glBindRenderbuffer, _glGenFramebuffers, _glBindFramebuffer, _glFramebufferRenderbuffer, _glGetRenderbufferParameteriv, _glViewport, _glClearColor, _glClear, _glCreateShader, _glShaderSource, _glCompileShader, _glCreateProgram, _glAttachShader, _glBindAttribLocation, _glLinkProgram, _glUseProgram, _glVertexAttribPointer, _glEnableVertexAttribArray, _glDrawArrays, _glGetError'
 compile() { xcrun clang -target armv7-apple-ios6.0 -marm -Os -fPIC -ffreestanding -fno-stack-protector -I "$src" "$@"; }
 link() { xcrun ld -arch armv7 -segalign 0x1000 -headerpad 0x400 -platform_version ios 6.0 6.1 -L "$out" -lSystem -lobjc -lCoreFoundation "$@"; }
 compile -c "$src/app-agent.c" -o "$out/app-agent.o"
@@ -38,7 +40,7 @@ for variant in Install GLES2; do
     mkdir -p "$app"
     flag=
     if [ "$variant" = GLES2 ]; then flag=-DV86_GLES_TEST; fi
-    compile $flag -c "$src/test-app.c" -o "$out/test-$variant.o"
+    compile $flag -DV86_FIXTURE_VERSION="$version" -c "$src/test-app.c" -o "$out/test-$variant.o"
     link -o "$app/V86Test" "$out/test-$variant.o" -lUIKit -lOpenGLES
     cat > "$app/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -49,14 +51,15 @@ for variant in Install GLES2; do
 <key>CFBundleDisplayName</key><string>V86 ${variant} Test</string>
 <key>CFBundleExecutable</key><string>V86Test</string>
 <key>CFBundlePackageType</key><string>APPL</string>
-<key>CFBundleVersion</key><string>1</string>
-<key>CFBundleShortVersionString</key><string>1.0</string>
+<key>CFBundleVersion</key><string>$version</string>
+<key>CFBundleShortVersionString</key><string>$version.0</string>
 <key>MinimumOSVersion</key><string>6.0</string>
 <key>LSRequiresIPhoneOS</key><true/>
 <key>UIDeviceFamily</key><array><integer>1</integer></array>
 <key>UIRequiredDeviceCapabilities</key><array><string>armv7</string></array>
 </dict></plist>
 PLIST
+    plutil -convert binary1 "$app/Info.plist"
     cat > "$out/test-$variant.entitlements.plist" <<PLIST
 <plist version="1.0"><dict><key>application-identifier</key><string>org.v86.${variant}Test</string></dict></plist>
 PLIST
