@@ -144,12 +144,13 @@ export async function run_geforce_guest(win98)
         ...(process.env.NV_AUTOSTART ? ["-DNV_AUTOSTART"] : []),
         ...(process.env.NV_REBOOT ? ["-DNV_REBOOT"] : []), "-o", binary,
         ...(process.env.NV_PROBE_ID ? ["-DNV_PROBE_ID=" + Number(process.env.NV_PROBE_ID)] : []),
-        ...(process.env.NV_GDI_TEST ? ["-DNV_GDI_TEST"] : []),
+        ...(process.env.NV_GDI_TEST || process.env.NV_GDI_FONT_TEST ? ["-DNV_GDI_TEST"] : []),
+        ...(process.env.NV_GDI_FONT_TEST ? ["-DNV_GDI_FONT_TEST"] : []),
         ...(process.env.NV_DDRAW_TEST ? ["-DNV_DDRAW_TEST"] : []),
         ...(process.env.NV_D3D_TEST ? ["-DNV_D3D_TEST",path.join(root,"tests/devices/geforce_d3d.c")] : []),
         ...(process.env.NV_D3D_TEXTURE_TEST ? ["-DNV_D3D_TEXTURE_TEST"] : []),
         ...(process.env.NV_DX9_INSTALL ? ["-DNV_DX9_INSTALL"] : []),
-        ...(process.env.NV_GDI_TEST || process.env.NV_DDRAW_TEST ? [path.join(root, "tests/devices/geforce_draw.c")] : []),
+        ...(process.env.NV_GDI_TEST || process.env.NV_GDI_FONT_TEST || process.env.NV_DDRAW_TEST ? [path.join(root, "tests/devices/geforce_draw.c")] : []),
         path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32", "-lgdi32"]);
     const probe = new Uint8Array(65536), executable = fs.readFileSync(process.env.NV_PROBE_BINARY || binary);
     assert(executable.length <= probe.length); probe.set(executable);
@@ -349,8 +350,10 @@ export async function run_geforce_guest(win98)
         }
         save_png(sink, out, "final");
         fs.writeFileSync(path.join(out, "screen.txt"), sink.text.join("\n"));
-        for(const name of ["MACHINE.INF", "NVDOS.TXT", "DXDIAG.TXT", "DDXP.TXT", "NVLAUNCH.TXT"])
+        for(const name of new Set(["MACHINE.INF", "NVDOS.TXT", "DXDIAG.TXT", "DDXP.TXT", "NVLAUNCH.TXT",
+            ...(process.env.NV_TOOLS_ARTIFACTS||"").split(";").filter(Boolean)]))
         {
+            assert(/^[a-zA-Z0-9_.-]+$/.test(name),"tool artifacts must be root filenames");
             const bytes = read_fat16(tools.bytes, name);
             if(bytes) fs.writeFileSync(path.join(out, name), bytes);
         }

@@ -8,6 +8,62 @@ static void detail(void (*mark)(const char*),const char *label,DWORD value)
     text[n++]='=';const char hex[]="0123456789abcdef";
     for(int i=7;i>=0;i--)text[n++]=hex[value>>(i*4)&15];text[n]=0;mark(text);
 }
+#ifdef NV_GDI_FONT_TEST
+static void font_bitmap(unsigned int index,char kind,const BITMAPINFOHEADER *info,const BYTE *pixels)
+{
+    char name[MAX_PATH];GetModuleFileNameA(0,name,MAX_PATH);
+    char *tail=name+lstrlenA(name);while(tail>name && tail[-1]!='\\')tail--;
+    lstrcpyA(tail,"FONTR0.BMP");tail[4]=kind;tail[5]=(char)('0'+index);
+    HANDLE file=CreateFileA(name,GENERIC_WRITE,FILE_SHARE_READ,0,CREATE_ALWAYS,0,0);
+    if(file==INVALID_HANDLE_VALUE)return;
+    BITMAPFILEHEADER header;header.bfType=0x4D42;header.bfReserved1=0;header.bfReserved2=0;
+    header.bfOffBits=sizeof(header)+sizeof(*info);header.bfSize=header.bfOffBits+info->biSizeImage;
+    DWORD written;WriteFile(file,&header,sizeof(header),&written,0);WriteFile(file,info,sizeof(*info),&written,0);
+    WriteFile(file,pixels,info->biSizeImage,&written,0);FlushFileBuffers(file);CloseHandle(file);
+}
+static DWORD font_probe(HDC screen,void (*mark)(const char*))
+{
+    const int width=320,height=64,left=16,top=256;DWORD failures=0;
+    HDC reference=CreateCompatibleDC(screen),actual=CreateCompatibleDC(screen),saved=CreateCompatibleDC(screen);
+    BITMAPINFO info;for(unsigned int i=0;i<sizeof(info);i++)((BYTE*)&info)[i]=0;
+    info.bmiHeader.biSize=sizeof(info.bmiHeader);info.bmiHeader.biWidth=width;info.bmiHeader.biHeight=-height;
+    info.bmiHeader.biPlanes=1;info.bmiHeader.biBitCount=32;info.bmiHeader.biCompression=BI_RGB;info.bmiHeader.biSizeImage=width*height*4;
+    BYTE *expected=0,*observed=0;
+    HBITMAP referenceBitmap=CreateDIBSection(screen,&info,DIB_RGB_COLORS,(void**)&expected,0,0);
+    HBITMAP actualBitmap=CreateDIBSection(screen,&info,DIB_RGB_COLORS,(void**)&observed,0,0);
+    HBITMAP savedBitmap=CreateCompatibleBitmap(screen,width,height);
+    if(!reference || !actual || !saved || !referenceBitmap || !actualBitmap || !savedBitmap){failures=128;goto done;}
+    HGDIOBJ oldReference=SelectObject(reference,referenceBitmap),oldActual=SelectObject(actual,actualBitmap),oldSaved=SelectObject(saved,savedBitmap);
+    if(!BitBlt(saved,0,0,width,height,screen,left,top,SRCCOPY))failures|=128;
+    HBRUSH brush=CreateSolidBrush(RGB(0xD4,0xD0,0xC8));
+    const int sizes[]={16,32,48,20,36};const char *faces[]={"Arial","Arial","Arial","Tahoma","Times New Roman"};
+    for(unsigned int test=0;test<5;test++)
+    {
+        HFONT font=CreateFontA(sizes[test],0,0,0,test?FW_BOLD:FW_NORMAL,test?TRUE:FALSE,FALSE,FALSE,DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,NONANTIALIASED_QUALITY,DEFAULT_PITCH,faces[test]);
+        if(!font){failures|=128;continue;}
+        HGDIOBJ screenFont=SelectObject(screen,font),referenceFont=SelectObject(reference,font);
+        const int screenMode=SetBkMode(screen,TRANSPARENT),referenceMode=SetBkMode(reference,TRANSPARENT);
+        const COLORREF screenColor=SetTextColor(screen,RGB(0,0,0)),referenceColor=SetTextColor(reference,RGB(0,0,0));
+        RECT sr={left,top,left+width,top+height},rr={0,0,width,height};FillRect(screen,&sr,brush);FillRect(reference,&rr,brush);
+        const char *text="12345 3DMarks";
+        if(!TextOutA(screen,left+3,top+3,text,lstrlenA(text)) || !TextOutA(reference,3,3,text,lstrlenA(text)))failures|=128;
+        GdiFlush();if(!BitBlt(actual,0,0,width,height,screen,left,top,SRCCOPY))failures|=128;GdiFlush();
+        DWORD differences=0;
+        for(int pixel=0;pixel<width*height;pixel++)
+            if(expected[pixel*4]!=observed[pixel*4] || expected[pixel*4+1]!=observed[pixel*4+1] || expected[pixel*4+2]!=observed[pixel*4+2])differences++;
+        char label[]="GDI_FONT_0_DIFF";label[9]=(char)('0'+test);detail(mark,label,differences);
+        if(differences){failures|=64;font_bitmap(test,'R',&info.bmiHeader,expected);font_bitmap(test,'G',&info.bmiHeader,observed);}
+        SetTextColor(screen,screenColor);SetTextColor(reference,referenceColor);SetBkMode(screen,screenMode);SetBkMode(reference,referenceMode);
+        SelectObject(screen,screenFont);SelectObject(reference,referenceFont);DeleteObject(font);
+    }
+    BitBlt(screen,left,top,width,height,saved,0,0,SRCCOPY);GdiFlush();DeleteObject(brush);
+    SelectObject(reference,oldReference);SelectObject(actual,oldActual);SelectObject(saved,oldSaved);
+done:
+    if(referenceBitmap)DeleteObject(referenceBitmap);if(actualBitmap)DeleteObject(actualBitmap);if(savedBitmap)DeleteObject(savedBitmap);
+    if(reference)DeleteDC(reference);if(actual)DeleteDC(actual);if(saved)DeleteDC(saved);return failures;
+}
+#endif
 DWORD nv_gdi_probe(void (*mark)(const char*))
 {
     DWORD failures=0;
@@ -49,6 +105,9 @@ DWORD nv_gdi_probe(void (*mark)(const char*))
     SetTextColor(screen,color);SetBkMode(screen,background);SelectObject(screen,font);
     BitBlt(screen,16,16,80,40,saved,0,0,SRCCOPY);GdiFlush();
     if(GetPixel(screen,20,20)!=before) failures|=32;
+#ifdef NV_GDI_FONT_TEST
+    failures|=font_probe(screen,mark);
+#endif
     DeleteObject(brush);SelectObject(saved,original);DeleteObject(bitmap);DeleteDC(saved);ReleaseDC(0,screen);
     return failures;
 }

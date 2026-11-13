@@ -1245,3 +1245,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   完整基准尚在运行。源码/release 寄存器与旧快照回归、PGRAPH 测试和 Closure 构建通过。
   同时把翻页等待正确报告为 PGRAPH_STATUS 的 SYNC_STALL bit 14；Win98 仍只绘制
   少量帧，不能把该状态位修正称为完整翻页修复。
+
+- G2 原生字体像素对照：`NV_GDI_FONT_TEST` 比较真实主表面与客体 GDI 软件 DIB，
+  五组 Arial/Tahoma/Times 字号、粗体斜体的 `12345 3DMarks` 均为 0 个不同像素，
+  GDI_TEST=0，设备保持 started/problem=0，原盘未变。证据为
+  `g2-xp-9371-font-reference.json`。失败时导出参考/实际 BMP，
+  `NV_TOOLS_ARTIFACTS` 可选择工具盘根目录诊断文件。比较区避开探针控制台的闪烁光标；
+  这未复现 3DMark99 的总分字体问题，该问题仍需单独定位。

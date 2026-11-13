@@ -1,0 +1,59 @@
+{
+  "stage": "G2 XP native GDI font pixel comparison",
+  "driver": "93.71",
+  "revision": "5a9d47ab plus font comparison probe",
+  "surface": [
+    1024,
+    768,
+    32
+  ],
+  "reference": "Native GDI CreateDIBSection software surface, compared pixel by pixel against installed driver screen readback; NONANTIALIASED_QUALITY",
+  "text": "12345 3DMarks",
+  "fonts": [
+    {
+      "face": "Arial",
+      "height": 16,
+      "bold": false,
+      "italic": false,
+      "differentPixels": 0
+    },
+    {
+      "face": "Arial",
+      "height": 32,
+      "bold": true,
+      "italic": true,
+      "differentPixels": 0
+    },
+    {
+      "face": "Arial",
+      "height": 48,
+      "bold": true,
+      "italic": true,
+      "differentPixels": 0
+    },
+    {
+      "face": "Tahoma",
+      "height": 20,
+      "bold": true,
+      "italic": true,
+      "differentPixels": 0
+    },
+    {
+      "face": "Times New Roman",
+      "height": 36,
+      "bold": true,
+      "italic": true,
+      "differentPixels": 0
+    }
+  ],
+  "failures": 0,
+  "device": {
+    "started": true,
+    "problem": 0
+  },
+  "graphFaults": [],
+  "probe_sha256": "3228f528f1d1504c1c112f4c16c4addf418c5d9f32b474f55036362516c22aba",
+  "imageUnchanged": true,
+  "gameImageUnchanged": true,
+  "scope": "Five font styles pass. The 3DMark99 score-font corruption remains unresolved; this test does not reproduce it."
+}
