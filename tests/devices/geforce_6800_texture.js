@@ -12,6 +12,8 @@ const state=new NV40State(device),texture=new NV40Texture(state),o={methods:new 
 ramin.setUint32(0x100,0x303D,true);ramin.setUint32(0x104,0xFFFF,true);ramin.setUint32(0x108,3,true);
 vram.set([0,0,255,255,0,255,0,255,99,98,97,96,255,0,0,255,255,255,255,255],0x1000);
 let t=texture.describe(o,0);assert.deepEqual([...texture.read(t)],[255,0,0,255,0,255,0,255,0,0,255,255,255,255,255,255]);
+assert.equal(t.normalized,true);o.methods.set(0x1A04,0x16529);assert.equal(texture.describe(o,0).normalized,false);
+assert.deepEqual(texture.read(texture.describe(o,0)),texture.read(t),"coordinate units do not change texture storage");o.methods.set(0x1A04,0x12529);
 o.methods.set(0x1A10,0xAAE4);assert.deepEqual([...texture.read(texture.describe(o,0)).subarray(0,4)],[0,0,255,255],"crossbar selects storage components, not format names");
 o.methods.set(0x1A18,4<<16|2);o.methods.set(0x1A04,0x10529);o.methods.set(0x1A00,0x2000);
 [1,2,5,6,3,4,7,8].forEach((red,i)=>vram.set([red,0,0,255],0x2000+i*4));

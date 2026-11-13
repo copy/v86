@@ -63,6 +63,10 @@ try
     {
         const p=structuredClone(fragment),i=p.instructions[0];i.name=name;i.sources=Array.from({length:3},()=>({type:"input",index:4,swizzle:[0,1,2,3],negate:false,absolute:false}));
         const t=translate_fragment_program(p);assert.deepEqual(t.samplers,[[0,2]]);validate(name,t);
+        const rect=translate_fragment_program(p,{texture_sizes:[[8,4,1]]});validate(name+"-unnormalized",rect);
+        assert.deepEqual([...rect.texture_constants[0][1]],[.125,.25,1,1]);
+        const resized=translate_fragment_program(p,{texture_sizes:[[16,16,1]]});
+        assert.deepEqual(rect.bytecode,resized.bytecode,"texture dimensions remain uniform values outside the shader cache key");
     }
     const fogged=structuredClone(fragment);fogged.instructions[0].sources[0]={type:"input",index:3,swizzle:[0,1,2,3],negate:false,absolute:false};
     for(const mode of [0x2601,0x804,0x800,0x801,0x802,0x803])validate("fog-"+mode,translate_fragment_program(fogged,{fog:{mode,constant:1,linear:1}}));
@@ -101,6 +105,17 @@ try
         validate("vertex-branch-"+condition,translate_vertex_program({entry:0,instructions:[jump,final]}));
     }
     const branch=structuredClone(fragment);branch.instructions[0].branch=true;assert.throws(()=>translate_fragment_program(branch),/control flow/);
+    const fpFlow=(name,pc,end,otherwise=end,condition=7)=>{
+        const i=structuredClone(fragment.instructions[0]);Object.assign(i,{name,pc,end:false,branch:true,end_offset:end,else_offset:otherwise,loop:{count:3}});
+        i.predicate.condition=condition;return i;
+    };
+    const fpMove=pc=>{const i=structuredClone(fragment.instructions[0]);i.pc=pc;i.end=false;return i;};
+    for(const condition of [0,1,2,4,7])validate("fragment-if-"+condition,translate_fragment_program({constants:fragment.constants,word_count:28,
+        instructions:[fpFlow("IF",0,20,12,condition),fpMove(4),fpMove(12),fpMove(20)]}));
+    validate("fragment-repeat-break",translate_fragment_program({constants:fragment.constants,word_count:24,
+        instructions:[fpFlow("REP",0,16),fpMove(4),fpFlow("BRK",12,0),fpMove(16)]}));
+    assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:8,instructions:[fpFlow("BRK",0,0),fpMove(4)]}),/outside loop/);
+    assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:12,instructions:[fpFlow("IF",0,10),fpMove(4)]}),/scope/);
     const alias=structuredClone(fragment),later=structuredClone(alias.instructions[0]);later.sources[0]={type:"temp",index:0,half:false,swizzle:[0,1,2,3]};alias.instructions.push(later);
     assert.throws(()=>translate_fragment_program(alias),/alias/);
     for(const full of [false,true])

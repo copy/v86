@@ -231,7 +231,11 @@ export class NV40Render
             bottom:Math.min((y&65535)+(y>>>16),clip?clip.bottom:target.height)};
         if(scissor.left>=scissor.right || scissor.top>=scissor.bottom)return;
         const samplers=Array.from({length:16},(_,unit)=>{const format=get(o,0x1A04+unit*32);return format&4?3:(format>>>4&15)===3?4:2;});
-        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14),samplers});
+        const texture_sizes=Array.from({length:16},(_,unit)=>{
+            const format=get(o,0x1A04+unit*32),size=get(o,0x1A18+unit*32);
+            return format&0x4000?[size>>>16,size&65535,(format>>>4&15)===3?get(o,0x1840+unit*4)>>>20:1]:null;
+        });
+        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14),samplers,texture_sizes});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};
@@ -279,6 +283,7 @@ export class NV40Render
         this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,0,this.engine.vertex_constants(o,0,544));
         for(const [index,values]of shaders.vertex.viewport_constants)this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,index,values);
         shaders.fragment.constant_values.forEach((values,index)=>this.constants(OP.SET_PIXEL_SHADER_CONSTANT_F,index,values));
+        for(const [index,values]of shaders.fragment.texture_constants)this.constants(OP.SET_PIXEL_SHADER_CONSTANT_F,index,values);
         this.render_state(22,cull.state);for(const [state,value]of zsa.states)this.render_state(state,value);
         for(const [state,value]of blend)this.render_state(state,value);
         const mask=get(o,0x324,0x01010101);

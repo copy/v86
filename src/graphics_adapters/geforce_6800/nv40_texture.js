@@ -19,7 +19,8 @@ export class NV40Texture
         if(volume && (!depth || Math.max(width,height,depth)>512))throw new RangeError("NV40 volume texture dimensions");
         if(volume && block)throw new RangeError("NV40 compressed volume texture is not connected");
         if(cube && width!==height)throw new RangeError("NV40 cube faces must be square");
-        if(format&0x4000)throw new RangeError("NV40 unnormalized texture coordinates are not connected");
+        const normalized=!(format&0x4000);
+        if(cube && !normalized)throw new RangeError("NV40 unnormalized cube coordinates");
         const levels=format>>>16&15;
         if(!levels || levels>1+Math.floor(Math.log2(Math.max(width,height,depth))))throw new RangeError("NV40 invalid texture mip count");
         if(!bpp)throw new RangeError("NV40 texture format is not connected: "+code);
@@ -33,7 +34,7 @@ export class NV40Texture
         if(min<1 || min>6 || mag<1 || mag>2)throw new RangeError("NV40 texture filter");
         const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
         if(minLod%1 || maxLod%1)throw new RangeError("NV40 fractional texture LOD clamp is not connected");
-        return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,
+        return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,normalized,
             crossbar:get(o,at+16),wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
             d3d:code===26?113:32,upload_bpp:code===26?8:4,

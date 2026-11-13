@@ -34,6 +34,8 @@ assert.throws(()=>decode_fragment_program(fp.subarray(0,6)),/truncated/);
 // A branch's offsets may have low bits 2. They are control data, not a literal.
 const branch=decode_fragment_program(Uint32Array.of(0x02000001,0,0x80000002,6));
 assert.equal(branch.instructions[0].name,"IF");assert.equal(branch.constants.length,0);assert.equal(branch.word_count,4);
+const repeat=decode_fragment_program(Uint32Array.of(0x04000001,7<<18,0x80000000|3<<2|4<<10|2<<19,4));
+assert.deepEqual(repeat.instructions[0].loop,{count:3,initial:4,increment:2});
 
 const selectOnly=decode_vertex_instruction(Uint32Array.of(0x20000000,0,0,1));
 assert.equal(selectOnly.predicate.update,false,"CDST_IS_VEC selects a slot, without enabling a condition write");

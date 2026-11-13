@@ -71,7 +71,8 @@ export function decode_fragment_program(words)
             branch, sources, constant, destination: {index:a>>>1&63,half:!!(a&128),mask:a>>>9&15,disabled:!!(a&0x40000000)},
             precision:a>>>22&3,saturate:!!(a&0x80000000),scale:c>>>28&7,texture:a>>>17&15,
             predicate:{condition:b>>>18&7,swizzle:swizzle(b,[21,23,25,27]),update:!!(a&256)},
-            input_relative:!!(d&0x40000000),address:d>>>19&15,else_offset:c&0x7FFFFFFF,end_offset:d&0x7FFFFFFF,
+            input_relative:!branch && !!(d&0x40000000),address:d>>>19&15,else_offset:c&0x7FFFFFFF,end_offset:d&0x7FFFFFFF,
+            loop:{count:c>>>2&255,initial:c>>>10&255,increment:c>>>19&255},
             end:!!(a&1)});
         if(a&1) return {stage:"fragment",instructions,constants,normalized:Uint32Array.from(normalized),word_count:at};
     }

@@ -1186,3 +1186,16 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   无法进入保存上下文及推进 READ 的后续步骤。复现检查点恢复后已能退出该等待并
   完成 D3D7 流程；完整旋转/报告及后续版本仍继续验收。保留 FIFO 的等待与 fence
   顺序，PGRAPH 回归和 Closure 构建通过。
+
+- G4 片元结构化控制流第一部分：按硬件 DWORD 边界降低 IF/ELSE/ENDIF、REP 与
+  条件 BRK，条件测试任意 swizzle 分量，支持零次及 255 次循环、独立嵌套计数。
+  块边界和作用域先验证，执行预算限制嵌套循环的 GPU 成本。真实 GPU 验证分支、
+  循环次数、break、嵌套及预算终止；98 个 WGSL/Naga 模块、完整 GPU 回归和
+  Closure 构建通过。LOOP 的相对输入、CAL/RET 及 half/full alias 仍待实现。
+- 像素单位纹理坐标：3DMark99 的后续测试触发 UNNORMALIZED 格式，现对实际取样
+  的二维/三维坐标及显式梯度按基础尺寸缩放，保留 projective W、bias/LOD。
+  尺寸作为独立 uniform 上传，改变尺寸不生成新 shader；GPU 全图比较像素坐标和
+  归一化坐标的双线性 texel center 与插值，CPU 存储字节也一致。XP 此前只产生一次
+  该未实现陷阱，后续检查点将使用新实现复测；不能据旧长跑宣称完整基准已验收。
+  语义参考：NVIDIA 的 [NV_fragment_program2](https://registry.khronos.org/OpenGL/extensions/NV/NV_fragment_program2.txt)
+  与 Mesa nv30 的硬件编码定义。

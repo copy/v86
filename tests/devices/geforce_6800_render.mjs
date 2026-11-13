@@ -234,6 +234,13 @@ try
         method(0x1808,0);await engine.backend.wait();
         const center=[...vram.subarray(0x10000+(3*8+3)*4,0x10000+(3*8+3)*4+4)];
         [96,96,135,255].forEach((expected,i)=>assert(Math.abs(center[i]-expected)<=1,"bilinear center component "+i+": "+center[i]));
+        const normalizedPixels=vram.slice(0x10000,0x10100);
+        method(0x1A04,0x16529);method(0x1808,6);
+        const pixelCoordinates=floats.map((value,index)=>index%4>=2?value*2:value);
+        for(const word of new Uint32Array(pixelCoordinates.buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();assert.deepEqual(vram.slice(0x10000,0x10100),normalizedPixels,
+            "pixel-unit coordinates preserve bilinear texel centers and interpolation");
+        method(0x1A04,0x12529);
         // Distinct solid levels expose derivative LOD, signed sampler bias and
         // trilinear interpolation without depending on checkerboard placement.
         let mipOffset=0x20000;
@@ -389,6 +396,43 @@ try
             assert.deepEqual(pixel,killed?[13,17,19,23]:[255,255,255,255],"KIL tests swizzled condition codes");
         }
         console.log("PASS: real WebGPU all fragment conditions, NaN/unordered, masked CC updates, saturation and conditional discard");
+        const fpBranch=(opcode,otherwise,end,condition=7,swizzle=[0,1,2,3])=>[
+            opcode<<24|0x40000000,condition<<18|conditionSwizzle(swizzle),0x80000000|otherwise,end];
+        for(const condition of [0,1,2,4,5,7])
+        {
+            const pixel=await conditionalDraw([
+                ...ccInstruction([.25,.25,.25,.25]),
+                ...ccInstruction([-1,0,1,NaN],{update:true,disabled:true}),
+                ...fpBranch(2,28,36,condition,[2,2,2,2]),
+                ...ccInstruction([.75,.75,.75,.75]),
+                ...ccInstruction([.5,.5,.5,.5]),0x00000001,7<<18,0,0]);
+            assert.deepEqual(pixel,Array(4).fill(conditions[condition](1)?191:128),"fragment IF/ELSE condition "+condition);
+        }
+        for(const count of [0,1,3,255])
+        {
+            const add=[3<<24|128|15<<9,7<<18|0x1C900,0x1C802,0,...new Uint32Array(Float32Array.of(.125,.125,.125,.125).buffer)];
+            const pixel=await conditionalDraw([...ccInstruction([0,0,0,0]),
+                ...fpBranch(4,count<<2|count<<10|count<<19,20),...add,1,7<<18,0,0]);
+            assert.deepEqual(pixel,Array(4).fill(Math.min(255,Math.round(count*.125*255))),"fragment REP count "+count);
+        }
+        const broken=await conditionalDraw([...ccInstruction([.25,.25,.25,.25]),
+            ...fpBranch(4,3<<2|3<<10|3<<19,24),...fpBranch(0,0,0),
+            ...ccInstruction([.75,.75,.75,.75]),1,7<<18,0,0]);
+        assert.deepEqual(broken,Array(4).fill(64),"BRK exits the innermost REP before the next write");
+        const nestedAdd=[3<<24|128|15<<9,7<<18|0x1C900,0x1C802,0,...new Uint32Array(Float32Array.of(.125,.125,.125,.125).buffer)];
+        const nestedWords=(outer,inner)=>[...ccInstruction([0,0,0,0]),
+            ...fpBranch(4,outer<<2|outer<<10|outer<<19,28),...fpBranch(4,inner<<2|inner<<10|inner<<19,24),
+            ...nestedAdd,0,7<<18,0,0,1,7<<18,0,0];
+        assert.deepEqual(await conditionalDraw(nestedWords(2,3)),Array(4).fill(191),"nested REP counters remain independent");
+        const unrestrictedShaders=engine.shaders;
+        try
+        {
+            engine.shaders=function(o,options){return unrestrictedShaders.call(this,o,{...options,instruction_limit:8});};
+            assert.deepEqual(await conditionalDraw(nestedWords(255,255)),Array(4).fill(96),"fragment execution budget exits nested loops with the last computed color");
+        }
+        finally {engine.shaders=unrestrictedShaders;}
+        console.log("PASS: real WebGPU fragment IF/ELSE conditions, zero/255 repeat counts and loop break");
+
         method(0x1FF4,1<<14);method(0xA74,1);method(0xA70,0);method(0xA6C,8);
         for(const [at,value]of [[0x1A04,0x12529],[0x1A18,1<<16|1],[0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1840,4]])method(at,value);
         [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
