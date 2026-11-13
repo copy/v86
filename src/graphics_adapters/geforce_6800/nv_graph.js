@@ -71,8 +71,10 @@ export class NVGraph
         return object;
     }
 
-    error(channel, subc, method, value, source = 0x40, status = 0x4000)
+    error(channel, subc, method, value, source = 0x40, status = 0x4000, reason = "unimplemented PGRAPH method")
     {
+        this.faults.push({channel,subc,method,value:value>>>0,source,status,reason,sequence:this.device.trace.sequence});
+        if(this.faults.length>64)this.faults.shift();
         this.set(0x400704, channel << 24 | subc << 13 | method);
         this.set(0x400708, value);
         this.set(0x400108, this.reg(0x400108) | source);
@@ -110,7 +112,7 @@ export class NVGraph
             accepted = method === 0x100 || method === 0x108 || method === 0x10C;
             if(method === 0x104)
             {
-                if(value > 1) this.error(channel, subc, method, value, 2, 0x2000);
+                if(value > 1) this.error(channel, subc, method, value, 2, 0x2000, "invalid notification mode");
                 else this.notification(object, 0, value === 1);
                 accepted = true;
             }
@@ -130,9 +132,7 @@ export class NVGraph
         catch(error)
         {
             if(!(error instanceof RangeError)) throw error;
-            this.faults.push({ channel, subc, instance, class_id: object ? object.class_id : 0, method, value, reason: error.message });
-            if(this.faults.length > 64) this.faults.shift();
-            this.error(channel, subc, method, value, 0x100, 0x4000);
+            this.error(channel, subc, method, value, 0x100, 0x4000, error.message);
         }
         if(object) this.device.trace.record_method(channel, subc, instance, object.class_id, method, value, accepted);
         // A trapped method has reached PGRAPH and is consumed. FIFO access is

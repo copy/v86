@@ -12,6 +12,7 @@ export class NVFIFO
     constructor(device)
     {
         this.device = device;
+        this.faults = [];
         this.active = -1;
         this.channels = new Map();
         this.running = false;
@@ -155,8 +156,16 @@ export class NVFIFO
         return null;
     }
 
+    record_fault(kind,flags)
+    {
+        const get=this.reg(0x3270),at=0x90000+(get&0x7FC)*2,header=this.reg(at);
+        this.faults.push({kind,flags,channel:this.active,put:this.reg(0x3240),get:this.reg(0x3244),
+            cache_get:get,subc:header>>>13&7,method:header&0x1FFC,value:this.reg(at+4),sequence:this.device.trace.sequence});
+        if(this.faults.length>64)this.faults.shift();
+    }
     cache_error(flags)
     {
+        this.record_fault("cache",flags);
         this.set(0x3250, this.reg(0x3250) | flags);
         this.set(0x2100, this.reg(0x2100) | 1);
         this.device.update_irq();
@@ -242,6 +251,7 @@ export class NVFIFO
 
     fault(code)
     {
+        this.record_fault("dma",code);
         this.set(0x3228, this.reg(0x3228) & 0x1FFFFFFF | code << 29);
         this.set(0x3220, this.reg(0x3220) | 0x1000);
         this.set(0x2100, this.reg(0x2100) | 0x1000);

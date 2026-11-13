@@ -202,7 +202,7 @@ export async function run_geforce_guest(win98)
         gpu: nv.graph.engine3d.backend ? nv.graph.engine3d.backend.stats : null,
         scanout: sink.transitions,
         display: { crtc: Array.from(nv.display.crtc), front: nv.display.front, mode: nv.display.mode() },
-        graph: nv.graph.get_state(), graphFaults: nv.graph.faults, fifo: nv.fifo.get_state() });
+        graph: nv.graph.get_state(), graphFaults: nv.graph.faults, fifo: nv.fifo.get_state(), fifoFaults:nv.fifo.faults });
     try
     {
         await new Promise((resolve, reject) => { vm.add_listener("emulator-ready", resolve); vm.add_listener("emulator-error", reject); });

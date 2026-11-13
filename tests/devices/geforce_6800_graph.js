@@ -45,6 +45,8 @@ method(2, 0x4000, 0x666, 0x1234);
 assert.equal(device.registers.get(0x400704), 2 << 24 | 3 << 13 | 0x666);
 assert.equal(device.registers.get(0x400708), 0x1234);
 assert.equal(device.registers.get(0x400108), 0x40, "unknown method raises ILLEGAL_MTHD");
+assert.equal(graph.faults.at(-1).method,0x666);assert.match(graph.faults.at(-1).reason,/unimplemented/);
+assert.equal(graph.faults.at(-2).source,0x100,"DMA exceptions and method traps share the bounded diagnostic history");
 // Reusing an instance for another class must not retain the old clip state.
 word(0x4000, 0x43); assert.equal(graph.object(0, 0x4000).methods.size, 0);
 device.registers.set(0x400324, 17); device.registers.set(0x400328, 0xC001);

@@ -1091,3 +1091,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   不改变后续面起点。CPU 字节测试覆盖线性/packed 面、末面越界和 clamp；GPU
   逐面验证六方向、+X 四角坐标及显式 mip，缓存区分 2D/cube 并使用正确资源类型
   释放。纹理测试、真实 WebGPU 回归与 Closure 构建通过。volume 尚待实施。
+
+- G0/G3 诊断续修：PGRAPH 的普通 illegal-method/invalid-notify 陷阱现在与 DMA
+  异常一起进入有界 fault 历史；PFIFO 分别记录 DMA fault 与 cache trap 的通道、
+  GET/PUT、方法、参数和 trace sequence。软件 DAC 的 cache trap 仍是驱动处理路径，
+  不能全部计作 DMA 失败。harness 导出 `fifoFaults`，避免长跑 reset/ack 后丢失起因；
+  PGRAPH/FIFO 和渲染顺序测试、Closure 构建通过。

@@ -140,3 +140,11 @@ console.log("PASS: NV40 RAMFC channels, DMA pusher flow/error/budget, RAMHT, REF
     assert.equal(g.regs.get(0x3210),4);assert.equal(g.regs.get(0x3270),4);assert.equal(g.regs.get(0x3248),31);
     g.fifo.write(0x90004,123);assert.equal(g.fifo.read(0x91004),123,"upper cache aperture is the whole-array alias");
 }
+
+{
+    const {fifo}=fixture();for(let i=0;i<70;i++)fifo.fault(i&7);
+    assert.equal(fifo.faults.length,64);assert.equal(fifo.faults[0].flags,6);
+    assert.equal(fifo.faults.at(-1).kind,"dma");fifo.cache_error(0x100);
+    assert.equal(fifo.faults.length,64);assert.equal(fifo.faults.at(-1).kind,"cache");
+    const state=fifo.get_state();fifo.set_state(state);assert.equal(fifo.faults.length,64,"diagnostics survive guest resets but are not hardware snapshot fields");
+}

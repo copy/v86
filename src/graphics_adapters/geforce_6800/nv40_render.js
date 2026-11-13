@@ -271,9 +271,7 @@ export class NV40Render
     {
         const pending=this.pending;if(!pending)return;
         this.pending=null;this.stats.failures++;
-        this.device.graph.faults.push({reason:"NV40 renderer: "+reason});
-        if(this.device.graph.faults.length>64)this.device.graph.faults.shift();
-        this.device.graph.error(pending.channel,pending.subc,0x1808,0,0x100,0x4000);
+        this.device.graph.error(pending.channel,pending.subc,0x1808,0,0x100,0x4000,"NV40 renderer: "+reason);
         pending.resolve();this.device.machine.wake();
     }
     receive(message)
