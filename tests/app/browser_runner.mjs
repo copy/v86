@@ -97,6 +97,18 @@ async function timing_quiet()
 const server = http.createServer((req, res) =>
 {
     const address = new URL(req.url, "http://localhost");
+    if(req.method === "POST" && address.pathname === "/__artifact" && process.env.TEST_ARTIFACT_DIR)
+    {
+        const name=address.searchParams.get("name");
+        if(!name || !/^[a-zA-Z0-9_-]+\.(?:png|json|txt)$/.test(name)){res.writeHead(400).end();return;}
+        const chunks=[];let size=0;
+        req.on("data",b=>{size+=b.length;if(size>16*1024*1024)req.destroy();else chunks.push(b);});
+        req.on("end",()=>{
+            fs.mkdirSync(process.env.TEST_ARTIFACT_DIR,{recursive:true});
+            fs.writeFileSync(path.join(process.env.TEST_ARTIFACT_DIR,name),Buffer.concat(chunks));res.end("OK");
+        });
+        return;
+    }
     if(req.method === "POST" && ["/__timing_begin", "/__timing_end"].includes(address.pathname))
     {
         try

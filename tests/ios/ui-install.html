@@ -1,0 +1,105 @@
+<!doctype html><meta charset="utf-8"><title>Native iPhone IPA acceptance</title>
+<style>#log{max-height:80px;overflow:auto}iframe{width:1400px;height:1100px;border:1px solid #888}</style>
+<pre id="log"></pre><pre id="result">Running…</pre>
+<script type="module">
+// Owner-provided offline NAND only. Install uses the actual console dialog,
+// preparation Worker, CPU Worker, persistent OPFS and native iOS service.
+import { reserve_disk,finish_disk } from "../../src/app/browser_disks.js";
+import { new_ios_config } from "../../src/app/vm_config.js";
+import { VMStore } from "../../src/app/vm_store.js";
+import { NAND_BYTES } from "../../src/apple/nand_geometry.js";
+const probe=new URLSearchParams(location.search).get("probe");
+const sleep=ms=>new Promise(ok=>setTimeout(ok,ms));
+const started=Date.now();const log=s=>document.getElementById("log").textContent+=Math.round((Date.now()-started)/1000)+"s "+s+"\n";
+async function until(fn,what,timeout=1200000){const end=Date.now()+timeout;for(;;){const result=await fn();if(result)return result;if(Date.now()>end)throw Error("Timed out: "+what);await sleep(250);}}
+async function artifact(name,body){const r=await fetch("/__artifact?name="+name,{method:"POST",body});if(!r.ok)throw Error("Cannot save acceptance artifact");}
+let frame,w,d,emulator,serial="",config;
+async function open(){
+ frame=document.createElement("iframe");frame.src="/index.html?vm="+config.id;document.body.append(frame);
+ await new Promise(ok=>frame.onload=ok);w=frame.contentWindow;d=frame.contentDocument;
+ emulator=await until(()=>w.v86_console?.emulator,"console emulator",60000);
+ emulator.add_listener("serial0-output-byte",b=>serial+=String.fromCharCode(b));
+ emulator.add_listener("ios-install-progress",event=>log("native "+JSON.stringify(event)));
+ log("Console opened with CPU Worker="+!!emulator.worker_controller);
+ if(!emulator.worker_controller)throw Error("Acceptance requires the CPU Worker");
+}
+async function capture(name){
+ const image=emulator.screen_make_screenshot();if(!image?.src)throw Error("No console screenshot");
+ await artifact(name+".png",await(await fetch(image.src)).blob());
+ await artifact("serial.txt",serial);await artifact("status.json",JSON.stringify(await emulator.ios_install_status(),null,2));log("Captured "+name);
+}
+const touch=points=>emulator.bus.send("touch",{width:640,height:960,touches:points});
+try{
+ if(!probe||!/^build\/ios\/[a-zA-Z0-9_-]+$/.test(probe))throw Error("probe must name a local disposable directory");
+ const resume=new URLSearchParams(location.search).get("resume");
+ if(resume){const store=await VMStore.open();config=await store.get(resume);store.close();if(!config)throw Error("Missing persistent acceptance VM");await open();}
+ else {
+ const disk=await reserve_disk(4*1024**3);let directory=await navigator.storage.getDirectory();
+ for(const name of ["v86","disks"])directory=await directory.getDirectoryHandle(name,{create:true});
+ const file=await directory.getFileHandle(disk.id+".img",{create:true}),out=await file.createWritable();
+ const response=await fetch("/"+probe+"/flash.packed");if(!response.ok)throw Error("Missing packed test NAND");
+ await response.body.pipeTo(out);
+ const record=await finish_disk(disk.id,"Native IPA acceptance",{size:NAND_BYTES,ios:{model:"iPhone3,1",build:"10B329"}});
+ config=new_ios_config("Native IPA acceptance",{kind:"browser",id:disk.id,path:disk.path,size:NAND_BYTES,disk_option:"read_write"},true);
+ const store=await VMStore.open();config=await store.put(config);store.close();await open();
+ }
+ setInterval(()=>artifact("serial.txt",serial).catch(()=>{}),15000);
+ let sampling=false;
+ setInterval(async()=>{if(sampling)return;sampling=true;try{await capture("current");}catch(error){}finally{sampling=false;}},30000);
+ let cursor=0;
+ for(;;){
+  const response=await fetch("/"+probe+"/commands.json",{cache:"no-store"});
+  if(!response.ok){await sleep(1000);continue;}
+  const commands=await response.json();
+  while(cursor<commands.length){
+   const command=commands[cursor++];log("Command "+cursor+": "+JSON.stringify(command));
+   if(command.op==="capture")await capture(command.name);
+   else if(command.op==="wait")await sleep(command.ms);
+   else if(command.op==="swipe"){for(let i=0;i<=20;i++){touch([[1,command.x+(command.to-command.x)*i/20,command.y]]);await sleep(50);}touch([]);}
+   else if(command.op==="tap"){touch([[1,command.x,command.y]]);await sleep(100);touch([]);}
+   else if(command.op==="mouse-tap"){emulator.bus.send("mouse-absolute",[command.x,command.y,640,960]);emulator.bus.send("mouse-click",[true,false,false,false]);await sleep(150);emulator.bus.send("mouse-click",[false,false,false,false]);}
+   else if(command.op==="home"){emulator.ios_send_button("home",true);await sleep(100);emulator.ios_send_button("home",false);}
+   else if(command.op==="install"){
+    d.getElementById("iphone_install_ipa").click();
+    const input=await until(()=>d.getElementById("ios_ipa_file"),"IPA dialog");
+    const response=await fetch("/"+command.file);if(!response.ok)throw Error("Missing test IPA");
+    const transfer=new w.DataTransfer();transfer.items.add(new w.File([await response.blob()],command.file.split("/").pop()));input.files=transfer.files;input.dispatchEvent(new w.Event("change"));
+    const button=await until(()=>{const b=d.getElementById("ios_ipa_install");if(d.getElementById("ios_ipa_error")?.textContent)throw Error(d.getElementById("ios_ipa_error").textContent);return b&&!b.hidden&&!b.disabled&&b;},"native installer and inspected IPA");
+    button.click();
+    await until(()=>{const status=d.getElementById("ios_ipa_status").textContent,error=d.getElementById("ios_ipa_error").textContent;
+        if(/^(Installation failed|The previous installation was interrupted)/.test(status))throw Error(error||status);
+        return status.startsWith("Installed.");},"native installation");
+    log("UI reports verified Installed");
+    [...d.querySelectorAll("#ios_ipa_dialog button")].find(b=>b.textContent==="Close").click();
+   }
+   else if(command.op==="lookup"){
+    const value=await emulator.ios_install_lookup(command.bundle);log("lookup "+JSON.stringify(value));
+    if(!value.installed||value.version!==command.version)throw Error("Wrong installed identity");
+   }
+   else if(command.op==="open"){
+    d.getElementById("iphone_install_ipa").click();
+    const recover=d.getElementById("ios_ipa_resume");if(recover&&!recover.hidden&&!recover.disabled)recover.click();
+    const button=await until(()=>{const b=d.getElementById("ios_ipa_open");return b&&!b.hidden&&!b.disabled&&b;},"Open application button",30000);button.click();
+    await until(()=>{const error=d.getElementById("ios_ipa_error").textContent;if(error)throw Error(error);return d.getElementById("ios_ipa_status").textContent==="Application launch requested.";},"native launch request");
+    [...d.querySelectorAll("#ios_ipa_dialog button")].find(b=>b.textContent==="Close").click();
+   }
+   else if(command.op==="cold-boot"){
+    // Same operation as the console's Power off: release the disk and VM
+    // lock, then reopen without a memory snapshot or rebuilding either volume.
+    d.getElementById("menu_power").click();
+    const button=await until(()=>d.getElementById("menu_power_off"),"Power off menu",10000);button.click();
+    const confirmation=await until(()=>[...d.querySelectorAll("dialog button")].find(b=>b.textContent==="Power off"),"Power off confirmation",10000);confirmation.click();
+    await until(()=>d.body.textContent.includes("Powered off."),"phone powered off",30000);
+    frame.remove();await sleep(1000);await open();
+   }
+   else if(command.op==="finish"){
+    await capture("final");document.getElementById("result").textContent="PASS: native UI acceptance commands completed; inspect recorded screenshots for launch, saved data, update and cold boot";break;
+   }
+   else throw Error("Unknown acceptance operation");
+   await artifact("commands-completed.json",JSON.stringify({cursor,command},null,2));
+  }
+  if(document.getElementById("result").textContent.startsWith("PASS"))break;
+  await sleep(1000);
+ }
+}catch(error){log(error.stack);if(emulator)await capture("failed").catch(()=>{});await artifact("serial.txt",serial).catch(()=>{});document.getElementById("result").textContent="FAIL: "+error.stack;}
+</script>

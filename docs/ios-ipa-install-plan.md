@@ -326,6 +326,21 @@ checking → preparing → transferring → staged
 
 ### 用户本地固件上的真实验收
 
+`tests/ios/ui-install.html` 使用真实 VM manager 控制台、准备 Worker、CPU Worker、OPFS NAND 和客体助手。
+从本地离线系统卷创建独立测试盘后，用 `tools/ios/pack-nand.mjs` 转成 OPFS 使用的 packed NAND。
+测试浏览器通过该目录的 `commands.json` 接收 `install`、`open`、`tap`、`home`、`lookup`、
+`capture` 和 `cold-boot` 操作；安装和启动点击实际控制台按钮，冷启动点击电源菜单，复用同一 OPFS 磁盘。
+`resume=<VM ID>` 可在同一测试浏览器中重新打开已存在的测试虚机，不重新导入 NAND。
+
+```sh
+TEST_ARTIFACT_DIR=build/ios/ipa-acceptance/acceptance TIMEOUT_MS=3600000 \
+  node tests/app/browser_runner.mjs tests/ios/ui-install.html \
+  isolated=1 webgpu=1 probe=build/ios/ipa-acceptance
+```
+
+截图、原生进度及串口日志写入上述本地目录。`finish` 只结束命令序列；必须另行检查截图中的版本与计数，
+确认非零存档在更新及冷启动后仍存在，才能将对应验收项标为通过。测试镜像、快照和苹果文件不进入仓库。
+
 | 样本 / 场景 | 必须观察的结果 |
 | --- | --- |
 | 自制 UIKit IPA | 原生安装成功、可查询、图标出现、触控启动并显示内容 |

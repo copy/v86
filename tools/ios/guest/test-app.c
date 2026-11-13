@@ -22,6 +22,7 @@ static void tap(void *self, void *cmd, void *sender)
     (void)self; (void)cmd; (void)sender; count++;
     ((void (*)(void *,void *,long,void *))objc_msgSend)(defaults,sel_registerName("setInteger:forKey:"),count,counter_key);
     send0(defaults,"synchronize"); update();
+    syslog(5,"V86 fixture v%d saved count=%ld",V86_FIXTURE_VERSION,count);
 #ifdef V86_GLES_TEST
     if(gl_view)draw(gl_view);
 #endif
@@ -84,7 +85,7 @@ static Boolean launched(void *self, void *cmd, void *app, void *options)
     class_addMethod(object_getClass(cls),sel_registerName("layerClass"),(void (*)(void))layer_class,"#@:");objc_registerClassPair(cls);
     gl_view=send0(send0(cls,"alloc"),"init");frame(gl_view,(Rect){0,160,320,300});send1(view,"addSubview:",gl_view);draw(gl_view);
 #endif
-    syslog(5,"V86 UIKit fixture launched count=%ld",count);return 1;
+    syslog(5,"V86 UIKit fixture v%d launched count=%ld",V86_FIXTURE_VERSION,count);return 1;
 }
 int main(int argc,char **argv)
 {
