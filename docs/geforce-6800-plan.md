@@ -133,6 +133,12 @@
   XP 已进入 800×600 桌面且原生设备仍为 `problem=0 / service=nv`；模式探针只扫描前
   512 项，未找到 1024×768×32，需要扩大枚举并实际切换，尚不能算 G1 验收。
 
+- 显示续修：增加按 PRAMDAC BPC 选择的 6/8-bit DAC 端口/MMIO 读写、直接色 gamma、
+  32/64-pixel ARGB 预乘/非预乘光标、1555 透明/XOR 光标、负坐标裁剪与双扫描，
+  VPLL 第二级和 VPLL2 选择。gamma 随显示状态保存，旧快照缺失时恢复恒等映射。
+  设备测试覆盖 gamma 分量、8-bit DAC 别名、光标 alpha/XOR/负位置和 PLL 周期变化；
+  完整设备/快照测试及插件构建通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

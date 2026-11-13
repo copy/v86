@@ -166,6 +166,8 @@ try
 
     const crtc = (index, value) => io.port_write16(0x3D4, index | value << 8);
     const crtc_read = index => { io.port_write8(0x3D4, index); return io.port_read8(0x3D5); };
+    write(mmio + 0x680600, 0x100000); io.port_write8(0x3C8, 0);
+    for(let i = 0; i < 256; i++) for(let c = 0; c < 3; c++) io.port_write8(0x3C9, i);
     crtc(0x28, 3); assert.equal(crtc_read(0x28), 0, "extended CRTC is locked at reset");
     crtc(0x1F, 0x57); assert.equal(crtc_read(0x1F), 3);
     for(const [index, value] of [[1, 0], [0x12, 1], [7, 0], [0x25, 0], [0x41, 0], [0x13, 4], [0x28, 3]]) crtc(index, value);
@@ -173,6 +175,27 @@ try
     write(fb + 0x2000, 0x00112233); write(fb + 0x3000, 0x00445566);
     write(mmio + 0x600800, 0x2000); nv.display.on_vblank(); nv.display.render();
     assert.deepEqual([...nv.display.pixels.data.subarray(0, 4)], [0x11, 0x22, 0x33, 255]);
+    io.port_write8(0x3C8, 0x11);
+    for(const value of [200, 201, 202]) io.port_write8(0x3C9, value);
+    io.port_write8(0x3C7, 0x11);
+    assert.deepEqual([cpu.read8(mmio + 0x6813C9), io.port_read8(0x3C9), io.port_read8(0x3C9)], [200, 201, 202], "8-bit DAC port/MMIO readback");
+    nv.display.render(); assert.equal(nv.display.pixels.data[0], 200, "gamma applies per component in direct color");
+    io.port_write8(0x3C8, 0x11); for(let c = 0; c < 3; c++) io.port_write8(0x3C9, 0x11);
+    crtc(0x30, 0x80); crtc(0x31, 0x80); crtc(0x2F, 0);
+    write(fb + 0x10004, 0x8000FF00); write(mmio + 0x680300, 0x0000FFFF);
+    write(mmio + 0x600810, 0x14011001); nv.display.render();
+    assert.deepEqual([...nv.display.pixels.data.subarray(0, 4)], [8, 144, 25, 255], "ARGB cursor clips negative coordinates and alpha blends");
+    write(fb + 0x10000, 0x7FFF); write(mmio + 0x680300, 0); write(mmio + 0x600810, 1);
+    nv.display.render(); assert.deepEqual([...nv.display.pixels.data.subarray(0, 4)], [238,221,204,255], "legacy cursor XOR pixel");
+    write(mmio + 0x600810, 0); crtc(0x31, 0);
+    crtc(0,95); crtc(6,11); crtc(7,0x20);
+    write(mmio + 0x680508,40 << 8 | 9); write(mmio + 0x680578,0);
+    const period = nv.display.vblank_period();
+    write(mmio + 0x680578,0x80000201);
+    assert.equal(nv.display.vblank_period(),period / 2,"second VPLL stage changes refresh period");
+    write(mmio + 0x68050C,4); write(mmio + 0x680520,20 << 8 | 9); write(mmio + 0x68057C,0);
+    assert.equal(nv.display.vblank_period(),period * 2,"head zero can select VPLL2");
+    crtc(7,0);
     write(mmio + 0x600800, 0x3000); nv.display.render();
     assert.equal(nv.display.pixels.data[0], 0x11, "page flip waits for vblank");
     nv.display.on_vblank(); nv.display.render();

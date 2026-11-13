@@ -300,7 +300,7 @@ export class NVDevice
     {
         return [0, 0x100, 0x140, 0x200, 0x1218, 0x322C, 0x3230, 0x3234, 0x3238, 0x323C, 0x3304,
             0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x100200, 0x100204, 0x10020C, 0x101000].includes(offset) ||
-            this.fifo.implemented(offset) || this.graph.implemented(offset) ||
+            this.fifo.implemented(offset) || this.graph.implemented(offset) || this.display.implemented(offset) ||
             offset >= 0x1800 && offset < 0x1900 || IRQ_BLOCKS.some(([status, enable]) => offset === status || offset === enable);
     }
 

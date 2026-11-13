@@ -18,6 +18,7 @@ export class NVDisplay
         this.front = 0;
         this.key = "";
         this.pixels = null;
+        this.gamma = new Uint8Array(768);
         const edid = make_edid(1280, 1024, 0x40);
         edid[20] = 0x08; // analog RGB, separate sync
         edid.set(Array.from("v86 NV40 CRT\n", c => c.charCodeAt(0)), 95);
@@ -39,6 +40,8 @@ export class NVDisplay
             this.vga.port3C4_write(value & 255); this.write_seq(value >>> 8 & 255);
         });
         this.machine.register_write(0x3C5, this, value => this.write_seq(value));
+        this.machine.register_write(0x3C9, this, value => this.dac_write(value));
+        this.machine.register_read(0x3C9, this, () => this.dac_read());
         this.hub.add_source(this);
     }
 
@@ -47,7 +50,26 @@ export class NVDisplay
         this.crtc.fill(0); this.crtc2.fill(0);
         this.index2 = this.front = 0;
         this.unlocked = false;
+        for(let i = 0; i < 256; i++) this.gamma.fill(i, i * 3, i * 3 + 3);
         this.ddc.reset(); this.invalidate();
+    }
+
+    dac_write(value)
+    {
+        const eight = !!(this.reg(0x680600) & 0x100000), index = this.vga.dac_color_index_write;
+        const saved = this.vga.dispi_enable_value;
+        this.vga.dispi_enable_value = eight ? saved | 0x20 : saved & ~0x20;
+        this.vga.port3C9_write(value);
+        this.vga.dispi_enable_value = saved;
+        this.gamma[index] = eight ? value : (value & 63) * 255 / 63;
+    }
+    dac_read()
+    {
+        const saved = this.vga.dispi_enable_value;
+        this.vga.dispi_enable_value = this.reg(0x680600) & 0x100000 ? saved | 0x20 : saved & ~0x20;
+        const result = this.vga.port3C9_read();
+        this.vga.dispi_enable_value = saved;
+        return result;
     }
 
     write_seq(value)
@@ -91,6 +113,7 @@ export class NVDisplay
         if(port === 0x3D4 || port === 0x3B4) return second ? this.index2 : this.vga.index_crtc;
         if(port === 0x3D5 || port === 0x3B5) return second ? this.crtc2[this.index2] : this.read_crtc();
         if(second) return 255; // disconnected second head
+        if(port === 0x3C9) return this.dac_read();
         const readers = { 0x3C0: "port3C0_read", 0x3C1: "port3C1_read", 0x3C4: "port3C4_read", 0x3C5: "port3C5_read",
             0x3C6: "port3C6_read", 0x3C7: "port3C7_read", 0x3C8: "port3C8_read", 0x3C9: "port3C9_read",
             0x3CC: "port3CC_read", 0x3CE: "port3CE_read", 0x3CF: "port3CF_read", 0x3DA: "port3DA_read", 0x3BA: "port3DA_read" };
@@ -103,6 +126,7 @@ export class NVDisplay
         if(port === 0x3D4 || port === 0x3B4) { if(second) this.index2 = value; else this.vga.port3D4_write(value); return; }
         if(port === 0x3D5 || port === 0x3B5) { if(second) this.crtc2[this.index2] = value; else this.write_crtc(value); return; }
         if(second) return;
+        if(port === 0x3C9) { this.dac_write(value); return; }
         if(port === 0x3C5) { this.write_seq(value); return; }
         const writers = { 0x3C0: "port3C0_write", 0x3C2: "port3C2_write", 0x3C4: "port3C4_write",
             0x3C6: "port3C6_write", 0x3C7: "port3C7_write", 0x3C8: "port3C8_write", 0x3C9: "port3C9_write",
@@ -124,14 +148,21 @@ export class NVDisplay
     }
 
     reg(offset) { return this.device.registers.get(offset) || 0; }
+    implemented(offset)
+    {
+        return [0x600800, 0x600810, 0x680300, 0x680508, 0x68050C, 0x680520, 0x680578, 0x68057C, 0x680600].includes(offset);
+    }
 
     vblank_period()
     {
         if(!(this.crtc[0x28] & 3)) return this.vga.vblank_period();
-        const c = this.crtc, pll = this.reg(0x680508), m = pll & 255, n = pll >>> 8 & 255;
+        const c = this.crtc, second = !!(this.reg(0x68050C) & 4);
+        const pll = this.reg(second ? 0x680520 : 0x680508), m = pll & 255, n = pll >>> 8 & 255;
         const h = ((c[0] | (c[0x2D] & 1) << 8) + 5) * 8;
         const v = (c[6] | (c[7] & 1) << 8 | (c[7] & 0x20) << 4 | (c[0x25] & 1) << 10 | (c[0x41] & 1) << 11) + 2;
-        const clock = m && n ? 13500000 * n / m / (1 << (pll >>> 16 & 7)) : 0;
+        const stage = this.reg(second ? 0x68057C : 0x680578), m2 = stage & 255, n2 = stage >>> 8 & 255;
+        const factor = stage & 0x80000000 && m2 && n2 ? n2 / m2 : 1;
+        const clock = m && n ? 13500000 * n / m * factor / (1 << (pll >>> 16 & 7)) : 0;
         const period = clock ? h * v * 1000 / clock : 0;
         return period >= 1 && period <= 100 ? period : 1000 / 60;
     }
@@ -184,17 +215,50 @@ export class NVDisplay
                 color = (r * 255 / 31 << 16) | (g * 255 / (rgb565 ? 63 : 31) << 8) | b * 255 / 31;
             }
             else color = src[s + 2] << 16 | src[s + 1] << 8 | src[s];
-            out[d] = color >>> 16; out[d + 1] = color >>> 8; out[d + 2] = color; out[d + 3] = 255;
+            out[d] = bytes === 1 ? color >>> 16 : this.gamma[(color >>> 16 & 255) * 3];
+            out[d + 1] = bytes === 1 ? color >>> 8 : this.gamma[(color >>> 8 & 255) * 3 + 1];
+            out[d + 2] = bytes === 1 ? color : this.gamma[(color & 255) * 3 + 2]; out[d + 3] = 255;
         }
+        this.cursor(out, src, width, height);
         this.hub.update_buffer([{ pixels: this.pixels, screen_x: 0, screen_y: 0,
             buffer_x: 0, buffer_y: 0, buffer_width: width, buffer_height: height }]);
     }
 
-    get_state() { return [this.crtc, this.crtc2, this.index2, this.unlocked, this.front, this.ddc.get_state()]; }
+    cursor(out, src, width, height)
+    {
+        const cfg = this.reg(0x600810), c = this.crtc;
+        if(!(cfg & 1) && !(c[0x31] & 1)) return;
+        const size = cfg & 0x10000 ? 64 : 32, lines = (cfg >>> 24 & 7) * 16 || 32;
+        const bpp = cfg & 0x1000 ? 4 : 2, double = cfg & 0x10 || c[0x31] & 2 ? 2 : 1;
+        const address = ((c[0x2F] << 24 | (c[0x30] & 127) << 17 | (c[0x31] & 252) << 9) >>> 0);
+        if(address + size * lines * bpp > src.length) return;
+        const pos = this.reg(0x680300), x0 = pos << 16 >> 16, y0 = pos >> 16;
+        for(let y = Math.max(0, -y0); y < lines * double && y + y0 < height; y++)
+            for(let x = Math.max(0, -x0); x < size && x + x0 < width; x++)
+        {
+            const at = address + (Math.floor(y / double) * size + x) * bpp, to = ((y + y0) * width + x + x0) * 4;
+            let r, g, b, alpha;
+            if(bpp === 4) { b = src[at]; g = src[at + 1]; r = src[at + 2]; alpha = src[at + 3] / 255; }
+            else
+            {
+                const color = src[at] | src[at + 1] << 8;
+                if(color === 0x7FFF) { out[to] ^= 255; out[to + 1] ^= 255; out[to + 2] ^= 255; continue; }
+                r = (color >>> 10 & 31) * 255 / 31; g = (color >>> 5 & 31) * 255 / 31; b = (color & 31) * 255 / 31; alpha = color >>> 15;
+            }
+            const factor = bpp === 4 && !(cfg & 0x10000000) ? 1 : alpha;
+            out[to] = Math.min(255, r * factor + out[to] * (1 - alpha));
+            out[to + 1] = Math.min(255, g * factor + out[to + 1] * (1 - alpha));
+            out[to + 2] = Math.min(255, b * factor + out[to + 2] * (1 - alpha));
+        }
+    }
+
+    get_state() { return [this.crtc, this.crtc2, this.index2, this.unlocked, this.front, this.ddc.get_state(), this.gamma]; }
     set_state(s)
     {
         this.crtc.set(s[0]); this.crtc2.set(s[1]);
         [this.index2, this.unlocked, this.front] = s.slice(2, 5);
         this.ddc.set_state(s[5]); this.invalidate();
+        if(s[6]) this.gamma.set(s[6]);
+        else for(let i = 0; i < 256; i++) this.gamma.fill(i, i * 3, i * 3 + 3);
     }
 }
