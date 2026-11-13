@@ -1263,3 +1263,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   barrier 和正确陷阱地址。原生 81.98/93.71 的 NOP=1 可继续执行，不再人为产生
   DATA_ERROR；非法 NOTIFY 仍有完整陷阱回归。PGRAPH 与 Closure 构建通过。
   Win98 每帧约 10 秒等待仍可复现，故不能把 NOP 校正称为其根因修复。
+
+- G3 纹理读取信号量：接通原生 93.71 在 3DMark2000 使用的 `0x1D74`，复用
+  `DMA_FENCE/FENCE_OFFSET` 的四字节 checked DMA 写入，先同步待完成 GPU 工作。
+  当前保守实现等待整批完成，满足纹理读取完成的顺序要求；不伪造 DMA 通知器。
+  PGRAPH 测试覆盖数据、相邻字节和越界原子性，真实 GPU 验证 fence 晚于读回，
+  完整渲染回归及 Closure 构建通过。编码复核 PSL1GHT 的
+  `SEMAPHORE_TEXTUREREAD_RELEASE` 和原生驱动跟踪；完整长跑仍在复测。

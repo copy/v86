@@ -66,7 +66,7 @@ try
     for(const word of [0,0x41800000,0x41800000,0])method(0x1818,word);
     method(0x1D6C,0x800);method(0x1808,0);
     assert.equal(engine.busy,true,"a submitted draw holds FIFO until readback completes");
-    device.registers.set(0x90000,0x1D70);device.registers.set(0x90004,0xABCD1234);device.registers.set(0x3210,4);device.registers.set(0x3270,0);
+    device.registers.set(0x90000,0x1D74);device.registers.set(0x90004,0xABCD1234);device.registers.set(0x3210,4);device.registers.set(0x3270,0);
     assert.equal(device.fifo.drain(),false);assert.equal(view.getUint32(0x800,true),0,"fence cannot precede GPU results");
     let savedReady=false;const drained=engine.backend.wait().then(()=>{savedReady=true;});
     if(!remote)

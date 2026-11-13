@@ -147,7 +147,7 @@ export class NV40_3D
             // completion word together, after all preceding draws finish.
             this.device.dma.write(dma,value&0xFFFFFF,bytes);return true;
         }
-        if(at === 0x1D70)
+        if(at === 0x1D70 || at === 0x1D74)
         {
             const offset = get(o, 0x1D6C);
             if(offset & ~0xFF0) throw new RangeError("NV40 fence selector is not implemented");

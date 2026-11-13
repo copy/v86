@@ -71,7 +71,11 @@ word(0x4104,31);vram.fill(255,0x8000,0x8020);
 method(0,0x4200,0x1A4,0x410);method(0,0x4200,0x1D6C,16);method(0,0x4200,0x1D70,0xDEADBEEF);
 assert.equal(new DataView(vram.buffer).getUint32(0x8010,true),0xDEADBEEF);
 assert.deepEqual([...vram.subarray(0x8014,0x8020)],Array(12).fill(255),"fence writes one DWORD, without a notifier timestamp");
-word(0x4104,17);vram.fill(255,0x8010,0x8020);method(0,0x4200,0x1D70,7);
+method(0,0x4200,0x1D74,0x1234ABCD);
+assert.equal(new DataView(vram.buffer).getUint32(0x8010,true),0x1234ABCD,"texture-read semaphore writes the selected DWORD");
+assert.deepEqual([...vram.subarray(0x8014,0x8020)],Array(12).fill(255));
+
+word(0x4104,17);vram.fill(255,0x8010,0x8020);method(0,0x4200,0x1D74,7);
 assert.deepEqual([...vram.subarray(0x8010,0x8020)],Array(16).fill(255),"failed fence leaves all bytes untouched");
 assert.equal(device.registers.get(0x400720),0);
 word(0x4104,31);word(0x4100,0x103003);device.registers.set(0x400720,1);method(0,0x4200,0x1D70,8);
