@@ -85,8 +85,26 @@
     if(stencil)check((actual&(format===73?1:format===75?255:15))===s,`stencil format ${format} at ${x},${y}`);
    }
    for(let y=0;y<3;y++)for(let x=64*bpp;x<pitch;x++)check(result[y*pitch+x]===0,'depth format padding '+format);
+   const pack=(z,s)=>format===80?Math.round(z*65535):format===71?Math.round(z*4294967295):
+    format===73?(Math.round(z*32767)<<1)|(s&1):(Math.round(z*16777215)*256+(s&(format===75?255:format===79?15:0)))>>>0;
+   const write=(bytes,at,value)=>{const v=new DataView(bytes.buffer);if(bpp===2)v.setUint16(at,value,true);else v.setUint32(at,value,true);};
+   const full=new Uint8Array(64*64*bpp);for(let i=0;i<4096;i++)write(full,i*bpp,pack(.75,0xa5));
+   const patchPitch=17*bpp+6,patch=new Uint8Array(patchPitch*11);patch.fill(0xcd);
+   for(let y=0;y<11;y++)for(let x=0;x<17;x++)write(patch,y*patchPitch+x*bpp,pack(.125,0x3c));
+   await gpu.submit(batch([
+    wire('UpdateTexture',{resource_handle:handle,width:64,height:64,depth:1,row_pitch:64*bpp,data_bytes:full.length},[{offsetField:'data_offset',data:full}]),
+    wire('UpdateTexture',{resource_handle:handle,x:7,y:9,width:17,height:11,depth:1,row_pitch:patchPitch,data_bytes:patch.length},[{offsetField:'data_offset',data:patch}]),
+   ]),{writeGuestMemory(){}});
+   const roundtrip=await read(format,handle,0,64,64*bpp),roundView=new DataView(roundtrip.buffer,roundtrip.byteOffset,roundtrip.byteLength);
+   for(let y=0;y<64;y++)for(let x=0;x<64;x++) {
+    const inside=x>=7&&x<24&&y>=9&&y<20,expected=pack(inside?.125:.75,inside?0x3c:0xa5);
+    const actual=bpp===2?roundView.getUint16((y*64+x)*bpp,true):roundView.getUint32((y*64+x)*bpp,true);
+    const tolerance=format===71?128:format===73?2:[75,77,79].includes(format)?256:1;
+    check(Math.abs(actual-expected)<=tolerance,`uploaded depth format ${format} at ${x},${y}: ${actual} != ${expected}`);
+    if(stencil)check((actual&(format===73?1:format===75?255:15))===(expected&(format===73?1:format===75?255:15)),`uploaded stencil format ${format} at ${x},${y}`);
+   }
   }
-  lines.push('all seven standard depth formats read real clear/draw values, stencil bits, sliced rows and padding');
+  lines.push('all seven standard depth formats read real clear/draw values, stencil bits, sliced rows, full/partial uploads and padding');
   await gpu.submit(D3D9Conformance.endCaseBatch(1),{writeGuestMemory(){}});await gpu.idle();await gpu.device.queue.onSubmittedWorkDone();
   for(let i=0;i<4;i++)await new Promise(r=>setTimeout(r,0));
   check(!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length&&!gpu.stats.commandsFailed&&!gpu.stats.renderTargetReadbackFailures,'GPU/host error');

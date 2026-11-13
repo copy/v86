@@ -524,6 +524,11 @@ fn main(@builtin(global_invocation_id) pos: vec3<u32>,
                         frame.transientBuffers.push(executor.encodeDepthTransfer(encoder,op.source,op.destination,true,op.x,op.y,op.width,op.height));
                         continue;
                     }
+                    if (op.kind === "stencil-upload") {
+                        closePass();
+                        frame.transientBuffers.push(...executor.encodeStencilUpload(encoder,op));
+                        continue;
+                    }
                     if (op.kind === "depth-blit") {
                         closePass();
                         frame.transientBuffers.push(...executor.encodeDepthBlit(encoder,op));

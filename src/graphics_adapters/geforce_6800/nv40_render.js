@@ -9,6 +9,26 @@ const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength)
 const BLEND=new Map([[0,1],[1,2],[0x300,3],[0x301,4],[0x302,5],[0x303,6],[0x304,7],[0x305,8],
     [0x306,9],[0x307,10],[0x308,11],[0x8001,14],[0x8002,15],[0x8003,14],[0x8004,15]]);
 const EQUATION=new Map([[0x8006,1],[0x800A,2],[0x800B,3],[0x8007,4],[0x8008,5]]);
+const STENCIL=new Map([[0x1E00,1],[0,2],[0x1E01,3],[0x1E02,4],[0x1E03,5],[0x150A,6],[0x8507,7],[0x8508,8]]);
+export function nv40_depth_state(o)
+{
+    const depth=!!get(o,0xA74),stencil=!!get(o,0x328);
+    if(get(o,0x348) || get(o,0x380) || get(o,0xA60) || get(o,0xA64) || get(o,0xA68))
+        throw new RangeError("NV40 two-sided stencil/depth bounds/bias is not connected");
+    const compare=value=>{if(value<0x200 || value>0x207)throw new RangeError("NV40 invalid depth/stencil comparison");return value-0x1FF;};
+    const result=[[7,+depth],[14,depth?+!!get(o,0xA70):0],[23,compare(get(o,0xA6C,0x201))],[52,+stencil],[185,0]];
+    if(stencil)
+    {
+        for(const [state,at]of [[53,0x33C],[54,0x340],[55,0x344]])
+        {
+            const operation=get(o,at,0x1E00);
+            if(!STENCIL.has(operation))throw new RangeError("NV40 invalid stencil operation");
+            result.push([state,STENCIL.get(operation)]);
+        }
+        result.push([56,compare(get(o,0x330,0x207))],[57,get(o,0x334)&255],[58,get(o,0x338,255)&255],[59,get(o,0x32C,255)&255]);
+    }
+    return {enabled:depth||stencil,stencil,states:result};
+}
 export function nv40_blend_state(o)
 {
     const alpha=!!get(o,0x304),blend=!!get(o,0x310),compare=get(o,0x308,0x207);
@@ -69,7 +89,7 @@ export class NV40Render
         this.command(OP.CREATE_DEVICE,{"width":1,"height":1,"backbuffer_format":21,"windowed":1});
         this.created=true;
     }
-    target(surface,bytes)
+    target(surface,bytes,usage=1)
     {
         const key=JSON.stringify([surface.dma,surface.offset,surface.pitch,surface.width,surface.height,surface.d3d,surface.swizzle,surface.u,surface.v]);
         let handle=this.resources.get(key);
@@ -82,7 +102,7 @@ export class NV40Render
             }
             handle=this.next++;this.resources.set(key,handle);
             this.command(OP.CREATE_TEXTURE_2D,{"resource_handle":handle,"width":surface.width,"height":surface.height,
-                "level_count":1,"format":surface.d3d,"usage":1});
+                "level_count":1,"format":surface.d3d,"usage":usage});
         }
         const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"width":surface.width,"height":surface.height,
             "depth":1,"row_pitch":surface.width*surface.bpp,"data_bytes":bytes.length});
@@ -124,7 +144,7 @@ export class NV40Render
     {
         if(this.pending) throw new RangeError("NV40 renderer already busy");
         if(get(o,0x220,1)!==1) throw new RangeError("NV40 MRT rendering is not connected");
-        if(get(o,0xA74) || get(o,0x328) || get(o,0x348)) throw new RangeError("NV40 depth/stencil rendering is not connected");
+        const zsa=nv40_depth_state(o);
         if(get(o,0x183C) || get(o,0x142C) || get(o,0x374) || get(o,0x1478) || get(o,0x36C) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
@@ -142,10 +162,19 @@ export class NV40Render
         const vertices=expand_primitives(fetched,mode);if(!vertices.count)return;
         this.engine.state.validate(target,true);
         const initial=this.engine.state.read(target);
+        let depth=null,depthBytes=null;
+        if(zsa.enabled)
+        {
+            depth=this.engine.state.target(o,0,true);this.engine.state.validate(depth,true);
+            if(zsa.stencil && depth.d3d!==75)throw new RangeError("NV40 stencil needs D24S8");
+            depthBytes=this.engine.state.read(depth);
+        }
         // Everything that can fault on guest state is checked before emitting
         // commands or changing the host's resource cache.
         this.initialize();const handle=this.target(target,initial),vs=this.shader(shaders.vertex.bytecode,true),ps=this.shader(shaders.fragment.bytecode,false);
         this.command(OP.SET_RENDER_TARGET,{"target_index":0,"color_texture_handle":handle});
+        const depthHandle=depth?this.target(depth,depthBytes,2):0;
+        this.command(OP.SET_DEPTH_STENCIL_SURFACE_LEVEL,{"depth_texture_handle":depthHandle});
         this.command(OP.SET_VIEWPORT,{"x":viewport.x,"y":viewport.y,"width":viewport.width,"height":viewport.height,"max_z":1});
         this.command(OP.SET_VERTEX_DECLARATION,{"declaration_handle":this.declaration(shaders.vertex.inputs)});
         for(const {unit,surface,bytes}of textures)
@@ -159,7 +188,7 @@ export class NV40Render
         this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,0,this.engine.vertex_constants(o,0,256));
         for(const [index,values]of shaders.vertex.viewport_constants)this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,index,values);
         shaders.fragment.constant_values.forEach((values,index)=>this.constants(OP.SET_PIXEL_SHADER_CONSTANT_F,index,values));
-        this.render_state(7,0);this.render_state(14,0);this.render_state(22,1);this.render_state(52,0);
+        this.render_state(22,1);for(const [state,value]of zsa.states)this.render_state(state,value);
         for(const [state,value]of blend)this.render_state(state,value);
         const mask=get(o,0x324,0x01010101);
         this.render_state(168,(mask&0x10000?1:0)|(mask&0x100?2:0)|(mask&1?4:0)|(mask&0x1000000?8:0));
@@ -172,15 +201,18 @@ export class NV40Render
             "stride":vertices.stride,"vertex_count":vertices.count,"vertex_bytes":vertices.bytes.length});
         w.patch_field("vertex_data_offset",w.data(vertices.bytes));this.command(OP.END_SCENE);
         let resolve;const promise=new Promise(done=>{resolve=done;});
-        const pending=this.pending={channel:o.channel,subc,target,bytes:new Uint8Array(target.width*target.height*target.bpp),requests:new Map(),promise,resolve,sequence:++this.sequence};
-        const pitch=target.width*target.bpp,rows=Math.max(1,Math.floor(READBACK_MAX_BYTES/pitch));
+        const outputs=[{target,handle},...(depth?[{target:depth,handle:depthHandle}]:[])].map(output=>({...output,bytes:new Uint8Array(output.target.width*output.target.height*output.target.bpp)}));
+        const pending=this.pending={channel:o.channel,subc,outputs,requests:new Map(),promise,resolve,sequence:++this.sequence};
+        outputs.forEach((output,index)=>{
+        const {target,handle}=output,pitch=target.width*target.bpp,rows=Math.max(1,Math.floor(READBACK_MAX_BYTES/pitch));
         for(let first=0;first<target.height;first+=rows)
         {
             const count=Math.min(rows,target.height-first),id=++this.request;
-            pending.requests.set(id,{offset:first*pitch,bytes:count*pitch});
+            pending.requests.set(id,{output:index,offset:first*pitch,bytes:count*pitch});
             this.command(OP.READBACK_SURFACE,{"texture_handle":handle,"format":target.d3d,"width":target.width,"height":target.height,
                 "first_row":first,"row_count":count,"destination_pitch":pitch,"destination_bytes":count*pitch,"response_offset":QUERY_REGION_BYTES,"request_id":id});
         }
+        });
         const bytes=this.writer.finish(this.sequence,0);this.stats.draws++;this.stats.bytes+=bytes.length;
         this.renderer["post"]({"type":"submit","seq":this.sequence,"bytes":bytes},[bytes.buffer]);
     }
@@ -204,12 +236,16 @@ export class NV40Render
             if(!request)return;
             if(view.getUint32(12,true)!==RESPONSE_OK || view.getUint32(4,true)!==request.bytes || bytes.length<16+request.bytes)
             {this.fail("invalid target readback");return;}
-            pending.bytes.set(bytes.subarray(16,16+request.bytes),request.offset);pending.requests.delete(id);this.stats.readbacks++;
+            pending.outputs[request.output].bytes.set(bytes.subarray(16,16+request.bytes),request.offset);pending.requests.delete(id);this.stats.readbacks++;
         }
         else if(message["type"]==="done" && message["seq"]===pending.sequence)
         {
             if(pending.requests.size) {this.fail("GPU completed without target readback");return;}
-            try {this.engine.state.write(pending.target,pending.bytes);}
+            try
+            {
+                for(const {target}of pending.outputs)this.engine.state.validate(target,true);
+                for(const {target,bytes}of pending.outputs)this.engine.state.write(target,bytes);
+            }
             catch(error) {this.fail(String(error));return;}
             this.pending=null;pending.resolve();this.device.machine.wake();this.device.fifo.run();
         }

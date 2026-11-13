@@ -6,7 +6,7 @@ import {NVDMA} from "../../src/graphics_adapters/geforce_6800/nv_dma.js";
 import {NVTrace} from "../../src/graphics_adapters/geforce_6800/nv_trace.js";
 import {d9wg_commands} from "../../src/graphics_adapters/vmware_svga/svga3d_d9wg.js";
 import {OP,FIELD_LAYOUT} from "../../src/graphics_adapters/vmware_svga/d9wg_constants.js";
-import {expand_primitives,nv40_blend_state} from "../../src/graphics_adapters/geforce_6800/nv40_render.js";
+import {expand_primitives,nv40_blend_state,nv40_depth_state} from "../../src/graphics_adapters/geforce_6800/nv40_render.js";
 const offset=(name,field)=>FIELD_LAYOUT[name].fields.find(item=>item[0]===field)[1];
 const input={bytes:Uint8Array.of(0,1,2,3,4),count:5,stride:1};
 assert.deepEqual([...expand_primitives(input,6).bytes],[0,1,2,2,1,3,2,3,4]);
@@ -17,6 +17,10 @@ const blendRegisters=new Map(nv40_blend_state(blendState));
 assert.equal(blendRegisters.get(19),5);assert.equal(blendRegisters.get(20),6);
 assert.equal(blendRegisters.get(207),2);assert.equal(blendRegisters.get(209),2,"separate alpha equation");
 blendState.methods.set(0x314,0x18003);assert.throws(()=>nv40_blend_state(blendState),/constant-alpha/);
+const depthState={methods:new Map([[0xA74,1],[0xA70,1],[0xA6C,0x203],[0x328,1],[0x344,0x8507]])};
+const depthRegisters=new Map(nv40_depth_state(depthState).states);
+assert.equal(depthRegisters.get(23),4);assert.equal(depthRegisters.get(55),7);
+depthState.methods.set(0x348,1);assert.throws(()=>nv40_depth_state(depthState),/two-sided/);
 let remote=null,listener=null,submitted=null;
 const fake={listen:fn=>{listener=fn;},post:message=>{if(message.type==="submit")submitted=message;}};
 if(process.env.NV_GPU_RENDERER==="chrome")
@@ -115,6 +119,31 @@ try
             assert.deepEqual([...vram.subarray(0x10000+(y*8+x)*4,0x10000+(y*8+x)*4+4)],
                 x>=2 && x<6 && y>=1 && y<5?[0x99,0x66,0x33,255]:[0,0,0,0],"offset clip-space viewport "+x+","+y);
         method(0x1E94,0x101);
+        for(const [at,value]of [[0x198,0x100],[0x214,0x24000],[0x22C,32],[0x1740,0x1042],[0xA74,1],[0xA70,1],[0xA6C,0x201]])method(at,value);
+        for(let at=0x24000;at<0x24100;at+=4)view.setUint32(at,0xFFFFFF5A,true);
+        const depthDraw=async(z,color)=>{
+            new Float32Array(vram.buffer,0x4000,12).set([0,0,z,1,0,16,z,1,16,0,z,1]);
+            new Float32Array(vram.buffer,0x9010,4).set(color);
+            method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+            assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        };
+        await depthDraw(.75,[.2,.4,.6,1]);
+        const firstDepth=view.getUint32(0x24000,true);
+        assert.equal(firstDepth&255,0x5A,"depth upload/readback preserves stencil bytes");
+        assert(Math.abs((firstDepth>>>8)-Math.round(.75*0xFFFFFF))<=1,"actual depth value is downloaded");
+        await depthDraw(.9,[1,0,0,1]);
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0x99,0x66,0x33,255],"farther draw fails LESS after depth reupload");
+        assert.equal(view.getUint32(0x24000,true),firstDepth);
+        await depthDraw(.25,[1,0,0,1]);assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,255]);
+        const nearDepth=view.getUint32(0x24000,true);assert(Math.abs((nearDepth>>>8)-Math.round(.25*0xFFFFFF))<=1);
+        for(const [at,value]of [[0xA74,0],[0xA70,0],[0x328,1],[0x330,0x202],[0x334,0x34],[0x338,255],[0x32C,15],[0x33C,0x8507]])method(at,value);
+        await depthDraw(.5,[0,1,0,1]);assert.equal(view.getUint32(0x24000,true)&255,0x5B,"stencil fail increments through the write mask");
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,255],"stencil failure preserves color");
+        method(0x330,0x207);method(0x334,0x2C);method(0x344,0x1E01);
+        await depthDraw(.5,[0,1,0,1]);assert.equal(view.getUint32(0x24000,true)&255,0x5C,"stencil replace preserves masked high bits");
+        assert.equal(view.getUint32(0x24000,true)>>>8,nearDepth>>>8,"stencil-only rendering preserves depth");
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255]);method(0x328,0);
+        console.log("PASS: real WebGPU depth rejection, depth/stencil VRAM round trips and masked stencil operations");
         // A real sampled checkerboard also tests Curie's output crossbar:
         // the VP writes raw TBUF5, mapped to the FP's TEX0 input.
         method(0x1E9C,0);

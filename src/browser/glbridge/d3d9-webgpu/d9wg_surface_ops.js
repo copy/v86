@@ -394,7 +394,41 @@ struct Params { source: vec4<f32>, destination: vec4<f32> };
                 this.stageTextureUpload({texture},new Uint8Array(values.buffer),{bytesPerRow:width*4,rowsPerImage:height},{width,height,depthOrArrayLayers:1});
                 this.ensureFrame().record({kind:"depth-upload",source:texture.createView(),destination:this.targetViewFor(resource,level,false),x,y,width,height});
                 this.retireGPUObject(texture);
+                const stencilMask=resource.format===73?1:resource.format===75?255:resource.format===79?15:0;
+                if(stencilMask) {
+                    const stencil=new Uint8Array(width*height);
+                    for(let row=0;row<height;++row)for(let col=0;col<width;++col)
+                        stencil[row*width+col]=source[row*rowPitch+col*bytes]&stencilMask;
+                    if(!x && !y && width===Math.max(1,resource.width>>level) && height===Math.max(1,resource.height>>level)) {
+                        this.stageTextureUpload({texture:resource.gpuTexture,mipLevel:level,aspect:"stencil-only"},stencil,
+                            {bytesPerRow:width,rowsPerImage:height},{width,height,depthOrArrayLayers:1});
+                    } else {
+                        // Stencil copies require a whole subresource. For a
+                        // rectangle, replace each bit through masked passes.
+                        const image=this.device.createTexture({label:"D3D9 stencil upload values",size:{width,height},format:"r8uint",
+                            usage:TEXTURE_USAGE_COPY_DST|TEXTURE_USAGE_TEXTURE_BINDING});
+                        this.stageTextureUpload({texture:image},stencil,{bytesPerRow:width,rowsPerImage:height},{width,height,depthOrArrayLayers:1});
+                        this.ensureFrame().record({kind:"stencil-upload",source:image.createView(),destination:this.targetViewFor(resource,level,false),x,y,width,height,stencilMask});
+                        this.retireGPUObject(image);
+                    }
+                }
                 ++this.stats.textureUploads;this.stats.textureBytesUploaded += width*height*bytes;
+            },
+
+            encodeStencilUpload(encoder,op) {
+                const buffers=[],masks=[op.stencilMask];
+                for(let bit=1;bit<=op.stencilMask;bit<<=1)if(bit&op.stencilMask)masks.push(bit);
+                masks.forEach((mask,index)=>{
+                    const entry=this.depthBlitPipelineFor(mask,index===0);
+                    const uniform=this.device.createBuffer({label:"D3D9 stencil upload coordinates",size:32,usage:0x40|0x08});buffers.push(uniform);
+                    this.device.queue.writeBuffer(uniform,0,new Float32Array([0,0,1,1,op.x,op.y,mask,0]));
+                    const group=this.device.createBindGroup({layout:entry.layout,entries:[{binding:0,resource:op.source},{binding:1,resource:{buffer:uniform}}]});
+                    const pass=encoder.beginRenderPass({colorAttachments:[],depthStencilAttachment:{view:op.destination,
+                        depthLoadOp:"load",depthStoreOp:"store",stencilLoadOp:"load",stencilStoreOp:"store"}});
+                    ++this.stats.renderPasses;pass.setPipeline(entry.pipeline);pass.setBindGroup(0,group);pass.setStencilReference(index?mask:0);
+                    pass.setViewport(op.x,op.y,op.width,op.height,0,1);pass.setScissorRect(op.x,op.y,op.width,op.height);pass.draw(3);pass.end();
+                });
+                return buffers;
             },
 
             utilityUniform(data) {
