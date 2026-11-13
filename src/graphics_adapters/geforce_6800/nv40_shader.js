@@ -228,12 +228,20 @@ export function translate_fragment_program(program,options={})
     if(program.instructions.some(i=>i.sources.some(s=>s.type==="input" && s.index===3)))
     {
         const [type,index]=shader.input(3),fog=shader.temp("fog"),settings=options.fog || {mode:0x2601,constant:1,linear:1};
-        if(![0x2601,0x804].includes(settings.mode))throw new RangeError("NV40 exponential fog factor is not connected");
+        if(![0x2601,0x804,0x800,0x801,0x802,0x803].includes(settings.mode))throw new RangeError("NV40 invalid fog mode");
         if(!Number.isFinite(settings.constant) || !Number.isFinite(settings.linear))throw new RangeError("NV40 nonfinite fog equation");
         shader.emit(OP.MOV,dst(0,fog),shader.literal(0));
         shader.emit(OP.MOV,dst(0,fog,1),src(type,index,[0,0,0,0]));
-        shader.emit(OP.MAD,dst(0,fog,2,true),src(type,index,[0,0,0,0],false,settings.mode===0x804),
-            shader.literal(settings.linear),shader.literal(settings.constant-1));
+        const linear=settings.mode===0x2601 || settings.mode===0x804,absolute=[0x804,0x802,0x803].includes(settings.mode);
+        shader.emit(OP.MAD,dst(0,fog,2,linear),src(type,index,[0,0,0,0],false,absolute),
+            shader.literal(settings.linear),shader.literal(settings.constant-(linear?1:1.5)));
+        if(!linear)
+        {
+            const squared=settings.mode===0x801 || settings.mode===0x803;
+            if(squared)shader.emit(OP.MUL,dst(0,fog,2),src(0,fog,[1,1,1,1]),src(0,fog,[1,1,1,1]));
+            shader.emit(OP.MUL,dst(0,fog,2),src(0,fog,[1,1,1,1]),shader.literal(squared?-32:16));
+            shader.emit(OP.EX2,dst(0,fog,2,true),src(0,fog,[1,1,1,1]));
+        }
         shader.input_overrides.set(3,fog);
     }
     const written=new Set(),needsCC=program.instructions.some(i=>i.predicate.update || i.predicate.condition!==7 && i.predicate.condition!==0 || i.name==="KIL");

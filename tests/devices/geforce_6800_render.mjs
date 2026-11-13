@@ -304,7 +304,10 @@ try
         [1<<24|3<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800]
             .forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
         for(const [mode,coordinate,constant,linear,factor]of [[0x2601,.25,1,1,.25],[0x2601,.75,1.5,-1,0],
-            [0x2601,.25,1.5,3,1],[0x804,-.25,1,2,.5]])
+            [0x2601,.25,1.5,3,1],[0x804,-.25,1,2,.5],
+            [0x800,.5,1.5,-1/16,Math.SQRT1_2],[0x802,-.5,1.5,-1/16,Math.SQRT1_2],
+            [0x801,.5,1.5,.25,Math.SQRT1_2],[0x803,-.5,1.5,.25,Math.SQRT1_2],
+            [0x800,1,1.5,1,1]])
         {
             method(0x8CC,mode);method(0x8D0,floatWord(constant));method(0x8D4,floatWord(linear));
             method(0x1808,6);
@@ -318,7 +321,7 @@ try
         method(0x1808,0);await engine.backend.wait();
         for(let x=0;x<8;x++)assert(Math.abs(vram[0x10000+x*4+1]-Math.round(Math.max(0,(x+.5)/4-1)*255))<=1,
             "fog clamp happens after interpolation at pixel "+x);
-        console.log("PASS: real WebGPU NV linear/absolute fog factors, post-interpolation clamp and FOGC zero components");
+        console.log("PASS: real WebGPU NV linear/exponential/absolute fog factors, post-interpolation clamp and FOGC zero components");
         const conditionSwizzle=swizzle=>swizzle.reduce((bits,value,i)=>bits|value<<(21+i*2),0);
         const ccInstruction=(value,{condition=7,swizzle=[0,1,2,3],update=false,disabled=false,mask=15,saturate=false,end=false}={})=>[
             (1<<24|128|mask<<9|+update<<8|+disabled<<30|+saturate<<31|+end)>>>0,

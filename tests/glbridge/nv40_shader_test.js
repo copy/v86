@@ -65,8 +65,8 @@ try
         const t=translate_fragment_program(p);assert.deepEqual(t.samplers,[[0,2]]);validate(name,t);
     }
     const fogged=structuredClone(fragment);fogged.instructions[0].sources[0]={type:"input",index:3,swizzle:[0,1,2,3],negate:false,absolute:false};
-    for(const mode of [0x2601,0x804])validate("fog-"+mode,translate_fragment_program(fogged,{fog:{mode,constant:1,linear:1}}));
-    assert.throws(()=>translate_fragment_program(fogged,{fog:{mode:0x800,constant:1,linear:1}}),/exponential fog/);
+    for(const mode of [0x2601,0x804,0x800,0x801,0x802,0x803])validate("fog-"+mode,translate_fragment_program(fogged,{fog:{mode,constant:1,linear:1}}));
+    assert.throws(()=>translate_fragment_program(fogged,{fog:{mode:0x805,constant:1,linear:1}}),/invalid fog/);
     assert.throws(()=>translate_fragment_program(fogged,{fog:{mode:0x2601,constant:NaN,linear:1}}),/nonfinite fog/);
     const relative=structuredClone(vertex);relative.instructions[0].address.constant=true;
     assert.throws(()=>translate_vertex_program(relative),/relative/);
