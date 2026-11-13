@@ -699,7 +699,7 @@ try
                 vertexProgram={stage:"vertex",entry:0,instructions};
                 method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
                 method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
-                assert.deepEqual([...vram.subarray(0x10000,0x10004)],Array(4).fill(expected));
+                assert.deepEqual([...vram.subarray(0x10000,0x10004)],Array.isArray(expected)?expected:Array(4).fill(expected));
             };
             const position=structuredClone(base);position.end=false;
             for(const condition of [7,1,2])
@@ -743,6 +743,20 @@ try
             await flowDraw([position,black(1),loadAddress(2),...Array.from({length:8},(_,i)=>addressPush(3+i)),
                 flowInstruction(11,"CAL",15),white(12),terminal(13),flowInstruction(15,"RET")],0);
             await flowDraw([position,black(1),...Array.from({length:9},(_,i)=>addressPush(2+i)),white(11),terminal(12)],0);
+            method(0x1EFC,7);[...new Uint32Array(Float32Array.of(-2,-2,-2,-2).buffer)].forEach((word,i)=>method(0x1F00+i*4,word));
+            for(const [baseIndex,constant,mask,condition,expected]of [[0,4,15,7,128],[15,4,15,7,64],
+                [1,7,15,7,64],[0,4,1,7,[64,64,128,64]],[0,4,15,0,64]])
+            {
+                const indexedColor=instruction(3,"MOV",baseIndex,"output",2);indexedColor.vector.mask=mask;
+                indexedColor.address={register:1,component:0,input:false,constant:false,output:true};
+                indexedColor.predicate={...indexedColor.predicate,enabled:true,condition};
+                await flowDraw([position,instruction(1,"MOV",1,"output",1),loadAddress(2,1,constant),indexedColor,terminal(4)],expected);
+            }
+            const pairedOutput=instruction(3,"ARL",1,"temp",5);
+            pairedOutput.scalar={name:"MOV",type:"output",index:0,mask:15};pairedOutput.sources[2]={...base.sources[2],type:"constant",index:2};
+            pairedOutput.address={register:1,component:0,input:false,constant:false,output:true};
+            await flowDraw([position,instruction(1,"MOV",1,"output",1),loadAddress(2,1,4),pairedOutput,terminal(4)],128);
+
 
         }
         finally {engine.shaders=nativeShaders;}

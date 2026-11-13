@@ -166,6 +166,13 @@ export function translate_vertex_program(program,options={})
 {
     const shader=new Shader("vertex",program.instructions.flatMap(i=>i.sources.filter(s=>s.type==="constant").map(s=>s.index))),raw=new Map();
     const output=index=>{if(!raw.has(index))raw.set(index,shader.temp("output"+index));return raw.get(index);};
+    // TBUF is write only. Keep just results observed by the configured output
+    // routing, plus explicit writes; unrouted indexed destinations are dead.
+    const indexedTargets=new Set(options.result_map?options.result_map.filter(r=>r[3]!==false).map(r=>r[1]):
+        [0,...Array.from({length:8},(_,i)=>7+i)]);
+    for(const i of program.instructions)for(const op of [i.vector,i.scalar])
+        if(op.type==="output" && !i.address.output)indexedTargets.add(op.index);
+    const indexedRegisters=[...indexedTargets].filter(index=>index>=0 && index<16);
     const addresses=new Map();
     const address=register=>{
         if(register>1)throw new RangeError("NV40 invalid address register");
@@ -179,7 +186,7 @@ export function translate_vertex_program(program,options={})
     if(program.instructions.some(i=>i.address.input))for(let input=0;input<16;input++)shader.input(input);
     for(const i of program.instructions)
     {
-        if(i.address.input || i.address.constant || i.vector.name==="ARA" || i.scalar.name==="PUSHA")address(i.address.register);
+        if(i.address.input || i.address.constant || i.address.output || i.vector.name==="ARA" || i.scalar.name==="PUSHA")address(i.address.register);
         if(["ARL","ARR","ARA"].includes(i.vector.name))address(i.vector.index);
         if(i.scalar.name==="POPA")
         {
@@ -216,6 +223,7 @@ export function translate_vertex_program(program,options={})
     for(const i of program.instructions)if(i.predicate.enabled || i.predicate.update || ["BRA","CAL","RET"].includes(i.scalar.name))conditionRegister(i.predicate.register);
     const predicate=program.instructions.some(i=>i.predicate.enabled)?shader.temp("predicate"):-1;
     const flow=program.instructions.some(i=>["BRA","CAL","RET","PUSHA","POPA"].includes(i.scalar.name));
+    const outputIndex=program.instructions.some(i=>i.address.output)?shader.temp("outputIndex"):-1;
     let pc=-1,next=-1,stackPointer=-1,branch=-1,pushSource=-1,stack=[],stackKinds=[];
     if(flow)
     {
@@ -236,7 +244,6 @@ export function translate_vertex_program(program,options={})
     for(const instruction of program.instructions)
     {
         const i=instruction;
-        if(i.address.output)throw new RangeError("NV40 relative output addressing needs lowering");
         if(flow)
         {
             shader.emit(OP.IFC|2<<16,src(0,pc),shader.literal(i.pc));
@@ -256,6 +263,13 @@ export function translate_vertex_program(program,options={})
             shader.emit(OP.MAX,dst(0,branch,1),src(0,branch,[0,0,0,0]),src(0,branch,[1,1,1,1]));
             shader.emit(OP.MAX,dst(0,branch,1),src(0,branch,[0,0,0,0]),src(0,branch,[2,2,2,2]));
             shader.emit(OP.MAX,dst(0,branch,1),src(0,branch,[0,0,0,0]),src(0,branch,[3,3,3,3]));
+        }
+        if(i.address.output)
+        {
+            // Both slots share OUT_ADDR and consume the old address register,
+            // even if the paired vector instruction loads that register.
+            const op=[i.vector,i.scalar].find(op=>op.type==="output");
+            if(op)shader.emit(OP.ADD,dst(0,outputIndex),src(0,address(i.address.register),Array(4).fill(i.address.component)),shader.literal(op.index));
         }
         if(i.scalar.name==="PUSHA")shader.emit(OP.MOV,dst(0,pushSource),src(0,address(i.address.register)));
         const slots=[i.vector,i.scalar], results=[];
@@ -283,13 +297,20 @@ export function translate_vertex_program(program,options={})
                 shader.emit(OP.MAX,dst(0,30+slot,op.mask),src(0,30+slot),shader.literal(-512));
                 shader.emit(OP.MIN,dst(0,30+slot,op.mask),src(0,30+slot),shader.literal(511));
             }
-            const index=addressOp?address(op.index):op.type==="output"?output(op.index):shader.temp("r"+op.index);
-            results.push({index,mask:op.mask,slot});
+            const relative=!addressOp && op.type==="output" && i.address.output;
+            const index=relative?-1:addressOp?address(op.index):op.type==="output"?output(op.index):shader.temp("r"+op.index);
+            results.push({index,mask:op.mask,slot,relative});
         }
-        for(const {index,mask,slot}of results)
+        for(const {index,mask,slot,relative}of results)
         {
-            if(conditional)shader.emit(OP.CMP,dst(0,index,mask),src(0,predicate),src(0,30+slot),src(0,index));
-            else shader.emit(OP.MOV,dst(0,index,mask),src(0,30+slot));
+            for(const register of relative?indexedRegisters:[-1])
+            {
+                const target=relative?output(register):index;
+                if(relative)shader.emit(OP.IFC|2<<16,src(0,outputIndex),shader.literal(register));
+                if(conditional)shader.emit(OP.CMP,dst(0,target,mask),src(0,predicate),src(0,30+slot),src(0,target));
+                else shader.emit(OP.MOV,dst(0,target,mask),src(0,30+slot));
+                if(relative)shader.emit(OP.ENDIF);
+            }
             // CDST_IS_VEC selects which VLIW result supplies condition codes.
             if(i.predicate.update && slot===(i.predicate.vector?0:1))
             {

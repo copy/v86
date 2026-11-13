@@ -81,6 +81,11 @@ try
     validate("vertex-address-stack",translate_vertex_program({entry:0,instructions:[stackPush,stackPop,stackEnd]}));
     const badPop=structuredClone(stackPop);badPop.scalar.mask=1;
     assert.throws(()=>translate_vertex_program({entry:0,instructions:[badPop,stackEnd]}),/POPA requires/);
+    const indexedOut=structuredClone(vertex);indexedOut.instructions[0].address.output=true;indexedOut.instructions[0].vector.index=7;
+    validate("vertex-indexed-output",translate_vertex_program(indexedOut));
+    const indexedRoute=translate_vertex_program(indexedOut,{result_map:[[0,0,-1,true],[7,5,-1,true]]});
+    validate("vertex-indexed-output-routing",indexedRoute);
+    assert.deepEqual(indexedRoute.outputs,[[0,0],[7,1]],"indexed writes only export configured result routes");
     const late=structuredClone(vertex),setTrue=structuredClone(late.instructions[0]);
     setTrue.vector={name:"STR",mask:15,type:"temp",index:0};late.instructions.unshift(setTrue);
     late.instructions[1].sources[0]={...late.instructions[1].sources[0],type:"constant",index:255};
