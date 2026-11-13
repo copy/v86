@@ -191,6 +191,11 @@ try
         await depthDraw(.5,[0,1,0,1]);assert.equal(view.getUint32(0x24000,true)&255,0x5C,"stencil replace preserves masked high bits");
         assert.equal(view.getUint32(0x24000,true)>>>8,nearDepth>>>8,"stencil-only rendering preserves depth");
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255]);method(0x328,0);
+        for(const [at,value]of [[0x208,0x128],[0x214,0x25000],[0x22C,16],[0xA74,1],[0xA70,1],[0x328,1],[0x330,1]])method(at,value);
+        vram.fill(255,0x25000,0x25080);await depthDraw(.25,[0,1,0,1]);
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"D16 has no stencil bits: enabled NEVER stencil does not reject the draw");
+        assert(Math.abs(view.getUint16(0x25000,true)-Math.round(.25*65535))<=1);
+        for(const [at,value]of [[0x208,0x148],[0x214,0x24000],[0x22C,32],[0xA74,0],[0x328,0]])method(at,value);
         console.log("PASS: real WebGPU depth rejection, depth/stencil VRAM round trips and masked stencil operations");
         method(0x183C,1);method(0x1830,0x405);method(0x1834,0x900);
         await depthDraw(.5,[1,0,0,1]);assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"CW front faces cull the CCW window-space triangle");

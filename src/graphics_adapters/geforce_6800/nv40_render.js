@@ -37,9 +37,9 @@ export function nv40_cull_state(o)
     // already accounted for by the position lowering.
     return {state:face===0x408?1:(face===0x404)===(front===0x900)?2:3,all:face===0x408};
 }
-export function nv40_depth_state(o)
+export function nv40_depth_state(o,stencilAvailable=true)
 {
-    const depth=!!get(o,0xA74),stencil=!!get(o,0x328);
+    const depth=!!get(o,0xA74),stencil=!!get(o,0x328)&&stencilAvailable;
     if(get(o,0x348) || get(o,0x380) || get(o,0xA60) || get(o,0xA64) || get(o,0xA68))
         throw new RangeError("NV40 two-sided stencil/depth bounds/bias is not connected");
     const result=[[7,+depth],[14,depth?+!!get(o,0xA70):0],[23,depth?comparison(get(o,0xA6C,0x201)):8],[52,+stencil],[185,0]];
@@ -188,7 +188,7 @@ export class NV40Render
         if(enable&~31 || !(active&1) || active!==1 && !(enable&16))throw new RangeError("NV40 unsupported render target enable mask");
         for(let i=1;i<4;i++)if(active&1<<i && !!(get(o,0x36C)&1<<i)!==!!get(o,0x310))
             throw new RangeError("NV40 independent MRT blending is not connected");
-        const zsa=nv40_depth_state(o);
+        const zsa=nv40_depth_state(o,(get(o,0x208)>>>5&7)===2);
         if(get(o,0x142C) || get(o,0x374) || get(o,0x1478) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
