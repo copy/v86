@@ -819,6 +819,11 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   原盘未修改。证据见 `g3-xp-9371-dxdiag-d3d.json`；Win98 D3D 与 99/2000 benchmark
   仍在验收，整个 G3 尚未完成。
 
+- G4 FP16/HDR 第一部分：接通 A16B16G16R16F 渲染目标与 RGBA16F 纹理上传，
+  组件 crossbar 保留原始 half bits，采样资源与颜色附件独立缓存。Chrome WebGPU
+  读回精确验证负值、超过 1 的 HDR 值、跨提交的加法混合，以及浮点纹理双线性平均；
+  纹理 DMA/half bits 测试和插件 Closure 构建通过。完整 HDR/SM3 benchmark 仍待验收。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

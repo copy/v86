@@ -272,6 +272,28 @@ try
         ram.setUint32(0x1004,0xFFFFF,true);method(0x220,1);method(0x324,0x01010101);
         await mrtDraw();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         console.log("PASS: real WebGPU four MRT outputs, independent color masks, atomic DMA validation and single-target reuse");
+        method(0x208,0x14B);method(0x20C,64);vram.fill(0,0x10000,0x10200);
+        const fp16Draw=async(color)=>{
+            [0x01001E81,0x001DC802,0,0,...new Uint32Array(Float32Array.from(color).buffer)]
+                .forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            method(0x1808,6);for(const word of new Uint32Array(floats.buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();
+            assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        };
+        await fp16Draw([-.5,.25,2,.5]);
+        assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0xB800,0x3400,0x4000,0x3800],"FP16 target preserves negative and HDR channels in VRAM");
+        for(const [at,value]of [[0x310,1],[0x314,0x00010001],[0x318,0x00010001],[0x320,0x80068006]])method(at,value);
+        await fp16Draw([.5,.25,-1,.5]);
+        assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0,0x3800,0x3C00,0x3C00],"FP16 additive blending uses the previously downloaded target");
+        method(0x310,0);
+        for(const [at,value]of [[0x1A04,0x13A29],[0x1A18,2<<16|1],[0x1A10,0xAAE4],[0x1A14,0x02020000],[0x1840,16]])method(at,value);
+        new Uint16Array(vram.buffer,0x20000,8).set([0x4000,0xBC00,0x3800,0x3400,0x4400,0x3C00,0x3C00,0x3A00]);
+        [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        method(0x1808,6);
+        for(const word of new Uint32Array(Float32Array.of(0,0,.5,.5,0,16,.5,.5,16,0,.5,.5).buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0x4200,0,0x3A00,0x3800],"bilinear FP16 texture sampling retains HDR and signed values");
+        console.log("PASS: real WebGPU FP16 render targets, additive blending, exact VRAM half bits and HDR bilinear textures");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

@@ -1,7 +1,7 @@
 // NV40 2D texture fetch/upload. The component crossbar operates
 // on the format's storage components, before the fragment program sees RGBA.
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
-const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2]]);
+const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[26,8]]);
 const BLOCK_BYTES=new Map([[6,8],[7,16],[8,16]]);
 export class NV40Texture
 {
@@ -31,6 +31,7 @@ export class NV40Texture
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,bpp,pitch,swizzle,u,v,code,block,
             crossbar:get(o,at+16),wrap_s:s,wrap_t:t,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
+            d3d:code===26?113:32,upload_bpp:code===26?8:4,
             bias:new Uint32Array(Float32Array.of((filter<<19>>19)/256).buffer)[0],border:get(o,at+28)};
     }
     images(texture)
@@ -51,6 +52,18 @@ export class NV40Texture
     }
     read(texture)
     {
+        if(texture.code===26)
+        {
+            const bytes=this.state.read(texture),result=new Uint8Array(bytes.length),
+                source=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),output=new DataView(result.buffer);
+            for(let pixel=0;pixel<texture.width*texture.height;pixel++)for(let channel=0;channel<4;channel++)
+            {
+                const shift=(3-channel)*2,select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
+                if(select===3)throw new RangeError("NV40 invalid texture component selection");
+                output.setUint16(pixel*8+channel*2,select===0?0:select===1?0x3C00:source.getUint16(pixel*8+component*2,true),true);
+            }
+            return result;
+        }
         const source=texture.block?this.blocks(texture):this.state.read(texture),result=new Uint8Array(texture.width*texture.height*4),view=new DataView(source.buffer);
         const unit5=value=>Math.round(value*255/31),unit6=value=>Math.round(value*255/63);
         for(let pixel=0;pixel<texture.width*texture.height;pixel++)

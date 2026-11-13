@@ -65,4 +65,10 @@ for(let i=0;i<3;i++)vram.set([0,0xF8,0,0,0,0,0,0],0x2000+i*8);
 const bcChain=texture.images(texture.describe(o,0));assert.deepEqual(bcChain.map(x=>x.length),[64,16,4]);assert.equal(bcChain[2][0],255);
 o.methods.set(0x1A04,0x10629);o.methods.set(0x1A18,3<<16|2);assert.equal(texture.read(texture.describe(o,0)).length,24);
 assert.throws(()=>texture.read({...texture.describe(o,0),dma:{...t.dma,limit:0x2006}}),/limit/);
+o.methods.set(0x1A04,0x13A29);o.methods.set(0x1A18,1<<16|1);o.methods.set(0x1840,8);o.methods.set(0x1A10,0xAAE4);
+new Uint16Array(vram.buffer,0x2000,4).set([0x4000,0xBC00,0x3800,0x3400]);
+const fp16=texture.describe(o,0);assert.equal(fp16.d3d,113);assert.equal(fp16.upload_bpp,8);
+assert.deepEqual([...new Uint16Array(texture.read(fp16).buffer)],[0x4000,0xBC00,0x3800,0x3400],"FP16 preserves HDR, negative channels and exact half bits");
+o.methods.set(0x1A10,0xAA6C);assert.deepEqual([...new Uint16Array(texture.read(texture.describe(o,0)).buffer)],
+    [0x3800,0xBC00,0x4000,0x3400],"FP16 component crossbar");
 console.log("PASS: NV40 linear/Morton texture DMA, storage swizzles, RGB565/L8/A8L8 and unsupported-state faults");

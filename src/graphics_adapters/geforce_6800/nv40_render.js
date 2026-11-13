@@ -168,7 +168,7 @@ export class NV40Render
         const blend=nv40_blend_state(o);
         const cull=nv40_cull_state(o);
         const target=this.engine.state.target(o);
-        if(![21,22,23].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
+        if(![21,22,23,113].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
         const colors=Array.from({length:4},(_,index)=>active&1<<index?this.engine.state.target(o,index):null);
         const viewport=this.engine.state.viewport(o,target);
         const x=get(o,0x8C0),y=get(o,0x8C4),clip=viewport.clip;
@@ -206,7 +206,7 @@ export class NV40Render
         this.command(OP.SET_VERTEX_DECLARATION,{"declaration_handle":this.declaration(shaders.vertex.inputs)});
         for(const {unit,surface,bytes}of textures)
         {
-            const image=this.target({...surface,d3d:32,bpp:4},bytes);
+            const image=this.target({...surface,bpp:surface.upload_bpp},bytes,0);
             this.command(OP.SET_TEXTURE,{"stage":unit,"texture_handle":image});
             for(const [state,value]of [[1,surface.wrap_s],[2,surface.wrap_t],[3,3],[4,surface.border],[5,surface.mag],[6,surface.min],
                 [7,surface.mip],[8,surface.bias],[9,surface.min_lod],[10,1],[11,0]])
