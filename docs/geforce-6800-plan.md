@@ -163,6 +163,10 @@
   IFC/INDEX 保留源 alpha 到混合阶段。测试覆盖 2×2 RGB565 输入水平放大与 ARGB
   预乘上传混合到 RGB565；2D 测试和插件构建通过。
 
+- PGRAPH 通知确认续修：普通通知和 M2MF buffer 通知的 NSOURCE 位按各自的 INTR
+  确认位清除，不能确认一类时丢失另一类；增加同时挂起两类通知的回归用例。
+  DMA/状态故障另保留最多 64 条诊断原因，不进入设备快照。图形上下文测试及构建通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

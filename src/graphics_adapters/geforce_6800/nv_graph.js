@@ -19,6 +19,7 @@ export class NVGraph
         this.device = device;
         this.objects = new Map();
         this.program = new Map();
+        this.faults = [];
         this.engine2d = new NV2D(this);
     }
 
@@ -42,8 +43,9 @@ export class NVGraph
     {
         if(at === 0x400100 && value & 0x10001)
         {
-            this.set(0x400108, 0);
-            this.set(0x400104, 0);
+            const clear = (value & 1 ? 0xFFFF7FFF : 0) | (value & 0x10000 ? 0x8000 : 0);
+            this.set(0x400108, this.reg(0x400108) & ~clear);
+            if(value & 1) this.set(0x400104, 0);
         }
         if(at === 0x400328)
         {
@@ -125,6 +127,8 @@ export class NVGraph
         catch(error)
         {
             if(!(error instanceof RangeError)) throw error;
+            this.faults.push({ channel, subc, instance, class_id: object ? object.class_id : 0, method, value, reason: error.message });
+            if(this.faults.length > 64) this.faults.shift();
             this.error(channel, subc, method, value, 0x100, 0x4000);
         }
         // A trapped method has reached PGRAPH and is consumed. FIFO access is

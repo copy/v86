@@ -29,6 +29,11 @@ assert.equal(device.registers.get(0x400100), 1); assert.equal(device.registers.g
 assert.equal(dirty, 1); assert(irq);
 graph.written(0x400100, 1); device.registers.set(0x400100, 0);
 assert.equal(device.registers.get(0x400108), 0, "interrupt acknowledgement clears source");
+graph.notification(graph.object(0,0x4000),16,true);graph.notification(graph.object(0,0x4000),0,true);
+graph.written(0x400100,1);
+assert.equal(device.registers.get(0x400108),0x8000,"ordinary acknowledgement retains pending buffer notification");
+graph.written(0x400100,0x10000);assert.equal(device.registers.get(0x400108),0);
+device.registers.set(0x400100,0);
 // Invalid DMA must leave all sixteen bytes untouched, including the completion word.
 word(0x4104, 7); vram.fill(255, 0x8000, 0x8010);
 method(0, 0x4000, 0x104, 0);
