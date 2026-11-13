@@ -9,7 +9,7 @@ import { NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
 /** @typedef {import("../vm_config.js").Image} Image */
 
 const MACHINES = { i440fx: "i440FX (IDE)", q35: "Q35 (AHCI, PCI Express)", virt: "virt (arm64)" };
-const ADAPTERS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", none: "None (serial console only)" };
+const ADAPTERS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", geforce_6800: "GeForce 6800 GT (experimental)", none: "None (serial console only)" };
 const BACKENDS = { none: "no network", inbrowser: "in the browser", relay: "relay", wisp: "wisp", fetch: "fetch" };
 
 /**

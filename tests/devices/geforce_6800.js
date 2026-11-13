@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // Exercise the real PCI/MMIO map, memory-backed VRAM and snapshot serializer.
 import assert from "node:assert/strict";
-import { V86 } from "../../src/main.js";
 import { NVTrace } from "../../src/graphics_adapters/geforce_6800/nv_trace.js";
+const { V86 } = await import(+process.env.TEST_RELEASE_BUILD ? "../../build/libv86.mjs" : "../../src/main.js");
 
 const root = new URL("../../", import.meta.url).pathname;
 assert.throws(() => new V86({ graphics_adapter: "geforce_6800", vram_size: 64 << 20 }), /128 or 256 MiB/);

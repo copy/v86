@@ -114,6 +114,15 @@ owns the device.
 | `bochs_vga` | `build/v86-bochs-vga.js` | `src/graphics_adapters/bochs_vga/plugin.js` | `1234:1111` |
 | `vmware_svga` | `build/v86-vmware-svga.js` | `src/graphics_adapters/vmware_svga/plugin.js` | `15AD:0405` |
 | `virtio_gpu` | `build/v86-virtio-gpu.js` | `src/graphics_adapters/virtio_gpu/plugin.js` | `1AF4:1050` |
+| `geforce_6800` (experimental) | `build/v86-geforce-6800.js` | `src/graphics_adapters/geforce_6800/plugin.js` | `10DE:0045` |
+
+`geforce_6800` is an NV40 hardware investigation device. PCI/BARs, legacy VGA,
+extended CRT scanout, GPIO EDID and snapshots are implemented and tested with
+128/256 MiB VRAM. Its default ROM is `bios/vgabios-geforce6800.bin`, built from
+SeaVGABIOS with `bios/nv40/build.py`. NVIDIA driver initialization, FIFO/2D
+acceleration and 3D are not yet supported. Existing XP/98 presets retain their
+current adapter. Implementation and real-driver blockers are tracked in
+[geforce-6800-plan.md](geforce-6800-plan.md).
 
 - **Descriptor.** A plugin file calls `register_graphics_adapter(descriptor)`
   (`src/graphics_adapters/machine.js`), which stores it under its name in the

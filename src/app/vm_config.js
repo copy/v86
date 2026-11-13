@@ -630,6 +630,10 @@ export function validate_config(config)
         problem("display.vram_mb", "must be a power of two from 1 to " + (MAX_VRAM_SIZE >> 20) + " MB");
     }
     bool(display.proxy, "display.proxy");
+    if(display.adapter === "geforce_6800" && display.vram_mb !== null && ![128, 256].includes(display.vram_mb))
+    {
+        problem("display.vram_mb", "GeForce 6800 GT needs 128 or 256 MB");
+    }
     if(!DISPLAY_VULKAN.includes(display.vulkan)) problem("display.vulkan", "must be one of " + DISPLAY_VULKAN.join(", "));
     else if(display.vulkan !== "none" && display.adapter !== "virtio_gpu") problem("display.vulkan", "only virtio-gpu has Vulkan");
     else if(display.vulkan !== "none" && display.proxy !== true) problem("display.vulkan", "needs the graphics proxy, whose WebGPU renderer draws it");

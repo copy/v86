@@ -241,6 +241,7 @@ const RULES = [
     ["VGA on virt", c => { Object.assign(c, arm64()); c.display.adapter = "bochs_vga"; }, "display.adapter"],
     ["video memory", c => { c.display.vram_mb = 12; }, "display.vram_mb"],
     ["512 MB of video memory", c => { c.display.vram_mb = 512; }, "display.vram_mb"],
+    ["GeForce memory", c => { c.display.adapter = "geforce_6800"; c.display.vram_mb = 64; }, "display.vram_mb"],
     ["the state's video memory without a state", c => { c.display.vram_mb = null; }, "display.vram_mb"],
     ["the proxy", c => { c.display.proxy = 1; }, "display.proxy"],
     ["Vulkan", c => { c.display.vulkan = 1; }, "display.vulkan"],

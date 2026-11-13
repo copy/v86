@@ -197,6 +197,11 @@ function fit(c, notes)
         note("Display: " + c.display.adapter + (ranchu ? " (the ranchu machine has the emulator's framebuffer)" : virt ? " (the virt machine has no VGA)" : ""));
     }
     if(c.display.adapter !== "virtio_gpu" && c.display.displays > 1) { c.display.displays = 1; note("One display: only virtio-gpu has more"); }
+    if(c.display.adapter === "geforce_6800" && c.display.vram_mb !== null && ![128, 256].includes(c.display.vram_mb))
+    {
+        c.display.vram_mb = 256;
+        note("Video memory: 256 MB (GeForce 6800 GT supports 128 or 256 MB)");
+    }
     if(c.display.adapter !== "virtio_gpu" && c.display.vulkan !== "none") { c.display.vulkan = "none"; note("No Vulkan: only virtio-gpu has it"); }
     // (Android: its device model's machine and CPU, Cuttlefish's the arm64
     // virt machine, an emulator image's ranchu; Venus and gfxstream with theirs)

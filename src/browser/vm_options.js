@@ -455,7 +455,8 @@ export function apply_form(settings, form, new_query_args, page)
         }
         if(!settings.vga_bios && !is_arm(settings.cpu_type))
         {
-            settings.vga_bios = { url: BIOSPATH + (page.debug ? "vgabios-debug.bin" : "vgabios.bin") };
+            settings.vga_bios = { url: BIOSPATH + (settings.graphics_adapter === "geforce_6800" ?
+                "vgabios-geforce6800.bin" : page.debug ? "vgabios-debug.bin" : "vgabios.bin") };
         }
         if(settings.use_bochs_bios && !is_arm(settings.cpu_type))
         {

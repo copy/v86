@@ -41,6 +41,12 @@
   同时修正 G0 跟踪发现的只读 `CACHE1 UNK104=3`。小块真实 VRAM 的逐字节像素结果、
   完整 128-byte EDID、端口/MMIO 别名、页翻转及锁寄存器已通过设备测试。
   硬件光标、gamma、多级 PLL、NV VBE 后端、驱动加载和客体验收仍待实施。
+- 管理器前置集成：GeForce 标为 experimental，选择时将不兼容的显存改为 256 MiB，
+  只提供 128/256 MiB；配置校验、摘要和默认专属 ROM 一致，显式自定义 ROM 保留。
+  `tests/app/vm_config.mjs`（138 条校验规则）和 `tests/app/presets.mjs`（780 种组合、
+  5000 次随机更改）通过。源码及构建插件的 NV40 设备测试均通过。
+  完整 `make app-tests` 在已有 iOS 控制器的 `storage_key` 类型推断处失败
+  （`src/app/ui/console.js:620`），尚未运行完浏览器应用测试；NV40 插件本身 Closure 构建通过。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

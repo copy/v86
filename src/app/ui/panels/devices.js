@@ -11,7 +11,7 @@ import { disk_id, reset_disk } from "../../browser_disks.js";
 
 /** @typedef {import("../settings.js").PanelContext} PanelContext */
 
-const ADAPTER_LABELS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", none: "None (serial console only)" };
+const ADAPTER_LABELS = { bochs_vga: "Bochs VGA", vmware_svga: "VMware SVGA II", virtio_gpu: "virtio-gpu", geforce_6800: "GeForce 6800 GT (experimental)", none: "None (serial console only)" };
 const VULKAN_LABELS = {
     none: "None",
     venus: "Venus (through the graphics proxy; Android's initrd-venus.img, Linux's Mesa)",
@@ -112,7 +112,7 @@ export function sound_panel(ctx)
 export function display_panel(ctx)
 {
     const d = ctx.config.display;
-    const sizes = [1, 2, 4, 8, 16, 32, 64, 128, 256].filter(mb => mb <= ctx.choices.max_vram);
+    const sizes = (d.adapter === "geforce_6800" ? [128, 256] : [1, 2, 4, 8, 16, 32, 64, 128, 256]).filter(mb => mb <= ctx.choices.max_vram);
     return [
         select_field("Display adapter", ctx.choices.graphics_adapters, d.adapter, value => ctx.set("display.adapter", value), v => ADAPTER_LABELS[v] || v),
         d.vram_mb === null ? h("p.note", null, "Video memory: the saved state's") :

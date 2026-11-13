@@ -85,6 +85,24 @@ test("the presets' hardware (the plan's table)", () =>
         ["ehci", "ehci", "xhci", "xhci", "xhci"]);
 });
 
+test("GeForce selection: supported memory and dedicated ROM", () =>
+{
+    const { config, notes } = change(new_config(), "display.adapter", "geforce_6800");
+    assert.equal(config.display.vram_mb, 256);
+    assert(notes.some(n => /256 MB/.test(n)));
+    assert.deepEqual(validate_config(config), []);
+    const options = config_to_options(config, { debug: false });
+    assert.equal(options.graphics_adapter, "geforce_6800");
+    assert.equal(options.vram_size, 256 << 20);
+    assert.match(options.vga_bios.url, /vgabios-geforce6800\.bin/);
+    const smaller = change(config, "display.vram_mb", 128).config;
+    assert.equal(smaller.display.vram_mb, 128);
+    assert.equal(change(smaller, "display.vram_mb", 16).config.display.vram_mb, 256);
+    config.machine.vga_bios = { kind: "url", url: "custom-nv40.rom" };
+    assert.equal(config_to_options(config, { debug: false }).vga_bios.url, "custom-nv40.rom");
+    assert(JSON.stringify(hardware_rows(config)).includes("GeForce 6800 GT (experimental)"));
+});
+
 test("Android's options: those of tests/a64/android_boot.mjs (A64_ANDROID_BOOTLOADER=1)", () =>
 {
     const c = preset_config(preset("android16"));
