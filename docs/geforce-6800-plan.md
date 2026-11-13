@@ -843,6 +843,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   未使用枚举。GPU 回归改用原生别名验证深度/模板、alpha 和独立 alpha 混合，全部通过；
   插件 Closure 构建通过。99 已开始 benchmark，完整结果仍待验收。
 
+- G4 查询基础：实现 Curie `QUERY_RESET/ENABLE/GET`，开启时用共享 D9WG 的真实 GPU
+  遮挡查询逐 draw 累加，报告按 16-byte 硬件布局写入绑定 DMA。时间戳保持 64-bit 精度，
+  完成字随整段 DMA 原子发布，后续 FIFO/fence 等待查询和目标读回。计数进入对象快照。
+  PGRAPH 测试覆盖报告布局、旧数据保护和快照；真实 WebGPU 的 8×8 覆盖计数为 64，
+  FIFO 顺序及完整渲染回归通过。XP benchmark 仍需从干净起点复测。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

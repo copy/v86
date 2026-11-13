@@ -67,6 +67,7 @@ const STATE_RANGES = [
 const get = (o, at) => o.methods.get(at) || 0;
 // Private decoded state keys live outside the guest's 8 KiB method window.
 const VP_CODE = 0x10000, VP_CONSTANTS = 0x20000, VP_WORD = 0x30000, CONST_WORD = 0x30004, PRIMITIVE = 0x50000, VERTEX_MODE = 0x50004;
+export const NV40_QUERY_COUNT = 0x50008;
 
 export class NV40_3D
 {
@@ -109,6 +110,29 @@ export class NV40_3D
             else if(at===0x1824) values=this.state.indices(o,value&0xFFFFFF,count);
             else values=[value>>>0];
             o.methods.set(VERTEX_MODE,mode);o.stream.push(...values);return true;
+        }
+        if(at === 0x17C8)
+        {
+            if(value !== 1 && value !== 2) throw new RangeError("NV40 invalid query reset");
+            o.methods.set(NV40_QUERY_COUNT, 0);return true;
+        }
+        if(at === 0x17CC)
+        {
+            if(value > 1) throw new RangeError("NV40 invalid query enable");
+            return true;
+        }
+        if(at === 0x1800)
+        {
+            if(value >>> 24 !== 1) throw new RangeError("NV40 unsupported query report type");
+            if(!o.methods.has(0x1A8)) throw new RangeError("NV40 query DMA unbound");
+            const dma = this.device.dma.descriptor(get(o,0x1A8)*16), bytes = new Uint8Array(16), view = new DataView(bytes.buffer);
+            /** @type {bigint} */
+            const time = this.device.time();
+            view.setUint32(0,Number(time&0xFFFFFFFFn),true);view.setUint32(4,Number(time>>32n),true);
+            view.setUint32(8,get(o,NV40_QUERY_COUNT),true);
+            // A single checked DMA write publishes the timestamp, count and
+            // completion word together, after all preceding draws finish.
+            this.device.dma.write(dma,value&0xFFFFFF,bytes);return true;
         }
         if(at === 0x1D70)
         {

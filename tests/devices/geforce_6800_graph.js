@@ -98,3 +98,20 @@ const captured=graph.engine3d.programs();assert.equal(captured.length,1);assert.
 assert.equal(captured[0].vertex.instructions[0].vector.name,"MOV");
 assert.deepEqual(captured[0].fragment.constants[0],[0x3F800000,0,0,0x3F800000]);
 console.log("PASS: draw-time shader capture survives guest buffer release");
+
+// Query reports publish a complete hardware report, including a precise clock.
+device.registers.set(0x400720,1);word(0x4100,0x3003);word(0x4104,31);word(0x4108,0x8002);
+method(0,0x4200,0x1A8,0x410);method(0,0x4200,0x17C8,2);method(0,0x4200,0x17CC,1);
+graph.object(0,0x4200).methods.set(0x50008,123);
+const querySaved=graph.get_state();graph=new NVGraph(device);graph.set_state(querySaved);
+method(0,0x4200,0x1800,0x01000010);
+assert.equal(new DataView(vram.buffer).getBigUint64(0x8010,true),device.time());
+assert.equal(new DataView(vram.buffer).getUint32(0x8018,true),123);
+assert.equal(new DataView(vram.buffer).getUint32(0x801C,true),0);
+word(0x4104,23);vram.fill(255,0x8010,0x8020);method(0,0x4200,0x1800,0x01000010);
+assert.deepEqual([...vram.subarray(0x8010,0x8020)],Array(16).fill(255),"invalid report DMA writes no partial timestamp/count");
+assert.match(graph.faults.at(-1).reason,/DMA/);
+device.registers.set(0x400720,1);method(0,0x4200,0x17C8,1);
+assert.equal(graph.object(0,0x4200).methods.get(0x50008),0);
+method(0,0x4200,0x17CC,2);assert.equal(device.registers.get(0x400720),0,"query enable is boolean");
+console.log("PASS: NV40 query report layout, precise clock, snapshot counter and atomic DMA failure");

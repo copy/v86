@@ -58,6 +58,7 @@ try
     assert.match(graph.faults.pop().reason,/viewport/);assert.equal(engine.busy,false);
     assert.equal(engine.backend.stats.draws,0,"a rejected draw emits no GPU work");
     method(0x1E94,0x101); // END closed the failed primitive, so a new BEGIN is valid.
+    method(0x1A8,0x100);method(0x17C8,1);method(0x17CC,1);
     method(0x1808,6);method(0x1818,0);method(0x1818,0);
     const saved=graph.get_state();graph.set_state(saved); // a partial inline primitive survives a snapshot
     for(const word of [0,0x41800000,0x41800000,0])method(0x1818,word);
@@ -75,6 +76,12 @@ try
         for(let at=16;at<bytes.length;at+=4)bytes.set([0x99,0x66,0x33,0xFF],at);
         listener({type:"write",bytes,offset:(12<<20)+16384});
         assert.equal(view.getUint32(0x10000,true),0,"write response waits for the batch's done marker");assert.equal(savedReady,false);
+        const query=commands.find(command=>command.opcode===OP.END_QUERY);assert(query);
+        const queryBytes=new Uint8Array(16),queryView=new DataView(queryBytes.buffer);
+        queryView.setUint32(0,query.view.getUint32(query.at+offset("QueryIssue","request_id"),true),true);
+        queryView.setUint32(4,64,true);queryView.setUint32(12,1,true);
+        listener({type:"write",bytes:queryBytes,offset:12<<20});
+        assert.equal(graph.object(0,0x2000).methods.get(0x50008),0,"query counter waits for done too");
         listener({type:"done",seq:submitted.seq});
     }
     let timer;
@@ -82,6 +89,9 @@ try
     finally {clearTimeout(timer);}
     assert.equal(engine.busy,false);assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
     for(let at=0x10000;at<0x10100;at+=4)assert.deepEqual([...vram.subarray(at,at+4)],[0x99,0x66,0x33,0xFF],"actual target pixel "+at.toString(16));
+    method(0x1800,0x01000810);
+    assert.equal(view.getUint32(0x818,true),64,"actual GPU occlusion count is written in the hardware report");
+    method(0x17CC,0);
     assert.equal(device.fifo.drain(),true);assert.equal(view.getUint32(0x800,true),0xABCD1234,"fence follows committed VRAM");
     // Inline indices and DMA batches share one index stream, retained mid-BEGIN.
     const draw=engine.backend.draw;let captured;

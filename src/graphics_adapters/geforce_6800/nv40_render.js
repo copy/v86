@@ -4,6 +4,7 @@ import {D9WGWriter} from "../vmware_svga/svga3d_d9wg.js";
 import {OP} from "../vmware_svga/d9wg_constants.js";
 import {NV40Texture} from "./nv40_texture.js";
 import {QUERY_REGION_BYTES,READBACK_MAX_BYTES,RESPONSE_OK} from "../renderer_protocol.js";
+const QUERY_COUNT=0x50008;
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength);
 const equal_bytes=(a,b)=>{
@@ -94,7 +95,7 @@ export class NV40Render
     {
         this.engine=engine;this.device=engine.device;this.renderer=renderer;this.textures=new NV40Texture(engine.state);
         this.writer=new D9WGWriter(0x3034564E); // "NV40", separate resource namespace
-        this.next=2;this.sequence=0;this.request=0;this.created=false;
+        this.query=0;this.next=2;this.sequence=0;this.request=0;this.created=false;
         this.resources=new Map();this.shaders=new Map();this.declarations=new Map();
         this.pending=null;this.stats={draws:0,bytes:0,readbacks:0,failures:0,uploads:0,uploadBytes:0};
         renderer["listen"](message=>this.receive(message));
@@ -103,7 +104,7 @@ export class NV40Render
     {
         if(this.pending) this.pending.resolve();
         this.pending=null;this.writer=new D9WGWriter(0x3034564E);this.created=false;this.resources.clear();this.shaders.clear();this.declarations.clear();
-        this.next=2;this.renderer["post"]({"type":"reset"});
+        this.query=0;this.next=2;this.renderer["post"]({"type":"reset"});
     }
     wait() {return this.pending?this.pending.promise:Promise.resolve();}
     command(op,fields={}) {return this.writer.command(op,{"device_handle":1,...fields});}
@@ -256,13 +257,26 @@ export class NV40Render
         this.render_state(174,1);this.render_state(9,get(o,0x368,0x1D01)===0x1D00?1:2);this.render_state(26,get(o,0x300));
         this.command(OP.SET_SCISSOR_RECT,scissor);
         this.command(OP.BEGIN_SCENE);
+        let query=null;
+        if(get(o,0x17CC))
+        {
+            if(!this.query)
+            {
+                this.query=this.next++;
+                this.command(OP.CREATE_QUERY,{"resource_handle":this.query,"query_type":9,"response_offset":0});
+            }
+            query={object:o,id:++this.request,value:null};
+            this.command(OP.BEGIN_QUERY,{"resource_handle":this.query,"response_offset":0,"request_id":query.id});
+        }
         const w=this.command(OP.DRAW_PRIMITIVE_UP,{"primitive_type":vertices.primitive,"primitive_count":vertices.primitives,
             "stride":vertices.stride,"vertex_count":vertices.count,"vertex_bytes":vertices.bytes.length});
-        w.patch_field("vertex_data_offset",w.data(vertices.bytes));this.command(OP.END_SCENE);
+        w.patch_field("vertex_data_offset",w.data(vertices.bytes));
+        if(query)this.command(OP.END_QUERY,{"resource_handle":this.query,"response_offset":0,"request_id":query.id});
+        this.command(OP.END_SCENE);
         let resolve;const promise=new Promise(done=>{resolve=done;});
         const outputs=[...colors.flatMap((target,index)=>target?[{target,handle:handles[index]}]:[]),
             ...(depth?[{target:depth,handle:depthHandle}]:[])].map(output=>({...output,bytes:new Uint8Array(output.target.width*output.target.height*output.target.bpp)}));
-        const pending=this.pending={channel:o.channel,subc,outputs,requests:new Map(),promise,resolve,sequence:++this.sequence};
+        const pending=this.pending={channel:o.channel,subc,outputs,query,requests:new Map(),promise,resolve,sequence:++this.sequence};
         outputs.forEach((output,index)=>{
         const {target,handle}=output,pitch=target.width*target.bpp,rows=Math.max(1,Math.floor(READBACK_MAX_BYTES/pitch));
         for(let first=0;first<target.height;first+=rows)
@@ -292,6 +306,11 @@ export class NV40Render
         {
             const bytes=message["bytes"];if(bytes.length<16)return;
             const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),id=view.getUint32(0,true),request=pending.requests.get(id);
+            if(pending.query && id===pending.query.id)
+            {
+                if(view.getUint32(12,true)!==RESPONSE_OK) {this.fail("invalid occlusion query readback");return;}
+                pending.query.value=view.getUint32(4,true);return;
+            }
             if(!request)return;
             if(view.getUint32(12,true)!==RESPONSE_OK || view.getUint32(4,true)!==request.bytes || bytes.length<16+request.bytes)
             {this.fail("invalid target readback");return;}
@@ -299,6 +318,7 @@ export class NV40Render
         }
         else if(message["type"]==="done" && message["seq"]===pending.sequence)
         {
+            if(pending.query && pending.query.value===null) {this.fail("GPU completed without occlusion query readback");return;}
             if(pending.requests.size) {this.fail("GPU completed without target readback");return;}
             try
             {
@@ -310,6 +330,11 @@ export class NV40Render
                     for(const resource of this.resources.values())if(resource.handle===handle)resource.images=[bytes];
             }
             catch(error) {this.fail(String(error));return;}
+            if(pending.query)
+            {
+                const {object,value}=pending.query;
+                object.methods.set(QUERY_COUNT,(get(object,QUERY_COUNT)+value)>>>0);
+            }
             this.pending=null;pending.resolve();this.device.machine.wake();this.device.fifo.run();
         }
     }
