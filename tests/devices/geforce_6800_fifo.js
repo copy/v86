@@ -73,6 +73,14 @@ const header = (method, count = 1, subc = 0, ni = false) => method | count << 18
     const g = fixture(); g.submit([header(0), 0x1234]);
     assert(g.regs.get(0x2100) & 1, "missing RAMHT object raises CACHE_ERROR");
     assert.notEqual(g.regs.get(0x3270) || 0, g.regs.get(0x3210), "failed method stays in cache for kernel recovery");
+    const sw = fixture(); sw.handle(0x8807C000, 0x40, 0);
+    sw.submit([header(0, 1, 7), 0x8807C000]);
+    assert(sw.regs.get(0x2100) & 1, "software object binding traps to miniport");
+    sw.regs.set(0x2100, 0); sw.regs.set(0x3250, 1);
+    sw.regs.set(0x3270, sw.regs.get(0x3210)); // kernel consumes trapped bind
+    assert.equal(sw.fifo.method(7, 0x340, 0x2580320), false);
+    assert.equal(sw.calls.length, 0, "software DAC timing methods never reach PGRAPH");
+    assert(sw.regs.get(0x3250) & 0x100);
 }
 {
     const f = fixture(); f.object(0x45000, 0x2303D, 4095, 0x8002); f.handle(0x77, 0x45000, 0);

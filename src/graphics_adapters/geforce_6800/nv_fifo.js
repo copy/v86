@@ -209,6 +209,9 @@ export class NVFIFO
             }
             return true;
         }
+        // Engine zero objects (e.g. the driver's software DAC class) must trap
+        // every method to the miniport, not be interpreted as PGRAPH instances.
+        if((this.reg(0x3280) >>> (subc * 4) & 15) !== 1) return this.cache_error(0x100);
         return this.device.graph ? this.device.graph.method(this.active, subc, ch.bindings[subc], method, value) : this.cache_error(0x100);
     }
 
