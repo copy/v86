@@ -127,6 +127,12 @@
   预乘 source-over；全部 2D 测试和插件构建通过。XP 的真实命令已生成登录画面；
   尚需桌面/模式切换与完整 G2 客体验收。
 
+- XP 文字流续修：GDI 各 primitive 共用 clip/color/image 状态；驱动可通过 E 的参数
+  方法配置 C 的透明单色数据。单色流按输入宽度连续推进，一个 DWORD 可跨多行，
+  不能在每行重新对齐到 32 bits。增加这两项语义及跨两行的数据用例；2D 测试和构建通过。
+  XP 已进入 800×600 桌面且原生设备仍为 `problem=0 / service=nv`；模式探针只扫描前
+  512 项，未找到 1024×768×32，需要扩大枚举并实际切换，尚不能算 G1 验收。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

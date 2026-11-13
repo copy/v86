@@ -263,19 +263,24 @@ export class NV2D
     {
         const base = opaque ? 0xBF4 : 0x7F8;
         const [width, height] = wh(m(o, base)), [x, y] = xy(m(o, opaque ? 0xBFC : 0x7FC));
-        const stride = Math.ceil(width / 32), offset = o.stream.length ? o.stream[0] : 0;
-        if(!width || !height || offset >= stride * height) throw new RangeError("NV GDI bitmap excess data");
-        const row = Math.floor(offset / stride), column = offset % stride * 32;
+        const offset = o.stream.length ? o.stream[0] : 0;
+        if(!width || !height || offset * 32 >= width * height) throw new RangeError("NV GDI bitmap excess data");
         const clipBase = opaque ? 0xBE4 : 0x7EC;
         const clip = [...xy(m(o, clipBase)), ...xy(m(o, clipBase + 4))];
         let outw = width, outh = height;
         if(opaque) [outw, outh] = wh(m(o, 0xBF8));
-        const rect = this.bounds(x + column, y + row, Math.max(0, Math.min(32, width - column, outw - column)), row < outh ? 1 : 0, clip);
         const dst = this.surface(o, 0x198);
-        this.render(o, dst, rect, px => {
-            const bit = px - x - column, shift = m(o, 0x304, 2) === 1 ? (bit & ~7) + 7 - (bit & 7) : bit;
-            return value >>> shift & 1 ? m(o, opaque ? 0xBF0 : 0x7F4) : opaque ? m(o, 0xBEC) : null;
-        }, [0x188, 0x18C, 0x190, 0x194]);
+        for(let consumed = 0; consumed < 32 && offset * 32 + consumed < width * height;)
+        {
+            const index = offset * 32 + consumed, row = Math.floor(index / width), column = index % width;
+            const count = Math.min(32 - consumed, width - column);
+            const rect = this.bounds(x + column, y + row, Math.max(0, Math.min(count, outw - column)), row < outh ? 1 : 0, clip);
+            this.render(o, dst, rect, px => {
+                const bit = consumed + px - x - column, shift = m(o, 0x304, 2) === 1 ? (bit & ~7) + 7 - (bit & 7) : bit;
+                return value >>> shift & 1 ? m(o, opaque ? 0xBF0 : 0x7F4) : opaque ? m(o, 0xBEC) : null;
+            }, [0x188, 0x18C, 0x190, 0x194]);
+            consumed += count;
+        }
         o.stream = [offset + 1];
     }
     sample(bytes, width, height, pitch, format, x, y)
@@ -343,6 +348,16 @@ export class NV2D
         else if([0x77, 0x89, 0x3089].includes(type)) accepted = at >= 0x184 && at <= 0x198 || at >= 0x2FC && at <= 0x31C || at >= 0x400 && at <= 0x40C;
         if(!accepted || at & 3) return false;
         o.methods.set(at, value >>> 0);
+        if(type === 0x4A)
+        {
+            // These methods address common PGRAPH clip/color/image registers,
+            // rather than independent storage for each GDI primitive family.
+            for(const aliases of [[0x5F4, 0x7EC, 0xBE4, 0xFF4, 0x17F4], [0x5F8, 0x7F0, 0xBE8, 0xFF8, 0x17F8],
+                [0x3FC, 0x5FC, 0x7F4, 0xBF0, 0xFFC, 0x17FC], [0x7FC, 0xBFC]])
+                if(aliases.includes(at)) for(const alias of aliases) o.methods.set(alias, value >>> 0);
+            if(at === 0x7F8 || at === 0xBF4) { o.methods.set(0x7F8, value); o.methods.set(0xBF4, value); }
+            if(at === 0x7F8) o.methods.set(0xBF8, value);
+        }
         if(type === 0x39 && at === 0x328) this.m2mf(o, value);
         else if((type === 0x5F || type === 0x9F) && at === 0x308) this.blit(o);
         else if(type === 0x4A && (at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700) && at & 4) this.rectangle(o, at);
