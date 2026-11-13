@@ -44,10 +44,13 @@ export class NVGraph
 
     read(at)
     {
-        // FLIP_WAIT blocks the FIFO front end, while the raster engine can be
-        // idle. The display ISR must be able to save that idle context before
-        // advancing its READ counter.
-        if(at === 0x400700) return this.engine3d.busy ? 1 : 0;
+        // NV40 has a separate SYNC_STALL status bit. It must not masquerade as
+        // raster work: drivers inspect it before saving a stalled context.
+        if(at === 0x400700)
+        {
+            if(this.context && !(this.reg(0x40032C)&0x01000000))this.transfer_flips(this.context,false);
+            return (this.engine3d.busy?1:0)|(this.flips.some(f=>!!f[3])?0x4000:0);
+        }
         if(at === 0x400710)
         {
             let value=this.reg(at)&~0x77777700;

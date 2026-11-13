@@ -1236,3 +1236,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   状态随对象快照保存。测试覆盖负 origin、跨别名/快照的 G 字形、CGA6、ROP 及
   截断记录、畸形尺寸、末行 DMA 故障的全字形原子性；完整 2D/PGRAPH 回归及
   Closure 构建通过。3DMark99 总分窗口的字体异常尚未定位，不能将此项称为其修复。
+
+- G1/G3 扫描状态续修：按 CRTC 总行数、retrace 起止和 VPLL 周期实现 PCRTC
+  `0x600808` 的扫描行/blank/retrace，以及 `0x600868/0x60086C` 计数器。
+  NV 像素模式的 VGA 状态端口/MMIO 共用 retrace 与属性索引复位；粗粒度调度保留
+  一次待读取 retrace，逐字节读取只在访问对应状态字节时消费，状态可快照恢复。
+  XP 3DMark2000 从此前在 `0x600808` 的无限轮询检查点恢复后已进入直升机场景；
+  完整基准尚在运行。源码/release 寄存器与旧快照回归、PGRAPH 测试和 Closure 构建通过。
+  同时把翻页等待正确报告为 PGRAPH_STATUS 的 SYNC_STALL bit 14；Win98 仍只绘制
+  少量帧，不能把该状态位修正称为完整翻页修复。

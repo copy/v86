@@ -16,6 +16,7 @@ export class NVDisplay
         this.index2 = 0;
         this.unlocked = false;
         this.front = 0;
+        this.raster_pending = false;
         this.key = "";
         this.pixels = null;
         this.gamma = new Uint8Array(768);
@@ -42,6 +43,7 @@ export class NVDisplay
         this.machine.register_write(0x3C5, this, value => this.write_seq(value));
         this.machine.register_write(0x3C9, this, value => this.dac_write(value));
         this.machine.register_read(0x3C9, this, () => this.dac_read());
+        for(const port of [0x3BA,0x3DA])this.machine.register_read(port,this,()=>this.status());
         // NV CRTC 1D/1E select independent 32 KiB write/read banks. Keep the
         // VGA core's planar/text path for the legacy pixel format.
         this.machine.mmap_register_range(0xA0000, 0x20000, address => {
@@ -64,6 +66,7 @@ export class NVDisplay
     {
         this.crtc.fill(0); this.crtc2.fill(0);
         this.index2 = this.front = 0;
+        this.raster_pending = false;
         this.unlocked = false;
         for(let i = 0; i < 256; i++) this.gamma.fill(i, i * 3, i * 3 + 3);
         this.ddc.reset(); this.invalidate();
@@ -128,6 +131,7 @@ export class NVDisplay
         if(port === 0x3D4 || port === 0x3B4) return second ? this.index2 : this.vga.index_crtc;
         if(port === 0x3D5 || port === 0x3B5) return second ? this.crtc2[this.index2] : this.read_crtc();
         if(second) return 255; // disconnected second head
+        if(port===0x3DA || port===0x3BA)return this.status();
         if(port === 0x3C9) return this.dac_read();
         const readers = { 0x3C0: "port3C0_read", 0x3C1: "port3C1_read", 0x3C4: "port3C4_read", 0x3C5: "port3C5_read",
             0x3C6: "port3C6_read", 0x3C7: "port3C7_read", 0x3C8: "port3C8_read", 0x3C9: "port3C9_read",
@@ -163,9 +167,39 @@ export class NVDisplay
     }
 
     reg(offset) { return this.device.registers.get(offset) || 0; }
+    raster()
+    {
+        const c=this.crtc,period=this.vblank_period();
+        const total=(c[6]|(c[7]&1)<<8|(c[7]&0x20)<<4|(c[0x25]&1)<<10|(c[0x41]&1)<<11)+2;
+        const start=c[0x10]|(c[7]&4)<<6|(c[7]&0x80)<<2|(c[0x25]&4)<<8|(c[0x41]&0x10)<<7;
+        const duration=(c[0x11]-start)&15 || 16;
+        const elapsed=this.hub.time_since_vblank(this.machine.now()),phase=Number.isFinite(elapsed)?Math.max(0,elapsed)%period/period*total:0;
+        const line=(start+Math.floor(phase))%total;
+        const horizontal=((c[0]|(c[0x2D]&1)<<8)+5)*8,hpos=Math.floor((phase%1)*horizontal);
+        const width=((c[1]|(c[0x2D]&2)<<7)+1)*8;
+        const height=(c[0x12]|(c[7]&2)<<7|(c[7]&0x40)<<3|(c[0x25]&2)<<9|(c[0x41]&4)<<9)+1;
+        return {line,hpos,retrace:phase<duration,blank:hpos>=width || line>=height};
+    }
+    status()
+    {
+        if(!(this.crtc[0x28]&3))return this.vga.port3DA_read();
+        const raster=this.raster(),retrace=raster.retrace || this.vga.retrace_pending;
+        this.vga.retrace_pending=false;this.vga.attribute_controller_index=-1;
+        return (raster.blank?1:0)|(retrace?9:0);
+    }
+    read(offset, mask = -1)
+    {
+        if(![0x600808,0x600868,0x60086C].includes(offset))return null;
+        const raster=this.raster();
+        if(offset===0x600868)return raster.line&0x1FFF;
+        if(offset===0x60086C)return raster.hpos&0x1FFF;
+        const retrace=raster.retrace || this.raster_pending;
+        if(mask&0x10000)this.raster_pending=false;
+        return (raster.line&0x1FFF)|(raster.blank?0x2000:0)|(retrace?0x10000:0);
+    }
     implemented(offset)
     {
-        return [0x600800, 0x60080C, 0x600810, 0x680300, 0x680508, 0x68050C, 0x680520, 0x680578, 0x68057C, 0x680600].includes(offset);
+        return [0x600800, 0x600808, 0x60080C, 0x600810, 0x600868, 0x60086C, 0x680300, 0x680508, 0x68050C, 0x680520, 0x680578, 0x68057C, 0x680600].includes(offset);
     }
 
     vblank_period()
@@ -185,6 +219,7 @@ export class NVDisplay
     on_vblank()
     {
         if(!(this.crtc[0x28] & 3)) this.vga.on_vblank();
+        this.raster_pending=true;this.vga.retrace_pending=true;
         this.front = this.reg(0x600800) & 0x0FFFFFFC;
         this.device.registers.set(0x600100, this.reg(0x600100) | 1);
         this.device.update_irq();
@@ -268,12 +303,13 @@ export class NVDisplay
         }
     }
 
-    get_state() { return [this.crtc, this.crtc2, this.index2, this.unlocked, this.front, this.ddc.get_state(), this.gamma]; }
+    get_state() { return [this.crtc, this.crtc2, this.index2, this.unlocked, this.front, this.ddc.get_state(), this.gamma,this.raster_pending]; }
     set_state(s)
     {
         this.crtc.set(s[0]); this.crtc2.set(s[1]);
         [this.index2, this.unlocked, this.front] = s.slice(2, 5);
         this.ddc.set_state(s[5]); this.invalidate();
+        this.raster_pending=!!s[7];
         if(s[6]) this.gamma.set(s[6]);
         else for(let i = 0; i < 256; i++) this.gamma.fill(i, i * 3, i * 3 + 3);
     }

@@ -257,7 +257,7 @@ export class NVDevice
             this.trace.record("rom", offset - 0x300000, 1, false, value, true);
             return value;
         }
-        return this.read32(offset & ~3) >>> ((offset & 3) * 8) & 255;
+        return this.read32(offset & ~3, 255 << ((offset & 3) * 8)) >>> ((offset & 3) * 8) & 255;
     }
 
     write8(offset, value)
@@ -275,7 +275,7 @@ export class NVDevice
         this.trace.record("mmio", offset, 1, true, value, this.implemented(offset & ~3));
     }
 
-    read32(offset)
+    read32(offset, mask = -1)
     {
         if(this.display.mirror(offset) || offset >= 0x700000 && offset < 0x800000 || offset >= 0x300000 && offset < 0x310000)
         {
@@ -286,9 +286,11 @@ export class NVDevice
         const fifo_value = this.fifo.read(offset);
         const graph_value = this.graph.read(offset);
         const rma_value = this.rma.read(offset);
+        const display_value = this.display.read(offset, mask);
         if(fifo_value !== null) value = fifo_value;
         else if(graph_value !== null) value = graph_value;
         else if(rma_value !== null) value = rma_value;
+        else if(display_value !== null) value = display_value;
         else if(offset >= 0x1800 && offset < 0x1900)
         {
             const config = this.machine.pci_config(), i = offset - 0x1800;
@@ -344,7 +346,8 @@ export class NVDevice
             }
             return;
         }
-        if(offset === 0 || offset === 0x3304 || offset === 0x10020C || offset === 0x100320 || offset === 0x101000) return;
+        if(offset === 0 || offset === 0x3304 || offset === 0x10020C || offset === 0x100320 || offset === 0x101000 ||
+            [0x600808,0x600868,0x60086C].includes(offset)) return;
         const timestamp = offset === 0x9400 || offset === 0x9410 ? this.time() : 0n;
         const old = offset === 0x9400 ? Number(timestamp & TIMER_LOW) :
             offset === 0x9410 ? Number(timestamp >> 32n) : this.registers.get(offset) || 0;
