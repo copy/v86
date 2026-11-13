@@ -29,7 +29,7 @@ export class NVGraph
         this.engine3d = new NV40_3D(this);
     }
 
-    reset() { this.flip_offset=-2;this.flip_contexts.clear();this.context=0; this.flips = [[0,0,0,0],[0,0,0,0]]; this.objects.clear(); this.bindings.clear(); this.program.clear(); this.engine3d.captured.clear(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
+    reset() { this.flip_offset=-2;this.flip_contexts.clear();this.context=0; this.flips = [[0,0,0,0],[0,0,0,0]]; this.objects.clear(); this.bindings.clear(); this.program.clear(); this.engine3d.captured.clear();this.engine3d.clear_translations(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
     get busy()
     {
         if(this.context && !(this.reg(0x40032C)&0x01000000))this.transfer_flips(this.context,false);

@@ -71,7 +71,13 @@ export const NV40_QUERY_COUNT = 0x50008;
 
 export class NV40_3D
 {
-    constructor(graph) { this.graph = graph; this.device = graph.device; this.captured = new Map(); this.state = new NV40State(this.device); this.backend = this.device.renderer ? new NV40Render(this,this.device.renderer) : null; }
+    constructor(graph)
+    {
+        this.graph=graph;this.device=graph.device;this.captured=new Map();this.translated=new Map();this.translation_bytes=0;
+        this.translation_stats={hits:0,misses:0,evictions:0};
+        this.state=new NV40State(this.device);this.backend=this.device.renderer?new NV40Render(this,this.device.renderer):null;
+    }
+    clear_translations() {this.translated.clear();this.translation_bytes=0;}
     get busy() {return !!(this.backend && this.backend.pending);}
     method(o, at, value, subc=0)
     {
@@ -207,10 +213,35 @@ export class NV40_3D
     {
         const program = this.program(o);
         if(program.errors.length) throw new RangeError(program.errors.join("; "));
-        return {vertex: translate_vertex_program(program.vertex, {...options,result_map:this.state.results(o)}), fragment: translate_fragment_program(program.fragment, {...options,
+        const vertexOptions={...options,result_map:this.state.results(o)},fragmentOptions={...options,
             fog:{mode:o.methods.has(0x8CC)?get(o,0x8CC):0x2601,
                 constant:o.methods.has(0x8D0)?new Float32Array(Uint32Array.of(get(o,0x8D0)).buffer)[0]:1,
-                linear:o.methods.has(0x8D4)?new Float32Array(Uint32Array.of(get(o,0x8D4)).buffer)[0]:1}})};
+                linear:o.methods.has(0x8D4)?new Float32Array(Uint32Array.of(get(o,0x8D4)).buffer)[0]:1}};
+        // Exact code and lowering state, never DMA addresses or hashes. Inline
+        // FP constants change independently of normalized instruction words.
+        const key=JSON.stringify([program.vertex,program.fragment.normalized,vertexOptions,fragmentOptions]);
+        let compiled=this.translated.get(key);
+        if(compiled)
+        {
+            this.translation_stats.hits++;this.translated.delete(key);this.translated.set(key,compiled);
+        }
+        else
+        {
+            this.translation_stats.misses++;
+            compiled={vertex:translate_vertex_program(program.vertex,vertexOptions),fragment:translate_fragment_program(program.fragment,fragmentOptions),bytes:0};
+            compiled.fragment.constant_values=[];
+            compiled.bytes=key.length*2+compiled.vertex.bytecode.byteLength+compiled.fragment.bytecode.byteLength;
+            if(compiled.bytes<=8<<20)
+            {
+                while(this.translated.size && (this.translated.size>=128 || this.translation_bytes+compiled.bytes>8<<20))
+                {
+                    const [old,entry]=this.translated.entries().next().value;
+                    this.translated.delete(old);this.translation_bytes-=entry.bytes;this.translation_stats.evictions++;
+                }
+                this.translated.set(key,compiled);this.translation_bytes+=compiled.bytes;
+            }
+        }
+        return {vertex:compiled.vertex,fragment:{...compiled.fragment,constant_values:program.fragment.constants.map(words=>Uint32Array.from(words))}};
     }
     vertex_program(o, first = get(o, 0x1EA0), count = 0x220 - first)
     {

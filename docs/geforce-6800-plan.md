@@ -1364,3 +1364,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   条件码更新；普通 D3D saturation 不受此私有指令影响。166 个 Naga 模块、完整
   真实 GPU 回归、通用 D3D 57 项/199 个 Naga 验证与 Closure/WebGPU bundle 构建
   通过；条件码像素用例检查了此前未断言的 NaN 分量。
+
+- G6 CPU 翻译缓存：在 NV40 前端复用精确代码及降低选项相同的 VP/FP 字节码，
+  FP 内联常量每次仍从当前程序读取；代码变化立即失效。LRU 限制为 128 组及
+  8 MiB 的键/字节码预算，GPU reset 清除缓存，缓存不进快照。harness 导出
+  shaderTranslation 的命中、miss、淘汰及大小。PGRAPH 回归验证常量更新、代码
+  改写与淘汰，完整真实 GPU 回归、FIFO 测试及 Closure 构建通过。含 DMA 解码和
+  精确键构造的 48 条片元指令 CPU 微基准，1000 次从 179.9 ms 降至 113.5 ms；
+  这不是客体帧率或 3DMark06 的性能门禁，完整 G6 报告继续后续实施。

@@ -201,6 +201,7 @@ export async function run_geforce_guest(win98)
             segments:Array.from(vm.v86.cpu.segment_offsets),romHeader:Array.from(vm.v86.cpu.mem8.subarray(0xC0000,0xC0040)),romCode:Array.from(vm.v86.cpu.mem8.subarray(0xC1700,0xC1740))},
         pic:vm.v86.cpu.get_state_pic(),pirq:Array.from(vm.v86.cpu.devices.pci.isa_bridge_space8.slice(0x60,0x64)),
         gpu: nv.graph.engine3d.backend ? nv.graph.engine3d.backend.stats : null,
+        shaderTranslation:{...nv.graph.engine3d.translation_stats,entries:nv.graph.engine3d.translated.size,bytes:nv.graph.engine3d.translation_bytes},
         scanout: sink.transitions,
         display: { crtc: Array.from(nv.display.crtc), front: nv.display.front, mode: nv.display.mode() },
         graph: nv.graph.get_state(), graphFaults: nv.graph.faults, fifo: nv.fifo.get_state(), fifoFaults:nv.fifo.faults });
