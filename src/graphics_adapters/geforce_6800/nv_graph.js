@@ -127,7 +127,7 @@ export class NVGraph
     {
         this.faults.push({channel,subc,method,value:value>>>0,source,status,reason,sequence:this.device.trace.sequence});
         if(this.faults.length>64)this.faults.shift();
-        this.set(0x400704, channel << 24 | subc << 13 | method);
+        this.set(0x400704, channel << 20 | subc << 16 | method);
         this.set(0x400708, value);
         this.set(0x400108, this.reg(0x400108) | source);
         this.set(0x400104, this.reg(0x400104) | status);
@@ -239,7 +239,12 @@ export class NVGraph
             {this.engine3d.backend.flush();return false;}
 
             accepted = method === 0x100 || method === 0x108 || method === 0x10C;
-            if(method === 0x104)
+            if(method===0x100 && object.class_id===0x4097 && value && (this.reg(0x40008C)&0x100000))
+            {
+                this.error(channel,subc,method,value,2,0x2000,"nonzero NOP on a non-synchronous 3D object");
+                accepted=true;
+            }
+            else if(method === 0x104)
             {
                 if(value > 1) this.error(channel, subc, method, value, 2, 0x2000, "invalid notification mode");
                 else this.notification(object, 0, value === 1);

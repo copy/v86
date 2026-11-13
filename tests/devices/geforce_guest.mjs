@@ -222,6 +222,21 @@ export async function run_geforce_guest(win98)
         const cpu = vm.v86.cpu;
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = true;
+        if(process.env.NV_WATCH_FLIP)
+        {
+            const original=nv.trace.record.bind(nv.trace),captures=[];
+            nv.trace.record=(space,offset,size,write,value,implemented)=>{
+                original(space,offset,size,write,value,implemented);
+                const graphMethod=space==="graph" && offset>=0x4097*0x2000+0x120 && offset<=0x4097*0x2000+0x130;
+                if(!write || !graphMethod && !(space==="mmio" && [0x400304,0x400310,0x40032C,0x400710,0x40071C,0x400720,0x600800].includes(offset)))return;
+                const position=nv.graph.flip_context_offset();
+                captures.push({elapsed:elapsed(),sequence:nv.trace.sequence,space,offset,value,eip:cpu.instruction_pointer[0]>>>0,
+                    current:nv.registers.get(0x40032C)||0,context:nv.graph.context,flips:nv.graph.flips.map(f=>f.slice()),
+                    ramin:position===null?[]:[...nv.graph.flip_contexts.keys()].map(instance=>[instance,nv.dma.word(instance*16+position)])});
+                if(captures.length>512)captures.shift();
+                fs.writeFileSync(path.join(out,"flip-watch.json"),JSON.stringify(captures,null,2));
+            };
+        }
         if(process.env.NV_WATCH_RAMIN)
         {
             const address=Number.parseInt(process.env.NV_WATCH_RAMIN,16);assert(address>=0 && address+4<=1<<20 && !(address&3));

@@ -1205,3 +1205,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   共用四层嵌套及执行预算保护，块外相对读取明确报错。99 个 Naga 模块与真实 GPU
   验证三个索引/偏移组合及退出内层后重新读取外层属性，完整渲染回归和 Closure
   构建通过。CAL/RET、half/full alias、顶点纹理等后续 G4 内容继续实现。
+
+- PGRAPH 陷阱续修：TRAPPED_ADDR 按硬件把子通道放在 bits 16–18、通道放在
+  bits 20–24，修复此前误用 USER 窗口字段。Curie 非零 NOP 在 DEBUG_D 的数据错误
+  使能下产生 DATA_ERROR/BAD_ARGUMENT，并等待先前 GPU 批次；关闭该使能时不陷阱。
+  原生 81.98 已执行并确认此类陷阱，但每帧约 10 秒的等待仍存在，尚未解决。
+  单元测试与 Closure 构建通过。`NV_WATCH_FLIP` 可有界记录计数、RAMIN、MMIO 和
+  CPU 位置，便于继续定位；查询报告布局已与 Mesa nv30 的完成字读取路径复核一致。

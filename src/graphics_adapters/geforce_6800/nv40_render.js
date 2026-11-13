@@ -204,7 +204,7 @@ export class NV40Render
     barrier(o,method,value)
     {
         if(!this.batch)return false;
-        if(o.class_id!==0x4097 || [0x104,0x108,0x110,0x17C8,0x17CC,0x1800,0x1D70,0x1D94].includes(method) || method>=0x120 && method<=0x130)return true;
+        if(o.class_id!==0x4097 || method===0x100 && value || [0x104,0x108,0x110,0x17C8,0x17CC,0x1800,0x1D70,0x1D94].includes(method) || method>=0x120 && method<=0x130)return true;
         if(get(o,method)!==value && (method>=0x180 && method<=0x1B8 || method>=0x200 && method<=0x22C || method>=0x280 && method<=0x28C))return true;
         return false;
     }
