@@ -9,7 +9,7 @@
   跟踪中标为未实现。`nvlog(true/false)` 和 `nvtrace()` 在插件设备对象上提供给测试工具。
 - 已验证：SeaBIOS 启动到文本、PCI BAR 探测与重定位、内存解码、PBUS 写入的 PCI 语义、
   RAMIN/VRAM 别名、W1C 字节写、快照往返。运行 `node tests/devices/geforce_6800.js`。
-- G0 尚未验收：专属探路 ROM、XP/98 驱动初始化跟踪仍在实施；PCI 模式兼容性尚无结论。
+- G0 尚未验收：XP/98 驱动初始化仍未完成；PCI 模式兼容性尚无结论。
   `BOOT_0=0x040500A1`、子系统 `10DE:0045`、strap 和 PTIMER 时钟比率是待驱动跟踪复核的值。
 - 本地 `geforce.iso` 只包含 56.64（NV40 之前）。已获所有者授权下载所需 ROM 和驱动；测试素材
   放在忽略目录 `build/nv40-fixtures`，不随源代码分发。
@@ -23,6 +23,18 @@
 - 官方驱动已下载并解包：XP 93.71 的 INF 与 Win98 81.98 的 NVAGP.INF 均包含 `DEV_0045`。
   XP 安装包 SHA-256 `1fdf456054bfa91e307b052324aebcc4210c9ec23e5d50aea11e943ec7408092`；
   Win98 安装包 SHA-256 `e05b92b1322f8d01549995ddd00a9dca93d83358ee78e868acedca9dc6c7c910`。
+- G0.3：`tests/devices/geforce_xp.mjs` / `geforce_win98.mjs` 使用真实官方 INF、只读原盘、
+  内存 FAT16 工具盘、原生 SetupAPI 探针，输出截图、设备问题码和有界跟踪；
+  `NV_OVERLAY_SAVE/LOAD` 保存/加载 Node v8 序列化的扇区 overlay，仅用于此 harness。
+  `NV_SECONDS` 控制调查时限，`NV_LAUNCH_SECONDS` 控制桌面后启动时机，`NV_ROM` 可覆盖 ROM。
+  驱动可传安装包或解包目录；SZDD 文件名按原版 INF 恢复。尚不自动关机/重启，
+  overlay 是暂停时的扇区副本，不把它当作干净关机的已安装驱动 fixture。
+- XP 93.71 的第一轮硬件跟踪见 `docs/fixtures/nv40/g0-xp-9371.json`：设备识别正确，
+  原盘未变，但未完成安装。驱动大量轮询 `0x3304`、`0x3250` 和 PTIMER；
+  `0x3304` 应是只读的 3，空壳返回 0；VGA MMIO 镜像仍是存值。对策是补齐这两项再复测。
+  这证明驱动走到了硬件访问，**不能**证明 PCI 模式最终可用，也不能据此启动 A1。
+- Win98 81.98 的第一次原生探针能运行，但其 26 个 SetupAPI 设备没有匹配到 NV40 的硬件 ID；
+  未执行驱动安装，尚需检查 PCI 枚举及 Win9x 的设备发现路径。不是驱动加载成功的证据。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

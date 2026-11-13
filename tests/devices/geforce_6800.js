@@ -60,6 +60,10 @@ try
     assert.equal(trace.report().events.length, 2);
     assert.equal(trace.report().dropped, 3);
     assert.equal(trace.report().counts[0][1], 5);
+    assert.deepEqual(trace.report().events.map(e => e.value), [3, 4], "ring retains the latest accesses in order");
+    for(let i = 0; i < 10; i++) trace.record("mmio", i + 4, 4, false, 0, false);
+    assert.equal(trace.report().counts.length, 2, "the summary also has a memory bound");
+    assert.equal(trace.report().untracked, 9);
     console.log("PASS: NV40 PCI identity, BAR sizing, RAMIN aliases and bounded tracing");
 
     pci_write(0x10, 0xD0000000);
@@ -85,6 +89,31 @@ try
     assert.equal(read(mmio + 0x100), 0x100);
     cpu.write8(mmio + 0x2101, 0x10);
     assert.equal(read(mmio + 0x2100), 0x10, "byte W1C does not clear adjacent status");
+
+    const real_now = nv.machine.now;
+    let now = 1000;
+    nv.machine.now = () => now;
+    nv.timer_epoch = now; nv.timer_value = 0;
+    write(mmio + 0x9200, 1); write(mmio + 0x9210, 1);
+    now++;
+    assert.equal(read(mmio + 0x9400), 1000000);
+    write(mmio + 0x9210, 2);
+    now++;
+    assert.equal(read(mmio + 0x9400), 3000000, "ratio change preserves accumulated time");
+    write(mmio + 0x9420, 5000000);
+    now += 0.5; nv.timer();
+    assert.equal(read(mmio + 0x9100), 0);
+    now += 0.5; nv.timer();
+    assert.equal(read(mmio + 0x9100), 1, "alarm latches at its deadline");
+    write(mmio + 0x9140, 1);
+    assert.equal(read(mmio + 0x100) & (1 << 20), 1 << 20);
+    write(mmio + 0x9100, 1);
+    assert.equal(read(mmio + 0x100) & (1 << 20), 0);
+    write(mmio + 0x9200, 0); const frozen = read(mmio + 0x9400); now += 100;
+    assert.equal(read(mmio + 0x9400), frozen, "zero divisor stops the timer");
+    nv.machine.now = real_now;
+    nv.timer_epoch = real_now.call(nv.machine); nv.timer_value = frozen;
+    console.log("PASS: PTIMER clock ratios, stopped clock, alarms and interrupt acknowledgement");
 
     const saved = await vm.save_state();
     write(ramin + 0x120, 0);

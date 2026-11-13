@@ -1,0 +1,45 @@
+{
+  "guest": "Windows XP SP3",
+  "driver": "ForceWare 93.71 (XP 32-bit)",
+  "rom": "v86 G0 SeaVGABIOS",
+  "device": "10DE:0045 rev A1, PCI mode",
+  "status": "blocked before FIFO-channel acceptance",
+  "probe": [
+    "BEGIN",
+    "PCI PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1",
+    "DEVICE PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1 problem=1 cm=0 started=0 service=",
+    "PCI PCI\\VEN_8086&DEV_1237&SUBSYS_00000000&REV_02",
+    "PCI PCI\\VEN_8086&DEV_7000&SUBSYS_00000000&REV_00",
+    "PCI PCI\\VEN_8086&DEV_7010&SUBSYS_82D41043&REV_00",
+    "ENUM_END error=259",
+    "INSTALL d:\\DRIVER\\nv4_disp.inf"
+  ],
+  "seconds": 181,
+  "image_unchanged": true,
+  "distinct_access_keys": 2563,
+  "total_events": 27101011,
+  "polls": [
+    [
+      "mmio:9410:r",
+      6641118
+    ],
+    [
+      "mmio:100:r",
+      6641107
+    ],
+    [
+      "mmio:3304:r",
+      6641106
+    ],
+    [
+      "mmio:3250:r",
+      3320561
+    ],
+    [
+      "mmio:9400:r",
+      3320559
+    ]
+  ],
+  "blocker": "CACHE1 UNK104 at 0x3304 returned zero; rnndb specifies read-only value 3. VGA MMIO aliases were also still plain storage.",
+  "next": "Implement the documented read-only default and VGA aliases, rerun the same driver; PCI/AGP compatibility remains unproven."
+}
