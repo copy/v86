@@ -577,7 +577,7 @@ PAGES_BUILD=build/v86_app.js build/android-import-worker.js build/ios-import-wor
 	build/v86.wasm build/v86-fallback.wasm build/v86-parallel.wasm \
 	build/v86-arm64.wasm build/v86-arm64-fallback.wasm build/v86-arm64-parallel.wasm $(DEVICE_PLUGINS)
 .PHONY: pages
-pages: $(PAGES_BUILD) glbridge
+pages: $(PAGES_BUILD) glbridge ios-install-assets
 	node tools/pages_dist.mjs
 
 update_version:
@@ -956,7 +956,7 @@ node_modules/.bin/esbuild node_modules/.bin/tsc: package.json package-lock.json
 	touch node_modules/.bin/esbuild node_modules/.bin/tsc
 
 .PHONY: app app-check
-app: build/v86_app.js build/android-import-worker.js build/ios-import-worker.js build/ios-install-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
+app: build/v86_app.js build/android-import-worker.js build/ios-import-worker.js build/ios-install-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js ios-install-assets
 
 build/v86_app.js: $(APP_FILES) node_modules/.bin/esbuild
 	mkdir -p build
@@ -989,6 +989,13 @@ ios-guest:
 .PHONY: ios-install-fixtures
 ios-install-fixtures:
 	sh tools/ios/guest/build-apps.sh build/ios-install-fixtures
+
+.PHONY: ios-install-assets ios-install-assets-refresh
+ios-install-assets:
+	node tools/ios/install-assets.mjs
+
+ios-install-assets-refresh: ios-install-fixtures
+	node tools/ios/install-assets.mjs --refresh
 
 app-check: node_modules/.bin/tsc
 	node_modules/.bin/tsc -p tsconfig.json
