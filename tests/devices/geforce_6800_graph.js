@@ -83,14 +83,17 @@ device.registers.set(0x400720,1);method(0,0x4200,0x1808,5);
 assert.equal(device.registers.get(0x400108)&0x40,0x40,"unimplemented drawing stays an explicit method trap");
 console.log("PASS: NV40_3D control state, vector uploads across snapshots and checked four-byte fences");
 device.registers.set(0x400720,1);device.registers.set(0x400108,0);device.registers.set(0x400104,0);device.registers.set(0x40008C,0x100000);
-method(2,0x4200,0x100,0);assert.equal(device.registers.get(0x400720),1);
-method(2,0x4200,0x100,1);
-assert.equal(device.registers.get(0x400704),2<<20|3<<16|0x100,"PGRAPH trap uses hardware channel/subchannel fields");
+for(const value of [0,1,3,0xFFFFFFFF])
+{
+    method(2,0x4200,0x100,value);
+    assert.equal(device.registers.get(0x400720),1,"Curie NOP preserves opaque driver data without an error");
+}
+assert.equal(device.registers.get(0x400108),0);
+method(2,0x4200,0x104,2);
+assert.equal(device.registers.get(0x400704),2<<20|3<<16|0x104,"PGRAPH trap uses hardware channel/subchannel fields");
 assert.equal(device.registers.get(0x400108),2);assert.equal(device.registers.get(0x400104),0x2000);
-assert.equal(device.registers.get(0x400720),0,"nonzero Curie NOP reports DATA_ERROR when enabled");
-device.registers.set(0x400720,1);device.registers.set(0x40008C,0);
-method(2,0x4200,0x100,1);assert.equal(device.registers.get(0x400720),1,"DEBUG_D gates data error trapping");
-console.log("PASS: hardware PGRAPH trap fields and debug-gated nonzero Curie NOP data errors");
+assert.equal(device.registers.get(0x400720),0,"invalid notify mode still reports DATA_ERROR");
+console.log("PASS: hardware PGRAPH trap fields and Curie NOP driver data");
 // Capture programs when a draw begins, while the driver's BO is still alive.
 // Later releases can overwrite its VRAM without destroying diagnostic input.
 word(0x4400,0x4097);word(0x4300,0x3002);word(0x4304,0x9FFF);word(0x4308,3);

@@ -242,12 +242,9 @@ export class NVGraph
             {this.engine3d.backend.flush();return false;}
 
             accepted = method === 0x100 || method === 0x108 || method === 0x10C;
-            if(method===0x100 && object.class_id===0x4097 && value && (this.reg(0x40008C)&0x100000))
-            {
-                this.error(channel,subc,method,value,2,0x2000,"nonzero NOP on a non-synchronous 3D object");
-                accepted=true;
-            }
-            else if(method === 0x104)
+            // Curie NOP carries opaque driver data. NV10/NV30's non-sync
+            // validation is not a constraint on the NV40 class.
+            if(method === 0x104)
             {
                 if(value > 1) this.error(channel, subc, method, value, 2, 0x2000, "invalid notification mode");
                 else this.notification(object, 0, value === 1);

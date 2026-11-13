@@ -1257,3 +1257,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   经检查点连续恢复，末段 35512 次绘制、7733 批、0 GPU failure、0 PGRAPH/DMA fault；
   证据见 `g3-xp-9371-3dmark99-completed.json`。它不是完整冷启动性能结果；总分字体
   异常和参考帧一致性仍未解决，G3 门禁仍未完成。原盘及游戏盘只读检查通过。
+
+- Curie NOP 校正：前项非零 NOP 陷阱误套用了 envytools 的早期 Kelvin/Rankine
+  class 验证；该表未描述 NV40 Curie。撤除这条无 NV40 依据的限制，保留有序 GPU
+  barrier 和正确陷阱地址。原生 81.98/93.71 的 NOP=1 可继续执行，不再人为产生
+  DATA_ERROR；非法 NOTIFY 仍有完整陷阱回归。PGRAPH 与 Closure 构建通过。
+  Win98 每帧约 10 秒等待仍可复现，故不能把 NOP 校正称为其根因修复。
