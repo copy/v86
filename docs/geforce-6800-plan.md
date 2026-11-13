@@ -257,6 +257,13 @@
   提交字节游标随已有对象状态保存，后续 DWORD 不重放已执行的 ROP；覆盖部分行快照、
   XOR 不重放和宽 Y32 shader 字上传。2D、FIFO、PGRAPH 单元测试及 Closure 构建通过。
 
+- 级联中断续修：Win98 8 bpp 等待时主 PIC ISR2 挂起、从 PIC ISR=0，后续 PFIFO IRQ10
+  无法交付。级联请求在 INTA 前撤回或被屏蔽时，应交付从 PIC 的伪 IRQ15，让客体确认
+  主 PIC；旧实现直接返回无中断，遗留 ISR2。按
+  [8259 级联语义的 QEMU 实现](https://github.com/qemu/qemu/blob/master/hw/intc/i8259.c)
+  核对后补齐此路径。真实客体 INTA/IRET 回归覆盖撤回、屏蔽、ISR 位及后续 IRQ10，
+  debug/release 均通过，加入 devices-test；Win98 冷启动复测继续进行。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

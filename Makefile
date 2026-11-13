@@ -799,6 +799,7 @@ acpi-table-tests:
 acpi-tests: acpi-table-tests acpi-device-tests acpi-guest-tests
 
 devices-test: build/v86-debug.wasm
+	node tests/devices/pic_spurious.js
 	./tests/devices/display.js
 	./tests/devices/graphics_adapter.js
 	./tests/devices/geforce_6800.js

@@ -357,15 +357,14 @@ pub fn pic_acknowledge_irq() -> Option<u8> {
 fn acknowledge_irq_slave(pic: &mut Pic) -> Option<u8> {
     let irq = match pic.slave.get_irq() {
         Some(i) => i,
-        None => return None,
+        None => {
+            // A withdrawn/masked slave request can leave the edge-triggered
+            // master's cascade pending. Deliver the slave's spurious vector:
+            // only the master has an ISR bit and the guest must EOI it.
+            pic.clear_irq(2);
+            return Some(pic.slave.irq_map | 7);
+        },
     };
-
-    if pic.slave.irr == 0 {
-        //PIC_LOG_VERBOSE && dbg_log!("slave> spurious requested=" + irq);
-        //Some(pic.irq_map | 7)
-        dbg_assert!(false);
-        return None;
-    }
 
     let mask = 1 << irq;
 
