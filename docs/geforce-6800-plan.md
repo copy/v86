@@ -1353,3 +1353,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   干净验收起点；这不能证明所有旧快照迁移问题均已解决。harness control 增加相对
   `pointer:[dx,dy]` 和 `click:true`，已用于原版测试按钮及报告保存。G3 的 XP/98
   3DMark2000 和参考帧门禁仍未完成。
+
+- G4 片元特殊值：RCP/LG2 使用 NV 算术路径，保留负零倒数的符号、精确 Inf 位与
+  负数对数的 unordered 条件码；DIV 逐分量除以第二源的 X，显式处理零、Inf/NaN。
+  不再经过 D3D 的 finite-zero/abs-log 辅助函数。166 个 Naga 模块、完整真实 GPU
+  回归、通用 D3D 57 项/199 个 Naga 验证与 Closure/WebGPU bundle 构建通过；
+  像素用例包含通过 R/H alias 检查倒数的原始 Inf 位、0/0、signed zero 与条件码。

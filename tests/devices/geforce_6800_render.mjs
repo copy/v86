@@ -442,6 +442,32 @@ try
                 0x3C<<24|128|15<<9|1,7<<18|0x1C802,0,0,...new Uint32Array(Float32Array.from(values).buffer)]),expected,
                 "native LITEX2 uses Y/W and suppresses specular for nonpositive diffuse");
         console.log("PASS: real WebGPU native LITEX2 diffuse/specular final lighting stage");
+        const fpUnary=(opcode,values,{destination=0,half=true,disabled=false,update=false,end=false}={})=>[
+            (opcode<<24|destination<<1|+half<<7|15<<9|+update<<8|+disabled<<30|+end)>>>0,7<<18|0x1C802,0,0,
+            ...new Uint32Array(Float32Array.from(values).buffer)];
+        assert.deepEqual(await conditionalDraw(fpUnary(0x1A,[-0,-0,-0,-0],{end:true})),[0,0,0,0],
+            "fragment RCP preserves negative zero as negative infinity");
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(0,true,[.25,.25,.25,.25]),...fpUnary(0x1D,[-2,-2,-2,-2],{disabled:true,update:true}),
+            ...ccInstruction([1,1,1,1],{condition:4,end:true})]),Array(4).fill(64),"fragment LG2 negative input is unordered");
+        const reciprocalBits=fpMove(0,true,2,true);reciprocalBits[0]|=1<<8|1<<30;
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(0,true,[.25,.25,.25,.25]),...fpUnary(0x1A,[0,0,0,0],{destination:1,half:false}),
+            ...reciprocalBits,...ccInstruction([1,1,1,1],{condition:2,swizzle:[0,0,0,0],end:true})]),Array(4).fill(255),
+            "RCP(0) has exact infinity bits rather than the D3D finite maximum");
+        const fpDivide=(denominator,{disabled=false,update=false,end=false}={})=>[
+            (0x3A<<24|128|15<<9|+disabled<<30|+update<<8|+end)>>>0,7<<18|0x1C808,0x1C802,0,
+            ...new Uint32Array(Float32Array.from(denominator).buffer)];
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(2,false,[1,.5,0,1]),...fpDivide([2,4,8,16],{end:true})]),[0,64,128,128],
+            "native DIV divides all lanes by source-one X");
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(2,false,[1,0,-1,2]),...fpDivide([-0,-0,-0,-0],{end:true})]),[255,0,0,0],
+            "DIV signed-zero denominator keeps infinity signs");
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(0,true,[.25,.25,.25,.25]),...fpLiteral(2,false,[1,0,-1,2]),...fpDivide([0,0,0,0],{disabled:true,update:true}),
+            ...ccInstruction([1,1,1,1],{condition:2,swizzle:[1,1,1,1],end:true})]),Array(4).fill(64),"DIV zero over zero updates CC as unordered");
+        console.log("PASS: real WebGPU native fragment RCP/LG2/DIV special values, exact infinity bits, scalar divisor and unordered CC");
         for(let condition=0;condition<8;condition++)
         {
             const pixel=await conditionalDraw([

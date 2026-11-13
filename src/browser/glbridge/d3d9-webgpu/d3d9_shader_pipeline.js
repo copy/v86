@@ -111,6 +111,7 @@
         NV_LOAD: 0x1001, NV_STORE: 0x1002, NV_HALF: 0x1003, NV_COPY: 0x1004,
         NV_PACK: 0x1005, NV_UNPACK: 0x1006,
         NV_DEPTH_SAMPLER: 0x1007,
+        NV_DIV: 0x1008,
         PHASE: 0xfffd, COMMENT: 0xfffe, END: 0xffff,
     };
 
@@ -146,6 +147,7 @@
         [OP.NV_HALF]: [1, 1], [OP.NV_COPY]: [1, 2],
         [OP.NV_PACK]: [1, 2], [OP.NV_UNPACK]: [1, 1],
         [OP.NV_DEPTH_SAMPLER]: [1, 0],
+        [OP.NV_DIV]: [1, 2],
         [OP.CMP]: [1, 3], [OP.DP2ADD]: [1, 3], [OP.DSX]: [1, 1],
         [OP.DSY]: [1, 1], [OP.TEXLDD]: [1, 4], [OP.TEXLDL]: [1, 2],
         [OP.TEXREG2AR]: [1, 1], [OP.TEXREG2GB]: [1, 1],
@@ -1154,10 +1156,16 @@
             case OP.ABS: this.store(dest, "abs(" + s(0) + ")"); return;
             case OP.RCP: this.store(dest, "vec4<f32>(d9_rcp(" + scalar(0) + "))"); return;
             case OP.NV_ALU:
-                if (this.kind !== "vertex" || instruction.control > 6)
-                    throw new Error("invalid private NV40 vertex arithmetic variant");
+                if (instruction.control > 6 || this.kind !== "vertex" && ![4, 6].includes(instruction.control))
+                    throw new Error("invalid private NV40 arithmetic variant");
                 this.nvAlu = true;
                 this.store(dest, "nv40_alu(" + instruction.control + "u, " + s(0) + ")");
+                return;
+            case OP.NV_DIV:
+                if (this.kind !== "pixel" || instruction.control)
+                    throw new Error("invalid private NV40 fragment division");
+                this.nvAlu = true;
+                this.store(dest, "nv40_div(" + s(0) + ", (" + s(1) + ").x)");
                 return;
             case OP.NV_LOAD: case OP.NV_STORE: case OP.NV_HALF: case OP.NV_COPY: {
                 if (this.kind !== "pixel" || instruction.control > 1 || instruction.predicated ||
@@ -2117,10 +2125,25 @@ fn nv40_unpack(op: u32, value: u32) -> vec4<f32> {
 }
 `);
             if (this.nvAlu) out.push(`
-// NV vertex arithmetic differs from D3D's finite-zero helpers and legacy
+// NV arithmetic differs from D3D's finite-zero helpers and legacy
 // partial-precision instructions. Classification uses bits, including -0.
 // Runtime bitcasts avoid WGSL constant-evaluation rejection of Inf/NaN.
 fn nv40_bits(bits: u32) -> f32 { return bitcast<f32>(bits); }
+fn nv40_divide(a: f32, b: f32) -> f32 {
+    let ra = bitcast<u32>(a); let rb = bitcast<u32>(b);
+    let ma = ra & 0x7fffffffu; let mb = rb & 0x7fffffffu;
+    let sign = (ra ^ rb) & 0x80000000u;
+    if (ma > 0x7f800000u || mb > 0x7f800000u ||
+        (ma == 0u && mb == 0u) || (ma == 0x7f800000u && mb == 0x7f800000u)) {
+        return nv40_bits(0x7fc00000u);
+    }
+    if (mb == 0u || ma == 0x7f800000u) { return nv40_bits(sign | 0x7f800000u); }
+    if (ma == 0u || mb == 0x7f800000u) { return nv40_bits(sign); }
+    return a / b;
+}
+fn nv40_div(a: vec4<f32>, b: f32) -> vec4<f32> {
+    return vec4<f32>(nv40_divide(a.x,b), nv40_divide(a.y,b), nv40_divide(a.z,b), nv40_divide(a.w,b));
+}
 fn nv40_alu(op: u32, s: vec4<f32>) -> vec4<f32> {
     let raw = bitcast<u32>(s.x);
     let mag = raw & 0x7fffffffu;

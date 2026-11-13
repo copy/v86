@@ -100,7 +100,7 @@ class Shader
     alu(name,destination,sources)
     {
         const nvScalar=["RCC","EXP","LOG","LIT","RCP","RSQ","LG2"].indexOf(name);
-        if(this.stage==="vertex" && nvScalar>=0)
+        if(nvScalar>=0 && (this.stage==="vertex" || ["RCP","LG2"].includes(name)))
         {
             this.emit(0x1000|nvScalar<<16,destination,sources[0]);return;
         }
@@ -126,6 +126,7 @@ class Shader
         }
         if(name==="DIV")
         {
+            if(this.stage==="fragment") {this.emit(0x1008,destination,...sources);return;}
             this.emit(OP.RCP,dst(0,29),sources[1]);this.emit(OP.MUL,destination,sources[0],src(0,29));return;
         }
         if(name==="FLR")
