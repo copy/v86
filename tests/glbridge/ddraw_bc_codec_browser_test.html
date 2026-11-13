@@ -1,0 +1,58 @@
+<!doctype html><meta charset="utf-8"><title>DDraw compressed blocks from C encoder</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="d3d9_conformance.js"></script>
+<script>
+(async()=>{
+ const P=D9WGProtocol,C=P.C,suite=D3D9Conformance,{cmd,rs,tss,cat,element}=suite.builders,params=new URLSearchParams(location.search),worker=params.get('worker')==='1',fault=params.get('fault')||'';
+ const gpu=new D3D9WebGPUExecutor(document.querySelector('canvas'),{strict:true,useShaderWorker:worker});
+ try{
+  const response=await fetch('fixtures/ddraw_bc_encoded.json'),bytes=await response.arrayBuffer(),fixtureSha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join(''),fixture=JSON.parse(new TextDecoder().decode(bytes));
+  // D3D11.3 19.5.2: BC1-5 interpolation has a per-channel endpoint-span
+  // error allowance. Account for the final UNORM8 render-target rounding.
+  // https://microsoft.github.io/DirectX-Specs/d3d/archive/D3D11_3_FunctionalSpec.htm#BlockCompressionFormats
+  function reference(scene,x,y,size){
+   const data=scene.data,kind=(scene.format>>>24)-48,off=kind===1?0:8,a=data[off]|data[off+1]<<8,b=data[off+2]|data[off+3]<<8;
+   const raw=v=>[v>>>11,(v>>>5)&63,v&31],promote=v=>{const c=raw(v);return[(c[0]<<3)|(c[0]>>>2),(c[1]<<2)|(c[1]>>>4),(c[2]<<3)|(c[2]>>>2)];},p=promote(a),q=promote(b),ra=raw(a),rb=raw(b),span=p.map((v,c)=>Math.max(Math.abs(v-q[c]),Math.abs(ra[c]-rb[c])*255/(c===1?63:31)));
+   const i=y*4+x,code=(data[off+4+Math.floor(i/4)]>>>((i%4)*2))&3;let rgba;
+   if(code<2)rgba=[...(code?q:p),255];else if(a>b||kind!==1)rgba=p.map((v,c)=>(code===2?2*v+q[c]:v+2*q[c])/3).concat(255);else rgba=code===2?p.map((v,c)=>(v+q[c])/2).concat(255):[0,0,0,0];
+   let alphaSpan=0;if(kind===2||kind===3)rgba[3]=((data[Math.floor(i/2)]>>>((i%2)*4))&15)*17;else if(kind>=4){const first=data[0],second=data[1],bit=i*3,byte=2+Math.floor(bit/8),bits=data[byte]|((byte+1<8?data[byte+1]:0)<<8),index=(bits>>>(bit%8))&7,denominator=first>second?7:5;rgba[3]=index===0?first:index===1?second:index<denominator+1?((denominator+1-index)*first+(index-1)*second)/denominator:index===6?0:255;alphaSpan=Math.abs(first-second);}
+   const rounded=scene.rgba.slice(i*4,i*4+4),reference=size===4?rgba:rounded,allowance=reference.map((v,c)=>v===0||v===255?0:size===4?1.5+.03*(c===3?alphaSpan:span[c]):1);
+   return {reference:[reference[2],reference[1],reference[0],reference[3]],allowance:[allowance[2],allowance[1],allowance[0],allowance[3]],rounded:[rounded[2],rounded[1],rounded[0],rounded[3]]};
+  }
+  const comparisons=[],scenes=[];let maxError=0,nativeEncodedMaxError=0,expandedMaxError=0;
+  for(const scene of fixture.scenes)for(const size of [4,3,2,1]){
+   const index=scenes.length,textureBytes=Uint8Array.from(scene.data);if(fault==='color'&&scene.label==='native-1-1')textureBytes[4]^=1;if(fault==='alpha'&&scene.label==='quality-2-5')textureBytes[2]&=~7;const vertices=new Uint8Array(size*size*24),view=new DataView(vertices.buffer);for(let y=0;y<size;y++)for(let x=0;x<size;x++){const at=(y*size+x)*24;[8+16*x,8+16*y,.5,1,(x+.5)/size,(y+.5)/size].forEach((v,i)=>view.setFloat32(at+i*4,v,true));}
+   const batch=suite.caseBatch(index,{autoDepth:false,clear:0xff9a2457,body(dev,rt){const texture=rt+1;return[
+    rs(dev,7,0),rs(dev,22,1),rs(dev,15,0),rs(dev,27,0),rs(dev,28,0),rs(dev,137,0),rs(dev,194,0),rs(dev,154,0x41000000),rs(dev,156,0),rs(dev,158,0),
+    cmd(P.OP.CREATE_TEXTURE_2D,P.encode('CreateTexture2D',{device_handle:dev,resource_handle:texture,width:size,height:size,level_count:1,format:scene.format,usage:0,pool:0})),
+    cmd(P.OP.UPDATE_TEXTURE,P.encode('UpdateTexture',{resource_handle:texture,level:0,x:0,y:0,z:0,width:size,height:size,depth:1,row_pitch:textureBytes.length,slice_pitch:textureBytes.length,data_bytes:textureBytes.length}),[{offsetField:'data_offset',data:textureBytes}]),
+    cmd(P.OP.SET_TEXTURE,P.encode('SetTexture',{device_handle:dev,stage:0,texture_handle:texture})),
+    ...[[1,3],[2,3],[5,1],[6,1],[7,0],[11,0]].map(([state,value])=>cmd(P.OP.SET_SAMPLER_STATE,P.encode('SetSamplerState',{device_handle:dev,sampler:0,state,value}))),
+    tss(dev,0,1,2),tss(dev,0,2,2),tss(dev,0,4,2),tss(dev,0,5,2),
+    cmd(P.OP.SET_FVF,cat([P.encode('SetFVF',{device_handle:dev,fvf:0x104,element_count:2}),element(0,3,9),element(16,1,5)])),
+    cmd(P.OP.DRAW_PRIMITIVE_UP,P.encode('DrawPrimitiveUP',{device_handle:dev,primitive_type:1,primitive_count:size*size,stride:24,vertex_count:size*size,vertex_bytes:vertices.length}),[{offsetField:'vertex_data_offset',data:vertices}])];}});
+   await gpu.submit(batch.bytes,{writeGuestMemory(){}});let reply;await gpu.submit(suite.readbackBatch(index+1,batch.dev,batch.rt),{writeGuestMemory(at,data){if(at===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET)reply=data.slice();}});
+   if(!reply||reply.length!==16400||new DataView(reply.buffer).getUint32(P.F.ReadbackResponse.status,true)!==C.D9WG_RESPONSE_OK)throw Error('Missing compressed GPU readback');const pixels=reply.subarray(16);
+   for(let y=0;y<size;y++)for(let x=0;x<size;x++){const at=((8+16*y)*64+8+16*x)*4,{reference:expected,allowance,rounded}=reference(scene,x,y,size),actual=[...pixels.subarray(at,at+4)],error=Math.max(...actual.map((v,c)=>Math.abs(v-rounded[c]))),violation=actual.some((v,c)=>Math.abs(v-expected[c])>allowance[c]+1e-6);maxError=Math.max(maxError,error);if(scene.nativeEncoded)nativeEncodedMaxError=Math.max(nativeEncodedMaxError,error);if(size<4)expandedMaxError=Math.max(expandedMaxError,error);comparisons.push({label:scene.label,size,x,y,error,violation,actual,expected,allowance});}
+   scenes.push({label:scene.label,size,format:scene.format,nativeEncoded:scene.nativeEncoded});await gpu.submit(suite.endCaseBatch(index+1),{writeGuestMemory(){}});
+  }
+  await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;i++)await new Promise(r=>setTimeout(r,0));
+  const failures=comparisons.filter(r=>r.violation),evidence={worker,fault,fixtureSha256,codecSha256:fixture.codecSha256,scenes,compared:comparisons.length,maxError,nativeEncodedMaxError,expandedMaxError,precisionContract:"D3D11.3 19.5.2: per-channel1+0.03 endpoint span plus0.5 finalUNORM8 rounding; exact0/255; expandedRGBA path<=1",failures,samples:comparisons.slice(0,16),stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors};await fetch('/__test_file?name=ddraw-bc-codec-gpu'+(worker?'-worker':'')+(fault?'-fault-'+fault:'')+'.json',{method:'POST',body:JSON.stringify(evidence,null,2)});
+  if(scenes.length!==116||comparisons.length!==870||failures.length||gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.droppedDraws||gpu.stats.renderTargetReadbackFailures)throw Error('C compressed blocks mismatch '+JSON.stringify(evidence));document.querySelector('#result').textContent='PASS actual C compressed blocks: 116 native/expanded texture scenes, 870 RGBA samples under the specified BC precision contract, DXT1-5 and 1/2/3/4 pixel edges, no GPU or host errors';
+ }catch(error){document.querySelector('#result').textContent='FAIL '+error.stack;}
+})();
+</script>
