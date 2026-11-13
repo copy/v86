@@ -73,6 +73,7 @@ try{
     [...d.querySelectorAll("#ios_ipa_dialog button")].find(b=>b.textContent==="Close").click();
    }
    else if(command.op==="lookup"){
+    await until(async()=> (await emulator.ios_install_status()).available,"native installer after cold boot");
     const value=await emulator.ios_install_lookup(command.bundle);log("lookup "+JSON.stringify(value));
     if(!value.installed||value.version!==command.version)throw Error("Wrong installed identity");
    }

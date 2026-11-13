@@ -135,7 +135,8 @@ MobileInstallationInstall → installd → 应用容器与系统注册
 - `tools/ios/prepare-install-probe.mjs` 从已有的离线图形系统卷构建独立测试 NAND，保留输入文件。
 - 已用本地 10B329 固件完成真实 UI 安装：准备 Worker、CPU Worker、OPFS NAND、原生
   `MobileInstallationInstall` 和安装后身份查询全部通过。UIKit 测试包 1.0 冷启动后仍能由原生查询确认已注册。
-  应用实际启动、更新保留存档和冷启动后读取存档仍在验收，不能以安装成功代替这些结果。
+  UIKit 应用已实际显示界面并接收触摸。2.0 保存计数 1 后，通过 UI 更新到 3.0，界面仍显示计数 1。
+  更新后的非零存档冷启动验收仍在进行，不能以安装成功代替这一结果。
 - P1 的 IPA 检查已实现：XML / binary plist、ARMv7 Fat 切片、加密与最低版本检查、路径和 CRC 检查。
   两个自制 IPA 已通过检查；合成错误样本、原有 iOS 检查和 Android ZIP 使用方回归通过。
   这部分不依赖原生安装结果，在 P0 的冷启动验收运行期间完成。
@@ -152,8 +153,9 @@ MobileInstallationInstall → installd → 应用容器与系统注册
   安装提交、关闭重开和错误。另有使用真实原生服务的 UI 安装记录。
   新增 **Open application**，通过鉴权助手调用 SpringBoardServices，仅允许持久清单中且代码身份获批的应用。
   该按钮报告原生启动请求结果；SpringBoard 尚未就绪时明确显示错误，不宣称应用已经运行。
-- 当前启动验收遇到黑屏；未安装 IPA 的对照也出现相同现象。正检查原版合成器和显示路径，
-  P0 的运行/存档及 P7 的完整持久化验收尚未完成。
+- 验收浏览器重开页面后可能被 headless Chrome 标为隐藏，停止 rAF，造成截图黑屏；客体 LCD 缓冲仍有真实画面。
+  `BROWSER_FOCUS=1` 用持续的 Chrome 调试会话保持活动页面。已修正该测试环境问题，未改写客体帧缓冲。
+  GLES 测试包的窗口绘制以及 P7 的完整持久化验收继续进行。
 
 ### P0：先验证 10B329 的原生安装链路
 
@@ -333,7 +335,7 @@ checking → preparing → transferring → staged
 `resume=<VM ID>` 可在同一测试浏览器中重新打开已存在的测试虚机，不重新导入 NAND。
 
 ```sh
-TEST_ARTIFACT_DIR=build/ios/ipa-acceptance/acceptance TIMEOUT_MS=3600000 \
+BROWSER_FOCUS=1 TEST_ARTIFACT_DIR=build/ios/ipa-acceptance/acceptance TIMEOUT_MS=3600000 \
   node tests/app/browser_runner.mjs tests/ios/ui-install.html \
   isolated=1 webgpu=1 probe=build/ios/ipa-acceptance
 ```

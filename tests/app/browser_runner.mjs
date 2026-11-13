@@ -63,7 +63,30 @@ const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
     ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png" };
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "v86-app-browser-"));
-let browser, timeout;
+let browser, timeout, focus_socket;
+const focused = process.env.BROWSER_FOCUS === "1";
+// A headless window can become hidden after navigation on macOS. Keep a
+// protocol session open so rAF-driven presenters behave as a visible page.
+async function focus_page(endpoint)
+{
+    const origin = new URL(endpoint);origin.protocol = "http:";
+    let target;
+    for(let i=0;i<100&&!target;i++)
+    {
+        const list=await(await fetch(origin.origin+"/json/list")).json();
+        target=list.find(t=>t.type==="page"&&t.url.includes("/"+page));
+        if(!target)await new Promise(resolve=>setTimeout(resolve,100));
+    }
+    if(!target)throw new Error("The acceptance page did not become available for focus emulation");
+    focus_socket=new WebSocket(target.webSocketDebuggerUrl);
+    await new Promise((resolve,reject)=>{focus_socket.onopen=resolve;focus_socket.onerror=reject;});
+    await new Promise((resolve,reject)=>{
+        const timer=setTimeout(()=>reject(new Error("Focus emulation timed out")),10000);
+        focus_socket.onmessage=({data})=>{const result=JSON.parse(data);if(result.id!==1)return;
+            clearTimeout(timer);result.error?reject(new Error(result.error.message)):resolve();};
+        focus_socket.send(JSON.stringify({id:1,method:"Emulation.setFocusEmulationEnabled",params:{enabled:true}}));
+    });
+}
 // Optional coordination with another test owned by the caller. The page can
 // pause only this fixed PID, never choose a process through request input.
 const timing_pid = Number(process.env.PAUSE_TEST_PID || 0);
@@ -226,6 +249,7 @@ const server = http.createServer((req, res) =>
 
 function finish(code)
 {
+    focus_socket?.close();
     timing_pause(false);
     clearTimeout(timeout);
     server.close();
@@ -261,11 +285,16 @@ server.listen(0, "127.0.0.1", async () =>
         ...(AUTOPLAY ? ["--autoplay-policy=no-user-gesture-required"] : []),
         ...(WEBGPU ? ["--enable-unsafe-webgpu", "--disable-background-timer-throttling", "--disable-renderer-backgrounding"] : []),
         // (BROWSER_DEBUG_PORT: DevTools on that port, to look at a long part while it runs)
-        ...(process.env.BROWSER_DEBUG_PORT ? ["--remote-debugging-port=" + process.env.BROWSER_DEBUG_PORT] : []),
+        ...(process.env.BROWSER_DEBUG_PORT || focused ? ["--remote-debugging-port=" + (process.env.BROWSER_DEBUG_PORT || "0")] : []),
         "--user-data-dir=" + profile, url,
     ], { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
-    browser.stderr.on("data", d => { stderr = (stderr + d).slice(-4000); });
+    let focusing=false;
+    browser.stderr.on("data", d => {
+        stderr = (stderr + d).slice(-4000);
+        const endpoint=focused&&!focusing&&stderr.match(/DevTools listening on (ws:\/\/[^\s]+)/)?.[1];
+        if(endpoint){focusing=true;focus_page(endpoint).catch(error=>{console.error(error);finish(1);});}
+    });
     browser.on("error", error => { console.error(error); finish(1); });
     timeout = setTimeout(() =>
     {
