@@ -99,6 +99,11 @@ class Shader
     }
     alu(name,destination,sources)
     {
+        const nvScalar=["RCC","EXP","LOG","LIT","RCP","RSQ","LG2"].indexOf(name);
+        if(this.stage==="vertex" && nvScalar>=0)
+        {
+            this.emit(0x1000|nvScalar<<16,destination,sources[0]);return;
+        }
         if(name==="SFL" || name==="STR") {this.emit(OP.MOV,destination,this.literal(name==="STR"?1:0));return;}
         if(name==="SLE" || name==="SGT") {this.emit(name==="SLE"?OP.SGE:OP.SLT,destination,sources[1],sources[0]);return;}
         if(name==="SEQ" || name==="SNE")
@@ -152,7 +157,7 @@ class Shader
             constants:Array.from(this.constants).sort((a,b)=>a-b)};
     }
 }
-const arity = name => ["MOV","RCP","RSQ","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG","ARL","ARR"].includes(name)?1:
+const arity = name => ["MOV","RCP","RCC","RSQ","EXP","LOG","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG","ARL","ARR"].includes(name)?1:
     ["MUL","ADD","DP3","DP4","DPH","DST","MIN","MAX","SLT","SGE","SLE","SGT","SEQ","SNE","DIV"].includes(name)?2:
     name==="MAD" || name==="DP2A"?3:0;
 const nullary=name=>name==="SFL" || name==="STR";

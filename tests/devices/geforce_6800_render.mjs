@@ -573,6 +573,50 @@ try
                 method(0x1808,0);await engine.backend.wait();
                 assert.deepEqual([...vram.subarray(0x10000,0x10004)],expected,"scalar-slot "+name+" retains vector source swizzle");
             }
+            for(const [name,value,scale,bias,expected]of [
+                ["EXP",-.25,[1,1,1,1],0,[214,191,128,255]],
+                ["LOG",-3,[.5,.5,.25,1],0,[101,191,128,255]],
+                ["LOG",1.9999998807907104,[1,.25,.5,1],0,[127,127,0,255]],
+                ["RCC",0,Array(4).fill(2**-64),0,Array(4).fill(255)],
+                ["RCC",-0,Array(4).fill(2**-64),1,Array(4).fill(0)],
+                ["RCC",Infinity,Array(4).fill(2**64),0,Array(4).fill(255)],
+                ["RCC",-Infinity,Array(4).fill(2**64),1,Array(4).fill(0)],
+                ["RCC",2,Array(4).fill(1),0,Array(4).fill(128)],
+                ["RCP",-0,Array(4).fill(1),0,Array(4).fill(0)],
+                ["RCP",0,Array(4).fill(1),0,Array(4).fill(255)],
+                ["RSQ",4,Array(4).fill(1),0,Array(4).fill(128)],
+                ["LG2",2,Array(4).fill(.5),0,Array(4).fill(128)],
+                ["LIT",[1,0,0,-1],[1,1,1,1],0,Array(4).fill(255)]])
+            {
+                method(0x1EFC,0);
+                [...new Uint32Array(Float32Array.of(...(Array.isArray(value)?value:Array(4).fill(value)),...scale,...Array(4).fill(bias)).buffer)]
+                    .forEach((word,i)=>method(0x1F00+(i%4)*4,word));
+                const position=structuredClone(base),calculate=structuredClone(base),color=structuredClone(base);
+                calculate.vector={name:"NOP",mask:0};calculate.scalar={name,type:"temp",index:0,mask:15};
+                calculate.sources[2]={...calculate.sources[2],type:"constant",index:0};
+                color.vector={name:"MAD",type:"output",index:1,mask:15};
+                color.sources=[{...base.sources[0],type:"temp",index:0},
+                    {...base.sources[0],type:"constant",index:1},{...base.sources[0],type:"constant",index:2}];
+                vertexProgram={stage:"vertex",instructions:[position,calculate,color]};
+                method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();
+                const pixel=[...vram.subarray(0x10000,0x10004)];
+                expected.forEach((value,i)=>assert(Math.abs(pixel[i]-value)<=1,"NV "+name+" "+value+": "+pixel));
+            }
+            for(const name of ["RSQ","LG2"])
+            {
+                method(0x1EFC,0);[...new Uint32Array(Float32Array.of(-4,-4,-4,-4).buffer)].forEach((word,i)=>method(0x1F00+i*4,word));
+                const position=structuredClone(base),calculate=structuredClone(base),initial=structuredClone(base),color=structuredClone(base);
+                calculate.vector={name:"NOP",mask:0};calculate.scalar={name,type:"temp",index:0,mask:15};
+                calculate.sources[2]={...calculate.sources[2],type:"constant",index:0};
+                calculate.predicate={...calculate.predicate,update:true,vector:false,register:0};
+                initial.vector={name:"SFL",type:"output",index:1,mask:15};color.vector={name:"STR",type:"output",index:1,mask:15};
+                color.predicate={...color.predicate,enabled:true,condition:4,register:0};
+                vertexProgram={stage:"vertex",instructions:[position,calculate,initial,color]};
+                method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();
+                assert.deepEqual([...vram.subarray(0x10000,0x10004)],Array(4).fill(0),name+" negative input is unordered, without D3D abs");
+            }
             method(0x1EFC,0);
             [...new Uint32Array(Float32Array.of(-1,0,1,NaN,.25,.25,.25,.25,.75,.75,.75,.75).buffer)].forEach((word,i)=>method(0x1F00+(i%4)*4,word));
             for(let register=0;register<2;register++)for(let condition=0;condition<8;condition++)

@@ -45,7 +45,7 @@ try
     const end=structuredClone(vertex.instructions[0]);end.sources[0]=i.sources[0];dual.instructions.push(end);
     const dualCode=translate_vertex_program(dual).bytecode;
     const first=Array.from(dualCode).indexOf(0x03000005);
-    assert.equal(dualCode[first+4]&65535,6,"scalar result computed before vector destination commits");
+    assert.equal(dualCode[first+4]&0xFFFFFF,0x41000,"scalar result computed before vector destination commits");
     assert.equal(dualCode[first+7]&65535,1,"both slots commit after reading their old operands");
     validate("dual",{bytecode:dualCode});
     for(const name of ["MOV","LIT"])
@@ -53,7 +53,7 @@ try
         const p=structuredClone(vertex),i=p.instructions[0];i.vector={name:"NOP",mask:0};
         i.scalar={name,type:"output",index:0,mask:15};i.sources[2]={...i.sources[0],swizzle:[3,1,0,2]};
         const translated=translate_vertex_program(p);validate("scalar-vector-"+name,translated);
-        const instruction=Array.from(translated.bytecode).findIndex(word=>(word&0xFFFFFF)===(name==="MOV"?1:16));
+        const instruction=Array.from(translated.bytecode).findIndex(word=>(word&0xFFFFFF)===(name==="MOV"?1:0x31000));
         assert.equal(translated.bytecode[instruction+2]>>>16&255,0x87,"MOV/LIT keep the complete source swizzle");
     }
 
@@ -62,6 +62,12 @@ try
     {
         const p=structuredClone(fragment);p.instructions[0].name=name;p.instructions[0].sources=Array.from({length:3},()=>p.instructions[0].sources[0]);
         validate("alu-"+name,translate_fragment_program(p));
+    }
+    for(const name of ["RCC","EXP","LOG","RCP","RSQ","LG2"])
+    {
+        const p=structuredClone(vertex),i=p.instructions[0];i.vector={name:"NOP",mask:0};
+        i.scalar={name,type:"output",index:0,mask:15};i.sources[2]={...i.sources[0]};
+        validate("nv-scalar-"+name,translate_vertex_program(p));
     }
     const late=structuredClone(vertex),setTrue=structuredClone(late.instructions[0]);
     setTrue.vector={name:"STR",mask:15,type:"temp",index:0};late.instructions.unshift(setTrue);

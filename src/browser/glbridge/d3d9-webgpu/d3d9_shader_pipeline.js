@@ -105,6 +105,9 @@
         TEXM3x2DEPTH: 84, TEXDP3: 85, TEXM3x3: 86, TEXDEPTH: 87, CMP: 88,
         BEM: 89, DP2ADD: 90, DSX: 91, DSY: 92, TEXLDD: 93, SETP: 94,
         TEXLDL: 95, BREAKP: 96,
+        // Private NV40 arithmetic in D9WG shader bytecode. Never emitted by the guest D3D
+        // proxy: control selects RCC, legacy EXP/LOG, LIT, RCP, RSQ or LG2.
+        NV_ALU: 0x1000,
         PHASE: 0xfffd, COMMENT: 0xfffe, END: 0xffff,
     };
 
@@ -135,6 +138,7 @@
         [OP.BREAKP]: [0, 1], [OP.MOVA]: [1, 1], [OP.SETP]: [1, 2],
         [OP.TEXCOORD]: [1, 0], [OP.TEXKILL]: [1, 0],
         [OP.EXPP]: [1, 1], [OP.LOGP]: [1, 1], [OP.CND]: [1, 3],
+        [OP.NV_ALU]: [1, 1],
         [OP.CMP]: [1, 3], [OP.DP2ADD]: [1, 3], [OP.DSX]: [1, 1],
         [OP.DSY]: [1, 1], [OP.TEXLDD]: [1, 4], [OP.TEXLDL]: [1, 2],
         [OP.TEXREG2AR]: [1, 1], [OP.TEXREG2GB]: [1, 1],
@@ -491,7 +495,7 @@
     const PROGRAM_SETS = ["temps", "writtenVaryings", "psTexcoordInputs", "bumpStages", "psColorInputs", "colorOutputs"];
     const PROGRAM_VALUES = ["outputDeclarations", "inputDeclarations", "usesAddress", "usesLoopCounter", "usesPredicate",
         "usesPointSize", "usesDepthOutput", "usesFragPosition", "usesFrontFacing", "usesRelativeConstants", "usesRelativeInputs",
-        "maxFloatConst", "maxIntConst", "maxBoolConst", "temporaryId", "warnings"];
+        "maxFloatConst", "maxIntConst", "maxBoolConst", "temporaryId", "warnings", "nvAlu"];
 
     class Translator {
         constructor(parsed, options) {
@@ -503,6 +507,7 @@
             this.lines = [];
             this.indent = 2;
             this.temps = new Set();
+            this.nvAlu = false;
             this.usedInputs = new Map();       // register -> {usage, usageIndex}
             this.outputSemantics = new Map();  // vs_3_0 o# -> {usage, usageIndex}
             this.outputDeclarations = [];
@@ -1139,6 +1144,12 @@
             case OP.FRC: this.store(dest, "fract(" + s(0) + ")"); return;
             case OP.ABS: this.store(dest, "abs(" + s(0) + ")"); return;
             case OP.RCP: this.store(dest, "vec4<f32>(d9_rcp(" + scalar(0) + "))"); return;
+            case OP.NV_ALU:
+                if (this.kind !== "vertex" || instruction.control > 6)
+                    throw new Error("invalid private NV40 vertex arithmetic variant");
+                this.nvAlu = true;
+                this.store(dest, "nv40_alu(" + instruction.control + "u, " + s(0) + ")");
+                return;
             case OP.RSQ: this.store(dest, "vec4<f32>(d9_rsq(" + scalar(0) + "))"); return;
             case OP.EXP: this.store(dest, "vec4<f32>(exp2(" + scalar(0) + "))"); return;
             case OP.LOG: this.store(dest, "vec4<f32>(d9_log(" + scalar(0) + "))"); return;
@@ -1939,6 +1950,69 @@
             }
 
             out.push("");
+            if (this.nvAlu) out.push(`
+// NV vertex arithmetic differs from D3D's finite-zero helpers and legacy
+// partial-precision instructions. Classification uses bits, including -0.
+// Runtime bitcasts avoid WGSL constant-evaluation rejection of Inf/NaN.
+fn nv40_bits(bits: u32) -> f32 { return bitcast<f32>(bits); }
+fn nv40_alu(op: u32, s: vec4<f32>) -> vec4<f32> {
+    let raw = bitcast<u32>(s.x);
+    let mag = raw & 0x7fffffffu;
+    let sign = raw & 0x80000000u;
+    let inf = nv40_bits(0x7f800000u);
+    if (op == 0u || op == 4u) {
+        if (mag > 0x7f800000u) { return vec4<f32>(s.x); }
+        var value = inf;
+        if (mag != 0u) { value = 1.0 / abs(s.x); }
+        if (op == 0u) { value = clamp(value, 5.421010862427522e-20, 18446744073709551616.0); }
+        return vec4<f32>(bitcast<f32>(bitcast<u32>(value) | sign));
+    }
+    if (op == 1u) {
+        var power = exp2(s.x);
+        if (mag == 0x7f800000u) { power = select(inf, 0.0, sign != 0u); }
+        if (mag > 0x7f800000u) { power = s.x; }
+        return vec4<f32>(exp2(floor(s.x)), fract(s.x), power, 1.0);
+    }
+    if (op == 2u || op == 6u) {
+        if (mag > 0x7f800000u) { return select(vec4<f32>(s.x, s.x, s.x, 1.0), vec4<f32>(s.x), op == 6u); }
+        if (op == 6u && sign != 0u && mag != 0u) { return vec4<f32>(nv40_bits(0x7fc00000u)); }
+        if (mag == 0u) { return select(vec4<f32>(-inf, 1.0, -inf, 1.0), vec4<f32>(-inf), op == 6u); }
+        if (mag == 0x7f800000u) { return select(vec4<f32>(inf, 1.0, inf, 1.0), vec4<f32>(inf), op == 6u); }
+        // Extract exponent/mantissa exactly; floor(log2(x)) alone can round
+        // up for the float immediately below an exact power of two.
+        var exponent = i32(mag >> 23u) - 127;
+        var mantissa = mag & 0x007fffffu;
+        if ((mag >> 23u) == 0u) {
+            exponent = -126;
+            loop {
+                if ((mantissa & 0x00800000u) != 0u) { break; }
+                mantissa <<= 1u; exponent -= 1;
+            }
+        }
+        let fraction = bitcast<f32>((mantissa & 0x007fffffu) | 0x3f800000u);
+        let result = f32(exponent) + log2(fraction);
+        return select(vec4<f32>(f32(exponent), fraction, result, 1.0), vec4<f32>(result), op == 6u);
+    }
+    if (op == 3u) {
+        let diffuse = max(s.x, 0.0);
+        let base = max(s.y, 0.0);
+        let power = clamp(s.w, -127.99999237060547, 127.99999237060547);
+        var specular = 0.0;
+        if (s.x > 0.0) {
+            if (power == 0.0) { specular = 1.0; }
+            else if (base == 0.0) { specular = select(0.0, inf, power < 0.0); }
+            else { specular = pow(base, power); }
+        }
+        return vec4<f32>(1.0, diffuse, specular, 1.0);
+    }
+    // NV RSQ is signed-domain square root, unlike D3D's abs(x) operation.
+    if (mag > 0x7f800000u) { return vec4<f32>(s.x); }
+    if (mag == 0u) { return vec4<f32>(nv40_bits(0x7f800000u | sign)); }
+    if (sign != 0u) { return vec4<f32>(nv40_bits(0x7fc00000u)); }
+    if (mag == 0x7f800000u) { return vec4<f32>(0.0); }
+    return vec4<f32>(inverseSqrt(s.x));
+}
+`);
             out.push("fn d9_rcp(v: f32) -> f32 { return select(1.0 / v, " +
                 FLOAT_MAX + ", v == 0.0); }");
             out.push("fn d9_rsq(v: f32) -> f32 { let a = abs(v); return " +

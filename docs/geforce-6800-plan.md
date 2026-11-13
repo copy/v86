@@ -1281,3 +1281,13 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   不同代对象，重新绑定才装载新内容。PGRAPH 快照 v4 保存共享对象引用和旧代绑定；
   旧快照从已存对象及 FIFO 绑定迁移。PGRAPH/FIFO/2D/设备、完整真实 GPU 回归与
   Closure 构建通过。XP 新复测仍遇到 fence 高位选择器，客体门禁尚未通过。
+
+- G4 顶点标量算术：增加 D9WG shader bytecode 的私有 `NV_ALU=0x1000`，
+  instruction control 0..6 分别为 RCC/EXP/LOG/LIT/RCP/RSQ/LG2，仅供 NV40 顶点
+  前端使用，不修改现有 D3D 指令。EXP/LOG 保留四分量旧式结果；LOG 以原始
+  exponent/mantissa 拆分，避免 2 的幂附近的 log 舍入误判。RCC 有符号上下限、
+  RCP 的 signed zero、RSQ/LG2 负数 unordered 和 LIT 零底数负指数由 NV 路径处理。
+  特殊值使用运行时位转换，兼容 Tint 对常量 Inf/NaN 的限制。118 个 Naga 模块、
+  完整真实 GPU 像素/条件码回归、通用 D3D 的 57 项与 199 个 Naga 验证、
+  Closure/WebGPU bundle 构建通过。语义参考 NVIDIA NV_vertex_program2；
+  Mesa nvfx_vertprog 的 RSQ 显式 ABS 也验证硬件源与 D3D abs-helper 的差别。
