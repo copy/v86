@@ -42,6 +42,21 @@ export class NVDisplay
         this.machine.register_write(0x3C5, this, value => this.write_seq(value));
         this.machine.register_write(0x3C9, this, value => this.dac_write(value));
         this.machine.register_read(0x3C9, this, () => this.dac_read());
+        // NV CRTC 1D/1E select independent 32 KiB write/read banks. Keep the
+        // VGA core's planar/text path for the legacy pixel format.
+        this.machine.mmap_register_range(0xA0000, 0x20000, address => {
+            if(!(this.crtc[0x28] & 3)) return this.vga.vga_memory_read(address);
+            const at = this.crtc[0x1E] * 0x8000 + address - 0xA0000;
+            return address < 0xB0000 && at < this.device.vram_size ? this.device.vram()[at] : 255;
+        }, (address, value) => {
+            if(!(this.crtc[0x28] & 3)) { this.vga.vga_memory_write(address, value); return; }
+            const at = this.crtc[0x1D] * 0x8000 + address - 0xA0000;
+            if(address < 0xB0000 && at < this.device.vram_size)
+            {
+                this.device.vram()[at] = value;
+                this.machine.mmio_ram_mark_dirty(this.vga.lfb_region);
+            }
+        });
         this.hub.add_source(this);
     }
 
@@ -150,7 +165,7 @@ export class NVDisplay
     reg(offset) { return this.device.registers.get(offset) || 0; }
     implemented(offset)
     {
-        return [0x600800, 0x600810, 0x680300, 0x680508, 0x68050C, 0x680520, 0x680578, 0x68057C, 0x680600].includes(offset);
+        return [0x600800, 0x60080C, 0x600810, 0x680300, 0x680508, 0x68050C, 0x680520, 0x680578, 0x68057C, 0x680600].includes(offset);
     }
 
     vblank_period()
@@ -230,7 +245,8 @@ export class NVDisplay
         if(!(cfg & 1) && !(c[0x31] & 1)) return;
         const size = cfg & 0x10000 ? 64 : 32, lines = (cfg >>> 24 & 7) * 16 || 32;
         const bpp = cfg & 0x1000 ? 4 : 2, double = cfg & 0x10 || c[0x31] & 2 ? 2 : 1;
-        const address = ((c[0x2F] << 24 | (c[0x30] & 127) << 17 | (c[0x31] & 252) << 9) >>> 0);
+        const address = this.device.registers.has(0x60080C) ? this.reg(0x60080C) & 0x0FFFFC00 :
+            ((c[0x2F] << 24 | (c[0x30] & 127) << 17 | (c[0x31] & 252) << 9) >>> 0);
         if(address + size * lines * bpp > src.length) return;
         const pos = this.reg(0x680300), x0 = pos << 16 >> 16, y0 = pos >> 16;
         for(let y = Math.max(0, -y0); y < lines * double && y + y0 < height; y++)

@@ -148,6 +148,13 @@
   LUT 按源颜色格式使用 16/32-bit 条目。增加低 nibble 先行、RGB565 LUT 和裁剪测试；
   2D 测试与插件构建通过，XP 复测已能绘制桌面图标。
 
+- NV VBE 后端：SeaVGABIOS 通过自己的 NV 寄存器后端提供 640×480 至 1280×1024 的
+  8/15/16/32 bpp、banked/LFB、pitch、display start、DAC 与扩展状态保存/恢复。
+  增加 CRTC 1D/1E 的独立读/写 bank；XP 使用的 `PCRTC_CURSOR` 直接地址生效。
+  `geforce_6800_vbe.js` 从自编引导扇区调用真实 INT 10h，验证模式查询、1024×768×32、
+  banked 显存写、800×600×16 清屏和经文本模式的 VBE 状态往返；ROM 表检查、
+  完整设备测试通过。固件源码与生成 ROM 同时更新；PLL 限制表及 Win98 驱动门禁仍待完成。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

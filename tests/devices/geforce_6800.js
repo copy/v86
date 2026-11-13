@@ -182,6 +182,10 @@ try
     write(mmio + 0x7104, 0x2000000); assert.equal(read(mmio + 0x7108), 0xFFFFFFFF, "RMA outside BAR0 cannot wrap to low registers");
     crtc(0x38, 0);
     for(const [index, value] of [[1, 0], [0x12, 1], [7, 0], [0x25, 0], [0x41, 0], [0x13, 4], [0x28, 3]]) crtc(index, value);
+    crtc(0x1D, 2); crtc(0x1E, 3);
+    cpu.write8(0xA0010, 0xAB); assert.equal(cpu.read8(fb + 0x10010), 0xAB, "NV write bank reaches VRAM");
+    cpu.write8(fb + 0x18010, 0xCD); assert.equal(cpu.read8(0xA0010), 0xCD, "NV read bank is independent");
+    crtc(0x1D, 0); crtc(0x1E, 0);
     assert.equal(nv.display.mode().width, 8);
     write(fb + 0x2000, 0x00112233); write(fb + 0x3000, 0x00445566);
     write(mmio + 0x600800, 0x2000); nv.display.on_vblank(); nv.display.render();

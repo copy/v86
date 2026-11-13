@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import io
 import os
+import re
 from pathlib import Path
 import subprocess
 import tarfile
@@ -42,6 +43,23 @@ def main():
             raise SystemExit("Unexpected SeaVGABIOS ROM header")
         entry.write_text(text.replace(marker, marker + '\n#include "nv40-tables.S"'))
         (build / "vgasrc/nv40-tables.S").write_bytes((Path(__file__).parent / "tables.S").read_bytes())
+        for name in ["nv40.c", "nv40.h"]:
+            (build / "vgasrc" / name).write_bytes((Path(__file__).parent / name).read_bytes())
+        hardware = build / "vgasrc/vgahw.h"
+        dispatch = hardware.read_text().replace('#include "types.h"', '#include "nv40.h"\n#include "types.h"')
+        hooks = {"find_mode": "mode", "set_mode": "vmode_g, flags", "list_modes": "seg, dest, last", "setup": "",
+                 "get_window": "vmode_g, window", "set_window": "vmode_g, window, val",
+                 "get_linelength": "vmode_g", "set_linelength": "vmode_g, val",
+                 "get_displaystart": "vmode_g", "set_displaystart": "vmode_g, val",
+                 "get_dacformat": "vmode_g", "set_dacformat": "vmode_g, val", "save_restore": "cmd, seg, data"}
+        for name, arguments in hooks.items():
+            pattern = r'(static inline [^{]+?vgahw_' + name + r'\([^{}]*\)\s*\{)'
+            dispatch, count = re.subn(pattern, lambda match: match[1] + '\n    return nv40_' + name + '(' + arguments + ');', dispatch)
+            if count != 1:
+                raise SystemExit("Unexpected SeaVGABIOS hardware hook " + name)
+        hardware.write_text(dispatch)
+        with (build / "Makefile").open("a") as makefile:
+            makefile.write("\nSRCVGA += vgasrc/nv40.c\n")
         (build / ".config").write_text("""CONFIG_QEMU=y
 CONFIG_VGA_STANDARD_VGA=y
 CONFIG_VGA_PCI=y
@@ -50,7 +68,7 @@ CONFIG_VGA_VID=0x10de
 CONFIG_VGA_DID=0x0045
 CONFIG_DEBUG_LEVEL=0
 """)
-        command = ["make", "CROSS_PREFIX=" + args.cross_prefix, "PYTHON=python3", "EXTRAVERSION=-v86-nv40-g0"]
+        command = ["make", "CROSS_PREFIX=" + args.cross_prefix, "PYTHON=python3", "EXTRAVERSION=-v86-nv40"]
         for name in ["CC", "AS", "LD", "OBJCOPY", "OBJDUMP", "STRIP", "HOSTCC", "CPP"]:
             if name in os.environ:
                 command.append(name + "=" + os.environ[name])
