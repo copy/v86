@@ -2073,6 +2073,7 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 .PHONY: ios-tests ios-pvrtc-tests
 ios-tests:
 	node --test tests/ios/ipa.mjs
+	node --test tests/ios/ipa-prepare.mjs
 	node tests/ios/boot-tree.mjs
 	node tests/ios/spi-dma.mjs
 	node tests/ios/multitouch-device.mjs

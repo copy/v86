@@ -77,7 +77,7 @@ export async function zip_entries(read, size, limits = {})
  * @param {!Object} entry zip_entries'
  * @return {!Promise<number>}
  */
-async function data_offset(read, entry)
+export async function zip_data_offset(read, entry)
 {
     const h = await read(entry.offset, 30);
     if(u32(h, 0) !== LOCAL) throw new Error(`zip: no local header for ${entry.name}`);
@@ -100,7 +100,7 @@ export async function zip_stream(read, entry, sink, options = {})
     const chunk = options.chunk || 4 << 20, limit = options.limit === undefined ? Infinity : options.limit;
     if(entry.flags & 1) throw new Error(`zip: ${entry.name} is encrypted`);
     if(entry.method !== STORED && entry.method !== DEFLATED) throw new Error(`zip: ${entry.name}'s method ${entry.method}`);
-    const start = await data_offset(read, entry);
+    const start = await zip_data_offset(read, entry);
     let crc = 0, produced = 0;
     const emit = async bytes =>
     {

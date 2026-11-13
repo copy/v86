@@ -136,6 +136,8 @@ MobileInstallationInstall → installd → 应用容器与系统注册
 - P1 的 IPA 检查已实现：XML / binary plist、ARMv7 Fat 切片、加密与最低版本检查、路径和 CRC 检查。
   两个自制 IPA 已通过检查；合成错误样本、原有 iOS 检查和 Android ZIP 使用方回归通过。
   这部分不依赖原生安装结果，在 P0 的冷启动验收运行期间完成。
+- P2 的包准备基础已实现：图形依赖注入、保留 XML entitlements、SHA-1 ad-hoc 重签名、资源封装和流式 ZIP 重建。
+  两个自制 IPA 的准备结果均通过 macOS `codesign --verify --strict`；原版系统中的图形与安装联合验收仍待完成。
 
 ### P0：先验证 10B329 的原生安装链路
 
