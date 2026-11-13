@@ -8,7 +8,7 @@ const root = new URL("../../", import.meta.url).pathname;
 assert.throws(() => new V86({ graphics_adapter: "geforce_6800", vram_size: 64 << 20 }), /128 or 256 MiB/);
 const vm = new V86({
     graphics_adapter: "geforce_6800", vram_size: 128 << 20, memory_size: 32 << 20,
-    bios: { url: root + "bios/seabios.bin" }, vga_bios: { url: root + "bios/vgabios.bin" },
+    bios: { url: root + "bios/seabios.bin" },
     net_device: { type: "none" }, disable_speaker: true, autostart: true, log_level: 0,
 });
 try
@@ -39,6 +39,10 @@ try
     assert.equal(read(mmio), 0x040500A1);
     assert.equal(read(mmio + 0x10020C), 128 << 20);
     assert.equal(read(mmio + 0x1800), config(0), "PBUS config mirror");
+    assert.equal(read(mmio + 0x300000), 0, "PROM disabled until ROM BAR enable");
+    pci_write(0x30, config(0x30) | 1);
+    assert.equal(read(mmio + 0x300000) & 0xFFFF, 0xAA55, "PROM exposes the selected adapter ROM");
+    assert.equal(cpu.read8(0xC0000 + 0x36), nv.machine.handle["vga_bios"]()[0x36]);
     write(mmio + 0x1800, 0x11223344);
     assert.equal(config(0), 0x004510DE, "mirror retains PCI readonly identity");
     write(mmio + 0x700120, 0x12345678);

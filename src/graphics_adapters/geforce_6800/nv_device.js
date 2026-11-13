@@ -229,6 +229,11 @@ export class NVDevice
         if(offset >= 0x1800 && offset < 0x1900)
         {
             // Use the PCI core, including its BAR/command/readonly semantics.
+            if(mask === -1)
+            {
+                this.machine.handle["pci_config_write"](offset - 0x1800, 4, value);
+                return;
+            }
             for(let i = 0; i < 4; i++) if(mask >>> (i * 8) & 255)
             {
                 this.machine.handle["pci_config_write"](offset - 0x1800 + i, 1, value >>> (i * 8) & 255);

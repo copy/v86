@@ -793,6 +793,7 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/display.js
 	./tests/devices/graphics_adapter.js
 	./tests/devices/geforce_6800.js
+	./tests/devices/geforce_6800_bios.js
 	./tests/devices/vmware_svga.js
 	./tests/devices/vmware_svga_3d.js
 	./tests/devices/vmware_svga_gb.js

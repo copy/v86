@@ -3977,7 +3977,7 @@ CPU.prototype.load_bios = function()
 
         // load vga bios, its PCI ROM header naming the adapter's device
         var vga_bios8 = new Uint8Array(vga_bios).slice();
-        patch_vga_bios_ids(vga_bios8, adapter["pci_vendor"], adapter["pci_device"]);
+        if(!adapter["vga_bios"]) patch_vga_bios_ids(vga_bios8, adapter["pci_vendor"], adapter["pci_device"]);
 
         // older versions of seabios
         this.write_blob(vga_bios8, 0xC0000);

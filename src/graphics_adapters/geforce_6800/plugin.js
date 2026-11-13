@@ -5,6 +5,7 @@ register_graphics_adapter({
     "name": "geforce_6800",
     "pci_vendor": 0x10DE,
     "pci_device": 0x0045,
+    "vga_bios": "bios/vgabios-geforce6800.bin",
     "create": (handle, options) =>
     {
         const device = new NVDevice(new GraphicsMachine(handle), { vram_size: options["vram_size"] });

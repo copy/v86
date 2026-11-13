@@ -982,7 +982,7 @@ PCI.prototype.write_expansion_rom = function(device, space, written)
         }
         else
         {
-            space[0x30 >> 2] = device.pci_rom_address | 0;
+            space[0x30 >> 2] = device.pci_rom_address | written & 1;
         }
     }
     else

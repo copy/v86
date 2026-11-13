@@ -13,6 +13,16 @@
   `BOOT_0=0x040500A1`、子系统 `10DE:0045`、strap 和 PTIMER 时钟比率是待驱动跟踪复核的值。
 - 本地 `geforce.iso` 只包含 56.64（NV40 之前）。已获所有者授权下载所需 ROM 和驱动；测试素材
   放在忽略目录 `build/nv40-fixtures`，不随源代码分发。
+- G0.2：独立探路 ROM 从 SeaVGABIOS rel-1.16.2 构建（`bios/nv40/build.py`、`tables.S`），
+  预留 `0x36` 的 DCB 指针，带 BIT/i/I、终止初始化脚本、单 CRT DCB 与 CRTC DDC 表。
+  描述符的 `vga_bios` 提供默认路径，显式 `vga_bios` 可以覆盖；专属 ROM 不再经过 PCI ID 修补。
+  CPU Worker 保留页面的 ROM 路径基准。PROM 遵守 ROM BAR 使能位，PCI 核心保留该位。
+- 已验证 G0.2：ROM/PCIR/BIT 校验和及表指针、默认 ROM 的文本启动、PROM 使能、设备快照；
+  `node tests/devices/geforce_6800_bios.js`、`node tests/devices/geforce_6800.js`，
+  `node tests/devices/graphics_adapter.js`；插件 Closure 构建 0 errors/warnings。
+- 官方驱动已下载并解包：XP 93.71 的 INF 与 Win98 81.98 的 NVAGP.INF 均包含 `DEV_0045`。
+  XP 安装包 SHA-256 `1fdf456054bfa91e307b052324aebcc4210c9ec23e5d50aea11e943ec7408092`；
+  Win98 安装包 SHA-256 `e05b92b1322f8d01549995ddd00a9dca93d83358ee78e868acedca9dc6c7c910`。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

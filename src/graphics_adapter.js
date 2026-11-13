@@ -118,6 +118,10 @@ export async function load_graphics_adapter(name, path)
     {
         throw new Error("graphics_adapter \"" + name + "\": invalid plugin descriptor");
     }
+    if(descriptor["vga_bios"] !== undefined && (typeof descriptor["vga_bios"] !== "string" || !descriptor["vga_bios"]))
+    {
+        throw new Error("graphics_adapter \"" + name + "\": invalid vga_bios path");
+    }
     return descriptor;
 }
 

@@ -1113,7 +1113,13 @@ V86.prototype.continue_init = async function(emulator, options)
     }
 
     add_file("bios", options.bios);
-    add_file("vga_bios", options.vga_bios);
+    // A hardware-specific ROM is the adapter's default; an explicitly supplied
+    // ROM remains useful for driver investigation. The path follows bios.url's
+    // page/CWD convention, including in the CPU worker.
+    const adapter_bios = (await graphics_adapter)?.["vga_bios"];
+    const adapter_bios_url = adapter_bios && options["graphics_adapter_bios_base"] ?
+        new URL(adapter_bios, options["graphics_adapter_bios_base"]).href : adapter_bios;
+    add_file("vga_bios", options.vga_bios || (adapter_bios_url ? { url: adapter_bios_url } : undefined));
     if(settings.firmware)
     {
         add_file("firmware_code", options.firmware.code);
