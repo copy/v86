@@ -10,6 +10,16 @@ const BLEND=new Map([[0,1],[1,2],[0x300,3],[0x301,4],[0x302,5],[0x303,6],[0x304,
     [0x306,9],[0x307,10],[0x308,11],[0x8001,14],[0x8002,15],[0x8003,14],[0x8004,15]]);
 const EQUATION=new Map([[0x8006,1],[0x800A,2],[0x800B,3],[0x8007,4],[0x8008,5]]);
 const STENCIL=new Map([[0x1E00,1],[0,2],[0x1E01,3],[0x1E02,4],[0x1E03,5],[0x150A,6],[0x8507,7],[0x8508,8]]);
+export function nv40_cull_state(o)
+{
+    if(!get(o,0x183C))return {state:1,all:false};
+    const face=get(o,0x1830,0x405),front=get(o,0x1834,0x901);
+    if(![0x404,0x405,0x408].includes(face) || ![0x900,0x901].includes(front))
+        throw new RangeError("NV40 invalid face culling state");
+    // Both APIs define CW in window coordinates. Their viewport Y flips are
+    // already accounted for by the position lowering.
+    return {state:face===0x408?1:(face===0x404)===(front===0x900)?2:3,all:face===0x408};
+}
 export function nv40_depth_state(o)
 {
     const depth=!!get(o,0xA74),stencil=!!get(o,0x328);
@@ -145,10 +155,11 @@ export class NV40Render
         if(this.pending) throw new RangeError("NV40 renderer already busy");
         if(get(o,0x220,1)!==1) throw new RangeError("NV40 MRT rendering is not connected");
         const zsa=nv40_depth_state(o);
-        if(get(o,0x183C) || get(o,0x142C) || get(o,0x374) || get(o,0x1478) || get(o,0x36C) ||
+        if(get(o,0x142C) || get(o,0x374) || get(o,0x1478) || get(o,0x36C) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
         const blend=nv40_blend_state(o);
+        const cull=nv40_cull_state(o);
         const target=this.engine.state.target(o);
         if(![21,22,23].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
         const viewport=this.engine.state.viewport(o,target);
@@ -159,7 +170,7 @@ export class NV40Render
         });
         const fetched=indices?this.engine.state.array_vertices(o,indices,shaders.vertex.inputs):
             this.engine.state.inline_vertices(o,words,shaders.vertex.inputs);
-        const vertices=expand_primitives(fetched,mode);if(!vertices.count)return;
+        const vertices=expand_primitives(fetched,mode);if(!vertices.count || cull.all && vertices.primitive===4)return;
         this.engine.state.validate(target,true);
         const initial=this.engine.state.read(target);
         let depth=null,depthBytes=null;
@@ -188,7 +199,7 @@ export class NV40Render
         this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,0,this.engine.vertex_constants(o,0,256));
         for(const [index,values]of shaders.vertex.viewport_constants)this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,index,values);
         shaders.fragment.constant_values.forEach((values,index)=>this.constants(OP.SET_PIXEL_SHADER_CONSTANT_F,index,values));
-        this.render_state(22,1);for(const [state,value]of zsa.states)this.render_state(state,value);
+        this.render_state(22,cull.state);for(const [state,value]of zsa.states)this.render_state(state,value);
         for(const [state,value]of blend)this.render_state(state,value);
         const mask=get(o,0x324,0x01010101);
         this.render_state(168,(mask&0x10000?1:0)|(mask&0x100?2:0)|(mask&1?4:0)|(mask&0x1000000?8:0));

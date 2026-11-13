@@ -6,7 +6,7 @@ import {NVDMA} from "../../src/graphics_adapters/geforce_6800/nv_dma.js";
 import {NVTrace} from "../../src/graphics_adapters/geforce_6800/nv_trace.js";
 import {d9wg_commands} from "../../src/graphics_adapters/vmware_svga/svga3d_d9wg.js";
 import {OP,FIELD_LAYOUT} from "../../src/graphics_adapters/vmware_svga/d9wg_constants.js";
-import {expand_primitives,nv40_blend_state,nv40_depth_state} from "../../src/graphics_adapters/geforce_6800/nv40_render.js";
+import {expand_primitives,nv40_blend_state,nv40_depth_state,nv40_cull_state} from "../../src/graphics_adapters/geforce_6800/nv40_render.js";
 const offset=(name,field)=>FIELD_LAYOUT[name].fields.find(item=>item[0]===field)[1];
 const input={bytes:Uint8Array.of(0,1,2,3,4),count:5,stride:1};
 assert.deepEqual([...expand_primitives(input,6).bytes],[0,1,2,2,1,3,2,3,4]);
@@ -21,6 +21,7 @@ const depthState={methods:new Map([[0xA74,1],[0xA70,1],[0xA6C,0x203],[0x328,1],[
 const depthRegisters=new Map(nv40_depth_state(depthState).states);
 assert.equal(depthRegisters.get(23),4);assert.equal(depthRegisters.get(55),7);
 depthState.methods.set(0x348,1);assert.throws(()=>nv40_depth_state(depthState),/two-sided/);
+assert.deepEqual(nv40_cull_state({methods:new Map([[0x183C,1],[0x1830,0x405],[0x1834,0x900]])}),{state:3,all:false});
 let remote=null,listener=null,submitted=null;
 const fake={listen:fn=>{listener=fn;},post:message=>{if(message.type==="submit")submitted=message;}};
 if(process.env.NV_GPU_RENDERER==="chrome")
@@ -144,6 +145,18 @@ try
         assert.equal(view.getUint32(0x24000,true)>>>8,nearDepth>>>8,"stencil-only rendering preserves depth");
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255]);method(0x328,0);
         console.log("PASS: real WebGPU depth rejection, depth/stencil VRAM round trips and masked stencil operations");
+        method(0x183C,1);method(0x1830,0x405);method(0x1834,0x900);
+        await depthDraw(.5,[1,0,0,1]);assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"CW front faces cull the CCW window-space triangle");
+        method(0x1834,0x901);await depthDraw(.5,[1,0,0,1]);
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,255],"switching front winding keeps the same geometry");
+        method(0x1830,0x404);await depthDraw(.5,[0,0,1,1]);
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,255],"front-face culling preserves the target");
+        method(0x1830,0x408);const beforeCull=engine.backend.stats.draws;await depthDraw(.5,[0,0,1,1]);
+        assert.equal(engine.backend.stats.draws,beforeCull,"FRONT_AND_BACK emits no triangle work");
+        method(0x1830,0x405);method(0x1834,0x900);method(0x1808,5);
+        for(const index of [0,2,1])method(0x1810,index);method(0x1808,0);await engine.backend.wait();
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[255,0,0,255],"reversing array indices reverses face classification");
+        method(0x183C,0);
         // A real sampled checkerboard also tests Curie's output crossbar:
         // the VP writes raw TBUF5, mapped to the FP's TEX0 input.
         method(0x1E9C,0);
