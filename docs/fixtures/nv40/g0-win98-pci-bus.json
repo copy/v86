@@ -1,0 +1,31 @@
+{
+  "guest": "Windows 98 SE",
+  "driver": "81.98 Win9x",
+  "rom": "v86 source-built NV40 SeaVGABIOS",
+  "imageUnchanged": true,
+  "status": "PCI_ENUMERATED",
+  "installation": [
+    "PCI_BUS copy-file ok=1 error=0",
+    "PCI_BUS copy-file ok=1 error=0",
+    "PCI_BUS list ok=1 error=0",
+    "PCI_BUS locate-root cm=0",
+    "PCI_BUS create-node cm=0",
+    "PCI_BUS open ok=1 error=0",
+    "PCI_BUS hardware-id ok=1 error=0",
+    "PCI_BUS get-params ok=1 error=0",
+    "PCI_BUS set-params ok=1 error=0",
+    "PCI_BUS build-drivers ok=1 error=0",
+    "PCI_BUS select-driver ok=1 error=0",
+    "PCI_BUS install ok=1 error=0"
+  ],
+  "devices": [
+    "PCI PCI\\VEN_8086&DEV_1237&SUBSYS_00000000&REV_02\\BUS_00&DEV_00&FUNC_00",
+    "PCI PCI\\VEN_8086&DEV_7000&SUBSYS_00000000&REV_00\\BUS_00&DEV_01&FUNC_00",
+    "PCI PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1\\BUS_00&DEV_12&FUNC_00",
+    "PCI PCI\\IRQHOLDER\\IRQ0A",
+    "PCI PCI\\VEN_8086&DEV_7010&SUBSYS_82D41043&REV_00\\BUS_00&DEV_1E&FUNC_00"
+  ],
+  "gpu": "DEVICE PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1\\BUS_00&DEV_12&FUNC_00 problem=1 cm=0 started=0 service= driver= description=",
+  "remaining": "NVIDIA driver selection reports ERROR_NO_COMPAT_DRIVERS (0xE0000228); driver loading has not passed.",
+  "source": "Read-only image with disposable sector overlay; Microsoft pci.vxd/pcimp.pci extracted from the owner-provided Windows 98 SE installation ISO."
+}

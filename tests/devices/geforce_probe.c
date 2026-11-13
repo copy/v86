@@ -24,6 +24,64 @@ static int match(const char *s, const char *prefix)
     while(*prefix) { char c=*s++; if(c>='a' && c<='z') c-=32; if(c!=*prefix++) return 0; }
     return 1;
 }
+static BOOL device_hardware(HDEVINFO set,SP_DEVINFO_DATA *dev)
+{
+    if(SetupDiGetDeviceRegistryPropertyA(set,dev,SPDRP_HARDWAREID,0,(BYTE*)hardware,sizeof(hardware),0)) return TRUE;
+    /* A newly enumerated Win9x PCI node can lack HardwareID until its first
+     * install. Its instance ID already contains the vendor/device identity. */
+    return SetupDiGetDeviceInstanceIdA(set,dev,hardware,sizeof(hardware),0);
+}
+#ifdef NV_WIN98
+static BOOL step(const char *name, BOOL ok)
+{
+    DWORD error=ok?0:GetLastError();
+    put("PCI_BUS ");put(name);put(" ok=");number(ok);put(" error=");number(error);line();
+    return ok;
+}
+static void install_pci_bus(void)
+{
+    char source[MAX_PATH],dest[MAX_PATH];
+    for(int i=0;i<2;i++)
+    {
+        GetModuleFileNameA(0,source,sizeof(source));
+        unsigned int end=lstrlenA(source);while(end && source[end-1]!='\\') end--;
+        lstrcpyA(source+end,i?"PCIBUS\\pcimp.pci":"PCIBUS\\pci.vxd");
+        GetSystemDirectoryA(dest,sizeof(dest));lstrcatA(dest,i?"\\pcimp.pci":"\\pci.vxd");
+        if(!step("copy-file",CopyFileA(source,dest,FALSE))) return;
+    }
+    HDEVINFO set=SetupDiCreateDeviceInfoList(0,0);
+    if(!step("list",set!=INVALID_HANDLE_VALUE)) return;
+    SP_DEVINFO_DATA dev;dev.cbSize=sizeof(dev);
+    /* Win9x cannot promote SetupAPI's phantom root node: it has no parent.
+     * Create a live CM node under the real root before selecting the driver. */
+    typedef CONFIGRET (WINAPI *locate_t)(DEVINST*,DEVINSTID_A,ULONG);
+    typedef CONFIGRET (WINAPI *create_t)(DEVINST*,DEVINSTID_A,DEVINST,ULONG);
+    HMODULE cfg=LoadLibraryA("cfgmgr32.dll");
+    locate_t locate=cfg?(locate_t)GetProcAddress(cfg,"CM_Locate_DevNodeA"):0;
+    create_t create=cfg?(create_t)GetProcAddress(cfg,"CM_Create_DevNodeA"):0;
+    DEVINST root=0,node=0;char instance[]="ROOT\\*PNP0A03\\0000";
+    CONFIGRET rc=locate?locate(&root,0,0):CR_CALL_NOT_IMPLEMENTED;
+    put("PCI_BUS locate-root cm=");number(rc);line();
+    if(rc==CR_SUCCESS) rc=create?create(&node,instance,root,CM_CREATE_DEVNODE_NORMAL):CR_CALL_NOT_IMPLEMENTED;
+    put("PCI_BUS create-node cm=");number(rc);line();
+    BOOL ok=rc==CR_SUCCESS && step("open",SetupDiOpenDeviceInfoA(set,instance,0,0,&dev));
+    static const char id[]="*PNP0A03\0";
+    if(ok) ok=step("hardware-id",SetupDiSetDeviceRegistryPropertyA(set,&dev,SPDRP_HARDWAREID,(const BYTE*)id,sizeof(id)));
+    SP_DEVINSTALL_PARAMS_A params;params.cbSize=sizeof(params);
+    if(ok) ok=step("get-params",SetupDiGetDeviceInstallParamsA(set,&dev,&params));
+    if(ok)
+    {
+        GetWindowsDirectoryA(params.DriverPath,MAX_PATH);lstrcatA(params.DriverPath,"\\INF\\MACHINE.INF");
+        params.Flags|=DI_ENUMSINGLEINF|DI_QUIETINSTALL|DI_NOFILECOPY;
+        ok=step("set-params",SetupDiSetDeviceInstallParamsA(set,&dev,&params));
+    }
+    if(ok) ok=step("build-drivers",SetupDiBuildDriverInfoList(set,&dev,SPDIT_COMPATDRIVER));
+    if(ok) ok=step("select-driver",SetupDiCallClassInstaller(DIF_SELECTBESTCOMPATDRV,set,&dev));
+    if(ok) ok=step("install",SetupDiCallClassInstaller(DIF_INSTALLDEVICE,set,&dev));
+    if(ok) { put("PCI_BUS_INSTALLED");line(); }
+    SetupDiDestroyDeviceInfoList(set);
+}
+#endif
 static void devices(void)
 {
     HDEVINFO set=SetupDiGetClassDevsA(0,0,0,DIGCF_ALLCLASSES|DIGCF_PRESENT);
@@ -34,7 +92,7 @@ static void devices(void)
     {
         count++;
         char service[64]={0},description[160]={0},driver[80]={0}; DWORD type;
-        if(!SetupDiGetDeviceRegistryPropertyA(set,&dev,SPDRP_HARDWAREID,&type,(BYTE*)hardware,sizeof(hardware),0))
+        if(!device_hardware(set,&dev))
         {
 #ifdef NV_WIN98
             put("PROPERTY_ERROR ");number(GetLastError());line();
@@ -72,6 +130,17 @@ void WINAPI entry(void)
     lstrcatA(inf,"DRIVER\\nv4_disp.inf");
 #endif
     lstrcatA(output,"NV.TXT"); DeleteFileA(output);
+#ifndef NV_WIN98
+    /* Preserve the bugcheck screen when an incomplete device model fails. This
+     * affects only the disposable guest overlay, never the original image. */
+    HKEY crash;
+    if(RegOpenKeyExA(HKEY_LOCAL_MACHINE,"SYSTEM\\CurrentControlSet\\Control\\CrashControl",0,KEY_SET_VALUE,&crash)==ERROR_SUCCESS)
+    {
+        DWORD zero=0;
+        RegSetValueExA(crash,"AutoReboot",0,REG_DWORD,(const BYTE*)&zero,sizeof(zero));
+        RegCloseKey(crash);
+    }
+#endif
     put("BEGIN"); line(); devices();
 #ifdef NV_WIN98
     HKEY pci;
@@ -85,7 +154,11 @@ void WINAPI entry(void)
     }
     else if(registry_result==ERROR_FILE_NOT_FOUND)
     {
-        put("PCI_BUS_MISSING Microsoft PCI bus must be installed before the GPU driver");line();
+        char source[MAX_PATH],dest[MAX_PATH];
+        GetWindowsDirectoryA(source,sizeof(source));lstrcatA(source,"\\INF\\MACHINE.INF");
+        lstrcpyA(dest,output);lstrcpyA(dest+end,"MACHINE.INF");CopyFileA(source,dest,FALSE);
+        put("PCI_BUS_MISSING installing Microsoft PCI bus from MACHINE.INF");line();
+        install_pci_bus();devices();
     }
 #endif
     HMODULE dll=LoadLibraryA("newdev.dll");
@@ -106,7 +179,7 @@ void WINAPI entry(void)
         SP_DEVINFO_DATA dev;dev.cbSize=sizeof(dev);
         for(DWORD i=0;SetupDiEnumDeviceInfo(set,i,&dev);i++)
         {
-            if(!SetupDiGetDeviceRegistryPropertyA(set,&dev,SPDRP_HARDWAREID,0,(BYTE*)hardware,sizeof(hardware),0) || !match(hardware,"PCI\\VEN_10DE&DEV_0045")) continue;
+            if(!device_hardware(set,&dev) || !match(hardware,"PCI\\VEN_10DE&DEV_0045")) continue;
             SP_DEVINSTALL_PARAMS_A params;params.cbSize=sizeof(params);
             BOOL ok=SetupDiGetDeviceInstallParamsA(set,&dev,&params);
             if(!ok) { put("INSTALL_PARAMS error=");number(GetLastError());line();continue; }

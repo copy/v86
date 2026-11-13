@@ -54,6 +54,15 @@ export async function run_geforce_guest(win98)
         Array.from(fs.readFileSync(path.join(source, n), "latin1").matchAll(/^([a-z0-9_]+\.[a-z0-9]{3})\s*=/gim), m => m[1]));
     const sevenzip = process.env.SEVENZIP || (fs.existsSync("/opt/homebrew/opt/sevenzip/bin/7zz") ? "/opt/homebrew/opt/sevenzip/bin/7zz" : "7z");
     const files = {};
+    if(win98)
+    {
+        const iso = process.env.NV_WIN98_ISO || path.join(site_directory(root), "windows98/windows98se.iso");
+        const cabs = path.join(out, "windows98-cabs"), pci = path.join(out, "pci");
+        fs.mkdirSync(cabs, { recursive: true }); fs.mkdirSync(pci, { recursive: true });
+        run(sevenzip, ["e", "-y", "-o" + cabs, iso, "win98/*.CAB"]);
+        run(sevenzip, ["e", "-y", "-o" + pci, path.join(cabs, "BASE4.CAB"), "pci.vxd", "pcimp.pci"]);
+        for(const name of ["pci.vxd", "pcimp.pci"]) files["PCIBUS/" + name] = fs.readFileSync(path.join(pci, name));
+    }
     for(const entry of fs.readdirSync(source))
     {
         if(!fs.statSync(path.join(source, entry)).isFile()) continue;
@@ -87,18 +96,26 @@ export async function run_geforce_guest(win98)
         bios: { url: root + "bios/seabios.bin" },
         ...(process.env.NV_ROM ? { vga_bios: { url: path.resolve(process.env.NV_ROM) } } : {}),
         hda: disk, hdb: tools, boot_order: 0x213, memory_size: (win98 ? 256 : 1024) << 20,
-        screen_adapter: sink, acpi: false, net_device: { type: "none" }, disable_speaker: true, autostart: true, log_level: 0 });
-    const seconds = Number(process.env.NV_SECONDS || 360), launch = Number(process.env.NV_LAUNCH_SECONDS || 90);
+        screen_adapter: sink, acpi: false, net_device: { type: "none" }, disable_speaker: true,
+        autostart: !process.env.NV_STATE_LOAD, log_level: 0 });
+    const seconds = Number(process.env.NV_SECONDS || 360);
+    const launch = Number(process.env.NV_LAUNCH_SECONDS || (process.env.NV_STATE_LOAD ? 10 : 90));
     assert(Number.isFinite(seconds) && seconds > 0 && seconds <= 3600);
-    let nv, error = null, launches = 0, next_launch = launch, cancelled = false;
+    let nv, error = null, launches = 0, next_launch = launch, cancelled = false, checkpoint = false;
     const cancel = () => { cancelled = true; };
     process.on("SIGINT", cancel);
     vm.add_listener("emulator-error", e => { error = String(e); });
     const started = performance.now(), elapsed = () => (performance.now() - started) / 1000;
+    let control_time = 0, next_report = 30;
     const result_text = () => Buffer.from(read_fat16(tools.bytes, "NV.TXT") || []).toString("ascii");
     try
     {
         await new Promise((resolve, reject) => { vm.add_listener("emulator-ready", resolve); vm.add_listener("emulator-error", reject); });
+        if(process.env.NV_STATE_LOAD)
+        {
+            await vm.restore_state(fs.readFileSync(process.env.NV_STATE_LOAD));
+            await vm.run();
+        }
         const cpu = vm.v86.cpu;
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = true;
@@ -106,6 +123,32 @@ export async function run_geforce_guest(win98)
         {
             await delay(1000);
             cpu.devices.display.request_frame(true);
+            if(process.env.NV_CONTROL && fs.existsSync(process.env.NV_CONTROL))
+            {
+                const modified = fs.statSync(process.env.NV_CONTROL).mtimeMs;
+                if(modified > control_time)
+                {
+                    control_time = modified;
+                    const input = fs.readFileSync(process.env.NV_CONTROL, "utf8").trim();
+                    const command = input.startsWith("{") ? JSON.parse(input) : { run: input };
+                    if(command.keys) await vm.keyboard_send_scancodes(command.keys, 30);
+                    if(command.run)
+                    {
+                        await vm.keyboard_send_scancodes([0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB], 30);
+                        await delay(1000);
+                        await vm.keyboard_send_text(command.run, 30);
+                        await vm.keyboard_send_scancodes([28, 156], 30);
+                    }
+                }
+            }
+            if(process.env.NV_STATE_SAVE && !checkpoint && process.env.NV_STATE_SAVE_AT &&
+                elapsed() >= Number(process.env.NV_STATE_SAVE_AT))
+            {
+                await vm.stop();
+                fs.writeFileSync(process.env.NV_STATE_SAVE, new Uint8Array(await vm.save_state()));
+                checkpoint = true;
+                await vm.run();
+            }
             if(launches < 3 && elapsed() >= next_launch && !result_text())
             {
                 launches++; next_launch = elapsed() + 45;
@@ -115,10 +158,12 @@ export async function run_geforce_guest(win98)
                 else await vm.keyboard_send_text("cmd /c for %d in (d e f g h i j k) do @if exist %d:\\nvprobe.exe %d:\\nvprobe.exe", 30);
                 await vm.keyboard_send_scancodes([28, 156], 30);
             }
-            if(Math.floor(elapsed()) % 30 === 0)
+            if(elapsed() >= next_report)
             {
+                next_report = elapsed() + 30;
                 console.log("NV40", win98 ? "98" : "XP", Math.floor(elapsed()), "s", result_text().trim(), "registers", nv.trace.counts.size);
                 save_png(sink, out, "progress");
+                fs.writeFileSync(path.join(out, "progress-trace.json"), JSON.stringify(nv.trace.report()));
             }
             if(result_text().includes("END\r\n")) break;
         }
@@ -127,6 +172,8 @@ export async function run_geforce_guest(win98)
     finally
     {
         await vm.stop();
+        if(process.env.NV_STATE_SAVE && !checkpoint)
+            fs.writeFileSync(process.env.NV_STATE_SAVE, new Uint8Array(await vm.save_state()));
         if(nv)
         {
             fs.writeFileSync(path.join(out, "trace.json"), JSON.stringify({ ...nv.trace.report(),
@@ -135,6 +182,11 @@ export async function run_geforce_guest(win98)
         }
         save_png(sink, out, "final");
         fs.writeFileSync(path.join(out, "screen.txt"), sink.text.join("\n"));
+        for(const name of ["MACHINE.INF"])
+        {
+            const bytes = read_fat16(tools.bytes, name);
+            if(bytes) fs.writeFileSync(path.join(out, name), bytes);
+        }
         if(process.env.NV_OVERLAY_SAVE) fs.writeFileSync(process.env.NV_OVERLAY_SAVE, serialize(disk.get_state()));
         await vm.destroy(); disk.close();
         process.off("SIGINT", cancel);

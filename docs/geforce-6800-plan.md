@@ -77,6 +77,15 @@
   [shadowrom 实现](https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/nouveau/nvkm/subdev/bios/shadowrom.c)
   由 PBUS `0x1850` bit 0 控制读取。此前错误的 ROM BAR 门控使 XP 读到首字节 0，跳过 ROM 表。
   已修正并覆盖 ROM BAR 关闭时读取、PBUS 禁用/恢复的设备测试；插件构建通过。
+- Win98 PCI 枚举已修复并有客体证据：在只读原盘的 overlay 中用配置管理器创建实际
+  `ROOT\*PNP0A03\0000` 节点，安装原版 MACHINE.INF 的微软 PCI bus。Win9x 的
+  SetupAPI phantom 节点无法按 NT 路径注册；CM 的 `DO_NOT_INSTALL` 标志也不受支持。
+  `pci.vxd/pcimp.pci` 从所有者安装 ISO 提取，不进仓库。探针兼容尚无 HardwareID 属性的
+  新节点，通过设备实例 ID 识别 PCI 身份。客体已枚举 NV40、i440FX、PIIX 与 IDE，见
+  `docs/fixtures/nv40/g0-win98-pci-bus.json`。NVIDIA 驱动选择/加载仍待验证。
+  harness 的 `NV_WIN98_ISO` 可指定安装 ISO；`NV_STATE_SAVE/LOAD`、可选
+  `NV_STATE_SAVE_AT` 保存/恢复调查快照，`NV_CONTROL` 接受 Run 命令或 JSON `keys` 扫描码。
+  定期输出 progress-trace，XP 禁用 overlay 内的自动崩溃重启，便于保留故障证据。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
