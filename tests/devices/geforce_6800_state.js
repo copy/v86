@@ -60,6 +60,23 @@ assert.deepEqual(state.vertex_layout(0x114EE),{type:5,size:2,bytes:4});
 assert.throws(()=>state.vertex_layout(0x114BC),/DirectX/);
 o.methods.set(0x1740,0x23);o.methods.set(0x174C,2);
 assert.deepEqual(floats(state.inline_vertices(o,[0x40003C00],[[0,[1,0]]]).bytes),[1,2,0,1],"packed FP16 inline attributes consume one DWORD");
+const clear={methods:new Map([[0x194,0x10],[0x198,0x10],[0x200,2<<16],[0x204,2<<16],[0x208,0x148],
+    [0x20C,12],[0x210,0x5000],[0x22C,12],[0x214,0x6000],[0x8C0,1<<16|1],[0x8C4,1<<16|1],
+    [0x1D90,0xAABBCCDD],[0x1D8C,0x12345678],[0x32C,15]])};
+const memory=new DataView(vram.buffer);vram.fill(0xAA,0x5000,0x5020);
+memory.setUint32(0x5010,0x11223344,true);memory.setUint32(0x6010,0xAABBCCDD,true);
+state.clear(clear,0x51);
+assert.equal(memory.getUint32(0x5010,true),0x11BB33DD,"clear only the requested R/B channels inside the scissor");
+assert.equal(memory.getUint32(0x5000,true),0xAAAAAAAA);assert.equal(memory.getUint32(0x5008,true),0xAAAAAAAA,"clear preserves pitch padding");
+assert.equal(memory.getUint32(0x6010,true),0x123456DD,"depth clear preserves stencil");
+state.clear(clear,2);assert.equal(memory.getUint32(0x6010,true),0x123456D8,"stencil clear respects its write mask");
+ramin.setUint32(0x110,0x303D,true);ramin.setUint32(0x114,0x600D,true);ramin.setUint32(0x118,3,true);
+clear.methods.set(0x198,0x11);const colorsBefore=vram.slice(0x5000,0x5020);
+assert.throws(()=>state.clear(clear,0xF3),/limit/);assert.deepEqual(vram.subarray(0x5000,0x5020),colorsBefore,"late depth fault leaves color intact");
+clear.methods.set(0x198,0x10);clear.methods.set(0x208,0x128);clear.methods.set(0x22C,4);clear.methods.set(0x1D8C,0xBEEF);
+state.clear(clear,1);assert.equal(memory.getUint16(0x6006,true),0xBEEF,"D16 clear uses the low 16 bits");
+clear.methods.set(0x208,0x123);clear.methods.set(0x20C,4);clear.methods.set(0x1D90,0xF81F);
+memory.setUint16(0x5006,0x07E0,true);state.clear(clear,0x50);assert.equal(memory.getUint16(0x5006,true),0xFFFF,"RGB565 component masks preserve green");
 o.methods.set(0x1FC4,0x0144FE43);o.methods.set(0x1FC8,5);o.methods.set(0x1FF4,1<<14);
 const routes=state.results(o);assert.deepEqual(routes.find(([semantic])=>semantic===7),[7,5,-1,true]);
 assert.deepEqual(routes.find(([semantic])=>semantic===1),[1,3,-1,false]);

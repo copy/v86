@@ -4,7 +4,7 @@ import {NV40State} from "./nv40_state.js";
 import {NV40Render} from "./nv40_render.js";
 // NV40_3D control state. Method layouts: envytools rnndb/graph/nv30-40_3d.xml
 // and hwtest/pgraph_class_kelvin.cc (MIT). This implementation is original.
-// Draw, query and clear triggers are deliberately outside the state whitelist.
+// Draw, query and clear triggers are handled outside the state whitelist.
 const STATE_RANGES = [
     [0x180, 0x1B8],
     [0x200, 0x22C],
@@ -121,6 +121,7 @@ export class NV40_3D
             this.device.dma.write(dma, offset, bytes);
             return true;
         }
+        if(at===0x1D94) {this.state.clear(o,value);return true;}
         if(!STATE_RANGES.some(([first, last]) => at >= first && at <= last) && !(at >= 0x1B00 && at <= 0x1BFC)) return false;
         if(at === 0x1D6C && (value & ~0x0F000FF0 || (value >>> 24) > 4)) throw new RangeError("NV40 invalid fence offset");
         if([0x1E9C, 0x1EA0, 0x1EFC].includes(at) && value >= 0x220) throw new RangeError("NV40 invalid vertex program address");

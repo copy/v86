@@ -59,6 +59,45 @@ export class NV40State
         this.validate(surface,true);
         for(let row=0;row<surface.height;row++) this.device.graph.engine2d.writerow(surface,0,row,bytes.subarray(row*pitch,(row+1)*pitch));
     }
+    clear(o,flags)
+    {
+        if(flags&~0xF3) throw new RangeError("NV40 invalid clear mask");
+        const jobs=[],colors=get(o,0x220,1)&15;
+        if(flags&0xF0) for(let i=0;i<4;i++) if(colors&1<<i)
+        {
+            const target=this.target(o,i),channels=target.d3d===23?[0xF800,0x7E0,31,0]:target.d3d===24?[0x7C00,0x3E0,31,0x8000]:
+                [21,22].includes(target.d3d)?[0xFF0000,0xFF00,255,0xFF000000]:
+                [32,33].includes(target.d3d)?[255,0xFF00,0xFF0000,0xFF000000]:null;
+            if(!channels) throw new RangeError("NV40 unsupported clear color format");
+            let mask=0;channels.forEach((bits,channel)=>{if(flags&0x10<<channel)mask|=bits;});
+            jobs.push({target,mask:mask>>>0,value:get(o,0x1D90)});
+        }
+        if(flags&3)
+        {
+            const target=this.target(o,0,true),stencil=get(o,0x32C,255)&255;
+            const mask=target.bpp===2?flags&1?65535:0:(flags&1?0xFFFFFF00:0)|(flags&2?stencil:0);
+            jobs.push({target,mask:mask>>>0,value:get(o,0x1D8C)});
+        }
+        // Validate every destination first: a late depth/MRT fault must not
+        // leave an earlier color target partially cleared.
+        for(const {target}of jobs)this.validate(target,true);
+        const x=get(o,0x8C0,0x10000000),y=get(o,0x8C4,0x10000000);
+        for(const {target,mask,value}of jobs)
+        {
+            const left=Math.max(target.x,x&65535),top=Math.max(target.y,y&65535);
+            const right=Math.min(target.width,(x&65535)+(x>>>16)),bottom=Math.min(target.height,(y&65535)+(y>>>16));
+            for(let row=top;row<bottom && right>left;row++)
+            {
+                const bytes=this.device.graph.engine2d.readrow(target,left,row,right-left),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+                for(let at=0;at<bytes.length;at+=target.bpp)
+                {
+                    const old=target.bpp===2?view.getUint16(at,true):view.getUint32(at,true),updated=(old&~mask)|(value&mask);
+                    if(target.bpp===2)view.setUint16(at,updated,true);else view.setUint32(at,updated,true);
+                }
+                this.device.graph.engine2d.writerow(target,left,row,bytes);
+            }
+        }
+    }
     results(o)
     {
         // Curie output routing, not the compiler's conventional register names.
