@@ -1081,3 +1081,7 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
 - G4 雾模式续修：补齐 EXP、EXP2 及各自绝对距离模式，在片元插值后的原生
   affine 参数上执行指数和饱和；与已有两种线性模式一共六种。GPU 验证指数、
   平方指数、负坐标绝对值及超过 1 的饱和，57 个 WGSL 模块和 Closure 构建通过。
+
+- Win98 原生分配验收：探针按真实 CheckDeviceFormat 能力统计，未声明支持的格式
+  单独记录；重新冷启动后 GDI/DirectDraw/D3D9 均为 0 failure，全部已声明支持的
+  纹理创建成功，0 GPU/PGRAPH fault。证据见 `g3-win98-8198-texture-allocation.json`。

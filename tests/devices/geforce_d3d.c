@@ -60,7 +60,12 @@ DWORD nv_d3d_probe(void (*mark)(const char*))
         report(mark,"CHECK_FORMAT",allowed);
         HRESULT created=IDirect3DDevice9_CreateTexture(device,size,size,levels,usage,formats[f],(D3DPOOL)pool,&texture,0);
         report(mark,"CREATE_TEXTURE",created);
-        if(FAILED(created))texture_failures++;
+        if(FAILED(allowed))
+        {
+            mark("D3D9_TEXTURE_UNSUPPORTED_FORMAT");
+            if(SUCCEEDED(created))texture_failures++;
+        }
+        else if(FAILED(created))texture_failures++;
         if(texture)IDirect3DTexture9_Release(texture);
     }
     report(mark,"D3D9_TEXTURE_FAILURES",texture_failures);

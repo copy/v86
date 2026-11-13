@@ -1,0 +1,895 @@
+{
+  "stage": "G3 Win98 native D3D9 allocation acceptance",
+  "guest": "Windows 98 SE + DirectX 9.0c",
+  "driver": "NVIDIA 81.98",
+  "hardware": "GeForce 6800 GT 128 MiB, PCI",
+  "straps0": "0x00901181",
+  "status": "INITIALIZED",
+  "imageUnchanged": true,
+  "nativeResults": [
+    "GDI_TEST failures=0",
+    "DDRAW_TEST failures=0",
+    "D3D9_DEVICE_RESULT=00000000",
+    "D3D9_TEXTURE_FAILURES=00000000",
+    "D3D9_PIXEL=ff336699",
+    "D3D9_TEST failures=0"
+  ],
+  "gpu": {
+    "draws": 2,
+    "bytes": 34560,
+    "readbacks": 2,
+    "failures": 0
+  },
+  "graphFaults": [],
+  "allocations": [
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000200",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "8876086a",
+      "CREATE_TEXTURE": "8876086c"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "8876086a",
+      "CREATE_TEXTURE": "8876086c"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "8876086a",
+      "CREATE_TEXTURE": "8876086c"
+    },
+    {
+      "POOL": "00000000",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000001",
+      "CHECK_FORMAT": "8876086a",
+      "CREATE_TEXTURE": "8876086c"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000015",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000015",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000016",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000016",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000017",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000017",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000019",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000019",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000001",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000015",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000015",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000016",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000016",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000017",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000017",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000019",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000019",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000002",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000015",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000015",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000015",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000016",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000016",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000016",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000017",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000017",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000017",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000019",
+      "SIZE": "00000001",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000019",
+      "SIZE": "00000040",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000001",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    },
+    {
+      "POOL": "00000003",
+      "FORMAT": "00000019",
+      "SIZE": "00000100",
+      "LEVELS": "00000000",
+      "USAGE": "00000000",
+      "CHECK_FORMAT": "00000000",
+      "CREATE_TEXTURE": "00000000"
+    }
+  ],
+  "notes": [
+    "All formats advertised for the requested usage allocate successfully.",
+    "A1R5G5B5 render targets are rejected by CheckDeviceFormat and CreateTexture.",
+    "Actual DxDiag and benchmark acceptance is recorded separately."
+  ]
+}
