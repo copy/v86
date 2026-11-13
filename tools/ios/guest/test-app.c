@@ -10,6 +10,7 @@ static long count;
 #ifdef V86_GLES_TEST
 static void *gl_view;
 static void draw(void *);
+static void draw_frame(void *self,void *cmd){(void)self;(void)cmd;if(gl_view)draw(gl_view);}
 #endif
 static void frame(void *o, Rect r) { ((void (*)(void *,void *,Rect))objc_msgSend)(o,sel_registerName("setFrame:"),r); }
 static void update(void)
@@ -45,7 +46,6 @@ static void draw(void *view)
     context=send1(send0(objc_getClass("EAGLContext"),"alloc"),"initWithAPI:",(void *)2);
     send1(objc_getClass("EAGLContext"),"setCurrentContext:",context);
     glGenRenderbuffers(1,&rb);glBindRenderbuffer(0x8D41,rb);
-    ((void *(*)(void *,void *,unsigned,void *))objc_msgSend)(context,sel_registerName("renderbufferStorage:fromDrawable:"),0x8D41,send0(view,"layer"));
     glGenFramebuffers(1,&fb);glBindFramebuffer(0x8D40,fb);glFramebufferRenderbuffer(0x8D40,0x8CE0,0x8D41,rb);
     const char *vs="attribute vec2 p;void main(){gl_Position=vec4(p,0.,1.);}";
     const char *fs="precision mediump float;void main(){gl_FragColor=vec4(1.,0.5,0.,1.);}";
@@ -54,13 +54,16 @@ static void draw(void *view)
     glAttachShader(p,v);glAttachShader(p,f);glBindAttribLocation(p,0,"p");glLinkProgram(p);glUseProgram(p);
     }
     send1(objc_getClass("EAGLContext"),"setCurrentContext:",context);
-    glBindRenderbuffer(0x8D41,rb);glBindFramebuffer(0x8D40,fb);glUseProgram(p);
+    glBindRenderbuffer(0x8D41,rb);
+    signed char storage=((signed char (*)(void *,void *,unsigned,void *))objc_msgSend)(context,sel_registerName("renderbufferStorage:fromDrawable:"),0x8D41,send0(view,"layer"));
+    if(!storage){syslog(5,"V86 GLES2 fixture drawable unavailable glError=%u",glGetError());return;}
+    glBindFramebuffer(0x8D40,fb);glUseProgram(p);
     glGetRenderbufferParameteriv(0x8D41,0x8D42,&width);glGetRenderbufferParameteriv(0x8D41,0x8D43,&height);
     glViewport(0,0,width,height);glClearColor(0.1f,count&1?0.55f:0.25f,count&1?0.2f:0.5f,1);glClear(0x4000);
     static const float vertices[]={-0.8f,-0.8f,0.8f,-0.8f,0.f,0.8f};
     glVertexAttribPointer(0,2,0x1406,0,0,vertices);glEnableVertexAttribArray(0);glDrawArrays(4,0,3);
     send1(context,"presentRenderbuffer:",(void *)0x8D41);
-    syslog(5,"V86 GLES2 fixture glError=%u",glGetError());
+    syslog(5,"V86 GLES2 fixture %dx%d glError=%u",width,height,glGetError());
 }
 #endif
 static Boolean launched(void *self, void *cmd, void *app, void *options)
@@ -83,7 +86,9 @@ static Boolean launched(void *self, void *cmd, void *app, void *options)
     // Class methods live on the metaclass, obtained through object_getClass's ABI.
     extern void *object_getClass(void *);
     class_addMethod(object_getClass(cls),sel_registerName("layerClass"),(void (*)(void))layer_class,"#@:");objc_registerClassPair(cls);
-    gl_view=send0(send0(cls,"alloc"),"init");frame(gl_view,(Rect){0,160,320,300});send1(view,"addSubview:",gl_view);draw(gl_view);
+    gl_view=send0(send0(cls,"alloc"),"init");frame(gl_view,(Rect){0,160,320,300});send1(view,"addSubview:",gl_view);
+    // Let UIKit commit the window before acquiring its native drawable.
+    ((void (*)(void *,void *,void *,void *,double))objc_msgSend)(self,sel_registerName("performSelector:withObject:afterDelay:"),sel_registerName("drawFrame"),0,0.25);
 #endif
     syslog(5,"V86 UIKit fixture v%d launched count=%ld",V86_FIXTURE_VERSION,count);return 1;
 }
@@ -92,5 +97,8 @@ int main(int argc,char **argv)
     void *pool=objc_autoreleasePoolPush();void *cls=objc_allocateClassPair(objc_getClass("NSObject"),"V86TestDelegate",0);
     class_addMethod(cls,sel_registerName("application:didFinishLaunchingWithOptions:"),(void (*)(void))launched,"c@:@@");
     class_addMethod(cls,sel_registerName("tap:"),(void (*)(void))tap,"v@:@");objc_registerClassPair(cls);
+#ifdef V86_GLES_TEST
+    class_addMethod(cls,sel_registerName("drawFrame"),(void (*)(void))draw_frame,"v@:");
+#endif
     int result=UIApplicationMain(argc,argv,0,(void *)string("V86TestDelegate"));objc_autoreleasePoolPop(pool);return result;
 }
