@@ -94,6 +94,12 @@ try
     for(let i = 0; i < 10; i++) trace.record("mmio", i + 4, 4, false, 0, false);
     assert.equal(trace.report().counts.length, 2, "the summary also has a memory bound");
     assert.equal(trace.report().untracked, 9);
+    for(let i=0;i<4099;i++) trace.record_method(1,2,0x100,0x4097,0x300,i,true);
+    trace.record_method(0,3,0x200,0x4A,0x400,7,false);
+    const methods=new Map(trace.report().methods);
+    assert.equal(methods.get(1).length,4096);assert.equal(methods.get(1)[0].value,3);
+    assert.equal(methods.get(1).at(-1).value,4098);assert.equal(methods.get(0)[0].instance,0x200);
+    trace.clear();assert.deepEqual(trace.report().methods,[],"method histories are bounded per channel and clear with other diagnostics");
     console.log("PASS: NV40 PCI identity, BAR sizing, RAMIN aliases and bounded tracing");
 
     pci_write(0x10, 0xD0000000);

@@ -223,6 +223,10 @@
   格式的文字错位。读取此上下文字段，并覆盖直接 RAMIN 初始化的像素测试；2D 测试与
   插件构建通过。
 
+- 跟踪续修：PGRAPH 方法额外按通道保留最多 4096 项，记录对象实例、类、子通道、
+  方法和值，避免桌面 MMIO 轮询淹没短暂的 DirectDraw 通道。历史使用环形缓冲，
+  不进快照，关闭跟踪时不记录；边界/清空测试、设备测试与插件构建通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

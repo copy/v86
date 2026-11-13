@@ -103,11 +103,11 @@ export class NVGraph
     method(channel, subc, instance, method, value)
     {
         if(!(this.reg(0x200) & 0x1000) || !(this.reg(0x400720) & 1)) return false;
-        let object;
+        let object, accepted = false;
         try
         {
             object = this.object(channel, instance);
-            let accepted = method === 0x100 || method === 0x108 || method === 0x10C;
+            accepted = method === 0x100 || method === 0x108 || method === 0x10C;
             if(method === 0x104)
             {
                 if(value > 1) this.error(channel, subc, method, value, 2, 0x2000);
@@ -134,6 +134,7 @@ export class NVGraph
             if(this.faults.length > 64) this.faults.shift();
             this.error(channel, subc, method, value, 0x100, 0x4000);
         }
+        if(object) this.device.trace.record_method(channel, subc, instance, object.class_id, method, value, accepted);
         // A trapped method has reached PGRAPH and is consumed. FIFO access is
         // stopped above until the guest acknowledges and re-enables the engine.
         return true;

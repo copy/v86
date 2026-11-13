@@ -12,6 +12,7 @@ export class NVTrace
         this.untracked = 0;
         this.counts = new Map();
         this.first = new Map();
+        this.methods = new Map();
     }
 
     record(space, offset, size, write, value, implemented)
@@ -33,11 +34,25 @@ export class NVTrace
         }
     }
 
+    record_method(channel, subc, instance, class_id, method, value, implemented)
+    {
+        if(!this.enabled) return;
+        if(!this.methods.has(channel)) this.methods.set(channel, {events: [], next: 0});
+        const history = this.methods.get(channel), event = {channel, subc, instance, class_id, method, value: value >>> 0, implemented};
+        if(history.events.length < 4096) history.events.push(event);
+        else
+        {
+            history.events[history.next] = event;
+            history.next = (history.next + 1) % 4096;
+        }
+    }
+
     clear()
     {
         this.events = [];
         this.counts.clear();
         this.first.clear();
+        this.methods.clear();
         this.dropped = 0;
         this.next = this.sequence = this.untracked = 0;
     }
@@ -46,6 +61,6 @@ export class NVTrace
     {
         return { "events": this.events.slice(this.next).concat(this.events.slice(0, this.next)),
             "dropped": this.dropped, "untracked": this.untracked, "counts": Array.from(this.counts),
-            "first": Array.from(this.first.values()) };
+            "first": Array.from(this.first.values()), "methods": Array.from(this.methods, ([channel, h]) => [channel, h.events.slice(h.next).concat(h.events.slice(0, h.next))]) };
     }
 }
