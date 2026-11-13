@@ -232,6 +232,9 @@ export class NVGraph
         {
             this.activate_context();
             object = this.object(channel, instance);
+            if(this.engine3d.backend?.barrier(object,method,value))
+            {this.engine3d.backend.flush();return false;}
+
             accepted = method === 0x100 || method === 0x108 || method === 0x10C;
             if(method === 0x104)
             {
@@ -250,6 +253,7 @@ export class NVGraph
             }
             else if(object.class_id === 0x4097) accepted = accepted || this.engine3d.method(object, method, value, subc);
             else if(this.engine2d) accepted = accepted || this.engine2d.method(object, method, value);
+            if(accepted===null)return false;
             if(accepted) object.methods.set(method, value >>> 0);
             else this.error(channel, subc, method, value);
             this.device.trace.record("graph", object.class_id * 0x2000 + method, 4, true, value, accepted);

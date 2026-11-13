@@ -179,6 +179,10 @@ export class NVFIFO
 
     method(subc, method, value)
     {
+        const backend=this.device.graph?.engine3d?.backend;
+        if(backend?.batch && (method<0x100 || (this.reg(0x3280)>>>(subc*4)&15)!==1))
+        {backend.flush();return false;}
+
         const ch = this.channel(this.active);
         this.device.trace.record("method", subc * 0x2000 + method, 4, true, value, method < 0x100);
         if(method === 8 || method === 0x80) return true;
@@ -263,7 +267,7 @@ export class NVFIFO
         this.device.update_irq();
     }
 
-    run(budget = 1024)
+    run(budget = 16384)
     {
         if(this.running || !(this.reg(0x200) & 0x100) || !(this.reg(0x3200) & 1)) return;
         this.running = true;
@@ -343,7 +347,7 @@ export class NVFIFO
             if(!(error instanceof RangeError)) throw error;
             this.fault(6,error.message,error["nv_dma"]||null);
         }
-        finally { this.running = false; }
+        finally { this.running = false;this.device.graph?.engine3d?.backend?.flush(); }
     }
 
     get_state() { return [2, this.active, Array.from(this.channels, ([id, ch]) => [id, ch.bindings, ch.dma, ch.offset])]; }

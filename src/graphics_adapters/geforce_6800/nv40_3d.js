@@ -94,8 +94,16 @@ export class NV40_3D
                 const mode=get(o,PRIMITIVE);
                 if(!mode) throw new RangeError("NV40 END without BEGIN");
                 const words=o.stream,indexed=get(o,VERTEX_MODE)===2;
-                o.methods.delete(PRIMITIVE);o.methods.delete(VERTEX_MODE);o.stream=[];
-                if(words.length) this.backend.draw(o,mode,indexed?null:words,indexed?words:null,subc);
+                let yielded=false;
+                try
+                {
+                    if(words.length && this.backend.draw(o,mode,indexed?null:words,indexed?words:null,subc)===false)
+                    {yielded=true;return null;}
+                }
+                finally
+                {
+                    if(!yielded){o.methods.delete(PRIMITIVE);o.methods.delete(VERTEX_MODE);o.stream=[];}
+                }
             }
             return true;
         }

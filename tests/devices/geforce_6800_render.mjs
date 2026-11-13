@@ -550,6 +550,46 @@ try
         }
         finally {engine.shaders=nativeShaders;}
         console.log("PASS: real WebGPU vertex predicates, relative addressing, forward/backward branches and call/return");
+        method(0x1E9C,0);
+        [0x401F9C6C,0x0040000D,0x81000000,0x0001EF80,
+            0x401F9C6C,0x0040100D,0x81800000,0x0001EF85].forEach((word,i)=>method(0xB80+i*4,word));
+        method(0x310,1);method(0x314,0x10021002);method(0x318,0x10021002);method(0x320,0x00010001);
+        vram.fill(0,0x10000,0x10100);
+        const queued=[];const queue=(at,value)=>queued.push([at,value]);
+        const queuedDraw=()=>{
+            queue(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))queue(0x1818,word);
+            queue(0x1808,0);
+        };
+        queuedDraw();queuedDraw();queue(0x50,0x76543210);
+        const start=device.registers.get(0x3270)||0;
+        queued.forEach(([at,value],i)=>{const slot=(start+i*4)&0xFFC,offset=0x90000+(slot&0x7FC)*2;device.registers.set(offset,at);device.registers.set(offset+4,value);});
+        for(const [at,value]of [[0x3210,(start+queued.length*4)&0xFFC],[0x3240,0],[0x3244,0],[0x3248,0],[0x3228,0],[0x322C,0x100],
+            [0x3200,1],[0x3220,1],[0x2504,1],[0x2508,1],[0x3254,0]])device.registers.set(at,value);
+        const beforeBatch={...engine.backend.stats};device.fifo.run();
+        assert.equal(engine.backend.stats.draws-beforeBatch.draws,2);assert.equal(engine.backend.stats.batches-beforeBatch.batches,1);
+        assert.equal(device.registers.get(0x3248),0,"REF remains behind the whole GPU batch");
+        await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        assert.equal(engine.backend.stats.readbacks-beforeBatch.readbacks,1,"both draws share one authoritative color download");
+        assert.equal(device.registers.get(0x3248),0x76543210,"REF follows the combined readback");
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[128,128,128,128],"second draw blends against the first draw's GPU pixels");
+        console.log("PASS: real FIFO batches two draws, preserves GPU blend history and orders REF after one download");
+        method(0x310,0);method(0x8E4,0x9001);vram.fill(0,0x10000,0x10100);
+        [23<<24|1<<13|15<<9|128|1,7<<18|0x1C801,0,0].forEach((word,i)=>view.setUint32(0x9100+i*4,word,true));
+        queued.length=0;queuedDraw();
+        for(const [at,value]of [[0x8E4,0x9101],[0x1A00,0x10000],[0x1A04,0x12529],[0x1A08,0x303],[0x1A0C,0x80000000],
+            [0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,8<<16|8],[0x1840,32]])queue(at,value);
+        queuedDraw();queue(0x50,0x11223344);
+        const feedbackStart=device.registers.get(0x3270),beforeFeedback={...engine.backend.stats};
+        queued.forEach(([at,value],i)=>{const slot=(feedbackStart+i*4)&0xFFC,offset=0x90000+(slot&0x7FC)*2;device.registers.set(offset,at);device.registers.set(offset+4,value);});
+        device.registers.set(0x3210,(feedbackStart+queued.length*4)&0xFFC);device.registers.set(0x2508,1);device.fifo.run();
+        assert.equal(engine.backend.stats.draws-beforeFeedback.draws,1,"feedback END stays queued until its source is downloaded");
+        await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        assert.equal(engine.backend.stats.draws-beforeFeedback.draws,2);assert.equal(engine.backend.stats.batches-beforeFeedback.batches,2);
+        assert.equal(device.registers.get(0x3248),0x11223344,"waiting for a batch also drains the feedback continuation");
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[64,64,64,64],"render-to-texture sees the preceding GPU pixels through a different texture handle");
+        console.log("PASS: render-to-texture alias barrier, preserved END stream and recursive snapshot quiescence");
+
+
 
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

@@ -97,16 +97,16 @@ export class NV40Render
         this.writer=new D9WGWriter(0x3034564E); // "NV40", separate resource namespace
         this.query=0;this.next=2;this.sequence=0;this.request=0;this.created=false;
         this.resources=new Map();this.shaders=new Map();this.declarations=new Map();
-        this.pending=null;this.stats={draws:0,bytes:0,readbacks:0,failures:0,uploads:0,uploadBytes:0};
+        this.batch=null;this.pending=null;this.stats={batches:0,draws:0,bytes:0,readbacks:0,failures:0,uploads:0,uploadBytes:0};
         renderer["listen"](message=>this.receive(message));
     }
     reset()
     {
         if(this.pending) this.pending.resolve();
-        this.pending=null;this.writer=new D9WGWriter(0x3034564E);this.created=false;this.resources.clear();this.shaders.clear();this.declarations.clear();
+        this.batch=null;this.pending=null;this.writer=new D9WGWriter(0x3034564E);this.created=false;this.resources.clear();this.shaders.clear();this.declarations.clear();
         this.query=0;this.next=2;this.renderer["post"]({"type":"reset"});
     }
-    wait() {return this.pending?this.pending.promise:Promise.resolve();}
+    wait() {this.flush();return this.pending?this.pending.promise.then(()=>this.wait()):Promise.resolve();}
     command(op,fields={}) {return this.writer.command(op,{"device_handle":1,...fields});}
     initialize()
     {
@@ -123,7 +123,8 @@ export class NV40Render
         {
             if(this.resources.size>=64)
             {
-                const first=this.resources.entries().next().value;
+                const first=[...this.resources].find(([,resource])=>!this.batch?.outputs.has(resource.handle));
+                if(!first)throw new RangeError("NV40 pending target cache is full");
                 this.writer.command(OP.DESTROY_RESOURCE,{"resource_handle":first[1].handle,"resource_kind":first[1].kind});this.resources.delete(first[0]);
             }
             resource={handle:this.next++,kind:surface.cube?4:surface.volume?5:3,images:null};
@@ -181,6 +182,32 @@ export class NV40Render
         return handle;
     }
     render_state(state,value) {this.command(OP.SET_RENDER_STATE,{"state":state,"value":value});}
+    range(surface,texture=false)
+    {
+        const dma=surface.dma;if(!dma.linear)return {memory:dma.target?1:0,first:0,last:Infinity};
+        let length=0;
+        if(texture)
+        {
+            for(let level=0;level<surface.levels;level++)
+            {
+                const width=Math.max(1,surface.width>>>level),height=Math.max(1,surface.height>>>level),depth=Math.max(1,surface.depth>>>level);
+                length+=surface.block?Math.ceil(height/4)*(surface.swizzle?Math.ceil(width/4)*surface.block:surface.pitch):
+                    surface.swizzle?2**(Math.max(0,surface.u-level)+Math.max(0,surface.v-level)+Math.max(0,surface.w-level))*surface.bpp:
+                        height*depth*surface.pitch;
+            }
+            if(surface.cube)length=(surface.swizzle?Math.ceil(length/128)*128:length)*6;
+        }
+        else length=surface.swizzle?2**(surface.u+surface.v)*surface.bpp:(surface.height-1)*surface.pitch+surface.width*surface.bpp;
+        const first=((dma.pte&0xFFFFF000)>>>0)+dma.adjust+surface.offset;
+        return {memory:dma.target?1:0,first,last:first+length};
+    }
+    barrier(o,method,value)
+    {
+        if(!this.batch)return false;
+        if(o.class_id!==0x4097 || [0x104,0x108,0x110,0x17C8,0x17CC,0x1800,0x1D70,0x1D94].includes(method) || method>=0x120 && method<=0x130)return true;
+        if(get(o,method)!==value && (method>=0x180 && method<=0x1B8 || method>=0x200 && method<=0x22C || method>=0x280 && method<=0x28C))return true;
+        return false;
+    }
     draw(o,mode,words,indices=null,subc=0)
     {
         if(this.pending) throw new RangeError("NV40 renderer already busy");
@@ -209,6 +236,13 @@ export class NV40Render
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};
         });
+        if(this.batch && textures.some(({surface})=>{
+            const source=this.range(surface,true);
+            return [...this.batch.outputs.values()].some(({target})=>{
+                const destination=this.range(target);
+                return source.memory===destination.memory && source.first<destination.last && destination.first<source.last;
+            });
+        })) {this.flush();return false;}
         const fetched=indices?this.engine.state.array_vertices(o,indices,shaders.vertex.inputs):
             this.engine.state.inline_vertices(o,words,shaders.vertex.inputs);
         const vertices=expand_primitives(fetched,mode);if(!vertices.count || cull.all && vertices.primitive===4)return;
@@ -225,6 +259,7 @@ export class NV40Render
         }
         // Everything that can fault on guest state is checked before emitting
         // commands or changing the host's resource cache.
+        if(!this.batch)this.batch={channel:o.channel,subc,outputs:new Map(),draws:0,query:null};
         this.initialize();const handles=colors.map((surface,index)=>surface?this.target(surface,initial[index]):0),
             vs=this.shader(shaders.vertex.bytecode,true),ps=this.shader(shaders.fragment.bytecode,false);
         handles.forEach((handle,index)=>this.command(OP.SET_RENDER_TARGET,{"target_index":index,"color_texture_handle":handle}));
@@ -273,21 +308,29 @@ export class NV40Render
         w.patch_field("vertex_data_offset",w.data(vertices.bytes));
         if(query)this.command(OP.END_QUERY,{"resource_handle":this.query,"response_offset":0,"request_id":query.id});
         this.command(OP.END_SCENE);
+        colors.forEach((target,index)=>{if(target)this.batch.outputs.set(handles[index],{target,handle:handles[index]});});
+        if(depth)this.batch.outputs.set(depthHandle,{target:depth,handle:depthHandle});
+        this.batch.query=query;this.batch.draws++;this.stats.draws++;
+        if(query || this.batch.draws>=32 || this.writer.size()>=(8<<20) || !this.device.fifo?.running)this.flush();
+    }
+    flush()
+    {
+        if(!this.batch || this.pending)return;
+        const batch=this.batch;this.batch=null;
         let resolve;const promise=new Promise(done=>{resolve=done;});
-        const outputs=[...colors.flatMap((target,index)=>target?[{target,handle:handles[index]}]:[]),
-            ...(depth?[{target:depth,handle:depthHandle}]:[])].map(output=>({...output,bytes:new Uint8Array(output.target.width*output.target.height*output.target.bpp)}));
-        const pending=this.pending={channel:o.channel,subc,outputs,query,requests:new Map(),promise,resolve,sequence:++this.sequence};
+        const outputs=[...batch.outputs.values()].map(output=>({...output,bytes:new Uint8Array(output.target.width*output.target.height*output.target.bpp)}));
+        const pending=this.pending={channel:batch.channel,subc:batch.subc,outputs,query:batch.query,requests:new Map(),promise,resolve,sequence:++this.sequence};
         outputs.forEach((output,index)=>{
-        const {target,handle}=output,pitch=target.width*target.bpp,rows=Math.max(1,Math.floor(READBACK_MAX_BYTES/pitch));
-        for(let first=0;first<target.height;first+=rows)
-        {
-            const count=Math.min(rows,target.height-first),id=++this.request;
-            pending.requests.set(id,{output:index,offset:first*pitch,bytes:count*pitch});
-            this.command(OP.READBACK_SURFACE,{"texture_handle":handle,"format":target.d3d,"width":target.width,"height":target.height,
-                "first_row":first,"row_count":count,"destination_pitch":pitch,"destination_bytes":count*pitch,"response_offset":QUERY_REGION_BYTES,"request_id":id});
-        }
+            const {target,handle}=output,pitch=target.width*target.bpp,rows=Math.max(1,Math.floor(READBACK_MAX_BYTES/pitch));
+            for(let first=0;first<target.height;first+=rows)
+            {
+                const count=Math.min(rows,target.height-first),id=++this.request;
+                pending.requests.set(id,{output:index,offset:first*pitch,bytes:count*pitch});
+                this.command(OP.READBACK_SURFACE,{"texture_handle":handle,"format":target.d3d,"width":target.width,"height":target.height,
+                    "first_row":first,"row_count":count,"destination_pitch":pitch,"destination_bytes":count*pitch,"response_offset":QUERY_REGION_BYTES,"request_id":id});
+            }
         });
-        const bytes=this.writer.finish(this.sequence,0);this.stats.draws++;this.stats.bytes+=bytes.length;
+        const bytes=this.writer.finish(this.sequence,0);this.stats.batches++;this.stats.bytes+=bytes.length;
         this.renderer["post"]({"type":"submit","seq":this.sequence,"bytes":bytes},[bytes.buffer]);
     }
     fail(reason)
