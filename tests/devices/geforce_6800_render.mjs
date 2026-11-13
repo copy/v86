@@ -109,8 +109,8 @@ try
         method(0x308,0x201);method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,128],"passing alpha comparison writes the source");
         method(0x304,0);
-        // Clip before a smaller, offset viewport. Transforming XY into the
-        // full target first would incorrectly paint outside this rectangle.
+        // The affine transform and pixel-center clipping must both survive
+        // lowering fractional NV viewports into an integer host viewport.
         new Float32Array(vram.buffer,0x9010,4).set([.2,.4,.6,1]);
         new Float32Array(vram.buffer,0x4000,6).set([-1,1,-1,-3,3,1]);vram.fill(0,0x10000,0x10100);
         const floatWord=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
@@ -119,6 +119,22 @@ try
         for(let y=0;y<8;y++)for(let x=0;x<8;x++)
             assert.deepEqual([...vram.subarray(0x10000+(y*8+x)*4,0x10000+(y*8+x)*4+4)],
                 x>=2 && x<6 && y>=1 && y<5?[0x99,0x66,0x33,255]:[0,0,0,0],"offset clip-space viewport "+x+","+y);
+        for(const [tx,ty,sx,sy,left,top,right,bottom]of [
+            [4.5,4.5,4,-4,0,0,8,8], // native Direct3D half-pixel bias
+            [1.75,2.25,3,-3,0,0,5,5], // negative origin, fractional lower edge
+            [6.25,5.75,3,-3,3,3,8,8]])
+        {
+            vram.fill(0,0x10000,0x10100);
+            for(const [at,value]of [[0xA20,tx],[0xA24,ty],[0xA30,sx],[0xA34,sy]])method(at,floatWord(value));
+            method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+            assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            for(let y=0;y<8;y++)for(let x=0;x<8;x++)
+                assert.deepEqual([...vram.subarray(0x10000+(y*8+x)*4,0x10000+(y*8+x)*4+4)],
+                    x>=left && x<right && y>=top && y<bottom?[0x99,0x66,0x33,255]:[0,0,0,0],"fractional viewport "+tx+","+ty+": "+x+","+y);
+        }
+        method(0xA20,floatWord(20));const outside=engine.backend.stats.draws;
+        method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+        assert.equal(engine.backend.stats.draws,outside,"a fully clipped viewport emits no GPU work");
         method(0x1E94,0x101);
         for(const [at,value]of [[0x198,0x100],[0x214,0x24000],[0x22C,32],[0x1740,0x1042],[0xA74,1],[0xA70,1],[0xA6C,0x201]])method(at,value);
         for(let at=0x24000;at<0x24100;at+=4)view.setUint32(at,0xFFFFFF5A,true);

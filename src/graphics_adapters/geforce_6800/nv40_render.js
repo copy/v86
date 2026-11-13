@@ -163,6 +163,11 @@ export class NV40Render
         const target=this.engine.state.target(o);
         if(![21,22,23].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
         const viewport=this.engine.state.viewport(o,target);
+        const x=get(o,0x8C0),y=get(o,0x8C4),clip=viewport.clip;
+        const scissor={left:Math.max(x&65535,clip?clip.left:0),top:Math.max(y&65535,clip?clip.top:0),
+            right:Math.min((x&65535)+(x>>>16),clip?clip.right:target.width),
+            bottom:Math.min((y&65535)+(y>>>16),clip?clip.bottom:target.height)};
+        if(scissor.left>=scissor.right || scissor.top>=scissor.bottom)return;
         const shaders=this.engine.shaders(o,{viewport});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.read(surface);
@@ -204,9 +209,7 @@ export class NV40Render
         const mask=get(o,0x324,0x01010101);
         this.render_state(168,(mask&0x10000?1:0)|(mask&0x100?2:0)|(mask&1?4:0)|(mask&0x1000000?8:0));
         this.render_state(174,1);this.render_state(9,get(o,0x368,0x1D01)===0x1D00?1:2);this.render_state(26,get(o,0x300));
-        const x=get(o,0x8C0),y=get(o,0x8C4);
-        this.command(OP.SET_SCISSOR_RECT,{"left":x&65535,"top":y&65535,
-            "right":(x&65535)+(x>>>16),"bottom":(y&65535)+(y>>>16)});
+        this.command(OP.SET_SCISSOR_RECT,scissor);
         this.command(OP.BEGIN_SCENE);
         const w=this.command(OP.DRAW_PRIMITIVE_UP,{"primitive_type":vertices.primitive,"primitive_count":vertices.primitives,
             "stride":vertices.stride,"vertex_count":vertices.count,"vertex_bytes":vertices.bytes.length});

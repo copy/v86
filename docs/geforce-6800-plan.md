@@ -766,6 +766,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
 - `v86.d.ts`、starter、CPU Worker、构建入口（`make graphics-adapters`、`tools/pages_dist.mjs` 的插件列表）
   照其他适配器处理。
 
+- G3 视口续修：XP DxDiag D3D8 的原生状态使用 640×480 目标、scale `(320,-240)` 与
+  translate `(320.5,240.5)`。改为在顶点程序保留原始仿射变换，用整目标 host viewport 和
+  像素中心裁剪表达小数、负起点及超出 attachment 的 NV 视口；完全不可见时不提交绘制。
+  Chrome WebGPU 对整数偏移、原生半像素偏移、两侧越界的逐像素结果，以及深度/模板、
+  混合和纹理回归均通过；插件 Closure 构建通过。原生 D3D8/9 验收继续进行。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

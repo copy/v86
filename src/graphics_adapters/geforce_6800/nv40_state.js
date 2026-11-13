@@ -123,12 +123,15 @@ export class NV40State
         const scale=[0,1,2].map(i=>number(0xA30+i*4)),translate=[0,1,2].map(i=>number(0xA20+i*4));
         const width=2*Math.abs(scale[0]),height=2*Math.abs(scale[1]);
         const x=translate[0]-width/2,y=translate[1]-height/2;
-        if(!scale.concat(translate,[x,y,width,height]).every(Number.isFinite) || width<=0 || height<=0 ||
-            x<0 || y<0 || x+width>target.width || y+height>target.height)
-            throw new RangeError("NV40 unsupported viewport bounds");
-        // Keep clip-space XY until host clipping. The host viewport applies
-        // NV's scale/translation afterwards, including a nonzero origin.
-        return {x,y,width,height,bypass:false,scale,translate:[width/2,height/2,translate[2]]};
+        if(!scale.concat(translate,[x,y,width,height]).every(Number.isFinite) || width<=0 || height<=0)
+            throw new RangeError("NV40 invalid viewport bounds");
+        // NV permits fractional offsets (93.71 uses +0.5 in Direct3D) and
+        // viewports that extend past the attachment. D9WG's viewport is integer:
+        // lower the original affine transform into the vertex program against
+        // the full attachment, then clip to the viewport's pixel-center bounds.
+        const clip={left:Math.max(0,Math.ceil(x-.5)),top:Math.max(0,Math.ceil(y-.5)),
+            right:Math.min(target.width,Math.ceil(x+width-.5)),bottom:Math.min(target.height,Math.ceil(y+height-.5))};
+        return {x:0,y:0,width:target.width,height:target.height,bypass:false,scale,translate,clip};
     }
     attribute(o,index)
     {
