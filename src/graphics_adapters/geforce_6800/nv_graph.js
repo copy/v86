@@ -22,23 +22,34 @@ export class NVGraph
         this.program = new Map();
         this.faults = [];
         this.flips = [[0,0,0,0],[0,0,0,0]];
+        this.flip_contexts = new Map();this.context = 0;
         this.engine2d = new NV2D(this);
         this.engine3d = new NV40_3D(this);
     }
 
-    reset() { this.flips = [[0,0,0,0],[0,0,0,0]]; this.objects.clear(); this.program.clear(); this.engine3d.captured.clear(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
+    reset() { this.flip_contexts.clear();this.context=0; this.flips = [[0,0,0,0],[0,0,0,0]]; this.objects.clear(); this.program.clear(); this.engine3d.captured.clear(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
     get busy() { return this.engine3d.busy || this.flips.some(f=>!!f[3]); }
     reg(at) { return this.device.registers.get(at) || 0; }
     set(at, value) { this.device.registers.set(at, value >>> 0); }
     implemented(at)
     {
         return [0x400100, 0x400104, 0x400108, 0x40013C, 0x400300, 0x400304,
-            0x400324, 0x400328, 0x40032C, 0x400330, 0x400700, 0x400704, 0x400708, 0x40071C, 0x400720].includes(at);
+            0x400324, 0x400328, 0x40032C, 0x400330, 0x400700, 0x400704, 0x400708, 0x400710, 0x40071C, 0x400720].includes(at);
     }
 
     read(at)
     {
-        if(at === 0x400700) return this.engine3d.busy ? 1 : 0;
+        if(at === 0x400700) return this.busy ? 1 : 0;
+        if(at === 0x400710)
+        {
+            let value=this.reg(at)&~0x77777700;
+            for(let i=0;i<2;i++)
+            {
+                const [read,write,modulo]=this.flips[i],shift=8+i*12;
+                value|=write<<shift|read<<(shift+4)|modulo<<(shift+8);
+            }
+            return value>>>0;
+        }
         if(at === 0x40071C) return 0;
         if(at === 0x400328) return this.program.get(this.reg(0x400324)) || 0;
         return null;
@@ -46,6 +57,15 @@ export class NVGraph
 
     written(at, value)
     {
+        if(at === 0x400710)
+        {
+            for(let i=0;i<2;i++)
+            {
+                const f=this.flips[i],shift=8+i*12;
+                f[0]=value>>>(shift+4)&7;f[1]=value>>>shift&7;f[2]=value>>>(shift+8)&7;
+                if(f[0]!==f[1])f[3]=0;
+            }
+        }
         if(at === 0x40071C)
         {
             // The display ISR acknowledges completed flips by advancing the
@@ -118,6 +138,18 @@ export class NVGraph
         }
     }
 
+    activate_context()
+    {
+        const instance=this.reg(0x32E0)&0xFFFFF;
+        if(!instance)return;
+        if(instance!==this.context)
+        {
+            if(this.context)this.flip_contexts.set(this.context,this.flips);
+            this.flips=this.flip_contexts.get(instance)||[[0,0,0,0],[0,0,0,0]];
+            this.context=instance;
+        }
+        this.set(0x40032C,0x01000000|instance);
+    }
     increment_flip(value,modulo) { return value+1===modulo?0:(value+1)&7; }
     flip_method(object,method,value)
     {
@@ -137,6 +169,7 @@ export class NVGraph
         let object, accepted = false;
         try
         {
+            this.activate_context();
             object = this.object(channel, instance);
             accepted = method === 0x100 || method === 0x108 || method === 0x10C;
             if(method === 0x104)
@@ -173,8 +206,9 @@ export class NVGraph
 
     get_state()
     {
-        return [2, Array.from(this.objects.values(), o => [o.channel, o.instance, o.class_id, Array.from(o.methods), o.stream]),
-            Array.from(this.program),this.flips.map(f=>f.slice())];
+        return [3, Array.from(this.objects.values(), o => [o.channel, o.instance, o.class_id, Array.from(o.methods), o.stream]),
+            Array.from(this.program),this.flips.map(f=>f.slice()),this.context,
+            Array.from(this.flip_contexts,([instance,flips])=>[instance,flips.map(f=>f.slice())])];
     }
     set_state(state)
     {
@@ -183,5 +217,16 @@ export class NVGraph
             this.objects.set(channel + ":" + instance, { channel, instance, class_id, methods: new Map(methods), stream });
         this.program = new Map(state[2]);
         if(state[0]>=2)this.flips=state[3].map(f=>f.slice());
+        if(state[0]>=3)
+        {
+            this.context=state[4];
+            this.flip_contexts=new Map(state[5].map(([instance,flips])=>[instance,flips.map(f=>f.slice())]));
+        }
+        else if(this.reg(0x32E0)&0xFFFFF)
+        {
+            // v2 stored the active counters without naming their context.
+            this.context=this.reg(0x32E0)&0xFFFFF;
+            this.set(0x40032C,0x01000000|this.context);
+        }
     }
 }

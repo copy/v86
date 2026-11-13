@@ -120,7 +120,7 @@ console.log("PASS: NV40 query report layout, precise clock, snapshot counter and
 device.registers.set(0x400720,1);
 method(0,0x4200,0x120,0);method(0,0x4200,0x124,2);method(0,0x4200,0x128,3);
 method(0,0x4200,0x12C,0);assert.equal(graph.flips[1][1],0,"WRITE wraps at modulo");
-method(0,0x4200,0x130,0);assert.equal(graph.busy,true);assert.equal(graph.read(0x400700),0,"waiting for display does not make the drawing engine busy");
+method(0,0x4200,0x130,0);assert.equal(graph.busy,true);assert.equal(graph.read(0x400700),1,"pending flip is visible in graph status");
 const flipSaved=graph.get_state();graph=new NVGraph(device);graph.set_state(flipSaved);assert.equal(graph.busy,true);
 graph.written(0x40071C,2);assert.equal(graph.busy,false);assert.equal(graph.flips[1][0],1);
 assert.equal(graph.read(0x40071C),0,"increment strobe does not latch");
@@ -144,3 +144,15 @@ for(let type=2;type<=5;type++)
 }
 assert.equal(device.registers.get(0x400720),1);
 console.log("PASS: ZCULL control/report selectors and separate report reset groups");
+
+device.registers.set(0x400720,1);device.registers.set(0x32E0,0x1234);
+method(0,0x4200,0x120,2);method(0,0x4200,0x124,1);method(0,0x4200,0x128,3);
+assert.equal(graph.read(0x400710)&0x77700000,0x32100000);
+assert.equal(device.registers.get(0x40032C),0x01001234,"FIFO GRCTX becomes the valid current graph context");
+device.registers.set(0x32E0,0x2345);method(1,0x4200,0x128,4);
+assert.equal(graph.read(0x400710)&0x77700000,0x40000000);
+const contextsSaved=graph.get_state();graph=new NVGraph(device);graph.set_state(contextsSaved);
+device.registers.set(0x32E0,0x1234);method(0,0x4200,0x100,0);
+assert.equal(graph.read(0x400710)&0x77700000,0x32100000,"context switch and snapshot preserve separate counters");
+graph.written(0x400710,0x33200000);assert.deepEqual(graph.flips[1].slice(0,3),[3,2,3]);
+console.log("PASS: SURF_TYPE flip fields and valid per-GRCTX counters across switches and snapshots");
