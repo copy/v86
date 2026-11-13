@@ -4,6 +4,9 @@
 #include "app-code-hash.h"
 typedef int (*install_fn)(CFStringRef, CFDictionaryRef, void (*)(CFDictionaryRef), CFStringRef);
 typedef CFDictionaryRef (*lookup_fn)(CFDictionaryRef);
+extern void *CFURLCreateWithFileSystemPath(CFAllocatorRef,CFStringRef,long,Boolean);
+extern void *CFBundleCreate(CFAllocatorRef,void *),*CFBundleCopyExecutableURL(void *);
+extern Boolean CFURLGetFileSystemRepresentation(void *,Boolean,unsigned char *,long);
 static install_fn native_install;
 static lookup_fn native_lookup;
 int app_native_load(void)
@@ -17,6 +20,11 @@ static CFMutableDictionaryRef user_options(void)
 {
     CFMutableDictionaryRef options=CFDictionaryCreateMutable(0,0,kCFTypeDictionaryKeyCallBacks,kCFTypeDictionaryValueCallBacks);
     CFStringRef key=string("ApplicationType"),value=string("User");CFDictionarySetValue(options,key,value);CFRelease(key);CFRelease(value);return options;
+}
+int app_native_ready(void)
+{
+    void *pool=objc_autoreleasePoolPush();CFMutableDictionaryRef options=user_options();CFDictionaryRef apps=native_lookup(options);
+    int ready=apps!=0;if(apps)CFRelease(apps);CFRelease(options);objc_autoreleasePoolPop(pool);return ready;
 }
 int app_native_install(const char *filename,void (*callback)(CFDictionaryRef))
 {
@@ -36,9 +44,20 @@ int app_native_lookup(const char *bundle,struct app_identity *identity)
     {
         char path[1024],executable[256];
         if(!property(app,"CFBundleShortVersionString",identity->version,sizeof(identity->version)))property(app,"CFBundleVersion",identity->version,sizeof(identity->version));
-        if(property(app,"Path",path,sizeof(path)) && property(app,"CFBundleExecutable",executable,sizeof(executable)) &&
-            snprintf(identity->executable,sizeof(identity->executable),"%s/%s",path,executable)<(int)sizeof(identity->executable))
-            ok=app_code_hash(identity->executable,identity->cdhash);
+        if(property(app,"Path",path,sizeof(path)))
+        {
+            if(property(app,"CFBundleExecutable",executable,sizeof(executable)) &&
+                snprintf(identity->executable,sizeof(identity->executable),"%s/%s",path,executable)<(int)sizeof(identity->executable))
+                ok=app_code_hash(identity->executable,identity->cdhash);
+            if(!ok)
+            {
+                CFStringRef name=string(path);void *url=CFURLCreateWithFileSystemPath(0,name,0,1),*bundle=url?CFBundleCreate(0,url):0;
+                void *binary=bundle?CFBundleCopyExecutableURL(bundle):0;
+                if(binary && CFURLGetFileSystemRepresentation(binary,1,(unsigned char *)identity->executable,sizeof(identity->executable)))
+                    ok=app_code_hash(identity->executable,identity->cdhash);
+                if(binary)CFRelease(binary);if(bundle)CFRelease(bundle);if(url)CFRelease(url);CFRelease(name);
+            }
+        }
     }
     CFRelease(key);if(apps)CFRelease(apps);CFRelease(options);objc_autoreleasePoolPop(pool);return ok;
 }
@@ -53,6 +72,39 @@ unsigned long long app_native_free(void)
 }
 static int callback_failed;
 static void trace(const char *text) { write(1, text, strlen(text)); }
+static int signature_probe(const char *filename)
+{
+    typedef int (*validate_fn)(CFStringRef,CFDictionaryRef,CFDictionaryRef *);
+    void *mis=dlopen("/usr/lib/libmis.dylib",1);validate_fn validate=mis?(validate_fn)dlsym(mis,"MISValidateSignatureAndCopyInfo"):0;
+    CFStringRef *allow=mis?(CFStringRef *)dlsym(mis,"kMISValidationOptionAllowAdHocSigning"):0;
+    CFStringRef *only=mis?(CFStringRef *)dlsym(mis,"kMISValidationOptionValidateSignatureOnly"):0;
+    if(!validate || !allow || !only)return 3;extern const void *kCFBooleanTrue;
+    CFStringRef path=string(filename);
+    // Local diagnostic for the exact 10B329 libmis image: separate static
+    // object creation from its later signature/profile checks.
+    typedef int (*create_fn)(void *,unsigned,void **);
+    create_fn create=(create_fn)(((usize)validate&~1u)+0x2e24+1);
+    void *url=CFURLCreateWithFileSystemPath(0,path,0,0),*code=0;
+    int created=create(url,0,&code);printf("V86 MIS static create result=%d code=%p\n",created,code);
+    if(code)CFRelease(code);if(url)CFRelease(url);
+    for(unsigned mask=0;mask<4;mask++)
+    {
+        CFMutableDictionaryRef options=CFDictionaryCreateMutable(0,0,kCFTypeDictionaryKeyCallBacks,kCFTypeDictionaryValueCallBacks);
+        if(mask&1)CFDictionarySetValue(options,*allow,kCFBooleanTrue);
+        if(mask&2)CFDictionarySetValue(options,*only,kCFBooleanTrue);
+        CFDictionaryRef info=0;int result=validate(path,options,&info);
+        printf("V86 MIS diagnostic options=%u result=%d info=%p\n",mask,result,info);if(info){CFShow(info);CFRelease(info);}CFRelease(options);
+    }
+    const char *references[]={"/usr/lib/dyld","/usr/lib/v86-app-agent"};
+    for(unsigned i=0;i<2;i++)
+    {
+        CFStringRef reference=string(references[i]);CFDictionaryRef info=0;
+        int result=validate(reference,0,&info);
+        printf("V86 MIS reference path=%s result=%d info=%p\n",references[i],result,info);
+        if(info){CFShow(info);CFRelease(info);}CFRelease(reference);
+    }
+    CFRelease(path);trace("V86 MIS diagnostic complete\n");return 0;
+}
 static void dump_install_log(void)
 {
     void *(*new_query)(unsigned)=(void *(*)(unsigned))dlsym((void *)-2,"asl_new");
@@ -91,6 +143,7 @@ int main(int argc, char **argv)
     int console = open("/dev/console", 2);
     if(console >= 0) { dup2(console, 1); dup2(console, 2); trace("V86 install helper started\n"); }
     if(argc == 2 && !strcmp(argv[1],"--serve"))return app_service();
+    if(argc == 3 && !strcmp(argv[1],"--mis-test"))return signature_probe(argv[2]);
     if(argc != 3 || strcmp(argv[1], "--install-test")) {
         printf("usage: v86-app-agent --install-test /absolute/path.ipa\n"); return 2;
     }

@@ -7,11 +7,14 @@ extern int flock(int,int);
 extern int CC_SHA256_Init(void *), CC_SHA256_Update(void *,const void *,unsigned), CC_SHA256_Final(unsigned char *,void *);
 extern void CCHmac(unsigned,const void *,usize,const void *,usize,void *);
 #define ROOT "/private/var/v86/"
-#define STAGING "/private/var/mobile/Media/PublicStaging/v86/"
+// installd clears PublicStaging during its first initialization. Keep
+// verified uploads outside that directory, including across cold boots.
+#define STAGING "/private/var/mobile/Media/v86-staging/"
 #define FRAME_MAX (65536+8192)
 #define JOB_MAX (548+189*20)
 static unsigned char token[32],nonce[32],job[JOB_MAX],packet[FRAME_MAX+16];
 static unsigned job_size,offset,generation,phase,sequence;
+static int native_percent=-1;
 static int connection=-1,callback_error;
 static char last_error[512],ipa[256],reported_version[128];
 enum { IDLE,TRANSFERRING,STAGED,INSTALLING,VERIFYING,INSTALLED,FAILED,CANCELLED,INTERRUPTED };
@@ -31,8 +34,9 @@ static int atomic_file(const char *path,const void *bytes,unsigned size,unsigned
 }
 static int persist(void)
 {
-    unsigned char saved[16+JOB_MAX];put32(saved,0x31533856);put32(saved+4,phase);put32(saved+8,offset);put32(saved+12,job_size);
-    memcpy(saved+16,job,job_size);return atomic_file(ROOT "install-job",saved,16+job_size,0600);
+    unsigned char saved[16+JOB_MAX+512];put32(saved,0x32533856);put32(saved+4,phase);put32(saved+8,offset);put32(saved+12,job_size);
+    memcpy(saved+16,job,job_size);memcpy(saved+16+job_size,last_error,512);
+    return atomic_file(ROOT "install-job",saved,16+job_size+512,0600);
 }
 static void json_string(char *out,unsigned cap,const char *in)
 {
@@ -63,8 +67,8 @@ static int reply(unsigned op,unsigned seq,int ok,const char *detail,int installe
 {
     char error[1024],status[256],version[256];json_string(error,sizeof(error),last_error);json_string(status,sizeof(status),detail?detail:"");json_string(version,sizeof(version),reported_version);
     char *body=(char *)packet+48;
-    int n=snprintf(body,4096,"{\"protocol\":1,\"build\":\"10B329\",\"ok\":%s,\"phase\":\"%s\",\"install_id\":\"%s\",\"bundle_id\":\"%s\",\"job_generation\":%u,\"offset\":%u,\"total\":%u,\"status\":\"%s\",\"error\":\"%s\",\"version\":\"%s\",\"installed\":%s}",
-        ok?"true":"false",phases[phase],job_size?(char *)job+32:"",job_size?(char *)job+112:"",job_size?code_le(job+8):0,offset,job_size?code_le(job+4):0,status,error,version,installed?"true":"false");
+    int n=snprintf(body,4096,"{\"protocol\":1,\"build\":\"10B329\",\"ok\":%s,\"phase\":\"%s\",\"install_id\":\"%s\",\"bundle_id\":\"%s\",\"job_generation\":%u,\"offset\":%u,\"total\":%u,\"native_percent\":%d,\"status\":\"%s\",\"error\":\"%s\",\"version\":\"%s\",\"installed\":%s}",
+        ok?"true":"false",phases[phase],job_size?(char *)job+32:"",job_size?(char *)job+112:"",job_size?code_le(job+8):0,offset,job_size?code_le(job+4):0,native_percent,status,error,version,installed?"true":"false");
     if(n<0 || n>=4096)return 0;
     unsigned char auth[40+4096];memcpy(auth,nonce,32);put32(auth+32,op);put32(auth+36,seq);memcpy(auth+40,body,n);
     CCHmac(2,token,32,auth,40+n,packet+16);
@@ -79,7 +83,8 @@ static int valid_job(const unsigned char *b,unsigned n)
 static int verify_installed(void)
 {
     struct app_identity app;
-    return job_size && app_native_lookup((char *)job+112,&app) && !strcmp(app.version,(char *)job+368) && !memcmp(app.cdhash,job+528,20);
+    int ok=job_size && app_native_lookup((char *)job+112,&app) && !strcmp(app.version,(char *)job+368) && !memcmp(app.cdhash,job+528,20);
+    if(ok)snprintf(reported_version,sizeof(reported_version),"%s",app.version);return ok;
 }
 static void fail(const char *message)
 {
@@ -87,6 +92,8 @@ static void fail(const char *message)
 }
 static void native_status(CFDictionaryRef info)
 {
+    CFStringRef percent_key=string("PercentComplete");CFTypeRef percent=CFDictionaryGetValue(info,percent_key);
+    if(percent){long value=(long)send0((void *)percent,"intValue");native_percent=value>=0&&value<=100?(int)value:-1;}CFRelease(percent_key);
     CFStringRef k=string("Status");CFTypeRef value=CFDictionaryGetValue(info,k);char message[256]="";
     if(value)CFStringGetCString(value,message,sizeof(message),UTF8);CFRelease(k);
     k=string("Error");value=CFDictionaryGetValue(info,k);if(value){callback_error=1;CFStringGetCString(value,last_error,sizeof(last_error),UTF8);}CFRelease(k);
@@ -102,10 +109,13 @@ static int hash_ipa(unsigned char digest[32])
 }
 static void restore(void)
 {
-    unsigned char saved[16+JOB_MAX];int fd=open(ROOT "install-job",0);if(fd<0)return;
+    unsigned char saved[16+JOB_MAX+512];int fd=open(ROOT "install-job",0);if(fd<0)return;
     int n=read(fd,saved,sizeof(saved));close(fd);
-    if(n<16 || code_le(saved)!=0x31533856 || code_le(saved+4)>INTERRUPTED || !valid_job(saved+16,n-16))return;
-    phase=code_le(saved+4);offset=code_le(saved+8);job_size=n-16;memcpy(job,saved+16,job_size);
+    if(n<16 || (code_le(saved)!=0x31533856 && code_le(saved)!=0x32533856) || code_le(saved+4)>INTERRUPTED)return;
+    unsigned length=code_le(saved+12),error_size=code_le(saved)==0x32533856?512:0;
+    if(length>JOB_MAX || n!=16+length+error_size || !valid_job(saved+16,length))return;
+    phase=code_le(saved+4);offset=code_le(saved+8);job_size=length;memcpy(job,saved+16,job_size);
+    if(error_size){memcpy(last_error,saved+16+job_size,512);last_error[511]=0;}
     snprintf(ipa,sizeof(ipa),STAGING "%s.ipa",(char *)job+32);
     if(phase==INSTALLING || phase==VERIFYING){phase=verify_installed()?INSTALLED:INTERRUPTED;persist();}
     else if(phase==TRANSFERRING){phase=INTERRUPTED;persist();}
@@ -123,7 +133,8 @@ static void command(unsigned op,unsigned char *b,unsigned n)
         if(!expanded || expanded>0x100000000ULL || app_native_free()<expanded*2+code_le(b+4)+(64<<20))
             {snprintf(last_error,sizeof(last_error),"The iPhone has insufficient free space for staging and installation");goto answer;}
         for(unsigned i=32;i<112 && b[i];i++)if(!((b[i]>='a'&&b[i]<='z')||(b[i]>='A'&&b[i]<='Z')||(b[i]>='0'&&b[i]<='9')||b[i]=='-')){snprintf(last_error,sizeof(last_error),"Invalid installation identity");goto answer;}
-        job_size=n;memcpy(job,b,n);offset=0;phase=TRANSFERRING;snprintf(ipa,sizeof(ipa),STAGING "%s.ipa",(char *)job+32);
+        if(job_size)unlink(ipa);
+        job_size=n;memcpy(job,b,n);offset=0;native_percent=-1;phase=TRANSFERRING;snprintf(ipa,sizeof(ipa),STAGING "%s.ipa",(char *)job+32);
         int fd=open(ipa,0xA01,0600);if(fd<0){fail("Cannot create the native IPA staging file");goto answer;}
         ok=!chown(ipa,501,501)&&!fsync(fd);close(fd);if(ok)ok=persist();if(!ok)fail("Cannot persist the installation task");
     }
@@ -176,7 +187,9 @@ int app_service(void)
     mkdir(ROOT,0755);int lock=open(ROOT "install-lock",0x201,0600);if(lock<0 || flock(lock,6))return 4;
     int fd=open(ROOT "install-token",0);if(fd<0)return 5;int got=read(fd,token,32);close(fd);if(got!=32)return 5;
     mkdir("/private/var/mobile/Media/PublicStaging",0755);mkdir(STAGING,0700);chown(STAGING,501,501);chmod(STAGING,0700);
-    if(!app_native_load())return 3;restore();
+    if(!app_native_load())return 3;
+    while(!app_native_ready())usleep(1000000);
+    restore();
     for(;;)
     {
         connection=call(1,"v86.ios.install",15,0);if(connection<=0){usleep(1000000);continue;}

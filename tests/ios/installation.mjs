@@ -22,7 +22,8 @@ try
     const cpu = emulator.v86.cpu, started = performance.now();
     let next = 0, result = null, unlock = -1, touchAt = 0, dumped = 0;
     cpu.clock.resume();
-    while(!result && !serial.includes("panic(cpu") && performance.now() - started < 1200000 && !fs.existsSync(path.join(probe, "STOP")))
+    while(!result && !(process.env.IPA_MIS_PROBE && serial.includes("V86 MIS diagnostic complete")) &&
+        !serial.includes("panic(cpu") && performance.now() - started < 1200000 && !fs.existsSync(path.join(probe, "STOP")))
     {
         for(let i = 0; i < 24; i++) cpu.run_cores();
         const panel = cpu.devices.apple_clcd;
@@ -59,11 +60,19 @@ try
     }
     fs.writeFileSync(path.join(probe, "serial.log"), serial);
     assert.ok(!serial.includes("panic(cpu"), serial.slice(-4000));
+    if(process.env.IPA_MIS_PROBE)
+    {
+        assert.ok(serial.includes("V86 MIS diagnostic complete"), "Native MIS diagnostics did not complete");
+        console.log("Completed native signature diagnostics; see serial.log");
+    }
+    else
+    {
     assert.ok(result, "Native installation helper produced no result; see the probe's serial.log");
     console.log(result[0]);
     assert.equal(Number(result[1]), 0, "MobileInstallationInstall failed");
     assert.equal(Number(result[2]), 0, "Native installation callback reported an error");
     assert.ok(Number(result[3]) > 0, "MobileInstallationLookup returned no installed user application");
     console.log("PASS: native iOS installation and application lookup");
+    }
 }
 finally { try { await emulator.destroy(); } finally { renderer?.close(); } }

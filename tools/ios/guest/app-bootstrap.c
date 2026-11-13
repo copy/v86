@@ -8,7 +8,9 @@ static void *start_agent(void *unused)
 {
     (void)unused;
     int probe=open("/private/var/v86/install-probe",0);if(probe>=0)close(probe);
-    char *args[] = { "/usr/lib/v86-app-agent", probe>=0?"--install-test":"--serve", probe>=0?"/private/var/mobile/Media/PublicStaging/test.ipa":0, 0 };
+    int mis=open("/private/var/v86/install-mis-probe",0);if(mis>=0)close(mis);
+    char *args[] = { "/usr/lib/v86-app-agent", mis>=0?"--mis-test":probe>=0?"--install-test":"--serve",
+        mis>=0?"/private/var/mobile/Media/v86-input/Probe.app/V86Test":probe>=0?"/private/var/mobile/Media/v86-input/test.ipa":0, 0 };
     char *environment[] = { 0 }; int pid = 0, status = 0;
     do {
         int error = posix_spawn(&pid, args[0], 0, 0, args, environment);

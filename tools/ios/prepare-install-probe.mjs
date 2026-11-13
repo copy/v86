@@ -16,11 +16,13 @@ import { INSTALL_DAEMON, INSTALL_POLICY, link_install_policy } from "../../src/i
 import { inspect_ipa } from "../../src/ios/ipa.js";
 import { initial_install_state, install_allowlist } from "../../src/ios/install_trust.js";
 import { write_nand_boot } from "../../src/ios/nand_boot.js";
+import { zip_read } from "../../src/android/zip.js";
 
 const [source, kernel, guest, library, output, ...extra] = process.argv.slice(2);
 const serve = extra.includes("--serve"), policyEnabled = extra.includes("--policy"), at = extra.indexOf("--ipa"), ipaPath = at < 0 ? null : extra[at + 1];
+const misProbe = extra.includes("--mis-test");
 if(at >= 0) extra.splice(at, 2);
-if(!output || at >= 0 && !ipaPath || extra.some(x => !["--policy", "--serve"].includes(x)))
+if(!output || at >= 0 && !ipaPath || misProbe && serve || extra.some(x => !["--policy", "--serve", "--mis-test"].includes(x)))
     throw new Error("usage: prepare-install-probe.mjs prepared-system.hfs stock-kernel guest-build libv86gles.dylib new-directory [--policy] [--ipa app.ipa]");
 fs.mkdirSync(output); // Refuse to overwrite any previous run.
 const systemPath = path.join(output, "system.hfs"), dataPath = path.join(output, "data.hfs");
@@ -37,7 +39,7 @@ try
     await install_system_file(volume, (at, b) => fs.writeSync(systemFD, b, 0, b.length, at), "/usr/lib/v86-app-agent", agent, 0o755);
     const daemon = new TextEncoder().encode(`<?xml version="1.0"?><plist version="1.0"><dict>
 <key>Label</key><string>org.v86.app-agent</string><key>RunAtLoad</key><true/>
-<key>ProgramArguments</key><array><string>/usr/lib/v86-app-agent</string><string>--install-test</string><string>/private/var/mobile/Media/PublicStaging/test.ipa</string></array>
+<key>ProgramArguments</key><array><string>/usr/lib/v86-app-agent</string><string>--install-test</string><string>/private/var/mobile/Media/v86-input/test.ipa</string></array>
 <key>StandardOutPath</key><string>/dev/console</string><key>StandardErrorPath</key><string>/dev/console</string></dict></plist>`);
     const write = (at, b) => fs.writeSync(systemFD, b, 0, b.length, at);
     // System jobs are loaded from xpcd_cache in this firmware; local jobs
@@ -70,13 +72,23 @@ try
     const install = serve ? initial_install_state(preparedKernel) : null;
     fs.writeFileSync(path.join(output, "kernel.macho"), preparedKernel, { flag: "wx" });
     const capacity = data_capacity(volume.total_blocks * volume.block_size);
+    const probeFiles = [];
+    if(misProbe)
+    {
+        probeFiles.push({ path: "/v86/install-mis-probe", bytes: new Uint8Array(1), dir_mode: 0o755, mode: 0o600 });
+        for(const e of inspected.entries.filter(e => e.name.startsWith(inspected.root + "/") && !e.name.endsWith("/"))
+            .sort((a, b) => a.name.split("/").length - b.name.split("/").length))
+            probeFiles.push({ path: "/mobile/Media/v86-input/Probe.app/" + e.name.slice(inspected.root.length + 1),
+                bytes: await zip_read((at, n) => ipa.subarray(at, at + n), e), dir_mode: 0o755, mode: 0o755, uid: 501, gid: 501 });
+    }
     fs.ftruncateSync(dataFD, capacity);
     await write_hfsx_data(volume, capacity, (at, b) => fs.writeSync(dataFD, b, 0, b.length, at), [
         { path: "/keybags/systembag.kb", bytes: systembag(), dir_mode: 0o700, mode: 0o600 },
         ...serve ? [{ path: "/v86/install-token", bytes: Buffer.from(install.token, "hex"), dir_mode: 0o755, mode: 0o600 }] :
             [{ path: "/v86/install-probe", bytes: new Uint8Array(1), dir_mode: 0o755, mode: 0o600 }],
         { path: "/v86/libv86gles.dylib", bytes: lib, dir_mode: 0o755, mode: 0o755 },
-        { path: "/mobile/Media/PublicStaging/test.ipa", bytes: ipa, dir_mode: 0o755, mode: 0o600, uid: 501, gid: 501 },
+        { path: "/mobile/Media/v86-input/test.ipa", bytes: ipa, dir_mode: 0o700, mode: 0o600, uid: 501, gid: 501 },
+        ...probeFiles,
         { path: "/mobile/Library/Logs/.v86", bytes: new Uint8Array(0), dir_mode: 0o755, mode: 0o644, uid: 501, gid: 501 },
         { path: "/mobile/Library/Logs/MobileInstallation/.v86", bytes: new Uint8Array(0), dir_mode: 0o755, mode: 0o644, uid: 501, gid: 501 },
         ...(() => {
