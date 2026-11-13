@@ -1974,6 +1974,7 @@ export interface IOSInstallStatus {
     generation?: number;
     offset?: number;
     total?: number;
+    native_percent?: number;
     installed?: boolean;
     version?: string;
     error?: string;

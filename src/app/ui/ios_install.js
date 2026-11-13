@@ -33,7 +33,7 @@ export function show_ios_install(controller,name)
     let shown=null;
     const render=()=>{
         const s=controller.state,c=s.capability,r=s.report;
-        picker.disabled=controller.active();
+        picker.disabled=controller.active()||!!c.install_id&&["transferring","staged","interrupted"].includes(c.phase);
         let text=phases[s.phase]||s.phase;
         if(s.phase==="ready"||s.phase==="choose"){
             if(c.supported===false)text=c.error;
@@ -41,6 +41,7 @@ export function show_ios_install(controller,name)
             else if(!c.running)text="Resume the iPhone before installing.";
         }
         if(s.phase==="transferring")text+=" "+format_size(s.offset||0)+" / "+format_size(s.total||0);
+        if(s.phase==="installing"&&s.status)text+=" "+s.status.replace(/([a-z])([A-Z])/g,"$1 $2");
         status.textContent=text;error.textContent=s.error||"";
         if(r!==shown){shown=r;downgrade.checked=false;replace(report,r?h("dl.ios-ipa-info",null,
             ...[["Application",r.name],["Bundle ID",r.bundle_id],["Version",r.version],["Minimum iOS",r.minimum_ios],["Architecture",r.architecture],["IPA size",format_size(r.size)]].flatMap(([k,v])=>[h("dt",null,k),h("dd",null,v)])):null);}
@@ -54,6 +55,7 @@ export function show_ios_install(controller,name)
         detail.textContent=s.error||JSON.stringify({phase:s.phase,status:c.status||"",install_id:s.install_id||c.install_id||null},null,2);
         progress.hidden=!controller.active();
         if(s.phase==="transferring"&&s.total)progress.value=100*(s.offset||0)/s.total;
+        else if(s.phase==="installing"&&s.native_percent>=0&&s.native_percent<=100)progress.value=s.native_percent;
         else if(s.progress?.total)progress.value=100*s.progress.done/s.progress.total;
         else progress.removeAttribute("value");
     };

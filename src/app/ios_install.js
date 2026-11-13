@@ -35,17 +35,19 @@ export class IOSInstallController extends EventTarget {
     cancellable(){return ["checking","preparing","transferring","staged"].includes(this.state.phase)||
         this.state.phase==="interrupted"&&["transferring","staged","interrupted"].includes(this.state.capability.phase);}
     async refresh(){
-        if(this.disposed)return;
+        if(this.disposed || this.refreshing)return;
+        this.refreshing=true;
         try{
             const capability=await this.emulator.ios_install_status();this.state.capability=capability;
             if(this.state.phase==="ready" && this.state.report && capability.available && !this.state.existing_checked){
-                this.state.existing_checked=true;
-                this.state.existing=await this.emulator.ios_install_lookup(this.state.report.bundle_id);
+                const bundle=this.state.report.bundle_id,existing=await this.emulator.ios_install_lookup(bundle);
+                if(this.state.phase==="ready" && this.state.report?.bundle_id===bundle){this.state.existing=existing;this.state.existing_checked=true;}
             }
             if(["choose","interrupted","recoverable"].includes(this.state.phase) && capability.install_id && ["transferring","staged","installing","verifying","interrupted","installed","failed"].includes(capability.phase))
                 this.update({...capability,phase:capability.phase==="installed"?"recoverable":capability.phase==="transferring"?"interrupted":capability.phase});
             else this.update({});
         }catch(error){this.state.capability={available:false,error:error.message,phase:"disconnected"};this.update({});}
+        finally{this.refreshing=false;}
     }
     process(message){
         return new Promise((resolve,reject)=>{
@@ -62,6 +64,9 @@ export class IOSInstallController extends EventTarget {
     }
     async choose(file){
         if(this.active())return;
+        if(this.state.capability.install_id&&["transferring","staged","interrupted"].includes(this.state.capability.phase)){
+            this.update({error:"Cancel or continue the previous installation before choosing another IPA"});return;
+        }
         this.file=file;this.cancelled=false;this.update({phase:"checking",error:"",report:null,existing:null,existing_checked:false,progress:null});
         try{
             const report=await this.process({op:"inspect",file});if(this.cancelled)return;
@@ -117,5 +122,6 @@ export class IOSInstallController extends EventTarget {
         }
         // Upload cancellation is processed after the current acknowledged block.
     }
-    dispose(){this.disposed=true;clearInterval(this.poll);this.emulator.remove_listener("ios-install-progress",this.listener);this.worker?.terminate();}
+    dispose(){this.disposed=true;this.cancelled=true;clearInterval(this.poll);this.emulator.remove_listener("ios-install-progress",this.listener);
+        this.worker?.terminate();this.worker=null;this.reject_worker?.(new Error("The iPhone was powered off"));this.reject_worker=null;remove_scratch(this.scratch);}
 }
