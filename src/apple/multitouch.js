@@ -253,7 +253,9 @@ export class AppleMultitouch
             let wire_id = this.host_ids.get(id);
             if(wire_id === undefined)
             {
-                wire_id = 1;
+                // N1 reports contact IDs as one-based, then the driver
+                // subtracts one for the HID path. UIKit ignores path zero.
+                wire_id = 2;
                 while([...this.host_ids.values(), ...next.values()].includes(wire_id)) wire_id++;
             }
             next.set(id, wire_id); contacts.push([wire_id, x * 640 / width, y * 960 / height]);
@@ -321,10 +323,11 @@ export class AppleMultitouch
         this.frames = (state[11] || []).map(frame => frame.slice());
         this.contacts = new Map(state[12] || []); this.frame_number = state[13] || 0;
         this.contacts.delete(0);
+        this.contacts.delete(1);
         this.last_frame = state[14]?.slice() || null; this.last_sequence = state[15] || 0;
         this.frame = state[16]?.slice() || null; this.frame_replay = !!state[17];
         this.pointer = state[18]?.slice() || [0, 0, false];
-        this.host_ids = new Map((state[19] || []).filter(([, id]) => id !== 0));
+        this.host_ids = new Map((state[19] || []).filter(([, id]) => id > 1));
         this.ready(this.running);
     }
 }
