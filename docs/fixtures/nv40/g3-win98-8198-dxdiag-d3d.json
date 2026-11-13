@@ -1,0 +1,47 @@
+{
+  "stage": "G3 Win98 native DxDiag Direct3D visual/report gate",
+  "scope": "D3D7/8/9 visuals and report pass; clean rerun with query/flip implementation and 3DMark99/2000 still pending",
+  "driver": "81.98",
+  "report_sha256": "439c4b1fce58fe3f347bb34cf062e50b592a94b063d889457f8efa1bc9e2296c",
+  "report_lines": [
+    "DDraw Test Result: Not run",
+    "D3D7 Test Result: All tests were successful.",
+    "D3D8 Test Result: All tests were successful.",
+    "D3D9 Test Result: All tests were successful."
+  ],
+  "gpu": {
+    "draws": 6917,
+    "bytes": 1236356360,
+    "readbacks": 6917,
+    "failures": 0,
+    "uploads": 1744,
+    "uploadBytes": 1193165992
+  },
+  "graphFaultHistory": {
+    "retained": 64,
+    "methods": [
+      "0x12c",
+      "0x130",
+      "0x1800"
+    ],
+    "note": "These were unsupported query/flip method traps in this run, subsequently implemented. Do not interpret this trace as fault-free."
+  },
+  "visual_evidence": [
+    {
+      "api": 7,
+      "file": "capture-0311.png",
+      "sha256": "4db54d7decc44cc1beb1d9b29267810f97d8bb9b231f343081b938ceeec71639"
+    },
+    {
+      "api": 8,
+      "file": "capture-0477.png",
+      "sha256": "de8ab5ad4e845efa691dc29643ca55f3a686d00e9a5f3d7ec633be96b55764a8"
+    },
+    {
+      "api": 9,
+      "file": "capture-0635.png",
+      "sha256": "2cac69f1507135e5dc8cbc11de3d3e3a7dc6ec45263620ecacbd9840c23d8164"
+    }
+  ],
+  "imageUnchanged": true
+}
