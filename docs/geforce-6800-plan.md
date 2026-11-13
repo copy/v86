@@ -167,6 +167,16 @@
   确认位清除，不能确认一类时丢失另一类；增加同时挂起两类通知的回归用例。
   DMA/状态故障另保留最多 64 条诊断原因，不进入设备快照。图形上下文测试及构建通过。
 
+- 客体安装路径续修：Win98 为新 PCI 节点补齐真实 HardwareID，匹配官方 81.98 INF，
+  使用原生文件队列复制文件；缺少驱动链接时在原生 class key 下分配未占用 slot。
+  原生安装返回成功，PCI/驱动注册表经正常重启保留。补装 i440FX、PIIX ISA 与 IRQ
+  steering 的微软驱动；当前 NVIDIA 节点仍报告 code 12，资源转储显示旧 `*PNP0900`
+  还占有 VGA I/O/内存范围，必须继续处理，不能算 Win98 驱动加载成功。
+  harness 增加只读安装 CD、`NV_REBOOT` 两阶段安装/复核、`NV_SKIP_INSTALL`、
+  `NV_MODE_TEST`（枚举最多 8192 个模式）、屏幕重绘宽限和 PGRAPH/显示/FIFO 诊断。
+  XP 93.71 原生模式测试/切换到 1024×768×32 成功且设备保持 started/problem=0，
+  证据见 `g1-xp-9371-desktop.json`；Win98 重启后的问题码见 `g0-win98-8198-installed.json`。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

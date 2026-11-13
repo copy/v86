@@ -9,6 +9,7 @@ static char output[MAX_PATH], inf[MAX_PATH], text[1024], hardware[4096];
 static unsigned int used;
 typedef CONFIGRET (WINAPI *status_t)(PULONG,PULONG,DEVINST,ULONG);
 static status_t node_status;
+static BOOL rebooted;
 static void put(const char *s) { while(*s && used < sizeof(text)-3) text[used++] = *s++; }
 static void number(DWORD n) { char b[12]; int i=11; b[i]=0; do { b[--i]='0'+n%10; n/=10; } while(n); put(b+i); }
 static void line(void)
@@ -31,7 +32,123 @@ static BOOL device_hardware(HDEVINFO set,SP_DEVINFO_DATA *dev)
      * install. Its instance ID already contains the vendor/device identity. */
     return SetupDiGetDeviceInstanceIdA(set,dev,hardware,sizeof(hardware),0);
 }
+static UINT CALLBACK install_message(PVOID context,UINT notification,UINT_PTR p1,UINT_PTR p2)
+{
+    if(notification==SPFILENOTIFY_COPYERROR)
+    {
+        const FILEPATHS_A *files=(const FILEPATHS_A*)p1;
+        put("COPY_ERROR ");put(files->Source);put(" -> ");put(files->Target);
+        put(" error=");number(files->Win32Error);line();
+        return FILEOP_ABORT;
+    }
+    if(notification==SPFILENOTIFY_NEEDMEDIA)
+    {
+        const SOURCE_MEDIA_A *media=(const SOURCE_MEDIA_A*)p1;
+        put("NEED_MEDIA path=");put(media->SourcePath);put(" file=");put(media->SourceFile);line();
+        char dir[MAX_PATH];lstrcpyA(dir,inf);
+        unsigned int end=lstrlenA(dir);while(end && dir[end-1]!='\\') end--;
+        if(end) dir[end-1]=0;
+        lstrcpyA((char*)p2,dir);
+        return FILEOP_NEWPATH;
+    }
+    return SetupDefaultQueueCallbackA(context,notification,p1,p2);
+}
 #ifdef NV_WIN98
+static BOOL allocate_driver_key(HDEVINFO set,SP_DEVINFO_DATA *dev,const char *class_name)
+{
+    GUID display;DWORD count=0;
+    if(!SetupDiClassGuidsFromNameA(class_name,&display,1,&count)) return FALSE;
+    HKEY parent=SetupDiOpenClassRegKey(&display,KEY_ALL_ACCESS);
+    put("DISPLAY_CLASS_KEY opened=");number(parent!=INVALID_HANDLE_VALUE);put(" error=");number(parent!=INVALID_HANDLE_VALUE?0:GetLastError());line();
+    if(parent==INVALID_HANDLE_VALUE) return FALSE;
+    for(DWORD i=0;i<10000;i++)
+    {
+        char name[5];DWORD n=i;name[4]=0;for(int j=3;j>=0;j--){name[j]='0'+n%10;n/=10;}
+        HKEY key;DWORD disposition;
+        LONG rc=RegCreateKeyExA(parent,name,0,0,0,KEY_ALL_ACCESS,0,&key,&disposition);
+        if(rc!=ERROR_SUCCESS) break;
+        RegCloseKey(key);
+        if(disposition==REG_CREATED_NEW_KEY)
+        {
+            char path[64];lstrcpyA(path,class_name);lstrcatA(path,"\\");lstrcatA(path,name);
+            BOOL ok=SetupDiSetDeviceRegistryPropertyA(set,dev,SPDRP_DRIVER,(const BYTE*)path,lstrlenA(path)+1);
+            put("DISPLAY_DRIVER_LINK set=");number(ok);put(" path=");put(path);put(" error=");number(ok?0:GetLastError());line();
+            RegCloseKey(parent);return ok;
+        }
+    }
+    RegCloseKey(parent);return FALSE;
+}
+static void disable_legacy_vga(void)
+{
+    HDEVINFO set=SetupDiGetClassDevsA(0,0,0,DIGCF_ALLCLASSES|DIGCF_PRESENT);
+    SP_DEVINFO_DATA dev;dev.cbSize=sizeof(dev);
+    for(DWORD i=0;SetupDiEnumDeviceInfo(set,i,&dev);i++)
+    {
+        if(!device_hardware(set,&dev) || !match(hardware,"*PNP0900")) continue;
+        SP_PROPCHANGE_PARAMS change;
+        change.ClassInstallHeader.cbSize=sizeof(SP_CLASSINSTALL_HEADER);
+        change.ClassInstallHeader.InstallFunction=DIF_PROPERTYCHANGE;
+        change.StateChange=DICS_DISABLE;change.Scope=DICS_FLAG_GLOBAL;change.HwProfile=0;
+        BOOL ok=SetupDiSetClassInstallParamsA(set,&dev,&change.ClassInstallHeader,sizeof(change));
+        if(ok) ok=SetupDiCallClassInstaller(DIF_PROPERTYCHANGE,set,&dev);
+        put("LEGACY_VGA disabled=");number(ok);put(" error=");number(ok?0:GetLastError());line();
+    }
+    SetupDiDestroyDeviceInfoList(set);
+}
+static void resources(DEVINST node)
+{
+    typedef CONFIGRET (WINAPI *first_t)(LOG_CONF*,DEVINST,ULONG);
+    typedef CONFIGRET (WINAPI *next_t)(RES_DES*,RES_DES,RESOURCEID,RESOURCEID*,ULONG);
+    typedef CONFIGRET (WINAPI *data_t)(RES_DES,void*,ULONG,ULONG);
+    typedef CONFIGRET (WINAPI *size_t_)(ULONG*,RES_DES,ULONG);
+    typedef CONFIGRET (WINAPI *free_t)(ULONG);
+    HMODULE cfg=GetModuleHandleA("cfgmgr32.dll");
+    first_t first=(first_t)GetProcAddress(cfg,"CM_Get_First_Log_Conf");
+    next_t next=(next_t)GetProcAddress(cfg,"CM_Get_Next_Res_Des");
+    data_t data=(data_t)GetProcAddress(cfg,"CM_Get_Res_Des_Data");
+    size_t_ size=(size_t_)GetProcAddress(cfg,"CM_Get_Res_Des_Data_Size");
+    free_t free_res=(free_t)GetProcAddress(cfg,"CM_Free_Res_Des_Handle"),free_log=(free_t)GetProcAddress(cfg,"CM_Free_Log_Conf_Handle");
+    if(!first || !next || !data || !size || !free_res || !free_log) return;
+    for(ULONG kind=0;kind<=4;kind++)
+    {
+        if(kind==1) continue;
+        LOG_CONF log;CONFIGRET rc=first(&log,node,kind);
+        put("RESOURCES kind=");number(kind);put(" cm=");number(rc);line();
+        if(rc!=CR_SUCCESS) continue;
+        RES_DES cursor=log,resource;RESOURCEID type;
+        for(int i=0;i<32 && next(&resource,cursor,ResType_All,&type,0)==CR_SUCCESS;i++)
+        {
+            if(cursor!=log) free_res(cursor);cursor=resource;
+            ULONG length=0;BYTE bytes[256];rc=size(&length,resource,0);
+            put("RESOURCE type=");number(type);put(" bytes=");number(length);put(" words=");
+            if(rc==CR_SUCCESS && length<=sizeof(bytes) && data(resource,bytes,length,0)==CR_SUCCESS)
+                for(ULONG at=0;at+4<=length;at+=4){number(*(DWORD*)(bytes+at));put(",");}
+            line();
+        }
+        if(cursor!=log) free_res(cursor);free_log(log);
+    }
+}
+static BOOL install_driver_files(void)
+{
+    UINT line_number=0;
+    HINF file=SetupOpenInfFileA(inf,0,INF_STYLE_WIN4,&line_number);
+    BOOL ok=file!=INVALID_HANDLE_VALUE;
+    put("INF_OPEN ok=");number(ok);put(" error=");number(ok?0:GetLastError());put(" line=");number(line_number);line();
+    if(!ok) return FALSE;
+    BOOL layout=SetupOpenAppendInfFileA(0,file,&line_number);
+    put("INF_LAYOUT ok=");number(layout);put(" error=");number(layout?0:GetLastError());line();
+    char source[MAX_PATH];lstrcpyA(source,inf);
+    unsigned int end=lstrlenA(source);while(end && source[end-1]!='\\') end--;
+    if(end) source[end-1]=0;
+    HSPFILEQ queue=SetupOpenFileQueue();
+    ok=SetupInstallFilesFromInfSectionA(file,0,queue,"NV30",source,SP_COPY_NEWER);
+    put("INF_FILES queued=");number(ok);put(" error=");number(ok?0:GetLastError());line();
+    PVOID context=SetupInitDefaultQueueCallback(0);
+    if(ok) ok=SetupCommitFileQueueA(0,queue,install_message,context);
+    put("INF_FILES copied=");number(ok);put(" error=");number(ok?0:GetLastError());line();
+    SetupTermDefaultQueueCallback(context);SetupCloseFileQueue(queue);SetupCloseInfFile(file);
+    return ok;
+}
 static BOOL step(const char *name, BOOL ok)
 {
     DWORD error=ok?0:GetLastError();
@@ -81,6 +198,38 @@ static void install_pci_bus(void)
     if(ok) { put("PCI_BUS_INSTALLED");line(); }
     SetupDiDestroyDeviceInfoList(set);
 }
+static void install_system_pci(void)
+{
+    HDEVINFO set=SetupDiGetClassDevsA(0,0,0,DIGCF_ALLCLASSES|DIGCF_PRESENT);
+    SP_DEVINFO_DATA dev;dev.cbSize=sizeof(dev);
+    for(DWORD i=0;SetupDiEnumDeviceInfo(set,i,&dev);i++)
+    {
+        if(!device_hardware(set,&dev)) continue;
+        const char *id=match(hardware,"PCI\\VEN_8086&DEV_1237")?"PCI\\VEN_8086&DEV_1237":
+            match(hardware,"PCI\\VEN_8086&DEV_7000")?"PCI\\VEN_8086&DEV_7000":
+            match(hardware,"PCI\\IRQHOLDER")?"PCI\\IRQHolder":0;
+        if(!id) continue;
+        char driver[80]={0};
+        if(SetupDiGetDeviceRegistryPropertyA(set,&dev,SPDRP_DRIVER,0,(BYTE*)driver,sizeof(driver),0) && driver[0]) continue;
+        char ids[64];lstrcpyA(ids,id);ids[lstrlenA(id)+1]=0;
+        BOOL ok=SetupDiSetDeviceRegistryPropertyA(set,&dev,SPDRP_HARDWAREID,(const BYTE*)ids,lstrlenA(id)+2);
+        SP_DEVINSTALL_PARAMS_A params;params.cbSize=sizeof(params);
+        if(ok) ok=SetupDiGetDeviceInstallParamsA(set,&dev,&params);
+        if(ok)
+        {
+            GetWindowsDirectoryA(params.DriverPath,sizeof(params.DriverPath));
+            lstrcatA(params.DriverPath,match(id,"PCI\\IRQHOLDER")?"\\INF\\MACHINE.INF":"\\INF\\MACHINE2.INF");
+            params.Flags|=DI_ENUMSINGLEINF|DI_QUIETINSTALL|DI_NOFILECOPY;
+            ok=SetupDiSetDeviceInstallParamsA(set,&dev,&params);
+        }
+        if(ok) ok=SetupDiBuildDriverInfoList(set,&dev,SPDIT_COMPATDRIVER);
+        if(ok) ok=SetupDiCallClassInstaller(DIF_SELECTBESTCOMPATDRV,set,&dev);
+        if(ok) ok=allocate_driver_key(set,&dev,"System");
+        if(ok) ok=SetupDiCallClassInstaller(DIF_INSTALLDEVICE,set,&dev);
+        put("SYSTEM_PCI ");put(id);put(" installed=");number(ok);put(" error=");number(ok?0:GetLastError());line();
+    }
+    SetupDiDestroyDeviceInfoList(set);
+}
 #endif
 static void devices(void)
 {
@@ -104,7 +253,18 @@ static void devices(void)
         put("HARDWARE ");put(hardware);line();
 #endif
         if(match(hardware,"PCI\\")) { put("PCI ");put(hardware);line(); }
-        if(!match(hardware,"PCI\\VEN_10DE&DEV_0045")) continue;
+        if(!match(hardware,"PCI\\VEN_10DE&DEV_0045"))
+        {
+#ifdef NV_WIN98
+            if(match(hardware,"*PNP0900"))
+            {
+                ULONG status=0,problem=0;if(node_status) node_status(&status,&problem,dev.DevInst,0);
+                put("LEGACY_VGA problem=");number(problem);put(" started=");number(!!(status&DN_STARTED));line();
+                resources(dev.DevInst);
+            }
+#endif
+            continue;
+        }
         ULONG status=0,problem=0; CONFIGRET rc=node_status?node_status(&status,&problem,dev.DevInst,0):CR_CALL_NOT_IMPLEMENTED;
         SetupDiGetDeviceRegistryPropertyA(set,&dev,SPDRP_SERVICE,&type,(BYTE*)service,sizeof(service),0);
         SetupDiGetDeviceRegistryPropertyA(set,&dev,SPDRP_DEVICEDESC,&type,(BYTE*)description,sizeof(description),0);
@@ -112,6 +272,9 @@ static void devices(void)
         put("DEVICE "); put(hardware); put(" problem="); number(problem); put(" cm="); number(rc);
         put(" started="); number(!!(status&DN_STARTED)); put(" service="); put(service);
         put(" driver=");put(driver);put(" description=");put(description);line();
+#ifdef NV_WIN98
+        resources(dev.DevInst);
+#endif
     }
     put("ENUM_END error=");number(GetLastError());put(" count=");number(count);put(" properties=");number(properties);line();
     SetupDiDestroyDeviceInfoList(set);
@@ -130,6 +293,10 @@ void WINAPI entry(void)
     lstrcatA(inf,"DRIVER\\nv4_disp.inf");
 #endif
     lstrcatA(output,"NV.TXT"); DeleteFileA(output);
+#ifdef NV_REBOOT
+    char bootmark[MAX_PATH];lstrcpyA(bootmark,output);lstrcpyA(bootmark+end,"NVBOOT.FLG");
+    rebooted=GetFileAttributesA(bootmark)!=INVALID_FILE_ATTRIBUTES;
+#endif
 #ifndef NV_WIN98
     /* Preserve the bugcheck screen when an incomplete device model fails. This
      * affects only the disposable guest overlay, never the original image. */
@@ -160,6 +327,13 @@ void WINAPI entry(void)
         put("PCI_BUS_MISSING installing Microsoft PCI bus from MACHINE.INF");line();
         install_pci_bus();devices();
     }
+    if(!rebooted) install_system_pci();
+#endif
+#ifndef NV_SKIP_INSTALL
+    if(!rebooted)
+    {
+#ifdef NV_WIN98
+    disable_legacy_vga();
 #endif
     HMODULE dll=LoadLibraryA("newdev.dll");
     typedef BOOL (WINAPI *update_t)(HWND,LPCSTR,LPCSTR,DWORD,PBOOL);
@@ -180,21 +354,96 @@ void WINAPI entry(void)
         for(DWORD i=0;SetupDiEnumDeviceInfo(set,i,&dev);i++)
         {
             if(!device_hardware(set,&dev) || !match(hardware,"PCI\\VEN_10DE&DEV_0045")) continue;
+            if(!SetupDiGetDeviceRegistryPropertyA(set,&dev,SPDRP_HARDWAREID,0,(BYTE*)hardware,sizeof(hardware),0))
+            {
+                static const char gpu_id[]="PCI\\VEN_10DE&DEV_0045\0";
+                BOOL set_id=SetupDiSetDeviceRegistryPropertyA(set,&dev,SPDRP_HARDWAREID,(const BYTE*)gpu_id,sizeof(gpu_id));
+                put("INSTALL_HARDWARE_ID ok=");number(set_id);put(" error=");number(set_id?0:GetLastError());line();
+                if(!set_id) continue;
+            }
             SP_DEVINSTALL_PARAMS_A params;params.cbSize=sizeof(params);
             BOOL ok=SetupDiGetDeviceInstallParamsA(set,&dev,&params);
             if(!ok) { put("INSTALL_PARAMS error=");number(GetLastError());line();continue; }
             params.Flags|=DI_ENUMSINGLEINF|DI_QUIETINSTALL;
+            params.InstallMsgHandler=install_message;
+            params.InstallMsgHandlerContext=SetupInitDefaultQueueCallback(0);
             lstrcpyA(params.DriverPath,inf);
             if(ok) ok=SetupDiSetDeviceInstallParamsA(set,&dev,&params);
             if(ok) ok=SetupDiBuildDriverInfoList(set,&dev,SPDIT_COMPATDRIVER);
             if(ok) ok=SetupDiCallClassInstaller(DIF_SELECTBESTCOMPATDRV,set,&dev);
-            put("INSTALL_SETUPAPI selected=");number(ok);put(" error=");number(ok?0:GetLastError());line();
-            if(ok) ok=SetupDiCallClassInstaller(DIF_INSTALLDEVICE,set,&dev);
-            put("INSTALL_RESULT ok=");number(ok);put(" error=");number(ok?0:GetLastError());line();
+            DWORD error=ok?0:GetLastError();
+            put("INSTALL_SETUPAPI selected=");number(ok);put(" error=");number(error);line();
+#ifdef NV_WIN98
+            if(ok)
+            {
+                ok=install_driver_files();error=ok?0:GetLastError();
+                if(ok)
+                {
+                    SetupDiGetDeviceInstallParamsA(set,&dev,&params);params.Flags|=DI_NOFILECOPY;
+                    ok=SetupDiSetDeviceInstallParamsA(set,&dev,&params);error=ok?0:GetLastError();
+                }
+            }
+#endif
+            if(ok)
+            {
+                HKEY key=SetupDiCreateDevRegKeyA(set,&dev,DICS_FLAG_GLOBAL,0,DIREG_DEV,0,0);
+                put("DEVICE_KEY created=");number(key!=INVALID_HANDLE_VALUE);put(" error=");number(key!=INVALID_HANDLE_VALUE?0:GetLastError());line();
+                if(key!=INVALID_HANDLE_VALUE) RegCloseKey(key);
+                key=SetupDiCreateDevRegKeyA(set,&dev,DICS_FLAG_GLOBAL,0,DIREG_DRV,0,0);
+                DWORD driver_key_error=key!=INVALID_HANDLE_VALUE?0:GetLastError();
+                put("DRIVER_KEY created=");number(key!=INVALID_HANDLE_VALUE);put(" error=");number(driver_key_error);line();
+                if(key!=INVALID_HANDLE_VALUE) RegCloseKey(key);
+#ifdef NV_WIN98
+                if(key==INVALID_HANDLE_VALUE && driver_key_error==ERROR_FILE_NOT_FOUND) allocate_driver_key(set,&dev,"Display");
+#endif
+                ok=SetupDiCallClassInstaller(DIF_INSTALLDEVICE,set,&dev);error=ok?0:GetLastError();
+                if(!ok && error==ERROR_FILE_NOT_FOUND)
+                {
+                    put("INSTALL_CLASS_ERROR error=");number(error);line();
+                    ok=SetupDiInstallDevice(set,&dev);error=ok?0:GetLastError();
+                }
+            }
+            put("INSTALL_RESULT ok=");number(ok);put(" error=");number(error);line();
             SetupDiDestroyDriverInfoList(set,&dev,SPDIT_COMPATDRIVER);
+            SetupTermDefaultQueueCallback(params.InstallMsgHandlerContext);
         }
         SetupDiDestroyDeviceInfoList(set);
     }
+    }
+#endif
+#ifdef NV_MODE_TEST
+    DEVMODEA mode;DWORD modes=0,preferred=0;
+    for(DWORD i=0;i<8192;i++)
+    {
+        mode.dmSize=sizeof(mode);mode.dmDriverExtra=0;
+        if(!EnumDisplaySettingsA(0,i,&mode)) break;
+        modes++;
+        if(mode.dmPelsWidth==1024 && mode.dmPelsHeight==768 && mode.dmBitsPerPel==32) preferred++;
+    }
+    put("MODES count=");number(modes);put(" 1024x768x32=");number(preferred);line();
+    {
+        mode.dmSize=sizeof(mode);mode.dmDriverExtra=0;
+        mode.dmFields=DM_PELSWIDTH|DM_PELSHEIGHT|DM_BITSPERPEL;
+        mode.dmPelsWidth=1024;mode.dmPelsHeight=768;mode.dmBitsPerPel=32;
+        LONG rc=ChangeDisplaySettingsA(&mode,CDS_TEST);
+        put("MODE_TEST result=");number(rc);line();
+        if(rc==DISP_CHANGE_SUCCESSFUL)
+        {
+            rc=ChangeDisplaySettingsA(&mode,CDS_UPDATEREGISTRY|CDS_RESET);
+            put("MODE_SET result=");number(rc);line();
+        }
+    }
+#endif
     devices(); put("SCREEN ");number(GetSystemMetrics(SM_CXSCREEN));put("x");number(GetSystemMetrics(SM_CYSCREEN));line();
+    put("REGISTRY_FLUSH status=");number(RegFlushKey(HKEY_LOCAL_MACHINE));line();
+#ifdef NV_REBOOT
+    if(!rebooted)
+    {
+        HANDLE marker=CreateFileA(bootmark,GENERIC_WRITE,0,0,CREATE_ALWAYS,0,0);
+        if(marker!=INVALID_HANDLE_VALUE){FlushFileBuffers(marker);CloseHandle(marker);}
+        put("REBOOT_REQUEST");line();
+        ExitWindowsEx(EWX_REBOOT|EWX_FORCE,0);ExitProcess(0);
+    }
+#endif
     put("END");line();ExitProcess(0);
 }

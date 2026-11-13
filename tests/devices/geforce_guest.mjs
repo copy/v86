@@ -83,7 +83,10 @@ export async function run_geforce_guest(win98)
     }
     const binary = path.join(out, "NVPROBE.EXE");
     run("i686-w64-mingw32-gcc", ["-Os", "-nostdlib", "-fno-builtin", "-fno-stack-protector", "-mno-stack-arg-probe",
-        "-Wl,--entry,_entry@0", "-Wl,--subsystem,console", ...(win98 ? ["-DNV_WIN98"] : []), "-o", binary,
+        "-Wl,--entry,_entry@0", "-Wl,--subsystem,console", ...(win98 ? ["-DNV_WIN98"] : []),
+        ...(process.env.NV_MODE_TEST ? ["-DNV_MODE_TEST"] : []),
+        ...(process.env.NV_SKIP_INSTALL ? ["-DNV_SKIP_INSTALL"] : []),
+        ...(process.env.NV_REBOOT ? ["-DNV_REBOOT"] : []), "-o", binary,
         path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32"]);
     files["NVPROBE.EXE"] = fs.readFileSync(binary);
     const tools_bytes = make_esp(files, 120);
@@ -96,6 +99,7 @@ export async function run_geforce_guest(win98)
         bios: { url: root + "bios/seabios.bin" },
         ...(process.env.NV_ROM ? { vga_bios: { url: path.resolve(process.env.NV_ROM) } } : {}),
         hda: disk, hdb: tools, boot_order: 0x213, memory_size: (win98 ? 256 : 1024) << 20,
+        ...(win98 ? { cdrom: { url: process.env.NV_WIN98_ISO || path.join(site_directory(root), "windows98/windows98se.iso"), async: true }, boot_order: 0x132 } : {}),
         screen_adapter: sink, acpi: false, net_device: { type: "none" }, disable_speaker: true,
         autostart: !process.env.NV_STATE_LOAD, log_level: 0 });
     const seconds = Number(process.env.NV_SECONDS || 360);
@@ -106,8 +110,12 @@ export async function run_geforce_guest(win98)
     process.on("SIGINT", cancel);
     vm.add_listener("emulator-error", e => { error = String(e); });
     const started = performance.now(), elapsed = () => (performance.now() - started) / 1000;
-    let control_time = 0, next_report = 30;
+    let control_time = 0, next_report = 30, reboot_seen = false;
     const result_text = () => Buffer.from(read_fat16(tools.bytes, "NV.TXT") || []).toString("ascii");
+    const trace_report = () => ({ ...nv.trace.report(),
+        registers: Array.from(nv.registers, ([offset, value]) => [offset.toString(16), value >>> 0]),
+        display: { crtc: Array.from(nv.display.crtc), front: nv.display.front, mode: nv.display.mode() },
+        graph: nv.graph.get_state(), graphFaults: nv.graph.faults, fifo: nv.fifo.get_state() });
     try
     {
         await new Promise((resolve, reject) => { vm.add_listener("emulator-ready", resolve); vm.add_listener("emulator-error", reject); });
@@ -123,6 +131,10 @@ export async function run_geforce_guest(win98)
         {
             await delay(1000);
             cpu.devices.display.request_frame(true);
+            if(!reboot_seen && result_text().includes("REBOOT_REQUEST"))
+            {
+                reboot_seen = true; launches = 0; next_launch = elapsed() + 100;
+            }
             if(process.env.NV_CONTROL && fs.existsSync(process.env.NV_CONTROL))
             {
                 const modified = fs.statSync(process.env.NV_CONTROL).mtimeMs;
@@ -149,7 +161,7 @@ export async function run_geforce_guest(win98)
                 checkpoint = true;
                 await vm.run();
             }
-            if(launches < 3 && elapsed() >= next_launch && !result_text())
+            if(launches < 3 && elapsed() >= next_launch && (!result_text() || reboot_seen))
             {
                 launches++; next_launch = elapsed() + 45;
                 for(let i = 0; i < 3; i++) { await vm.keyboard_send_scancodes([1, 129], 30); await delay(500); }
@@ -163,9 +175,15 @@ export async function run_geforce_guest(win98)
                 next_report = elapsed() + 30;
                 console.log("NV40", win98 ? "98" : "XP", Math.floor(elapsed()), "s", result_text().trim(), "registers", nv.trace.counts.size);
                 save_png(sink, out, "progress");
-                fs.writeFileSync(path.join(out, "progress-trace.json"), JSON.stringify(nv.trace.report()));
+                fs.writeFileSync(path.join(out, "progress-trace.json"), JSON.stringify(trace_report()));
             }
-            if(result_text().includes("END\r\n")) break;
+            if(result_text().includes("END\r\n"))
+            {
+                await delay(Number(process.env.NV_GRACE_SECONDS || 5) * 1000);
+                cpu.devices.display.request_frame(true);
+                await delay(100);
+                break;
+            }
         }
     }
     catch(e) { error = e.stack || String(e); }
@@ -176,8 +194,7 @@ export async function run_geforce_guest(win98)
             fs.writeFileSync(process.env.NV_STATE_SAVE, new Uint8Array(await vm.save_state()));
         if(nv)
         {
-            fs.writeFileSync(path.join(out, "trace.json"), JSON.stringify({ ...nv.trace.report(),
-                registers: Array.from(nv.registers, ([offset, value]) => [offset.toString(16), value >>> 0]) }, null, 2) + "\n");
+            fs.writeFileSync(path.join(out, "trace.json"), JSON.stringify(trace_report(), null, 2) + "\n");
             fs.writeFileSync(path.join(out, "ramin.bin"), nv.vram().subarray(nv.vram_size - (1 << 20)));
         }
         save_png(sink, out, "final");

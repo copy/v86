@@ -1,0 +1,12 @@
+{
+  "status": "PARTIAL",
+  "seconds": 156,
+  "guest": "xp",
+  "driver": "/Users/renruisi/Desktop/Code/v86/build/nv40-fixtures/93.71_forceware_winxp2k_english_whql.exe",
+  "rom": "v86 G0 SeaVGABIOS",
+  "error": null,
+  "probe": "BEGIN\r\nPCI PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1\r\nDEVICE PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1 problem=0 cm=0 started=1 service=nv driver={4D36E968-E325-11CE-BFC1-08002BE10318}\\0000 description=NVIDIA GeForce 6800 GT\r\nPCI PCI\\VEN_8086&DEV_1237&SUBSYS_00000000&REV_02\r\nPCI PCI\\VEN_8086&DEV_7000&SUBSYS_00000000&REV_00\r\nPCI PCI\\VEN_8086&DEV_7010&SUBSYS_82D41043&REV_00\r\nENUM_END error=259 count=75 properties=75\r\nMODES count=676 1024x768x32=12\r\nMODE_TEST result=0\r\nMODE_SET result=0\r\nPCI PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1\r\nDEVICE PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1 problem=0 cm=0 started=1 service=nv driver={4D36E968-E325-11CE-BFC1-08002BE10318}\\0000 description=NVIDIA GeForce 6800 GT\r\nPCI PCI\\VEN_8086&DEV_1237&SUBSYS_00000000&REV_02\r\nPCI PCI\\VEN_8086&DEV_7000&SUBSYS_00000000&REV_00\r\nPCI PCI\\VEN_8086&DEV_7010&SUBSYS_82D41043&REV_00\r\nENUM_END error=259 count=75 properties=75\r\nSCREEN 1024x768\r\nREGISTRY_FLUSH status=0\r\nEND\r\n",
+  "trace": "trace.json",
+  "imageUnchanged": true,
+  "reason": "Native device and 1024x768x32 mode switch pass; complete drawing and Win98 gates pending."
+}
