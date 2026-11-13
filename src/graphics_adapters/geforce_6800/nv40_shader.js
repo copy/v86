@@ -177,15 +177,18 @@ export function translate_vertex_program(program,options={})
         if(i.address.input || i.address.constant)address(i.address.register);
         if(["ARL","ARR"].includes(i.vector.name))address(i.vector.index);
     }
+    // The scalar issue slot also contains vector MOV/LIT. Address loads on
+    // Curie likewise consume all four source lanes, independently masked.
+    const scalarSource=(i,slot)=>slot===1 && !["MOV","LIT"].includes(i.scalar.name);
     const source=(i,operand,slot,index)=>{
         const relative=operand.type==="constant"?i.address.constant:operand.type==="input" && i.address.input;
-        if(!relative)return shader.source(operand,-1,slot===1 || i.vector.name==="ARL");
+        if(!relative)return shader.source(operand,-1,scalarSource(i,slot));
         const component=Array(4).fill(i.address.component),last=operand.type==="constant"?543:15;
         shader.emit(OP.ADD,dst(0,29),src(0,address(i.address.register),component),shader.literal(operand.index));
         shader.emit(OP.MAX,dst(0,29),src(0,29),shader.literal(0));
         shader.emit(OP.MIN,dst(0,29),src(0,29),shader.literal(last));
         shader.emit(OP.MOVA,dst(3,0,1),src(0,29));
-        const token=shader.source({...operand,index:0},-1,slot===1 || i.vector.name==="ARL"),temp=shader.temp("relative"+slot+"-"+index);
+        const token=shader.source({...operand,index:0},-1,scalarSource(i,slot)),temp=shader.temp("relative"+slot+"-"+index);
         shader.emit(OP.MOV,dst(0,temp),[(token|0x2000)>>>0,src(3,0,[0,0,0,0])]);
         return src(0,temp);
     };

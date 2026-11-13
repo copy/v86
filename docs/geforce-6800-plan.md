@@ -1270,3 +1270,8 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   PGRAPH 测试覆盖数据、相邻字节和越界原子性，真实 GPU 验证 fence 晚于读回，
   完整渲染回归及 Closure 构建通过。编码复核 PSL1GHT 的
   `SEMAPHORE_TEXTUREREAD_RELEASE` 和原生驱动跟踪；完整长跑仍在复测。
+
+- G4 顶点源向量修复：标量发射槽中的 MOV/LIT 保留完整 swizzle，Curie ARL 逐分量
+  加载地址，避免原先把所有分量复制为 X。112 个 Naga 模块与完整真实 GPU 回归
+  通过，像素用例区分 MOV 的四分量、LIT 的 diffuse/specular/power 及 swizzle，
+  并从不同的 A1.y 读取相对常量；Closure 构建通过。

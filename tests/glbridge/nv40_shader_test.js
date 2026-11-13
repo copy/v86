@@ -48,6 +48,15 @@ try
     assert.equal(dualCode[first+4]&65535,6,"scalar result computed before vector destination commits");
     assert.equal(dualCode[first+7]&65535,1,"both slots commit after reading their old operands");
     validate("dual",{bytecode:dualCode});
+    for(const name of ["MOV","LIT"])
+    {
+        const p=structuredClone(vertex),i=p.instructions[0];i.vector={name:"NOP",mask:0};
+        i.scalar={name,type:"output",index:0,mask:15};i.sources[2]={...i.sources[0],swizzle:[3,1,0,2]};
+        const translated=translate_vertex_program(p);validate("scalar-vector-"+name,translated);
+        const instruction=Array.from(translated.bytecode).findIndex(word=>(word&0xFFFFFF)===(name==="MOV"?1:16));
+        assert.equal(translated.bytecode[instruction+2]>>>16&255,0x87,"MOV/LIT keep the complete source swizzle");
+    }
+
     for(const name of ["MOV","MUL","ADD","MAD","DP3","DP4","DST","MIN","MAX","SLT","SGE","FRC","FLR","RCP","RSQ","EX2","LG2","SIN","COS","DDX","DDY",
         "DPH","DP2A","SEQ","SNE","SLE","SGT","SSG","SFL","STR","DIV"])
     {

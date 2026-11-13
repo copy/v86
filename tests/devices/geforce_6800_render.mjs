@@ -560,6 +560,21 @@ try
             {...options,result_map:[[0,0,-1,true],[1,1,-1,true]]})};};
         try
         {
+            method(0x1EFC,0);
+            [...new Uint32Array(Float32Array.of(.25,.5,0,2).buffer)].forEach((word,i)=>method(0x1F00+i*4,word));
+            for(const [name,swizzle,expected]of [["MOV",[0,1,2,3],[0,128,64,255]],
+                ["LIT",[0,1,2,3],[64,64,255,255]],["LIT",[1,0,2,3],[16,128,255,255]]])
+            {
+                const position=structuredClone(base),color=structuredClone(base);
+                color.vector={name:"NOP",mask:0};color.scalar={name,type:"output",index:1,mask:15};
+                color.sources[2]={...color.sources[2],type:"constant",index:0,swizzle};
+                vertexProgram={stage:"vertex",instructions:[position,color]};
+                method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();
+                assert.deepEqual([...vram.subarray(0x10000,0x10004)],expected,"scalar-slot "+name+" retains vector source swizzle");
+            }
+            method(0x1EFC,0);
+            [...new Uint32Array(Float32Array.of(-1,0,1,NaN,.25,.25,.25,.25,.75,.75,.75,.75).buffer)].forEach((word,i)=>method(0x1F00+(i%4)*4,word));
             for(let register=0;register<2;register++)for(let condition=0;condition<8;condition++)
             {
                 const position=structuredClone(base),update=structuredClone(base),initial=structuredClone(base),conditional=structuredClone(base);
@@ -590,20 +605,21 @@ try
                 method(0x1808,0);await engine.backend.wait();
                 assert.deepEqual([...vram.subarray(0x10000,0x10004)],Array(4).fill(vector?64:191),"CDST selects the original vector/scalar VLIW result");
             }
-            for(const [name,value,baseIndex,relativeInput,expected]of [
+            for(const [name,value,baseIndex,relativeInput,expected,component=0]of [
                 ["ARL",1.75,1,false,Array(4).fill(191)],["ARR",1.75,1,false,Array(4).fill(128)],
                 ["ARL",-.25,3,false,Array(4).fill(191)],["ARR",-.25,3,false,Array(4).fill(128)],
-                ["ARL",300,200,false,[128,255,0,255]],["ARL",1.75,1,true,[128,0,255,255]]])
+                ["ARL",300,200,false,[128,255,0,255]],["ARL",1.75,1,true,[128,0,255,255]],
+                ["ARL",[0,1.75,0,0],1,false,Array(4).fill(191),1]])
             {
                 method(0x1EFC,0);
-                [...new Uint32Array(Float32Array.of(value,value,value,value,.25,.25,.25,.25,.75,.75,.75,.75,.5,.5,.5,.5).buffer)]
+                [...new Uint32Array(Float32Array.of(...(Array.isArray(value)?value:[value,value,value,value]),.25,.25,.25,.25,.75,.75,.75,.75,.5,.5,.5,.5).buffer)]
                     .forEach((word,i)=>method(0x1F00+(i%4)*4,word));
                 method(0x1EFC,500);[...new Uint32Array(Float32Array.of(0,1,.5,1).buffer)].forEach((word,i)=>method(0x1F00+i*4,word));
                 [...new Uint32Array(Float32Array.of(1,0,.5,1).buffer)].forEach((word,i)=>method(0x1C20+i*4,word));
                 const position=structuredClone(base),load=structuredClone(base),color=structuredClone(base);
                 load.vector={name,type:"temp",index:1,mask:15};load.sources[0]={...load.sources[0],type:"constant",index:0};
                 color.vector.index=1;color.sources[0]={...color.sources[0],type:relativeInput?"input":"constant",index:baseIndex};
-                color.address={register:1,component:0,input:relativeInput,constant:!relativeInput};
+                color.address={register:1,component,input:relativeInput,constant:!relativeInput};
                 vertexProgram={stage:"vertex",instructions:[position,load,color]};
                 method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
                 method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
