@@ -252,6 +252,11 @@
   手写编码、常量边界、控制数据与常量的区分、BO 释放后语料保持测试和插件构建通过；
   `nv40_program_test.js` 自动纳入 glbridge 测试扫描。D3D9 字节码翻译和实际渲染尚待接入。
 
+- IFC 即时上传续修：每个输入 DWORD 立即提交新像素，不能等完整行到齐。93.71 用
+  1024-pixel 宽的 Y32 surface 上传少量 FP 微码；此前微码一直留在行缓冲，实际 VRAM 为零。
+  提交字节游标随已有对象状态保存，后续 DWORD 不重放已执行的 ROP；覆盖部分行快照、
+  XOR 不重放和宽 Y32 shader 字上传。2D、FIFO、PGRAPH 单元测试及 Closure 构建通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

@@ -54,6 +54,7 @@ word(0x1004, 4095); surface.methods.set(0x300, 4); vram.fill(0, 0, 128);
 const ifc = object(0x5600, 0x308A, [[0x19C, 0x500], [0x2FC, 3], [0x300, 1], [0x304, 0], [0x308, 2 << 16 | 2]]);
 call(ifc, 0x30C, 2 << 16 | 3);
 call(ifc, 0x400, 0x07E0F800);
+assert.equal(view.getUint16(0,true),0xF800,"an IFC DWORD reaches VRAM before the row is complete");
 const streamState = graph.get_state(); graph.set_state(streamState);
 const resumed = graph.object(0, 0x5600);
 call(resumed, 0x400, 0xDEAD001F); // third pixel cropped; high word is row padding
@@ -144,3 +145,14 @@ for(let y=0;y<3;y++)for(let x=0;x<3;x++)assert.equal(vram[1024+y*32+x],x<2&&y<2?
 console.log("PASS: NV40 8/16/32-bit fills, exhaustive ROP3, clipped/overlapping blits, PCI M2MF and atomic completion/faults");
 console.log("PASS: IFC row padding/crop and mid-row snapshot, GDI transparent/opaque bitmap expansion and bit order");
 console.log("PASS: nearest/bilinear scaling, both packed YUV orders, rectangular Morton surfaces and premultiplied blending");
+
+// A partial upload must not replay already committed pixels through ROP.
+target.methods.set(0x300,4);target.methods.set(0x30C,1400);vram.fill(0,1400,1416);
+const progressive=object(0x6100,0x308A,[[0x19C,0x500],[0x190,0x510],[0x300,1],[0x304,0],[0x308,1<<16|4],[0x2FC,1]]);
+graph.object(0,0x5100).methods.set(0x300,0x66);call(progressive,0x30C,1<<16|4);
+call(progressive,0x400,0x07E0F800);call(progressive,0x404,0xFFFF001F);
+assert.deepEqual([...vram.subarray(1400,1408)],[0,248,224,7,31,0,255,255],"later DWORDs do not XOR the preceding pixels again");
+target.methods.set(0x300,11);target.methods.set(0x30C,0);target.methods.set(0x304,0x10001000);
+call(progressive,0x2FC,3);call(progressive,0x300,4);call(progressive,0x308,32<<16|1024);call(progressive,0x30C,32<<16|1024);
+call(progressive,0x400,0x01001E81);
+assert.equal(view.getUint32(0,true),0x01001E81,"a shader word uploads immediately into a wide Y32 row");

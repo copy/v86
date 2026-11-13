@@ -4,6 +4,7 @@ const lo = v => v << 16 >> 16;
 const hi = v => v >> 16;
 const xy = v => [lo(v), hi(v)];
 const wh = v => [v & 65535, v >>> 16];
+const UPLOAD_COMMITTED = 0x40000;
 const m = (o, at, fallback = 0) => o.methods.has(at) ? o.methods.get(at) : fallback;
 
 export class NV2D
@@ -245,11 +246,14 @@ export class NV2D
         const stride = Math.ceil(width * bpp / 4) * 4;
         if(!o.stream.length) o.stream = [0];
         if(o.stream[0] >= height) throw new RangeError("NV IFC excess data");
+        const committed = m(o, UPLOAD_COMMITTED);
         for(let i = 0; i < 4; i++) o.stream.push(value >>> (i * 8) & 255);
-        if(o.stream.length - 1 < stride) return;
+        // CPU image methods retire each DWORD immediately. Drivers also use
+        // this aperture for a few shader words in a much wider surface row.
+        const first = Math.min(width, committed / bpp), last = Math.min(width, (o.stream.length - 1) / bpp);
         const row = o.stream[0], bytes = new Uint8Array(o.stream.slice(1)), [x, y] = xy(m(o, base));
         const [outw, outh] = wh(m(o, base + 4)), dst = this.surface(o, indexed ? 0x1A0 : 0x19C);
-        const rect = this.bounds(x, y + row, Math.min(width, outw), row < outh ? 1 : 0, this.clip(o, indexed ? 0x18C : 0x188));
+        const rect = this.bounds(x + first, y + row, Math.max(0, Math.min(last, outw) - first), row < outh ? 1 : 0, this.clip(o, indexed ? 0x18C : 0x188));
         let lut = null;
         if(indexed)
         {
@@ -269,7 +273,12 @@ export class NV2D
             }, indexed ? [0x190, 0x194, 0x198, 0x19C] : [0x18C, 0x190, 0x194, 0x198]);
         }
         finally { if(indexed) o.methods.set(0x2FC, operation); }
-        o.stream = [row + 1];
+        o.methods.set(UPLOAD_COMMITTED, o.stream.length - 1);
+        if(o.stream.length - 1 >= stride)
+        {
+            o.stream = [row + 1];
+            o.methods.delete(UPLOAD_COMMITTED);
+        }
     }
     monochrome(o, value, opaque)
     {
@@ -482,7 +491,7 @@ export class NV2D
         if(type === 0x39 && at === 0x328) this.m2mf(o, value);
         else if((type === 0x5F || type === 0x9F) && at === 0x308) this.blit(o);
         else if(type === 0x4A && (at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700) && at & 4) this.rectangle(o, at);
-        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && (at === 0x304 || at === 0x30C) || indexed && (at === 0x3F4 || at === 0x3FC) || sifc && at === 0x318) o.stream = [0];
+        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && (at === 0x304 || at === 0x30C) || indexed && (at === 0x3F4 || at === 0x3FC) || sifc && at === 0x318) { o.stream = [0]; o.methods.delete(UPLOAD_COMMITTED); }
         else if(type === 0x4A && at >= 0x800 && at < 0xA00) this.monochrome(o, value, false);
         else if(type === 0x4A && at >= 0xC00 && at < 0xE00) this.monochrome(o, value, true);
         else if((ifc || indexed) && at >= 0x400) this.upload(o, value, indexed);
