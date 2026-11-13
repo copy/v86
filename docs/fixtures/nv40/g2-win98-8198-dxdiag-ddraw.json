@@ -1,0 +1,42 @@
+{
+  "stage": "G2 Win98 DxDiag DirectDraw gate",
+  "scope": "Native DirectDraw primary/offscreen/fullscreen sequence passed with DX9.0c; font DMA and the remaining G2 implementation gate are still pending",
+  "driver": "81.98",
+  "report_sha256": "ee10daca01882fd33bea3a33fc05ecf4ee1d6c78300803eb6749b608c64b6c05",
+  "report_lines": [
+    "DDraw Test Result: All tests were successful.",
+    "D3D7 Test Result: Not run",
+    "D3D8 Test Result: Not run",
+    "D3D9 Test Result: Not run"
+  ],
+  "gpu": {
+    "draws": 8374,
+    "bytes": 2343501912,
+    "readbacks": 8374,
+    "failures": 0
+  },
+  "graphFaults": [],
+  "visual_evidence": [
+    {
+      "file": "capture-0839.png",
+      "sha256": "6b177d77c4b4e8a3697260c0b379a7a21a12692ef3d367e37ae6315e31afbcaf"
+    },
+    {
+      "file": "capture-1149.png",
+      "sha256": "15fc511123f5204e60818e48bd1d2186cc85e78ae9294bec5228c85ef655970a"
+    },
+    {
+      "file": "capture-1200.png",
+      "sha256": "c64b1451273e89c01a8f16d5540fcbecfc59ea47c8252daa554e5bdcf49236d2"
+    },
+    {
+      "file": "capture-1473.png",
+      "sha256": "5d871c94d1f8a3b2db52bed246a7f2a8b512fc88618da9c80e2af24b39714e61"
+    },
+    {
+      "file": "capture-1495.png",
+      "sha256": "f88ff873c9822bd566a409c170111ef12ac9624f2523eebb6399f97d06c7dd19"
+    }
+  ],
+  "imageUnchanged": true
+}

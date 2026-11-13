@@ -800,6 +800,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   已用 XP 冷启动读到 legacy 镜像的原版 3DMark99 EXE，进入其 DirectX 版本检查；
   99 在 XP 的兼容启动仍待解决。已有游戏盘的快照须用同一游戏盘恢复。
 
+- G2 Win98 DxDiag DirectDraw 客体验收通过：81.98 + 已安装的 DX9.0c 上，主表面的
+  黑白矩形、窗口白方块和 640×480 全屏弹跳白方块均正确；保存的原版报告明确返回
+  `DDraw Test Result: All tests were successful.`。8374 次 GPU 提交/读回、0 GPU failure、
+  0 PGRAPH fault，原系统盘未修改。证据见 `g2-win98-8198-dxdiag-ddraw.json`；
+  字体 DMA 尚未完成，不能将其等同于全部 G2 类已实现。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。
