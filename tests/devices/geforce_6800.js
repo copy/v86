@@ -95,12 +95,19 @@ try
     assert.equal(read(mmio + 0x3230), 0x80023000, "DMA_INSTANCE loads a valid CACHE1 descriptor");
     assert.equal(read(mmio + 0x3234), 31);
     assert.equal(read(mmio + 0x323C), 0x200002);
-    write(ramin + 0x6000, 0); nv.write32(0x322C, 0x600);
-    assert.equal(read(mmio + 0x3230), 0, "invalid descriptor clears VALID");
+    write(ramin + 0x6004, 63);
+    nv.write32(0x3230, 0);
+    assert.equal(read(mmio + 0x3230), 0x80023000, "clearing VALID refetches even with PUSH stopped");
+    assert.equal(read(mmio + 0x3234), 63, "cache reload observes updated instance memory");
+    write(ramin + 0x6000, 0); nv.write32(0x3230, 0);
+    assert.equal(read(mmio + 0x3230), 0x80000000, "VALID acknowledges fetch, not DMA class validation");
+    assert.throws(() => nv.dma.descriptor(0x6000), /class/, "actual DMA still validates the object");
+    nv.write32(0x322C, 0x10000);
+    assert.equal(read(mmio + 0x3230), 0, "out-of-range instance cannot become valid");
     assert.equal(read(mmio + 0x3228) >>> 29, 6, "DMA memory fault recorded");
     assert(read(mmio + 0x2100) & 0x1000);
     write(mmio + 0x2100, 0x1000);
-    console.log("PASS: PFIFO CACHE1 DMA descriptor load and malformed-instance interrupt");
+    console.log("PASS: PFIFO CACHE1 DMA invalidation/refetch and instance fault interrupt");
 
     write(mmio + 0x140, 2); write(mmio + 0x100, 0x80000000);
     assert.equal(read(mmio + 0x100), 0x80000000);

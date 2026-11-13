@@ -331,7 +331,8 @@ export class NVDevice
                     this.alarm_remaining = Number((BigInt(this.registers.get(0x9420) || 0) - this.alarm_sample) & TIMER_LOW);
                 }
             }
-            if(offset === 0x322C || offset === 0x3220 && value & 1)
+            if(offset === 0x322C || offset === 0x3220 && value & 1 ||
+                offset === 0x3230 && !(this.registers.get(offset) & 0x80000000))
             {
                 try { this.dma.load_cache((this.registers.get(0x322C) || 0) * 16); }
                 catch(error)

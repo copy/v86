@@ -69,6 +69,10 @@
   Win98 81.98 尚无 PCI 设备可绑定。不能把单元测试通过称作 NVIDIA 驱动可用。
   下一步先实现 PFIFO 缓存、引擎启停/复位、通道/上下文语义和 NV VBE/BIOS 表；
   G2 的 2D、G3/G4 的 D9WG/着色器与 G5/G6/G7 最终验收均未完成。
+- PFIFO 调查续修：93.71 miniport 的初始化路径清除 `DMA_CTL.VALID` 后轮询该位变为 1。
+  现实现清除后的实例缓存重新装载（包括 PUSH 停止时）；VALID 表示取回实例完成，
+  DMA 类/页权限在实际访问时检查，不能把尚未填入对象的零实例误判为装载失败。
+  寄存器测试覆盖停推时失效/重取、内容更新、零实例与越界实例；DMA 测试及插件构建通过。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

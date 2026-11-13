@@ -70,10 +70,14 @@ export class NVDMA
 
     load_cache(instance)
     {
-        const d = this.descriptor(instance), regs = this.device.registers;
-        regs.set(0x3230, (0x80000000 | d.flags & 0x33000 | d.adjust & 0xFFC) >>> 0);
-        regs.set(0x3234, d.limit);
+        // VALID acknowledges the instance-memory fetch, not permission to DMA.
+        // The driver invalidates this cache even while PUSH is stopped and the
+        // instance still contains zeros. Check class/PTE/access on actual DMA.
+        const flags = this.word(instance), limit = this.word(instance + 4), pte = this.word(instance + 8);
+        const regs = this.device.registers;
+        regs.set(0x3230, (0x80000000 | flags & 0x33000 | flags >>> 20 & 0xFFC) >>> 0);
+        regs.set(0x3234, limit);
         regs.set(0x3238, 0);
-        regs.set(0x323C, d.pte);
+        regs.set(0x323C, pte);
     }
 }
