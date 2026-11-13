@@ -12,7 +12,7 @@ const src = (type,index,swizzle=[0,1,2,3],negate=false,absolute=false) =>
         (absolute ? negate ? 12 : 11 : +negate) << 24) >>> 0;
 const semantic = (usage,index=0,texture=0) => (0x80000000 | usage | index << 16 | texture << 27) >>> 0;
 const VERTEX_OUTPUTS = [[0,0],[10,0],[10,1],[10,2],[10,3],[11,0],[4,0],
-    ...Array.from({length:8},(_,i)=>[5,i])];
+    ...Array.from({length:10},(_,i)=>[5,i])];
 const FRAGMENT_INPUTS = [[0,0],[10,0],[10,1],[11,0],...Array.from({length:10},(_,i)=>[5,i])];
 
 class Shader

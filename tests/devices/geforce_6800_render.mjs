@@ -275,9 +275,9 @@ try
         method(0x1A04,0x12529);
         method(0x1A08,0x730303);method(0x1A18,1<<16|1);method(0x1840,4);method(0x1A14,0x01010000);
         vram.set([128,64,32,200],0x20000);
-        const gammaDraw=async()=>{
+        const gammaDraw=async(u=.5,v=.5)=>{
             method(0x1808,6);
-            for(const word of new Uint32Array(Float32Array.of(0,0,.5,.5,0,16,.5,.5,16,0,.5,.5).buffer))method(0x1818,word);
+            for(const word of new Uint32Array(Float32Array.of(0,0,u,v,0,16,u,v,16,0,u,v).buffer))method(0x1818,word);
             method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
             return [...vram.subarray(0x10000,0x10004)];
         };
@@ -302,8 +302,18 @@ try
             .forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
         assert.deepEqual(await gammaDraw(),[255,0,0,255],"1D rectangle coordinates normalise X while ignoring the unused height");
         method(0x1A08,0x30303);
+        method(0x1FCC,0x55);
+        for(let channel=8;channel<10;channel++)
+        {
+            method(0x1FF4,1<<(channel+4));
+            [1<<24|(4+channel)<<13|15<<9|128|1,7<<18|0x1C801,0,0]
+                .forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            assert.deepEqual(await gammaDraw(.125,.75),[0,191,32,255],"TEX"+channel+" routes the selected raw TBUF register through the semantic link");
+        }
+        method(0x1FF4,1<<14);
         [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
         console.log("PASS: real WebGPU 1D fragment textures, ignored Y/border, projective and rectangle X coordinates");
+        console.log("PASS: real WebGPU native TEX8/TEX9 interpolator routing through the vertex/fragment semantic link");
         // Distinct solid levels expose derivative LOD, signed sampler bias and
         // trilinear interpolation without depending on checkerboard placement.
         let mipOffset=0x20000;

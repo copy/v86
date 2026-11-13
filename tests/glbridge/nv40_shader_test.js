@@ -37,6 +37,12 @@ try
     const reflected=validate("NV-output-routing",routing).reflection.outputDeclarations;
     assert(reflected.some(item=>item.usage===5&&item.usageIndex===0),"raw TBUF5 becomes TEX0 via the output map");
     assert(!reflected.some(item=>item.usage===11),"raw register numbers are not fixed semantics");
+    for(let channel=8;channel<10;channel++)
+    {
+        const extra=translate_vertex_program(routed,{result_map:[[0,0,-1,true],[7+channel,5,-1,true]]});
+        assert(validate("NV-extra-texture-output-"+channel,extra).reflection.outputDeclarations
+            .some(item=>item.usage===5&&item.usageIndex===channel));
+    }
     const changed=structuredClone(fragment);changed.constants[0][0]=0x40000000;
     assert.deepEqual(translate_fragment_program(changed).bytecode,ps.bytecode,"inline values stay outside shader code/cache key");
     const dual=structuredClone(vertex);const i=dual.instructions[0];

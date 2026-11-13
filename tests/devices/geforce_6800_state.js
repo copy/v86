@@ -79,6 +79,9 @@ clear.methods.set(0x208,0x123);clear.methods.set(0x20C,4);clear.methods.set(0x1D
 memory.setUint16(0x5006,0x07E0,true);state.clear(clear,0x50);assert.equal(memory.getUint16(0x5006,true),0xFFFF,"RGB565 component masks preserve green");
 o.methods.set(0x1FC4,0x0144FE43);o.methods.set(0x1FC8,5);o.methods.set(0x1FF4,1<<14);
 const routes=state.results(o);assert.deepEqual(routes.find(([semantic])=>semantic===7),[7,5,-1,true]);
+o.methods.set(0x1FCC,0x92);o.methods.set(0x1FF4,0x3000);
+assert.deepEqual(state.results(o).filter(([semantic])=>semantic>=15),[[15,2,-1,true],[16,9,-1,true]]);
+o.methods.set(0x1FF4,1<<14);
 assert.deepEqual(routes.find(([semantic])=>semantic===1),[1,3,-1,false]);
 assert.deepEqual(routes.find(([semantic])=>semantic===5),[5,1,0,false]);
 assert.deepEqual(routes.find(([semantic])=>semantic===6),[6,1,1,false]);

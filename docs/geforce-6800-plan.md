@@ -1416,3 +1416,8 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   模式只按 X 尺寸归一化。真实 GPU 回归验证越界 Y 不触发 T 边框、投影 X 与
   像素单位 X，完整 GPU 回归、166 个 Naga 模块、CPU 纹理测试与 Closure 构建
   通过。
+
+- G4 TEX8/TEX9：接通 XF_OUT_MAP_TXC_B 的两个寄存器选择与 VP_RESULT_EN bit
+  12/13，通过共享执行器的语义链接传递到片元 TEX8/TEX9 输入。默认不额外启用
+  两路输出，现有程序的输出预算不变。真实 GPU 回归检查两路映射的非零颜色；
+  CPU 路由测试、168 个 Naga 模块、完整 GPU 回归和 Closure 构建通过。

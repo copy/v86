@@ -113,7 +113,8 @@ export class NV40State
             routes.push([5+i,selector>>>2,selector&3,enabled(4+i)]);
         }
         for(let i=0;i<8;i++) routes.push([7+i,tex>>>(i*4)&15,-1,enabled(14+i)]);
-        if(mask!==null && mask&0x3000) throw new RangeError("NV40 extra texture interpolators are not connected");
+        const extra=get(o,0x1FCC);
+        for(let i=0;i<2;i++)routes.push([15+i,extra>>>(i*4)&15,-1,mask!==null&&enabled(12+i)]);
         return routes;
     }
     viewport(o,target)
