@@ -10,7 +10,7 @@ async function remove_scratch(name){
     }
 }
 export class IOSInstallController extends EventTarget {
-    constructor(emulator,{graphics=true,worker_factory,storage_key=crypto.randomUUID()}={}){
+    constructor(emulator,{graphics=true,worker_factory,storage_key=/** @type {string} */ (crypto.randomUUID())}={}){
         super();this.emulator=emulator;this.graphics=graphics;this.worker_factory=worker_factory||(()=>new Worker("build/ios-install-worker.js"+query_append(),{type:"module"}));
         this.state={phase:"choose",capability:{available:false,phase:"waiting"}};this.file=null;this.worker=null;this.cancelled=false;
         this.prefix=new SHA256().update(new TextEncoder().encode(storage_key)).hex().slice(0,24)+"-";
