@@ -1,6 +1,6 @@
 # iPhone 4 IPA 安装实施计划
 
-状态：待实施。编写日期：2026-11-13。本文中的新增文件、API、协议和 UI 均为计划，不代表已经实现。
+状态：实施中。编写日期：2026-11-13。未在下方进度中验收的文件、API、协议和 UI 仍为计划。
 
 目标机器为现有 `s5l8930`：iPhone 4 GSM（`iPhone3,1` / N90AP），iOS 6.1.3（10B329）。
 基础能力与已有验收见 [iOS 使用说明](ios.md)和 [iPhone 4 实施计划](iphone4-plan.md)。
@@ -126,6 +126,13 @@ MobileInstallationInstall → installd → 应用容器与系统注册
 安装过程中暂停、重置、关机、挂起和加载快照等动作必须协调处理，不能破坏正在提交的任务。
 
 ## 5. 分阶段实现
+
+### 当前实施进度
+
+- P0 的测试样本与构建工具已实现：`make ios-install-fixtures` 生成 `V86InstallTest.ipa`、
+  `V86GLES2Test.ipa` 和原生 `v86-app-agent` 安装探针。两个 IPA 已通过本机签名验证。
+- `tools/ios/prepare-install-probe.mjs` 从已有的离线图形系统卷构建独立测试 NAND，保留输入文件。
+- 正在以本地 10B329 固件验证原生安装返回结果；P0 的安装、启动和更新验收尚未完成。
 
 ### P0：先验证 10B329 的原生安装链路
 

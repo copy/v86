@@ -124,9 +124,9 @@ export function check_guest_library(library)
         info.id === GUEST_GL_LIBRARY, "Expected the N90 guest GLES library");
 }
 
-export function graphics_kernel(original, linkedExecutables, library, lockdown = null)
+export function graphics_kernel(original, linkedExecutables, library, lockdown = null, extraTrusted = [])
 {
-    const trusted = [];
+    const trusted = [...extraTrusted];
     if(library)
     {
         check_guest_library(library);

@@ -271,9 +271,18 @@ async function insert_catalog_record(volume, write, key, data)
 async function install_system_gl(volume, write, library)
 {
     check_guest_library(library);
-    const directory = await volume.lookup("/usr/lib"), name = SYSTEM_GL_LIBRARY.slice("/usr/lib/".length);
+    return install_system_file(volume, write, SYSTEM_GL_LIBRARY, library, 0o755);
+}
+
+// Only offline private copies may be edited. Parent directories must exist;
+// insertion fails before overwriting a full catalog leaf.
+export async function install_system_file(volume, write, path, library, mode = 0o644)
+{
+    expect(path.startsWith("/") && !path.split("/").some(p => p === "." || p === ".."), "Invalid system file path");
+    expect(!await volume.lookup(path), "System file already exists: " + path);
+    const slash = path.lastIndexOf("/"), directory = await volume.lookup(path.slice(0, slash) || "/"), name = path.slice(slash + 1);
     const tree = volume.catalog;
-    expect(volume.case_sensitive && tree.key_compare === 0xBC && directory?.type === "directory", "Expected the N90 HFSX system library directory");
+    expect(volume.case_sensitive && tree.key_compare === 0xBC && directory?.type === "directory", "Expected an existing N90 HFSX parent directory: " + path);
     const parent = [...tree.cache].find(([, leaf]) => leaf.kind === -1 && leaf.records.some(({ data }) =>
         view(data).getUint16(0) === 1 && view(data).getUint32(8) === directory.id));
     expect(parent, "Missing the system library directory record");
@@ -285,7 +294,7 @@ async function install_system_gl(volume, write, library)
     v.setUint16(2, 2); // has a file thread
     v.setUint32(8, fileID);
     record.set(leaf.records[parentIndex].data.subarray(12, 32), 12);
-    v.setUint16(42, 0o100755);
+    v.setUint16(42, 0o100000 | mode);
     v.setUint32(44, 1);
     const { blocks, extents: [{ start }] } = await extend_system_volume(volume, write, { blocks: 0, extents: [] }, library.length);
     v.setBigUint64(88, BigInt(library.length));
@@ -310,7 +319,7 @@ async function install_system_gl(volume, write, library)
     hv.setUint32(32, hv.getUint32(32) + 1);
     hv.setUint32(64, fileID + 1);
     await write_volume_header(volume, write, header);
-    const installed = await volume.lookup(SYSTEM_GL_LIBRARY);
+    const installed = await volume.lookup(path);
     expect(installed && equals(await volume.contents(installed), library), "Could not read back the system guest library");
 }
 

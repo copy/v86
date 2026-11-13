@@ -959,6 +959,10 @@ ios-guest:
 	test -n "$(IPHONE4_DYLD_CACHE)"
 	sh tools/ios/guest/build-gles.sh build/ios-guest --host-contexts "$(IPHONE4_DYLD_CACHE)"
 
+.PHONY: ios-install-fixtures
+ios-install-fixtures:
+	sh tools/ios/guest/build-apps.sh build/ios-install-fixtures
+
 app-check: node_modules/.bin/tsc
 	node_modules/.bin/tsc -p tsconfig.json
 
