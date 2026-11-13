@@ -1,7 +1,7 @@
 // NV40 2D/cube/volume texture fetch/upload. The component crossbar operates
 // on the format's storage components, before the fragment program sees RGBA.
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
-const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[26,8]]);
+const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[16,4],[18,2],[26,8]]);
 const BLOCK_BYTES=new Map([[6,8],[7,16],[8,16]]);
 export class NV40Texture
 {
@@ -39,6 +39,8 @@ export class NV40Texture
         if(get(o,at+12)&0x70)throw new RangeError("NV40 anisotropic texture is not connected");
         if(!(get(o,at+12)&0x80000000))throw new RangeError("NV40 sampled texture is disabled");
         const cube=!!(format&4),dimension=format>>>4&15,volume=dimension===3;
+        const depthCompare=code===16 || code===18;
+        if(depthCompare && (cube || volume))throw new RangeError("NV40 depth comparison needs a 2D texture");
         if(dimension!==2 && !volume || cube && volume)throw new RangeError("NV40 invalid texture dimension");
         const depth=volume?get(o,0x1840+unit*4)>>>20:1;
         if(volume && (!depth || Math.max(width,height,depth)>512))throw new RangeError("NV40 volume texture dimensions");
@@ -48,6 +50,7 @@ export class NV40Texture
         if(cube && !normalized)throw new RangeError("NV40 unnormalized cube coordinates");
         const levels=format>>>16&15;
         if(!levels || levels>1+Math.floor(Math.log2(Math.max(width,height,depth))))throw new RangeError("NV40 invalid texture mip count");
+        if(depthCompare && levels!==1)throw new RangeError("NV40 depth comparison mip chains are not connected");
         if(!bpp)throw new RangeError("NV40 texture format is not connected: "+code);
         if(selector!==1 && selector!==2)throw new RangeError("NV40 texture DMA selector");
         const swizzle=!(format&0x2000),u=Math.ceil(Math.log2(width)),v=Math.ceil(Math.log2(height)),w=Math.ceil(Math.log2(depth));
@@ -62,7 +65,7 @@ export class NV40Texture
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,normalized,
             crossbar:get(o,at+16),wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
-            d3d:code===26?113:32,upload_bpp:code===26?8:4,
+            d3d:depthCompare?code===16?75:80:code===26?113:32,upload_bpp:depthCompare?bpp:code===26?8:4,depth_compare:depthCompare,
             bias:new Uint32Array(Float32Array.of((filter<<19>>19)/256).buffer)[0],border:get(o,at+28)};
     }
     images(texture)
@@ -116,7 +119,7 @@ export class NV40Texture
     }
     read(texture)
     {
-        if(texture.vertex)return this.storage(texture);
+        if(texture.vertex || texture.depth_compare)return this.storage(texture);
         if(texture.code===26)
         {
             const bytes=this.storage(texture),result=new Uint8Array(bytes.length),

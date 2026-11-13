@@ -695,11 +695,27 @@ export function translate_fragment_program(program,options={})
                 const dimension=options.samplers?.[i.texture] || 2;
                 if(![2,3,4].includes(dimension)) throw new RangeError("NV40 unsupported sampler dimension");
                 shader.samplers.set(i.texture,dimension);shader.declare(10,i.texture,[0,0,dimension]);
+                const depth=options.depth_samplers?.[i.texture];
+                if(depth)
+                {
+                    if(!Number.isInteger(depth.compare) || depth.compare<0 || depth.compare>7 || dimension!==2)
+                        throw new RangeError("NV40 invalid depth comparison sampler");
+                    shader.declarations.push((0x01001007|depth.compare<<16)>>>0,dst(10,i.texture));
+                }
             }
             const sampler=src(10,i.texture);
-            if(i.name==="TXD") shader.emit(OP.TXD,destination,sources[0],sampler,sources[1],sources[2]);
+            const depth=options.depth_samplers?.[i.texture],sample=depth?shader.temp("depth-sample"):30;
+            const sampled=depth?dst(0,sample):destination;
+            if(i.name==="TXD") shader.emit(OP.TXD,sampled,sources[0],sampler,sources[1],sources[2]);
             else shader.emit((i.name==="TXL"?OP.TXL:OP.TEX) | (i.name==="TXP"?1:i.name==="TXB"?2:0)<<16,
-                destination,sources[0],sampler);
+                sampled,sources[0],sampler);
+            if(depth)for(let lane=0;lane<4;lane++)if(i.destination.mask&1<<lane)
+            {
+                const crossbarShift=(3-lane)*2,select=depth.crossbar>>>(crossbarShift+8)&3,component=3-(depth.crossbar>>>crossbarShift&3);
+                if(select===3)throw new RangeError("NV40 invalid depth texture component selection");
+                shader.emit(OP.MOV,dst(0,30,1<<lane,i.saturate,shift),
+                    select===2?src(0,sample,Array(4).fill(component)):shader.literal(select));
+            }
         }
         else if(unpack>=0)
         {

@@ -240,7 +240,11 @@ export class NV40Render
             return {dimension:get(o,at+4)>>>4&3,code:get(o,at+4)>>>8&31,bias:(get(o,at+20)<<19>>19)/256,
                 min_lod:(enable>>>19&4095)/256,max_lod:(enable>>>7&4095)/256};
         });
-        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14),samplers,texture_sizes,vertex_textures});
+        const depth_samplers=Array.from({length:16},(_,unit)=>{
+            const at=0x1A00+unit*32,code=get(o,at+4)>>>8&31;
+            return [16,18].includes(code)?{compare:get(o,at+8)>>>28,crossbar:get(o,at+16)}:null;
+        });
+        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14),samplers,texture_sizes,vertex_textures,depth_samplers});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};

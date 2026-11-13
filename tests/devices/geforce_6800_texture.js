@@ -27,6 +27,15 @@ assert.equal(texture.vertex(vertexObject,0).d3d,114);
 vertexObject.methods.set(0x904,0x1BA21);assert.throws(()=>texture.vertex(vertexObject,0),/format/);
 assert.throws(()=>texture.vertex(vertexObject,4),/unit/);
 console.log("PASS: four linear FP32 vertex texture units, 1D height, padded mip chains and DMA bounds");
+for(const [code,bpp,format]of [[16,4,75],[18,2,80]])
+{
+    const depth={methods:new Map([[0x184,0x10],[0x1A00,0x9000],[0x1A04,0x12021|code<<8],[0x1A08,0x60000303],
+        [0x1A0C,0x80000000],[0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,2*bpp]])};
+    const surface=texture.describe(depth,0);assert.equal(surface.d3d,format);assert.equal(surface.upload_bpp,bpp);
+    vram.set(Array.from({length:4*bpp},(_,i)=>i+17),0x9000);
+    assert.deepEqual([...texture.read(surface)],Array.from({length:4*bpp},(_,i)=>i+17),"depth/stencil bits remain intact before comparison");
+    depth.methods.set(0x1A04,0x22021|code<<8);assert.throws(()=>texture.describe(depth,0),/depth comparison mip/);
+}
 vram.set([0,0,255,255,0,255,0,255,99,98,97,96,255,0,0,255,255,255,255,255],0x1000);
 let t=texture.describe(o,0);assert.deepEqual([...texture.read(t)],[255,0,0,255,0,255,0,255,0,0,255,255,255,255,255,255]);
 assert.equal(t.normalized,true);o.methods.set(0x1A04,0x16529);assert.equal(texture.describe(o,0).normalized,false);

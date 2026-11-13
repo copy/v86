@@ -619,6 +619,39 @@ try
         assert.equal(engine.backend.stats.uploads,beforeReuse+2,"a guest color attachment change forces one upload");
         console.log("PASS: real WebGPU exact-byte upload reuse, changed-mip uploads and CPU-authoritative attachment edits");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
+        const compareTests=[()=>false,(r,d)=>r>d,(r,d)=>r===d,(r,d)=>r>=d,(r,d)=>r<d,(r,d)=>r!==d,(r,d)=>r<=d,()=>true];
+        const shadowDraw=async(reference,{project=false,crossbar=0xAA6C,coordinate=.5}={})=>{
+            method(0x1A10,crossbar);
+            [((project?24:23)<<24|128|15<<9|1)>>>0,7<<18|0x1C802,0,0,
+                ...new Uint32Array(Float32Array.of(coordinate,coordinate,reference*(project?2:1),project?2:1).buffer)]
+                .forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            method(0x1808,6);
+            for(const word of new Uint32Array(Float32Array.of(0,0,0,0,0,0,16,0,0,0,16,0,0,0,0).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            return [...vram.subarray(0x10000,0x10004)];
+        };
+        for(const [code,bpp,word]of [[16,4,0x8000005A],[18,2,0x8000]])
+        {
+            for(const [at,value]of [[0x1A00,0x70000],[0x1A04,0x12021|code<<8],[0x1A18,1<<16|1],[0x1840,bpp],
+                [0x1A0C,0x80000000],[0x1A14,0x01010000]])method(at,value);
+            if(bpp===4)view.setUint32(0x70000,word,true);else view.setUint16(0x70000,word,true);
+            const depth=Math.fround(bpp===4?(word>>>8)/0xFFFFFF:word/65535);
+            for(let compare=0;compare<8;compare++)for(const reference of [.25,depth,.75])
+            {
+                method(0x1A08,compare<<28|0x303);
+                assert.deepEqual(await shadowDraw(reference),Array(4).fill(compareTests[compare](reference,depth)?255:0),
+                    "native depth format " + code + " compare function " + compare);
+            }
+            method(0x1A08,6<<28|0x303);
+            assert.deepEqual(await shadowDraw(.25,{project:true,coordinate:1}),Array(4).fill(255),"projected shadow reference divides by W");
+            assert.deepEqual(await shadowDraw(.75,{crossbar:0xAA6C&~0xC000|0x4000}),[0,0,255,0],
+                "depth-result component crossbar can select constant one");
+        }
+        // Four PCF taps must compare individually before their linear blend.
+        method(0x1A18,2<<16|2);method(0x1840,4);method(0x1A14,0x02020000);
+        [0,65535,65535,0].forEach((z,i)=>view.setUint16(0x70000+i*2,z,true));
+        const pcf=await shadowDraw(.5);assert(pcf.every(value=>Math.abs(value-128)<=1),"bilinear depth PCF blends comparison results: "+pcf);
+        console.log("PASS: real WebGPU Z16/Z24 comparisons, all eight functions, projective reference, crossbar and four-tap PCF");
         // Feed decoded VLIW programs through the actual GPU, retaining native
         // fetch, interpolators and fragment exports around vertex predicates.
         for(let attribute=0;attribute<16;attribute++)method(0x1740+attribute*4,attribute?0:0x42);

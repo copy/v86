@@ -109,6 +109,16 @@ try
         const resized=translate_fragment_program(p,{texture_sizes:[[16,16,1]]});
         assert.deepEqual(rect.bytecode,resized.bytecode,"texture dimensions remain uniform values outside the shader cache key");
     }
+    for(let compare=0;compare<8;compare++)
+    {
+        const p=structuredClone(fragment);p.instructions[0].name="TEX";
+        const t=translate_fragment_program(p,{depth_samplers:[{compare,crossbar:0xAA6C}]});
+        const module=validate("depth-compare-"+compare,t);
+        assert.equal(module.reflection.samplers[0].compareFunction,["never","greater","equal","greater-equal","less","not-equal","less-equal","always"][compare]);
+        const linked=pipeline.compileShader(t.bytecode,{depthSamplers:[0]});assert(linked.ok,linked.error);
+        const file=path.join(folder,"depth-linked-"+compare+".wgsl");fs.writeFileSync(file,linked.wgsl);
+        if(naga)assert.equal(spawnSync(naga,[file],{encoding:"utf8"}).status,0);validated++;
+    }
     const fogged=structuredClone(fragment);fogged.instructions[0].sources[0]={type:"input",index:3,swizzle:[0,1,2,3],negate:false,absolute:false};
     for(const mode of [0x2601,0x804,0x800,0x801,0x802,0x803])validate("fog-"+mode,translate_fragment_program(fogged,{fog:{mode,constant:1,linear:1}}));
     assert.throws(()=>translate_fragment_program(fogged,{fog:{mode:0x805,constant:1,linear:1}}),/invalid fog/);

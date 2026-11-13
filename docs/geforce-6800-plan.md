@@ -1337,3 +1337,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   物理 DMA 重叠 barrier，未知格式及 wrap 模式明确拒绝。150 个 Naga 模块、完整
   真实 GPU 回归、纹理/解码/PGRAPH/FIFO 测试与 Closure 构建通过。硬件限制复核
   envytools 的 MthdCurieXfTex*，像素覆盖四个单元、两种格式、1D 和 LOD 参数。
+
+- G4 深度纹理第一部分：接通单级 Z16/Z24 的硬件比较，保留原始深度/模板字节。
+  私有 sampler 声明把八种 RCOMP 函数送至 WebGPU comparison sampler，D3D 普通
+  shadow sampler 的默认 LEQUAL 保持不变；NV 分量 crossbar 在比较后应用。
+  166 个 Naga 模块、完整真实 GPU 回归、通用 D3D 57 项/199 个 Naga 验证与
+  Closure/WebGPU bundle 构建通过。像素覆盖小于/相等/大于边界、八种函数、Z16/Z24、
+  TXP 投影参考、常量分量和四点 PCF。多级深度纹理仍明确拒绝，继续后续实施。

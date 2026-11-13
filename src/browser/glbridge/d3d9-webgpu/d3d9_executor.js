@@ -5977,7 +5977,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // Filtering is what makes the comparison a PCF tap rather than a hard
         // test, so it follows the stage's own filter state: a shadow map
         // sampled with POINT should not silently acquire soft edges.
-        comparisonSamplerFor(state, stage) {
+        comparisonSamplerFor(state, stage, compareFunction = "less-equal") {
             const get = (id, fallback) => {
                 const value = state.samplerStates.get(stage * 64 + id);
                 return value === undefined ? fallback : value;
@@ -5987,7 +5987,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             const magFilter = FILTER_MODES[get(D3DSAMP_MAGFILTER, 1)] || "nearest";
             const minFilter = FILTER_MODES[get(D3DSAMP_MINFILTER, 1)] || "nearest";
             const key = "cmp," + addressU + "," + addressV + "," +
-                magFilter + "," + minFilter;
+                magFilter + "," + minFilter + "," + compareFunction;
             const cached = this.samplerCache.get(key);
             if (cached) { ++this.stats.samplerHits; return cached; }
             const sampler = this.device.createSampler({
@@ -5995,7 +5995,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 addressModeV: ADDRESS_MODES[addressV] || "repeat",
                 magFilter,
                 minFilter,
-                compare: "less-equal",
+                compare: compareFunction,
             });
             ++this.stats.samplersCreated;
             ++this.stats.comparisonSamplersCreated;
@@ -6081,7 +6081,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     depth, dimension, unfilterable, wantsSRGB,
                     !!handle && handle === state.depthTargetHandle, !program.pixelSignature);
                 const sampler = compare
-                    ? this.comparisonSamplerFor(state, index)
+                    ? this.comparisonSamplerFor(state, index, program.pixelReflection &&
+                        program.pixelReflection.samplers.find(sampler => sampler.index === index)?.compareFunction)
                     : this.samplerFor(state, index, depth || unfilterable,
                         texture);
                 entries.push(

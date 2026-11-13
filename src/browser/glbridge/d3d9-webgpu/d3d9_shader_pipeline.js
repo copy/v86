@@ -110,6 +110,7 @@
         NV_ALU: 0x1000,
         NV_LOAD: 0x1001, NV_STORE: 0x1002, NV_HALF: 0x1003, NV_COPY: 0x1004,
         NV_PACK: 0x1005, NV_UNPACK: 0x1006,
+        NV_DEPTH_SAMPLER: 0x1007,
         PHASE: 0xfffd, COMMENT: 0xfffe, END: 0xffff,
     };
 
@@ -144,6 +145,7 @@
         [OP.NV_LOAD]: [1, 1], [OP.NV_STORE]: [1, 2],
         [OP.NV_HALF]: [1, 1], [OP.NV_COPY]: [1, 2],
         [OP.NV_PACK]: [1, 2], [OP.NV_UNPACK]: [1, 1],
+        [OP.NV_DEPTH_SAMPLER]: [1, 0],
         [OP.CMP]: [1, 3], [OP.DP2ADD]: [1, 3], [OP.DSX]: [1, 1],
         [OP.DSY]: [1, 1], [OP.TEXLDD]: [1, 4], [OP.TEXLDL]: [1, 2],
         [OP.TEXREG2AR]: [1, 1], [OP.TEXREG2GB]: [1, 1],
@@ -496,7 +498,7 @@
             sampler + ", " + shifted + ").zxyw";
     }
 
-    const PROGRAM_MAPS = ["usedInputs", "outputSemantics", "samplers", "floatDefaults", "intDefaults", "boolDefaults"];
+    const PROGRAM_MAPS = ["usedInputs", "outputSemantics", "samplers", "floatDefaults", "intDefaults", "boolDefaults", "nvDepthFunctions"];
     const PROGRAM_SETS = ["temps", "writtenVaryings", "psTexcoordInputs", "bumpStages", "psColorInputs", "colorOutputs"];
     const PROGRAM_VALUES = ["outputDeclarations", "inputDeclarations", "usesAddress", "usesLoopCounter", "usesPredicate",
         "usesPointSize", "usesDepthOutput", "usesFragPosition", "usesFrontFacing", "usesRelativeConstants", "usesRelativeInputs",
@@ -514,6 +516,7 @@
             this.temps = new Set();
             this.nvAlu = false;
             this.nvRegisters = false;
+            this.nvDepthFunctions = new Map();
             this.usedInputs = new Map();       // register -> {usage, usageIndex}
             this.outputSemantics = new Map();  // vs_3_0 o# -> {usage, usageIndex}
             this.outputDeclarations = [];
@@ -1223,6 +1226,13 @@
                 }
                 return;
             }
+            case OP.NV_DEPTH_SAMPLER:
+                if (this.kind !== "pixel" || instruction.control > 7 || instruction.predicated ||
+                    dest.type !== REG_SAMPLER || dest.index >= 16 || dest.relative || dest.modifier || dest.shift)
+                    throw new Error("invalid private NV40 depth sampler");
+                this.nvDepthFunctions.set(dest.index, ["never", "greater", "equal", "greater-equal",
+                    "less", "not-equal", "less-equal", "always"][instruction.control]);
+                return;
             case OP.RSQ: this.store(dest, "vec4<f32>(d9_rsq(" + scalar(0) + "))"); return;
             case OP.EXP: this.store(dest, "vec4<f32>(exp2(" + scalar(0) + "))"); return;
             case OP.LOG: this.store(dest, "vec4<f32>(d9_log(" + scalar(0) + "))"); return;
@@ -2558,6 +2568,7 @@ fn nv40_alu(op: u32, s: vec4<f32>) -> vec4<f32> {
             const samplerBindingBase = this.kind === "vertex" ? 34 : 2;
             const samplers = Array.from(this.samplers.entries())
                 .map(([index, type]) => ({ index, type,
+                    ...(this.nvDepthFunctions.has(index) ? {compareFunction:this.nvDepthFunctions.get(index)} : {}),
                     depth: this.isDepthSampler(index)
                         ? (this.isDepthFetchSampler(index) ? "fetch" : "compare")
                         : false,
