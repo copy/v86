@@ -1,6 +1,6 @@
 import { inspect_ipa } from "./ipa.js";
 import { plist_encode, plist_parse } from "./plist.js";
-import { macho_entitlements, macho_link_library, sign_macho } from "./codesign.js";
+import { macho_entitlements, macho_link_library, macho_embed_info, sign_macho } from "./codesign.js";
 import { cdhashes, SYSTEM_GL_LIBRARY } from "./guest_load.js";
 import { zip_read, zip_stream } from "../android/zip.js";
 import { SHA1 } from "./crypto.js";
@@ -58,6 +58,7 @@ export async function prepare_ipa(read, size, sink, { graphics = true, progress 
             replacements.set(bundle.root + "/_CodeSignature/CodeResources", resources);
             removed.delete(bundle.root + "/_CodeSignature/CodeResources");
             info = await readMember(bundle.root + "/Info.plist");
+            bytes = macho_embed_info(bytes,info);
         }
         const entitlements = macho_entitlements(code.bytes);
         const identifier = bundle?.info.CFBundleIdentifier || code.path.slice(prefix.length).replaceAll("/", ".");

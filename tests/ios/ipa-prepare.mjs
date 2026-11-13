@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { test } from "node:test";
 import { prepare_ipa } from "../../src/ios/ipa_prepare.js";
 import { inspect_ipa } from "../../src/ios/ipa.js";
-import { sign_macho, macho_entitlements, macho_link_library } from "../../src/ios/codesign.js";
+import { sign_macho, macho_entitlements, macho_link_library, macho_embed_info } from "../../src/ios/codesign.js";
 import { cdhashes, SYSTEM_GL_LIBRARY } from "../../src/ios/guest_load.js";
 import { plist_encode, plist_parse } from "../../src/ios/plist.js";
 import { zip_read } from "../../src/android/zip.js";
@@ -46,6 +46,9 @@ test("preparation produces an inspectable IPA, final hashes, graphics dependency
     assert.deepEqual(b, original); assert.equal(manifest.prepared_size, out.length);
     assert.equal(manifest.prepared_sha256, createHash("sha256").update(out).digest("hex"));
     assert.ok(app.main.parsed.dylibs.includes(SYSTEM_GL_LIBRARY));
+    const embedded=app.main.parsed.segments.flatMap(s=>s.sections).find(s=>s.name==="__info_plist");
+    assert.ok(embedded,"the binary-path native validator must see the signed Info component");
+    assert.deepEqual(app.main.bytes.subarray(embedded.offset,embedded.offset+embedded.size),info);
     assert.equal(manifest.trusted[0].cdhashes[0], Buffer.from(cdhashes(app.main.bytes)[0]).toString("hex"));
     assert.ok(!app.entries.some(e => e.name.endsWith("embedded.mobileprovision")));
     const seal = plist_parse(await zip_read(read, app.entries.find(e => e.name.endsWith("_CodeSignature/CodeResources"))));
@@ -55,4 +58,7 @@ test("preparation produces an inspectable IPA, final hashes, graphics dependency
 test("preparation reports unsupported header layout instead of modifying it", () => {
     const b = image(), v = new DataView(b.buffer); v.setUint32(124, 212, true);
     assert.throws(() => macho_link_library(b, SYSTEM_GL_LIBRARY), /header padding/);
+    const original=image(),copy=original.slice();
+    assert.throws(()=>macho_embed_info(original,new Uint8Array(5000)),/padding.*Info.plist/);
+    assert.deepEqual(original,copy);
 });

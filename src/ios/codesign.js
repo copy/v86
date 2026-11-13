@@ -65,6 +65,39 @@ export function macho_link_library(original, path)
     return bytes;
 }
 
+// installd passes a binary path to iOS 6 libmis. Its Mach-O disk reader
+// obtains the signed Info component from __TEXT,__info_plist, rather than
+// from the containing directory. Bind the exact bundle plist in both places.
+export function macho_embed_info(original, info)
+{
+    const { parsed, result } = commands(original), text=parsed.segments.find(s=>s.name==="__TEXT");
+    expect(text && text.fileoff===0,"missing file-backed __TEXT segment");
+    const command=result.find(c=>c.cmd===1&&view(original).getUint32(c.at+24,true)===text.vmaddr);
+    expect(command,"missing __TEXT command");
+    const bytes=new Uint8Array(original),v=view(bytes),count=v.getUint32(command.at+48,true);
+    let section=-1;
+    for(let i=0;i<count;i++){
+        const at=command.at+56+i*68;
+        if(new TextDecoder().decode(bytes.subarray(at,at+16)).replace(/\0.*$/,"")==="__info_plist")section=at;
+    }
+    if(section>=0){
+        const at=v.getUint32(section+40,true),size=v.getUint32(section+36,true);
+        expect(info.length<=size,"insufficient space in embedded Info.plist");
+        bytes.fill(0,at,at+size);bytes.set(info,at);v.setUint32(section+36,info.length,true);return bytes;
+    }
+    const end=28+v.getUint32(20,true),first=Math.min(...parsed.segments.flatMap(s=>s.sections).map(s=>s.offset).filter(Boolean));
+    // Leave room for LC_CODE_SIGNATURE when signing an originally unsigned image.
+    const at=align(end+68+16);
+    expect(at+info.length<=first && at+info.length<=text.filesize && bytes.subarray(end,at+info.length).every(b=>!b),
+        "insufficient Mach-O header padding for the signed Info.plist");
+    section=command.at+command.size;
+    bytes.copyWithin(section+68,section,end);bytes.fill(0,section,section+68);
+    bytes.set(new TextEncoder().encode("__info_plist"),section);bytes.set(new TextEncoder().encode("__TEXT"),section+16);
+    v.setUint32(section+32,text.vmaddr+at,true);v.setUint32(section+36,info.length,true);v.setUint32(section+40,at,true);v.setUint32(section+44,4,true);
+    v.setUint32(command.at+4,command.size+68,true);v.setUint32(command.at+48,count+1,true);v.setUint32(20,end-28+68,true);
+    bytes.set(info,at);return bytes;
+}
+
 export function sign_macho(original, { identifier, info = null, resources = null, entitlements = null })
 {
     expect(typeof identifier === "string" && identifier.length && !identifier.includes("\0"), "invalid signing identifier");
