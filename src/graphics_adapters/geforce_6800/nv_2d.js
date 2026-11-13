@@ -23,18 +23,53 @@ export class NV2D
     surface(o, at, source = false)
     {
         const ref = this.ref(o, at);
-        if(!ref || ![0x42, 0x62, 0x362, 0x3062].includes(ref.class_id)) throw new RangeError("NV 2D invalid surface");
-        const format = m(ref, 0x300), bpp = format === 1 ? 1 : format >= 2 && format <= 5 ? 2 : format >= 6 && format <= 11 ? 4 : 0;
+        const swizzle = ref && [0x52, 0x9E, 0x309E].includes(ref.class_id);
+        if(!ref || !swizzle && ![0x42, 0x62, 0x362, 0x3062].includes(ref.class_id)) throw new RangeError("NV 2D invalid surface");
+        const format = m(ref, 0x300) & 255, bpp = format === 1 ? 1 : format >= 2 && format <= 5 ? 2 : format >= 6 && format <= 11 ? 4 : 0;
         if(!bpp) throw new RangeError("NV 2D invalid format");
+        const u = m(ref, 0x300) >>> 16 & 255, v = m(ref, 0x300) >>> 24;
+        if(swizzle && (u > 12 || v > 12)) throw new RangeError("NV swizzle invalid dimensions");
         const pitch = source ? lo(m(ref, 0x304)) : hi(m(ref, 0x304));
-        return { dma: this.dma(ref, source ? 0x184 : 0x188), format, bpp, pitch, offset: m(ref, source ? 0x308 : 0x30C) };
+        return { dma: this.dma(ref, swizzle || source ? 0x184 : 0x188), format, bpp, pitch, swizzle, u, v,
+            offset: m(ref, swizzle ? 0x304 : source ? 0x308 : 0x30C) };
+    }
+    address(s, x, y)
+    {
+        if(!s.swizzle) return s.offset + s.pitch * y + x * s.bpp;
+        if(x < 0 || y < 0 || x >= 2 ** s.u || y >= 2 ** s.v) throw new RangeError("NV swizzle outside surface");
+        let index = 0, bit = 0;
+        for(let i = 0; i < Math.max(s.u, s.v); i++)
+        {
+            if(i < s.u) index |= (x >>> i & 1) << bit++;
+            if(i < s.v) index |= (y >>> i & 1) << bit++;
+        }
+        return s.offset + index * s.bpp;
     }
     row(surface, x, y, width, write)
     {
-        if(x < 0 || y < 0 || width < 0 || width * surface.bpp > Math.abs(surface.pitch)) throw new RangeError("NV 2D invalid rectangle");
+        if(x < 0 || y < 0 || width < 0 || !surface.swizzle && width * surface.bpp > Math.abs(surface.pitch)) throw new RangeError("NV 2D invalid rectangle");
+        if(surface.swizzle)
+        {
+            for(let i = 0; i < width; i++) this.device.dma.ranges(surface.dma, this.address(surface, x + i, y), surface.bpp, write);
+            return 0;
+        }
         const at = surface.offset + surface.pitch * y + x * surface.bpp;
         this.device.dma.ranges(surface.dma, at, width * surface.bpp, write);
         return at;
+    }
+    readrow(s, x, y, width)
+    {
+        const at = this.row(s, x, y, width, false);
+        if(!s.swizzle) return this.device.dma.read(s.dma, at, width * s.bpp);
+        const bytes = new Uint8Array(width * s.bpp);
+        for(let i = 0; i < width; i++) bytes.set(this.device.dma.read(s.dma, this.address(s, x + i, y), s.bpp), i * s.bpp);
+        return bytes;
+    }
+    writerow(s, x, y, bytes)
+    {
+        if(!s.swizzle) this.device.dma.write(s.dma, this.address(s, x, y), bytes);
+        else for(let i = 0; i < bytes.length / s.bpp; i++)
+            this.device.dma.write(s.dma, this.address(s, x + i, y), bytes.subarray(i * s.bpp, (i + 1) * s.bpp));
     }
     raw(bytes, at, bpp)
     {
@@ -107,22 +142,35 @@ export class NV2D
         const [x, y, w, h] = rect;
         if(!w || !h) return;
         if(w * h * dst.bpp > this.device.vram_size) throw new RangeError("NV 2D rectangle too large");
-        const rows = [];
         // Validate every destination row before changing any pixels.
-        for(let row = 0; row < h; row++) rows.push(this.row(dst, x, y + row, w, true));
+        for(let row = 0; row < h; row++) this.row(dst, x, y + row, w, true);
         const operation = m(o, 0x2FC, 3), rop = o.methods.has(refs[1]) ? this.ref(o, refs[1]) : null;
-        if(![0, 1, 3].includes(operation)) throw new RangeError("NV 2D blend operation unavailable");
+        if(operation > 5) throw new RangeError("NV 2D invalid operation");
         for(let row = 0; row < h; row++)
         {
-            const bytes = this.device.dma.read(dst.dma, rows[row], w * dst.bpp);
+            const bytes = this.readrow(dst, x, y + row, w);
             for(let col = 0; col < w; col++)
             {
-                const s = source(x + col, y + row), d = this.raw(bytes, col * dst.bpp, dst.bpp);
-                if(s === null) continue;
+                const sample = source(x + col, y + row), d = this.raw(bytes, col * dst.bpp, dst.bpp);
+                if(sample === null) continue;
+                const rgba = Array.isArray(sample) ? sample : this.unpack(sample, dst.format);
+                const s = Array.isArray(sample) ? this.pack(rgba, dst.format) : sample;
                 const p = this.pattern(o, refs[0], x + col, y + row, dst.format);
-                this.put(bytes, col * dst.bpp, dst.bpp, operation === 1 ? this.rop(rop ? m(rop, 0x300) & 255 : 0xCC, s, d, p) : s);
+                let result = operation === 1 ? this.rop(rop ? m(rop, 0x300) & 255 : 0xCC, s, d, p) : s;
+                if(operation === 2 || operation >= 4)
+                {
+                    const beta = refs.length > 2 && o.methods.has(refs[2]) ? this.ref(o, refs[2]) : null;
+                    const beta4 = refs.length > 3 && o.methods.has(refs[3]) ? this.ref(o, refs[3]) : null;
+                    const modulation = beta4 ? this.unpack(m(beta4, 0x300), 10) : [255, 255, 255, 255];
+                    const alpha = operation === 2 ? beta ? Math.max(0, m(beta, 0x300) | 0) / 2147483647 : 1 : rgba[3] * modulation[3] / 65025;
+                    const dest = this.unpack(d, dst.format);
+                    const blended = rgba.map((v, i) => Math.min(255, Math.round(operation === 2 ? v * alpha + dest[i] * (1 - alpha) :
+                        v * modulation[i] / 255 + (operation === 5 ? dest[i] * (1 - alpha) : 0))));
+                    result = this.pack(blended, dst.format);
+                }
+                this.put(bytes, col * dst.bpp, dst.bpp, result);
             }
-            this.device.dma.write(dst.dma, rows[row], bytes);
+            this.writerow(dst, x, y + row, bytes);
         }
     }
     blit(o)
@@ -134,14 +182,13 @@ export class NV2D
         // Capture the source before writing to support all overlapping directions.
         for(let row = 0; row < rect[3]; row++)
         {
-            const at = this.row(src, sx + rect[0] - dx, sy + rect[1] - dy + row, rect[2], false);
-            rows.push(this.device.dma.read(src.dma, at, rect[2] * src.bpp));
+            rows.push(this.readrow(src, sx + rect[0] - dx, sy + rect[1] - dy + row, rect[2]));
         }
         const key = o.methods.has(0x184) ? this.ref(o, 0x184) : null;
         this.render(o, dst, rect, (x, y) => {
             const s = this.raw(rows[y - rect[1]], (x - rect[0]) * src.bpp, src.bpp);
             return key && s === m(key, 0x304) ? null : s;
-        }, [0x18C, 0x190]);
+        }, [0x18C, 0x190, 0x194, 0x198]);
     }
     rectangle(o, at)
     {
@@ -157,7 +204,7 @@ export class NV2D
             const [right, bottom] = xy(m(o, at)); w = right - x; h = bottom - y;
             clip = [...xy(m(o, 0x5F4)), ...xy(m(o, 0x5F8))]; color = m(o, 0x5FC);
         }
-        this.render(o, this.surface(o, 0x198), this.bounds(x, y, w, h, clip), () => color, [0x188, 0x18C]);
+        this.render(o, this.surface(o, 0x198), this.bounds(x, y, w, h, clip), () => color, [0x188, 0x18C, 0x190, 0x194]);
     }
     m2mf(o, value)
     {
@@ -207,7 +254,7 @@ export class NV2D
                 const color = lut ? this.raw(lut, bytes[px - x] * 4, 4) : this.raw(bytes, (px - x) * bpp, bpp);
                 if(key && color === m(key, 0x304)) return null;
                 return this.convert(color, input, dst.format);
-            }, indexed ? [0x190, 0x194] : [0x18C, 0x190]);
+            }, indexed ? [0x190, 0x194, 0x198, 0x19C] : [0x18C, 0x190, 0x194, 0x198]);
         }
         finally { if(indexed) o.methods.set(0x2FC, operation); }
         o.stream = [row + 1];
@@ -228,8 +275,60 @@ export class NV2D
         this.render(o, dst, rect, px => {
             const bit = px - x - column, shift = m(o, 0x304, 2) === 1 ? (bit & ~7) + 7 - (bit & 7) : bit;
             return value >>> shift & 1 ? m(o, opaque ? 0xBF0 : 0x7F4) : opaque ? m(o, 0xBEC) : null;
-        }, [0x188, 0x18C]);
+        }, [0x188, 0x18C, 0x190, 0x194]);
         o.stream = [offset + 1];
+    }
+    sample(bytes, width, height, pitch, format, x, y)
+    {
+        x = Math.max(0, Math.min(width - 1, x)); y = Math.max(0, Math.min(height - 1, y));
+        const bpp = format === 3 || format === 4 ? 4 : format === 8 ? 1 : 2, at = y * pitch + x * bpp;
+        if(format === 5 || format === 6)
+        {
+            const pair = y * pitch + (x & ~1) * 2;
+            const luma = bytes[pair + (format === 5 ? (x & 1) * 2 : 1 + (x & 1) * 2)];
+            const u = bytes[pair + (format === 5 ? 1 : 0)] - 128, v = bytes[pair + (format === 5 ? 3 : 2)] - 128;
+            const c = (luma - 16) * 298;
+            const clamp = n => Math.max(0, Math.min(255, n >> 8));
+            return [clamp(c + 409 * v + 128), clamp(c - 100 * u - 208 * v + 128), clamp(c + 516 * u + 128), 255];
+        }
+        if(format === 8 || format === 9) return [bytes[at], bytes[at], bytes[at], format === 9 ? bytes[at + 1] : 255];
+        const raw = this.raw(bytes, at, bpp), rgba = this.unpack(raw, format === 7 ? 4 : format <= 2 ? 3 : 10);
+        if(format === 1) rgba[3] = raw & 0x8000 ? 255 : 0;
+        else if(format !== 3) rgba[3] = 255;
+        return rgba;
+    }
+    scaled(o)
+    {
+        const [width, height] = wh(m(o, 0x400)), fmt = m(o, 0x404), pitch = fmt & 65535, format = m(o, 0x300);
+        const bpp = format === 3 || format === 4 ? 4 : format === 8 ? 1 : 2;
+        if(!width || !height || pitch < width * bpp || pitch * height > this.device.vram_size || format < 1 || format > 9 ||
+            (format === 5 || format === 6) && width & 1) throw new RangeError("NV SIFM invalid image");
+        const bytes = this.device.dma.read(this.dma(o, 0x184), m(o, 0x408), pitch * (height - 1) + width * bpp);
+        const [x, y] = xy(m(o, 0x310)), [w, h] = wh(m(o, 0x314));
+        const [cx, cy] = xy(m(o, 0x308)), [cw, ch] = wh(m(o, 0x30C));
+        const rect = this.bounds(x, y, w, h, [cx, cy, cx + cw, cy + ch]);
+        const dst = this.surface(o, 0x198), [u0, v0] = xy(m(o, 0x40C));
+        const du = (m(o, 0x318) | 0) / 1048576, dv = (m(o, 0x31C) | 0) / 1048576;
+        const operation = m(o, 0x2FC); o.methods.set(0x2FC, m(o, 0x304));
+        try
+        {
+            this.render(o, dst, rect, (px, py) => {
+                const center = (fmt >>> 16 & 255) === 1;
+                const u = u0 / 16 + (px - x + (center ? 0.5 : 0)) * du - (center ? 0.5 : 0);
+                const v = v0 / 16 + (py - y + (center ? 0.5 : 0)) * dv - (center ? 0.5 : 0);
+                let rgba;
+                if(fmt >>> 24 & 1)
+                {
+                    const ix = Math.floor(u), iy = Math.floor(v), fx = u - ix, fy = v - iy;
+                    const a = this.sample(bytes, width, height, pitch, format, ix, iy), b = this.sample(bytes, width, height, pitch, format, ix + 1, iy);
+                    const c = this.sample(bytes, width, height, pitch, format, ix, iy + 1), d = this.sample(bytes, width, height, pitch, format, ix + 1, iy + 1);
+                    rgba = a.map((v, i) => Math.round((v * (1 - fx) + b[i] * fx) * (1 - fy) + (c[i] * (1 - fx) + d[i] * fx) * fy));
+                }
+                else rgba = this.sample(bytes, width, height, pitch, format, Math.floor(u + 0.5), Math.floor(v + 0.5));
+                return rgba;
+            }, [0x188, 0x18C, 0x190, 0x194]);
+        }
+        finally { o.methods.set(0x2FC, operation); }
     }
     method(o, at, value)
     {
@@ -241,6 +340,7 @@ export class NV2D
         else if(type === 0x4A) accepted = at >= 0x184 && at <= 0x198 || [0x2FC, 0x300, 0x304, 0x3FC, 0x5F4, 0x5F8, 0x5FC].includes(at) || at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700 || at >= 0x7EC && at < 0xA00 || at >= 0xBE4 && at < 0xE00;
         else if(ifc) accepted = at >= 0x184 && at <= 0x19C || at >= 0x2F8 && at <= 0x30C || at >= 0x400 && at < 0x2000;
         else if(indexed) accepted = at >= 0x184 && at <= 0x1A0 || at >= 0x3E0 && at < 0x2000;
+        else if([0x77, 0x89, 0x3089].includes(type)) accepted = at >= 0x184 && at <= 0x198 || at >= 0x2FC && at <= 0x31C || at >= 0x400 && at <= 0x40C;
         if(!accepted || at & 3) return false;
         o.methods.set(at, value >>> 0);
         if(type === 0x39 && at === 0x328) this.m2mf(o, value);
@@ -250,6 +350,7 @@ export class NV2D
         else if(type === 0x4A && at >= 0x800 && at < 0xA00) this.monochrome(o, value, false);
         else if(type === 0x4A && at >= 0xC00 && at < 0xE00) this.monochrome(o, value, true);
         else if((ifc || indexed) && at >= 0x400) this.upload(o, value, indexed);
+        else if([0x77, 0x89, 0x3089].includes(type) && at === 0x40C) this.scaled(o);
         return true;
     }
 }

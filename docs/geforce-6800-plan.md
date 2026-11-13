@@ -121,6 +121,12 @@
   测试覆盖 RGB565 非整 DWORD 行、半行保存/恢复、裁剪后的像素位置和两种单色位序；
   2D 测试与插件构建通过。SIFM/SIFC、线/三角形、混合和字体 DMA 尚未完成。
 
+- CPU 2D 第三部分：增加 SIFM 最近点/双线性取样、12:20 步长与 12:4 起点、
+  RGB/AY8/Y8 和两种打包 YUV 的颜色转换，矩形 Morton surface、beta/预乘混合。
+  测试比较 2×2 到 4×4 的像素中心取样、YUV 黑白端点、非方形 Morton 字节布局和
+  预乘 source-over；全部 2D 测试和插件构建通过。XP 的真实命令已生成登录画面；
+  尚需桌面/模式切换与完整 G2 客体验收。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
