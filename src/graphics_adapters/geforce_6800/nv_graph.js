@@ -38,7 +38,7 @@ export class NVGraph
 
     read(at)
     {
-        if(at === 0x400700) return this.busy ? 1 : 0;
+        if(at === 0x400700) return this.engine3d.busy ? 1 : 0;
         if(at === 0x40071C) return 0;
         if(at === 0x400328) return this.program.get(this.reg(0x400324)) || 0;
         return null;

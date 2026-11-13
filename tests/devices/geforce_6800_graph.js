@@ -120,7 +120,7 @@ console.log("PASS: NV40 query report layout, precise clock, snapshot counter and
 device.registers.set(0x400720,1);
 method(0,0x4200,0x120,0);method(0,0x4200,0x124,2);method(0,0x4200,0x128,3);
 method(0,0x4200,0x12C,0);assert.equal(graph.flips[1][1],0,"WRITE wraps at modulo");
-method(0,0x4200,0x130,0);assert.equal(graph.busy,true);assert.equal(graph.read(0x400700),1);
+method(0,0x4200,0x130,0);assert.equal(graph.busy,true);assert.equal(graph.read(0x400700),0,"waiting for display does not make the drawing engine busy");
 const flipSaved=graph.get_state();graph=new NVGraph(device);graph.set_state(flipSaved);assert.equal(graph.busy,true);
 graph.written(0x40071C,2);assert.equal(graph.busy,false);assert.equal(graph.flips[1][0],1);
 assert.equal(graph.read(0x40071C),0,"increment strobe does not latch");
