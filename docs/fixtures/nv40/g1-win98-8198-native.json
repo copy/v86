@@ -1,0 +1,12 @@
+{
+  "status": "NATIVE_MODE_AND_GDI_PASSED",
+  "seconds": 170,
+  "guest": "win98",
+  "driver": "NVIDIA ForceWare 81.98 (official Win9x package)",
+  "rom": "v86 G0 SeaVGABIOS",
+  "error": null,
+  "probe": "BEGIN\r\nPROBE_ID 24\r\nDEVICE PCI\\VEN_10DE&DEV_0045 problem=0 cm=0 started=1 service= driver=Display\\0001 description=NVIDIA GeForce 6800 GT\r\nMODES count=59 1024x768x32=1\r\nMODE_TEST result=0\r\nMODE_SET result=0\r\nGDI_TEST failures=0\r\nDEVICE PCI\\VEN_10DE&DEV_0045 problem=0 cm=0 started=1 service= driver=Display\\0001 description=NVIDIA GeForce 6800 GT\r\nSCREEN 1024x768\r\nREGISTRY_FLUSH status=0\r\nEND\r\n",
+  "trace": "local build/nv40-win98-auto-cold/trace.json",
+  "imageUnchanged": true,
+  "reason": "Cold boot after native PCI/IDE/display INF installation. Native driver started with no problem code; 1024x768x32 test/switch and GDI readback passed. Desktop, 8 bpp, DOS and snapshot acceptance continue."
+}

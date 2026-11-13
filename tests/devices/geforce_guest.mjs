@@ -109,12 +109,13 @@ export async function run_geforce_guest(win98)
         "-Wl,--entry,_entry@0", "-Wl,--subsystem,console", ...(win98 ? ["-DNV_WIN98"] : []),
         ...(process.env.NV_MODE_TEST ? ["-DNV_MODE_TEST"] : []),
         ...(process.env.NV_SKIP_INSTALL ? ["-DNV_SKIP_INSTALL"] : []),
+        ...(process.env.NV_AUTOSTART ? ["-DNV_AUTOSTART"] : []),
         ...(process.env.NV_REBOOT ? ["-DNV_REBOOT"] : []), "-o", binary,
         ...(process.env.NV_PROBE_ID ? ["-DNV_PROBE_ID=" + Number(process.env.NV_PROBE_ID)] : []),
         ...(process.env.NV_GDI_TEST ? ["-DNV_GDI_TEST"] : []),
         ...(process.env.NV_DDRAW_TEST ? ["-DNV_DDRAW_TEST"] : []),
         ...(process.env.NV_GDI_TEST || process.env.NV_DDRAW_TEST ? [path.join(root, "tests/devices/geforce_draw.c")] : []),
-        path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32", "-lgdi32", "-ldxguid"]);
+        path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32", "-lgdi32"]);
     const probe = new Uint8Array(65536), executable = fs.readFileSync(binary);
     assert(executable.length <= probe.length); probe.set(executable);
     files["NVPROBE.EXE"] = probe;
@@ -140,10 +141,12 @@ export async function run_geforce_guest(win98)
     vm.add_listener("emulator-error", e => { error = String(e); });
     const started = performance.now(), elapsed = () => (performance.now() - started) / 1000;
     let control_time = 0, next_report = 30, reboot_seen = false;
+    const control_file = process.env.NV_CONTROL || path.join(out, "control.json");
     const result_text = () => Buffer.from(read_fat16(tools.bytes, "NV.TXT") || []).toString("ascii");
     const trace_report = () => ({ ...nv.trace.report(),
         registers: Array.from(nv.registers, ([offset, value]) => [offset.toString(16), value >>> 0]),
         pci: Array.from(nv.machine.pci_config()),
+        cpu: {eip: vm.v86.cpu.instruction_pointer[0] >>> 0, regs: Array.from(vm.v86.cpu.reg32), halted: vm.v86.cpu.in_hlt[0]},
         display: { crtc: Array.from(nv.display.crtc), front: nv.display.front, mode: nv.display.mode() },
         graph: nv.graph.get_state(), graphFaults: nv.graph.faults, fifo: nv.fifo.get_state() });
     try
@@ -166,13 +169,13 @@ export async function run_geforce_guest(win98)
             {
                 reboot_seen = true; launches = 0; next_launch = elapsed() + 100;
             }
-            if(process.env.NV_CONTROL && fs.existsSync(process.env.NV_CONTROL))
+            if(fs.existsSync(control_file))
             {
-                const modified = fs.statSync(process.env.NV_CONTROL).mtimeMs;
+                const modified = fs.statSync(control_file).mtimeMs;
                 if(modified > control_time)
                 {
                     control_time = modified;
-                    const input = fs.readFileSync(process.env.NV_CONTROL, "utf8").trim();
+                    const input = fs.readFileSync(control_file, "utf8").trim();
                     const command = input.startsWith("{") ? JSON.parse(input) : { run: input };
                     if(command.keys) await vm.keyboard_send_scancodes(command.keys, 30);
                     if(command.run)

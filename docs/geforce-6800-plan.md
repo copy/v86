@@ -237,6 +237,15 @@
   测试覆盖上半区、512 项背压、0xFFC wrap 和旧队列跨界迁移；设备/快照/构建通过。
   恢复此前卡住的 XP，27 秒内原生模式切换与 GDI 读回通过；DirectDraw 仍有像素/ROP 失败。
 
+- Win98 原生初始化/模式/GDI 已通过：补齐 7010 的 MSHDC.INF 安装，测试探针可选
+  `NV_AUTOSTART` 登记到 overlay 的 RunServices，在 `/auto` 启动时等待 60 秒并跳过重装，
+  避免安装向导抢走 Run 的焦点。冷启动 81.98 报 problem=0 / started=1，59 个模式中
+  找到 1024×768×32；模式测试与切换成功、GDI 读回 failures=0，原盘未变，见
+  `g1-win98-8198-native.json`。完整桌面、8 bpp、DOS 和快照门禁继续验证。
+  DirectDraw 探针改用自己的 IID 常量，避免链接整份 dxguid 使诊断 EXE 超出工具盘预留；
+  返回值与阶段日志分开输出，并记录像素/位宽/pitch 和 ROP HRESULT。XP 已测到
+  32-bit 表面黑像素与 DDERR_NORASTEROPHW，不能称作 G2 通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

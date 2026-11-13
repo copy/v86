@@ -236,6 +236,7 @@ static void install_system_pci(void)
         if(!device_hardware(set,&dev)) continue;
         const char *id=match(hardware,"PCI\\VEN_8086&DEV_1237")?"PCI\\VEN_8086&DEV_1237":
             match(hardware,"PCI\\VEN_8086&DEV_7000")?"PCI\\VEN_8086&DEV_7000":
+            match(hardware,"PCI\\VEN_8086&DEV_7010")?"PCI\\VEN_8086&DEV_7010":
             match(hardware,"PCI\\IRQHOLDER")?"PCI\\IRQHolder":0;
         if(!id) continue;
         char driver[80]={0};
@@ -247,13 +248,13 @@ static void install_system_pci(void)
         if(ok)
         {
             GetWindowsDirectoryA(params.DriverPath,sizeof(params.DriverPath));
-            lstrcatA(params.DriverPath,match(id,"PCI\\IRQHOLDER")?"\\INF\\MACHINE.INF":"\\INF\\MACHINE2.INF");
+            lstrcatA(params.DriverPath,match(id,"PCI\\IRQHOLDER")?"\\INF\\MACHINE.INF":match(id,"PCI\\VEN_8086&DEV_7010")?"\\INF\\MSHDC.INF":"\\INF\\MACHINE2.INF");
             params.Flags|=DI_ENUMSINGLEINF|DI_QUIETINSTALL|DI_NOFILECOPY;
             ok=SetupDiSetDeviceInstallParamsA(set,&dev,&params);
         }
         if(ok) ok=SetupDiBuildDriverInfoList(set,&dev,SPDIT_COMPATDRIVER);
         if(ok) ok=SetupDiCallClassInstaller(DIF_SELECTBESTCOMPATDRV,set,&dev);
-        if(ok) ok=allocate_driver_key(set,&dev,"System");
+        if(ok) ok=allocate_driver_key(set,&dev,match(id,"PCI\\VEN_8086&DEV_7010")?"hdc":"System");
         if(ok) ok=SetupDiCallClassInstaller(DIF_INSTALLDEVICE,set,&dev);
         put("SYSTEM_PCI ");put(id);put(" installed=");number(ok);put(" error=");number(ok?0:GetLastError());line();
     }
@@ -310,6 +311,11 @@ static void devices(void)
 void WINAPI entry(void)
 {
     SetErrorMode(SEM_FAILCRITICALERRORS|SEM_NOGPFAULTERRORBOX);
+#ifdef NV_WIN98
+    BOOL automatic=FALSE;
+    for(const char *arg=GetCommandLineA();*arg;arg++) if(*arg=='/' && match(arg,"/AUTO")) automatic=TRUE;
+    if(automatic) Sleep(60000);
+#endif
     HMODULE cfg=LoadLibraryA("cfgmgr32.dll");
     node_status=cfg?(status_t)GetProcAddress(cfg,"CM_Get_DevNode_Status"):0;
     GetModuleFileNameA(0,output,sizeof(output));
@@ -324,6 +330,9 @@ void WINAPI entry(void)
 #ifdef NV_REBOOT
     char bootmark[MAX_PATH];lstrcpyA(bootmark,output);lstrcpyA(bootmark+end,"NVBOOT.FLG");
     rebooted=GetFileAttributesA(bootmark)!=INVALID_FILE_ATTRIBUTES;
+#endif
+#ifdef NV_WIN98
+    if(automatic) rebooted=TRUE;
 #endif
 #ifndef NV_WIN98
     /* Preserve the bugcheck screen when an incomplete device model fails. This
@@ -473,9 +482,23 @@ void WINAPI entry(void)
 #ifdef NV_DDRAW_TEST
     extern DWORD nv_ddraw_probe(void (*mark)(const char*));
     put("DDRAW_BEGIN");line();
-    put("DDRAW_TEST failures=");number(nv_ddraw_probe(probe_mark));line();
+    DWORD dd_result=nv_ddraw_probe(probe_mark);
+    put("DDRAW_TEST failures=");number(dd_result);line();
 #endif
     devices(); put("SCREEN ");number(GetSystemMetrics(SM_CXSCREEN));put("x");number(GetSystemMetrics(SM_CYSCREEN));line();
+#if defined(NV_WIN98) && defined(NV_AUTOSTART)
+    if(!automatic)
+    {
+        HKEY startup;DWORD disposition;char command[MAX_PATH+16];
+        GetModuleFileNameA(0,command,MAX_PATH);lstrcatA(command," /auto");
+        LONG rc=RegCreateKeyExA(HKEY_LOCAL_MACHINE,"Software\\Microsoft\\Windows\\CurrentVersion\\RunServices",0,0,0,KEY_ALL_ACCESS,0,&startup,&disposition);
+        if(rc==ERROR_SUCCESS)
+        {
+            rc=RegSetValueExA(startup,"NV40Probe",0,REG_SZ,(const BYTE*)command,lstrlenA(command)+1);RegCloseKey(startup);
+        }
+        put("AUTOSTART_REGISTER status=");number(rc);line();
+    }
+#endif
     put("REGISTRY_FLUSH status=");number(RegFlushKey(HKEY_LOCAL_MACHINE));line();
 #ifdef NV_REBOOT
     if(!rebooted)

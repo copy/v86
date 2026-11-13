@@ -36,7 +36,14 @@ DWORD nv_gdi_probe(void)
 #define COBJMACROS
 #define DIRECTDRAW_VERSION 0x0700
 #include <ddraw.h>
+static const GUID nv_iid_directdraw7={0x15E65EC0,0x3B9C,0x11D2,{0xB9,0x2F,0,0x60,0x97,0x97,0xEA,0x5B}};
 static void zero_bytes(void *p,unsigned int count) { BYTE *b=p;while(count--)*b++=0; }
+static void detail(void (*mark)(const char*),const char *label,DWORD value)
+{
+    char text[96];unsigned int n=0;while(*label && n<80)text[n++]=*label++;
+    text[n++]='=';const char hex[]="0123456789abcdef";
+    for(int i=7;i>=0;i--)text[n++]=hex[value>>(i*4)&15];text[n]=0;mark(text);
+}
 DWORD nv_ddraw_probe(void (*mark)(const char*))
 {
     DWORD failures=0;
@@ -45,7 +52,7 @@ DWORD nv_ddraw_probe(void (*mark)(const char*))
     create_t create=library?(create_t)GetProcAddress(library,"DirectDrawCreateEx"):0;
     IDirectDraw7 *dd=0;IDirectDrawSurface7 *source=0,*target=0;
     mark("DDRAW_CREATE");
-    if(!create || create(0,(void**)&dd,&IID_IDirectDraw7,0)!=DD_OK) {failures=1;goto done;}
+    if(!create || create(0,(void**)&dd,&nv_iid_directdraw7,0)!=DD_OK) {failures=1;goto done;}
     mark("DDRAW_COOPERATIVE");
     if(IDirectDraw7_SetCooperativeLevel(dd,0,DDSCL_NORMAL)!=DD_OK) {failures=2;goto done;}
     DDCAPS caps;zero_bytes(&caps,sizeof(caps));caps.dwSize=sizeof(caps);
@@ -62,10 +69,13 @@ DWORD nv_ddraw_probe(void (*mark)(const char*))
     if(IDirectDrawSurface7_Blt(target,0,source,0,DDBLT_WAIT,0)!=DD_OK) {failures=32;goto done;}
     zero_bytes(&desc,sizeof(desc));desc.dwSize=sizeof(desc);
     if(IDirectDrawSurface7_Lock(target,0,&desc,DDLOCK_WAIT|DDLOCK_READONLY,0)!=DD_OK) {failures=64;goto done;}
+    detail(mark,"DDRAW_BITS",desc.ddpfPixelFormat.dwRGBBitCount);detail(mark,"DDRAW_PIXEL",*(DWORD*)desc.lpSurface);detail(mark,"DDRAW_PITCH",desc.lPitch);
     if(desc.ddpfPixelFormat.dwRGBBitCount!=32 || (*(DWORD*)desc.lpSurface&0xFFFFFF)!=0x00336699) failures|=128;
     IDirectDrawSurface7_Unlock(target,0);
     fx.dwROP=SRCINVERT;
-    if(IDirectDrawSurface7_Blt(target,0,source,0,DDBLT_ROP|DDBLT_WAIT,&fx)!=DD_OK) {failures|=256;goto done;}
+    HRESULT rop_result=IDirectDrawSurface7_Blt(target,0,source,0,DDBLT_ROP|DDBLT_WAIT,&fx);
+    detail(mark,"DDRAW_ROP_RESULT",rop_result);
+    if(rop_result!=DD_OK) {failures|=256;goto done;}
     zero_bytes(&desc,sizeof(desc));desc.dwSize=sizeof(desc);
     if(IDirectDrawSurface7_Lock(target,0,&desc,DDLOCK_WAIT|DDLOCK_READONLY,0)!=DD_OK) {failures|=512;goto done;}
     if((*(DWORD*)desc.lpSurface&0xFFFFFF)!=0) failures|=1024;
