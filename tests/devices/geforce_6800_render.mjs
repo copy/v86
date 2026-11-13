@@ -28,7 +28,12 @@ assert.equal(new Map(nv40_depth_state(depthState).states).get(56),3);assert.equa
 const dxBlend=new Map(nv40_blend_state({methods:new Map([[0x310,1],[0x304,1],[0x308,5],
     [0x314,0x10021005],[0x318,0x10011006],[0x320,0x00010001]])}));
 assert.equal(dxBlend.get(25),5);assert.equal(dxBlend.get(19),5);assert.equal(dxBlend.get(20),6);assert.equal(dxBlend.get(207),2);assert.equal(dxBlend.get(171),1);
-depthState.methods.set(0x348,1);assert.throws(()=>nv40_depth_state(depthState),/two-sided/);
+depthState.methods.set(0x348,1);depthState.methods.set(0x350,0x201);depthState.methods.set(0x364,0x8508);
+assert.equal(new Map(nv40_depth_state(depthState).states).get(56),2,"CCW fronts put back comparison in D3D's CW bank");
+assert.equal(new Map(nv40_depth_state(depthState).states).get(189),3);
+depthState.methods.set(0x1834,0x900);
+assert.equal(new Map(nv40_depth_state(depthState).states).get(188),8,"CW fronts put back operations in D3D's CCW bank");
+depthState.methods.set(0x354,1);assert.throws(()=>nv40_depth_state(depthState),/independent stencil references/);
 assert.deepEqual(nv40_cull_state({methods:new Map([[0x183C,1],[0x1830,0x405],[0x1834,0x900]])}),{state:3,all:false});
 let remote=null,listener=null,submitted=null;
 const fake={listen:fn=>{listener=fn;},post:message=>{if(message.type==="submit")submitted=message;}};
@@ -191,6 +196,19 @@ try
         await depthDraw(.5,[0,1,0,1]);assert.equal(view.getUint32(0x24000,true)&255,0x5C,"stencil replace preserves masked high bits");
         assert.equal(view.getUint32(0x24000,true)>>>8,nearDepth>>>8,"stencil-only rendering preserves depth");
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255]);method(0x328,0);
+        for(const [at,value]of [[0x328,1],[0x348,1],[0x32C,255],[0x34C,255],[0x334,0],[0x354,0],
+            [0x338,255],[0x358,255],[0x330,8],[0x350,8],[0x33C,1],[0x35C,1],[0x344,7],[0x364,8]])method(at,value);
+        const beforeTwoSided=view.getUint32(0x24000,true)&255;
+        method(0x1834,0x901);await depthDraw(.5,[1,0,0,1]);
+        assert.equal(view.getUint32(0x24000,true)&255,(beforeTwoSided+1)&255,"CCW front stencil increments");
+        method(0x1834,0x900);await depthDraw(.5,[0,0,1,1]);
+        assert.equal(view.getUint32(0x24000,true)&255,beforeTwoSided,"CW front selects the back stencil decrement");
+        method(0x350,1);await depthDraw(.5,[0,1,0,1]);
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[255,0,0,255],"back stencil NEVER rejects color independently");
+        method(0x350,8);method(0x348,0);await depthDraw(.5,[0,1,0,1]);
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"disabling two-sided mode restores the ordinary bank for both windings");
+        method(0x328,0);method(0x1834,0x901);
+        console.log("PASS: real WebGPU two-sided stencil comparisons/operations, programmable front winding and one-sided restore");
         for(const [at,value]of [[0x208,0x128],[0x214,0x25000],[0x22C,16],[0xA74,1],[0xA70,1],[0x328,1],[0x330,1]])method(at,value);
         vram.fill(255,0x25000,0x25080);await depthDraw(.25,[0,1,0,1]);
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"D16 has no stencil bits: enabled NEVER stencil does not reject the draw");

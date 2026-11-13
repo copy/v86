@@ -40,18 +40,31 @@ export function nv40_cull_state(o)
 export function nv40_depth_state(o,stencilAvailable=true)
 {
     const depth=!!get(o,0xA74),stencil=!!get(o,0x328)&&stencilAvailable;
-    if(get(o,0x348) || get(o,0x380) || get(o,0xA60) || get(o,0xA64) || get(o,0xA68))
-        throw new RangeError("NV40 two-sided stencil/depth bounds/bias is not connected");
-    const result=[[7,+depth],[14,depth?+!!get(o,0xA70):0],[23,depth?comparison(get(o,0xA6C,0x201)):8],[52,+stencil],[185,0]];
+    if(get(o,0x380) || get(o,0xA60) || get(o,0xA64) || get(o,0xA68))
+        throw new RangeError("NV40 depth bounds/bias is not connected");
+    const twoSided=stencil&&!!get(o,0x348);
+    const result=[[7,+depth],[14,depth?+!!get(o,0xA70):0],[23,depth?comparison(get(o,0xA6C,0x201)):8],[52,+stencil],[185,+twoSided]];
     if(stencil)
     {
-        for(const [state,at]of [[53,0x33C],[54,0x340],[55,0x344]])
+        if(twoSided && [[0x32C,255],[0x334,0],[0x338,255]].some(([at,fallback])=>
+            (get(o,at,fallback)&255)!==(get(o,at+32,fallback)&255)))
+            throw new RangeError("NV40 independent stencil references/masks are not connected");
+        const front=get(o,0x1834,0x901);
+        if(twoSided && front!==0x900 && front!==0x901)throw new RangeError("NV40 invalid stencil front winding");
+        // D3D's ordinary bank is CW and its second bank is CCW, regardless
+        // of culling. NV's banks follow the programmable front winding.
+        const banks=twoSided?(front===0x900?[0,32]:[32,0]):[0];
+        for(const [bank,offset]of banks.entries())
         {
-            const operation=get(o,at,0x1E00);
-            if(!STENCIL.has(operation))throw new RangeError("NV40 invalid stencil operation");
-            result.push([state,STENCIL.get(operation)]);
+            for(const [state,at]of [[bank?186:53,0x33C],[bank?187:54,0x340],[bank?188:55,0x344]])
+            {
+                const operation=get(o,at+offset,0x1E00);
+                if(!STENCIL.has(operation))throw new RangeError("NV40 invalid stencil operation");
+                result.push([state,STENCIL.get(operation)]);
+            }
+            result.push([bank?189:56,comparison(get(o,0x330+offset,0x207))]);
         }
-        result.push([56,comparison(get(o,0x330,0x207))],[57,get(o,0x334)&255],[58,get(o,0x338,255)&255],[59,get(o,0x32C,255)&255]);
+        result.push([57,get(o,0x334)&255],[58,get(o,0x338,255)&255],[59,get(o,0x32C,255)&255]);
     }
     return {enabled:depth||stencil,stencil,states:result};
 }

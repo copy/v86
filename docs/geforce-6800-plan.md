@@ -1385,3 +1385,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   使用共享执行器的 RGBA32F 资源及 nearest/nearest-mip 取样；FP32 线性过滤仍
   显式拒绝。CPU 回归检查原始位、扩展、交叉选择及 DMA 末字节；完整真实 GPU
   回归验证 HDR、负值和标量扩展至 FP16 渲染目标，Closure 构建通过。
+
+- G4 双面模板第一部分：把正反面的比较、stencil-fail、depth-fail、pass 操作映射
+  到共享执行器的 CW/CCW 状态组，随 NV 的 FRONT_FACE 交换；关闭双面模式恢复
+  两个绕向使用同一状态。两面的 reference/read/write mask 相同时已接通，不同
+  时仍明确拒绝。完整真实 WebGPU 回归验证正面递增、背面递减、独立 NEVER 比较、
+  前面绕向切换与关闭后恢复；CPU 状态回归及 Closure 构建通过。
