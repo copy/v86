@@ -484,7 +484,7 @@ try
         const saturated=await conditionalDraw([
             ...ccInstruction([.25,.25,.25,.25]),...ccInstruction([-1,.5,2,NaN],{update:true,disabled:true,saturate:true}),
             ...ccInstruction([.75,.75,.75,.75],{condition:5,end:true})]);
-        assert.deepEqual(saturated.slice(0,3),[191,191,64],"CC classification follows result saturation");
+        assert.deepEqual(saturated,[191,191,64,64],"CC classification follows result saturation, including NaN to zero");
         for(const [component,killed]of [[1,false],[0,true]])
         {
             for(let at=0x10000;at<0x10100;at+=4)vram.set([13,17,19,23],at);

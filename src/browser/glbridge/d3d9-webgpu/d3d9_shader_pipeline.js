@@ -112,6 +112,7 @@
         NV_PACK: 0x1005, NV_UNPACK: 0x1006,
         NV_DEPTH_SAMPLER: 0x1007,
         NV_DIV: 0x1008,
+        NV_SAT: 0x1009,
         PHASE: 0xfffd, COMMENT: 0xfffe, END: 0xffff,
     };
 
@@ -148,6 +149,7 @@
         [OP.NV_PACK]: [1, 2], [OP.NV_UNPACK]: [1, 1],
         [OP.NV_DEPTH_SAMPLER]: [1, 0],
         [OP.NV_DIV]: [1, 2],
+        [OP.NV_SAT]: [1, 1],
         [OP.CMP]: [1, 3], [OP.DP2ADD]: [1, 3], [OP.DSX]: [1, 1],
         [OP.DSY]: [1, 1], [OP.TEXLDD]: [1, 4], [OP.TEXLDL]: [1, 2],
         [OP.TEXREG2AR]: [1, 1], [OP.TEXREG2GB]: [1, 1],
@@ -1167,6 +1169,12 @@
                 this.nvAlu = true;
                 this.store(dest, "nv40_div(" + s(0) + ", (" + s(1) + ").x)");
                 return;
+            case OP.NV_SAT:
+                if (this.kind !== "pixel" || instruction.control)
+                    throw new Error("invalid private NV40 fragment saturation");
+                this.nvRegisters = true;
+                this.store(dest, "nv40_saturate(" + s(0) + ")");
+                return;
             case OP.NV_LOAD: case OP.NV_STORE: case OP.NV_HALF: case OP.NV_COPY: {
                 if (this.kind !== "pixel" || instruction.control > 1 || instruction.predicated ||
                     dest.relative || dest.type !== REG_TEMP || dest.modifier || dest.shift)
@@ -2086,6 +2094,10 @@ fn nv40_encode(value: vec4<f32>) -> vec4<u32> {
 fn nv40_half(value: vec4<f32>) -> vec4<f32> {
     let h = nv40_encode(value);
     return vec4<f32>(nv40_f32(h.x), nv40_f32(h.y), nv40_f32(h.z), nv40_f32(h.w));
+}
+fn nv40_saturate(value: vec4<f32>) -> vec4<f32> {
+    let nan = (bitcast<vec4<u32>>(value) & vec4<u32>(0x7fffffffu)) > vec4<u32>(0x7f800000u);
+    return clamp(select(value, vec4<f32>(0.0), nan), vec4<f32>(0.0), vec4<f32>(1.0));
 }
 fn nv40_raw(index: u32, half: u32) -> vec4<u32> {
     if (half == 0u) { return nv40_registers[index]; }

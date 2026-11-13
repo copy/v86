@@ -1359,3 +1359,8 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   不再经过 D3D 的 finite-zero/abs-log 辅助函数。166 个 Naga 模块、完整真实 GPU
   回归、通用 D3D 57 项/199 个 Naga 验证与 Closure/WebGPU bundle 构建通过；
   像素用例包含通过 R/H alias 检查倒数的原始 Inf 位、0/0、signed zero 与条件码。
+
+- G4 片元 SAT：缩放后先把 NaN 变为零，再饱和至 [0,1]，随后进行 H 写入舍入及
+  条件码更新；普通 D3D saturation 不受此私有指令影响。166 个 Naga 模块、完整
+  真实 GPU 回归、通用 D3D 57 项/199 个 Naga 验证与 Closure/WebGPU bundle 构建
+  通过；条件码像素用例检查了此前未断言的 NaN 分量。

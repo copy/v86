@@ -671,7 +671,7 @@ export function translate_fragment_program(program,options={})
         const shift=i.scale<4?i.scale:8-i.scale+12;
         if(i.scale===4) throw new RangeError("NV40 invalid fragment scale");
         const copy=i.name==="MOV" && i.sources[0].type==="temp" && !!i.sources[0].half===half && !i.scale && !i.saturate;
-        const destination=dst(0,30,i.destination.mask,i.saturate,shift);
+        const destination=dst(0,30,i.destination.mask,false,shift);
         if(texture)
         {
             const size=options.texture_sizes?.[i.texture];
@@ -714,7 +714,7 @@ export function translate_fragment_program(program,options={})
             {
                 const crossbarShift=(3-lane)*2,select=depth.crossbar>>>(crossbarShift+8)&3,component=3-(depth.crossbar>>>crossbarShift&3);
                 if(select===3)throw new RangeError("NV40 invalid depth texture component selection");
-                shader.emit(OP.MOV,dst(0,30,1<<lane,i.saturate,shift),
+                shader.emit(OP.MOV,dst(0,30,1<<lane,false,shift),
                     select===2?src(0,sample,Array(4).fill(component)):shader.literal(select));
             }
         }
@@ -726,6 +726,7 @@ export function translate_fragment_program(program,options={})
             shader.emit(0x1006|(unpack|+physical<<2)<<16,destination,token);
         }
         else if(!copy)shader.alu(i.name,destination,sources);
+        if(i.saturate)shader.emit(0x1009,dst(0,30,i.destination.mask),src(0,30));
         if(!i.destination.disabled)
         {
             const predicate=conditional?src(0,31):shader.literal(1);
