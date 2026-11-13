@@ -262,7 +262,7 @@ export class NV2D
         try
         {
             this.render(o, dst, rect, px => {
-                const pixel = px - x, index = indexFormat ? bytes[pixel >>> 1] >>> ((pixel & 1) * 4) & 15 : bytes[pixel];
+                const pixel = px - x, index = indexFormat ? bytes[pixel >>> 1] >>> (((pixel & 1) ^ 1) * 4) & 15 : bytes[pixel];
                 const color = lut ? this.raw(lut, index * (input <= 3 ? 2 : 4), input <= 3 ? 2 : 4) : this.raw(bytes, pixel * bpp, bpp);
                 if(key && color === m(key, 0x304)) return null;
                 return this.input_color(color, input);
