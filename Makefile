@@ -181,7 +181,7 @@ CORE_FILES=cjs.js const.js io.js machine_clock.js machine_options.js main.js lib
 	   bus.js log.js cpu.js \
 	   elf.js kernel.js extended_memory.js \
 	   parallel/relocate.js parallel/control.js parallel/machine.js \
-	   ios/crypto.js ios/lzss.js ios/nand_boot.js ios/sparse_nand.js ios/guest_load.js ios/install_trust.js ios/runtime_trust.js ios/install_protocol.js ios/install_service.js ios/install_api.js apple/audio.js apple/boot.js apple/bootlogo.js apple/cdma.js apple/uid.js apple/clcd.js apple/dart.js apple/devicetree.js apple/h2fmi.js apple/i2c.js apple/iop.js apple/macho.js apple/multitouch.js apple/nand.js apple/nand_geometry.js apple/s5l8930.js apple/sensors.js apple/spi.js apple/timer.js apple/uart.js apple/vic.js \
+	   ios/crypto.js ios/lzss.js ios/nand_boot.js ios/sparse_nand.js ios/guest_load.js ios/install_trust.js ios/install_protocol.js ios/install_service.js ios/runtime_trust.js ios/install_api.js apple/audio.js apple/boot.js apple/bootlogo.js apple/cdma.js apple/uid.js apple/clcd.js apple/dart.js apple/devicetree.js apple/h2fmi.js apple/i2c.js apple/iop.js apple/macho.js apple/multitouch.js apple/nand.js apple/nand_geometry.js apple/s5l8930.js apple/sensors.js apple/spi.js apple/timer.js apple/uart.js apple/vic.js \
 	   arm/state_layout.js arm/cpu.js arm/backdoor_a32.js virt/platform.js virt/io.js virt/pl011.js virt/pl031.js virt/inflate.js virt/dtb.js virt/ranchu.js virt/goldfish.js virt/loader.js \
 	   android/bytes.js android/gpt.js android/avb.js android/bootimg.js android/bootconfig.js android/devices.js android/boot.js android/bootloader.js android/partition_buffer.js android/cpio.js android/ramdisk_overlay.js \
 	   image/sha256.js image/source.js image/overlay.js image/disk_image.js image/qcow2.js image/vhd.js image/vdi.js image/vmdk.js image/vhdx.js image/ova.js image/factory.js image/export.js image/qcow2_export.js
@@ -281,7 +281,9 @@ build/v86-geforce-6800.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/gr
 	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
 		--output_wrapper ';(function(){%output%}).call(this);' \
-		--js $(GRAPHICS_ADAPTER_COMMON) --js src/graphics_adapters/geforce_6800/nv_trace.js \
+		--js $(GRAPHICS_ADAPTER_COMMON) --js src/graphics_adapters/virtio_gpu/edid.js \
+		--js src/graphics_adapters/geforce_6800/nv_trace.js --js src/graphics_adapters/geforce_6800/nv_ddc.js \
+		--js src/graphics_adapters/geforce_6800/nv_display.js \
 		--js src/graphics_adapters/geforce_6800/nv_device.js --js src/graphics_adapters/geforce_6800/plugin.js
 
 .PHONY: graphics-adapters device-plugins
@@ -566,7 +568,7 @@ run: browser glbridge build/v86.wasm
 
 # The VM manager as a static site in build/pages (tools/pages_dist.mjs, for
 # Cloudflare Pages: .github/workflows/pages.yml, docs/vm-manager.md)
-PAGES_BUILD=build/v86_app.js build/android-import-worker.js build/ios-import-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js build/xterm.js \
+PAGES_BUILD=build/v86_app.js build/android-import-worker.js build/ios-import-worker.js build/ios-install-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js build/xterm.js \
 	build/v86.wasm build/v86-fallback.wasm build/v86-parallel.wasm \
 	build/v86-arm64.wasm build/v86-arm64-fallback.wasm build/v86-arm64-parallel.wasm $(DEVICE_PLUGINS)
 .PHONY: pages
@@ -944,7 +946,7 @@ node_modules/.bin/esbuild node_modules/.bin/tsc: package.json package-lock.json
 	touch node_modules/.bin/esbuild node_modules/.bin/tsc
 
 .PHONY: app app-check
-app: build/v86_app.js build/android-import-worker.js build/ios-import-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
+app: build/v86_app.js build/android-import-worker.js build/ios-import-worker.js build/ios-install-worker.js build/libv86.mjs build/cpu-worker.js build/vcpu-worker.js
 
 build/v86_app.js: $(APP_FILES) node_modules/.bin/esbuild
 	mkdir -p build
@@ -962,6 +964,11 @@ build/ios-import-worker.js: src/app/ios_import_worker.js $(wildcard src/ios/*.js
 	mkdir -p build
 	node_modules/.bin/esbuild src/app/ios_import_worker.js --bundle --format=esm --target=es2022 --minify --sourcemap \
 		--outfile=build/ios-import-worker.js --log-level=warning
+
+build/ios-install-worker.js: src/app/ios_install_worker.js $(wildcard src/ios/*.js src/apple/*.js src/android/*.js) src/image/sha256.js node_modules/.bin/esbuild
+	mkdir -p build
+	node_modules/.bin/esbuild src/app/ios_install_worker.js --bundle --format=esm --target=es2022 --minify --sourcemap \
+		--outfile=build/ios-install-worker.js --log-level=warning
 
 # Locally built v86 graphics adapter, using exports from the owner's 10B329 cache.
 .PHONY: ios-guest
@@ -1003,6 +1010,8 @@ app-tests: app-shared-tests app-check app build/v86.wasm build/v86-debug.wasm bu
 	node tests/android/make_package.mjs
 	for part in freedos linux arm64 dialog uefi secure_boot android android_gsi android_emulator ios_dialog; do node tests/app/browser_runner.mjs tests/app/wizard_test.html part=$$part || exit 1; done
 	node tests/app/browser_runner.mjs tests/ios/worker_panel_test.html
+	node tests/ios/make-install-fixture.mjs
+	node tests/app/browser_runner.mjs tests/app/ios_install_test.html
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=service service=1
 	node tests/app/browser_runner.mjs tests/app/wizard_test.html part=android_service service=1
 	node tests/app/browser_runner.mjs tests/app/console_test.html part=main
@@ -2084,8 +2093,7 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 ios-tests:
 	node --test tests/ios/ipa.mjs
 	node --test tests/ios/ipa-prepare.mjs
-	node --test tests/ios/install-trust.mjs tests/ios/runtime-trust.mjs
-	node --test tests/ios/install-service.mjs tests/ios/install-api.mjs
+	node --test tests/ios/install-trust.mjs tests/ios/runtime-trust.mjs tests/ios/install-service.mjs tests/ios/install-api.mjs
 	node tests/ios/boot-tree.mjs
 	node tests/ios/spi-dma.mjs
 	node tests/ios/multitouch-device.mjs

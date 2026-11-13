@@ -20,6 +20,8 @@ import { bool_arg, start_settings } from "../../browser/query_compat.js";
 import { DEBUG_PAGE, ON_LOCALHOST, page_env, load_graphics_proxy, create_emulator, query_append } from "../emulator_bridge.js";
 import { NIC_LABELS, SOUND_LABELS } from "./panels/devices.js";
 import { USB_PORTS } from "../../machine_options.js";
+import { IOSInstallController } from "../ios_install.js";
+import { show_ios_install } from "./ios_install.js";
 
 /** @typedef {import("../vm_config.js").VMConfig} VMConfig */
 /** @typedef {import("../vm_config.js").Image} Image */
@@ -614,12 +616,16 @@ function console_ui(layout, emulator, ctx)
         set_zoom_to_fit(true);
     });
 
+    const ipa_installer = ios ? new IOSInstallController(emulator, { graphics: !!options.gles_backdoor,
+        storage_key: ctx.config?.id || location.href }) : null;
+
     // ---- power
     const power_off = async (ask = true) =>
     {
         if(ask && !await confirm("Power off?", "The virtual machine stops as if its power were cut. What is only in its memory is lost." +
             (written_back ? " Its disks written back keep what they completed." : ""), "Power off", true)) return;
         powered_off = true;
+        ipa_installer?.dispose();
         clearInterval(interval);
         await emulator.destroy();
         ctx.release();
@@ -1191,6 +1197,7 @@ function console_ui(layout, emulator, ctx)
             return button;
         })(),
         h("button#iphone_rotate", { type: "button", onclick: () => orient(/** @type {0 | 90 | 180 | 270} */ ((iphone_angle + 90) % 360)) }, "Rotate"),
+        h("button#iphone_install_ipa", { type: "button", onclick: () => show_ios_install(ipa_installer, ctx.name) }, "Install IPA…"),
     ] : [];
     if(ios)
     {
@@ -1220,14 +1227,14 @@ function console_ui(layout, emulator, ctx)
     /** @type {Object<string, () => Array<import("./dom.js").MenuItem | "-">>} */
     const items = {
         power: () => [
-            { label: running ? "Pause" : "Run", id: "menu_run", action: () => running ? emulator.stop() : emulator.run() },
-            { label: "Reset", id: "menu_reset", disabled: !!options.initial_state, title: options.initial_state ? "Started from a saved state" : "", action: () => emulator.restart() },
-            { label: "Power off…", id: "menu_power_off", action: () => power_off() },
-            ...(ctx.config ? [{ label: "Suspend", id: "menu_suspend", action: suspend }] : []),
-            ...(written_back ? [{ label: "Save and power off", id: "menu_save_and_power_off", action: save_and_power_off }] : []),
+            { label: running ? "Pause" : "Run", id: "menu_run", disabled: ipa_installer?.active(), action: () => running ? emulator.stop() : emulator.run() },
+            { label: "Reset", id: "menu_reset", disabled: !!options.initial_state || ipa_installer?.active(), title: options.initial_state ? "Started from a saved state" : "", action: () => emulator.restart() },
+            { label: "Power off…", id: "menu_power_off", disabled: ipa_installer?.active(), action: () => power_off() },
+            ...(ctx.config ? [{ label: "Suspend", id: "menu_suspend", disabled: ipa_installer?.active(), action: suspend }] : []),
+            ...(written_back ? [{ label: "Save and power off", id: "menu_save_and_power_off", disabled: ipa_installer?.active(), action: save_and_power_off }] : []),
             "-",
-            { label: "Save the state to a file", id: "menu_save_state", action: save_state },
-            { label: "Load a state from a file…", id: "menu_load_state", action: load_state },
+            { label: "Save the state to a file", id: "menu_save_state", disabled: ipa_installer?.active(), action: save_state },
+            { label: "Load a state from a file…", id: "menu_load_state", disabled: ipa_installer?.active(), action: load_state },
         ],
         keys: () => [
             ...COMBINATIONS.map(c => ({ label: c, id: "keys_" + c.replace(/\W+/g, "_"), action: () => send_keys(c) })),

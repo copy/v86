@@ -29,7 +29,7 @@ const graphics = JSON.parse(await read_file(join(root, "build/glbridge/manifest.
 const FILES = [
     "index.html", "manifest.json", "192.png", "src/app/app.css", "src/app/xterm.css",
     "build/v86_app.js", "build/v86_app.js.map", "build/android-import-worker.js", "build/android-import-worker.js.map",
-    "build/ios-import-worker.js", "build/ios-import-worker.js.map", "build/libv86.mjs", "build/cpu-worker.js", "build/vcpu-worker.js", "build/xterm.js",
+    "build/ios-import-worker.js", "build/ios-import-worker.js.map", "build/ios-install-worker.js", "build/ios-install-worker.js.map", "build/libv86.mjs", "build/cpu-worker.js", "build/vcpu-worker.js", "build/xterm.js",
     "build/v86.wasm", "build/v86-fallback.wasm", "build/v86-parallel.wasm",
     "build/v86-arm64.wasm", "build/v86-arm64-fallback.wasm", "build/v86-arm64-parallel.wasm",
     "build/v86-bochs-vga.js", "build/v86-vmware-svga.js", "build/v86-virtio-gpu.js", "build/v86-geforce-6800.js", "build/v86-ne2k.js", "build/v86-e1000.js", "build/v86-sb16.js", "build/v86-hd-audio.js", "build/v86-usb.js",
@@ -53,6 +53,17 @@ for(const name of FILES)
         throw new Error(name + " is missing (make pages builds it): " + error.message);
     }
 }
+
+// These original ARMv7 adapters are built locally on macOS; they contain
+// no Apple framework code. Include a complete helper set when available.
+const ios_helpers = ["v86-app-agent", "libv86appbootstrap.dylib", "libv86install.dylib"];
+let helper_count = 0;
+for(const name of ["build/ios-guest/libv86gles.dylib", ...ios_helpers.map(n => "build/ios-install-fixtures/" + n)])
+{
+    try { files.set(name, await read_file(join(root, name))); if(name.includes("ios-install-fixtures")) helper_count++; }
+    catch(error) { if(error.code !== "ENOENT") throw error; }
+}
+if(helper_count && helper_count !== ios_helpers.length) throw new Error("Incomplete iPhone helper build: run make ios-install-fixtures");
 
 const hash = create_hash("sha256");
 for(const [name, data] of files) hash.update(name).update(data);

@@ -254,3 +254,11 @@ footer { color: var(--muted); padding: 10px 16px; border-top: 1px solid var(--li
 /* the wizard's Android image package (docs/android-images-plan.md I3) */
 .drop-zone { border: 2px dashed var(--line); border-radius: 6px; padding: 8px 12px; margin: 8px 0; }
 .drop-zone.over { border-color: var(--accent); background: var(--selected); }
+
+.ios-install-dialog { width: min(38rem, calc(100vw - 2rem)); }
+.ios-install-dialog input[type=file] { display: block; max-width: 100%; margin-top: .6rem; }
+.ios-install-dialog progress { width: 100%; margin-block: .6rem; }
+.ios-ipa-info { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: .4rem 1rem; }
+.ios-ipa-info dt { color: var(--muted); }
+.ios-ipa-info dd { margin: 0; overflow-wrap: anywhere; }
+.ios-install-dialog pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 12rem; overflow: auto; }

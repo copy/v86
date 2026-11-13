@@ -1,0 +1,56 @@
+<!doctype html><meta charset="utf-8"><title>IPA installation UI test</title>
+<link rel="stylesheet" href="../../src/app/app.css"><button id="opener">Install IPA…</button><pre id="result">Running…</pre>
+<script type="importmap">{"imports":{"v86":"../../build/libv86.mjs"}}</script>
+<script type="module">
+import { IOSInstallController } from "../../src/app/ios_install.js";
+import { show_ios_install } from "../../src/app/ui/ios_install.js";
+const sleep=ms=>new Promise(ok=>setTimeout(ok,ms));
+const check=(v,m)=>{if(!v)throw Error(m);};
+async function until(fn,m){const end=Date.now()+20000;while(!fn()){if(Date.now()>end)throw Error(m);await sleep(20);}}
+class Emulator {
+ constructor(){this.listeners=new Map();this.cap={supported:true,available:false,running:true,phase:"waiting"};this.blocks=[];this.existing={installed:true,version:"2"};}
+ add_listener(n,f){this.listeners.set(n,f);}remove_listener(n){this.listeners.delete(n);}is_running(){return true;}
+ ios_install_status(){return Promise.resolve(this.cap);}
+ ios_install_lookup(){return Promise.resolve(this.existing);}
+ event(v){this.cap={...this.cap,...v};this.listeners.get("ios-install-progress")?.(v);}
+ async ios_install_begin(manifest){this.manifest=manifest;this.event({phase:"transferring",install_id:"test",total:manifest.prepared_size,offset:0});return{install_id:"test"};}
+ async ios_install_write(id,at,data){check(id==="test","task ID");check(at===this.blocks.reduce((s,b)=>s+b.length,0),"ordered offsets");check(data.length<=65536,"bounded chunks");this.blocks.push(data);if(this.write_gate)await this.write_gate;return{};}
+ async ios_install_stage(){this.event({phase:"staged"});return{};}
+ async ios_install_commit(){this.committed=true;this.event({phase:"installing"});await new Promise(ok=>this.complete=ok);this.event({phase:"installed",installed:true});return{phase:"installed",installed:true};}
+ async ios_install_cancel(){this.event({phase:"cancelled"});return{};}
+}
+let c;
+try{
+ const vm=new Emulator();c=new IOSInstallController(vm,{worker_factory:()=>new Worker("../../build/ios-install-worker.js",{type:"module"})});
+ const opener=document.getElementById("opener");opener.focus();show_ios_install(c,"iPhone test");
+ check(document.getElementById("ios_ipa_status").textContent.includes("Waiting"),"waiting capability");
+ const bytes=await(await fetch("../../build/ipa-tests/test.ipa")).arrayBuffer();const file=new File([bytes],"test.ipa");
+ await c.choose(file);check(c.state.phase==="ready","real worker inspection: "+JSON.stringify(c.state));
+ check(document.getElementById("ios_ipa_metadata").textContent.includes("org.v86.BrowserTest"),"application metadata");
+ check(document.getElementById("ios_ipa_install").disabled,"wait before submitting");
+ vm.cap.available=true;await c.refresh();
+ const install=document.getElementById("ios_ipa_install");check(install.textContent==="Update","update label");check(install.disabled,"downgrade needs explicit choice");
+ const downgrade=document.getElementById("ios_ipa_downgrade");downgrade.checked=true;downgrade.dispatchEvent(new Event("change"));check(!install.disabled,"explicit downgrade choice");
+ install.click();await until(()=>vm.committed,"native commit");
+ check(vm.blocks.length>1,"multiple upload blocks");check(vm.manifest.prepared_sha256.length===64,"real worker manifest");
+ check(!document.getElementById("ios_ipa_status").textContent.startsWith("Installed"),"upload is not installation success");
+ const dialog=document.getElementById("ios_ipa_dialog");[...dialog.querySelectorAll("button")].find(b=>b.textContent==="Close").click();
+ check(!document.getElementById("ios_ipa_dialog"),"close dialog");check(document.activeElement===opener,"focus restored");
+ show_ios_install(c,"iPhone test");check(document.getElementById("ios_ipa_status").textContent.includes("Installing"),"reopen the same task");
+ check(document.getElementById("ios_ipa_cancel").hidden,"cannot cancel native commit");vm.complete();
+ await until(()=>c.state.phase==="installed","final success");await c.refresh();check(c.state.phase==="installed","completed task stays completed");
+ check(document.getElementById("ios_ipa_status").textContent.startsWith("Installed"),"verified success shown");
+ await c.choose(new File([new Uint8Array(32)],"bad.ipa"));check(c.state.phase==="failed","bad IPA error");
+ check(document.getElementById("ios_ipa_error").textContent.length>0,"error visible");
+ vm.existing={installed:false};vm.blocks=[];let release;vm.write_gate=new Promise(ok=>release=ok);
+ await c.choose(file);const uploading=c.install();await until(()=>vm.blocks.length===1,"first upload block");await c.cancel();release();
+ await uploading;check(c.state.phase==="cancelled","upload cancelled after acknowledgement");check(vm.blocks.length===1,"cancel stops later blocks");
+ const directory=await(await(await navigator.storage.getDirectory()).getDirectoryHandle("v86")).getDirectoryHandle("ipa");
+ let remaining=0;for await(const ignored of directory.values())remaining++;check(remaining===0,"temporary IPA removed after success and cancel");
+ c.dispose();
+ let terminated=false;
+ c=new IOSInstallController(new Emulator(),{worker_factory:()=>({postMessage(){},terminate(){terminated=true;}})});
+ const checking=c.choose(file);await c.cancel();await checking;check(terminated&&c.state.phase==="cancelled","checking worker cancellation");
+ c.dispose();document.getElementById("result").textContent="PASS: real IPA worker, waiting, metadata, update/downgrade, bounded upload, close/reopen, native commit and errors";
+}catch(error){c?.dispose();document.getElementById("result").textContent="FAIL: "+error.stack;}
+</script>
