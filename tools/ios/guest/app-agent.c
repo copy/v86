@@ -80,12 +80,32 @@ static int signature_probe(const char *filename)
     CFStringRef *only=mis?(CFStringRef *)dlsym(mis,"kMISValidationOptionValidateSignatureOnly"):0;
     if(!validate || !allow || !only)return 3;extern const void *kCFBooleanTrue;
     CFStringRef path=string(filename);
+    char parent[1024];snprintf(parent,sizeof(parent),"%s",filename);unsigned slash=strlen(parent);
+    while(slash && parent[slash-1]!='/')slash--;if(slash)parent[slash-1]=0;
+    CFStringRef bundle_path=string(parent);CFDictionaryRef bundle_info=0;
+    CFMutableDictionaryRef bundle_options=CFDictionaryCreateMutable(0,0,kCFTypeDictionaryKeyCallBacks,kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(bundle_options,*allow,kCFBooleanTrue);CFDictionarySetValue(bundle_options,*only,kCFBooleanTrue);
+    int bundle_result=validate(bundle_path,bundle_options,&bundle_info);
+    printf("V86 MIS bundle result=%d info=%p\n",bundle_result,bundle_info);
+    if(bundle_info){CFShow(bundle_info);CFRelease(bundle_info);}CFRelease(bundle_options);CFRelease(bundle_path);
     // Local diagnostic for the exact 10B329 libmis image: separate static
     // object creation from its later signature/profile checks.
     typedef int (*create_fn)(void *,unsigned,void **);
     create_fn create=(create_fn)(((usize)validate&~1u)+0x2e24+1);
     void *url=CFURLCreateWithFileSystemPath(0,path,0,0),*code=0;
     int created=create(url,0,&code);printf("V86 MIS static create result=%d code=%p\n",created,code);
+    if(!created && code)
+    {
+        typedef int (*check_fn)(void *,unsigned,void *,void **);
+        check_fn check=(check_fn)(((usize)validate&~1u)+0x3050+1);
+        void *error=0;int checked=check(code,14,0,&error);
+        printf("V86 MIS static validity result=%d error=%p\n",checked,error);
+        if(error)
+        {
+            CFShow(error);CFDictionaryRef (*details)(void *)=(CFDictionaryRef (*)(void *))dlsym((void *)-2,"CFErrorCopyUserInfo");
+            CFDictionaryRef values=details?details(error):0;if(values){CFShow(values);CFRelease(values);}CFRelease(error);
+        }
+    }
     if(code)CFRelease(code);if(url)CFRelease(url);
     for(unsigned mask=0;mask<4;mask++)
     {
@@ -102,6 +122,16 @@ static int signature_probe(const char *filename)
         int result=validate(reference,0,&info);
         printf("V86 MIS reference path=%s result=%d info=%p\n",references[i],result,info);
         if(info){CFShow(info);CFRelease(info);}CFRelease(reference);
+    }
+    const char *variants[]={"minimal","no-info","no-resources"};
+    for(unsigned i=0;i<3;i++)
+    {
+        char name[256];snprintf(name,sizeof(name),"/private/var/mobile/Media/v86-input/Probe-%s.app/V86Test",variants[i]);
+        CFStringRef variant=string(name);CFDictionaryRef info=0;
+        CFMutableDictionaryRef options=CFDictionaryCreateMutable(0,0,kCFTypeDictionaryKeyCallBacks,kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(options,*allow,kCFBooleanTrue);CFDictionarySetValue(options,*only,kCFBooleanTrue);
+        int result=validate(variant,options,&info);printf("V86 MIS variant=%s result=%d info=%p\n",variants[i],result,info);
+        if(info){CFShow(info);CFRelease(info);}CFRelease(options);CFRelease(variant);
     }
     CFRelease(path);trace("V86 MIS diagnostic complete\n");return 0;
 }
@@ -124,6 +154,10 @@ static void dump_install_log(void)
     if(fd<0){trace("V86 native installation log is not present\n");return;}
     long long end=lseek(fd,0,2);if(end>65536)lseek(fd,end-65536,0);else lseek(fd,0,0);
     trace("V86 native installation log begins\n");int n;while((n=read(fd,data,sizeof(data)))>0)write(1,data,n);close(fd);trace("V86 native installation log ends\n");
+}
+void app_native_diagnostics(void)
+{
+    int fd=open("/private/var/v86/install-diagnostics",0);if(fd<0)return;close(fd);dump_install_log();
 }
 static void status(CFDictionaryRef info)
 {

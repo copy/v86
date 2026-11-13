@@ -98,6 +98,9 @@ static void native_status(CFDictionaryRef info)
     if(value)CFStringGetCString(value,message,sizeof(message),UTF8);CFRelease(k);
     k=string("Error");value=CFDictionaryGetValue(info,k);if(value){callback_error=1;CFStringGetCString(value,last_error,sizeof(last_error),UTF8);}CFRelease(k);
     if(callback_error){k=string("ErrorDescription");value=CFDictionaryGetValue(info,k);if(value)CFStringGetCString(value,last_error,sizeof(last_error),UTF8);CFRelease(k);}
+    k=string("ErrorDetail");value=CFDictionaryGetValue(info,k);
+    if(value){char detail[512];unsigned code=(unsigned)(usize)send0((void *)value,"unsignedIntValue");
+        snprintf(detail,sizeof(detail),"%s (0x%08x)",last_error,code);memcpy(last_error,detail,sizeof(last_error));last_error[511]=0;}CFRelease(k);
     reply(30,sequence,1,message,0);
 }
 static int hash_ipa(unsigned char digest[32])
@@ -160,7 +163,8 @@ static void command(unsigned op,unsigned char *b,unsigned n)
         if(!atomic_file(ROOT "install-trust.bin",list,12+job_size-548,0644)){fail("Cannot persist the native code validation policy");goto answer;}
         phase=INSTALLING;if(!persist()){fail("Cannot persist the installation start");goto answer;}
         callback_error=0;reply(30,sequence,1,"Calling the native iOS installer",0);
-        int result=app_native_install(ipa,native_status);phase=VERIFYING;persist();reply(30,sequence,1,"Checking the installed application",0);
+        int result=app_native_install(ipa,native_status);if(result || callback_error)app_native_diagnostics();
+        phase=VERIFYING;persist();reply(30,sequence,1,"Checking the installed application",0);
         ok=!result && !callback_error && verify_installed();
         if(ok){phase=INSTALLED;sync();ok=persist();unlink(ipa);}
         else {if(!last_error[0])snprintf(last_error,sizeof(last_error),"Native installation failed or the installed application's identity did not match (%d)",result);phase=FAILED;sync();persist();}
