@@ -45,6 +45,12 @@ try
     write(mmio + 0x3304, 0);
     assert.equal(read(mmio + 0x3304), 3, "NV40 CACHE1 UNK104 is read-only and returns 3");
     assert.equal(read(mmio + 0x10020C), 128 << 20);
+    const straps = read(mmio + 0x101000);
+    assert.equal(64 << (straps >>> 23 & 3), 128, "strap aperture agrees with the actual BAR size");
+    assert.equal(64 << (nv.straps.call({vram_size:256 << 20}) >>> 23 & 3), 256, "256 MiB uses its own aperture strap");
+    assert.equal((straps >>> 12 & 3) | (straps >>> 20 & 3) << 2, 5, "strap device nibble agrees with 0045");
+    assert.equal(straps & 0x4000, 0, "the device continues to advertise the implemented PCI bus");
+    write(mmio + 0x101000, 0);assert.equal(read(mmio + 0x101000), straps, "hardware straps are read-only");
     assert.equal(read(mmio + 0x100320), 0x2E3FF, "NV40 on-chip compression-tag capacity");
     write(mmio + 0x100320, -1); cpu.write8(mmio + 0x100320, 0);
     assert.equal(read(mmio + 0x100320), 0x2E3FF, "tag capacity is read-only for DWORD and byte writes");
@@ -52,9 +58,11 @@ try
     // The snapshot serializer materializes the movable WASM view. Do the same
     // for a direct device-state migration test instead of copying a Proxy bytewise.
     legacy_tags[2][39] = nv.vram().slice();
-    legacy_tags[3] = legacy_tags[3].filter(([offset]) => offset !== 0x100320);
+    legacy_tags[3] = legacy_tags[3].filter(([offset]) => offset !== 0x100320)
+        .map(([offset,value]) => [offset, offset === 0x101000 ? 0 : value]);
     legacy_tags[3].push([0x100320, 0]); nv.set_state(legacy_tags);
     assert.equal(read(mmio + 0x100320), 0x2E3FF, "older snapshots replace the unimplemented register latch");
+    assert.equal(read(mmio + 0x101000), straps, "older snapshots restore consistent hardware straps");
     const current_tags = nv.get_state(); current_tags[2][39] = nv.vram().slice();
     nv.set_state(current_tags);
     assert.equal(read(mmio + 0x100320), 0x2E3FF, "current snapshots retain the hardware capacity");

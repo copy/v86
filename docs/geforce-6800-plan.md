@@ -1067,3 +1067,13 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   原因是缓存命中没有更新顺序，活跃附件仍按最早插入资源被释放。纹理和 shader
   缓存现按最近使用更新；真实 GPU 回归连续切换 70 张纹理，保留当前颜色/深度
   附件并检查每次像素，资源数保持 64，0 failure；Closure 构建通过。
+
+- G1/G3 strap 修复解决 Win98 D3D9 分配：`PSTRAPS0_PRIMARY` 原先全零，
+  其中 BAR1_SIZE 实际宣告 64 MiB，与 PCI 的 128/256 MiB 窗口不一致。按 envytools
+  `io/pstraps.xml` 对齐 aperture、DEVID nibble 和 PCI AD wiring，保持 PCI bus 与
+  13.5 MHz crystal；快照 v9 迁移旧零值。Win98 81.98 冷启动后窗口 D3D9 HAL
+  CreateDevice 成功，DEFAULT 静态 16/16、动态 16/16、支持格式的 RT 12/12、
+  MANAGED/SYSTEMMEM/SCRATCH 各 16/16 均成功，真实像素 `ff336699`，0 GPU/PGRAPH
+  fault。另 4 项为驱动未声明支持的 A1R5G5B5 RT（CheckDeviceFormat=8876086a），
+  不能计作适配器渲染失败。原盘未修改；原版 DxDiag 验收继续进行。设备源码版与构建版
+  测试覆盖 128/256 MiB strap、只读、v7 迁移和快照往返，Closure 构建通过。

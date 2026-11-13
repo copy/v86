@@ -120,7 +120,7 @@ export class NVDevice
         // four banks, 8 column bits, 12/13 row bits for 128/256 MiB.
         // A zero column field also breaks the driver's tiled-pitch alignment.
         for(const [offset, value] of this.memory_defaults()) this.registers.set(offset, value);
-        this.registers.set(0x101000, 0); // PCI strap, 13.5 MHz crystal
+        this.registers.set(0x101000, this.straps()); // PCI bus, 13.5 MHz crystal
         this.timer_epoch = this.machine.now();
         this.timer_value = 0n;
         this.alarm_remaining = -1;
@@ -133,6 +133,13 @@ export class NVDevice
     {
         return new Uint8Array(this.machine.wasm_memory.buffer,
             this.machine.mmio_ram_backing(this.vga.lfb_region) >>> 0, this.vram_size);
+    }
+
+    straps()
+    {
+        // envytools io/pstraps: normal PCI AD wiring, no TV, DEVID nibble 5,
+        // and the same BAR1 aperture size as PCI. BUS_TYPE stays PCI.
+        return 1 | 3 << 7 | 1 << 12 | 1 << 20 | (this.vram_size === 128 << 20 ? 1 : 2) << 23;
     }
 
     memory_defaults()
@@ -446,18 +453,19 @@ export class NVDevice
 
     get_state()
     {
-        return [8, this.vram_size, this.vga.get_state(), Array.from(this.registers),
+        return [9, this.vram_size, this.vga.get_state(), Array.from(this.registers),
             timer_pair(this.time()), this.alarm_remaining, timer_pair(this.alarm_sample), this.display.get_state(),
             this.fifo.get_state(), this.graph.get_state(), this.rma.get_state()];
     }
 
     set_state(state)
     {
-        if(state[0] < 1 || state[0] > 8) throw new Error("geforce_6800: unsupported state version " + state[0]);
+        if(state[0] < 1 || state[0] > 9) throw new Error("geforce_6800: unsupported state version " + state[0]);
         if(state[1] !== this.vram_size) throw new Error("geforce_6800: snapshot vram_size mismatch");
         this.vga.set_state(state[2]);
         this.registers = new Map(state[3]);
         if(state[0] < 8) this.registers.set(0x100320, ZCOMP_LAST_TAG);
+        if(state[0] < 9) this.registers.set(0x101000, this.straps());
         if(state[0] < 4) for(const [offset, value] of this.memory_defaults())
             if(!this.registers.has(offset)) this.registers.set(offset, value);
         this.timer_value = state[0] >= 3 ? timer_from_pair(state[4]) : BigInt(Math.floor(state[4])) & TIMER_MASK;
