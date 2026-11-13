@@ -290,6 +290,17 @@ export async function run_geforce_guest(win98)
                         finally {await vm.run();}
                         console.log("NV40 checkpoint",tag,"at",Math.round(elapsed()),"seconds");
                     }
+                    if(command.pointer)
+                    {
+                        assert(Array.isArray(command.pointer) && command.pointer.length===2 &&
+                            command.pointer.every(value=>Number.isFinite(value) && Math.abs(value)<=2048),"invalid relative mouse counts");
+                        vm.bus.send("mouse-delta",command.pointer);await delay(300);
+                    }
+                    if(command.click)
+                    {
+                        vm.bus.send("mouse-click",[true,false,false]);await delay(100);
+                        vm.bus.send("mouse-click",[false,false,false]);
+                    }
                     if(command.keys) await vm.keyboard_send_scancodes(command.keys, 30);
                     if(command.run)
                     {

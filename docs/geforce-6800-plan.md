@@ -1344,3 +1344,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   166 个 Naga 模块、完整真实 GPU 回归、通用 D3D 57 项/199 个 Naga 验证与
   Closure/WebGPU bundle 构建通过。像素覆盖小于/相等/大于边界、八种函数、Z16/Z24、
   TXP 投影参考、常量分量和四点 PCF。多级深度纹理仍明确拒绝，继续后续实施。
+
+- G3 Win98 原生 DxDiag 复验通过：从已安装 81.98 的 overlay 重新启动，再在同一个
+  DxDiag 会话中经检查点继续 D3D7/8/9。三段旋转画面均正确，原生报告全部成功，
+  累计 17986 次绘制、0 GPU failure、0 PGRAPH/DMA fault，原盘未变。证据见
+  `g3-win98-8198-dxdiag-clean.json`；未启用任何 query/flip 诊断覆盖。旧 permission
+  快照在独立禁用 FLIP_WAIT、查询陷阱及翻页陷阱的对照中仍只有少量帧，不能再作为
+  干净验收起点；这不能证明所有旧快照迁移问题均已解决。harness control 增加相对
+  `pointer:[dx,dy]` 和 `click:true`，已用于原版测试按钮及报告保存。G3 的 XP/98
+  3DMark2000 和参考帧门禁仍未完成。

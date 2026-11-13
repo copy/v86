@@ -1,0 +1,106 @@
+{
+  "stage": "G3 Win98 native DxDiag 7/8/9 query and flip gate",
+  "driver": "81.98",
+  "scope": "Cold reboot followed by one native DxDiag session continued through two checkpoints; original disks read-only. No query/flip emulation overrides. 3DMark gates remain pending.",
+  "reboot_overlay": "build/nv40-win98-dxdiag-capture-overlay.bin",
+  "checkpoint_chain": [
+    "build/nv40-win98-clean-reboot/checkpoint-cold-dxdiag-before-d3d.state",
+    "build/nv40-win98-cold-dxdiag-pointer/checkpoint-native-d3d9-permission.state",
+    "build/nv40-win98-cold-dxdiag-d3d9/checkpoint-native-dxdiag-complete.state"
+  ],
+  "report_sha256": "ea6419f3af50ddb82a4bd28b743251c217000f2c24547f2ef1feca1162afe892",
+  "report_lines": [
+    "D3D7 Test Result: All tests were successful.",
+    "D3D8 Test Result: All tests were successful.",
+    "D3D9 Test Result: All tests were successful."
+  ],
+  "runs": [
+    {
+      "artifact_directory": "build/nv40-win98-clean-reboot",
+      "gpu": {
+        "batches": 0,
+        "draws": 0,
+        "bytes": 0,
+        "readbacks": 0,
+        "failures": 0,
+        "uploads": 0,
+        "uploadBytes": 0
+      },
+      "graph_faults": 0,
+      "dma_faults": 0,
+      "image_unchanged": true,
+      "error": null
+    },
+    {
+      "artifact_directory": "build/nv40-win98-cold-dxdiag-pointer",
+      "gpu": {
+        "batches": 3093,
+        "draws": 11871,
+        "bytes": 1902104808,
+        "readbacks": 3093,
+        "failures": 0,
+        "uploads": 2897,
+        "uploadBytes": 1774384468
+      },
+      "graph_faults": 0,
+      "dma_faults": 0,
+      "image_unchanged": true,
+      "error": null
+    },
+    {
+      "artifact_directory": "build/nv40-win98-cold-dxdiag-d3d9",
+      "gpu": {
+        "batches": 1165,
+        "draws": 6115,
+        "bytes": 1043010776,
+        "readbacks": 1165,
+        "failures": 0,
+        "uploads": 1028,
+        "uploadBytes": 978589524
+      },
+      "graph_faults": 0,
+      "dma_faults": 0,
+      "image_unchanged": true,
+      "error": null
+    }
+  ],
+  "visual_evidence": [
+    {
+      "api": 7,
+      "file": "build/nv40-win98-cold-dxdiag-pointer/capture-0151.png",
+      "sha256": "888cd08688d0fff53bc4d52f7218769ce81f92420dbc1382f147cd4f4f4f4b56"
+    },
+    {
+      "api": 7,
+      "file": "build/nv40-win98-cold-dxdiag-pointer/capture-0158.png",
+      "sha256": "001a145ffd4ccae80fff11b6591ddadc17e2cecefb1bb26bb356f427d1b179ad"
+    },
+    {
+      "api": 8,
+      "file": "build/nv40-win98-cold-dxdiag-pointer/capture-0340.png",
+      "sha256": "674cc0d40885b5cb97fd06d909138b4e54b00e292fa307d4884120adf5cd015b"
+    },
+    {
+      "api": 8,
+      "file": "build/nv40-win98-cold-dxdiag-pointer/capture-0506.png",
+      "sha256": "06ffa61fd9fed45e77a8cc50b59465fd94e54422113aab7c97bf0b2b100dd4da"
+    },
+    {
+      "api": 9,
+      "file": "build/nv40-win98-cold-dxdiag-d3d9/capture-0100.png",
+      "sha256": "e9cb776f385d5372441da5f71b6cb970a25633680b44260b7e2c45d420c0c906"
+    },
+    {
+      "api": 9,
+      "file": "build/nv40-win98-cold-dxdiag-d3d9/capture-0150.png",
+      "sha256": "eda32de0a9df09eae4ed694ccb990e03a72c36d57e122f619bb65527ffb2c953"
+    }
+  ],
+  "finding": "The old permission snapshot reproduced approximately 10-second frames with independent flip-wait/query/flip-trap diagnostic overrides. A cold reboot using production query/flip code completed all three visual/report tests without GPU/PGRAPH/DMA faults. Do not reuse the old snapshot as a clean acceptance fixture.",
+  "source_revisions": [
+    "5edf8c14",
+    "c37de620"
+  ],
+  "total_gpu_draws": 17986,
+  "total_gpu_failures": 0
+}
