@@ -1421,3 +1421,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   12/13，通过共享执行器的语义链接传递到片元 TEX8/TEX9 输入。默认不额外启用
   两路输出，现有程序的输出预算不变。真实 GPU 回归检查两路映射的非零颜色；
   CPU 路由测试、168 个 Naga 模块、完整 GPU 回归和 Closure 构建通过。
+
+- G3 RGB565 通道回归：真实 GPU 用已知片元常量验证 NV 16-bit 目标的 R 高/B 低
+  存储；原生 D3D9 探针再用 D3DCOLOR 顶点绘制到 lockable RGB565 目标，检查
+  GetRenderTargetData、GetDC 和 BitBlt 至 24-bit DIB。XP 93.71 冷启动读回
+  `0x3333` / RGB `0x31659C`，全部通过，无 GPU/PGRAPH/DMA 故障，原盘未变，
+  见 `g3-xp-9371-rgb565.json`。这排除所覆盖的顶点/目标/GDI 转换路径；独立的
+  3DMark99 固定帧红蓝差异仍未解决，不能据此接受完整 G3。

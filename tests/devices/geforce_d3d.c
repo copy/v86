@@ -10,6 +10,44 @@ static void report(void (*mark)(const char*),const char *label,DWORD value)
     text[at++]='=';const char hex[]="0123456789abcdef";
     for(int i=7;i>=0;i--)text[at++]=hex[value>>(i*4)&15];text[at]=0;mark(text);
 }
+static DWORD rgb565_probe(IDirect3DDevice9 *device,void (*mark)(const char*))
+{
+    IDirect3DSurface9 *saved=0,*target=0,*readback=0;DWORD failure=512;HRESULT hr;
+    HDC dc=0,memory=0;HBITMAP bitmap=0;HGDIOBJ old=0;BYTE *pixels=0;
+    struct vertex {float x,y,z,w;DWORD color;} vertices[3]={{0,0,0,1,0xFF336699},{0,128,0,1,0xFF336699},{128,0,0,1,0xFF336699}};
+    mark("D3D9_RGB565_BEGIN");
+    hr=IDirect3DDevice9_GetRenderTarget(device,0,&saved);if(FAILED(hr))goto done;
+    hr=IDirect3DDevice9_CreateRenderTarget(device,64,64,D3DFMT_R5G6B5,D3DMULTISAMPLE_NONE,0,TRUE,&target,0);
+    report(mark,"D3D9_RGB565_TARGET",hr);if(FAILED(hr))goto done;
+    hr=IDirect3DDevice9_SetRenderTarget(device,0,target);if(FAILED(hr))goto done;
+    hr=IDirect3DDevice9_BeginScene(device);
+    if(SUCCEEDED(hr)){hr=IDirect3DDevice9_DrawPrimitiveUP(device,D3DPT_TRIANGLELIST,1,vertices,sizeof(vertices[0]));IDirect3DDevice9_EndScene(device);}
+    report(mark,"D3D9_RGB565_DRAW",hr);if(FAILED(hr))goto done;
+    hr=IDirect3DDevice9_CreateOffscreenPlainSurface(device,64,64,D3DFMT_R5G6B5,D3DPOOL_SYSTEMMEM,&readback,0);
+    if(FAILED(hr))goto done;
+    hr=IDirect3DDevice9_GetRenderTargetData(device,target,readback);report(mark,"D3D9_RGB565_READBACK",hr);if(FAILED(hr))goto done;
+    D3DLOCKED_RECT locked;hr=IDirect3DSurface9_LockRect(readback,&locked,0,D3DLOCK_READONLY);if(FAILED(hr))goto done;
+    WORD pixel=*(WORD*)((BYTE*)locked.pBits+16*locked.Pitch+16*2);
+    report(mark,"D3D9_RGB565_PIXEL",pixel);failure=pixel==((6<<11)|(25<<5)|19)?0:512;
+    IDirect3DSurface9_UnlockRect(readback);
+    hr=IDirect3DSurface9_GetDC(target,&dc);report(mark,"D3D9_RGB565_GETDC",hr);
+    if(FAILED(hr)){failure|=1024;goto done;}
+    report(mark,"D3D9_RGB565_GETPIXEL",GetPixel(dc,16,16));
+    BITMAPINFO info;zero(&info,sizeof(info));info.bmiHeader.biSize=sizeof(info.bmiHeader);
+    info.bmiHeader.biWidth=32;info.bmiHeader.biHeight=-32;info.bmiHeader.biPlanes=1;info.bmiHeader.biBitCount=24;
+    memory=CreateCompatibleDC(dc);bitmap=CreateDIBSection(dc,&info,DIB_RGB_COLORS,(void**)&pixels,0,0);
+    if(!memory || !bitmap){failure|=1024;goto done;}old=SelectObject(memory,bitmap);
+    if(!BitBlt(memory,0,0,32,32,dc,0,0,SRCCOPY)){failure|=1024;goto done;}GdiFlush();
+    BYTE *rgb=pixels+(16*32+16)*3;DWORD color=rgb[2]<<16|rgb[1]<<8|rgb[0];
+    report(mark,"D3D9_RGB565_DIB24",color);
+    if(rgb[2]<47 || rgb[2]>53 || rgb[1]<98 || rgb[1]>104 || rgb[0]<153 || rgb[0]>159)failure|=1024;
+done:
+    if(old)SelectObject(memory,old);if(bitmap)DeleteObject(bitmap);if(memory)DeleteDC(memory);
+    if(dc)IDirect3DSurface9_ReleaseDC(target,dc);
+    if(saved){IDirect3DDevice9_SetRenderTarget(device,0,saved);IDirect3DSurface9_Release(saved);}
+    if(readback)IDirect3DSurface9_Release(readback);if(target)IDirect3DSurface9_Release(target);
+    report(mark,"D3D9_RGB565_FAILURES",failure);return failure;
+}
 DWORD nv_d3d_probe(void (*mark)(const char*))
 {
     DWORD failure=1,texture_failures=0;HRESULT hr=E_FAIL;
@@ -90,6 +128,7 @@ DWORD nv_d3d_probe(void (*mark)(const char*))
     DWORD pixel=*(DWORD*)((BYTE*)locked.pBits+16*locked.Pitch+16*4);
     report(mark,"D3D9_PIXEL",pixel);failure=(pixel&0xFFFFFF)==0x336699?0:128;
     IDirect3DSurface9_UnlockRect(readback);
+    failure|=rgb565_probe(device,mark);
 done:
     if(readback)IDirect3DSurface9_Release(readback);if(target)IDirect3DSurface9_Release(target);
     if(device)IDirect3DDevice9_Release(device);if(d3d)IDirect3D9_Release(d3d);

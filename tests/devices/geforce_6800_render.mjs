@@ -121,6 +121,11 @@ try
     engine.backend.draw=draw;
     if(remote)
     {
+        method(0x208,0x143);method(0x20C,16);
+        method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();
+        assert.equal(view.getUint16(0x10000,true),6<<11|25<<5|19,"RGB565 target stores red in the high bits, including host conversion/readback");
+        method(0x208,0x148);method(0x20C,32);
         method(0x1680,0x4000);new Float32Array(vram.buffer,0x4000,6).set([0,0,0,16,16,0]);
         method(0x1808,5);method(0x1824,2<<24|1);method(0x1808,0);await engine.backend.wait();
         assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
