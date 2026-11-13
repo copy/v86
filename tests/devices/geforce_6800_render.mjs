@@ -273,6 +273,21 @@ try
         method(0x1808,0);await engine.backend.wait();assert.deepEqual(vram.slice(0x10000,0x10100),normalizedPixels,
             "pixel-unit coordinates preserve bilinear texel centers and interpolation");
         method(0x1A04,0x12529);
+        method(0x1A08,0x730303);method(0x1A18,1<<16|1);method(0x1840,4);method(0x1A14,0x01010000);
+        vram.set([128,64,32,200],0x20000);
+        const gammaDraw=async()=>{
+            method(0x1808,6);
+            for(const word of new Uint32Array(Float32Array.of(0,0,.5,.5,0,16,.5,.5,16,0,.5,.5).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            return [...vram.subarray(0x10000,0x10004)];
+        };
+        const gammaPixel=await gammaDraw();
+        [55,13,4,200].forEach((value,i)=>assert(Math.abs(gammaPixel[i]-value)<=1,"sRGB conversion preserves alpha: "+gammaPixel));
+        method(0x1A18,2<<16|2);method(0x1840,8);method(0x1A14,0x02020000);
+        vram.set([0,0,0,200,255,255,255,200,255,255,255,200,0,0,0,200],0x20000);
+        assert.deepEqual(await gammaDraw(),[128,128,128,200],"sRGB conversion precedes bilinear filtering");
+        method(0x1A08,0x30303);
+        console.log("PASS: real WebGPU native RGB sRGB conversion, preserved alpha and filtering in linear space");
         // Distinct solid levels expose derivative LOD, signed sampler bias and
         // trilinear interpolation without depending on checkerboard placement.
         let mipOffset=0x20000;

@@ -1397,3 +1397,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   的 16/24-bit 精度换算，不能按宿主深度存储统一处理。真实 GPU 回归检查两种
   格式的已知常量偏移、窗口空间斜率以及关闭后恢复；完整 GPU 回归、CPU 状态
   测试及 Closure 构建通过。点/线模式的多边形偏移仍随其 raster mode 保留未实现。
+
+- G4 sRGB 纹理第一部分：接通 TEX_WRAP 的 RGB gamma-decrease mask（7），使用
+  共享执行器的 sRGB 视图，在取样过滤前解码 RGB，保留 alpha。其他逐分量 mask
+  及浮点/深度纹理 gamma 仍显式拒绝。真实 GPU 回归验证已知中灰转换、alpha
+  保留和黑白 texel 在线性空间中的双线性平均；完整 GPU/CPU 回归及 Closure
+  构建通过。

@@ -57,7 +57,10 @@ export class NV40Texture
         if(!width || !height || width>4096 || height>4096 || !swizzle && pitch<(block?Math.ceil(width/4)*block:width*bpp))throw new RangeError("NV40 texture dimensions/pitch");
         const wrap=get(o,at+8),filter=get(o,at+20),s=wrap&15,t=wrap>>>8&15,r=wrap>>>16&15;
         if(![1,2,3,4].includes(s) || ![1,2,3,4].includes(t) || volume && ![1,2,3,4].includes(r))throw new RangeError("NV40 texture wrap mode is not connected");
-        if(wrap&0xF00000 || filter&0xF0000000)throw new RangeError("NV40 sRGB/signed texture is not connected");
+        const gamma=wrap>>>20&15;
+        if(gamma && (gamma!==7 || depthCompare || [26,27,28].includes(code)))
+            throw new RangeError("NV40 per-component/float texture gamma is not connected");
+        if(filter&0xF0000000)throw new RangeError("NV40 signed texture is not connected");
         const min=filter>>>16&15,mag=filter>>>24&15;
         if(min<1 || min>6 || mag<1 || mag>2)throw new RangeError("NV40 texture filter");
         const fullFloat=code===27 || code===28;
@@ -65,7 +68,7 @@ export class NV40Texture
         const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
         if(minLod%1 || maxLod%1)throw new RangeError("NV40 fractional texture LOD clamp is not connected");
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,normalized,
-            crossbar:get(o,at+16),wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
+            crossbar:get(o,at+16),srgb:gamma===7,wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
             d3d:depthCompare?code===16?75:80:fullFloat?116:code===26?113:32,
             upload_bpp:depthCompare?bpp:fullFloat?16:code===26?8:4,depth_compare:depthCompare,
