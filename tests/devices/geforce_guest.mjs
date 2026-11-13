@@ -87,7 +87,8 @@ export async function run_geforce_guest(win98)
         ...(process.env.NV_MODE_TEST ? ["-DNV_MODE_TEST"] : []),
         ...(process.env.NV_SKIP_INSTALL ? ["-DNV_SKIP_INSTALL"] : []),
         ...(process.env.NV_REBOOT ? ["-DNV_REBOOT"] : []), "-o", binary,
-        path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32"]);
+        ...(process.env.NV_GDI_TEST ? ["-DNV_GDI_TEST", path.join(root, "tests/devices/geforce_draw.c")] : []),
+        path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32", "-lgdi32"]);
     files["NVPROBE.EXE"] = fs.readFileSync(binary);
     const tools_bytes = make_esp(files, 120);
     tools_bytes[450] = 0x0E; // normal FAT16, visible to Win9x/XP rather than an ESP

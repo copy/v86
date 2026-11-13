@@ -434,6 +434,10 @@ void WINAPI entry(void)
         }
     }
 #endif
+    #ifdef NV_GDI_TEST
+    extern DWORD nv_gdi_probe(void);
+    put("GDI_TEST failures=");number(nv_gdi_probe());line();
+    #endif
     devices(); put("SCREEN ");number(GetSystemMetrics(SM_CXSCREEN));put("x");number(GetSystemMetrics(SM_CYSCREEN));line();
     put("REGISTRY_FLUSH status=");number(RegFlushKey(HKEY_LOCAL_MACHINE));line();
 #ifdef NV_REBOOT

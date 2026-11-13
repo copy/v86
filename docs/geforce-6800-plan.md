@@ -182,6 +182,11 @@
   top-left 覆盖规则；测试验证线段终点排除、两个 XOR 三角形的公共边只覆盖一次。
   全部 2D 测试及插件构建通过。字体 DMA/完整客体验收与 3D 仍未完成。
 
+- XP GDI 原生读回验收：新增可选 `NV_GDI_TEST`，在真实主表面填充、DSTINVERT 和
+  透明文字绘制，再通过安装的显示驱动 GetPixel 读回并恢复原桌面。93.71 + 新固件
+  冷启动、1024×768×32 下 `GDI_TEST failures=0`，设备仍为 started/problem=0，见
+  `g2-xp-9371-gdi.json`。DirectDraw/DxDiag、字体 DMA 和 Win98 门禁仍未完成。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
