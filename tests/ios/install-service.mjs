@@ -3,6 +3,8 @@ import { createHmac } from "node:crypto";
 import { test } from "node:test";
 import { IOSInstallService } from "../../src/ios/install_service.js";
 import { INSTALL_OP as OP, INSTALL_SERVICE, install_frame, install_frame_reader, install_proof } from "../../src/ios/install_protocol.js";
+import { save_state } from "../../src/state.js";
+import { IOS_STATIC_TRUST_HEAD,IOS_TRUST_ARENA_BYTES } from "../../src/ios/runtime_trust.js";
 
 const json = value => new TextEncoder().encode(JSON.stringify(value));
 function setup()
@@ -35,7 +37,18 @@ test("installer handshake matches independent HMAC and supports fragmented reads
         createHmac("sha256", Buffer.from(s.state.token, "hex")).update(s.challenge.payload).digest());
     assert.equal(authenticate(s)[0].op, OP.READY); assert.equal(s.host.status().available, true);
     assert.ok(!("token" in s.host.status())); assert.equal(s.host.service(INSTALL_SERVICE), null);
-    assert.deepEqual(s.host.get_state(), [1, 1, null, ["01".repeat(20)]]);
+    assert.deepEqual(s.host.get_state(), [2, 1, null, ["01".repeat(20)]]);
+});
+test("installation arena round-trips through the real snapshot serializer",()=>{
+    globalThis.DEBUG=false;
+    const s=setup(),arena={physical:0x41000000,virtual:0x81000000,size:IOS_TRUST_ARENA_BYTES,used:0,head:IOS_STATIC_TRUST_HEAD};
+    s.host.set_arena(arena);
+    class Snapshot { get_state(){return[s.host.get_state()];} }
+    const bytes=save_state(new Snapshot()),v=new DataView(bytes);
+    const meta=JSON.parse(new TextDecoder().decode(new Uint8Array(bytes,16,v.getUint32(12,true))));
+    s.host.set_state(meta.state[0]);assert.deepEqual(s.host.arena,arena);
+    assert.throws(()=>s.host.check_state([2,1,[1,2,3,4],[]]),/arena/);
+    s.host.check_state([1,1,null,["01".repeat(20)]]);
 });
 test("invalid authentication and malformed frames disconnect without crashing the VM", () => {
     const s = setup(), hello = json({ protocol: 1, build: "10B329" }), payload = new Uint8Array(32 + hello.length); payload.set(hello, 32);

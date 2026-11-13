@@ -4,6 +4,14 @@ import { INSTALL_SERVICE, INSTALL_OP as OP, install_frame, install_frame_reader,
 import { validate_install_state, stage_install_trust, finish_install_trust, install_hashes } from "./install_trust.js";
 import { runtime_trust_node, publish_runtime_trust, validate_runtime_arena, IOS_TRUST_ARENA_BYTES } from "./runtime_trust.js";
 
+function snapshot_arena(saved)
+{
+    const data=saved[2];
+    if(saved[0]===1 || data===null)return data;
+    if(!Array.isArray(data)||data.length!==5)throw new Error("Invalid iPhone snapshot code trust arena");
+    return {physical:data[0],virtual:data[1],size:data[2],used:data[3],head:data[4]};
+}
+
 export class IOSInstallService
 {
     constructor(bus, boot)
@@ -145,22 +153,23 @@ export class IOSInstallService
     {
         if(this.pending.size || ["transferring", "staged", "installing", "verifying", "restarting"].includes(this.peer?.phase))
             throw new Error("Finish or cancel the IPA installation before saving a snapshot");
-        return [1, this.state.generation, this.arena && { ...this.arena }, [...this.trusted]];
+        const a=this.arena;
+        return [2,this.state.generation,a?[a.physical,a.virtual,a.size,a.used,a.head]:null,[...this.trusted]];
     }
     set_state(saved)
     {
         this.check_state(saved);
         this.reset();
-        if(saved[2]) this.arena = { ...saved[2] };
+        this.arena=saved[2]===null?null:{...snapshot_arena(saved)};
         if(saved[3]) this.trusted = new Set(saved[3]);
     }
     check_state(saved)
     {
         if(this.pending.size || ["transferring", "staged", "installing", "verifying"].includes(this.peer?.phase))
             throw new Error("Finish or cancel the IPA installation before loading a snapshot");
-        if(!saved || saved[0] !== 1 || saved[1] !== this.state.generation)
+        if(!saved || ![1,2].includes(saved[0]) || saved[1] !== this.state.generation)
             throw new Error("The snapshot belongs to a different iPhone application generation");
-        if(saved[2]) validate_runtime_arena(saved[2]);
+        const arena=snapshot_arena(saved);if(arena!==null)validate_runtime_arena(arena);
         if(!Array.isArray(saved[3]) || saved[3].length > 189 + Math.floor(IOS_TRUST_ARENA_BYTES / 20) || saved[3].some(h => !/^[0-9a-f]{40}$/.test(h)))
             throw new Error("Invalid iPhone snapshot code trust state");
     }
