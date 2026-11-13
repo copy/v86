@@ -28,6 +28,11 @@ try
     assert.equal(config(8), 0x030000A1);
     assert.equal(config(0x34) & 255, 0x60);
     assert.equal(config(0x60) & 0xFFFF, 1, "PM capability, no AGP in chain");
+    pci_write(0x60, -1);
+    assert.equal(config(0x60), 0x00020001, "PM capability identity and capabilities are read-only");
+    pci_write(0x64, -1);
+    assert.equal(config(0x64), 0x00000103, "PMCSR keeps only implemented writable fields");
+    pci_write(0x64, 0);
     let mmio = config(0x10) & ~15;
     const fb = config(0x14) & ~15, ramin = config(0x18) & ~15;
     assert.equal(config(0x14) & 15, 8, "prefetchable VRAM");
@@ -72,10 +77,13 @@ try
     mmio = 0xD0000000;
     assert.equal(read(mmio), 0x040500A1, "BAR relocation reaches the device");
     const command = config(4);
+    write(fb + 0x2000, 0x13579BDF);
     pci_write(4, command & ~2);
     assert.equal(read(mmio), 0xFFFFFFFF, "PCI memory decode disabled");
+    assert.equal(read(fb + 0x2000), 0xFFFFFFFF, "VRAM BAR also stops decoding");
     pci_write(4, command);
     assert.equal(read(mmio), 0x040500A1);
+    assert.equal(read(fb + 0x2000), 0x13579BDF, "reenabling decode retains VRAM bytes");
     write(mmio + 0x1804, command & ~2);
     assert.equal(config(4) & 2, 0, "PBUS command write goes through PCI core");
     assert.equal(read(mmio), 0xFFFFFFFF);
@@ -107,7 +115,7 @@ try
     const real_now = nv.machine.now;
     let now = 1000;
     nv.machine.now = () => now;
-    nv.timer_epoch = now; nv.timer_value = 0;
+    nv.timer_epoch = now; nv.timer_value = 0n;
     write(mmio + 0x9200, 1); write(mmio + 0x9210, 1);
     now++;
     assert.equal(read(mmio + 0x9400), 1000000);
@@ -125,8 +133,17 @@ try
     assert.equal(read(mmio + 0x100) & (1 << 20), 0);
     write(mmio + 0x9200, 0); const frozen = read(mmio + 0x9400); now += 100;
     assert.equal(read(mmio + 0x9400), frozen, "zero divisor stops the timer");
+    nv.write32(0x9410, 0x18E7A509); nv.write32(0x9400, 0xFFFFFFDF);
+    assert.equal(read(mmio + 0x9410), 0x18E7A509, "guest-programmed high timestamp retains all 29 bits");
+    assert.equal(read(mmio + 0x9400), 0xFFFFFFC0, "TIME_LOW is aligned to 32 ticks");
+    const precise = nv.time();
+    const clock_state = await vm.save_state();
+    nv.write32(0x9410, 0); await vm.restore_state(clock_state);
+    assert.equal(nv.time(), precise, "snapshot preserves timestamps beyond Number's exact range");
+    nv.write32(0x9410, -1);
+    assert.equal(read(mmio + 0x9410), 0x1FFFFFFF, "unused high timestamp bits read zero");
     nv.machine.now = real_now;
-    nv.timer_epoch = real_now.call(nv.machine); nv.timer_value = frozen;
+    nv.timer_epoch = real_now.call(nv.machine); nv.timer_value = BigInt(frozen);
     console.log("PASS: PTIMER clock ratios, stopped clock, alarms and interrupt acknowledgement");
 
     const crtc = (index, value) => io.port_write16(0x3D4, index | value << 8);

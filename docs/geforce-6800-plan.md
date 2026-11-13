@@ -47,14 +47,19 @@
   只提供 128/256 MiB；配置校验、摘要和默认专属 ROM 一致，显式自定义 ROM 保留。
   `tests/app/vm_config.mjs`（138 条校验规则）和 `tests/app/presets.mjs`（780 种组合、
   5000 次随机更改）通过。源码及构建插件的 NV40 设备测试均通过。
-  完整 `make app-tests` 在已有 iOS 控制器的 `storage_key` 类型推断处失败
-  （`src/app/ui/console.js:620`），尚未运行完浏览器应用测试；NV40 插件本身 Closure 构建通过。
+  完整 `make app-tests` 的 iOS 控制器类型阻塞已用一个字符串类型标注修正，`make app-check`
+  通过；浏览器的存储、x86 页面与 FreeDOS/Linux 向导通过，arm64 向导等待 shell 超时，
+  完整应用套件仍未通过。NV40 插件本身 Closure 构建通过。
 - G1.2（PFIFO 前置）：根据 XP 下一处等待点，增加 DMA 实例装载与 CACHE1 的
   `DMA_CTL/VALID`、LIMIT、PTE 缓存；非法实例触发 DMA_PUSHER 中断。DMA 访问实现
   显存/PCI RAM、线性/分页映射、页内调整、包含末字节的 limit、方向/页权限、PCI bus master
   检查；跨页写先验证完整范围，失败不留下半个通知器。
   `tests/devices/geforce_6800_dma.js` 与设备寄存器集成测试通过。完整 FIFO pusher/puller、
   RAMHT、RAMFC、PGRAPH 与 2D 类仍未实现，G2 尚未开始验收。
+- G1.3：PTIMER 按硬件保存 56-bit counter（timestamp bits 5–60），高/低位写入生效，
+  超过 JS Number 精确范围的时间戳与快照保持精确；计数、闹钟和比例寄存器保留硬件位宽。
+  VRAM BAR 随 PCI memory decode 与上游转发开关映射；PM capability 的只读字段受保护。
+  设备测试覆盖高时间戳往返、低 5 位清零、显存解码关闭/恢复及 PMCSR 掩码。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

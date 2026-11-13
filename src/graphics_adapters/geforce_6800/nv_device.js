@@ -11,6 +11,13 @@ const MMIO_SIZE = 16 << 20;
 const RAMIN_SIZE = 1 << 20;
 const MMIO_BASE = 0xFD000000;
 const RAMIN_BASE = 0xFC000000;
+// PTIMER's 56-bit counter occupies timestamp bits 5..60 (envytools bus/ptimer).
+const TIMER_MASK = (1n << 61n) - 32n;
+const TIMER_LOW = 0xFFFFFFE0n;
+/** @param {bigint} value @return {!Array<number>} */
+const timer_pair = value => [Number(value & 0xFFFFFFFFn), Number(value >> 32n)];
+/** @param {!Array<number>} pair @return {bigint} */
+const timer_from_pair = pair => BigInt(pair[0]) | BigInt(pair[1]) << 32n;
 const IRQ_BLOCKS = [[0x001100, 0x001140, 28], [0x002100, 0x002140, 8],
     [0x009100, 0x009140, 20], [0x400100, 0x400140, 12],
     [0x600100, 0x600140, 24], [0x602100, 0x602140, 25]];
@@ -35,9 +42,11 @@ export class NVDevice
         this.mapped_mmio = 0;
         this.mapped_ramin = 0;
         this.timer_epoch = machine.now();
-        this.timer_value = 0;
+        /** @type {bigint} */
+        this.timer_value = 0n;
         this.alarm_remaining = -1;
-        this.alarm_sample = 0;
+        /** @type {bigint} */
+        this.alarm_sample = 0n;
         this.pci_registered = false;
         this.reset();
         this.move_mmio(MMIO_BASE);
@@ -46,15 +55,18 @@ export class NVDevice
             pci_space: this.create_pci_space(),
             pci_bars: [
                 { size: MMIO_SIZE, on_move: base => this.move_mmio(base) },
-                { size: this.vram_size, on_move: base => this.vga.move_lfb(base) },
+                { size: this.vram_size, on_move: base => this.move_vram(base) },
                 { size: MMIO_SIZE, on_move: base => this.move_ramin(base) },
             ],
             pci_rom_size: 0x10000,
             pci_rom_address: 0xFEB00000,
-            on_command_change: () => this.update_irq(),
-            on_config_restore: () => this.update_irq(),
+            on_command_change: () => { this.update_memory_decode(); this.update_irq(); },
+            on_config_restore: () => { this.update_memory_decode(); this.update_irq(); },
+            on_upstream_change: () => this.update_memory_decode(),
+            on_config_write: () => this.config_written(),
         });
         this.pci_registered = true;
+        this.update_memory_decode();
         machine.add_timer(() => this.timer());
     }
 
@@ -91,9 +103,9 @@ export class NVDevice
         this.registers.set(0x10020C, this.vram_size);
         this.registers.set(0x101000, 0); // PCI strap, 13.5 MHz crystal
         this.timer_epoch = this.machine.now();
-        this.timer_value = 0;
+        this.timer_value = 0n;
         this.alarm_remaining = -1;
-        this.alarm_sample = 0;
+        this.alarm_sample = 0n;
         if(this.pci_registered) this.machine.lower_irq();
         this.display.reset();
     }
@@ -102,6 +114,30 @@ export class NVDevice
     {
         return new Uint8Array(this.machine.wasm_memory.buffer,
             this.machine.mmio_ram_backing(this.vga.lfb_region) >>> 0, this.vram_size);
+    }
+
+    move_vram(base)
+    {
+        this.vga.move_lfb(base);
+        this.update_memory_decode();
+    }
+
+    update_memory_decode()
+    {
+        if(!this.pci_registered) return;
+        const base = this.vga.lfb_address;
+        if(base && this.machine.memory_decoded(base, this.vram_size)) this.machine.mmio_ram_map(this.vga.lfb_region, base);
+        else this.machine.mmio_ram_unmap(this.vga.lfb_region);
+    }
+
+    config_written()
+    {
+        // PM capability header/capabilities are read-only. Only the power state
+        // and PME enable latch; no PME source is implemented at G0/G1.
+        const config = this.machine.pci_config();
+        config.set([1, 0, 2, 0], 0x60);
+        config[0x64] &= 3; config[0x65] &= 1;
+        config[0x66] = config[0x67] = 0;
     }
 
     move_mmio(base)
@@ -219,8 +255,8 @@ export class NVDevice
             value = config[i] | config[i + 1] << 8 | config[i + 2] << 16 | config[i + 3] << 24;
         }
         else if(offset === 0x100) value = this.interrupts();
-        else if(offset === 0x9400) value = this.time() % 0x100000000;
-        else if(offset === 0x9410) value = Math.floor(this.time() / 0x100000000);
+        else if(offset === 0x9400) value = Number(this.time() & TIMER_LOW);
+        else if(offset === 0x9410) value = Number(this.time() >> 32n);
         else value = this.registers.get(offset) || 0;
         this.trace.record("mmio", offset, 4, false, value, this.implemented(offset));
         return value >>> 0;
@@ -261,7 +297,9 @@ export class NVDevice
             return;
         }
         if(offset === 0 || offset === 0x3304 || offset === 0x10020C || offset === 0x101000) return;
-        const old = this.registers.get(offset) || 0;
+        const timestamp = offset === 0x9400 || offset === 0x9410 ? this.time() : 0n;
+        const old = offset === 0x9400 ? Number(timestamp & TIMER_LOW) :
+            offset === 0x9410 ? Number(timestamp >> 32n) : this.registers.get(offset) || 0;
         if(IRQ_BLOCKS.some(([status]) => status === offset))
         {
             this.registers.set(offset, (old & ~(value & mask)) >>> 0);
@@ -279,6 +317,20 @@ export class NVDevice
                 this.timer_epoch = this.machine.now();
             }
             this.registers.set(offset, ((old & ~mask) | value & mask) >>> 0);
+            if(offset === 0x9200 || offset === 0x9210) this.registers.set(offset, this.registers.get(offset) & 0xFFFF);
+            if(offset === 0x9420) this.registers.set(offset, (this.registers.get(offset) & 0xFFFFFFE0) >>> 0);
+            if(offset === 0x9400 || offset === 0x9410)
+            {
+                const written = BigInt(this.registers.get(offset));
+                this.timer_value = (offset === 0x9400 ? timestamp & ~0xFFFFFFFFn | written :
+                    timestamp & 0xFFFFFFFFn | written << 32n) & TIMER_MASK;
+                this.timer_epoch = this.machine.now();
+                if(this.alarm_remaining >= 0)
+                {
+                    this.alarm_sample = this.timer_value;
+                    this.alarm_remaining = Number((BigInt(this.registers.get(0x9420) || 0) - this.alarm_sample) & TIMER_LOW);
+                }
+            }
             if(offset === 0x322C || offset === 0x3220 && value & 1)
             {
                 try { this.dma.load_cache((this.registers.get(0x322C) || 0) * 16); }
@@ -292,18 +344,20 @@ export class NVDevice
             if(offset === 0x9420)
             {
                 this.alarm_sample = this.time();
-                this.alarm_remaining = ((this.registers.get(offset) || 0) - this.alarm_sample) >>> 0;
+                this.alarm_remaining = Number((BigInt(this.registers.get(offset) || 0) - this.alarm_sample) & TIMER_LOW);
                 this.machine.wake();
             }
         }
         this.update_irq();
     }
 
+    /** @return {bigint} */
     time()
     {
         const div = this.registers.get(0x9200) || 0;
         const mul = this.registers.get(0x9210) || 0;
-        return this.timer_value + (div ? Math.floor((this.machine.now() - this.timer_epoch) * 1000000 * mul / div) : 0);
+        const ticks = div ? Math.floor(Math.max(0, this.machine.now() - this.timer_epoch) * 1000000 * mul / div / 32) : 0;
+        return (this.timer_value + BigInt(ticks) * 32n) & TIMER_MASK;
     }
 
     timer()
@@ -311,7 +365,7 @@ export class NVDevice
         if(this.alarm_remaining >= 0)
         {
             const now = this.time();
-            this.alarm_remaining -= now - this.alarm_sample;
+            this.alarm_remaining -= Number((now - this.alarm_sample) & TIMER_MASK);
             this.alarm_sample = now;
             if(this.alarm_remaining <= 0)
             {
@@ -343,22 +397,23 @@ export class NVDevice
 
     get_state()
     {
-        return [2, this.vram_size, this.vga.get_state(), Array.from(this.registers),
-            this.time(), this.alarm_remaining, this.alarm_sample, this.display.get_state()];
+        return [3, this.vram_size, this.vga.get_state(), Array.from(this.registers),
+            timer_pair(this.time()), this.alarm_remaining, timer_pair(this.alarm_sample), this.display.get_state()];
     }
 
     set_state(state)
     {
-        if(state[0] !== 1 && state[0] !== 2) throw new Error("geforce_6800: unsupported state version " + state[0]);
+        if(state[0] < 1 || state[0] > 3) throw new Error("geforce_6800: unsupported state version " + state[0]);
         if(state[1] !== this.vram_size) throw new Error("geforce_6800: snapshot vram_size mismatch");
         this.vga.set_state(state[2]);
         this.registers = new Map(state[3]);
-        this.timer_value = state[4];
+        this.timer_value = state[0] >= 3 ? timer_from_pair(state[4]) : BigInt(Math.floor(state[4])) & TIMER_MASK;
         this.timer_epoch = this.machine.now();
         this.alarm_remaining = state[5];
-        this.alarm_sample = state[6];
+        this.alarm_sample = state[0] >= 3 ? timer_from_pair(state[6]) : BigInt(Math.floor(state[6])) & TIMER_MASK;
         if(state[0] >= 2) this.display.set_state(state[7]);
         else this.display.reset();
+        this.update_memory_decode();
         this.update_irq();
     }
 }
