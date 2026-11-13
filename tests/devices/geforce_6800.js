@@ -170,6 +170,17 @@ try
     for(let i = 0; i < 256; i++) for(let c = 0; c < 3; c++) io.port_write8(0x3C9, i);
     crtc(0x28, 3); assert.equal(crtc_read(0x28), 0, "extended CRTC is locked at reset");
     crtc(0x1F, 0x57); assert.equal(crtc_read(0x1F), 3);
+    assert.equal(io.port_read32(0x3D0) >>> 0, 0xFFFFFFFF, "RMA disabled at reset");
+    crtc(0x38, 1); assert.equal(io.port_read32(0x3D0) >>> 0, 0x2B16D065);
+    crtc(0x38, 3); io.port_write16(0x3D0, 0x020C); io.port_write16(0x3D2, 0x0010);
+    crtc(0x38, 5); assert.equal(io.port_read32(0x3D0), 128 << 20, "16-bit real-mode address accesses PFB");
+    crtc(0x38, 3); io.port_write32(0x3D0, 0x80005000);
+    crtc(0x38, 7); io.port_write16(0x3D0, 0xBEEF);
+    assert.equal(read(fb + 0x5000), 0, "partial RMA waits for high bytes");
+    io.port_write16(0x3D2, 0xCAFE); assert.equal(read(fb + 0x5000), 0xCAFEBEEF);
+    crtc(0x38, 5); assert.equal(io.port_read32(0x3D0) >>> 0, 0xCAFEBEEF);
+    write(mmio + 0x7104, 0x2000000); assert.equal(read(mmio + 0x7108), 0xFFFFFFFF, "RMA outside BAR0 cannot wrap to low registers");
+    crtc(0x38, 0);
     for(const [index, value] of [[1, 0], [0x12, 1], [7, 0], [0x25, 0], [0x41, 0], [0x13, 4], [0x28, 3]]) crtc(index, value);
     assert.equal(nv.display.mode().width, 8);
     write(fb + 0x2000, 0x00112233); write(fb + 0x3000, 0x00445566);

@@ -139,6 +139,11 @@
   设备测试覆盖 gamma 分量、8-bit DAC 别名、光标 alpha/XOR/负位置和 PLL 周期变化；
   完整设备/快照测试及插件构建通过。
 
+- NV VBE 前置：增加 PRMA 签名/地址/数据寄存器和 CRTC `0x38` 选择的实模式
+  `0x3d0–0x3d3` 窗口，支持 8/16/32-bit 地址与部分数据提交、BAR0/VRAM 访问及
+  越界保护；快照升级 v7。设备测试覆盖 16-bit 地址拆分、部分写到高字节后提交、
+  显存读回和越界不回绕；完整设备测试及插件构建通过。专属 VBE 后端仍待接入。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
