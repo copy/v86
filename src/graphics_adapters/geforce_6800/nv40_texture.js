@@ -1,7 +1,7 @@
 // NV40 2D/cube/volume texture fetch/upload. The component crossbar operates
 // on the format's storage components, before the fragment program sees RGBA.
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
-const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[16,4],[18,2],[26,8]]);
+const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[16,4],[18,2],[26,8],[27,16],[28,4]]);
 const BLOCK_BYTES=new Map([[6,8],[7,16],[8,16]]);
 export class NV40Texture
 {
@@ -60,12 +60,15 @@ export class NV40Texture
         if(wrap&0xF00000 || filter&0xF0000000)throw new RangeError("NV40 sRGB/signed texture is not connected");
         const min=filter>>>16&15,mag=filter>>>24&15;
         if(min<1 || min>6 || mag<1 || mag>2)throw new RangeError("NV40 texture filter");
+        const fullFloat=code===27 || code===28;
+        if(fullFloat && (mag!==1 || min!==1 && min!==3))throw new RangeError("NV40 FP32 texture filtering is not connected");
         const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
         if(minLod%1 || maxLod%1)throw new RangeError("NV40 fractional texture LOD clamp is not connected");
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,normalized,
             crossbar:get(o,at+16),wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
-            d3d:depthCompare?code===16?75:80:code===26?113:32,upload_bpp:depthCompare?bpp:code===26?8:4,depth_compare:depthCompare,
+            d3d:depthCompare?code===16?75:80:fullFloat?116:code===26?113:32,
+            upload_bpp:depthCompare?bpp:fullFloat?16:code===26?8:4,depth_compare:depthCompare,
             bias:new Uint32Array(Float32Array.of((filter<<19>>19)/256).buffer)[0],border:get(o,at+28)};
     }
     images(texture)
@@ -120,6 +123,24 @@ export class NV40Texture
     read(texture)
     {
         if(texture.vertex || texture.depth_compare)return this.storage(texture);
+        if(texture.code===27 || texture.code===28)
+        {
+            const pixels=texture.width*texture.height*(texture.depth||1);
+            if(pixels*16>this.state.device.vram_size)throw new RangeError("NV40 FP32 texture exceeds upload budget");
+            const bytes=this.storage(texture),source=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),
+                result=new Uint8Array(pixels*16),output=new DataView(result.buffer);
+            for(let pixel=0;pixel<pixels;pixel++)for(let channel=0;channel<4;channel++)
+            {
+                const shift=(3-channel)*2,select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
+                if(select===3)throw new RangeError("NV40 invalid texture component selection");
+                // The scalar format expands to (R,0,0,1) before the crossbar.
+                // Copy integer bits so payloads and signed zero survive upload.
+                const bits=select===0?0:select===1?0x3F800000:
+                    texture.code===27 || component===0?source.getUint32(pixel*texture.bpp+component*4,true):component===3?0x3F800000:0;
+                output.setUint32(pixel*16+channel*4,bits,true);
+            }
+            return result;
+        }
         if(texture.code===26)
         {
             const bytes=this.storage(texture),result=new Uint8Array(bytes.length),

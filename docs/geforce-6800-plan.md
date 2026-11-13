@@ -1379,3 +1379,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   映射核对 RPCS3 的 gcm_enums.h / GLFragmentProgram.cpp，NV40 合法位范围核对
   envytools 的 MthdRankinePsControl。完整真实 WebGPU 回归验证 FP16/FP32 两种
   四目标输出、独立颜色掩码与单目标复用；插件 Closure 构建通过。
+
+- G4 FP32 片元纹理：RGBA32F/R32F 的线性/Morton 存储通过 checked DMA 读取，
+  R32F 在分量交叉选择前扩展为 (R,0,0,1)，原始 NaN payload 与负零按 u32 保留。
+  使用共享执行器的 RGBA32F 资源及 nearest/nearest-mip 取样；FP32 线性过滤仍
+  显式拒绝。CPU 回归检查原始位、扩展、交叉选择及 DMA 末字节；完整真实 GPU
+  回归验证 HDR、负值和标量扩展至 FP16 渲染目标，Closure 构建通过。

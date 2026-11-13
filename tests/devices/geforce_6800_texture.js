@@ -99,6 +99,21 @@ const fp16=texture.describe(o,0);assert.equal(fp16.d3d,113);assert.equal(fp16.up
 assert.deepEqual([...new Uint16Array(texture.read(fp16).buffer)],[0x4000,0xBC00,0x3800,0x3400],"FP16 preserves HDR, negative channels and exact half bits");
 o.methods.set(0x1A10,0xAA6C);assert.deepEqual([...new Uint16Array(texture.read(texture.describe(o,0)).buffer)],
     [0x3800,0xBC00,0x4000,0x3400],"FP16 component crossbar");
+for(const [code,bpp,expected]of [[27,16,[0x7FFF3800,0x80000000,0x40400000,0x3F000000]],
+    [28,4,[0x7FFF3800,0,0,0x3F800000]]])
+{
+    o.methods.set(0x1A04,0x12029|code<<8);o.methods.set(0x1840,bpp);o.methods.set(0x1A10,0xAAE4);
+    new Uint32Array(vram.buffer,0x2000,4).set([0x7FFF3800,0x80000000,0x40400000,0x3F000000]);
+    const surface=texture.describe(o,0);assert.equal(surface.d3d,116);assert.equal(surface.upload_bpp,16);
+    assert.deepEqual([...new Uint32Array(texture.read(surface).buffer)],expected,"FP32 storage bits and scalar expansion "+code);
+    o.methods.set(0x1A10,0xAA6C);
+    assert.deepEqual([...new Uint32Array(texture.read(texture.describe(o,0)).buffer)],
+        [expected[2],expected[1],expected[0],expected[3]],"FP32 crossbar "+code);
+    assert.throws(()=>texture.read({...surface,dma:{...surface.dma,limit:0x2000+bpp-2}}),/limit/);
+    o.methods.set(0x1A14,0x02020000);assert.throws(()=>texture.describe(o,0),/FP32 texture filtering/);
+    o.methods.set(0x1A14,0x01010000);
+}
+console.log("PASS: FP32 fragment textures preserve raw bits, expand R32F and apply the component crossbar");
 // Each packed cube face carries its complete mip chain and starts on a
 // 128-byte boundary. A clamped upload must not move the following faces.
 o.methods.set(0x1A04,0x3052D);o.methods.set(0x1A18,4<<16|4);o.methods.set(0x1A10,0xAAE4);o.methods.set(0x1A0C,0x80010000);
