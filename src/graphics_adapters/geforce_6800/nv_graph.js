@@ -1,6 +1,7 @@
 // NV40 PGRAPH objects and notifications. Original implementation using the MIT
 // envytools rnndb graph/nv1_ctxobj.xml, fifo/nv_object.xml and Nouveau nv40.c.
 import { NV2D } from "./nv_2d.js";
+import { NV40_3D } from "./nv40_3d.js";
 const CONTEXT_METHODS = new Map([
     [0x12, [0x300]], [0x72, [0x300]], [0x19, [0x300, 0x304]], [0x43, [0x300]],
     [0x57, [0x300, 0x304]], [0x44, [0x300, 0x304, 0x308, 0x30C, 0x310, 0x314, 0x318, 0x31C]],
@@ -21,6 +22,7 @@ export class NVGraph
         this.program = new Map();
         this.faults = [];
         this.engine2d = new NV2D(this);
+        this.engine3d = new NV40_3D(this);
     }
 
     reset() { this.objects.clear(); this.program.clear(); }
@@ -119,6 +121,7 @@ export class NVGraph
                 if(object.class_id === 0x44) accepted = accepted || method >= 0x400 && method < 0x440 ||
                     method >= 0x500 && method < 0x580 || method >= 0x600 && method < 0x680 || method >= 0x700 && method < 0x800;
             }
+            else if(object.class_id === 0x4097) accepted = accepted || this.engine3d.method(object, method, value);
             else if(this.engine2d) accepted = accepted || this.engine2d.method(object, method, value);
             if(accepted) object.methods.set(method, value >>> 0);
             else this.error(channel, subc, method, value);

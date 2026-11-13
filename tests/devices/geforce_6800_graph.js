@@ -51,3 +51,32 @@ device.registers.set(0x400324, 17); device.registers.set(0x400328, 0xC001);
 graph.written(0x400328, 0xC001); assert.equal(device.registers.get(0x400324), 18);
 device.registers.set(0x400324, 17); assert.equal(graph.read(0x400328), 0xC001);
 console.log("PASS: NV40 PGRAPH contexts, precise/atomic DMA notifiers, faults, IRQ acknowledgement and snapshot");
+// Real Curie uploads address one vector at a time; the last component advances
+// the pointer. Half an instruction must survive a snapshot without duplication.
+device.registers.set(0x400720,1);device.registers.set(0x400108,0);
+word(0x4200,0x4097);method(0,0x4200,0x1E9C,5);
+method(0,0x4200,0xB80,0x11111111);method(0,0x4200,0xB84,0x22222222);
+const curieSaved=graph.get_state();graph=new NVGraph(device);graph.set_state(curieSaved);
+method(0,0x4200,0xB88,0x33333333);method(0,0x4200,0xB8C,0x44444444);
+method(0,0x4200,0xB90,0x55555555);
+assert.deepEqual([...graph.engine3d.vertex_program(graph.object(0,0x4200),5,2)],
+    [0x11111111,0x22222222,0x33333333,0x44444444,0x55555555,0,0,0]);
+method(0,0x4200,0x1EFC,3);
+for(let i=0;i<4;i++)method(0,0x4200,0x1F10+i*4,0x3F800000+i);
+assert.deepEqual([...graph.engine3d.vertex_constants(graph.object(0,0x4200),3,1)],
+    [0x3F800000,0x3F800001,0x3F800002,0x3F800003]);
+word(0x4104,31);vram.fill(255,0x8000,0x8020);
+method(0,0x4200,0x1A4,0x410);method(0,0x4200,0x1D6C,16);method(0,0x4200,0x1D70,0xDEADBEEF);
+assert.equal(new DataView(vram.buffer).getUint32(0x8010,true),0xDEADBEEF);
+assert.deepEqual([...vram.subarray(0x8014,0x8020)],Array(12).fill(255),"fence writes one DWORD, without a notifier timestamp");
+word(0x4104,17);vram.fill(255,0x8010,0x8020);method(0,0x4200,0x1D70,7);
+assert.deepEqual([...vram.subarray(0x8010,0x8020)],Array(16).fill(255),"failed fence leaves all bytes untouched");
+assert.equal(device.registers.get(0x400720),0);
+word(0x4104,31);word(0x4100,0x103003);device.registers.set(0x400720,1);method(0,0x4200,0x1D70,8);
+assert.equal(device.registers.get(0x400720),0,"fence DMA rejects a nonzero page adjustment");
+assert.deepEqual([...vram.subarray(0x8010,0x8020)],Array(16).fill(255));
+device.registers.set(0x400720,1);method(0,0x4200,0x1E9C,0x220);
+assert.equal(device.registers.get(0x400720),0,"upload address bounds fault before modifying code");
+device.registers.set(0x400720,1);method(0,0x4200,0x1808,5);
+assert.equal(device.registers.get(0x400108)&0x40,0x40,"unimplemented drawing stays an explicit method trap");
+console.log("PASS: NV40_3D control state, vector uploads across snapshots and checked four-byte fences");

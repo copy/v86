@@ -213,6 +213,11 @@
   后便错误耗尽。已修正像素宽度、LUT 项数及索引提取；I4/I8（含第 128 项 LUT）
   与 GDI clip 别名测试、插件构建通过，客体复测进行中。
 
+- NV40_3D 控制面前置：增加已知状态方法、544 个位置的顶点指令/常量上传与逐分量
+  提交游标，部分指令随对象快照恢复。DMA fence 精确写一个 DWORD，校验 limit、
+  权限、页对齐；不把 fence 当成 16-byte 通知器。PGRAPH、FIFO、DMA、设备测试和
+  插件构建通过。draw/query/clear 尚未接入执行器，仍明确报未实现，G3 未验收。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
