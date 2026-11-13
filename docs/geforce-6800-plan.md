@@ -92,6 +92,13 @@
   快照 v4 向旧快照补齐此前缺失的字段。93.71 安装返回成功、无需重启；原生设备报告
   `problem=0 cm=0 started=1 service=nv`，见 `g1-xp-9371-initialized.json`。
   当前屏幕仍是 640×480；下一步验证显示驱动接管、1024×768×32 与 FIFO 命令。
+- PFIFO 通道前置实现：`nv_fifo.js` 增加 128-byte NV40 RAMFC 保存/恢复、32 通道 USER
+  新旧窗口、DMA pusher 的递增/不递增方法与 JUMP/CALL/RETURN、缓存背压、预算让出、
+  RAMHT、REF 与 DMA 信号量 acquire/release、错误中断和快照 v5。
+  测试覆盖跨通道 REF、控制流、散列失败、缓存满/恢复、非法命令、DMA 越界、
+  自跳转预算及 acquire 挂起后的快照恢复。XP 重启跟踪已解码第一批方法：
+  子通道 6 绑定 clip 类 `0x19` 后提交 `0x300`；此前只写 PUT、GET 不动的问题已推进。
+  PGRAPH/2D 类仍待实现，当前会报告未实现方法而非伪造完成；G1/G2 尚未验收。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

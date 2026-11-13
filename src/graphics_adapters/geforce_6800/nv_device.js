@@ -6,6 +6,7 @@ import { VGAScreen } from "../vga_core.js";
 import { NVTrace } from "./nv_trace.js";
 import { NVDisplay } from "./nv_display.js";
 import { NVDMA } from "./nv_dma.js";
+import { NVFIFO } from "./nv_fifo.js";
 
 const MMIO_SIZE = 16 << 20;
 const RAMIN_SIZE = 1 << 20;
@@ -37,6 +38,9 @@ export class NVDevice
         this.registers = new Map();
         this.display = new NVDisplay(this);
         this.dma = new NVDMA(this);
+        /** @type {?Object} */
+        this.graph = null;
+        this.fifo = new NVFIFO(this);
         this.mmio_address = 0;
         this.ramin_address = 0;
         this.mapped_mmio = 0;
@@ -92,6 +96,7 @@ export class NVDevice
     reset()
     {
         this.registers.clear();
+        this.fifo.reset();
         // NV40, device nibble 5, stepping A1. G0 must check against driver traces.
         this.registers.set(0x000000, 0x040500A1);
         this.registers.set(0x000200, 0xFFFFFFFF);
@@ -261,7 +266,9 @@ export class NVDevice
                 this.read8(offset + 2) << 16 | this.read8(offset + 3) << 24) >>> 0;
         }
         let value;
-        if(offset >= 0x1800 && offset < 0x1900)
+        const fifo_value = this.fifo.read(offset);
+        if(fifo_value !== null) value = fifo_value;
+        else if(offset >= 0x1800 && offset < 0x1900)
         {
             const config = this.machine.pci_config(), i = offset - 0x1800;
             value = config[i] | config[i + 1] << 8 | config[i + 2] << 16 | config[i + 3] << 24;
@@ -289,11 +296,18 @@ export class NVDevice
     {
         return [0, 0x100, 0x140, 0x200, 0x1218, 0x322C, 0x3230, 0x3234, 0x3238, 0x323C, 0x3304,
             0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x100200, 0x100204, 0x10020C, 0x101000].includes(offset) ||
+            this.fifo.implemented(offset) ||
             offset >= 0x1800 && offset < 0x1900 || IRQ_BLOCKS.some(([status, enable]) => offset === status || offset === enable);
     }
 
     write_register(offset, value, mask)
     {
+        if(this.fifo.user(offset) || offset >= 0x90000 && offset < 0x91000)
+        {
+            const old = this.fifo.read(offset) || 0;
+            this.fifo.write(offset, ((old & ~mask) | value & mask) >>> 0);
+            return;
+        }
         if(offset >= 0x1800 && offset < 0x1900)
         {
             // Use the PCI core, including its BAR/command/readonly semantics.
@@ -329,6 +343,7 @@ export class NVDevice
                 this.timer_epoch = this.machine.now();
             }
             this.registers.set(offset, ((old & ~mask) | value & mask) >>> 0);
+            if(offset === 0x3204) this.fifo.active = this.registers.get(offset) & 0x10000 ? this.registers.get(offset) & 31 : -1;
             if(offset === 0x9200 || offset === 0x9210) this.registers.set(offset, this.registers.get(offset) & 0xFFFF);
             if(offset === 0x9420) this.registers.set(offset, (this.registers.get(offset) & 0xFFFFFFE0) >>> 0);
             if(offset === 0x9400 || offset === 0x9410)
@@ -362,6 +377,7 @@ export class NVDevice
             }
         }
         this.update_irq();
+        if([0x2100, 0x2500, 0x2504, 0x3200, 0x3220, 0x3240, 0x3250, 0x3270].includes(offset)) this.fifo.run();
     }
 
     /** @return {bigint} */
@@ -375,6 +391,7 @@ export class NVDevice
 
     timer()
     {
+        this.fifo.run();
         if(this.alarm_remaining >= 0)
         {
             const now = this.time();
@@ -410,13 +427,13 @@ export class NVDevice
 
     get_state()
     {
-        return [4, this.vram_size, this.vga.get_state(), Array.from(this.registers),
-            timer_pair(this.time()), this.alarm_remaining, timer_pair(this.alarm_sample), this.display.get_state()];
+        return [5, this.vram_size, this.vga.get_state(), Array.from(this.registers),
+            timer_pair(this.time()), this.alarm_remaining, timer_pair(this.alarm_sample), this.display.get_state(), this.fifo.get_state()];
     }
 
     set_state(state)
     {
-        if(state[0] < 1 || state[0] > 4) throw new Error("geforce_6800: unsupported state version " + state[0]);
+        if(state[0] < 1 || state[0] > 5) throw new Error("geforce_6800: unsupported state version " + state[0]);
         if(state[1] !== this.vram_size) throw new Error("geforce_6800: snapshot vram_size mismatch");
         this.vga.set_state(state[2]);
         this.registers = new Map(state[3]);
@@ -428,6 +445,8 @@ export class NVDevice
         this.alarm_sample = state[0] >= 3 ? timer_from_pair(state[6]) : BigInt(Math.floor(state[6])) & TIMER_MASK;
         if(state[0] >= 2) this.display.set_state(state[7]);
         else this.display.reset();
+        if(state[0] >= 5) this.fifo.set_state(state[8]);
+        else this.fifo.reset();
         this.update_memory_decode();
         this.update_irq();
     }
