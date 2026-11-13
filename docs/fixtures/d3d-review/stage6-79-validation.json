@@ -1,0 +1,2663 @@
+{
+  "batch": "stage6-79",
+  "date": "2026-11-13",
+  "status": "Surface creation preconditions, mixed surface views and native flip-primary control role implemented; original applicable Wine conformance still incomplete.",
+  "pinnedWineCommit": "415a275e3844c252ad385b46023095e9401ca234",
+  "nativeSources": {
+    "glbridge/ddrawproxy/ddraw_proxy.c": "3b86981b3da8a427f8608a28f28e5d3fe556923d4629111172fa5daef40d9db3",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "b2d2b55ec9a0d92308e24320a0dd0111b8f83fce58f54e750ff5d7b4a9df1755",
+    "glbridge/ddrawproxy/d3d_legacy_proxy.inc": "0f17fcce026e715c57d66da2c45dfd2e3ec5dc5669dfe2e7ab034f24d8c326ca",
+    "glbridge/ddrawproxy/ddraw_protocol.h": "19021a046d390adc23ca662ec4eb2b45cbe1569516a8990ff3b8757a41a20ba3",
+    "glbridge/runtime/d9wg_format_layouts.h": "2eff964c5ad834ed29d266785f6509ca419548e9f44e4dd434e9d892153cc9f5",
+    "glbridge/runtime/d9wg_lighting.c": "623369156d25847f676e3b316c9d3c1d47a4b89cece270dee6103e794bf6cd79",
+    "glbridge/runtime/d9wg_lighting.h": "4073ed5e4362cf245b441bfc8846737f557d1eb9bfc3a76cb4dd0875ed8b0def",
+    "glbridge/runtime/d9wg_lighting_profiles.c": "f28d8423e86f8195afc39a6e05054a86fac3e7af07b7ab8910e5e543423bc25f",
+    "glbridge/runtime/d9wg_lighting_profiles.h": "f93557eb65e60aeaac855f815c5324a823c079e75c5075b4d00891bd694d2341",
+    "glbridge/runtime/d9wg_vertex.c": "3db1bddc8e8c1f5f1040763e64edff58c05a9c76c15de3671cf411b48baa9f96",
+    "glbridge/runtime/d9wg_vertex.h": "d4aad5fe2587ca0c7bebbd3913991a85969f5532323dce8bddf9a95d04dcadf3",
+    "glbridge/runtime/d9wg_vertex_windows.h": "eaa23d2c09ba0c8ffd726a6dd1dd9668e8f2c23ef619c54b3793da208e6051d6",
+    "glbridge/ddrawproxy/ddraw_bc_codec.h": "7b67a414247d5b0241bbe1ba7722d9cea4813ae83527509ee8237b681dd29543",
+    "glbridge/d3d9proxy/d3d9_protocol.h": "85eaa48fa57af75ed0f18ceb7e5e295f5d1f84872f22f886295c2dd0e30421f1",
+    "glbridge/ddrawproxy/ddraw_platform_control.inc": "67ed9df04fbb5a04fef72ff985235b96d1d3b03d924ac8a252c5e3d3bb10ce75",
+    "glbridge/ddrawproxy/ddraw_surface_control.inc": "616a1070466acaa1c701bde5262733d3be7098eca8789b16c60d94c6792b74e8"
+  },
+  "hostSources": {
+    "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "430967909abac3f0a3936a7aac0259695a6f3d9fc000ac6d942329a56ba7180f",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "257ddbfc6d4208f0af38ac8efd66eab40cd7da8c9f3fd077324e1db4df75b2d4",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "07cea12742473c1871ee1cc012600b278ad6d8e5b169254bf58dc1ab09c2c291",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "ba414e9fcb47956b4c2a8960e11ed408220edbbed456ec713e311a1096df284e",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "405a0b6e8ae2dd5f91a50f31d03a339a322788b1eaaade47b92e5bb443b25ebf",
+    "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "5ae46c53e12e61e9b3643cce2805c2d2a81d14e029c2cccd36b560f369722a98"
+  },
+  "changes": [
+    "When a system DLL does not expose Draw3, private control calls fall back to the inherited Draw2 API slots and descriptor ABI. Other QI errors remain failures. The actual SDK offsets are compiled as static assertions; current DLL proxy3 observations are compared with Native2 behavior while the direct Native3 E_NOINTERFACE record remains visible.",
+    "CreateSurface requires a cooperative level before any descriptor/output validation or write, including NULL descriptions. The legacy entry thunks enforce the same ordering without clearing sentinel outputs. Existing post-cooperative-level validation and allocation rules remain.",
+    "D3D7 CreateDevice accepts all five known public surface vtables, resolves their actual interface offset and validates ownership before allocation/transport. Null/foreign-vtable/other-owner inputs remain rejected. Existing constructor failure rollback and multiple-live-device behavior remain.",
+    "Prepare the native primary before allocating proxy pixels. Keep the draw view and native primary until publication/rollback, and keep a private proxy owner hold across native callbacks and pixel allocation. Use native creation width/height/pixel format rather than cached current display metadata; preserve logical virtual mode fallback, prevent retired owner resurrection and reject reentrant duplicate primary publication. Native private primary controllers now mirror the requested flip/complex role and backbuffer count in both descriptor layouts, rather than always creating a standalone primary. Native Restore of a lost flip primary is guarded outside exclusive mode to avoid the unsafe XP system call. Native surfaces still never draw or present game pixels."
+  ],
+  "nativeCreationReference": {
+    "source": "glbridge/sample/ddraw_creation_reference.c",
+    "sourceSha256": "28c0839e1babd91df85cb5051afb3b989d5defb1f351d4b107965d5ba9a03e6d",
+    "executableSha256": "b8a9ce2f56656e1a5804c5ddd4fa6622d9e3d43860688d6eca49585362c53b97",
+    "seconds": 127,
+    "batches": 0,
+    "results": [
+      {
+        "version": 1,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 1,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 2,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 3,
+        "name": "query_view",
+        "hr": 2147500034,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 4,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 7,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      }
+    ],
+    "directory": "stage6-native-creation-final",
+    "fixtureSha256": "4aa79f5860ae17b353f12b9b00b787ff4c2844ce32ddfa1eb1ea9df8b5337fe3",
+    "probeSha256": "8a686e8596fd537dcfb5f151995b0b2bee1fdbe6563188605f5cd71754d4b06a",
+    "scope": "Independent system DLL, 127 seconds,49 HRESULT/output records; all four supported native views reject primary/system/video/NULL creation before SetCooperativeLevel without changing outputs. Native QueryInterface(DDraw3) returns E_NOINTERFACE and is retained explicitly. Native HEL flip primaries remain valid after NORMAL in this no-SetDisplayMode sequence; no Wine assertion was waived on that basis."
+  },
+  "rejectedInitialDiagnostic": {
+    "directory": "stage6-native-creation",
+    "sourceSha256": "5da549f0205ae3b312e22ff62f023d09623b6984bd00915375a90ec46610c0ef",
+    "executableSha256": "6cf61b9cb432c229e5664c3f4ae4e7968c3418b6a557c4fbe97fadf7cfb25983",
+    "logSha256": "93f99c77428f853bf488d113cf7d225bbcf0e8f77e40ddaf8dd427dcecf675cd",
+    "scope": "Initial native program stopped at unsupported DDraw3; failed completion and raw log retained, runner interrupted. Not accepted or counted as a complete baseline. Final probe records that unsupported view and proceeds with the remaining views, releasing the factory view as frozen Wine does."
+  },
+  "proxyCreationComparison": {
+    "source": "glbridge/sample/ddraw_creation_reference.c",
+    "sourceSha256": "28c0839e1babd91df85cb5051afb3b989d5defb1f351d4b107965d5ba9a03e6d",
+    "executableSha256": "500ca463286ebb52a422ec3ba5ac29fd30171889a7fa433dd84926bf75cd2a24",
+    "controllerAbiSha256": "111bbcf05c36e5a217b93e66dfd79bd98d7436b8f9d4b392e5e2e338019465f8",
+    "proxyProducerSha256": "30c744c5db015a2b3a2b4e0feb34710f3cf762af57fafa4381a86048bb064c07",
+    "dllSha256": "816550dfad0e615564ff6d494e3c6435d068c718229e57221baa19db2e94ccd2",
+    "seconds": 119,
+    "batches": 20,
+    "results": [
+      {
+        "version": 1,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 1,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 1,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 1,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 2,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 2,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 2,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 3,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 3,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 3,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 3,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 3,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 3,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 3,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 3,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 3,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 3,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 3,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 3,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 4,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 4,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 4,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "query_view",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "before_primary",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "before_system",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "before_video",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "before_null",
+        "hr": 2289434836,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "normal_null",
+        "hr": 2147942487,
+        "output": 2
+      },
+      {
+        "version": 7,
+        "name": "exclusive",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "flip_create",
+        "hr": 0,
+        "output": 1
+      },
+      {
+        "version": 7,
+        "name": "flip_valid",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "flip_normal",
+        "hr": 0,
+        "output": 0
+      },
+      {
+        "version": 7,
+        "name": "flip_lost",
+        "hr": 0,
+        "output": 0
+      }
+    ],
+    "directory": "stage6-proxy-creation",
+    "probeSha256": "5b1db53d9bfc9c075b7fa12efbc1e33f7ac41768cb023ba46269a860f4790ad2",
+    "comparison": {
+      "passed": true,
+      "records": 48,
+      "nativeUnsupportedViews": [
+        {
+          "version": 3,
+          "name": "query_view",
+          "hr": 2147500034,
+          "output": 0
+        }
+      ],
+      "proxyAdditionalViews": [
+        {
+          "version": 3,
+          "name": "query_view",
+          "hr": 0,
+          "output": 0
+        },
+        {
+          "version": 3,
+          "name": "before_primary",
+          "hr": 2289434836,
+          "output": 2
+        },
+        {
+          "version": 3,
+          "name": "before_system",
+          "hr": 2289434836,
+          "output": 2
+        },
+        {
+          "version": 3,
+          "name": "before_video",
+          "hr": 2289434836,
+          "output": 2
+        },
+        {
+          "version": 3,
+          "name": "before_null",
+          "hr": 2289434836,
+          "output": 2
+        },
+        {
+          "version": 3,
+          "name": "normal",
+          "hr": 0,
+          "output": 0
+        },
+        {
+          "version": 3,
+          "name": "normal_null",
+          "hr": 2147942487,
+          "output": 2
+        },
+        {
+          "version": 3,
+          "name": "exclusive",
+          "hr": 0,
+          "output": 0
+        },
+        {
+          "version": 3,
+          "name": "flip_create",
+          "hr": 0,
+          "output": 1
+        },
+        {
+          "version": 3,
+          "name": "flip_valid",
+          "hr": 0,
+          "output": 0
+        },
+        {
+          "version": 3,
+          "name": "flip_normal",
+          "hr": 0,
+          "output": 0
+        },
+        {
+          "version": 3,
+          "name": "flip_lost",
+          "hr": 0,
+          "output": 0
+        }
+      ],
+      "proxyAdditionalViewsCertified": true,
+      "proxyAdditionalViewsReference": "Native Draw2 inherited controller API slots and descriptor ABI; direct Native Draw3 QueryInterface remains E_NOINTERFACE. All12 proxy3 observations match Native2 with only the version label remapped.",
+      "scope": "Exact48-record comparison for native-supported views1/2/4/7 plus12 proxy3 records against Native2 inherited API behavior. Control/creation only, not complete Wine conformance or a pixel rendering claim.",
+      "nativeFixtureSha256": "4aa79f5860ae17b353f12b9b00b787ff4c2844ce32ddfa1eb1ea9df8b5337fe3"
+    },
+    "scope": "Same source with only loader path redirected. Exact comparison of48 HRESULT/output records for native-supported1/2/4/7;12 proxy3 observations match the inherited Native2 control API behavior with only version label remapped. Direct Native3 E_NOINTERFACE is retained, and actual SDK shared controller slot offsets are checked. This is an explicit compatibility fallback, not an original Wine applicability waiver. This control-only probe uses acknowledged transport and makes no graphics pixel claim."
+  },
+  "checks": {
+    "ddrawScripts": 98,
+    "siteIntegration": "2/2",
+    "allPassed": true,
+    "surfaceCreationChecks": 19010,
+    "surfaceCreationFaults": 34,
+    "multipleDeviceChecks": 21025,
+    "multipleDeviceFaults": 13,
+    "nativeSurfaceChecks": 12643,
+    "nativeSurfaceFaults": 14,
+    "platformFaults": 28,
+    "ownershipFaults": 35,
+    "testSources": {
+      "glbridge/tests/d7wg_legacy_defaults_mutation_test.js": "58506ca6f479d8271829860070399f802bb6d096d27a06ebedb2c2cf836e8ad6",
+      "glbridge/tests/d7wg_legacy_light_mutation_test.js": "4a88b96dba5503775b87c0366333a638d24436c486f65086ec6a504dcd270425",
+      "glbridge/tests/d7wg_legacy_light_test.js": "29925bf2e4d172a98e69acb940880e244821b1ed8a30e8907f08ec9c78baff62",
+      "glbridge/tests/d7wg_legacy_viewport_mutation_test.js": "5ec228d11407e535937c61dcb112166475012e721e21a54364df01210ca012ca",
+      "glbridge/tests/d7wg_legacy_viewport_test.js": "c007b1779934387e2a0c1e55614c4d765329a7763ec132c626d4504b3dc4a3b8",
+      "glbridge/tests/d7wg_light_state_mutation_test.js": "a77a6ad8592d162a26772522383fea1a689b74d39706a84c4a78e83d245fe6a9",
+      "glbridge/tests/d7wg_light_state_test.js": "5bfd1797bd008d18a76113f21a9983ec8d4adabfded34f2bf06bd56b5254fe51",
+      "glbridge/tests/d7wg_state_block_mutation_test.js": "6401d04e418495abda9ed20a4314d97680338ae35aa7ed3d0724b8d9736ae36a",
+      "glbridge/tests/d7wg_state_block_test.js": "d72b58b9229cfc688605ad7c684200f4b4ac974867afd2ba1cd8d0e0745e681b",
+      "glbridge/tests/d7wg_texture_load_mutation_test.js": "71755ceb456c815a56d44930b1e4cdf9aa9c1a515293d6524f656d41c501ea7e",
+      "glbridge/tests/d7wg_texture_load_test.js": "36132bf469a4d3fb7243e600f0f486a1501a70e9727face53b798bfe66c11194",
+      "glbridge/tests/ddraw_attachment_query_mutation_test.js": "46d78cf10a497c8ced8f6135444abf14259839ab355837be1fcb5afe9d899786",
+      "glbridge/tests/ddraw_attachment_query_test.js": "516eb7d16bdc646233b004edf63c43993f414cd729b84e9974bca464a9ddb54a",
+      "glbridge/tests/ddraw_attenuation_mutation_test.js": "80b677a361131f8107e9ee30f9d3328e04b55d77c62da2ff51e42558f7d40220",
+      "glbridge/tests/ddraw_bc_codec_test.js": "94c15eee161b34ce31f2bb7d962010f96f438ec602bfced7fd4ac57df8e3b19f",
+      "glbridge/tests/ddraw_channel_expansion_test.js": "d4565d76efc08d85c3977eaacb540d81783946f840c91a616a8dff27415124d6",
+      "glbridge/tests/ddraw_class_factory_test.js": "7bd16d5457715f122097db254b2691bfba8c93dc26f183ed895e2cd2460d0020",
+      "glbridge/tests/ddraw_clipper_mutation_test.js": "9cba7cbc1c714b9ff9f29c8a7f63f6941d434859d6ac25c8e457fa38c2ff4b19",
+      "glbridge/tests/ddraw_clipper_test.js": "06fffd4acfd82ce7636ced289759dd045d3051a63f1f8a4860744fdd607d5a0f",
+      "glbridge/tests/ddraw_color_fill_memory_mutation_test.js": "c70bfd6e8097597ffa976ab37ea4b364c035531845a46579c835a253f4454cc8",
+      "glbridge/tests/ddraw_color_fill_memory_test.js": "37724a1365a56b349dabc5e4c567e4d58c6de5f5d7293f386594966edf6a8f18",
+      "glbridge/tests/ddraw_color_key_mutation_test.js": "c71b577ac324badbdc4f84e7e8a6ff0ff0622b648745b58a985adc399b526e7f",
+      "glbridge/tests/ddraw_color_key_test.js": "518972aa25ccda51fc52aa695d44403e8742c8317d0b22ebcc7967fe679ca690",
+      "glbridge/tests/ddraw_compressed_blt_mutation_test.js": "404259ae60a05008c015038d54b26bc83a8b74ceb25eab23cfef05b2d017b1f0",
+      "glbridge/tests/ddraw_compressed_blt_test.js": "cee41885d82f7c9fdff28aa8db3d1e63fe563c96f5fdb330cb13dd1e49858a02",
+      "glbridge/tests/ddraw_d3d7_vtable_test.js": "71f18adcb3e58612ff4f12e5591fdcc5c451e156357a550c68e3c2809b3f8913",
+      "glbridge/tests/ddraw_d3d_legacy_vtable_test.js": "39d8b5b4f61a5695c2b3759369210c0dd49ff79bfc9239a6ad23448a8270d977",
+      "glbridge/tests/ddraw_depth_memory_mutation_test.js": "88ac9b82a30f70d6fecf22c666323f71dd20365814c0a8afa3a6c3fe97fed9ef",
+      "glbridge/tests/ddraw_depth_memory_test.js": "ac2aa1cd8df97482244154e367065ec58a6c7af45550d9d5488445a822e7c772",
+      "glbridge/tests/ddraw_device_context_mutation_test.js": "47d88e6c82f3f4301feb13e096b0a3f1b7d503c05c6f52d77370c34d38319f37",
+      "glbridge/tests/ddraw_device_context_test.js": "c563af4242bd28baf2fa200cec786d01fd3703a46f22cd703e252eec9bfd4ea0",
+      "glbridge/tests/ddraw_display_mode_shape_mutation_test.js": "b4fe1661beccedeca0128d2ad9bad4f36121f3b57948a010a6a490835b3f7dc4",
+      "glbridge/tests/ddraw_display_mode_shape_test.js": "f5e17ef8e64cdaba2abb37e2042799a366383e5a87eaac200ea2b36103414b99",
+      "glbridge/tests/ddraw_draw_lighting_mutation_test.js": "1c44586bb2afd9f911e1b20325d566933e92bf1b50eba6cae6339a0ab0ffc42b",
+      "glbridge/tests/ddraw_draw_lighting_test.js": "5a7ab2d0c56afd48d5a7f43b0615e86917a2c32607781736b1436dd06215774d",
+      "glbridge/tests/ddraw_empty_draw_mutation_test.js": "4b8bd779cf9c267afff33b41ac463545c6d1f5682f8c3ba380b862297f74fd55",
+      "glbridge/tests/ddraw_empty_draw_test.js": "1ea7e660f5c438db97c652c135e2bac1ba8026e72741471cc246c01fd6151a03",
+      "glbridge/tests/ddraw_enum_mutation_test.js": "559b0ca43ee1768d5192c03a22399d3ec7b782e235824476f8f97c7f7744c527",
+      "glbridge/tests/ddraw_enum_test.js": "5c73cf7668148d7746c211a954bd2db3ab4f2e22dc1d64907df219f3ad7119d5",
+      "glbridge/tests/ddraw_execute_buffer_mutation_test.js": "090cb60b94659cf91d7c252ab266eeb9f389cf152fc6f8706bccfeb139bacb6e",
+      "glbridge/tests/ddraw_execute_buffer_test.js": "bd99f9952fccd42ed1ee0a36fafba8fb85edc17cd93e4af43f095424db0b07cf",
+      "glbridge/tests/ddraw_factory_entry_mutation_test.js": "bc9aff4cf003d949612c6583801d55eac7f7e83c44e517ef179d7ba2c4a5ab13",
+      "glbridge/tests/ddraw_indexed_span_test.js": "114ab074fafc446d6e0f5aa4d8c4fa213bf8c2b591fe44ea99bd9e15ebec0417",
+      "glbridge/tests/ddraw_legacy_binding_mutation_test.js": "1c88ce2cd2ac474dc7a457f84f51251c73cd42f282909b39e3adb9b613aeb5cb",
+      "glbridge/tests/ddraw_legacy_binding_test.js": "58b44ac613f4a151de1c61bc4561c0edf550b855df6bf2ff09bdb03c4755a6da",
+      "glbridge/tests/ddraw_legacy_caps_mutation_test.js": "bb335713ab84d4fde9a069ec176c948d32d21947968fa85a4627517198470d7f",
+      "glbridge/tests/ddraw_legacy_caps_test.js": "2fd1c53aa6cc72058c0bb491ec00c3b29b5ab573227721a460511634ab926c17",
+      "glbridge/tests/ddraw_legacy_handles_mutation_test.js": "568d00f3bc195f2f2b90459df9e04f7835bc75439c824913d1e478438157a689",
+      "glbridge/tests/ddraw_legacy_handles_test.js": "bb083a22344495807f2d797aac4a1c311e2d66c141b516215d13c95824e058f1",
+      "glbridge/tests/ddraw_legacy_viewport_test.js": "337ac94aadac804f73f4194e819d6fc96334ff9294fd5f0d6038cee8ec166de6",
+      "glbridge/tests/ddraw_lock_preservation_mutation_test.js": "a7115683bbaaa4b3c11b5028eda9c3323d491ae27a7eee2799bbc4b532b5d4b6",
+      "glbridge/tests/ddraw_lock_preservation_test.js": "5b6f7dc204a231a6195bf1ac4f0985097ba5817e157e66379489445b70b94119",
+      "glbridge/tests/ddraw_material_lifetime_mutation_test.js": "50b9498610076bacbbb3f77fd059ce0d74e09f519ef75d67bf6b1cf081400c80",
+      "glbridge/tests/ddraw_material_lifetime_test.js": "d8d7892627c3e74e7720a99ca17367ed94cbcbf859f1736157a478a54012318d",
+      "glbridge/tests/ddraw_memory_blt_mutation_test.js": "c968699136b874e55e98511fe2b3644321a615d6c4396670b6e86e2c60c43721",
+      "glbridge/tests/ddraw_memory_blt_test.js": "148e9f81a30dde6e81bb3165850589b3839c8a797df4834d41b424e52df2ece3",
+      "glbridge/tests/ddraw_multiple_devices_mutation_test.js": "ebbc382c1f12cc7302450c836373a2e6d949d8a657d12d1f46dc4db0857fcf20",
+      "glbridge/tests/ddraw_multiple_devices_test.js": "ed46d53ccc5f6e9cab172324c272cdc14055fa1ad5aa84c9a15b51f5f71d6c3c",
+      "glbridge/tests/ddraw_native_gdi_dc_mutation_test.js": "6b7b5894a02a092ec732dcdc7499daeac53d0f8d5e10650e018190ad9c29e3ad",
+      "glbridge/tests/ddraw_native_gdi_dc_test.js": "985cb9c9fde5bc0d8fa4beabd225fda87dcf37ace71d4963b4c3724a5c2b9ded",
+      "glbridge/tests/ddraw_normal_profiles_mutation_test.js": "dfcfc6d6b6648efb2ea8d7edecf40e1429e76fa43066b359487af41d79888756",
+      "glbridge/tests/ddraw_overlay_flip_mutation_test.js": "9495431f96d43644858a03a2e598a15cae212ca42a5062d51d98d3a66c9f1b06",
+      "glbridge/tests/ddraw_overlay_flip_test.js": "632e590160b47d1856e9e06da1b292cf9537116d93eee6b6a82c61801bc53789",
+      "glbridge/tests/ddraw_ownership_mutation_test.js": "e6a179a2440c34de06a862999b21ba88d530056e3c05911c585bf57f4557a84e",
+      "glbridge/tests/ddraw_ownership_test.js": "47785ee65b075d29d1c2617510b48b33fedd9a290baf72ffbdbbb382a6a7d921",
+      "glbridge/tests/ddraw_palette_presentation_mutation_test.js": "6323e11b68d995b5a30e6ddd33e53db1f121bd244e55a74e2c6b7a1e28c50685",
+      "glbridge/tests/ddraw_palette_presentation_test.js": "c772ffb7ecd6a68f5861f1e3f0b57cd600ae833c80af7046047bb5cd80d3026e",
+      "glbridge/tests/ddraw_platform_control_mutation_test.js": "151fbca6d8b0311f5e7bb5a9aedbf1e809f30952d09d3a2e26bc13cb805eecdf",
+      "glbridge/tests/ddraw_platform_control_test.js": "b9b4ae93b64e8e731fd89a8f7226eb1aec68fb1eb455741b766623b44f94df59",
+      "glbridge/tests/ddraw_primary_write_mutation_test.js": "25ddb10231568ce60bee0c3ef35afe19c311589aa54b841ad79d9462791603ce",
+      "glbridge/tests/ddraw_primary_write_test.js": "989c2f8aee4dbe33f9ae44016a0669279e4e2b39072770df81d3668105c2b1a9",
+      "glbridge/tests/ddraw_private_data_mutation_test.js": "c40173bb9d4c453edb92945c827fe22fa3e1a27531c19dc52355b9c8df9a422c",
+      "glbridge/tests/ddraw_private_data_test.js": "a73fbc086c49d46c639f1c960ab8539ee17106a8e353beb7eedfb855e31df1a7",
+      "glbridge/tests/ddraw_process_lighting_mutation_test.js": "5bf71437c82867f92507b9c2f9d5fe721fd81bdc842709171069f8e23f2c43e3",
+      "glbridge/tests/ddraw_process_lighting_test.js": "3f6bc1b447d6cab97bf20ae3fa55991ed8511032c6eecd95be30aaa0ba7e65e4",
+      "glbridge/tests/ddraw_protocol_consistency_test.js": "0b9370ea6dadad5cbfca40ddf53157e48789535a851d62889719e5f0f671d81a",
+      "glbridge/tests/ddraw_render_target_mutation_test.js": "af89f53d8cb06ee6a5bc2d3e6e2dc69a026ef98275bbf5c175e84d1343dccb99",
+      "glbridge/tests/ddraw_render_target_test.js": "1fccb007b2dd0ff1354cbacb63540ff66cc70bf200501a8e0fbe754e3bcb40dc",
+      "glbridge/tests/ddraw_resource_metadata_mutation_test.js": "e7b04318104ab548586c9cb962e2ce77985045aab11403b9bb2212612e3448fd",
+      "glbridge/tests/ddraw_resource_metadata_test.js": "2312c3d2e1384161dfb39a97b3866e9de27f9ccc2fa1795dc39caa4ad7b635cb",
+      "glbridge/tests/ddraw_rop_dc_mutation_test.js": "adcdcde26d6a77f90aa163772a3b4b97dd1ab2da73e81e1bb2d359e23f6389c4",
+      "glbridge/tests/ddraw_rop_dc_test.js": "2579fce2308687296edcf385be5957e3e15e430adf1e41e0e8821ed53199104d",
+      "glbridge/tests/ddraw_screen_clip_cache_test.js": "b1fa4faec13e9318ab6b4042b67000a7c13c6ff2ab51a8f525fb7a28a2b08241",
+      "glbridge/tests/ddraw_surface_control_mutation_test.js": "b7a1c9ceb0ba2ddadbf3aba911ac680198e744a562a9156ac565e5f6136adeb6",
+      "glbridge/tests/ddraw_surface_control_test.js": "f1261acef337b870221f3b85cc00f507344ba8162d5644d62060c5b3f65e72d0",
+      "glbridge/tests/ddraw_surface_creation_mutation_test.js": "c3c34c464e9aa5e150dedafa61388ec720587b5771b76b7682735266b4d3eb20",
+      "glbridge/tests/ddraw_surface_creation_test.js": "587ce7c8224438349e854f279f842591fa8e3ea0eb40ab1bfaac810515ce973a",
+      "glbridge/tests/ddraw_surface_dc_mutation_test.js": "91df664df410b6bd44193f79a08c4f43cc63fc2a10a33ca5b5dc82c41dcf187b",
+      "glbridge/tests/ddraw_surface_dc_test.js": "6d0988425f7315c56f0ae94c85f37a1df2f0a4bd081fd3296d73c287a98f0f9d",
+      "glbridge/tests/ddraw_surface_identity_mutation_test.js": "c94c9b525f5cab35f092ff2c9eb842382b35e1b3b10ea9a3fda7fb09b950ac17",
+      "glbridge/tests/ddraw_surface_identity_test.js": "5e27c30aa678c79e7d1fb85274eb58a0fe94151a76381565b5173afafb752816",
+      "glbridge/tests/ddraw_surface_memory_mutation_test.js": "58f53d80f491a85a748bc210c64a454fbe35ef1e6952d63f2e5c8c440a0cee8d",
+      "glbridge/tests/ddraw_surface_memory_test.js": "4a575c3ce71bc35dc21f629cd39f84b90c78aa0c780ebe3f6baf44e0d5b921dc",
+      "glbridge/tests/ddraw_vertex_buffer_mutation_test.js": "ea1e0248579b3e03f2d9df4248c268574ab80fb0df5c0cccedbbb3f65d76e686",
+      "glbridge/tests/ddraw_vertex_buffer_test.js": "174df4ce535ae6509cc2958821f5bd34b88273b7e5d5aa68ddfeb1e976b11107",
+      "glbridge/tests/ddraw_vtable_layout_test.js": "af435e506da395b0e26dfdeae447840d1447a1cdd66dad55a0a318b25ce28bff",
+      "glbridge/tests/ddraw_yuv_surface_mutation_test.js": "542a95167715b19572fe2b99275ef71f93629254eec20adfd26f6490f39395c0",
+      "glbridge/tests/ddraw_yuv_surface_test.js": "12c6bedb037d64a9922f7a8303711526c7ae9a53d1434a1dc5354df718366862"
+    },
+    "logs": {
+      "ddraw_screen_clip_cache_test.log": {
+        "sha256": "bdcba15819a8464fa951fe1aa2ebc403197771a1f805d986e947e2794f4ed17e",
+        "tail": "PASS actual DDraw screen ClipStatus cache: 1000 reuse hits, mutable/unreferenced positions, viewport/count invalidation, non-finite bit patterns, invalid-index atomicity and allocation fallback\n"
+      },
+      "ddraw_multiple_devices_test.log": {
+        "sha256": "ff75e33bcc4030b80ce528ddfb85f654333c37d7b0486647e5a718ecffb2a780",
+        "tail": "PASS actual multiple legacy device C: 21025 checks, three live contexts per owner, independent nonpresenting handles, shared target pins, all constructor failures with existing siblings, depth-attachment/flip rebinding across all contexts, middle/head/tail destruction, fresh recreation and complete wire/object cleanup\n"
+      },
+      "ddraw_surface_identity_mutation_test.log": {
+        "sha256": "813faab79a5686bbf8aaf78794a2e120e39e76c0fd35d1d89ed9efd1ce31c2dd",
+        "tail": "KILL implicit factory count discarded\nKILL public groups shared\nKILL IUnknown names Surface7\nKILL GammaControl shares Surface1\nKILL Texture ignores factory view\nKILL Device1 retains its outer render target\nKILL Device1 query bypasses outer\nKILL Device1 releases cached inner directly\nKILL Device1 cache is not reused\nPASS DirectDraw identity mutations: 9/9 compiled actual C implementations rejected by runtime ownership/identity assertions\n"
+      },
+      "d7wg_light_state_test.log": {
+        "sha256": "c9c6019f9570caf5105dca434a2354e47a74c12cba00a956bc2ca70b28a4e79f",
+        "tail": "PASS actual D3D7 light C: 35 native queries, exact SDK fields/BOOLs, arbitrary DWORD indices, deferred/default recording, fixed capture keys, native vertex/ALL masks, atomic OOM, sparse TNL/active budget, real wire light types and separate position/direction\n"
+      },
+      "ddraw_compressed_blt_mutation_test.log": {
+        "sha256": "ad2f3001e61336c391a5ea64aeca8e0abfb90152830106e5403429c468681838",
+        "tail": "shotted\nKILL raw blocks unnecessarily reencoded\nKILL small mip padding not clamped\nKILL existing premultiplied pixels multiplied twice\nKILL stored encoder premultiplies a second time\nKILL compressed backing tail ignored\nKILL dirty source read failure ignored\nKILL partial dirty destination ignored\nKILL failed upload reported as success\nKILL cached block texels transposed\nKILL unsupported P8 source admitted\nPASS compressed blit/codec faults: 21/21\n"
+      },
+      "ddraw_color_fill_memory_mutation_test.log": {
+        "sha256": "c60d6d5f6b673063cd5ab0404b2961b1534cff99ff1b1270a0954b5b426e09ec",
+        "tail": "video memory falsely mirrored\nKILL partial dirty shadow not recovered\nKILL complete known fill needlessly read back\nKILL unknown outside bytes declared valid\nKILL fill ignores row pitch\nKILL fill keeps only one byte\nKILL known CPU shadow left dirty\nKILL native packed mirror omitted\nKILL keyed fill overwrites all CPU pixels\nKILL failed emission changes CPU pixels\nPASS packed color-fill mutations: 11/11 compiled implementations rejected at runtime\n"
+      },
+      "d7wg_legacy_defaults_mutation_test.log": {
+        "sha256": "0ea60b4b63b47a7c248b8f8507ded17de713386ce714f84c26d852ff5dd93971",
+        "tail": "nding skips alpha fixup\nKILL binding ignores explicit mode\nKILL same binding cannot repair alpha\nKILL failed alpha emission commits shadow\nKILL same map reactivates mode\nKILL changed map leaves mode disabled\nKILL same stage disables mode\nKILL changed stage leaves mode active\nKILL legacy getter exposes modern defaults\nKILL legacy ignored setter writes live\nPASS legacy D3D defaults mutations: 20/20, strict compilation followed by runtime rejection\n"
+      },
+      "d7wg_light_state_mutation_test.log": {
+        "sha256": "ae82985be3109d6b73774fd8c6af652e424beaf540b44971404a42b27a95f0e9",
+        "tail": "PASS D3D7 light-state mutations: 10/10; arbitrary indices, defaults, deferred recording/End, fixed capture keys, native vertex masks and sparse TNL\n"
+      },
+      "ddraw_surface_dc_test.log": {
+        "sha256": "b33224b20acb2f049030878bde42a16418ec9fbce0d106816806b957fbb2e6bb",
+        "tail": "PASS actual surface-DC lookup C: 11392 checks, exported/3/4/7 views, parameter clearing order, active/NULL/unknown DCs, owner scope, native and cached display DCs, allocation failure/retry, public-reference isolation and reentrant base release\n"
+      },
+      "ddraw_channel_expansion_test.log": {
+        "sha256": "fc41d9643f29e34779f09a32a78651a6f58c89082384d02580516a973fb83227",
+        "tail": "510 channel expansions agree between the guest DLL and the executor\n"
+      },
+      "ddraw_rop_dc_test.log": {
+        "sha256": "db6cd4b0322c44cdac35de4e557cd53d388927b1adbef4bdbb7211e6d2e9df30",
+        "tail": "77058250 0 37 43 124 91 1 2\nCLIPPED 7 0 140 1076468121 1077058250 1086324736 1084227584 0 4 5 71 43 1 3\nCLIPPED 7 1 140 0 0 1082864435 1077058250 0 37 43 124 91 1 3\nPASS actual DDraw ROP/DC C: 73723 checks, 1024 source-independent raster fills, seven depth fill layouts, incompatible formats/sources/flags, invalid rectangle isolation, 256 full DC palette snapshots, own/primary/none precedence, clipping, caller guards and accepted failure prefixes\n"
+      },
+      "ddraw_device_context_mutation_test.log": {
+        "sha256": "ef86ff02c346a7bb13930a7a4424c699a1655769ebdb02bdbdd61d03f9b063c0",
+        "tail": "KILL Device2 exposes Device3\nKILL IUnknown names Device7\nKILL current reference omitted\nKILL unset viewport rejected\nKILL failed query overwrites output\nKILL Device2 detach frees native retained reference\nKILL Device3 destroy misses current reference\nPASS legacy device context mutations: 7/7 compiled implementations rejected by native contract assertions\n"
+      },
+      "site-integration.log": {
+        "sha256": "236fc43cd73a726adfa16fe8c43a2d5044382ccb7c4703e84d49b2e105ba8fb9",
+        "tail": "\u2714 site attaches graphics diagnostics after v86 loads and leaves canvas lifecycle to v86 (3.224333ms)\n\u2714 rapid launches wait for the previous canvas/device teardown (3.801666ms)\n\u2139 tests 2\n\u2139 suites 0\n\u2139 pass 2\n\u2139 fail 0\n\u2139 cancelled 0\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 104.4635\n"
+      },
+      "ddraw_native_gdi_dc_test.log": {
+        "sha256": "0b06824be9ab3cd15e30ecef31a822297a132f190c328aeab426a7994b7a649f",
+        "tail": "PASS actual native GDI DC C: 90432 checks, SDK pointer graph and pixel layout, borrowed shadow identity, all export/constructor failures, partial kernel allocations, ordered complete teardown, invalid geometry and immutable caller\n"
+      },
+      "ddraw_color_key_mutation_test.log": {
+        "sha256": "08619f1b9ac01053cf85d1d073178d45e3aac669bf2604c57ed04bd4106750ce",
+        "tail": "PASS DDraw color-key mutations: 16/16; shared canonicalization, explicit ranges, cache/description/wire agreement, overlay failure atomicity, full creation preflight, all selectors and ignored unflagged values\n"
+      },
+      "d7wg_texture_load_test.log": {
+        "sha256": "31b26461f4b48d7d0f52a3a0ce1d72fd312d6604bae5e8a4572a8c854e1a2f6a",
+        "tail": "PASS actual texture Load C: 9671 checks, 384 frozen Windows/Wine cases, mip subsets and ceil coordinates, cube selection/preflight, palette identity and key preservation, legacy unequal mip prefixes, ALLOCONLOAD, source immutability, external memory and accepted failure prefixes\n"
+      },
+      "ddraw_yuv_surface_test.log": {
+        "sha256": "142a16241490170bc83c9c5a8ef2cb03f616a31777b4f9489ce1471284a23887",
+        "tail": "PASS actual DDraw packed YUV: 18744 checks; both layouts, odd/even widths and lock edges, exact raw fills, neighbouring bytes and padding, upload metadata, dirty refusal, allocation/upload failure and retry debt\n"
+      },
+      "d7wg_state_block_mutation_test.log": {
+        "sha256": "57300f29a60588b0a09d6b1977e642ccc7a049031bb639bdcd1ebfd59f11c27a",
+        "tail": "ed duplicate cache\nKILL legacy namespace leaks into Device7\nKILL pixel block selects texture binding\nKILL legacy normalization setter forgets value\nKILL legacy normalization getter loses initial sentinel\nKILL legacy getter inherits Device7 rejection\nKILL legacy setter inherits Device7 rejection\nPASS D3D7 ordinary state-block mutations: 25/25; live isolation, ordered Multiply, zero early uploads, texture ownership, End and native predefined scope\n"
+      },
+      "d7wg_legacy_light_test.log": {
+        "sha256": "216caf8631bb839386dabe32662eb0509baf55222066e5f04ac5032ac62d9905",
+        "tail": "PASS actual legacy light C: 59995 checks, 2304 size/flag transitions, exact DX3 guarded allocations, full D3DLIGHT2 inactive/NO_SPECULAR semantics, current/detached viewport isolation, cache/query guards and accepted update failure prefixes\n"
+      },
+      "ddraw_material_lifetime_mutation_test.log": {
+        "sha256": "788157591c3c27d687207c0f5b48a749b0890f5c387e15fad3d895a5faafe2bc",
+        "tail": "KILL material adds public parent ref\nKILL material releases public parent ref\nKILL public-zero parent allocation leaked\nPASS material lifetime mutations: 3/3 compiled implementations rejected\n"
+      },
+      "ddraw_overlay_flip_test.log": {
+        "sha256": "bfb78b48772ec20bf7c217ae7f557645e044bc9276fcb75e0b51c3d739f124a6",
+        "tail": "PASS actual DDraw overlay Flip: 4111 checks, 512 two/three-buffer default/named flips, coupled storage/pending state, stable overlay identity, source/destination rebinding, primary base preservation, silent hidden/offscreen flips and invalid-target isolation\n"
+      },
+      "d7wg_texture_load_mutation_test.log": {
+        "sha256": "722fea0ba531c8f76c7c4c6e990850b491545cc82460541cf6ea4c04550916ae",
+        "tail": "KILL absent source keys erase destination\nKILL ALLOCONLOAD retained\nKILL legacy rejects unequal mip lengths\nKILL empty cube selection copies all faces\nKILL unselected cube face not preflighted\nKILL cube/type mismatch accepted\nKILL cube flags shifted to wrong face\nKILL caller coordinates mutated\nKILL external memory never synchronized\nKILL copy transport failure ignored\nPASS texture Load mutations: 20/20, strict compilation and runtime assertions\n"
+      },
+      "ddraw_empty_draw_test.log": {
+        "sha256": "c9fa16636565edc4940e738f3e13bf57f998e61a236e953c3c800df21bbc29ab",
+        "tail": "PASS actual public empty draw C: 8077 checks,252 original XP calls repeated16 times, six empty routes preserve all observable work and clip state, nonempty paths still dispatch\n"
+      },
+      "ddraw_palette_presentation_test.log": {
+        "sha256": "877809955a99ed7ee51a4ca65dd37960552eca2322b337faec3cb51835f16801",
+        "tail": "PASS actual DDraw palette presentation: 375706 checks, 1445 range/profile cases, immediate table/resolve/Present ordering, no unrelated presentation, input preservation and failed-present retries\n"
+      },
+      "ddraw_multiple_devices_mutation_test.log": {
+        "sha256": "20f48876660659b5fae7a8f3ce6cee740cf837264118301d3524ed8dd4cc58a7",
+        "tail": "ing profile leaks to Device7\nKILL invalid target reaches transport\nKILL depth attachment updates only one context\nKILL flip updates only one context\nKILL second device rejected\nKILL contexts share owner handle\nKILL context creates a visible surface\nKILL failed context erases siblings\nKILL middle release erases siblings\nKILL host context leaked\nPASS multiple device mutations: 13/13 compiled implementations rejected by context ownership assertions\n"
+      },
+      "ddraw_indexed_span_test.log": {
+        "sha256": "dd70859d0a09c3a9c55815a37532a8f79e5fe77b004f4b400d3cb7ef68ee04b7",
+        "tail": "PASS actual DDraw indexed upload: 120 rebased ranges preserve every addressed vertex, full ClipStatus input, invalid bounds and failure atomicity\n"
+      },
+      "ddraw_surface_control_mutation_test.log": {
+        "sha256": "982d36400e8edde376411c4b7dd84f5046d7ef98f4cf783144393edbc3ff49ef",
+        "tail": "ignored\nKILL primary format stays stale\nKILL wrong-mode restore accepted\nKILL restored surface stays lost\nKILL flip children stay lost\nKILL aliases stay lost\nKILL retired creator publishes a primary\nKILL legacy primary uses extended descriptor\nKILL mode change ignores other owners\nKILL restore snapshot does not pin\nKILL native parent destroyed before primary\nPASS native surface-control mutations:14/14 compiled implementations rejected at runtime\n"
+      },
+      "ddraw_private_data_mutation_test.log": {
+        "sha256": "e3d02bf416e5a3b7eab1fbda6da98c742d658ab9afc0f3be4e1dd2e1d0bc122b",
+        "tail": "ter adds an unsupported COM ref\nKILL small buffer accepted\nKILL NULL buffer beats MORE_DATA\nKILL bad nonzero object size preserves old entry\nKILL replacement published after reentrant Release\nKILL Free leaves entry visible during Release\nKILL allocation failure erases old entry\nKILL volatile expiry disabled\nKILL expired size preserved\nKILL uniqueness value wraps to zero\nPASS surface private-data mutations: 14/14 compiled implementations rejected\n"
+      },
+      "ddraw_enum_mutation_test.log": {
+        "sha256": "65950bd8e946914b1b581ab0d90912b0f43a659d6b731756b73583348f72aaa1",
+        "tail": "\nKILL NOMATCH not inverted\nKILL partial caps accepted\nKILL creatable dimensions ignored\nKILL unsupported format accepted\nKILL surface callback cancellation ignored\nKILL snapshot lifetime not retained\nKILL snapshot lifetime leaked\nKILL current callback ref omitted\nKILL legacy callback ref in wrong view\nKILL current display format ignored\nKILL legacy display format ignored\nPASS surface enumeration mutations: 24/24 compiled implementations rejected\n"
+      },
+      "ddraw_attachment_query_mutation_test.log": {
+        "sha256": "4d4e4f0b84f82980761bde99af4a45fcc68bae9bd2e3e13957b53d735b1df14b",
+        "tail": "ery returns current node\nKILL same-face mip search disabled\nKILL cube root returns itself as attachment\nKILL cube mip selector ignores requested face\nKILL cube-face query ignores caps\nKILL cube mip query ignores caps\nKILL leaf loses complex membership\nKILL query requires mipmap selector\nKILL unrelated caps return a mip\nKILL query returns current level\nPASS actual mip attachment faults: 11/11, including the original leaf-cap and selector failures\n"
+      },
+      "ddraw_clipper_test.log": {
+        "sha256": "0f9767beb330c4dbac3c6a7fbb0a1cdbfbcd04173d0ab59de6273df086c8d392",
+        "tail": "PASS actual DirectDraw Clipper C: 1344 checks; live/freed/fake identities, damaged-vtable counts, standalone registration, HWND screen coordinates and destruction, retained custom region and invalid-call output preservation\n"
+      },
+      "ddraw_depth_memory_mutation_test.log": {
+        "sha256": "4f9d0df370aea1a6226d635fb93af7af02a3691bef3e217b92f8483de9285ebf",
+        "tail": "KILL partial dirty shadow accepted\nKILL shadow ignores row pitch\nKILL depth fill overwrites stencil\nKILL exact integer mirror omitted\nKILL failed emission writes mirror\nKILL depth upload discarded\nPASS DDraw depth memory mutations: 6/6, compilation and runtime assertions\n"
+      },
+      "ddraw_primary_write_test.log": {
+        "sha256": "f4b003356c70a1f7b55b231780ee292d9b6c053c7e241fbb5a7751022cecac69",
+        "tail": "PASS actual DDraw primary writes: 23918 checks, 10800 window/dirty intersections, overflow and probe failures, primary/offscreen with/without flip chain, actual Unlock/DC routing and accepted-prefix presentation errors\n"
+      },
+      "ddraw_ownership_mutation_test.log": {
+        "sha256": "5e38d65d88a3059764a77520150382c2efda25ffe7072d0b1e9a1a348ea2d6c8",
+        "tail": "e retain\nKILL same clipper released before retain\nKILL implicit count zero frees ring member\nKILL root flip chain ignored\nKILL implicit flip child uses public Release\nKILL implicit mip uses public Release\nKILL implicit cube uses public Release\nKILL soft flip attachment never releases\nKILL implicit mip can detach and leak\nKILL partial flip allocation reported success\nPASS DDraw ownership mutations: 35/35, strict compilation and runtime assertions\n"
+      },
+      "ddraw_display_mode_shape_mutation_test.log": {
+        "sha256": "1c508442a74a2dbe6e600b09c7e8ec2371e23b7cf045035a716c6b6cf30940b6",
+        "tail": "KILL reported size follows caller shape\nKILL narrow caller gets full descriptor\nPASS display-mode shape mutations: 2/2 compiled implementations rejected by native descriptor/guard assertions\n"
+      },
+      "ddraw_platform_control_test.log": {
+        "sha256": "fd2e583e3e377163efd9385cfb384e93ff48b4d148670c966b14b4d9c36221a3",
+        "tail": "PASS actual platform-control C: 10450 checks; all five interfaces, physical/virtual modes, native validation rollback, nested callbacks, last-public-release lifetime, absolute native load, self-load and factory failures\n"
+      },
+      "ddraw_execute_buffer_mutation_test.log": {
+        "sha256": "11f028781691a87f603144bff31fd53b8b0e391d35683670c5fc2df060a05c06",
+        "tail": "etadata\nKILL setter loses advisory count\nKILL getter trusts caller size\nKILL instruction bounds removed\nKILL malformed instruction stride accepted\nKILL advisory count gates processing\nKILL source bounds removed\nKILL growing output loses prefix\nKILL failed allocation commits count\nKILL old output allocation leaked\nKILL live vertex copy truncated\nKILL invalid operation accepted\nPASS execute-buffer mutations: 12/12 compiled implementations rejected\n"
+      },
+      "ddraw_color_fill_memory_test.log": {
+        "sha256": "3be0b7b13327fab6404a21956b7067c0f1d14fc66a73cbe04c003924974665ca",
+        "tail": "PASS actual packed color-fill C: 12890 checks, P8/16/24/XRGB/ARGB exact fill bytes, full/partial dirty readback rules, unchanged outside bytes and padding, alias observation, later GPU invalidation, failed readback/prepare/emission isolation and keyed/noncolor exclusions\n"
+      },
+      "ddraw_surface_control_test.log": {
+        "sha256": "5f42f266b6502234550d96b43aa7b9e5092b563f4df940681fe5df90b4189ec8",
+        "tail": "PASS actual native primary-control C: 12643 checks; all five interfaces, physical/virtual modes, native validation rollback, nested callbacks, last-public-release lifetime, absolute native load, self-load and factory failures\n"
+      },
+      "ddraw_draw_lighting_mutation_test.log": {
+        "sha256": "5e98e3fdeb808980c2de9347bea5a4f4919a74a54271b198ad2d43d530333489",
+        "tail": "KILL missing material still lit\nKILL prelit vertices relit\nKILL DONOTLIGHT ignored\nKILL unrelated flag disables lighting\nKILL D3D7 explicit state overridden\nKILL draw continues after failed lighting submission\nPASS legacy draw lighting mutations: 6/6 compiled implementations rejected by draw contract assertions\n"
+      },
+      "ddraw_execute_buffer_test.log": {
+        "sha256": "bab5c8f8186aa90cd0f9665fa1dcf0cbad00f75aa1ee958192c8fa025b6b49b1",
+        "tail": "PASS actual SDK execute-buffer C: 4374 checks, opaque metadata and getter canaries, lazy live vertex/instruction updates, instruction-driven counts, bounded malformed execution and allocation failure atomicity\n"
+      },
+      "ddraw_empty_draw_mutation_test.log": {
+        "sha256": "c04f4b5e12a5b5f2d6061d1a7c9e6e68704e5be3ecadfe82f8392104844ef336",
+        "tail": "ispatched\nKILL DrawPrimitiveStrided empty stream still dispatched\nKILL DrawIndexedPrimitiveStrided empty stream still dispatched\nKILL vertex-buffer empty stream rejected\nKILL indexed vertex-buffer empty stream rejected\nKILL zero index count requires index pointer\nKILL unused texture-size field accepted\nKILL strided RHW accepted\nKILL empty draw dirties target\nKILL nonempty draw bypassed\nPASS empty draw mutations: 11/11 compiled runtime assertions\n"
+      },
+      "ddraw_color_key_test.log": {
+        "sha256": "e25eb4b3af7dbc575540fa3d915847856ba92de89fab9cab982f2c9e8fcdaa09",
+        "tail": "PASS actual DDraw surface color keys: 1870 checks; 288 setter cases, 300 full creation preflights with allocation stubs, four key kinds, canonical descriptions/wire values, explicit range refusal, overlay atomicity, ignored unflagged description values and unchanged inputs\n"
+      },
+      "ddraw_depth_memory_test.log": {
+        "sha256": "a088aa9d82283d226d5ff750e549018d27155c6978e2c332f518cf919d0a6e10",
+        "tail": "PASS actual DDraw depth memory: 23132 checks; seven packed formats, exact D32 fill bits, immediate system-memory writes, partial/stencil dirty retention, transport failure atomicity, depth uploads and draw/clear invalidation\n"
+      },
+      "ddraw_protocol_consistency_test.log": {
+        "sha256": "611576fd25345fbbf93f88bc877155c5d3b48e5a10c32c6f1a87941ad2241266",
+        "tail": "21 ddraw protocol consistency checks passed\n"
+      },
+      "ddraw_surface_creation_mutation_test.log": {
+        "sha256": "b6949229c61858a47afffb9206b4e048f35b7f1721f4869bda1946cab39e2804",
+        "tail": " flip outside exclusive\nKILL default placement missing\nKILL unflagged count leaks\nKILL nonflipping primary needs exclusive\nKILL application pointer accepted\nKILL system memory charged\nKILL duplicate view charged twice\nKILL memory budget wraps\nKILL device ignores caps\nKILL palette check loses priority\nKILL HAL accepts system target\nKILL D3D7 accepts indexed target\nPASS surface creation mutations: 34/34 compiled implementations rejected at runtime\n"
+      },
+      "ddraw_draw_lighting_test.log": {
+        "sha256": "1b16e797794bcd2a01ab4589a879d73796f66e77f0cb0198ab2aee3410a60c73",
+        "tail": "PASS actual legacy draw lighting C: 1054720 checks, lit/prelit/transformed formats, DONOTLIGHT and unrelated flags, four UP/strided draw entry points, unchanged D3D7 state, failed state submission stops drawing, packed memory freed\n"
+      },
+      "d7wg_legacy_viewport_mutation_test.log": {
+        "sha256": "636a9b0ad5aebf5cf60fc665dad97f99cea3d491bddb7819cda9f7af9866f7fe",
+        "tail": " prelit diffuse white\nKILL prelit specular lost\nKILL NOCOLOR loses specular\nKILL unlit transform prepares lighting\nKILL payload truncated to one DWORD\nKILL homogeneous output uses viewport clip space\nKILL offscreen is BOOL instead of clip intersection\nKILL unclipped overwrites HOut\nKILL accepted failed logical prefix\nKILL recording changes logical projection\nPASS legacy viewport/execute mutations: 16/16, strict compilation and runtime assertions\n"
+      },
+      "ddraw_vtable_layout_test.log": {
+        "sha256": "81e5647331dd55baeecfc856b9e0556c06c6880752295673bc5f0a5d04e29b46",
+        "tail": "355 vtable slots across 12 interfaces match the SDK's declaration order\n"
+      },
+      "ddraw_surface_dc_mutation_test.log": {
+        "sha256": "34774f10b3bb5d0c1f4fd2a5febc54a302a36fb92749a4fa6f01486dbfdf4757",
+        "tail": "ILL NULL DC matches inactive surface\nKILL private lookup pin missing\nKILL callback public ref missing\nKILL display allocation failure leaks pin\nKILL native display DC replaced by memory DC\nKILL display cache bypassed\nKILL cached display DC double released\nKILL NULL surface output clears device output\nKILL NULL device output leaves stale surface\nKILL legacy method returns Surface7\nPASS surface-DC mutations: 10/10 compiled implementations rejected\n"
+      },
+      "ddraw_class_factory_test.log": {
+        "sha256": "ffb7c6c4868da8df101695ec1d1308725d1fad88f89ac2cf138ff30ad4f00ebf",
+        "tail": "PASS actual DirectDraw COM factory C: 11585 checks, three classes, interface selection, one-shot Initialize, failure atomicity and unload lifetimes\n"
+      },
+      "ddraw_surface_identity_test.log": {
+        "sha256": "301b599b4ffd6d684fdee026e125ff61adaf8c46fd24c3814d6187d9f2f614c5",
+        "tail": "PASS actual DirectDraw surface identity C: 43681 checks, independent public views, common IUnknown, legacy texture groups, GammaControl, Device1 aggregation/revival, factory failure atomicity and complete cleanup\n"
+      },
+      "ddraw_attachment_query_test.log": {
+        "sha256": "2289463a8943b6a78f490cabaa91b66432534b3e5297f86396602af77e42e1d3",
+        "tail": "PASS actual DirectDraw attachment query C: 45632 checks, actual mip/cube construction, native one/three-level face query matrix, positive-X descriptors, no self edges, per-face traversal and leaves, caps filters, non-cube caps2 and retained depth/flip paths\n"
+      },
+      "ddraw_legacy_handles_test.log": {
+        "sha256": "d600b7407b15d35cfc18f42818bf19e26fd1570ad2284feab1aa967a518cdde8",
+        "tail": "PASS actual legacy handle C: 9217 checks, shared-material updates across owners, stable per-device material aliases, global texture/matrix identities, foreign-owner lookup, uninitialized swap rejection, rebinding all legacy contexts, retained handle values, failed binding prefixes/retry, alias OOM and destruction cleanup\n"
+      },
+      "ddraw_platform_control_mutation_test.log": {
+        "sha256": "c2294acbd4b6a3951db43b7c6146138c0d08a4f5439b1ad610f65aa823f91398",
+        "tail": "ublic zero\nKILL retired primary keeps showing\nKILL retired control restores desktop again\nKILL private lifetime leaked\nKILL factory kind ignored\nKILL duplicate attach creates native object\nKILL self DLL recursion allowed\nKILL native interface mismatch\nKILL virtual mode queries physical desktop\nKILL system allocations lose state\nKILL managed allocations lose state\nPASS platform-control mutations: 28/28 compiled implementations rejected at runtime\n"
+      },
+      "ddraw_compressed_blt_test.log": {
+        "sha256": "ee140746164ada2a1b0f83f0fb45444b7e99e1eb58ff810a9b70581b4e6bb63c",
+        "tail": "PASS actual compressed DDraw blit: 142203 checks, 42 native encodings, 90 stretch/conversion pool cases, small-mip padding, raw/scaled aliases, stored premultiplication, guards and failed upload retry\n"
+      },
+      "ddraw_memory_blt_test.log": {
+        "sha256": "e931e36c503e063a7eb5e28f25b28c3574adc6a02e2de0e9091990d6c197c872",
+        "tail": "PASS actual DDraw packed memory blit: 153935 checks, four native full-surface hashes, floor resampling, all pixel bits/padding/guards, self/duplicate/external overlap snapshots, dirty readback, bounded allocation and shared failed-upload retry\n"
+      },
+      "ddraw_legacy_binding_test.log": {
+        "sha256": "f4d2db7ac72d737c1446d6360e26e4e97da7e34b32502fe250d53007905a586d",
+        "tail": "PASS actual SDK legacy bindings: 7168 checks, zero/invalid background preservation, duplicate/cross-viewport light rejection, references/list order/current viewport, failed update prefix and detach cleanup\n"
+      },
+      "ddraw_lock_preservation_mutation_test.log": {
+        "sha256": "f996c4a3505dbcd490e89e84cccf11564a2dcbf3c4c66b2aa36eaef42ccb4947",
+        "tail": " preservation\nKILL all locks skip GPU preservation\nKILL readback failure exposes stale shadow\nKILL invalid rectangle triggers readback\nKILL failed lock changes caller description\nKILL failed lock commits flags\nKILL READONLY unexpectedly uploads\nKILL WRITEONLY silently drops upload\nKILL partial upload covers entire surface\nKILL partial lock ignores row offset\nPASS DDraw lock preservation mutations: 23/23, strict compilation and runtime assertions\n"
+      },
+      "ddraw_render_target_test.log": {
+        "sha256": "9ddef8aa8c5fd2ac37f6505107af13b60aeb07de1097066c9df57da2d1aa539e",
+        "tail": "0ffffff000000803f0000000000000000 -\nCLEAR_PACKET 6 2100000001000000ffffff000000803f0000000000000000 210000000100008000ff00000000803f0000000000000000\nPASS actual render-target C: 8926 checks, native caps/palette/system-memory validation, invalid-format target observability and Device2 compensation counts, all color/depth failure prefixes, atomic logical rollback, immediate/deferred binding repair, same-target retries and complete lifetime cleanup\n"
+      },
+      "ddraw_clipper_mutation_test.log": {
+        "sha256": "187a9dbd1ca42ca81e1d8800a13be0826b4fbf7204bc51b2a8f4a1af473e2fc6",
+        "tail": "KILL Blt missing-list error lost\nKILL Blt custom list count lost\nKILL Blt destroyed window succeeds\nKILL HWND clip list uses client coordinates\nKILL HWND blit uses client coordinates\nKILL destroyed HWND has a region\nKILL HWND binding loses custom region\nKILL corrupt vtable Release decrements\nPASS Clipper mutations: 8/8, compilation and runtime assertions\n"
+      },
+      "ddraw_device_context_test.log": {
+        "sha256": "8d1353a8868698d9ce157e720e558545f4c5f2a0dea7e04c012c27c5161cb27a",
+        "tail": "PASS actual legacy device context C: 19200 checks, creation-version QI matrices/canonical IUnknown, nested queries, unset viewport output, current references, Device2/3 detachment and destruction, failed-apply atomicity\n"
+      },
+      "ddraw_vertex_buffer_test.log": {
+        "sha256": "33f8d4291a6ffa7afefdc8c6a98b654532c2a58f86192f25638d8ed267b9682d",
+        "tail": "PASS actual SDK vertex-buffer C: 16137 checks, factory-specific QI/parent lifetime, caller-sized metadata words, payload/pool invariants, valid >64K vertices, native overflow status, all creation failures, private-parent survival, locks and destruction\n"
+      },
+      "ddraw_d3d_legacy_vtable_test.log": {
+        "sha256": "db61e85a8efcbb83905835f60c6b8adbeaa3ed2f6ead7d8e18f48f3452ba32cc",
+        "tail": "241 Direct3D 1-6 vtable slots match the SDK declaration\n"
+      },
+      "ddraw_normal_profiles_mutation_test.log": {
+        "sha256": "ec82c8a3d94cb27909e3dbf441b666fb84c7052461efb6930b08bb75a8cd17cb",
+        "tail": "d\nKILL legacy final normal incorrectly normalized\nKILL legacy normal uses inverse transpose\nKILL legacy view scale leaks into normal\nKILL singular inverse erases previous cache\nKILL rigid processing advances inverse cache\nKILL normalized rigid processing bypasses cache\nKILL projective normal inversion loses W column\nKILL successful processing never saves inverse\nKILL modern position override uninitialized\nPASS native normal profile faults: 10/10\n"
+      },
+      "ddraw_lock_preservation_test.log": {
+        "sha256": "116a6e079ed1a3b0e09ba465e9eaa17092b6f8394379a5e6bd3987564a9d9eb6",
+        "tail": "PASS actual DDraw Lock/Unlock: 13352 checks, 768 full/partial GPU-dirty locks, all write modes, shared aliases, untouched pixels, compressed offsets, native zero-area/duplicate-lock/old-descriptor contracts, invalid-call isolation and readback failure/retry\n"
+      },
+      "ddraw_native_gdi_dc_mutation_test.log": {
+        "sha256": "c54781b3ff42733499f1564a45767455eedaa62c1ec131e5db48cb5b2b0678c5",
+        "tail": "KILL missing SDK surface-more link\nKILL shadow alias shifted\nKILL partial surface handle leaked\nKILL DC never released\nKILL GDI work not flushed\nKILL parent destroyed before surface\nPASS native GDI DC mutations: 6/6 compiled implementations rejected by SDK graph/lifetime assertions\n"
+      },
+      "ddraw_enum_test.log": {
+        "sha256": "05f3917fc07c90a9b8f80c44a2bf72de0435b095c97ae8731a1ef51b76fd10bd",
+        "tail": "PASS actual SDK surface enumeration C: 150441 checks, 5 version adapters, native flag matrix, exact caps and dimensional filters, metadata-only creation, display format filtering, cancellation, OOM and reentrant release/create lifetime\n"
+      },
+      "ddraw_display_mode_shape_test.log": {
+        "sha256": "bf4d7c4c310fc4f2e0a0b0da036b67e7ec56b221c351788016d8868f287fa13b",
+        "tail": "PASS actual display-mode descriptor C: 176640 checks, five interface versions, both caller shapes, native reported size, cleared tail, guarded output and immutable source\n"
+      },
+      "ddraw_memory_blt_mutation_test.log": {
+        "sha256": "8b00cd894871a992c9d64fcbbfd4f7d42bfc879597994c673d2a122fd143b81f",
+        "tail": "horizontal samples mirrored\nKILL vertical fractional step omitted\nKILL dirty source not recovered\nKILL partial destination not recovered\nKILL logical backing size ignored\nKILL short pitch accepted\nKILL upload debt misses aliases\nKILL failed row upload loses debt\nKILL full upload retains stale alias debt\nKILL write leaves GPU authoritative\nKILL video-memory path captured by CPU\nKILL keyed path captured by CPU\nPASS packed memory blit faults: 16/16\n"
+      },
+      "ddraw_rop_dc_mutation_test.log": {
+        "sha256": "6faeafdf3b8257ffb2ba30c4567adb729971cf4bb45502008a6727237cb5d314",
+        "tail": "id destination emitted\nKILL source required before ROP\nKILL WHITENESS becomes black\nKILL ARGB white sets alpha\nKILL P8 white is zero\nKILL unsupported ROP accepted\nKILL ROP mutates caller fill field\nKILL primary overrides own palette\nKILL primary fallback omitted\nKILL DC red channel copied from blue\nKILL DC fallback binds surface palette\nKILL failed ROP emission ignored\nPASS DDraw ROP/DC mutations: 36/36, strict compilation and runtime assertions\n"
+      },
+      "ddraw_resource_metadata_test.log": {
+        "sha256": "448c3005703b4984bfdf506be9b8db08bfce2ac6d8c1a7dcf7e6bf21f21f056c",
+        "tail": "PASS actual SDK resource metadata C: 69679 checks, managed root priorities, per-call-version palette/key mip rules through real legacy thunks, cube faces, role/error isolation, references and reentrant replacement\n"
+      },
+      "ddraw_palette_presentation_mutation_test.log": {
+        "sha256": "455a362b96dd4449e1dc58f05e50b88d924adf379b2cd242094a9e28b5dafad9",
+        "tail": "KILL visible palette never presents\nKILL unrelated palette presents\nKILL true-color primary presents\nKILL table not emitted\nKILL resolve skipped\nKILL Present skipped\nKILL resolve failure ignored\nKILL Present failure ignored\nKILL partial update changes wrong entries\nKILL empty end range refused\nPASS DDraw palette presentation mutations: 10/10, strict compilation and runtime assertions\n"
+      },
+      "ddraw_legacy_caps_test.log": {
+        "sha256": "ff6731c22e6dde6f03e80157ad9285fc78631c5e419a2fcc93380e7972664c41",
+        "tail": "PASS actual SDK legacy caps C: 14640 checks, D3D1/2/3/7 native inventories and cancellation, HAL/HEL separation and flags, API-sized reports, 3 result strides, matching/nonmatching GUID and hardware filters, colour-model compatibility, sentinel preservation, invalid-size and overlapping-input bounds\n"
+      },
+      "d7wg_state_block_test.log": {
+        "sha256": "d255d2af90f2968c0cffbdd97e5a5cc87a034d8f6196daca79f941fa33e5b2c6",
+        "tail": "modern-state opt-out/reactivation, failed binding rollback, accepted texture-prefix/alpha retry, public legacy ignored states and four default profiles\nPASS actual D3D7 state-block C: 170 ordinary and 1052 full-scope/retail native observations, independent SDK enums, Begin/Get/End isolation, Apply/Capture scopes, ordered Multiply, rejected obsolete Device7 states and retained legacy interface calls, exact texture ownership and zero early uploads\n"
+      },
+      "ddraw_private_data_test.log": {
+        "sha256": "8fc2127a472c4f9b8ab9b188391bff552e307de4934cf415a63c6ec97b703a54",
+        "tail": "PASS actual surface private-data C: 103585 checks, DD4/7 adapters, copied bytes/canaries and GUID isolation, borrowed COM getters, native invalid-size erasure, OOM preservation, reentrant replacement/free/destruction, alias/content epochs and volatile expiry\n"
+      },
+      "ddraw_bc_codec_test.log": {
+        "sha256": "ad6c73e62cce6957157b5511517adbaa4940e4c2bbccd9ff6d5b6b82b53a6bfc",
+        "tail": "PASS actual BC codec: 9569 checks, 500 independent JS decoding blocks, 14 exact native encoded blocks, guarded 8/16-byte writes and alpha/endpoint modes\nPASS BC encoded quality: 15 bounded constant/grayscale/alpha ramps; optional GPU fixture has 29 actual C blocks\n"
+      },
+      "d7wg_legacy_viewport_test.log": {
+        "sha256": "3d12c43a4764aef823be8753a3585fc25531bbbf71603db71197e25511378e08",
+        "tail": "PASS actual legacy viewport and execute C: 2282 checks, 128 projection reactivations, 128 prelit passes, frozen Wine position/clip vectors, logical/effective matrices, payload guards, lighting isolation and bounded failure prefixes\n"
+      },
+      "ddraw_overlay_flip_mutation_test.log": {
+        "sha256": "64b64812d8179750372e71cf8159bd37caefd971bff6bd220c932f037ce8852f",
+        "tail": "und\nKILL destination relationship ignored\nKILL hidden/offscreen Flip presents\nKILL named target selects first back\nKILL named self accepted\nKILL unrelated named target accepted\nKILL storage pointer not moved\nKILL memory pointer not moved\nKILL upload debt not moved\nKILL external-memory status not moved\nKILL failed overlay update ignored\nKILL failed Present ignored\nPASS DDraw overlay Flip mutations: 14/14, strict compilation and runtime assertions\n"
+      },
+      "ddraw_surface_creation_test.log": {
+        "sha256": "492c62436ea79816b72c84617de2dc45c384924200a527b00fa4fed756ade615",
+        "tail": "PASS actual surface creation C: 19010 checks, DD1/2/3/4/7 role/placement/flip/backbuffer contracts, rejection before allocation, input preservation, palette/memory/device validation priority, and live global video accounting with duplicate/mip/system-memory isolation and saturation\n"
+      },
+      "ddraw_render_target_mutation_test.log": {
+        "sha256": "561d4c6daac6dfe6e53f279f7bd1a07100253d9a2572eea6cb70b1d880df0c82",
+        "tail": "L failed target remains logical target\nKILL rollback loses invalid flag\nKILL rollback loses compensation flag\nKILL partial binding never repaired immediately\nKILL draw ignores binding debt\nKILL Clear ignores binding debt\nKILL same-target retry ignores binding debt\nKILL draw accepts invalid target\nKILL Clear accepts invalid target\nKILL successful binding retains debt\nPASS render-target mutations: 24/24 compiled implementations rejected at runtime\n"
+      },
+      "ddraw_material_lifetime_test.log": {
+        "sha256": "ce8aad02175067a089464b18f0492ae8e9cc0a330c2de2ba5781039cc5f8bc48",
+        "tail": "PASS actual legacy material lifetime C: 3456 checks, all 3 factory views, private owner retention after public zero, final teardown and creation/aggregation failure unwinds\n"
+      },
+      "ddraw_yuv_surface_mutation_test.log": {
+        "sha256": "013d65a4b00aa7f4a7ddcd0da867b5d10e4c2cbb2eb064bfa0863ed682637e4d",
+        "tail": "KILL packed format allocation omitted\nKILL odd left edge not widened\nKILL odd width upload omits shared chroma\nKILL raw pair halves reversed\nKILL neighbouring row written\nKILL failed upload loses retry debt\nPASS packed YUV mutations: 6/6, compilation and runtime assertions\n"
+      },
+      "ddraw_factory_entry_mutation_test.log": {
+        "sha256": "5ef3e977ab8ba9d3d845836444ae3f48af4b5dfe7d8d34d3a8175290489f0579",
+        "tail": "KILL extended factory loses lock mode\nKILL legacy factory acquires extended mode\nKILL extended factory accepts old IID\nKILL extended factory accepts aggregation\nKILL legacy factory accepts aggregation\nPASS factory-entry mutations: 5/5 compiled implementations rejected at runtime\n"
+      },
+      "ddraw_resource_metadata_mutation_test.log": {
+        "sha256": "7633c5dc49d85389f0feea75b3e9ee7fa542158332f88e1d1af7788fe834808b",
+        "tail": "v7 key accepts mip\nKILL palette policy follows factory\nKILL key policy follows factory\nKILL legacy palette setter uses v7 rule\nKILL legacy key setter uses v7 rule\nKILL RGB surface accepts palette\nKILL alpha palette allowed on offscreen\nKILL empty palette detach reports success\nKILL rejected palette gains reference\nKILL palette replacement publishes after release\nPASS resource metadata mutations: 21/21 compiled implementations rejected at runtime\n"
+      },
+      "ddraw_ownership_test.log": {
+        "sha256": "7bbceca60c412cd939979983b9d977e512074bd13ee120b6aab2552fcb35021e",
+        "tail": " 114534 checks, 160 factory profiles, 10240 same-pointer bindings per kind, 32 complex chains, 32 soft attachments, implicit zero-count retention, manual attach/detach and native root-reference migration, automatic flip roles/counts for DD1/2/4/7, invalid/freed/corrupt clipper identities and forced cross-owner detachment, complete storage/memory cleanup, DD1/2 private lifetime, DD4/7 public pins, four allocation failures and final-owner ordering\n"
+      },
+      "ddraw_surface_memory_test.log": {
+        "sha256": "053bf31199360615dfd8480ba8a4f9a559d50b1134b50bf0f4cc34d1eb733502",
+        "tail": "PASS actual surface allocation C: 352727 checks, owned and borrowed RGB/compressed storage, caller pitch/bytes/aliasing, untouched caller memory, hidden input-only metadata, and all owned/borrowed allocation failure unwinds\n"
+      },
+      "ddraw_d3d7_vtable_test.log": {
+        "sha256": "70fca67c11630552ef8d684f7d6bf2144fd693ebcf3dcac3c40753377f467610",
+        "tail": "66 Direct3D 7 vtable slots match the SDK declaration\n"
+      },
+      "ddraw_primary_write_mutation_test.log": {
+        "sha256": "f3dcff33dd215f6c2f74b8ae1ff1003ea8f0d431d17b6534dec29687fc1dc61f",
+        "tail": "dowed\nKILL offscreen surface clipped as primary\nKILL dirty intersection ignored\nKILL clipper window ignored\nKILL failed origin accepted\nKILL window right overflow\nKILL screen emitter bypasses clipped area\nKILL flip-chain front never presents\nKILL Unlock skips presentation\nKILL ReleaseDC skips presentation\nKILL resolve failure ignored\nKILL Present failure ignored\nPASS DDraw primary write mutations: 13/13, strict compilation and runtime assertions\n"
+      },
+      "d7wg_legacy_light_mutation_test.log": {
+        "sha256": "e7272b11f7ba0fcf59d347ba17cdc22adfa5c7a7cbf073a2cdaa8de494bff83f",
+        "tail": "KILL DX3 flags left inactive\nKILL full D3DLIGHT2 zero flags activated\nKILL DX3 specular implicitly suppressed\nKILL full NO_SPECULAR flag discarded\nKILL explicit inactive light enabled in viewport\nKILL failed live update reported success\nPASS legacy light mutations: 6/6, strict compilation and runtime assertions\n"
+      },
+      "ddraw_vertex_buffer_mutation_test.log": {
+        "sha256": "87b11dda6373150064b259d9bea7527aa182a7f2887179728f1f4a65c5f0ed34",
+        "tail": "LL legacy pins parent publicly\nKILL v7 loses public parent pin\nKILL destructor releases private parent publicly\nKILL failed ensure leaks parent pin\nKILL overflow status prevents native retry\nKILL valid large buffers newly capped\nKILL descriptor wrongly gates caller size\nKILL descriptor clobbers caller size\nKILL descriptor loses original FVF\nKILL QI takes extra parent reference\nPASS vertex-buffer mutations: 19/19 compiled implementations rejected\n"
+      },
+      "ddraw_process_lighting_mutation_test.log": {
+        "sha256": "94449a295fee883ac199a2d6debb842e097c7dd93732738c222d041d6ccabd88",
+        "tail": "KILL initial zero-power produces specular RGB\nKILL SetMaterial incorrectly advances CPU history\nKILL zero-power processing erases history\nKILL processed shininess history never advances\nKILL recording applies material immediately\nKILL failed submission updates public material\nKILL default D3D8/9 profile left uninitialised\nKILL D3D7 alpha rule leaks to D3D8/9\nKILL D3D7 alpha ignores colour source\nPASS actual ProcessVertices lighting faults: 15/15\n"
+      },
+      "ddraw_surface_memory_mutation_test.log": {
+        "sha256": "c322e79b1e990e0e1bdf5c0fea1590a1cb18d63cd883979238d3808c1ed8bbe1",
+        "tail": " bits replaced\nKILL borrowed bytes owned\nKILL caller RGB pitch ignored\nKILL caller compressed size mistaken for stride\nKILL borrowed compressed capacity sentinel lost\nKILL external memory loses synchronization\nKILL description leaks pointer\nKILL unflagged backbuffer value exposed\nKILL RGB metadata retains linear size\nKILL storage allocation failure leaks memory\nPASS surface allocation mutations: 13/13 compiled implementations rejected at runtime\n"
+      },
+      "ddraw_legacy_handles_mutation_test.log": {
+        "sha256": "38c5e22364983947529b43fe5157ef29f29575c6988e02952ae6db8d8311f56f",
+        "tail": "ed\nKILL matrix multiply updates source instead\nKILL shared material misses foreign owner\nKILL matrix lookup limited to caller\nKILL material aliases merged\nKILL foreign texture handle rejected\nKILL uninitialized handles swapped\nKILL dead device aliases retained\nKILL foreign bound context not refreshed\nKILL swap changes stored handle value\nPASS legacy handle mutations: 12/12 compiled implementations rejected by identity/lifetime/binding assertions\n"
+      },
+      "ddraw_process_lighting_test.log": {
+        "sha256": "57e7ecf7cda6f7cfa7ec644eefda3bf99569453d0d546eac30d90796523b4cd5",
+        "tail": "PASS actual SDK ProcessVertices lighting: 43322 checks, original system RGB observations, real material/processing entry points and shared kernels, source alpha selection, zero-power profiles, offset/guard isolation, fog precedence, recording/failure paths, default D3D8/9 alpha\n"
+      },
+      "ddraw_legacy_binding_mutation_test.log": {
+        "sha256": "bc7cb4f42f2af0c841d8dadab880b957e3a0f4838b32abd8ec125880d1311a79",
+        "tail": "KILL zero background clears valid binding\nKILL failed zero background overwrites state\nKILL duplicate add succeeds\nKILL duplicate add leaks reference\nKILL foreign-owner light accepted\nKILL attached light not retained\nKILL detached light retains next edge\nKILL delete removes head rather than requested light\nPASS actual SDK legacy binding faults: 8/8\n"
+      },
+      "ddraw_ownership_mutation_initial.log": {
+        "sha256": "60314e90aef267f49f9e95504b62ccee76cc1d8245fd2e5f137ebe3633e096f3",
+        "tail": "node:internal/modules/cjs/loader:1530:32)\n    at Module._load (node:internal/modules/cjs/loader:1332:12)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)\n    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)\n    at node:internal/main/run_main_module:33:47 {\n  generatedMessage: false,\n  code: 'ERR_ASSERTION',\n  actual: 1,\n  expected: 2,\n  operator: 'strictEqual',\n  diff: 'simple'\n}\n\nNode.js v25.6.0\n"
+      },
+      "ddraw_legacy_viewport_test.log": {
+        "sha256": "a8b8dc212eda3e6c83a21b89b7035f78f8aa2a5b5a8f95e465e646f3d39dd128",
+        "tail": "PASS actual legacy viewport C: 13312 checks, exact descriptor sizes, private parent lifetime, unbound state, both coordinate conversions, native depth ranges, device-version bounds and failed-call atomicity\n"
+      },
+      "ddraw_attenuation_mutation_test.log": {
+        "sha256": "ed5ba53703f889c5713f6add2d1ce1558ed3078a8b3462a10abbdac4f32536b1",
+        "tail": "ary incorrectly included\nKILL attenuation prematurely capped\nKILL legacy profile leaks into modern defaults\nKILL implicit weights ignore source index\nKILL implicit weights read position Z\nKILL implicit weights read beyond logical backing\nKILL public implicit-weight route disabled\nKILL D3D7 zero-W profile omitted\nKILL blended zero-W becomes finite\nKILL zero-W profile leaks into modern defaults\nPASS native attenuation/implicit-weight faults: 13/13\n"
+      },
+      "ddraw_legacy_caps_mutation_test.log": {
+        "sha256": "7479d6561ae2f4ea2a12285d903a88576e7574805e11adea341fe5562a58020f",
+        "tail": "ck claims raster caps\nKILL old inventory exposes newer classes\nKILL callback cancellation ignored\nKILL old result buffers rejected\nKILL caller result stride ignored\nKILL unmatched GUID erases output\nKILL hardware filter ignored\nKILL overlap destroys matched GUID\nKILL software7 reports DP2 hardware interface\nKILL modern enum cancellation ignored\nPASS legacy capability mutations: 14/14 compiled implementations rejected by ABI/profile/bounds checks\n"
+      }
+    },
+    "scope": "All98 scripts ran; sole failure was a stale ownership mutation source pattern after new cleanup. The pattern was retargeted to the same partial-allocation failure and independently rerun35/35. Original log and initial exit codes retained; final98 exit codes all zero. No production change after frozen Wine runs began."
+  },
+  "audits": [
+    {
+      "directory": "stage6-wine-ddraw1-creation-contracts-final",
+      "summary": {
+        "checks": 23619,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 58,
+        "skipped": 5
+      },
+      "exit": 58,
+      "failureGroups": {
+        "test_sysmem_overlay": 1,
+        "test_primary_palette": 2,
+        "test_surface_attachment": 7,
+        "test_offscreen_overlay": 3,
+        "test_overlay_rect": 5,
+        "test_transform_vertices": 2,
+        "test_ck_operation": 11,
+        "start_foreground_window_thread": 10,
+        "test_viewport": 4,
+        "test_gdi_surface": 2,
+        "test_caps": 9,
+        "test_d32_support": 1,
+        "test_texture_wrong_caps": 1
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "normalOwnerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 5,
+          "resources": 6,
+          "remainingResources": [
+            {
+              "handle": 1048991,
+              "kind": 3,
+              "deviceHandle": 1048990,
+              "format": 22,
+              "width": 16,
+              "height": 16
+            },
+            {
+              "handle": 1049019,
+              "kind": 3,
+              "deviceHandle": 1048998,
+              "format": 22,
+              "width": 800,
+              "height": 600
+            },
+            {
+              "handle": 1049021,
+              "kind": 3,
+              "deviceHandle": 1048998,
+              "format": 22,
+              "width": 800,
+              "height": 600
+            },
+            {
+              "handle": 1049023,
+              "kind": 3,
+              "deviceHandle": 1048998,
+              "format": 22,
+              "width": 800,
+              "height": 600
+            },
+            {
+              "handle": 1049029,
+              "kind": 3,
+              "deviceHandle": 1048998,
+              "format": 80,
+              "width": 800,
+              "height": 600
+            },
+            {
+              "handle": 1049059,
+              "kind": 3,
+              "deviceHandle": 1049058,
+              "format": 22,
+              "width": 800,
+              "height": 600
+            }
+          ],
+          "after": {
+            "devices": 0,
+            "resources": 0,
+            "pendingFrame": false,
+            "activeQuery": false
+          }
+        }
+      ],
+      "forcedOwnerCleanup": [],
+      "postOwnerCleanup": {
+        "devices": 0,
+        "resources": 0
+      },
+      "source": {
+        "suite": "ddraw_ddraw1",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw1.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw1.c",
+          "sha256": "d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a",
+          "gitBlob": "ca595964df2cd916460444fe6da7000ad2888b27"
+        },
+        "dllSha256": "f46de4d3fe6d58bf6fa9966ba92fae7d4d121da86965a0c4d9d3273941ee018a",
+        "executableSha256": "2d49d9db046502027bb26948a28244787e1e447cb763109ef77146ecd76eb3ba",
+        "rendererPageSha256": "ef29dd374ad561fe28894c4baad83208518e404cec65255da315d6fcc6029397",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "430967909abac3f0a3936a7aac0259695a6f3d9fc000ac6d942329a56ba7180f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "257ddbfc6d4208f0af38ac8efd66eab40cd7da8c9f3fd077324e1db4df75b2d4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "07cea12742473c1871ee1cc012600b278ad6d8e5b169254bf58dc1ab09c2c291",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "ba414e9fcb47956b4c2a8960e11ed408220edbbed456ec713e311a1096df284e",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "405a0b6e8ae2dd5f91a50f31d03a339a322788b1eaaade47b92e5bb443b25ebf",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "5ae46c53e12e61e9b3643cce2805c2d2a81d14e029c2cccd36b560f369722a98"
+        }
+      },
+      "files": {
+        "WINE.TXT": "fa2b7afa84a6d3c48e720697a5461c1d246cd089b1bc9f9cc96bdee7730ce4ac",
+        "source.json": "67a7b444ca8bbe510709e398a64aa621acb8ce63a3a58f641ef459c54b20b1c2",
+        "live-gpu.json": "9ee2132bef92e401d104b1a009cda1b061d20acfb4143fd7f2c30b69cf561acc",
+        "audit-groups.json": "40131c548518aa140a774f8665434145a8f5a4a009d22c126c5e17a759370acd"
+      },
+      "completed": true,
+      "accepted": false,
+      "previousSummary": {
+        "checks": 23619,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 61,
+        "skipped": 5
+      },
+      "fewerFailures": 3,
+      "unreviewedSkips": [
+        "ddraw_ddraw1.c:4138: Tests skipped: Following tests require two monitors.",
+        "ddraw_ddraw1.c:10917: Tests skipped: Failed to create a YV12 overlay, skipping test.",
+        "ddraw_ddraw1.c:11602: Tests skipped: Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+        "ddraw_ddraw1.c:16928: Tests skipped: format YV12: Failed to create surface, hr 0x88760091.",
+        "ddraw_ddraw1.c:16928: Tests skipped: format NV12: Failed to create surface, hr 0x88760091."
+      ],
+      "flakyRecords": []
+    },
+    {
+      "directory": "stage6-wine-ddraw2-creation-contracts-final",
+      "summary": {
+        "checks": 25830,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 59,
+        "skipped": 6
+      },
+      "exit": 59,
+      "failureGroups": {
+        "test_set_surface_desc": 5,
+        "test_sysmem_overlay": 1,
+        "test_primary_palette": 2,
+        "test_surface_attachment": 2,
+        "test_lost_device": 3,
+        "test_offscreen_overlay": 3,
+        "test_overlay_rect": 5,
+        "test_transform_vertices": 2,
+        "test_ck_operation": 11,
+        "start_foreground_window_thread": 12,
+        "test_gdi_surface": 2,
+        "test_caps": 9,
+        "test_d32_support": 1,
+        "test_texture_wrong_caps": 1
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "normalOwnerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 30,
+          "resources": 1,
+          "remainingResources": [
+            {
+              "handle": 1049225,
+              "kind": 3,
+              "deviceHandle": 1049224,
+              "format": 22,
+              "width": 16,
+              "height": 16
+            }
+          ],
+          "after": {
+            "devices": 0,
+            "resources": 0,
+            "pendingFrame": false,
+            "activeQuery": false
+          }
+        }
+      ],
+      "forcedOwnerCleanup": [],
+      "postOwnerCleanup": {
+        "devices": 0,
+        "resources": 0
+      },
+      "source": {
+        "suite": "ddraw_ddraw2",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw2.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw2.c",
+          "sha256": "0a9d07b1c376256b126ad24fa71271e6a0c4f1b2d91478db77080c01488d451e",
+          "gitBlob": "dfbd0003fb27db3864a3c2196b1ab2666cc80f22"
+        },
+        "dllSha256": "131fb55e02d4c77ef8af2dfdbb3e5103aecb8f45b9e857d8c8f6ddc1efbf3c51",
+        "executableSha256": "be14ea22d36d7d3e205ab6f456ceea3c1d8945f48b361569378c1b62215bb5a0",
+        "rendererPageSha256": "ef29dd374ad561fe28894c4baad83208518e404cec65255da315d6fcc6029397",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "430967909abac3f0a3936a7aac0259695a6f3d9fc000ac6d942329a56ba7180f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "257ddbfc6d4208f0af38ac8efd66eab40cd7da8c9f3fd077324e1db4df75b2d4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "07cea12742473c1871ee1cc012600b278ad6d8e5b169254bf58dc1ab09c2c291",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "ba414e9fcb47956b4c2a8960e11ed408220edbbed456ec713e311a1096df284e",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "405a0b6e8ae2dd5f91a50f31d03a339a322788b1eaaade47b92e5bb443b25ebf",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "5ae46c53e12e61e9b3643cce2805c2d2a81d14e029c2cccd36b560f369722a98"
+        }
+      },
+      "files": {
+        "WINE.TXT": "bfa7ced79f05ef7b6c5d1f73eb2d62a70d022c2deb5fb5566af498602e4fda5e",
+        "source.json": "74dfe7f88cea33ce0772a44a647fa62f9f4db2bcc1c52fd6337f2ca3cc2bd79d",
+        "live-gpu.json": "4856beeb3f36d36b90c8d000ee097449d6c43281b8791c9a2347444d4cca030d",
+        "audit-groups.json": "21099f2aa643dd977dc80f5511330a928e2d6745b4b9f85137ef23578956028f"
+      },
+      "completed": true,
+      "accepted": false,
+      "previousSummary": {
+        "checks": 25830,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 62,
+        "skipped": 6
+      },
+      "fewerFailures": 3,
+      "unreviewedSkips": [
+        "ddraw_ddraw2.c:4326: Tests skipped: Following tests require two monitors.",
+        "ddraw_ddraw2.c:11289: Tests skipped: Failed to create a YV12 overlay, skipping test.",
+        "ddraw_ddraw2.c:11974: Tests skipped: Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+        "ddraw_ddraw2.c:15957: Tests skipped: Failed to find a display mode with a different frequency.",
+        "ddraw_ddraw2.c:17260: Tests skipped: format YV12: Failed to create surface, hr 0x88760091.",
+        "ddraw_ddraw2.c:17260: Tests skipped: format NV12: Failed to create surface, hr 0x88760091."
+      ],
+      "flakyRecords": []
+    },
+    {
+      "directory": "stage6-wine-ddraw4-creation-contracts-final",
+      "summary": {
+        "checks": 28968,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 111,
+        "skipped": 6
+      },
+      "exit": 111,
+      "failureGroups": {
+        "test_set_surface_desc": 13,
+        "test_sysmem_overlay": 2,
+        "test_primary_palette": 2,
+        "test_surface_attachment": 15,
+        "test_lost_device": 3,
+        "test_offscreen_overlay": 3,
+        "test_overlay_rect": 5,
+        "test_transform_vertices": 2,
+        "test_ck_operation": 10,
+        "test_compute_sphere_visibility": 4,
+        "start_foreground_window_thread": 36,
+        "test_gdi_surface": 2,
+        "test_caps": 9,
+        "test_surface_format_conversion_alpha": 2,
+        "test_texture_wrong_caps": 1,
+        "test_filling_convention": 2
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "normalOwnerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 3,
+          "resources": 3,
+          "remainingResources": [
+            {
+              "handle": 1049797,
+              "kind": 3,
+              "deviceHandle": 1049796,
+              "format": 22,
+              "width": 16,
+              "height": 16
+            },
+            {
+              "handle": 1051443,
+              "kind": 3,
+              "deviceHandle": 1051437,
+              "format": 21,
+              "width": 16,
+              "height": 16
+            },
+            {
+              "handle": 1051451,
+              "kind": 3,
+              "deviceHandle": 1051445,
+              "format": 21,
+              "width": 16,
+              "height": 16
+            }
+          ],
+          "after": {
+            "devices": 0,
+            "resources": 0,
+            "pendingFrame": false,
+            "activeQuery": false
+          }
+        }
+      ],
+      "forcedOwnerCleanup": [],
+      "postOwnerCleanup": {
+        "devices": 0,
+        "resources": 0
+      },
+      "source": {
+        "suite": "ddraw_ddraw4",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw4.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw4.c",
+          "sha256": "5788fe13e3e2a5d893688fc09f9bc97d1945ce72428378335cfcd69a935d5433",
+          "gitBlob": "be26a5a74e5f21a3d04acb71c266744d72bb6818"
+        },
+        "dllSha256": "3a7296e28b311c2ea0661f6aa11e747e2fa37b5259b1010ca468ace276db92be",
+        "executableSha256": "a98b4ab355436e1486a99743a9c7cd894f58eead32e29a03ac7b915411588304",
+        "rendererPageSha256": "ef29dd374ad561fe28894c4baad83208518e404cec65255da315d6fcc6029397",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "430967909abac3f0a3936a7aac0259695a6f3d9fc000ac6d942329a56ba7180f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "257ddbfc6d4208f0af38ac8efd66eab40cd7da8c9f3fd077324e1db4df75b2d4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "07cea12742473c1871ee1cc012600b278ad6d8e5b169254bf58dc1ab09c2c291",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "ba414e9fcb47956b4c2a8960e11ed408220edbbed456ec713e311a1096df284e",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "405a0b6e8ae2dd5f91a50f31d03a339a322788b1eaaade47b92e5bb443b25ebf",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "5ae46c53e12e61e9b3643cce2805c2d2a81d14e029c2cccd36b560f369722a98"
+        }
+      },
+      "files": {
+        "WINE.TXT": "fa325a647d541dade5b604097de59508dd56fed8ecd3b1aa35cf686b0e07c223",
+        "source.json": "f4afff574c0ea7eaf58bea94f8781a4649d5265ec9b46b35be564c7c451a0d9b",
+        "live-gpu.json": "2453839738b3cc47c94a3cacbeb984fc421648e7281861922ba93412728161cd",
+        "audit-groups.json": "b8d7e3ac7e94a88bca26e5c8d0360ccd3ea3c140884c07bcf9593081c6147a9d"
+      },
+      "completed": true,
+      "accepted": false,
+      "previousSummary": {
+        "checks": 28968,
+        "todos": 0,
+        "flaky": 11,
+        "failures": 118,
+        "skipped": 6
+      },
+      "fewerFailures": 7,
+      "unreviewedSkips": [
+        "ddraw_ddraw4.c:4554: Tests skipped: Following tests require two monitors.",
+        "ddraw_ddraw4.c:13258: Tests skipped: Failed to create a YV12 overlay, skipping test.",
+        "ddraw_ddraw4.c:14047: Tests skipped: Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+        "ddraw_ddraw4.c:19047: Tests skipped: Failed to find a display mode with a different frequency.",
+        "ddraw_ddraw4.c:20359: Tests skipped: format YV12: Failed to create surface, hr 0x88760091.",
+        "ddraw_ddraw4.c:20359: Tests skipped: format NV12: Failed to create surface, hr 0x88760091."
+      ],
+      "flakyRecords": []
+    },
+    {
+      "directory": "stage6-wine-ddraw7-creation-contracts-final",
+      "summary": {
+        "checks": 35258,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 114,
+        "skipped": 6
+      },
+      "exit": 114,
+      "failureGroups": {
+        "test_texture_load_ckey": 1,
+        "test_flip": 1,
+        "test_set_surface_desc": 10,
+        "test_sysmem_overlay": 2,
+        "test_surface_attachment": 7,
+        "test_lost_device": 3,
+        "test_offscreen_overlay": 3,
+        "test_overlay_rect": 5,
+        "test_draw_primitive": 1,
+        "test_ck_operation": 10,
+        "test_compute_sphere_visibility": 2,
+        "test_map_synchronisation": 2,
+        "start_foreground_window_thread": 36,
+        "test_gdi_surface": 3,
+        "test_begin_end_state_block": 1,
+        "test_caps": 9,
+        "test_surface_format_conversion_alpha": 2,
+        "test_texture_wrong_caps": 2,
+        "test_user_memory": 14
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "normalOwnerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 1,
+          "resources": 1,
+          "remainingResources": [
+            {
+              "handle": 1049892,
+              "kind": 3,
+              "deviceHandle": 1049891,
+              "format": 22,
+              "width": 16,
+              "height": 16
+            }
+          ],
+          "after": {
+            "devices": 0,
+            "resources": 0,
+            "pendingFrame": false,
+            "activeQuery": false
+          }
+        }
+      ],
+      "forcedOwnerCleanup": [],
+      "postOwnerCleanup": {
+        "devices": 0,
+        "resources": 0
+      },
+      "source": {
+        "suite": "ddraw_ddraw7",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw7.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw7.c",
+          "sha256": "61b49e1c0f28d1af3e15130f44c0369f88962973fac6bb9b352e15ffccde8623",
+          "gitBlob": "f58523e788b9923056f03b09a49a35f552a1b277"
+        },
+        "dllSha256": "816550dfad0e615564ff6d494e3c6435d068c718229e57221baa19db2e94ccd2",
+        "executableSha256": "70c133fcdec71848d27dda1eaf277f2f983542e49ad95c896beacdf9dada39a1",
+        "rendererPageSha256": "ef29dd374ad561fe28894c4baad83208518e404cec65255da315d6fcc6029397",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "430967909abac3f0a3936a7aac0259695a6f3d9fc000ac6d942329a56ba7180f",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "257ddbfc6d4208f0af38ac8efd66eab40cd7da8c9f3fd077324e1db4df75b2d4",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "07cea12742473c1871ee1cc012600b278ad6d8e5b169254bf58dc1ab09c2c291",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "ba414e9fcb47956b4c2a8960e11ed408220edbbed456ec713e311a1096df284e",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "405a0b6e8ae2dd5f91a50f31d03a339a322788b1eaaade47b92e5bb443b25ebf",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "5ae46c53e12e61e9b3643cce2805c2d2a81d14e029c2cccd36b560f369722a98"
+        }
+      },
+      "files": {
+        "WINE.TXT": "ac9de8e75d56dbc953c2bc02b0adc69da210eac59204f928bdad933e4a2bd626",
+        "source.json": "b669815d38c273488107d5892522034dacfd6ab9be081148abc0974105e8a568",
+        "live-gpu.json": "5be38f186ae922b0fd763cf3fe0d15c0abb2eb72d8f5ecc0a78439644d4d8d87",
+        "audit-groups.json": "d02320bb9987f57291d9b8a0720dea0fde37d8a8ba7b6439c5d819a6346ff0a7"
+      },
+      "completed": true,
+      "accepted": false,
+      "previousSummary": {
+        "checks": 35239,
+        "todos": 0,
+        "flaky": 4,
+        "failures": 128,
+        "skipped": 6
+      },
+      "fewerFailures": 14,
+      "unreviewedSkips": [
+        "ddraw_ddraw7.c:4422: Tests skipped: Following tests require two monitors.",
+        "ddraw_ddraw7.c:13519: Tests skipped: Failed to create a YV12 overlay, skipping test.",
+        "ddraw_ddraw7.c:14305: Tests skipped: Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+        "ddraw_ddraw7.c:19581: Tests skipped: Failed to find a display mode with a different frequency.",
+        "ddraw_ddraw7.c:20913: Tests skipped: format YV12: Failed to create surface, hr 0x88760091.",
+        "ddraw_ddraw7.c:20913: Tests skipped: format NV12: Failed to create surface, hr 0x88760091."
+      ],
+      "flakyRecords": []
+    }
+  ],
+  "fewerFailures": 27,
+  "priorEvidence": {
+    "path": "docs/fixtures/d3d-review/stage6-78-validation.json",
+    "sha256": "e450b3490df65674c6194bed03c0a7ac928a0ba152ce15b40dc5b32455b52a64",
+    "scope": "Host renderer and wire protocol unchanged; production D3D7 include change is limited to validated surface view acceptance. Frozen full original mixed-interface test now proceeds through actual GPU Clear/color assertions. Prior rendering proofs retained for unchanged draw/codec implementations."
+  },
+  "shipping": {
+    "ddraw": "816550dfad0e615564ff6d494e3c6435d068c718229e57221baa19db2e94ccd2",
+    "ddrawDiagnostic": "7164e472c899566ed90ac48d0f99b1e3d8d5f91646f62cf9ff21ec6f04754770",
+    "d3d9Unchanged": "c008d167ced145520c0cca183edf0fe057d84e1617e7a81700c043351cb4dc82",
+    "peEquivalence": {
+      "equivalent": true,
+      "shippingExactlyMatchesDdraw7Audit": true,
+      "dlls": [
+        {
+          "file": "/Users/renruisi/Desktop/Code/v86/build/d3d-review/stage6-wine-ddraw1-creation-contracts-final/ddraw.dll",
+          "sha256": "f46de4d3fe6d58bf6fa9966ba92fae7d4d121da86965a0c4d9d3273941ee018a",
+          "normalizedSha256": "208958014bae7b942ba9637a858b2f92d7ff44b9b57ca3f78410fcd0586577ab",
+          "ignoredPEMetadataOffsets": [
+            136,
+            216,
+            165380
+          ],
+          "imageBase": "0x6c040000",
+          "normalizedHighLowRelocations": 1909
+        },
+        {
+          "file": "/Users/renruisi/Desktop/Code/v86/build/d3d-review/stage6-wine-ddraw2-creation-contracts-final/ddraw.dll",
+          "sha256": "131fb55e02d4c77ef8af2dfdbb3e5103aecb8f45b9e857d8c8f6ddc1efbf3c51",
+          "normalizedSha256": "208958014bae7b942ba9637a858b2f92d7ff44b9b57ca3f78410fcd0586577ab",
+          "ignoredPEMetadataOffsets": [
+            136,
+            216,
+            165380
+          ],
+          "imageBase": "0x62900000",
+          "normalizedHighLowRelocations": 1909
+        },
+        {
+          "file": "/Users/renruisi/Desktop/Code/v86/build/d3d-review/stage6-wine-ddraw4-creation-contracts-final/ddraw.dll",
+          "sha256": "3a7296e28b311c2ea0661f6aa11e747e2fa37b5259b1010ca468ace276db92be",
+          "normalizedSha256": "208958014bae7b942ba9637a858b2f92d7ff44b9b57ca3f78410fcd0586577ab",
+          "ignoredPEMetadataOffsets": [
+            136,
+            216,
+            165380
+          ],
+          "imageBase": "0x70fc0000",
+          "normalizedHighLowRelocations": 1909
+        },
+        {
+          "file": "/Users/renruisi/Desktop/Code/v86/build/d3d-review/stage6-wine-ddraw7-creation-contracts-final/ddraw.dll",
+          "sha256": "816550dfad0e615564ff6d494e3c6435d068c718229e57221baa19db2e94ccd2",
+          "normalizedSha256": "208958014bae7b942ba9637a858b2f92d7ff44b9b57ca3f78410fcd0586577ab",
+          "ignoredPEMetadataOffsets": [
+            136,
+            216,
+            165380
+          ],
+          "imageBase": "0x63c00000",
+          "normalizedHighLowRelocations": 1909
+        },
+        {
+          "file": "/Users/renruisi/Desktop/Code/retro-gaming-site/glbridge/ddrawproxy/ddraw.dll",
+          "sha256": "816550dfad0e615564ff6d494e3c6435d068c718229e57221baa19db2e94ccd2",
+          "normalizedSha256": "208958014bae7b942ba9637a858b2f92d7ff44b9b57ca3f78410fcd0586577ab",
+          "ignoredPEMetadataOffsets": [
+            136,
+            216,
+            165380
+          ],
+          "imageBase": "0x63c00000",
+          "normalizedHighLowRelocations": 1909
+        }
+      ]
+    }
+  },
+  "remaining": [
+    "Applicable original failures/flaky records and23 unreviewed skips remain; no assertion edits or applicability waivers. 3DMark comparisons remain paused.",
+    "Native flip control role does not by itself clear the remaining exclusive-exit video/primary loss failures. Window/mode counts can vary and raw results are retained; do not attribute all run-to-run reductions to deterministic fixes.",
+    "Other remaining metadata, factory policy, GDI, caps, stateblock, attachment, overlay/key, resource and drawing conformance groups require fixes. GTA SA menu/startup fix remains shipping; world gameplay remains uncertified."
+  ],
+  "freshPrimaryComparison": {
+    "source": "glbridge/sample/ddraw_primary_loss_reference.c",
+    "sourceSha256": "de3f65f11b47f6e8c95498042498fbfc296dcf6ba56912d8dbd6ac8d3c0648a3",
+    "executableSha256": "4be4df0e2f050483c3aac6c237ac00ced84881eeff505cc8b6b62b0044523d19",
+    "proxyProducerSha256": "48f89094a7c53e6273dec29869434f981e9b29d0cf3721517005fefed5c0372e",
+    "dllSha256": "816550dfad0e615564ff6d494e3c6435d068c718229e57221baa19db2e94ccd2",
+    "driverSha256": "d241f9517f4811933b89b361a5e0329cc2e80226b474c6d55e9ab9140b8ee7b9",
+    "seconds": 116,
+    "batches": 14,
+    "directory": "stage6-proxy-primary-creation",
+    "comparison": {
+      "passed": true,
+      "resultCount": 18,
+      "surfaceCount": 13,
+      "nativeFixtureSha256": "77cbb7a8436fa3619b5f22e203a86ba8ffcdf15380dd3227ff1ed8a91aa54a95",
+      "scope": "All HRESULT/control and primary geometry/pitch/live-depth/lost observations match; native HEL versus WebGPU placement caps and raw paint counts are retained independently.",
+      "results": [
+        {
+          "name": "create",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "exclusive",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "primary",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "mode_640_480_16",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "restore_wrong",
+          "hr": 2289435211,
+          "paints": 0
+        },
+        {
+          "name": "mode_800_600_32",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "restore_matching",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "duplicate_mode",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "foreground_other",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "restore_away",
+          "hr": 2289435211,
+          "paints": 0
+        },
+        {
+          "name": "foreground_game",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "restore_focus",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "normal",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "exclusive_again",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "restore_exclusive",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "flip_primary",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "restore_mode",
+          "hr": 0,
+          "paints": 0
+        },
+        {
+          "name": "final_normal",
+          "hr": 0,
+          "paints": 0
+        }
+      ],
+      "surfaces": [
+        {
+          "name": "initial",
+          "desc": 0,
+          "lost": 0,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 1
+        },
+        {
+          "name": "after_640",
+          "desc": 0,
+          "lost": 2289435074,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 16,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "after_wrong_restore",
+          "desc": 0,
+          "lost": 2289435074,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 16,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "after_800",
+          "desc": 0,
+          "lost": 2289435074,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "restored_matching",
+          "desc": 0,
+          "lost": 0,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "after_duplicate",
+          "desc": 0,
+          "lost": 2289435074,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "focus_away",
+          "desc": 0,
+          "lost": 2289435074,
+          "cooperative": 2289434849,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 1
+        },
+        {
+          "name": "focus_back",
+          "desc": 0,
+          "lost": 2289435074,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 1
+        },
+        {
+          "name": "restored_focus",
+          "desc": 0,
+          "lost": 0,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "after_normal",
+          "desc": 0,
+          "lost": 2289435074,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "after_exclusive",
+          "desc": 0,
+          "lost": 2289435074,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "restored_exclusive",
+          "desc": 0,
+          "lost": 0,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485120,
+          "paints": 0
+        },
+        {
+          "name": "flip",
+          "desc": 0,
+          "lost": 0,
+          "cooperative": 0,
+          "width": 800,
+          "height": 600,
+          "bpp": 32,
+          "pitch": 3200,
+          "caps": 268485176,
+          "paints": 0
+        }
+      ]
+    },
+    "probeSha256": "3dbae3e8912967516cc4601da8df9eea6172235115258a18315fdbe314a96f4b"
+  },
+  "freshWindowLifetimeComparison": {
+    "sources": {
+      "glbridge/sample/ddraw_window_reference.c": "6e2f61f52e748cda5ea6d4584d3200ceee1b3d14b89221b94880634682f09ec6",
+      "glbridge/sample/ddraw_control_lifetime_reference.c": "a1b004a3bbe0d9dd96ef8eec91314e9bca928e56c82f6f4c9e0faa89f2ac996f"
+    },
+    "executables": {
+      "WINDOWS.EXE": "ec14a5ec0b129ba039ea61934c52d686832e9bd02659c94458cdf11451439181",
+      "LIFE.EXE": "66e4eb6503bca23b45e00b1d2a259531f35001eab11b9612e48518c532f51105"
+    },
+    "shippingDdrawSha256": "816550dfad0e615564ff6d494e3c6435d068c718229e57221baa19db2e94ccd2",
+    "proxyProducerSha256": "23bfe3f30594dfd46fe4251ca7ab2190aa3d1f289c9903439dac09c7815f1f30",
+    "proxyLifetimeProducerSha256": "39e9a96280b361b5d23f498069c36026598febbd4a2256c8f04920a349c31e1d",
+    "driverSha256": "d241f9517f4811933b89b361a5e0329cc2e80226b474c6d55e9ab9140b8ee7b9",
+    "seconds": 117,
+    "batches": 41,
+    "directory": "stage6-proxy-windows-creation",
+    "comparison": {
+      "verifiedPrimarySurfaces": true,
+      "messageComparison": {
+        "mandatoryMessages": 68,
+        "actualMessages": 68,
+        "exactSelectedMessages": true,
+        "additionalZOrderNotifications": []
+      },
+      "lifetime": {
+        "releases": [
+          {
+            "version": 1,
+            "refs": 0,
+            "procChanged": 0
+          },
+          {
+            "version": 2,
+            "refs": 0,
+            "procChanged": 0
+          },
+          {
+            "version": 4,
+            "refs": 1,
+            "procChanged": 1
+          },
+          {
+            "version": 7,
+            "refs": 1,
+            "procChanged": 1
+          }
+        ],
+        "results": [
+          {
+            "version": 1,
+            "name": "create",
+            "hr": 0
+          },
+          {
+            "version": 1,
+            "name": "exclusive",
+            "hr": 0
+          },
+          {
+            "version": 1,
+            "name": "primary",
+            "hr": 0
+          },
+          {
+            "version": 1,
+            "name": "create_contender",
+            "hr": 0
+          },
+          {
+            "version": 1,
+            "name": "before_release",
+            "hr": 2289435205
+          },
+          {
+            "version": 1,
+            "name": "after_release",
+            "hr": 0
+          },
+          {
+            "version": 2,
+            "name": "create",
+            "hr": 0
+          },
+          {
+            "version": 2,
+            "name": "exclusive",
+            "hr": 0
+          },
+          {
+            "version": 2,
+            "name": "primary",
+            "hr": 0
+          },
+          {
+            "version": 2,
+            "name": "create_contender",
+            "hr": 0
+          },
+          {
+            "version": 2,
+            "name": "before_release",
+            "hr": 2289435205
+          },
+          {
+            "version": 2,
+            "name": "after_release",
+            "hr": 0
+          },
+          {
+            "version": 4,
+            "name": "create",
+            "hr": 0
+          },
+          {
+            "version": 4,
+            "name": "exclusive",
+            "hr": 0
+          },
+          {
+            "version": 4,
+            "name": "primary",
+            "hr": 0
+          },
+          {
+            "version": 4,
+            "name": "create_contender",
+            "hr": 0
+          },
+          {
+            "version": 4,
+            "name": "before_release",
+            "hr": 2289435205
+          },
+          {
+            "version": 4,
+            "name": "after_release",
+            "hr": 2289435205
+          },
+          {
+            "version": 4,
+            "name": "after_surface_release",
+            "hr": 0
+          },
+          {
+            "version": 7,
+            "name": "create",
+            "hr": 0
+          },
+          {
+            "version": 7,
+            "name": "exclusive",
+            "hr": 0
+          },
+          {
+            "version": 7,
+            "name": "primary",
+            "hr": 0
+          },
+          {
+            "version": 7,
+            "name": "create_contender",
+            "hr": 0
+          },
+          {
+            "version": 7,
+            "name": "before_release",
+            "hr": 2289435205
+          },
+          {
+            "version": 7,
+            "name": "after_release",
+            "hr": 2289435205
+          },
+          {
+            "version": 7,
+            "name": "after_surface_release",
+            "hr": 0
+          }
+        ],
+        "nativeFixtureSha256": "f5031cd01d5c7c4cd48fe82e3a99294136078d837b8d70b0ca5336936fd2fbe4"
+      },
+      "windows": 24,
+      "events": 68,
+      "controlResults": 21,
+      "unresolvedSurfaceResults": [
+        "SURFACE case=0 name=before_mode desc=00000000 lost=00000000 width=800 height=600 bpp=32 pitch=3200",
+        "SURFACE case=0 name=after_mode desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=0 name=restored desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=0 name=after_redundant desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=0 name=after_normal desc=00000000 lost=887601C2 width=800 height=600 bpp=32 pitch=3200",
+        "SURFACE case=1 name=before_mode desc=00000000 lost=00000000 width=800 height=600 bpp=32 pitch=3200",
+        "SURFACE case=1 name=after_mode desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=1 name=restored desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=1 name=after_redundant desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=1 name=after_normal desc=00000000 lost=887601C2 width=800 height=600 bpp=32 pitch=3200",
+        "SURFACE case=2 name=before_mode desc=00000000 lost=00000000 width=800 height=600 bpp=32 pitch=3200",
+        "SURFACE case=2 name=after_mode desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=2 name=restored desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=2 name=after_redundant desc=00000000 lost=887601C2 width=800 height=600 bpp=16 pitch=3200",
+        "SURFACE case=2 name=after_normal desc=00000000 lost=887601C2 width=800 height=600 bpp=32 pitch=3200"
+      ],
+      "primaryRestoreResults": [
+        "RESULT case=0 name=restore_primary hr=8876024B",
+        "RESULT case=1 name=restore_primary hr=8876024B",
+        "RESULT case=2 name=restore_primary hr=8876024B"
+      ],
+      "nativeFixtureSha256": "ce1a6da51bc5e9cd5506bbcf60f42bca4b4614f1ba2b6b9956e4aca9b3f8c9aa",
+      "passed": true
+    },
+    "probeSha256": "6e46d969cfb10da6f09b088d2cea7cbb736f4ec94a756c0db11a9c435eb7b837"
+  },
+  "rejectedInitialWineCandidates": {
+    "audits": [
+      {
+        "directory": "stage6-wine-ddraw7-creation-contracts",
+        "summary": {
+          "checks": 35258,
+          "todos": 0,
+          "flaky": 4,
+          "failures": 118,
+          "skipped": 6
+        },
+        "exit": 118,
+        "failureGroups": {
+          "test_texture_load_ckey": 1,
+          "test_coop_level_mode_set": 4,
+          "test_flip": 1,
+          "test_set_surface_desc": 10,
+          "test_sysmem_overlay": 2,
+          "test_surface_attachment": 7,
+          "test_lost_device": 3,
+          "test_offscreen_overlay": 3,
+          "test_overlay_rect": 5,
+          "test_draw_primitive": 1,
+          "test_ck_operation": 10,
+          "test_compute_sphere_visibility": 2,
+          "test_map_synchronisation": 2,
+          "start_foreground_window_thread": 36,
+          "test_gdi_surface": 3,
+          "test_begin_end_state_block": 1,
+          "test_caps": 9,
+          "test_surface_format_conversion_alpha": 2,
+          "test_texture_wrong_caps": 2,
+          "test_user_memory": 14
+        },
+        "gpuErrors": [],
+        "hostErrors": [],
+        "normalOwnerCleanup": [
+          {
+            "reason": "owner-released",
+            "devices": 1,
+            "resources": 1,
+            "remainingResources": [
+              {
+                "handle": 1049892,
+                "kind": 3,
+                "deviceHandle": 1049891,
+                "format": 22,
+                "width": 16,
+                "height": 16
+              }
+            ],
+            "after": {
+              "devices": 0,
+              "resources": 0,
+              "pendingFrame": false,
+              "activeQuery": false
+            }
+          }
+        ],
+        "forcedOwnerCleanup": [],
+        "postOwnerCleanup": {
+          "devices": 0,
+          "resources": 0
+        },
+        "source": {
+          "suite": "ddraw_ddraw7",
+          "commit": "415a275e3844c252ad385b46023095e9401ca234",
+          "source": {
+            "path": "ddraw_ddraw7.c",
+            "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw7.c",
+            "sha256": "61b49e1c0f28d1af3e15130f44c0369f88962973fac6bb9b352e15ffccde8623",
+            "gitBlob": "f58523e788b9923056f03b09a49a35f552a1b277"
+          },
+          "dllSha256": "49fee416aa44890643ef769834bc5505826a7017a708df51da527ba4b2f1eb20",
+          "executableSha256": "7997ff1ae35ee772ab5eb03179dc40df060f27e54051fdaa77cafc7bf3ddff4b",
+          "rendererPageSha256": "ef29dd374ad561fe28894c4baad83208518e404cec65255da315d6fcc6029397",
+          "rendererSources": {
+            "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+            "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "430967909abac3f0a3936a7aac0259695a6f3d9fc000ac6d942329a56ba7180f",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "257ddbfc6d4208f0af38ac8efd66eab40cd7da8c9f3fd077324e1db4df75b2d4",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "07cea12742473c1871ee1cc012600b278ad6d8e5b169254bf58dc1ab09c2c291",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "ba414e9fcb47956b4c2a8960e11ed408220edbbed456ec713e311a1096df284e",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+            "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "405a0b6e8ae2dd5f91a50f31d03a339a322788b1eaaade47b92e5bb443b25ebf",
+            "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "5ae46c53e12e61e9b3643cce2805c2d2a81d14e029c2cccd36b560f369722a98"
+          }
+        },
+        "files": {
+          "WINE.TXT": "46ca720bffe6d3f5d2a6dfcf3cdbbee2d83d9a4802c6b5fec22eb318fd4b85bc",
+          "source.json": "41352dbd90cb4001329418ac792070e676b6cf0b86017a2975b1a397745845c0",
+          "live-gpu.json": "aa4c9c249af72c9653950442c47e7f96723b9cadb2a6b76ca0db8964b7ade508",
+          "audit-groups.json": "225c4ad930699a1f4ea695ffef87a26269fd128b1957f23d1a88adc72b984d4c"
+        }
+      },
+      {
+        "directory": "stage6-wine-ddraw4-creation-contracts",
+        "summary": {
+          "checks": 28953,
+          "todos": 0,
+          "flaky": 11,
+          "failures": 121,
+          "skipped": 6
+        },
+        "exit": 121,
+        "failureGroups": {
+          "test_coop_level_mode_set": 10,
+          "test_set_surface_desc": 13,
+          "test_sysmem_overlay": 2,
+          "test_primary_palette": 2,
+          "test_surface_attachment": 15,
+          "test_lost_device": 3,
+          "test_offscreen_overlay": 3,
+          "test_overlay_rect": 5,
+          "test_transform_vertices": 2,
+          "test_ck_operation": 10,
+          "test_compute_sphere_visibility": 4,
+          "start_foreground_window_thread": 36,
+          "test_gdi_surface": 2,
+          "test_caps": 9,
+          "test_surface_format_conversion_alpha": 2,
+          "test_texture_wrong_caps": 1,
+          "test_filling_convention": 2
+        },
+        "gpuErrors": [],
+        "hostErrors": [],
+        "normalOwnerCleanup": [
+          {
+            "reason": "owner-released",
+            "devices": 3,
+            "resources": 3,
+            "remainingResources": [
+              {
+                "handle": 1049797,
+                "kind": 3,
+                "deviceHandle": 1049796,
+                "format": 22,
+                "width": 16,
+                "height": 16
+              },
+              {
+                "handle": 1051443,
+                "kind": 3,
+                "deviceHandle": 1051437,
+                "format": 21,
+                "width": 16,
+                "height": 16
+              },
+              {
+                "handle": 1051451,
+                "kind": 3,
+                "deviceHandle": 1051445,
+                "format": 21,
+                "width": 16,
+                "height": 16
+              }
+            ],
+            "after": {
+              "devices": 0,
+              "resources": 0,
+              "pendingFrame": false,
+              "activeQuery": false
+            }
+          }
+        ],
+        "forcedOwnerCleanup": [],
+        "postOwnerCleanup": {
+          "devices": 0,
+          "resources": 0
+        },
+        "source": {
+          "suite": "ddraw_ddraw4",
+          "commit": "415a275e3844c252ad385b46023095e9401ca234",
+          "source": {
+            "path": "ddraw_ddraw4.c",
+            "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw4.c",
+            "sha256": "5788fe13e3e2a5d893688fc09f9bc97d1945ce72428378335cfcd69a935d5433",
+            "gitBlob": "be26a5a74e5f21a3d04acb71c266744d72bb6818"
+          },
+          "dllSha256": "fe43003736558d88b368c6232732da6578724196ae995b5f5d6e4c33e4bcfc09",
+          "executableSha256": "4b70bb053ea88e2fab68053476c4f0f5efa214012fc5950f1e8722423821e4cd",
+          "rendererPageSha256": "ef29dd374ad561fe28894c4baad83208518e404cec65255da315d6fcc6029397",
+          "rendererSources": {
+            "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+            "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "db93e2bc3b8e69ad9f3ca2f9077198eaa9e0fc5cde84537b4b5e27573279e9f4",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "430967909abac3f0a3936a7aac0259695a6f3d9fc000ac6d942329a56ba7180f",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "257ddbfc6d4208f0af38ac8efd66eab40cd7da8c9f3fd077324e1db4df75b2d4",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "ff4e938ef1953249a9c97db763692ad191a99a25c1a776d887abc4ec3d9b794d",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "07cea12742473c1871ee1cc012600b278ad6d8e5b169254bf58dc1ab09c2c291",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "2c89af9386d58b6a3a140d8b1684f6e98ae710afa98cc853de05439d84713c66",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "ba414e9fcb47956b4c2a8960e11ed408220edbbed456ec713e311a1096df284e",
+            "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+            "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "405a0b6e8ae2dd5f91a50f31d03a339a322788b1eaaade47b92e5bb443b25ebf",
+            "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "5ae46c53e12e61e9b3643cce2805c2d2a81d14e029c2cccd36b560f369722a98"
+          }
+        },
+        "files": {
+          "WINE.TXT": "4a5a017e7094054728e797a5c1c6b4ddc303194403fb333e9d13561a9f177fcb",
+          "source.json": "6bc4f84602c820b54b8ba1dd8b6cf88227b022ed89cec98c00a2c8b2012a38d7",
+          "live-gpu.json": "9fad81eaddf3dec8b289d8e534e0c7b2f8ac34f01a9a32bdba57b0bca36520e4",
+          "audit-groups.json": "f2c853c74296624644c068b45d2e75ed67074c7c6b0806dec4ce772507658171"
+        }
+      }
+    ],
+    "sourceArchive": "stage6-79-rejected-source",
+    "nativeSources": {
+      "glbridge/ddrawproxy/ddraw_proxy.c": "0030b3908fe955803450bc662748fb833a414cdd725e24b8e5ac182dafef0a43",
+      "glbridge/ddrawproxy/d3d7_proxy.inc": "b2d2b55ec9a0d92308e24320a0dd0111b8f83fce58f54e750ff5d7b4a9df1755",
+      "glbridge/ddrawproxy/d3d_legacy_proxy.inc": "0f17fcce026e715c57d66da2c45dfd2e3ec5dc5669dfe2e7ab034f24d8c326ca",
+      "glbridge/ddrawproxy/ddraw_protocol.h": "19021a046d390adc23ca662ec4eb2b45cbe1569516a8990ff3b8757a41a20ba3",
+      "glbridge/runtime/d9wg_format_layouts.h": "2eff964c5ad834ed29d266785f6509ca419548e9f44e4dd434e9d892153cc9f5",
+      "glbridge/runtime/d9wg_lighting.c": "623369156d25847f676e3b316c9d3c1d47a4b89cece270dee6103e794bf6cd79",
+      "glbridge/runtime/d9wg_lighting.h": "4073ed5e4362cf245b441bfc8846737f557d1eb9bfc3a76cb4dd0875ed8b0def",
+      "glbridge/runtime/d9wg_lighting_profiles.c": "f28d8423e86f8195afc39a6e05054a86fac3e7af07b7ab8910e5e543423bc25f",
+      "glbridge/runtime/d9wg_lighting_profiles.h": "f93557eb65e60aeaac855f815c5324a823c079e75c5075b4d00891bd694d2341",
+      "glbridge/runtime/d9wg_vertex.c": "3db1bddc8e8c1f5f1040763e64edff58c05a9c76c15de3671cf411b48baa9f96",
+      "glbridge/runtime/d9wg_vertex.h": "d4aad5fe2587ca0c7bebbd3913991a85969f5532323dce8bddf9a95d04dcadf3",
+      "glbridge/runtime/d9wg_vertex_windows.h": "eaa23d2c09ba0c8ffd726a6dd1dd9668e8f2c23ef619c54b3793da208e6051d6",
+      "glbridge/ddrawproxy/ddraw_bc_codec.h": "7b67a414247d5b0241bbe1ba7722d9cea4813ae83527509ee8237b681dd29543",
+      "glbridge/d3d9proxy/d3d9_protocol.h": "85eaa48fa57af75ed0f18ceb7e5e295f5d1f84872f22f886295c2dd0e30421f1",
+      "glbridge/ddrawproxy/ddraw_platform_control.inc": "929ff7af8d3bcf260de6887c3890196e3f7d340daa58f888aa5135b0d23f359f",
+      "glbridge/ddrawproxy/ddraw_surface_control.inc": "4f22b32fd994f2bcecb5234023730b0c0be7ead2c3e24f8e1355f18c20a94ef0"
+    },
+    "scope": "Initial complete D7 had118 failures; D4 had121 and mode-group10 versus prior4, rejected by the per-group gate. Exact16 input files archived. Native primary preallocation metadata and retirement holds were then implemented; all four suites rerun against final frozen sources. Initial results are never substituted for final acceptance."
+  },
+  "rejectedInitialCreationReplay": {
+    "directory": "stage6-proxy-creation-initial",
+    "failureSha256": "736c97440c64d6034d2aa84b3cc4eee2df2457f86a60d6c90737ee72f84bd8c1",
+    "runnerSha256": "c346aef437a1701941df14bbcf1bb607c4b91e86f5bba5113abac9a8191c0eca",
+    "scope": "Program completed60 records; wrapper incorrectly expected5 transport releases for5 DDraw objects in one process. Actual owner/release count1 is correct for the process-scoped transport. Raw failed run retained; expected count corrected to1 and full same audited DLL program rerun."
+  }
+}

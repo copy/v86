@@ -1,0 +1,303 @@
+{
+  "source": "glbridge/sample/ddraw_creation_reference.c",
+  "sourceSha256": "28c0839e1babd91df85cb5051afb3b989d5defb1f351d4b107965d5ba9a03e6d",
+  "executableSha256": "b8a9ce2f56656e1a5804c5ddd4fa6622d9e3d43860688d6eca49585362c53b97",
+  "seconds": 127,
+  "batches": 0,
+  "results": [
+    {
+      "version": 1,
+      "name": "query_view",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 1,
+      "name": "before_primary",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 1,
+      "name": "before_system",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 1,
+      "name": "before_video",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 1,
+      "name": "before_null",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 1,
+      "name": "normal",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 1,
+      "name": "normal_null",
+      "hr": 2147942487,
+      "output": 2
+    },
+    {
+      "version": 1,
+      "name": "exclusive",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 1,
+      "name": "flip_create",
+      "hr": 0,
+      "output": 1
+    },
+    {
+      "version": 1,
+      "name": "flip_valid",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 1,
+      "name": "flip_normal",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 1,
+      "name": "flip_lost",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 2,
+      "name": "query_view",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 2,
+      "name": "before_primary",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 2,
+      "name": "before_system",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 2,
+      "name": "before_video",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 2,
+      "name": "before_null",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 2,
+      "name": "normal",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 2,
+      "name": "normal_null",
+      "hr": 2147942487,
+      "output": 2
+    },
+    {
+      "version": 2,
+      "name": "exclusive",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 2,
+      "name": "flip_create",
+      "hr": 0,
+      "output": 1
+    },
+    {
+      "version": 2,
+      "name": "flip_valid",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 2,
+      "name": "flip_normal",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 2,
+      "name": "flip_lost",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 3,
+      "name": "query_view",
+      "hr": 2147500034,
+      "output": 0
+    },
+    {
+      "version": 4,
+      "name": "query_view",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 4,
+      "name": "before_primary",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 4,
+      "name": "before_system",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 4,
+      "name": "before_video",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 4,
+      "name": "before_null",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 4,
+      "name": "normal",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 4,
+      "name": "normal_null",
+      "hr": 2147942487,
+      "output": 2
+    },
+    {
+      "version": 4,
+      "name": "exclusive",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 4,
+      "name": "flip_create",
+      "hr": 0,
+      "output": 1
+    },
+    {
+      "version": 4,
+      "name": "flip_valid",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 4,
+      "name": "flip_normal",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 4,
+      "name": "flip_lost",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 7,
+      "name": "query_view",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 7,
+      "name": "before_primary",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 7,
+      "name": "before_system",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 7,
+      "name": "before_video",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 7,
+      "name": "before_null",
+      "hr": 2289434836,
+      "output": 2
+    },
+    {
+      "version": 7,
+      "name": "normal",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 7,
+      "name": "normal_null",
+      "hr": 2147942487,
+      "output": 2
+    },
+    {
+      "version": 7,
+      "name": "exclusive",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 7,
+      "name": "flip_create",
+      "hr": 0,
+      "output": 1
+    },
+    {
+      "version": 7,
+      "name": "flip_valid",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 7,
+      "name": "flip_normal",
+      "hr": 0,
+      "output": 0
+    },
+    {
+      "version": 7,
+      "name": "flip_lost",
+      "hr": 0,
+      "output": 0
+    }
+  ]
+}
