@@ -63,7 +63,7 @@ const TYPES = { ".html": "text/html", ".js": "text/javascript", ".mjs": "text/ja
     ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png" };
 
 const profile = fs.mkdtempSync(path.join(os.tmpdir(), "v86-app-browser-"));
-let browser, timeout, focus_socket;
+let browser, timeout, focus_socket, finished=false;
 const focused = process.env.BROWSER_FOCUS === "1";
 // A headless window can become hidden after navigation on macOS. Keep a
 // protocol session open so rAF-driven presenters behave as a visible page.
@@ -73,11 +73,13 @@ async function focus_page(endpoint)
     let target;
     for(let i=0;i<100&&!target;i++)
     {
+        if(finished)return;
         const list=await(await fetch(origin.origin+"/json/list")).json();
         target=list.find(t=>t.type==="page"&&t.url.includes("/"+page));
         if(!target)await new Promise(resolve=>setTimeout(resolve,100));
     }
     if(!target)throw new Error("The acceptance page did not become available for focus emulation");
+    if(finished)return;
     focus_socket=new WebSocket(target.webSocketDebuggerUrl);
     await new Promise((resolve,reject)=>{focus_socket.onopen=resolve;focus_socket.onerror=reject;});
     await new Promise((resolve,reject)=>{
@@ -249,6 +251,8 @@ const server = http.createServer((req, res) =>
 
 function finish(code)
 {
+    if(finished)return;
+    finished=true;
     focus_socket?.close();
     timing_pause(false);
     clearTimeout(timeout);
