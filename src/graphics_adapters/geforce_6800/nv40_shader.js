@@ -22,14 +22,16 @@ class Shader
         this.stage=stage;this.declarations=[];this.body=[];this.inputs=new Map();this.outputs=new Map();
         this.input_overrides=new Map();this.temps=new Map();this.samplers=new Map();this.constants=new Set(reserved);this.aliases=new Map();this.literals=new Map();
     }
-    emit(op,...operands) { this.body.push((operands.length<<24|op)>>>0,...operands); }
+    emit(op,...operands) { const words=operands.flat();this.body.push((words.length<<24|op)>>>0,...words); }
     declare(type,index,meaning) { this.declarations.push(0x0200001F,semantic(...meaning),dst(type,index)); }
     temp(key)
     {
         if(!this.temps.has(key))
         {
-            if(this.temps.size>=29) throw new RangeError("NV40 straight-line temporary register budget");
-            this.temps.set(key,this.temps.size);
+            if(this.temps.size>=256) throw new RangeError("NV40 lowered temporary register budget");
+            // Reserve r29..31 for ALU/VLIW staging. The shared WGSL translator
+            // permits further local registers for NV's larger register files.
+            this.temps.set(key,this.temps.size+(this.temps.size>=29?3:0));
         }
         return this.temps.get(key);
     }
@@ -75,7 +77,7 @@ class Shader
         else if(source.type==="constant")
         {
             type=2;index=this.stage==="fragment"?constant:source.index;
-            if(index<0 || index>=(this.stage==="fragment"?224:256)) throw new RangeError("NV40 shader constant limit");
+            if(index<0 || index>=(this.stage==="fragment"?224:544)) throw new RangeError("NV40 shader constant limit");
             this.constants.add(index);
         }
         else throw new RangeError("NV40 invalid shader operand");
@@ -86,8 +88,8 @@ class Shader
     {
         if(!this.literals.has(value))
         {
-            let index=(this.stage==="vertex"?256:224)-1;
-            while(index>=0 && this.constants.has(index))index--;
+            let index=this.stage==="vertex"?544:223;
+            while(index>=0 && this.constants.has(index))index+=this.stage==="vertex"?1:-1;
             if(index<0)throw new RangeError("NV40 arithmetic constant register budget");
             this.constants.add(index);this.literals.set(value,index);
             const word=new Uint32Array(Float32Array.of(value).buffer)[0];
@@ -150,7 +152,7 @@ class Shader
             constants:Array.from(this.constants).sort((a,b)=>a-b)};
     }
 }
-const arity = name => ["MOV","RCP","RSQ","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG"].includes(name)?1:
+const arity = name => ["MOV","RCP","RSQ","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG","ARL","ARR"].includes(name)?1:
     ["MUL","ADD","DP3","DP4","DPH","DST","MIN","MAX","SLT","SGE","SLE","SGT","SEQ","SNE","DIV"].includes(name)?2:
     name==="MAD" || name==="DP2A"?3:0;
 const nullary=name=>name==="SFL" || name==="STR";
@@ -159,6 +161,34 @@ export function translate_vertex_program(program,options={})
 {
     const shader=new Shader("vertex",program.instructions.flatMap(i=>i.sources.filter(s=>s.type==="constant").map(s=>s.index))),raw=new Map();
     const output=index=>{if(!raw.has(index))raw.set(index,shader.temp("output"+index));return raw.get(index);};
+    const addresses=new Map();
+    const address=register=>{
+        if(register>1)throw new RangeError("NV40 invalid address register");
+        if(!addresses.has(register))
+        {
+            const temp=shader.temp("address"+register);addresses.set(register,temp);
+            shader.emit(OP.MOV,dst(0,temp),shader.literal(0));
+        }
+        return addresses.get(register);
+    };
+    if(program.instructions.some(i=>i.address.input))for(let input=0;input<16;input++)shader.input(input);
+    for(const i of program.instructions)
+    {
+        if(i.address.input || i.address.constant)address(i.address.register);
+        if(["ARL","ARR"].includes(i.vector.name))address(i.vector.index);
+    }
+    const source=(i,operand,slot,index)=>{
+        const relative=operand.type==="constant"?i.address.constant:operand.type==="input" && i.address.input;
+        if(!relative)return shader.source(operand,-1,slot===1 || i.vector.name==="ARL");
+        const component=Array(4).fill(i.address.component),last=operand.type==="constant"?543:15;
+        shader.emit(OP.ADD,dst(0,29),src(0,address(i.address.register),component),shader.literal(operand.index));
+        shader.emit(OP.MAX,dst(0,29),src(0,29),shader.literal(0));
+        shader.emit(OP.MIN,dst(0,29),src(0,29),shader.literal(last));
+        shader.emit(OP.MOVA,dst(3,0,1),src(0,29));
+        const token=shader.source({...operand,index:0},-1,slot===1 || i.vector.name==="ARL"),temp=shader.temp("relative"+slot+"-"+index);
+        shader.emit(OP.MOV,dst(0,temp),[(token|0x2000)>>>0,src(3,0,[0,0,0,0])]);
+        return src(0,temp);
+    };
     const conditions=new Map();
     const condition=register=>{
         if(!conditions.has(register))
@@ -176,7 +206,7 @@ export function translate_vertex_program(program,options={})
     for(const instruction of program.instructions)
     {
         const i=instruction;
-        if(i.address.input || i.address.constant) throw new RangeError("NV40 vertex relative address needs lowering");
+        if(i.address.output)throw new RangeError("NV40 relative output addressing needs lowering");
         if(i.predicate.enabled && i.predicate.condition===0)continue;
         const conditional=i.predicate.enabled && i.predicate.condition!==7;
         if(conditional)
@@ -190,9 +220,16 @@ export function translate_vertex_program(program,options={})
             const op=slots[slot];if(op.name==="NOP" || !op.mask) continue;
             const count=arity(op.name);if(!count && !nullary(op.name)) throw new RangeError("NV40 unsupported vertex opcode "+op.name);
             const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
-            const sources=selectors.map(index=>shader.source(i.sources[index],-1,slot===1));
-            shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
-            const index=op.type==="output"?output(op.index):shader.temp("r"+op.index);
+            const sources=selectors.map(index=>source(i,i.sources[index],slot,index));
+            const addressOp=["ARL","ARR"].includes(op.name);
+            if(op.name==="ARL")shader.alu("FLR",dst(0,30+slot,op.mask),sources);
+            else if(op.name==="ARR")
+            {
+                shader.emit(OP.MOVA,dst(3,0,op.mask),sources[0]);
+                shader.emit(OP.MOV,dst(0,30+slot,op.mask),src(3,0));
+            }
+            else shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
+            const index=addressOp?address(op.index):op.type==="output"?output(op.index):shader.temp("r"+op.index);
             results.push({index,mask:op.mask,slot});
         }
         for(const {index,mask,slot}of results)
@@ -223,7 +260,7 @@ export function translate_vertex_program(program,options={})
         const v=options.viewport,w=v.width,h=v.height;
         if(!(w>0 && h>0)) throw new RangeError("NV40 viewport dimensions");
         const reserve=()=>{
-            for(let i=255;i>=0;i--) if(!shader.constants.has(i)) {shader.constants.add(i);return i;}
+            for(let i=544;i<2048;i++) if(!shader.constants.has(i)) {shader.constants.add(i);return i;}
             throw new RangeError("NV40 viewport constant register budget");
         };
         const scale=reserve(),bias=reserve(),output=dst(6,shader.output(0));

@@ -111,7 +111,7 @@ export class NV40Render
     initialize()
     {
         if(this.created) return;
-        this.command(OP.CREATE_DEVICE,{"width":1,"height":1,"backbuffer_format":21,"windowed":1});
+        this.command(OP.CREATE_DEVICE,{"width":1,"height":1,"backbuffer_format":21,"windowed":1,"behavior_flags":0x20});
         this.created=true;
     }
     target(surface,bytes,usage=1)
@@ -241,7 +241,7 @@ export class NV40Render
                 this.command(OP.SET_SAMPLER_STATE,{"sampler":unit,"state":state,"value":value});
         }
         this.command(OP.SET_VERTEX_SHADER,{"shader_handle":vs});this.command(OP.SET_PIXEL_SHADER,{"shader_handle":ps});
-        this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,0,this.engine.vertex_constants(o,0,256));
+        this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,0,this.engine.vertex_constants(o,0,544));
         for(const [index,values]of shaders.vertex.viewport_constants)this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,index,values);
         shaders.fragment.constant_values.forEach((values,index)=>this.constants(OP.SET_PIXEL_SHADER_CONSTANT_F,index,values));
         this.render_state(22,cull.state);for(const [state,value]of zsa.states)this.render_state(state,value);

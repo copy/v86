@@ -492,9 +492,28 @@ try
                 method(0x1808,0);await engine.backend.wait();
                 assert.deepEqual([...vram.subarray(0x10000,0x10004)],Array(4).fill(vector?64:191),"CDST selects the original vector/scalar VLIW result");
             }
+            for(const [name,value,baseIndex,relativeInput,expected]of [
+                ["ARL",1.75,1,false,Array(4).fill(191)],["ARR",1.75,1,false,Array(4).fill(128)],
+                ["ARL",-.25,3,false,Array(4).fill(191)],["ARR",-.25,3,false,Array(4).fill(128)],
+                ["ARL",300,200,false,[128,255,0,255]],["ARL",1.75,1,true,[128,0,255,255]]])
+            {
+                method(0x1EFC,0);
+                [...new Uint32Array(Float32Array.of(value,value,value,value,.25,.25,.25,.25,.75,.75,.75,.75,.5,.5,.5,.5).buffer)]
+                    .forEach((word,i)=>method(0x1F00+(i%4)*4,word));
+                method(0x1EFC,500);[...new Uint32Array(Float32Array.of(0,1,.5,1).buffer)].forEach((word,i)=>method(0x1F00+i*4,word));
+                [...new Uint32Array(Float32Array.of(1,0,.5,1).buffer)].forEach((word,i)=>method(0x1C20+i*4,word));
+                const position=structuredClone(base),load=structuredClone(base),color=structuredClone(base);
+                load.vector={name,type:"temp",index:1,mask:15};load.sources[0]={...load.sources[0],type:"constant",index:0};
+                color.vector.index=1;color.sources[0]={...color.sources[0],type:relativeInput?"input":"constant",index:baseIndex};
+                color.address={register:1,component:0,input:relativeInput,constant:!relativeInput};
+                vertexProgram={stage:"vertex",instructions:[position,load,color]};
+                method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+                assert.deepEqual([...vram.subarray(0x10000,0x10004)],expected,name+" relative "+(relativeInput?"attribute":"constant")+" value "+value);
+            }
         }
         finally {engine.shaders=nativeShaders;}
-        console.log("PASS: real WebGPU vertex condition banks, eight comparisons, NaN and component-swizzled predication");
+        console.log("PASS: real WebGPU vertex predicates, ARL/ARR rounding, relative attributes and guest constant 500");
 
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

@@ -58,7 +58,7 @@ try
     setTrue.vector={name:"STR",mask:15,type:"temp",index:0};late.instructions.unshift(setTrue);
     late.instructions[1].sources[0]={...late.instructions[1].sources[0],type:"constant",index:255};
     const lateCode=translate_vertex_program(late);validate("late-constant",lateCode);
-    assert(lateCode.constants.includes(254) && lateCode.constants.includes(255),"internal constants cannot shadow a later guest operand");
+    assert(lateCode.constants.some(index=>index>=544) && lateCode.constants.includes(255),"internal constants cannot shadow a later guest operand");
     for(const name of ["TEX","TXP","TXB","TXL","TXD"])
     {
         const p=structuredClone(fragment),i=p.instructions[0];i.name=name;i.sources=Array.from({length:3},()=>({type:"input",index:4,swizzle:[0,1,2,3],negate:false,absolute:false}));
@@ -76,7 +76,16 @@ try
         validate("vertex-cc-"+register+"-"+condition,translate_vertex_program(p));
     }
     const relative=structuredClone(vertex);relative.instructions[0].address.constant=true;
-    assert.throws(()=>translate_vertex_program(relative),/relative/);
+    validate("relative-constant-unused",translate_vertex_program(relative));
+    for(const name of ["ARL","ARR"])
+    {
+        const p=structuredClone(vertex),load=structuredClone(p.instructions[0]);load.vector={name,type:"temp",index:1,mask:15};
+        p.instructions.unshift(load);p.instructions[1].address={register:1,component:2,input:false,constant:true};
+        p.instructions[1].sources[0]={...p.instructions[1].sources[0],type:"constant",index:7};
+        validate("relative-constant-"+name,translate_vertex_program(p));
+        p.instructions[1].sources[0].type="input";p.instructions[1].sources[0].index=2;p.instructions[1].address.input=true;
+        const t=translate_vertex_program(p);assert.equal(t.inputs.length,16);validate("relative-input-"+name,t);
+    }
     const conditional=structuredClone(fragment);conditional.instructions[0].predicate.condition=1;
     validate("conditional",translate_fragment_program(conditional));
     for(let condition=1;condition<7;condition++) {conditional.instructions[0].predicate.condition=condition;conditional.instructions[0].predicate.update=true;validate("cc-"+condition,translate_fragment_program(conditional));}
