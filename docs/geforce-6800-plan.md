@@ -783,6 +783,11 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   插值及跨字节 3-bit selector 均有参考字节测试，DMA 越界仍报错。Chrome WebGPU
   实际采样三种格式并读回颜色/alpha 正确；设备纹理测试和插件 Closure 构建通过。
 
+- G2/G3 SIFM 续修：XP DxDiag D3D8 使用 RGB565、16-pixel clamp 与 8-byte pitch
+  更新小 mip。SIZE 限制取样坐标，不限制独立的 DMA pitch；允许源行重叠和零 pitch
+  重复行，继续在目标改写前检查完整 DMA 范围。新增逐行像素、零 pitch 和源越界
+  原子性回归；2D 测试与插件 Closure 构建通过。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

@@ -350,9 +350,14 @@ export class NV2D
     {
         const [width, height] = wh(m(o, 0x400)), fmt = m(o, 0x404), pitch = fmt & 65535, format = m(o, 0x300);
         const bpp = format === 3 || format === 4 ? 4 : format === 8 ? 1 : 2;
-        if(!width || !height || pitch < width * bpp || pitch * height > this.device.vram_size || format < 1 || format > 9 ||
+        // SIZE is a sampling clamp, independent of the DMA row stride. The
+        // native driver uses a wide clamp with an 8-byte mip-tail pitch; rows
+        // may overlap, and zero pitch repeats the same row.
+        const extent=pitch*(height-1)+width*bpp;
+        if(!width || !height || extent > this.device.vram_size || format < 1 || format > 9 ||
+            ![1,2].includes(fmt>>>16&255) || fmt>>>24>1 ||
             (format === 5 || format === 6) && width & 1) throw new RangeError("NV SIFM invalid image");
-        const bytes = this.device.dma.read(this.dma(o, 0x184), m(o, 0x408), pitch * (height - 1) + width * bpp);
+        const bytes = this.device.dma.read(this.dma(o, 0x184), m(o, 0x408), extent);
         const [x, y] = xy(m(o, 0x310)), [w, h] = wh(m(o, 0x314));
         const [cx, cy] = xy(m(o, 0x308)), [cw, ch] = wh(m(o, 0x30C));
         const rect = this.bounds(x, y, w, h, [cx, cy, cx + cw, cy + ch]);

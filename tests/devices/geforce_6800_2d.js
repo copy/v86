@@ -100,6 +100,18 @@ assert.equal(view.getUint32(256 + 32 + 4, true), 0xFF9F4040, "bilinear interpola
 assert.deepEqual(engine.sample(new Uint8Array([16,128,235,128]), 2, 1, 4, 5, 0, 0), [0,0,0,255]);
 assert.deepEqual(engine.sample(new Uint8Array([16,128,235,128]), 2, 1, 4, 5, 1, 0), [255,255,255,255]);
 assert.deepEqual(engine.sample(new Uint8Array([128,16,128,235]), 2, 1, 4, 6, 1, 0), [255,255,255,255]);
+// SIFM's clamp width does not impose a minimum source row pitch.
+target.methods.set(0x300,4);vram.fill(0,256,384);
+for(const [at,value]of [[0x300,7],[0x400,3<<16|4],[0x404,1<<16|4],[0x30C,3<<16|2],
+    [0x314,3<<16|2],[0x318,0x100000],[0x31C,0x100000]])scale.methods.set(at,value);
+new Uint16Array(vram.buffer,0x1000,8).set([0xF800,0x07E0,0x001F,0xFFFF,0x1234,0x5678,0x9ABC,0xDEF0]);
+call(scale,0x40C,0);
+for(let y=0;y<3;y++)for(let x=0;x<2;x++)assert.equal(view.getUint16(256+y*32+x*2,true),view.getUint16(0x1000+y*4+x*2,true),"overlapping source rows");
+scale.methods.set(0x404,1<<16);call(scale,0x40C,0);
+for(let y=0;y<3;y++)assert.equal(view.getUint16(256+y*32,true),0xF800,"zero source pitch repeats the row");
+word(0x1004,0x1006);const beforeShort=vram.slice(256,384);
+assert.throws(()=>call(scale,0x40C,0),/limit/);assert.deepEqual(vram.subarray(256,384),beforeShort,"source bounds are checked before any destination writes");
+word(0x1004,0x1FFF);target.methods.set(0x300,10);
 const swz = object(0x5800, 0x309E, [[0x184, 0x100], [0x300, 1 << 24 | 2 << 16 | 1], [0x304, 512]]);
 const upload = object(0x5900, 0x308A, [[0x19C, 0x580], [0x2FC, 3]]);
 engine.render(upload, engine.surface(upload, 0x19C), [0,0,4,2], (x,y) => x + y * 4, [0x18C, 0x190]);
