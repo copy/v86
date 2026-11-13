@@ -13,7 +13,7 @@ export class NVFIFO
     {
         this.device = device;
         this.faults = [];
-        this.commands=[];
+        this.commands=[];this.control_commands=[];
         this.active = -1;
         this.channels = new Map();
         this.running = false;
@@ -65,8 +65,12 @@ export class NVFIFO
             const [id, at] = user;
             const field = at === 0x40 ? 0 : at === 0x44 ? 4 : at === 0x48 ? 8 : -1;
             if(field >= 0) return id === this.active ? this.reg(0x3240 + field) : this.word(this.ramfc(id) + field);
-            if(at === 0x54) return id === this.active && this.reg(0x3228) & 0x20000 ? this.reg(0x324C) :
-                id === this.active ? this.reg(0x3244) : this.word(this.ramfc(id) + 4);
+            if(at === 0x54)
+            {
+                const active=id===this.active,state=active?this.reg(0x3228):this.word(this.ramfc(id)+0x14);
+                return state&0x20000 ? active?this.reg(0x324C):this.word(this.ramfc(id)+0x34) :
+                    active?this.reg(0x3244):this.word(this.ramfc(id)+4);
+            }
             return 0;
         }
         if(offset === 0x3214 || offset === 0x2400)
@@ -161,7 +165,7 @@ export class NVFIFO
     {
         const get=this.reg(0x3270),at=0x90000+(get&0x7FC)*2,header=this.reg(at);
         this.faults.push({kind,flags,channel:this.active,put:this.reg(0x3240),get:this.reg(0x3244),
-            dma:this.reg(0x322C)*16,state:this.reg(0x3228),reason,dmaFault,commands:kind==="dma"?this.commands.slice():undefined,cache_get:get,subc:header>>>13&7,method:header&0x1FFC,value:this.reg(at+4),sequence:this.device.trace.sequence});
+            dma:this.reg(0x322C)*16,state:this.reg(0x3228),reason,dmaFault,commands:kind==="dma"?this.commands.slice():undefined,controlCommands:kind==="dma"?this.control_commands.slice():undefined,cache_get:get,subc:header>>>13&7,method:header&0x1FFC,value:this.reg(at+4),sequence:this.device.trace.sequence});
         if(this.faults.length>64)this.faults.shift();
     }
     cache_error(flags)
@@ -286,6 +290,10 @@ export class NVFIFO
                     if(!count && this.device.trace.enabled)
                     {
                         this.commands.push({channel:this.active,get,word});if(this.commands.length>64)this.commands.shift();
+                        if(word&3 || (word&0xE0000003)===0x20000000 || word===0x20000)
+                        {
+                            this.control_commands.push({channel:this.active,get,word});if(this.control_commands.length>64)this.control_commands.shift();
+                        }
                     }
                     if(count)
                     {

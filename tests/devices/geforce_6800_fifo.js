@@ -150,3 +150,13 @@ console.log("PASS: NV40 RAMFC channels, DMA pusher flow/error/budget, RAMHT, REF
     assert.equal(fifo.faults.length,64);assert.equal(fifo.faults.at(-1).kind,"cache");
     const state=fifo.get_state();fifo.set_state(state);assert.equal(fifo.faults.length,64,"diagnostics survive guest resets but are not hardware snapshot fields");
 }
+
+{
+    const f=fixture();f.submit([0x82],1); // CALL to byte 128, budget stops before the callee.
+    assert.equal(f.fifo.read(0xC00044),128);assert.equal(f.fifo.read(0xC00054),4);
+    const other=new DataView(f.ram.buffer);other.setUint32(0x5000,header(0x50),true);other.setUint32(0x5004,7,true);
+    f.regs.set(0x2504,2);f.fifo.write(0xC01040,8);
+    assert.equal(f.fifo.active,1);assert.equal(f.fifo.read(0xC00044),128);
+    assert.equal(f.fifo.read(0xC00054),4,"inactive CGET reports the saved main-buffer return address, not the callee GET");
+    const saved=f.fifo.get_state();f.fifo.set_state(saved);assert.equal(f.fifo.read(0xC00054),4);
+}
