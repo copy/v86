@@ -56,6 +56,44 @@ Browser NAND is packed by written ranges. Its logical geometry is fixed;
 the actual host file grows as the guest writes new ranges. Browser disk
 exports contain Apple system files and are for personal backup.
 
+## Install a local IPA
+
+New IPSW imports include the v86 installation helper. In the running iPhone
+console, choose **Install IPA…**, select a local IPA and review its application
+name, bundle ID, version and compatibility report. Choose **Install** or
+**Update**. **Installed** appears after the native iOS installer, the installed
+code identity check and the persistent NAND commit have all completed.
+Choose **Open application** to ask SpringBoard to launch it. The first iPhone
+startup can take several minutes; if SpringBoard is still starting, wait and
+try Open again.
+
+The initial scope is unencrypted ARMv7 applications compatible with iOS 6.1.3.
+ARM64-only packages, FairPlay-encrypted App Store executables, unsupported
+entitlements and executables without enough Mach-O header space are rejected
+with a reason. Applications are prepared and signed locally in a browser
+Worker. The installation policy accepts only approved local code identities
+and retains native signature validation. A successful installation does not
+imply that an application's unavailable device features or graphics will work.
+
+Updating uses iOS's existing application container. Close the dialog after
+the update and reopen the application to check its saved data. Power off and
+reopen the same VM to test persistence without a memory snapshot. Closing the
+installation dialog preserves its task; reopening it shows the same progress.
+
+Older NAND disks without the helper report that installation is unsupported.
+Import the IPSW as a new iPhone and keep the existing VM for its data.
+Developer builds verify the bundled original helper assets with
+`make ios-install-assets`; changing their guest sources requires
+`make ios-install-assets-refresh` on macOS before rebuilding the app.
+
+For reproducible local test applications, `make ios-install-fixtures` builds
+`build/ios-install-fixtures/V86InstallTest.ipa` (UIKit and a saved tap counter)
+and `V86GLES2Test.ipa` (the same counter plus a GLES 2.0 triangle).
+Build an update with
+`V86_FIXTURE_VERSION=2 sh tools/ios/guest/build-apps.sh build/ios-install-fixtures-v2`.
+The [IPA implementation plan](ios-ipa-install-plan.md) records the acceptance
+results and the real console UI test procedure.
+
 ## Local tools and checks
 
 `tools/ios/ipsw.mjs` checks and extracts the supplied firmware.

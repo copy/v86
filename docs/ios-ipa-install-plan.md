@@ -136,26 +136,48 @@ MobileInstallationInstall → installd → 应用容器与系统注册
 - 已用本地 10B329 固件完成真实 UI 安装：准备 Worker、CPU Worker、OPFS NAND、原生
   `MobileInstallationInstall` 和安装后身份查询全部通过。UIKit 测试包 1.0 冷启动后仍能由原生查询确认已注册。
   UIKit 应用已实际显示界面并接收触摸。2.0 保存计数 1 后，通过 UI 更新到 3.0，界面仍显示计数 1。
-  更新后的非零存档冷启动验收仍在进行，不能以安装成功代替这一结果。
+  随后通过电源菜单关机并重新打开同一 OPFS 虚机，3.0 仍显示计数 1；整个冷启动没有恢复内存快照。
 - P1 的 IPA 检查已实现：XML / binary plist、ARMv7 Fat 切片、加密与最低版本检查、路径和 CRC 检查。
   两个自制 IPA 已通过检查；合成错误样本、原有 iOS 检查和 Android ZIP 使用方回归通过。
   这部分不依赖原生安装结果，在 P0 的冷启动验收运行期间完成。
 - P2 的包准备基础已实现：图形依赖注入、保留 XML entitlements、SHA-1 ad-hoc 重签名、资源封装和流式 ZIP 重建。
-  两个自制 IPA 的准备结果均通过 macOS `codesign --verify --strict`；原版系统中的图形与安装联合验收仍待完成。
+  两个自制 IPA 的准备结果均通过 macOS `codesign --verify --strict`；原版系统中的 UI 安装、UIKit 运行和 GLES 窗口输出已验证。
 
 - P3 基础已实现：经过原内核指纹验证的信任重建、189 项上限、版本化安装状态、双启动银行、
   损坏或未提交银行回退。使用本地 10B329 内核的重建、更新、擦除与回退检查通过。
   签名适配已通过原生安装：保留 iOS 6 的 CodeDirectory、嵌入 Info.plist、完整代码页校验和原生签名身份，
   仅为批准的本地 ad-hoc 包补充安装映射需要的非证书描述。
 - P4/P5 已通过真实 UI 链路的鉴权、分块传输、文件摘要校验、信任发布、原生安装与持久提交。
-  公共快照序列化已修复并通过真实虚机保存；安装中断与快照恢复等完整场景继续验收。
+  公共快照序列化已修复；真实虚机保存并恢复同代次快照后，助手重新鉴权，原生查询仍返回 3.0、持久代次 9。
 - P6 的对话框和准备 Worker 已接入；浏览器用例覆盖真实检查/重签名、更新与降级选择、分块上传、
   安装提交、关闭重开和错误。另有使用真实原生服务的 UI 安装记录。
   新增 **Open application**，通过鉴权助手调用 SpringBoardServices，仅允许持久清单中且代码身份获批的应用。
   该按钮报告原生启动请求结果；SpringBoard 尚未就绪时明确显示错误，不宣称应用已经运行。
 - 验收浏览器重开页面后可能被 headless Chrome 标为隐藏，停止 rAF，造成截图黑屏；客体 LCD 缓冲仍有真实画面。
   `BROWSER_FOCUS=1` 用持续的 Chrome 调试会话保持活动页面。已修正该测试环境问题，未改写客体帧缓冲。
-  GLES 测试包的窗口绘制以及 P7 的完整持久化验收继续进行。
+  GLES 测试包已通过 UI 安装和启动，显示 320×300 的橙色三角形；点击保存后计数变为 1、背景从蓝色变为绿色。
+  GLES 日志仍有 `glError=1282`，此处确认的是窗口输出及交互，不构成完整 GLES 一致性或商业游戏兼容性验收。
+
+### 本地真实验收记录（2026-11-14）
+
+| 场景 | 实际结果 | 本地证据 |
+| --- | --- | --- |
+| UIKit 的 UI 安装、原生校验与运行 | 安装成功，实际 UIKit 界面可见 | `build/ios/ipa-ui-open/ui-run.log`、`after-open.png` |
+| 非零存档经过版本更新 | 2.0 保存计数 1，UI 更新到 3.0 后仍为 1 | `build/ios/ipa-ui-open/v3-visible.png` |
+| 关机后从持久 NAND 冷启动 | 原生查询 3.0，界面仍为计数 1，持久代次 9 | `build/ios/ipa-ui-open/acceptance/11-v3-cold-saved.png` |
+| 同代次快照保存与恢复 | 保存 515,546,240 字节，恢复后助手重新鉴权，原生查询仍为 3.0、界面计数仍为 1 | `build/ios/ipa-ui-open/snapshot-roundtrip.json`、`acceptance/12-v3-snapshot-restored.png` |
+| SpringBoard 注册 | 主屏第二页显示 UIKit 与 GLES 测试应用图标 | `build/ios/ipa-ui-open/acceptance/15-springboard-apps.png` |
+| GLES 窗口及触摸重绘 | 三角形可见，点击后计数 1、绿色背景 | `build/ios/ipa-ui-gles-deferred/acceptance/03-gles-saved.png` |
+
+以上浏览器均使用独立测试 profile、真实准备 Worker、CPU Worker、OPFS 和原生助手。
+截图与固件相关的原始文件仅保存在所有者的本地 `build/`，不随代码提交。
+空间不足、各个提交点的断电、完整备份恢复和旧 NAND 离线升级仍需各自的完整真实验收；不能由上述成功场景推定通过。
+
+自动检查已通过 `make ios-tests`、`make app-check`、`make gles-tests`、真实安装准备 Worker 的对话框测试、
+CPU Worker 面板测试、iPhone 导入向导测试及带本地原版 installd 的指纹/签名适配测试。
+发布目录检查生成 64 个文件，包含原生安装助手资源。
+完整 VM manager 回归不能标为全通过：此前的 `make app-tests` 在 ARM64 Linux 向导启动用例超时，
+本次独立重测同一 Alpine ARM64 用例仍在 300 秒超时；见 `build/ios-ipa-arm64-wizard-recheck.log`。
 
 ### P0：先验证 10B329 的原生安装链路
 
@@ -248,8 +270,11 @@ UI 只使用公共方法，不访问 `emulator.v86.cpu` 或直接改客体 RAM�
 ios_install_status()                       能力、助手状态、当前任务
 ios_install_begin(manifest)                创建任务，返回 install_id
 ios_install_write(install_id, offset, data) 有界分块传输并确认
+ios_install_stage(install_id)              核验已接收的包并保存待安装任务
 ios_install_commit(install_id)             提交准备好的任务
 ios_install_cancel(install_id)             在允许阶段取消
+ios_install_lookup(bundle_id)              查询原生注册结果和实际版本
+ios_open_application(bundle_id)            请求 SpringBoard 启动已批准的本地应用
 ios-install-progress                       阶段、字节数、原生进度、结果
 ```
 
@@ -360,14 +385,14 @@ BROWSER_FOCUS=1 TEST_ARTIFACT_DIR=build/ios/ipa-acceptance/acceptance TIMEOUT_MS
 
 ## 8. 完成标准
 
-- [ ] iPhone 控制台存在可操作的 **Install IPA…** 入口，非 iPhone 不显示。
-- [ ] 检查、准备、传输、原生安装与结果展示全部由 UI 衔接，必要冷重启能恢复任务。
-- [ ] 兼容性和失败原因明确；不支持的 IPA 不损坏现有虚机。
-- [ ] 首版支持范围内的应用出现在 SpringBoard，能够启动，冷启动后仍可使用。
-- [ ] 图形适配与代码信任覆盖新应用及其必需附带代码。
+- [x] iPhone 控制台存在可操作的 **Install IPA…** 入口，非 iPhone 不显示。
+- [x] 检查、准备、传输、原生安装与结果展示全部由 UI 衔接，必要冷重启能恢复任务。
+- [x] 兼容性和失败原因明确；不支持的 IPA 不损坏现有虚机。
+- [x] 首版支持范围内的应用出现在 SpringBoard，能够启动，冷启动后仍可使用。
+- [x] 图形适配与代码信任覆盖新应用及其必需附带代码。
 - [ ] 更新保留数据；取消、断线、空间不足、启动材料更新失败均有经过验证的恢复行为。
 - [ ] CPU Worker、关闭 WebGPU、快照、擦除和备份恢复行为均有验收证据。
-- [ ] 旧虚机能力和升级限制可见，使用文档反映实际完成情况。
+- [x] 旧虚机能力和升级限制可见，使用文档反映实际完成情况。
 
 建议实施顺序为 P0 → P1 → P2 / P3 → P4 → P5 → P6 → P7。
 第一个可运行里程碑是“原生安装自制 UIKit IPA 并点击启动”；最终交付必须包含 UI 入口及完整持久化流程，
