@@ -1,0 +1,51 @@
+{
+  "stage": "i440FX PAM write-protection regression and Win98 native cold boot",
+  "root_cause": {
+    "writer_eip": "C025CDF6",
+    "writer": "Win98 VDD page clear (STOSB / XCHG AH,AL), virtual C25C0000 -> physical C0000",
+    "pam1": "11 (both C0000-C7FFF shadow regions read-only)",
+    "old_result": "ROM header/code replaced by 20 07 text blanks; later INT 10h stuck at C2000"
+  },
+  "scope": "PAM write-enable semantics; shadow reads retain the existing RAM backing",
+  "guest": "win98",
+  "driver": "81.98",
+  "imageUnchanged": true,
+  "probe": [
+    "GDI_TEST failures=0",
+    "DDRAW_3D_MEMORY_RESULT=00000000",
+    "DDRAW_3D_MEMORY_TOTAL=076ff000",
+    "DDRAW_3D_MEMORY_FREE=07696e00",
+    "DDRAW_3D_SURFACE_RESULT=00000000",
+    "DDRAW_TEST failures=0",
+    "D3D9_CREATE",
+    "D3D9_CAPS_RESULT=00000000",
+    "D3D9_VS_VERSION=fffe0300",
+    "D3D9_PS_VERSION=ffff0300",
+    "D3D9_DEVICE",
+    "D3D9_DEVICE_RESULT=8876017c",
+    "D3D9_HAL_SWVP_RESULT=8876017c",
+    "D3D9_HAL_FULLSCREEN_RESULT=00000000",
+    "D3D9_CLEAR_RESULT=00000000",
+    "D3D9_DRAW",
+    "D3D9_DRAW_RESULT=00000000",
+    "D3D9_READBACK",
+    "D3D9_READBACK_RESULT=00000000",
+    "D3D9_PIXEL=ff336699",
+    "D3D9_DONE",
+    "D3D9_TEST failures=0"
+  ],
+  "romHeader": [
+    85,
+    170,
+    74,
+    233
+  ],
+  "gpu": {
+    "draws": 3,
+    "bytes": 2481584,
+    "readbacks": 3,
+    "failures": 0
+  },
+  "graphFaults": [],
+  "limitations": "Windowed D3D9 HWVP/SWVP still returns OUTOFVIDEOMEMORY; fullscreen HAL and pixel readback passed. Single cold boot, further stability runs pending."
+}

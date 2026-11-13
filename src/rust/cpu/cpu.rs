@@ -2438,7 +2438,7 @@ pub unsafe fn do_page_walk(
         true
     };
     let info_bits = TLB_VALID
-        | if for_writing { 0 } else { TLB_READONLY }
+        | if for_writing && !memory::shadow_write_protected(high) { 0 } else { TLB_READONLY }
         | if allow_user { 0 } else { TLB_NO_USER }
         | if is_in_mapped_range { TLB_IN_MAPPED_RANGE } else { 0 }
         | if global && 0 != cr4 & CR4_PGE { TLB_GLOBAL } else { 0 }
@@ -2505,7 +2505,7 @@ pub unsafe fn fill_ia32e_tlb(
     }
     let has_code = !extended && jit::page_needs_notification(Page::page_of(backing));
     let info = TLB_VALID
-        | if access == Access::Write { 0 } else { TLB_READONLY }
+        | if access == Access::Write && !memory::shadow_write_protected(backing) { 0 } else { TLB_READONLY }
         | if user { 0 } else { TLB_NO_USER }
         | if access == Access::Execute { 0 } else { TLB_IA32E_DATA }
         | if has_code { TLB_HAS_CODE } else { 0 };

@@ -138,6 +138,9 @@ unsafe fn locked_write(address: u64, size: usize, value: u128) -> bool {
     }
     crate::jit::jit_dirty_cache_small(operand.backing, operand.backing + size as u32);
     let at = crate::cpu::memory::mem8.add(operand.backing as usize);
+    let value = if crate::cpu::memory::shadow_write_protected(operand.backing) {
+        operand.old
+    } else {value};
     let committed = if size == 16 {
         crate::parallel::compare_exchange128(at, operand.old, value)
     }

@@ -759,6 +759,7 @@ CPU.prototype.wasm_patch = function()
 
     this.clear_tlb = get_import("clear_tlb");
     this.full_clear_tlb = get_import("full_clear_tlb");
+    this.set_pam_write_mask = get_import("set_pam_write_mask");
 
     this.apic_set_core_count = get_import("apic_set_core_count");
     this.apic_set_current_core = get_import("apic_set_current_core");

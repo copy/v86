@@ -326,8 +326,13 @@ PCI.prototype.create_i440fx = function()
         ],
         pci_bars: [],
         name: "82441FX PMC",
+        on_config_write: (offset,size) => {
+            if(offset<0x60 && offset+size>0x59) this.update_pam_writes();
+        },
+        on_config_restore: () => this.update_pam_writes(),
     };
     this.register_device(host_bridge);
+    this.update_pam_writes();
 
     this.isa_bridge = {
         pci_id: 1 << 3,
@@ -343,6 +348,21 @@ PCI.prototype.create_i440fx = function()
     };
     this.isa_bridge_space = this.register_device(this.isa_bridge);
     this.isa_bridge_space8 = new Uint8Array(this.isa_bridge_space.buffer);
+};
+
+// PAM0's upper nibble controls F0000-FFFFF; PAM1-6 each control two 16 KiB
+// regions starting at C0000. Bit 1 of each nibble enables shadow writes.
+// Reference encoding: Intel 82441FX / QEMU hw/pci-host/i440fx.c.
+PCI.prototype.update_pam_writes = function()
+{
+    const space=new Uint8Array(this.device_spaces[0].buffer);
+    let mask=space[0x59]&0x20?0xF000:0;
+    for(let i=0;i<6;i++)
+    {
+        if(space[0x5A+i]&2)mask|=1<<(i*2);
+        if(space[0x5A+i]&0x20)mask|=2<<(i*2);
+    }
+    this.cpu.set_pam_write_mask && this.cpu.set_pam_write_mask(mask);
 };
 
 /**

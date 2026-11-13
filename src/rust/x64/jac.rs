@@ -174,7 +174,7 @@ impl Bus for X86Bus {
         // ram_page refuses device windows. Not in_mapped_range: the backing of
         // RAM relocated above 4 GiB is a hole of the low bus, yet plain RAM here.
         let page = unsafe { physical::ram_page(physical & !4095) }.ok()?;
-        if (0xA0000..0xC0000).contains(&page.backing) {
+        if (0xA0000..0xC0000).contains(&page.backing) || memory::shadow_write_protected(page.backing) {
             return None;
         }
         Some(page.backing)
