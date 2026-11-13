@@ -177,6 +177,11 @@
   XP 93.71 原生模式测试/切换到 1024×768×32 成功且设备保持 started/problem=0，
   证据见 `g1-xp-9371-desktop.json`；Win98 重启后的问题码见 `g0-win98-8198-installed.json`。
 
+- CPU 2D 第五部分：增加 NV40 LIN 的整数线段、32-bit 坐标、折线与逐顶点颜色，
+  NV4 TRI 的独立/mesh 三角形、32-bit 坐标和实色方法。使用 Bresenham 与像素中心
+  top-left 覆盖规则；测试验证线段终点排除、两个 XOR 三角形的公共边只覆盖一次。
+  全部 2D 测试及插件构建通过。字体 DMA/完整客体验收与 3D 仍未完成。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

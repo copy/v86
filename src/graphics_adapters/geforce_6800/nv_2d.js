@@ -364,11 +364,93 @@ export class NV2D
         }
         finally { o.methods.set(0x2FC, operation); }
     }
+    line(o, a, b)
+    {
+        if([...a, ...b].some(v => v < -32768 || v > 32767)) throw new RangeError("NV line coordinate range");
+        const dst = this.surface(o, 0x198), clip = this.clip(o, 0x184), color = m(o, 0x304);
+        let [x, y] = a;
+        const dx = Math.abs(b[0] - x), dy = -Math.abs(b[1] - y), sx = x < b[0] ? 1 : -1, sy = y < b[1] ? 1 : -1;
+        let error = dx + dy;
+        while(x !== b[0] || y !== b[1])
+        {
+            this.render(o, dst, this.bounds(x, y, 1, 1, clip), () => color, [0x188, 0x18C, 0x190, 0x194]);
+            const twice = error * 2;
+            if(twice >= dy) { error += dy; x += sx; }
+            if(twice <= dx) { error += dx; y += sy; }
+        }
+    }
+    triangle(o, a, b, c)
+    {
+        const edge = (p, q, x, y) => (q[0] - p[0]) * (y - p[1]) - (q[1] - p[1]) * (x - p[0]);
+        const area = edge(a, b, c[0], c[1]);
+        if(!area) return;
+        if(area < 0) [b, c] = [c, b];
+        const left = Math.min(a[0], b[0], c[0]), top = Math.min(a[1], b[1], c[1]);
+        const rect = this.bounds(left, top, Math.max(a[0], b[0], c[0]) - left, Math.max(a[1], b[1], c[1]) - top, this.clip(o, 0x184));
+        const inside = (p, q, x, y) => { const e = edge(p, q, x, y); return e > 0 || e === 0 && (q[1] < p[1] || q[1] === p[1] && q[0] > p[0]); };
+        this.render(o, this.surface(o, 0x198), rect, (x, y) => inside(a,b,x+0.5,y+0.5) && inside(b,c,x+0.5,y+0.5) && inside(c,a,x+0.5,y+0.5) ? m(o,0x304) : null,
+            [0x188,0x18C,0x190,0x194]);
+    }
+    solid(o, at, value)
+    {
+        const line = o.class_id === 0x5C || o.class_id === 0x305C;
+        const triangle = o.class_id === 0x5D;
+        if(line && at >= 0x400 && at < 0x480 && at & 4) this.line(o, xy(m(o, at-4)), xy(value));
+        else if(line && at >= 0x480 && at < 0x500 && (at & 15) === 12)
+            this.line(o, [m(o,at-12)|0,m(o,at-8)|0], [m(o,at-4)|0,value|0]);
+        else if(line && at >= 0x500 && at < 0x580)
+        {
+            if(at > 0x500 && o.stream.length) this.line(o,o.stream,xy(value));
+            o.stream = xy(value);
+        }
+        else if(line && at >= 0x580 && at < 0x600 && at & 4)
+        {
+            const p = [m(o,at-4)|0,value|0];
+            if(at > 0x584 && o.stream.length) this.line(o,o.stream,p);
+            o.stream = p;
+        }
+        else if(line && at >= 0x600 && at < 0x680)
+        {
+            if(!(at & 4)) o.methods.set(0x304,value);
+            else
+            {
+                if(at > 0x604 && o.stream.length) this.line(o,o.stream,xy(value));
+                o.stream = xy(value);
+            }
+        }
+        else if(triangle && at === 0x318) this.triangle(o,xy(m(o,0x310)),xy(m(o,0x314)),xy(value));
+        else if(triangle && at === 0x334) this.triangle(o,[m(o,0x320)|0,m(o,0x324)|0],[m(o,0x328)|0,m(o,0x32C)|0],[m(o,0x330)|0,value|0]);
+        else if(triangle && at >= 0x400 && at < 0x500)
+        {
+            if(at >= 0x480 && !(at & 4)) return;
+            if(at === 0x400 || at === 0x484) o.stream = [];
+            const p = at < 0x480 ? xy(value) : [m(o,at-4)|0,value|0];
+            if(o.stream.length === 4) this.triangle(o,o.stream.slice(0,2),o.stream.slice(2),p);
+            o.stream.push(...p);if(o.stream.length>4)o.stream.splice(0,2);
+        }
+        else if(triangle && at >= 0x500 && at < 0x580)
+        {
+            if(!(at & 15)) o.methods.set(0x304,value);
+            else if((at & 15) === 12) this.triangle(o,xy(m(o,at-8)),xy(m(o,at-4)),xy(value));
+        }
+        else if(triangle && at >= 0x580 && at < 0x600)
+        {
+            if(!(at & 4)) o.methods.set(0x304,value);
+            else
+            {
+                if(at === 0x584) o.stream=[];
+                const p=xy(value);
+                if(o.stream.length===4)this.triangle(o,o.stream.slice(0,2),o.stream.slice(2),p);
+                o.stream.push(...p);if(o.stream.length>4)o.stream.splice(0,2);
+            }
+        }
+    }
     method(o, at, value)
     {
         const type = o.class_id;
         const ifc = [0x61, 0x65, 0x8A, 0x308A].includes(type), indexed = [0x60, 0x64, 0x3064].includes(type);
         const sifc = [0x76, 0x66, 0x3066].includes(type);
+        const solid = [0x5C, 0x305C, 0x5D].includes(type);
         let accepted = false;
         if(type === 0x39) accepted = [0x184, 0x188, 0x30C, 0x310, 0x314, 0x318, 0x31C, 0x320, 0x324, 0x328].includes(at);
         else if(type === 0x5F || type === 0x9F) accepted = at >= 0x184 && at <= 0x19C || [0x2FC, 0x300, 0x304, 0x308].includes(at);
@@ -377,6 +459,8 @@ export class NV2D
         else if(indexed) accepted = at >= 0x184 && at <= 0x1A0 || at >= 0x3E0 && at < 0x2000;
         else if([0x77, 0x89, 0x3089].includes(type)) accepted = at >= 0x184 && at <= 0x198 || at >= 0x2FC && at <= 0x31C || at >= 0x400 && at <= 0x40C;
         else if(sifc) accepted = at >= 0x184 && at <= 0x198 || at >= 0x2F8 && at <= 0x318 || at >= 0x400 && at < 0x2000;
+        else if(solid) accepted = at >= 0x184 && at <= 0x198 || [0x2FC,0x300,0x304].includes(at) ||
+            (type===0x5D ? at>=0x310 && at<=0x318 || at>=0x320 && at<=0x334 || at>=0x400 && at<0x600 : at>=0x400 && at<0x680);
         if(!accepted || at & 3) return false;
         o.methods.set(at, value >>> 0);
         if(type === 0x4A)
@@ -398,6 +482,7 @@ export class NV2D
         else if((ifc || indexed) && at >= 0x400) this.upload(o, value, indexed);
         else if([0x77, 0x89, 0x3089].includes(type) && at === 0x40C) this.scaled(o);
         else if(sifc && at >= 0x400) this.scaled_upload(o, value);
+        else if(solid) this.solid(o,at,value);
         return true;
     }
 }

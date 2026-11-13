@@ -119,6 +119,15 @@ target.methods.set(0x300,4);target.methods.set(0x30C,900);view.setUint16(900,0x0
 const alphaIfc=object(0x5D00,0x308A,[[0x19C,0x500],[0x300,4],[0x304,0],[0x308,1<<16|1],[0x2FC,5]]);
 call(alphaIfc,0x30C,1<<16|1);call(alphaIfc,0x400,0x80800000);
 assert.equal(view.getUint16(900,true),0x800F,"ARGB upload keeps alpha while blending into RGB565");
+target.methods.set(0x300,1);target.methods.set(0x30C,1024);vram.fill(0,1024,1280);
+const lin=object(0x5E00,0x305C,[[0x198,0x500],[0x2FC,3],[0x304,7]]);
+call(lin,0x400,0);call(lin,0x404,2<<16|4);
+assert.equal(vram[1024],7);assert.equal(vram[1024+32+2],7);assert.equal(vram[1024+64+4],0,"line excludes endpoint");
+const tri=object(0x5F00,0x5D,[[0x198,0x500],[0x2FC,1],[0x18C,0x510],[0x304,255]]);
+graph.object(0,0x5100).methods.set(0x300,0x66);vram.fill(0,1024,1280);
+call(tri,0x310,0);call(tri,0x314,2);call(tri,0x318,2<<16);
+call(tri,0x310,2);call(tri,0x314,2<<16|2);call(tri,0x318,2<<16);
+for(let y=0;y<3;y++)for(let x=0;x<3;x++)assert.equal(vram[1024+y*32+x],x<2&&y<2?255:0,"top-left rule covers shared triangle edge once");
 console.log("PASS: NV40 8/16/32-bit fills, exhaustive ROP3, clipped/overlapping blits, PCI M2MF and atomic completion/faults");
 console.log("PASS: IFC row padding/crop and mid-row snapshot, GDI transparent/opaque bitmap expansion and bit order");
 console.log("PASS: nearest/bilinear scaling, both packed YUV orders, rectangular Morton surfaces and premultiplied blending");
