@@ -2,7 +2,13 @@
  * through the installed display driver, and restore the covered desktop. */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-DWORD nv_gdi_probe(void)
+static void detail(void (*mark)(const char*),const char *label,DWORD value)
+{
+    char text[96];unsigned int n=0;while(*label && n<80)text[n++]=*label++;
+    text[n++]='=';const char hex[]="0123456789abcdef";
+    for(int i=7;i>=0;i--)text[n++]=hex[value>>(i*4)&15];text[n]=0;mark(text);
+}
+DWORD nv_gdi_probe(void (*mark)(const char*))
 {
     DWORD failures=0;
     HDC screen=GetDC(0),saved=CreateCompatibleDC(screen);
@@ -26,8 +32,19 @@ DWORD nv_gdi_probe(void)
     COLORREF color=SetTextColor(screen,RGB(255,255,255));
     if(!TextOutA(screen,18,18,"NV40",4)) failures|=8;
     GdiFlush();
-    unsigned int pixels=0;
-    for(int y=18;y<40;y++)for(int x=18;x<75;x++)if(GetPixel(screen,x,y)==RGB(255,255,255))pixels++;
+    unsigned int pixels=0;char rows[22][58];
+    for(int y=18;y<40;y++)
+    {
+        for(int x=18;x<75;x++)
+        {
+            COLORREF sample=GetPixel(screen,x,y);
+            rows[y-18][x-18]=sample==RGB(255,255,255)?'#':sample==RGB(0x33,0x66,0x99)?'.':sample==CLR_INVALID?'?':'+';
+            if(sample==RGB(255,255,255))pixels++;
+        }
+        rows[y-18][57]=0;
+    }
+    detail(mark,"GDI_WHITE_PIXELS",pixels);
+    if(pixels<20)for(int y=0;y<22;y++)mark(rows[y]);
     if(pixels<20) failures|=4;
     SetTextColor(screen,color);SetBkMode(screen,background);SelectObject(screen,font);
     BitBlt(screen,16,16,80,40,saved,0,0,SRCCOPY);GdiFlush();
@@ -41,12 +58,6 @@ DWORD nv_gdi_probe(void)
 #include <ddraw.h>
 static const GUID nv_iid_directdraw7={0x15E65EC0,0x3B9C,0x11D2,{0xB9,0x2F,0,0x60,0x97,0x97,0xEA,0x5B}};
 static void zero_bytes(void *p,unsigned int count) { BYTE *b=p;while(count--)*b++=0; }
-static void detail(void (*mark)(const char*),const char *label,DWORD value)
-{
-    char text[96];unsigned int n=0;while(*label && n<80)text[n++]=*label++;
-    text[n++]='=';const char hex[]="0123456789abcdef";
-    for(int i=7;i>=0;i--)text[n++]=hex[value>>(i*4)&15];text[n]=0;mark(text);
-}
 DWORD nv_ddraw_probe(void (*mark)(const char*))
 {
     DWORD failures=0;
@@ -55,12 +66,15 @@ DWORD nv_ddraw_probe(void (*mark)(const char*))
     create_t create=library?(create_t)GetProcAddress(library,"DirectDrawCreateEx"):0;
     IDirectDraw7 *dd=0;IDirectDrawSurface7 *source=0,*target=0;
     mark("DDRAW_CREATE");
-    if(!create || create(0,(void**)&dd,&nv_iid_directdraw7,0)!=DD_OK) {failures=1;goto done;}
+    HRESULT created=create?create(0,(void**)&dd,&nv_iid_directdraw7,0):HRESULT_FROM_WIN32(ERROR_PROC_NOT_FOUND);
+    detail(mark,"DDRAW_CREATE_RESULT",created);
+    if(created!=DD_OK) {failures=1;goto done;}
     mark("DDRAW_COOPERATIVE");
     if(IDirectDraw7_SetCooperativeLevel(dd,0,DDSCL_NORMAL)!=DD_OK) {failures=2;goto done;}
     DDCAPS caps;zero_bytes(&caps,sizeof(caps));caps.dwSize=sizeof(caps);
     mark("DDRAW_CAPS");
     if(IDirectDraw7_GetCaps(dd,&caps,0)!=DD_OK || !(caps.dwCaps&DDCAPS_BLT)) {failures=4;goto done;}
+    detail(mark,"DDRAW_VIDMEM_TOTAL",caps.dwVidMemTotal);detail(mark,"DDRAW_VIDMEM_FREE",caps.dwVidMemFree);
     DDSURFACEDESC2 desc;zero_bytes(&desc,sizeof(desc));desc.dwSize=sizeof(desc);
     desc.dwFlags=DDSD_CAPS|DDSD_WIDTH|DDSD_HEIGHT;desc.dwWidth=32;desc.dwHeight=32;
     desc.ddsCaps.dwCaps=DDSCAPS_OFFSCREENPLAIN|DDSCAPS_VIDEOMEMORY;

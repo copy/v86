@@ -89,6 +89,7 @@ export async function run_geforce_guest(win98)
         Array.from(fs.readFileSync(path.join(source, n), "latin1").matchAll(/^([a-z0-9_]+\.[a-z0-9]{3})\s*=/gim), m => m[1]));
     const sevenzip = process.env.SEVENZIP || (fs.existsSync("/opt/homebrew/opt/sevenzip/bin/7zz") ? "/opt/homebrew/opt/sevenzip/bin/7zz" : "7z");
     const files = {};
+    if(process.env.NV_DX9) files["DX9.EXE"]=fs.readFileSync(process.env.NV_DX9);
     if(win98)
     {
         const iso = process.env.NV_WIN98_ISO || path.join(site_directory(root), "windows98/windows98se.iso");
@@ -134,6 +135,8 @@ export async function run_geforce_guest(win98)
         ...(process.env.NV_PROBE_ID ? ["-DNV_PROBE_ID=" + Number(process.env.NV_PROBE_ID)] : []),
         ...(process.env.NV_GDI_TEST ? ["-DNV_GDI_TEST"] : []),
         ...(process.env.NV_DDRAW_TEST ? ["-DNV_DDRAW_TEST"] : []),
+        ...(process.env.NV_D3D_TEST ? ["-DNV_D3D_TEST",path.join(root,"tests/devices/geforce_d3d.c")] : []),
+        ...(process.env.NV_DX9_INSTALL ? ["-DNV_DX9_INSTALL"] : []),
         ...(process.env.NV_GDI_TEST || process.env.NV_DDRAW_TEST ? [path.join(root, "tests/devices/geforce_draw.c")] : []),
         path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32", "-lgdi32"]);
     const probe = new Uint8Array(65536), executable = fs.readFileSync(binary);
@@ -155,7 +158,7 @@ export async function run_geforce_guest(win98)
         bios: { url: root + "bios/seabios.bin" },
         ...(process.env.NV_ROM ? { vga_bios: { url: path.resolve(process.env.NV_ROM) } } : {}),
         hda: disk, hdb: tools, boot_order: 0x213, memory_size: (win98 ? 256 : 1024) << 20,
-        ...(win98 ? { cdrom: { url: process.env.NV_WIN98_ISO || path.join(site_directory(root), "windows98/windows98se.iso"), async: true }, boot_order: 0x132 } : {}),
+        ...(win98 || process.env.NV_CDROM ? { cdrom: { url: process.env.NV_CDROM || process.env.NV_WIN98_ISO || path.join(site_directory(root), "windows98/windows98se.iso"), async: true }, boot_order: 0x132 } : {}),
         screen_adapter: sink, acpi: false, net_device: { type: "none" }, disable_speaker: true,
         autostart: !process.env.NV_STATE_LOAD, log_level: 0 });
     const seconds = Number(process.env.NV_SECONDS || 360);

@@ -352,6 +352,18 @@ NVIDIA 驱动，设备必须从硬件层面的方法流重建 D3D9 级的状态�
   状态、PGRAPH 测试与 Closure 构建通过。浮点颜色清除仍明确报错。
 
 
+- 原生验收工具与运行库（2026-11-14）：增加 NV_DX9/NV_DX9_INSTALL，在只读原盘
+  overlay 中运行未经修改的微软 December 2006 自解压包和 DXSETUP /silent；SHA-1
+  9143e8a08ba454ac2c35d179f8f180db271af0dd。安装后冷启动，Win98 81.98 的
+  GDI 与 DirectDraw7 显存填充/复制/Lock 读回均为 0 失败，GPU 1 draw、PGRAPH 无故障。
+  见 g2-win98-8198-ddraw-dx9.json。此前 CreateEx 8007007f 是旧运行库缺少入口。
+- 增加 NV_D3D_TEST 原生 D3D9 HAL 探针：查询真实 caps、创建设备、固定功能顶点/颜色、
+  DrawPrimitiveUP 与 GetRenderTargetData，未注入 API 代理。XP 93.71 的硬件顶点
+  处理设备成功，读回 ff336699；GDI/DirectDraw/D3D9 均为 0 失败，3 GPU draws、
+  PGRAPH 无故障，见 g3-xp-9371-hal-triangle.json。Win98 的 D3D9 设备创建仍返回
+  8876017c（OUTOFVIDEOMEMORY），继续调查。两种客体的 DxDiag 和基准门禁仍未通过。
+
+
 ## 选型结论
 
 2026-10-26 的选型过程（证据见“规范与实现参考”）：

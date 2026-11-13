@@ -1,0 +1,52 @@
+{
+  "stage": "G2 microprobe",
+  "scope": "DirectDraw7 initialized after DX9 reboot; D3D9 CreateDevice still fails with DDERR_OUTOFVIDEOMEMORY; not DxDiag acceptance",
+  "guest": "win98",
+  "status": "INITIALIZED",
+  "imageUnchanged": true,
+  "probe": [
+    "PROBE_ID 49",
+    "DEVICE PCI\\VEN_10DE&DEV_0045 problem=0 cm=0 started=1 service= driver=Display\\0001 description=NVIDIA GeForce 6800 GT",
+    "MODE_TEST result=0",
+    "MODE_SET result=0",
+    "GDI_WHITE_PIXELS=0000001a",
+    "GDI_TEST failures=0",
+    "DDRAW_BEGIN",
+    "DDRAW_CREATE",
+    "DDRAW_CREATE_RESULT=00000000",
+    "DDRAW_COOPERATIVE",
+    "DDRAW_CAPS",
+    "DDRAW_SURFACES",
+    "DDRAW_BLIT",
+    "DDRAW_BITS=00000020",
+    "DDRAW_PIXEL=ff336699",
+    "DDRAW_PITCH=00000080",
+    "DDRAW_XOR_NOT_ADVERTISED",
+    "DDRAW_RELEASE",
+    "DDRAW_TEST failures=0",
+    "D3D9_CREATE",
+    "D3D9_CAPS_RESULT=00000000",
+    "D3D9_VS_VERSION=fffe0300",
+    "D3D9_PS_VERSION=ffff0300",
+    "D3D9_DEVICE",
+    "D3D9_DEVICE_RESULT=8876017c",
+    "D3D9_DONE",
+    "D3D9_TEST failures=2",
+    "DEVICE PCI\\VEN_10DE&DEV_0045 problem=0 cm=0 started=1 service= driver=Display\\0001 description=NVIDIA GeForce 6800 GT",
+    "SCREEN 1024x768"
+  ],
+  "gpu": {
+    "draws": 1,
+    "bytes": 10944,
+    "readbacks": 1,
+    "failures": 0
+  },
+  "graphFaults": [],
+  "runtime": {
+    "file": "directx_dec2006_redist.exe",
+    "sha1": "9143e8a08ba454ac2c35d179f8f180db271af0dd",
+    "sha256": "887d1b123d9cce93d48e27dfc70b746f80c095dad4860a160fa776e1f919c7b2",
+    "source": "https://ftp.zx.net.nz/pub/software/Win32/Runtime/directx_dec2006_redist.exe",
+    "install": "Microsoft self-extractor /Q /T:C:\\NV40DX /C; DXSETUP.exe /silent returned 1; separate cold boot"
+  }
+}

@@ -21,7 +21,7 @@ static void line(void)
     if(f!=INVALID_HANDLE_VALUE) { SetFilePointer(f,0,0,FILE_END); WriteFile(f,text,used,&wrote,0); FlushFileBuffers(f); CloseHandle(f); }
     used=0;
 }
-#ifdef NV_DDRAW_TEST
+#if defined(NV_DDRAW_TEST) || defined(NV_GDI_TEST) || defined(NV_D3D_TEST)
 static void probe_mark(const char *s) { put(s);line(); }
 #endif
 static int match(const char *s, const char *prefix)
@@ -503,15 +503,46 @@ void WINAPI entry(void)
         put("DOS_TEST wait=");number(waited);put(" exit=");number(exit);put(" marker=");put(result);line();
     }
 #endif
+#ifdef NV_DX9_INSTALL
+    {
+        char executable[MAX_PATH],directory[MAX_PATH];
+        lstrcpyA(directory,output);directory[end]=0;
+        lstrcpyA(executable,directory);lstrcatA(executable,"DX9.EXE /Q /T:C:\\NV40DX /C");
+        STARTUPINFOA startup={0};PROCESS_INFORMATION process={0};startup.cb=sizeof(startup);
+        put("DX9_EXTRACT starting");line();
+        if(CreateProcessA(0,executable,0,0,FALSE,0,0,directory,&startup,&process))
+        {
+            DWORD waited=WaitForSingleObject(process.hProcess,300000),code=0;
+            GetExitCodeProcess(process.hProcess,&code);CloseHandle(process.hThread);CloseHandle(process.hProcess);
+            put("DX9_EXTRACT wait=");number(waited);put(" exit=");number(code);line();
+        }
+        else { put("DX9_EXTRACT error=");number(GetLastError());line(); }
+        lstrcpyA(directory,"C:\\NV40DX");lstrcpyA(executable,"C:\\NV40DX\\DXSETUP.exe /silent");
+        put("DX9_INSTALL starting");line();
+        if(CreateProcessA(0,executable,0,0,FALSE,0,0,directory,&startup,&process))
+        {
+            DWORD waited=WaitForSingleObject(process.hProcess,300000),code=0;
+            GetExitCodeProcess(process.hProcess,&code);CloseHandle(process.hThread);CloseHandle(process.hProcess);
+            put("DX9_INSTALL wait=");number(waited);put(" exit=");number(code);line();
+        }
+        else { put("DX9_INSTALL error=");number(GetLastError());line(); }
+    }
+#endif
 #ifdef NV_GDI_TEST
-    extern DWORD nv_gdi_probe(void);
-    put("GDI_TEST failures=");number(nv_gdi_probe());line();
+    extern DWORD nv_gdi_probe(void (*mark)(const char*));
+    DWORD gdi_result=nv_gdi_probe(probe_mark);
+    put("GDI_TEST failures=");number(gdi_result);line();
     #endif
 #ifdef NV_DDRAW_TEST
     extern DWORD nv_ddraw_probe(void (*mark)(const char*));
     put("DDRAW_BEGIN");line();
     DWORD dd_result=nv_ddraw_probe(probe_mark);
     put("DDRAW_TEST failures=");number(dd_result);line();
+#endif
+#ifdef NV_D3D_TEST
+    extern DWORD nv_d3d_probe(void (*mark)(const char*));
+    DWORD d3d_result=nv_d3d_probe(probe_mark);
+    put("D3D9_TEST failures=");number(d3d_result);line();
 #endif
     devices(); put("SCREEN ");number(GetSystemMetrics(SM_CXSCREEN));put("x");number(GetSystemMetrics(SM_CYSCREEN));line();
 #if defined(NV_WIN98) && defined(NV_AUTOSTART)
