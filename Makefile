@@ -195,7 +195,7 @@ BROWSER_FILES=screen.js keyboard.js mouse.js speaker.js serial.js \
 # when graphics_adapter names it. Built with every bundle, which looks for
 # them beside itself. The boundary to v86 uses quoted names only, so a plugin
 # works with any bundle, also one compiled in Closure's ADVANCED mode.
-GRAPHICS_ADAPTER_PLUGINS=build/v86-bochs-vga.js build/v86-vmware-svga.js build/v86-virtio-gpu.js
+GRAPHICS_ADAPTER_PLUGINS=build/v86-bochs-vga.js build/v86-vmware-svga.js build/v86-virtio-gpu.js build/v86-geforce-6800.js
 GRAPHICS_ADAPTER_COMMON=src/cjs.js src/const.js src/lib.js src/log.js src/bus.js src/display.js \
 	src/device_machine.js src/graphics_adapters/machine.js src/graphics_adapters/vga_core.js src/graphics_adapters/renderer_protocol.js
 
@@ -275,6 +275,14 @@ build/v86-virtio-gpu.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/grap
 		--js src/graphics_adapters/virtio_gpu/gfxstream.js \
 		--js src/graphics_adapters/virtio_gpu/virtio_gpu_device.js \
 		--js src/graphics_adapters/virtio_gpu/plugin.js
+
+build/v86-geforce-6800.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/graphics_adapters/geforce_6800/*.js
+	mkdir -p build
+	java -jar $(CLOSURE) --js_output_file $@ --define=DEBUG=false $(CLOSURE_FLAGS) \
+		--compilation_level SIMPLE --jscomp_off=missingProperties \
+		--output_wrapper ';(function(){%output%}).call(this);' \
+		--js $(GRAPHICS_ADAPTER_COMMON) --js src/graphics_adapters/geforce_6800/nv_trace.js \
+		--js src/graphics_adapters/geforce_6800/nv_device.js --js src/graphics_adapters/geforce_6800/plugin.js
 
 .PHONY: graphics-adapters device-plugins
 graphics-adapters: $(GRAPHICS_ADAPTER_PLUGINS)
@@ -784,6 +792,7 @@ acpi-tests: acpi-table-tests acpi-device-tests acpi-guest-tests
 devices-test: build/v86-debug.wasm
 	./tests/devices/display.js
 	./tests/devices/graphics_adapter.js
+	./tests/devices/geforce_6800.js
 	./tests/devices/vmware_svga.js
 	./tests/devices/vmware_svga_3d.js
 	./tests/devices/vmware_svga_gb.js

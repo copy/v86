@@ -66,6 +66,10 @@ export function check_graphics_adapter_options(options)
     {
         throw new Error("vram_size must be at most " + (MAX_VRAM_SIZE >> 20) + " MiB");
     }
+    if(adapter === "geforce_6800" && vram_size !== undefined && vram_size !== 128 << 20 && vram_size !== 256 << 20)
+    {
+        throw new Error("geforce_6800: vram_size must be 128 or 256 MiB");
+    }
     if(adapter === "none" && vram_size !== undefined)
     {
         console.warn("vram_size is ignored: graphics_adapter is \"none\"");
@@ -279,6 +283,8 @@ GraphicsAdapter.prototype.create_handle = function()
         "qemu_compatible": !this.virt && !!cpu.platform.qemu_compatible,
         // (the virt machine: no VGA core, no ROM, no ports)
         "has_vga": !this.virt,
+        // The actual ROM loaded by the machine, for adapters with a PROM window.
+        "vga_bios": () => new Uint8Array(cpu.bios.vga || new ArrayBuffer(0)),
 
         "mmio_ram_allocate": size => cpu.mmio_ram_allocate(size),
         "mmio_ram_backing": region => cpu.mmio_ram_backing(region),

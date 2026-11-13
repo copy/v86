@@ -285,6 +285,8 @@ export function device_handle(cpu, owner)
         // the function's configuration space as bytes (a view taken now): a
         // device keeps its capabilities' read-only bytes after a write
         "pci_config": () => pci().space_bytes(owner.pci_id),
+        // A device's MMIO configuration mirror must take the same path as CF8/ECAM.
+        "pci_config_write": (offset, size, value) => pci().function_write(owner.pci_id, offset, size, value),
 
         // an ISA card's: its interrupt line (0 to 15), the 8237's channels
         // (a listener for a channel unmasked, whether one is masked, a

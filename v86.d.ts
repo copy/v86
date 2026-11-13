@@ -563,7 +563,7 @@ export interface V86Options {
      * has loaded build/glbridge/libv86-webgpu.js and WebGPU has an adapter,
      * and 2D only otherwise (docs/gpu-devices.md).
      */
-    graphics_adapter: "bochs_vga" | "vmware_svga" | "virtio_gpu" | "none";
+    graphics_adapter: "bochs_vga" | "vmware_svga" | "virtio_gpu" | "geforce_6800" | "none";
     /**
      * Path or URL of the graphics_adapter's plugin file. By default
      * v86-<name>.js beside the libv86 bundle when the bundle knows its own

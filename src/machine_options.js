@@ -84,7 +84,7 @@ export const Q35_ROOT_PORTS_MAX = 6;
 export const MAX_VRAM_SIZE = 256 << 20;
 
 /** Every value graphics_adapter may name (src/graphics_adapter.js) */
-export const GRAPHICS_ADAPTERS = ["bochs_vga", "vmware_svga", "virtio_gpu", "none"];
+export const GRAPHICS_ADAPTERS = ["bochs_vga", "vmware_svga", "virtio_gpu", "geforce_6800", "none"];
 
 /** The network cards (net_device.type) of the PC machines */
 export const NET_DEVICE_TYPES = ["ne2k", "e1000", "virtio", "none"];

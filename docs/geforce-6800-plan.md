@@ -1,6 +1,18 @@
 # GeForce 6800 GT（NV40）显示适配器实施计划
 
-状态：设计与实施计划，尚未实现。2026-10-26 初稿。所有者决定模拟 AGP 版 GeForce 6800 GT。
+状态：实施中，G0 探路。2026-10-26 初稿；2026-11-13 开始实现。所有者决定模拟 AGP 版 GeForce 6800 GT。
+
+### 实施记录（2026-11-13）
+
+- G0.1：增加可加载的 `geforce_6800` 插件、PCI/PM 身份、三个 BAR、PBUS 配置镜像、末端
+  1 MiB RAMIN 别名、PMC 中断、PTIMER 基础、快照和有界访问跟踪。未知寄存器只保存值，
+  跟踪中标为未实现。`nvlog(true/false)` 和 `nvtrace()` 在插件设备对象上提供给测试工具。
+- 已验证：SeaBIOS 启动到文本、PCI BAR 探测与重定位、内存解码、PBUS 写入的 PCI 语义、
+  RAMIN/VRAM 别名、W1C 字节写、快照往返。运行 `node tests/devices/geforce_6800.js`。
+- G0 尚未验收：专属探路 ROM、XP/98 驱动初始化跟踪仍在实施；PCI 模式兼容性尚无结论。
+  `BOOT_0=0x040500A1`、子系统 `10DE:0045`、strap 和 PTIMER 时钟比率是待驱动跟踪复核的值。
+- 本地 `geforce.iso` 只包含 56.64（NV40 之前）。已获所有者授权下载所需 ROM 和驱动；测试素材
+  放在忽略目录 `build/nv40-fixtures`，不随源代码分发。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
