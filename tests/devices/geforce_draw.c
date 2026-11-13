@@ -86,6 +86,34 @@ DWORD nv_ddraw_probe(void (*mark)(const char*))
     IDirectDrawSurface7 *render_target=0;desc.ddsCaps.dwCaps|=DDSCAPS_3DDEVICE;
     HRESULT allocated=IDirectDraw7_CreateSurface(dd,&desc,&render_target,0);
     detail(mark,"DDRAW_3D_SURFACE_RESULT",allocated);if(render_target)IDirectDrawSurface7_Release(render_target);
+#ifdef NV_D3D_TEXTURE_TEST
+    // Exercise the actual DirectDraw HAL allocation path separately from D3D9.
+    // Unsupported nonlocal memory is diagnostic, not a rendering failure.
+    const DWORD texture_memory[]={DDSCAPS_VIDEOMEMORY,DDSCAPS_VIDEOMEMORY|DDSCAPS_LOCALVIDMEM,
+        DDSCAPS_VIDEOMEMORY|DDSCAPS_NONLOCALVIDMEM,DDSCAPS_SYSTEMMEMORY};
+    for(unsigned int pool=0;pool<4;pool++)for(unsigned int format=0;format<3;format++)
+    {
+        DDSURFACEDESC2 texture;zero_bytes(&texture,sizeof(texture));texture.dwSize=sizeof(texture);
+        texture.dwFlags=DDSD_CAPS|DDSD_WIDTH|DDSD_HEIGHT|DDSD_PIXELFORMAT;
+        texture.dwWidth=32;texture.dwHeight=32;texture.ddsCaps.dwCaps=DDSCAPS_TEXTURE|texture_memory[pool];
+        DDPIXELFORMAT *pixel=&texture.ddpfPixelFormat;pixel->dwSize=sizeof(*pixel);pixel->dwFlags=DDPF_RGB;
+        pixel->dwRGBBitCount=format==0?32:16;pixel->dwRBitMask=format==0?0xff0000:format==1?0xf800:0x7c00;
+        pixel->dwGBitMask=format==0?0xff00:format==1?0x7e0:0x3e0;pixel->dwBBitMask=format==0?0xff:0x1f;
+        IDirectDrawSurface7 *surface=0;
+        mark("DDRAW_TEXTURE_ATTEMPT");detail(mark,"DDRAW_TEXTURE_CAPS",texture.ddsCaps.dwCaps);
+        detail(mark,"DDRAW_TEXTURE_FORMAT",format);
+        HRESULT created_texture=IDirectDraw7_CreateSurface(dd,&texture,&surface,0);
+        detail(mark,"DDRAW_TEXTURE_CREATE",created_texture);
+        if(created_texture==DD_OK && surface)
+        {
+            DDSURFACEDESC2 locked;zero_bytes(&locked,sizeof(locked));locked.dwSize=sizeof(locked);
+            HRESULT locked_texture=IDirectDrawSurface7_Lock(surface,0,&locked,DDLOCK_WAIT,0);
+            detail(mark,"DDRAW_TEXTURE_LOCK",locked_texture);
+            if(locked_texture==DD_OK) {*(WORD*)locked.lpSurface=0x1234;IDirectDrawSurface7_Unlock(surface,0);}
+        }
+        if(surface)IDirectDrawSurface7_Release(surface);
+    }
+#endif
     desc.ddsCaps.dwCaps&=~DDSCAPS_3DDEVICE;
     mark("DDRAW_SURFACES");
     if(IDirectDraw7_CreateSurface(dd,&desc,&source,0)!=DD_OK || IDirectDraw7_CreateSurface(dd,&desc,&target,0)!=DD_OK) {failures=8;goto done;}

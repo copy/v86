@@ -1049,3 +1049,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   标量 FOG varying，使这些表面全为灰色。现在在片元插值后生成 `(coordinate, factor, 0, 0)`，
   支持线性及绝对距离线性模式和饱和边界。GPU 读回覆盖系数、正负坐标及跨顶点的
   插值后 clamp；46 个 WGSL 模块与 Closure 构建通过。指数雾暂仍显式拒绝。
+
+- Win98 分配诊断续修：原生 DirectDraw7 分别创建并锁定 32×32 的 XRGB32、RGB565、
+  XRGB1555 纹理。普通 VIDEO、本地 VIDEO 和 SYSTEMMEM 三组全部成功；NONLOCAL
+  三组均返回 `88760276`。因此本地纹理 DMA/显存分配可用，不能把 D3D8/9 的
+  `8876017c` 直接归因于本地显存容量或据此断言必须 AGP。探针位于
+  `NV_D3D_TEXTURE_TEST` 诊断开关下，继续检查不同接口请求的分配条件。
