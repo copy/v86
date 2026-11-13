@@ -16,11 +16,15 @@ static CFStringRef allow_adhoc, signature_only;
 #define le code_le
 static int trusted_code(const char *path)
 {
-    unsigned char digest[20],list[12+189*20];if(!app_code_hash(path,digest))return 0;
+    unsigned char digest[20],list[12+189*20];if(!app_code_identity(path,digest,0))return 0;
     int fd=open("/private/var/v86/install-trust.bin",0);if(fd<0)return 0;unsigned used=0;int n;
     while(used<sizeof(list) && (n=read(fd,list+used,sizeof(list)-used))>0)used+=n;close(fd);
     if(used<12 || memcmp(list,"V86T",4) || le(list+4)!=1 || le(list+8)>189 || used!=12+20*le(list+8))return 0;
-    for(unsigned i=0;i<le(list+8);i++)if(!memcmp(digest,list+12+20*i,20))return 1;return 0;
+    for(unsigned i=0;i<le(list+8);i++)if(!memcmp(digest,list+12+20*i,20))
+    {
+        unsigned char verified[20];return app_code_hash(path,verified) && !memcmp(digest,verified,20);
+    }
+    return 0;
 }
 static int approved(CFStringRef path)
 {

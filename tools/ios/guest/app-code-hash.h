@@ -11,7 +11,7 @@ static int code_read_at(int fd, unsigned at, void *data, unsigned n)
     while(done < n) { int count = read(fd, (char *)data+done, n-done); if(count <= 0) return 0; done += count; }
     return 1;
 }
-static int app_code_hash(const char *path, unsigned char digest[20])
+static int app_code_identity(const char *path, unsigned char digest[20], int verify_pages)
 {
     unsigned char header[28]; int ok=0, fd=open(path,0); if(fd<0)return 0;
     if(!code_read_at(fd,0,header,28) || code_le(header)!=0xFEEDFACE || code_le(header+4)!=12 || code_le(header+20)>65536)goto done;
@@ -41,7 +41,7 @@ static int app_code_hash(const char *path, unsigned char digest[20])
         unsigned id_end=identifier;while(id_end<directory_size && directory[id_end])id_end++;
         if(id_end==identifier || id_end==directory_size || id_end-identifier>1024)goto cleanup;
         unsigned char page[4096],actual[20];
-        for(unsigned j=0;j<pages;j++)
+        for(unsigned j=0;verify_pages && j<pages;j++)
         {
             unsigned size=limit-j*4096;if(size>4096)size=4096;
             if(!code_read_at(fd,j*4096,page,size))goto cleanup;
@@ -52,3 +52,4 @@ static int app_code_hash(const char *path, unsigned char digest[20])
 cleanup:free(blob);
 done:close(fd);return ok;
 }
+static int app_code_hash(const char *path,unsigned char digest[20]) { return app_code_identity(path,digest,1); }

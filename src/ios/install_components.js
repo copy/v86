@@ -1,5 +1,5 @@
 import { SHA256 } from "../image/sha256.js";
-import { link_guest_gles, cdhashes } from "./guest_load.js";
+import { link_guest_gles, patch_guest_code, cdhashes } from "./guest_load.js";
 import { macho_parse } from "../apple/macho.js";
 
 export const INSTALL_DAEMON = "/usr/libexec/installd";
@@ -25,5 +25,13 @@ export function link_install_policy(original)
 {
     if(new SHA256().update(original).hex() !== "d8deaeabb4d7335c3facc77e7b692150e8e6878d2d6b2427365dc07e3d1720e9")
         throw new Error("Expected the stock N90 10B329 installation daemon");
-    return link_guest_gles(original, INSTALL_POLICY);
+    // Native libmis returns SigningID/Entitlements for valid ad-hoc code,
+    // with no signer certificate. Preserve that dictionary. installd's
+    // optional certificate summary must stay null in that case; signatures
+    // with a certificate still take its original certificate parsing path.
+    // Thumb VA 0x1157c: cbnz r1,0x115ac; ldr.w r0,[r10] becomes
+    // cmp r1,#0; beq 0x1163a; b 0x115ac. Signature errors return earlier.
+    const patched=patch_guest_code(original,0x1057c,Uint8Array.of(0xb1,0xb9,0xda,0xf8,0,0),
+        Uint8Array.of(0,0x29,0x5c,0xd0,0x14,0xe0));
+    return link_guest_gles(patched, INSTALL_POLICY);
 }

@@ -71,6 +71,18 @@ function resign_pages(original, bytes, first, last)
     }
 }
 
+export function patch_guest_code(original, offset, expected, replacement)
+{
+    require_layout(Number.isSafeInteger(offset) && offset >= 0 && expected.length === replacement.length &&
+        offset + expected.length <= original.length && equal(original.subarray(offset, offset + expected.length), expected),
+        "Unexpected N90 signed instruction sequence");
+    const bytes = new Uint8Array(original);
+    bytes.set(replacement, offset);
+    resign_pages(original, bytes, offset, offset + replacement.length);
+    cdhashes(bytes);
+    return bytes;
+}
+
 const LOCKDOWN_BRANCH = 0xE22C; // Thumb code at 0xF22C in 10B329 lockdownd
 
 export function offline_lockdown(original)
