@@ -93,6 +93,11 @@ try
     assert.equal(view.getUint32(0x818,true),64,"actual GPU occlusion count is written in the hardware report");
     method(0x17CC,0);
     assert.equal(device.fifo.drain(),true);assert.equal(view.getUint32(0x800,true),0xABCD1234,"fence follows committed VRAM");
+    method(0x120,0);method(0x124,0);method(0x128,3);method(0x130,0);
+    device.registers.set(0x90004,0x1234ABCD);device.registers.set(0x3270,0);
+    assert.equal(device.fifo.drain(),false);assert.equal(view.getUint32(0x800,true),0xABCD1234,"flip wait holds the next fence");
+    graph.written(0x40071C,2);assert.equal(device.fifo.drain(),true);
+    assert.equal(view.getUint32(0x800,true),0x1234ABCD,"display ISR releases the queued fence");
     // Inline indices and DMA batches share one index stream, retained mid-BEGIN.
     const draw=engine.backend.draw;let captured;
     engine.backend.draw=(...args)=>{captured=args;};

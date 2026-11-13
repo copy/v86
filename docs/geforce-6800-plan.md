@@ -849,6 +849,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   PGRAPH 测试覆盖报告布局、旧数据保护和快照；真实 WebGPU 的 8×8 覆盖计数为 64，
   FIFO 顺序及完整渲染回归通过。XP benchmark 仍需从干净起点复测。
 
+- G3 翻页同步续修：实现 BLIT/Curie 独立的 3-bit READ/WRITE/MODULO、WRITE 递增和
+  FLIP_WAIT。等待期间 FIFO 不执行后续方法，显示 ISR 写 PGRAPH `0x40071c` 后推进
+  READ 并唤醒。计数与挂起等待进入 PGRAPH v2 快照，旧快照默认无等待。
+  测试覆盖 modulo/零 modulo 回绕、类隔离、非法值、等待快照恢复与后续 fence 顺序；
+  PGRAPH/FIFO/渲染回归和插件构建通过。原生 XP 复测继续进行。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

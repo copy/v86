@@ -8,7 +8,7 @@ const vram = new Uint8Array(2 << 20), ramin = new DataView(vram.buffer, 1 << 20)
 let irq = 0, dirty = 0;
 const device = { vram: () => vram, vram_size: vram.length, registers: new Map([[0x200, 0xFFFFFFFF], [0x400720, 1]]),
     trace: new NVTrace(), time: () => 0x123456789ABCDE0n, update_irq() { irq++; }, vga: { lfb_region: 1 },
-    machine: { is_bus_master: () => true, mmio_ram_mark_dirty() { dirty++; } } };
+    machine: { wake() {}, is_bus_master: () => true, mmio_ram_mark_dirty() { dirty++; } } };
 device.dma = new NVDMA(device);
 let graph = new NVGraph(device);
 function word(at, value) { ramin.setUint32(at, value >>> 0, true); }
@@ -115,3 +115,19 @@ device.registers.set(0x400720,1);method(0,0x4200,0x17C8,1);
 assert.equal(graph.object(0,0x4200).methods.get(0x50008),0);
 method(0,0x4200,0x17CC,2);assert.equal(device.registers.get(0x400720),0,"query enable is boolean");
 console.log("PASS: NV40 query report layout, precise clock, snapshot counter and atomic DMA failure");
+
+// A flip wait holds later methods until the display interrupt advances READ.
+device.registers.set(0x400720,1);
+method(0,0x4200,0x120,0);method(0,0x4200,0x124,2);method(0,0x4200,0x128,3);
+method(0,0x4200,0x12C,0);assert.equal(graph.flips[1][1],0,"WRITE wraps at modulo");
+method(0,0x4200,0x130,0);assert.equal(graph.busy,true);assert.equal(graph.read(0x400700),1);
+const flipSaved=graph.get_state();graph=new NVGraph(device);graph.set_state(flipSaved);assert.equal(graph.busy,true);
+graph.written(0x40071C,2);assert.equal(graph.busy,false);assert.equal(graph.flips[1][0],1);
+assert.equal(graph.read(0x40071C),0,"increment strobe does not latch");
+word(0x4500,0x9F);method(0,0x4500,0x120,3);method(0,0x4500,0x124,4);
+assert.deepEqual(graph.flips[1].slice(0,2),[1,0],"BLIT and Curie use separate counters");
+method(0,0x4200,0x128,0);method(0,0x4200,0x124,7);method(0,0x4200,0x12C,0);
+assert.equal(graph.flips[1][1],0,"zero modulo retains the hardware three-bit wrap");
+method(0,0x4200,0x120,8);assert.equal(device.registers.get(0x400720),0,"out-of-range counter faults");
+graph.set_state([1,flipSaved[1],flipSaved[2]]);assert.equal(graph.busy,false,"legacy snapshots start without pending flip waits");
+console.log("PASS: independent flip counters, modulo wrap, ISR wake, pending wait snapshot and v1 migration");
