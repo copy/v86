@@ -414,6 +414,15 @@ try
         [47<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
         method(0x1A14,0x01030000);assert.deepEqual(await cubeDraw([.5,.5,.5]),cubeColors[3],"volume mip chain shrinks all three dimensions");
         console.log("PASS: real WebGPU NV 3D textures, Morton slice order, spatial filtering and volume mip levels");
+        const beforeReuse=engine.backend.stats.uploads;
+        assert.deepEqual(await cubeDraw([.5,.5,.5]),cubeColors[3]);
+        assert.equal(engine.backend.stats.uploads,beforeReuse,"unchanged texture and read-back attachments stay on the GPU");
+        vram.set(cubeColors[2],0x60020);assert.deepEqual(await cubeDraw([.5,.5,.5]),cubeColors[2]);
+        assert.equal(engine.backend.stats.uploads,beforeReuse+1,"a guest texture write uploads only the changed mip");
+        const untouched=0x10000+7*4;vram.set([9,8,7,6],untouched);method(0x8C0,4<<16);
+        await cubeDraw([.5,.5,.5]);assert.deepEqual([...vram.subarray(untouched,untouched+4)],[9,8,7,6],"guest target writes survive outside the new scissor");
+        assert.equal(engine.backend.stats.uploads,beforeReuse+2,"a guest color attachment change forces one upload");
+        console.log("PASS: real WebGPU exact-byte upload reuse, changed-mip uploads and CPU-authoritative attachment edits");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

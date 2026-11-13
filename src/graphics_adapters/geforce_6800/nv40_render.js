@@ -6,6 +6,13 @@ import {NV40Texture} from "./nv40_texture.js";
 import {QUERY_REGION_BYTES,READBACK_MAX_BYTES,RESPONSE_OK} from "../renderer_protocol.js";
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength);
+const equal_bytes=(a,b)=>{
+    if(!a || a.length!==b.length)return false;
+    const count=a.length>>>2,aw=new Uint32Array(a.buffer,a.byteOffset,count),bw=new Uint32Array(b.buffer,b.byteOffset,count);
+    for(let i=0;i<count;i++)if(aw[i]!==bw[i])return false;
+    for(let i=count*4;i<a.length;i++)if(a[i]!==b[i])return false;
+    return true;
+};
 const BLEND=new Map([[0,1],[1,2],[0x300,3],[0x301,4],[0x302,5],[0x303,6],[0x304,7],[0x305,8],
     [0x306,9],[0x307,10],[0x308,11],[0x8001,14],[0x8002,15],[0x8003,14],[0x8004,15],
     ...Array.from({length:11},(_,i)=>[0x1001+i,i+1]),[0x100C,5],[0x100D,6],[0x100E,14],[0x100F,15]]);
@@ -89,7 +96,7 @@ export class NV40Render
         this.writer=new D9WGWriter(0x3034564E); // "NV40", separate resource namespace
         this.next=2;this.sequence=0;this.request=0;this.created=false;
         this.resources=new Map();this.shaders=new Map();this.declarations=new Map();
-        this.pending=null;this.stats={draws:0,bytes:0,readbacks:0,failures:0};
+        this.pending=null;this.stats={draws:0,bytes:0,readbacks:0,failures:0,uploads:0,uploadBytes:0};
         renderer["listen"](message=>this.receive(message));
     }
     reset()
@@ -118,7 +125,7 @@ export class NV40Render
                 const first=this.resources.entries().next().value;
                 this.writer.command(OP.DESTROY_RESOURCE,{"resource_handle":first[1].handle,"resource_kind":first[1].kind});this.resources.delete(first[0]);
             }
-            resource={handle:this.next++,kind:surface.cube?4:surface.volume?5:3};
+            resource={handle:this.next++,kind:surface.cube?4:surface.volume?5:3,images:null};
             this.resources.set(key,resource);
             this.command(surface.cube?OP.CREATE_TEXTURE_CUBE:surface.volume?OP.CREATE_TEXTURE_VOLUME:OP.CREATE_TEXTURE_2D,
                 {"resource_handle":resource.handle,...(surface.cube?{"edge_length":surface.width}:{"width":surface.width,"height":surface.height,...(surface.volume?{"depth":surface.depth}:{})}),
@@ -129,12 +136,14 @@ export class NV40Render
         this.resources.delete(key);this.resources.set(key,resource);
         const handle=resource.handle;
         images.forEach((bytes,index)=>{
+            if(resource.images && equal_bytes(resource.images[index],bytes))return;
             const level=index%levels,face=surface.cube?Math.floor(index/levels):0;
             const width=Math.max(1,surface.width>>>level),height=Math.max(1,surface.height>>>level);
             const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"level":level,"z":face,"width":width,"height":height,
                 "depth":surface.volume?Math.max(1,surface.depth>>>level):1,"row_pitch":width*surface.bpp,"data_bytes":bytes.length});
-            w.patch_field("data_offset",w.data(bytes));
+            w.patch_field("data_offset",w.data(bytes));this.stats.uploads++;this.stats.uploadBytes+=bytes.length;
         });
+        resource.images=images;
         return handle;
     }
     shader(code,vertex)
@@ -271,6 +280,7 @@ export class NV40Render
     {
         const pending=this.pending;if(!pending)return;
         this.pending=null;this.stats.failures++;
+        for(const resource of this.resources.values())resource.images=null;
         this.device.graph.error(pending.channel,pending.subc,0x1808,0,0x100,0x4000,"NV40 renderer: "+reason);
         pending.resolve();this.device.machine.wake();
     }
@@ -294,6 +304,10 @@ export class NV40Render
             {
                 for(const {target}of pending.outputs)this.engine.state.validate(target,true);
                 for(const {target,bytes}of pending.outputs)this.engine.state.write(target,bytes);
+                // The GPU still holds these exact readback pixels. Future guest
+                // reads/writes remain authoritative and are compared bytewise.
+                for(const {handle,bytes}of pending.outputs)
+                    for(const resource of this.resources.values())if(resource.handle===handle)resource.images=[bytes];
             }
             catch(error) {this.fail(String(error));return;}
             this.pending=null;pending.resolve();this.device.machine.wake();this.device.fifo.run();
