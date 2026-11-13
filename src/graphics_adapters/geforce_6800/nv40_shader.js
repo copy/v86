@@ -691,6 +691,20 @@ export function translate_fragment_program(program,options={})
                     shader.emit(OP.MUL,dst(0,temp),sources[operand],src(2,index));sources[operand]=src(0,temp);
                 }
             }
+            if(options.sampler_1d?.[i.texture])
+            {
+                // A one-row host texture represents NV's 1D sampler. Ignore
+                // Y for addressing and LOD, including TXP's division by W.
+                for(let operand=0;operand<(i.name==="TXD"?3:1);operand++)
+                {
+                    const temp=shader.temp("texture-1d-"+operand);
+                    shader.emit(OP.MOV,dst(0,temp),sources[operand]);
+                    if(operand)shader.emit(OP.MOV,dst(0,temp,2),shader.literal(0));
+                    else if(i.name==="TXP")shader.emit(OP.MUL,dst(0,temp,2),src(0,temp,[3,3,3,3]),shader.literal(.5));
+                    else shader.emit(OP.MOV,dst(0,temp,2),shader.literal(.5));
+                    sources[operand]=src(0,temp);
+                }
+            }
             if(!shader.samplers.has(i.texture))
             {
                 const dimension=options.samplers?.[i.texture] || 2;

@@ -251,9 +251,10 @@ export class NV40Render
             bottom:Math.min((y&65535)+(y>>>16),clip?clip.bottom:target.height)};
         if(scissor.left>=scissor.right || scissor.top>=scissor.bottom)return;
         const samplers=Array.from({length:16},(_,unit)=>{const format=get(o,0x1A04+unit*32);return format&4?3:(format>>>4&15)===3?4:2;});
+        const sampler_1d=Array.from({length:16},(_,unit)=>(get(o,0x1A04+unit*32)>>>4&15)===1);
         const texture_sizes=Array.from({length:16},(_,unit)=>{
             const format=get(o,0x1A04+unit*32),size=get(o,0x1A18+unit*32);
-            return format&0x4000?[size>>>16,size&65535,(format>>>4&15)===3?get(o,0x1840+unit*4)>>>20:1]:null;
+            return format&0x4000?[size>>>16,(format>>>4&15)===1?1:size&65535,(format>>>4&15)===3?get(o,0x1840+unit*4)>>>20:1]:null;
         });
         const vertex_textures=Array.from({length:4},(_,unit)=>{
             const at=0x900+unit*32,enable=get(o,at+12);
@@ -266,7 +267,7 @@ export class NV40Render
         });
         const control=get(o,0x1D60);
         const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(control&14),fp32_outputs:!!(control&64),
-            samplers,texture_sizes,vertex_textures,depth_samplers});
+            samplers,sampler_1d,texture_sizes,vertex_textures,depth_samplers});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};

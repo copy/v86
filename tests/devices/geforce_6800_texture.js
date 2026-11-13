@@ -41,6 +41,10 @@ let t=texture.describe(o,0);assert.deepEqual([...texture.read(t)],[255,0,0,255,0
 o.methods.set(0x1A08,0x730303);assert.equal(texture.describe(o,0).srgb,true);
 o.methods.set(0x1A08,0x130303);assert.throws(()=>texture.describe(o,0),/per-component/);
 o.methods.set(0x1A08,0x30303);assert.equal(texture.describe(o,0).srgb,false);
+o.methods.set(0x1A04,0x12519);o.methods.set(0x1A18,2<<16);
+assert.equal(texture.describe(o,0).height,1,"1D textures ignore the rectangle height");
+assert.equal(texture.read(texture.describe(o,0)).length,8);
+o.methods.set(0x1A04,0x12529);o.methods.set(0x1A18,2<<16|2);
 assert.equal(t.normalized,true);o.methods.set(0x1A04,0x16529);assert.equal(texture.describe(o,0).normalized,false);
 assert.deepEqual(texture.read(texture.describe(o,0)),texture.read(t),"coordinate units do not change texture storage");o.methods.set(0x1A04,0x12529);
 o.methods.set(0x1A10,0xAAE4);assert.deepEqual([...texture.read(texture.describe(o,0)).subarray(0,4)],[0,0,255,255],"crossbar selects storage components, not format names");

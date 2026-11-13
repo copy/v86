@@ -35,13 +35,14 @@ export class NV40Texture
     {
         if(unit<0 || unit>=16)throw new RangeError("NV40 invalid texture unit");
         const at=0x1A00+unit*32,format=get(o,at+4),size=get(o,at+24),code=format>>>8&31,selector=format&3;
-        const width=size>>>16,height=size&65535,block=BLOCK_BYTES.get(code),bpp=BYTES.get(code)||block,pitch=get(o,0x1840+unit*4)&65535;
+        const dimension=format>>>4&15,width=size>>>16,height=dimension===1?1:size&65535,
+            block=BLOCK_BYTES.get(code),bpp=BYTES.get(code)||block,pitch=get(o,0x1840+unit*4)&65535;
         if(get(o,at+12)&0x70)throw new RangeError("NV40 anisotropic texture is not connected");
         if(!(get(o,at+12)&0x80000000))throw new RangeError("NV40 sampled texture is disabled");
-        const cube=!!(format&4),dimension=format>>>4&15,volume=dimension===3;
+        const cube=!!(format&4),volume=dimension===3;
         const depthCompare=code===16 || code===18;
         if(depthCompare && (cube || volume))throw new RangeError("NV40 depth comparison needs a 2D texture");
-        if(dimension!==2 && !volume || cube && volume)throw new RangeError("NV40 invalid texture dimension");
+        if(![1,2,3].includes(dimension) || cube && dimension!==2)throw new RangeError("NV40 invalid texture dimension");
         const depth=volume?get(o,0x1840+unit*4)>>>20:1;
         if(volume && (!depth || Math.max(width,height,depth)>512))throw new RangeError("NV40 volume texture dimensions");
         if(volume && block)throw new RangeError("NV40 compressed volume texture is not connected");

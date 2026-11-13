@@ -288,6 +288,22 @@ try
         assert.deepEqual(await gammaDraw(),[128,128,128,200],"sRGB conversion precedes bilinear filtering");
         method(0x1A08,0x30303);
         console.log("PASS: real WebGPU native RGB sRGB conversion, preserved alpha and filtering in linear space");
+        method(0x1A04,0x12519);method(0x1A18,2<<16);method(0x1840,8);method(0x1A08,0x403);method(0x1A14,0x01010000);
+        vram.set([0,0,255,255,255,0,0,255],0x20000);
+        for(const [opcode,coordinate,expected]of [[23,[.25,99,0,2],[0,0,255,255]],
+            [24,[1.5,-99,0,2],[255,0,0,255]]])
+        {
+            [opcode<<24|128|15<<9|1,7<<18|0x1C802,0,0,...new Uint32Array(Float32Array.from(coordinate).buffer)]
+                .forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            assert.deepEqual(await gammaDraw(),expected,"1D sample ignores out-of-range Y, including projection: "+opcode);
+        }
+        method(0x1A04,0x16519);
+        [23<<24|128|15<<9|1,7<<18|0x1C802,0,0,...new Uint32Array(Float32Array.of(1.5,999,0,1).buffer)]
+            .forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        assert.deepEqual(await gammaDraw(),[255,0,0,255],"1D rectangle coordinates normalise X while ignoring the unused height");
+        method(0x1A08,0x30303);
+        [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        console.log("PASS: real WebGPU 1D fragment textures, ignored Y/border, projective and rectangle X coordinates");
         // Distinct solid levels expose derivative LOD, signed sampler bias and
         // trilinear interpolation without depending on checkerboard placement.
         let mipOffset=0x20000;
