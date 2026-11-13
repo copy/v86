@@ -116,6 +116,11 @@
   重叠和裁剪、像素宽度、M2MF 非连续 pitch 与末行故障不留下部分写入。
   插件构建通过。IFC/单色文字、缩放/YUV、混合与 swizzle 仍待后续步骤，G2 未验收。
 
+- CPU 2D 第二部分：增加 IFC/INDEX 的逐行上传、DWORD 行填充、输出裁剪、色键和
+  LUT 取色，GDI 透明/不透明单色展开与 CGA6/LE 位序；上传进度进入现有对象快照。
+  测试覆盖 RGB565 非整 DWORD 行、半行保存/恢复、裁剪后的像素位置和两种单色位序；
+  2D 测试与插件构建通过。SIFM/SIFC、线/三角形、混合和字体 DMA 尚未完成。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

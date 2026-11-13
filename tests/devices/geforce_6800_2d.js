@@ -50,4 +50,28 @@ vram.fill(77, 128, 160); word(0x1004, 140);
 assert.throws(() => call(copy, 0x328, 0), RangeError);
 assert.deepEqual([...vram.subarray(128, 160)], Array(32).fill(77), "late row fault leaves whole transfer unchanged");
 assert.equal(engine.method(gdi, 0x2000, 1), false);
+word(0x1004, 4095); surface.methods.set(0x300, 4); vram.fill(0, 0, 128);
+const ifc = object(0x5600, 0x308A, [[0x19C, 0x500], [0x2FC, 3], [0x300, 1], [0x304, 0], [0x308, 2 << 16 | 2]]);
+call(ifc, 0x30C, 2 << 16 | 3);
+call(ifc, 0x400, 0x07E0F800);
+const streamState = graph.get_state(); graph.set_state(streamState);
+const resumed = graph.object(0, 0x5600);
+call(resumed, 0x400, 0xDEAD001F); // third pixel cropped; high word is row padding
+call(resumed, 0x400, 0xFFFF001F); call(resumed, 0x400, 0xBEEF0000);
+assert.equal(view.getUint16(0, true), 0xF800); assert.equal(view.getUint16(2, true), 0x07E0);
+assert.equal(view.getUint16(4, true), 0); assert.equal(view.getUint16(32, true), 0x001F);
+assert.equal(view.getUint16(34, true), 0xFFFF); assert.equal(view.getUint16(36, true), 0);
+// Transparent and opaque monochrome streams, including byte bit order and clipping.
+const mono = graph.object(0, 0x5200);
+mono.methods.set(0x3FC, 0); mono.methods.set(0x7F4, 0xFFFF); mono.methods.set(0x7F8, 1 << 16 | 8);
+mono.methods.set(0x7EC, 0); mono.methods.set(0x7F0, 4 << 16 | 8); mono.methods.set(0x304, 2);
+call(mono, 0x7FC, 2 << 16); call(mono, 0x800, 5);
+assert.equal(view.getUint16(64, true), 0xFFFF); assert.equal(view.getUint16(66, true), 0);
+assert.equal(view.getUint16(68, true), 0xFFFF);
+mono.methods.set(0xBE4, 0); mono.methods.set(0xBE8, 4 << 16 | 8);
+mono.methods.set(0xBEC, 0xF800); mono.methods.set(0xBF0, 0x07E0);
+mono.methods.set(0xBF4, 1 << 16 | 8); mono.methods.set(0xBF8, 1 << 16 | 8); mono.methods.set(0x304, 1);
+call(mono, 0xBFC, 3 << 16); call(mono, 0xC00, 0x80);
+assert.equal(view.getUint16(96, true), 0x07E0); assert.equal(view.getUint16(98, true), 0xF800);
 console.log("PASS: NV40 8/16/32-bit fills, exhaustive ROP3, clipped/overlapping blits, PCI M2MF and atomic completion/faults");
+console.log("PASS: IFC row padding/crop and mid-row snapshot, GDI transparent/opaque bitmap expansion and bit order");

@@ -42,6 +42,29 @@ export class NV2D
             (bpp === 4 ? bytes[at + 2] << 16 | bytes[at + 3] << 24 : 0)) >>> 0;
     }
     put(bytes, at, bpp, color) { for(let i = 0; i < bpp; i++) bytes[at + i] = color >>> (i * 8) & 255; }
+    unpack(color, format)
+    {
+        if(format === 1) return [color & 255, color & 255, color & 255, 255];
+        if(format >= 6) return [color >>> 16 & 255, color >>> 8 & 255, color & 255, format === 10 ? color >>> 24 : 255];
+        const green = format === 4 ? 63 : 31;
+        return [Math.round((color >>> (format === 4 ? 11 : 10) & 31) * 255 / 31),
+            Math.round((color >>> 5 & green) * 255 / green), Math.round((color & 31) * 255 / 31), 255];
+    }
+    pack(rgba, format)
+    {
+        const [r, g, b, a] = rgba;
+        if(format === 1) return r;
+        if(format >= 6) return (a << 24 | r << 16 | g << 8 | b) >>> 0;
+        return (r >>> 3) << (format === 4 ? 11 : 10) | (g >>> (format === 4 ? 2 : 3)) << 5 | b >>> 3;
+    }
+    convert(color, input, output)
+    {
+        const format = input === 1 ? 4 : input === 2 || input === 3 ? 3 : 10;
+        const rgba = this.unpack(color, format);
+        if(input === 2) rgba[3] = color & 0x8000 ? 255 : 0;
+        else if(input !== 4) rgba[3] = 255;
+        return this.pack(rgba, output);
+    }
     rop(code, s, d, p)
     {
         let out = 0;
@@ -155,18 +178,78 @@ export class NV2D
         for(let y = 0; y < height; y++) this.device.dma.write(output, destinations[y], rows[y]);
         this.graph.notification(o, 16, value === 1);
     }
+    upload(o, value, indexed)
+    {
+        const base = indexed ? 0x3F4 : 0x304, [width, height] = wh(m(o, base + 8));
+        const input = m(o, indexed ? 0x3E8 : 0x300), bpp = indexed ? 1 : input <= 3 ? 2 : 4;
+        if(!width || !height || width * height * bpp > this.device.vram_size || input < 1 || input > 5)
+            throw new RangeError("NV IFC invalid image");
+        const stride = Math.ceil(width * bpp / 4) * 4;
+        if(!o.stream.length) o.stream = [0];
+        if(o.stream[0] >= height) throw new RangeError("NV IFC excess data");
+        for(let i = 0; i < 4; i++) o.stream.push(value >>> (i * 8) & 255);
+        if(o.stream.length - 1 < stride) return;
+        const row = o.stream[0], bytes = new Uint8Array(o.stream.slice(1)), [x, y] = xy(m(o, base));
+        const [outw, outh] = wh(m(o, base + 4)), dst = this.surface(o, indexed ? 0x1A0 : 0x19C);
+        const rect = this.bounds(x, y + row, Math.min(width, outw), row < outh ? 1 : 0, this.clip(o, indexed ? 0x18C : 0x188));
+        let lut = null;
+        if(indexed)
+        {
+            if(m(o, 0x3EC) !== 1) throw new RangeError("NV INDEX format unavailable");
+            lut = this.device.dma.read(this.dma(o, 0x184), m(o, 0x3F0), 256 * 4);
+        }
+        const key = o.methods.has(indexed ? 0x188 : 0x184) ? this.ref(o, indexed ? 0x188 : 0x184) : null;
+        const operation = m(o, 0x2FC);
+        if(indexed) o.methods.set(0x2FC, m(o, 0x3E4));
+        try
+        {
+            this.render(o, dst, rect, px => {
+                const color = lut ? this.raw(lut, bytes[px - x] * 4, 4) : this.raw(bytes, (px - x) * bpp, bpp);
+                if(key && color === m(key, 0x304)) return null;
+                return this.convert(color, input, dst.format);
+            }, indexed ? [0x190, 0x194] : [0x18C, 0x190]);
+        }
+        finally { if(indexed) o.methods.set(0x2FC, operation); }
+        o.stream = [row + 1];
+    }
+    monochrome(o, value, opaque)
+    {
+        const base = opaque ? 0xBF4 : 0x7F8;
+        const [width, height] = wh(m(o, base)), [x, y] = xy(m(o, opaque ? 0xBFC : 0x7FC));
+        const stride = Math.ceil(width / 32), offset = o.stream.length ? o.stream[0] : 0;
+        if(!width || !height || offset >= stride * height) throw new RangeError("NV GDI bitmap excess data");
+        const row = Math.floor(offset / stride), column = offset % stride * 32;
+        const clipBase = opaque ? 0xBE4 : 0x7EC;
+        const clip = [...xy(m(o, clipBase)), ...xy(m(o, clipBase + 4))];
+        let outw = width, outh = height;
+        if(opaque) [outw, outh] = wh(m(o, 0xBF8));
+        const rect = this.bounds(x + column, y + row, Math.max(0, Math.min(32, width - column, outw - column)), row < outh ? 1 : 0, clip);
+        const dst = this.surface(o, 0x198);
+        this.render(o, dst, rect, px => {
+            const bit = px - x - column, shift = m(o, 0x304, 2) === 1 ? (bit & ~7) + 7 - (bit & 7) : bit;
+            return value >>> shift & 1 ? m(o, opaque ? 0xBF0 : 0x7F4) : opaque ? m(o, 0xBEC) : null;
+        }, [0x188, 0x18C]);
+        o.stream = [offset + 1];
+    }
     method(o, at, value)
     {
         const type = o.class_id;
+        const ifc = [0x61, 0x65, 0x8A, 0x308A].includes(type), indexed = [0x60, 0x64, 0x3064].includes(type);
         let accepted = false;
         if(type === 0x39) accepted = [0x184, 0x188, 0x30C, 0x310, 0x314, 0x318, 0x31C, 0x320, 0x324, 0x328].includes(at);
         else if(type === 0x5F || type === 0x9F) accepted = at >= 0x184 && at <= 0x19C || [0x2FC, 0x300, 0x304, 0x308].includes(at);
-        else if(type === 0x4A) accepted = at >= 0x184 && at <= 0x198 || [0x2FC, 0x300, 0x304, 0x3FC, 0x5F4, 0x5F8, 0x5FC].includes(at) || at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700;
+        else if(type === 0x4A) accepted = at >= 0x184 && at <= 0x198 || [0x2FC, 0x300, 0x304, 0x3FC, 0x5F4, 0x5F8, 0x5FC].includes(at) || at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700 || at >= 0x7EC && at < 0xA00 || at >= 0xBE4 && at < 0xE00;
+        else if(ifc) accepted = at >= 0x184 && at <= 0x19C || at >= 0x2F8 && at <= 0x30C || at >= 0x400 && at < 0x2000;
+        else if(indexed) accepted = at >= 0x184 && at <= 0x1A0 || at >= 0x3E0 && at < 0x2000;
         if(!accepted || at & 3) return false;
         o.methods.set(at, value >>> 0);
         if(type === 0x39 && at === 0x328) this.m2mf(o, value);
         else if((type === 0x5F || type === 0x9F) && at === 0x308) this.blit(o);
         else if(type === 0x4A && (at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700) && at & 4) this.rectangle(o, at);
+        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && at === 0x30C || indexed && at === 0x3FC) o.stream = [0];
+        else if(type === 0x4A && at >= 0x800 && at < 0xA00) this.monochrome(o, value, false);
+        else if(type === 0x4A && at >= 0xC00 && at < 0xE00) this.monochrome(o, value, true);
+        else if((ifc || indexed) && at >= 0x400) this.upload(o, value, indexed);
         return true;
     }
 }
