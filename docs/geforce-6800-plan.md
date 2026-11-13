@@ -364,6 +364,13 @@ NVIDIA 驱动，设备必须从硬件层面的方法流重建 D3D9 级的状态�
   8876017c（OUTOFVIDEOMEMORY），继续调查。两种客体的 DxDiag 和基准门禁仍未通过。
 
 
+- G3 alpha/blend 续修（2026-11-14）：连接 alpha 比较、8-bit reference、颜色与 alpha
+  独立 blend factor/equation、常量颜色，复用 D9WG 的实际光栅管线。真实 WebGPU
+  读回验证 source-over 的四个分量，以及 alpha 比较失败保留原目标、成功写入源色；
+  状态枚举测试、完整渲染测试和 Closure 构建通过。RGB 的 constant-alpha factor
+  尚需额外降低，目前明确报错。
+
+
 ## 选型结论
 
 2026-10-26 的选型过程（证据见“规范与实现参考”）：

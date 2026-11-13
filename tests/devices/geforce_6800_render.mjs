@@ -6,12 +6,17 @@ import {NVDMA} from "../../src/graphics_adapters/geforce_6800/nv_dma.js";
 import {NVTrace} from "../../src/graphics_adapters/geforce_6800/nv_trace.js";
 import {d9wg_commands} from "../../src/graphics_adapters/vmware_svga/svga3d_d9wg.js";
 import {OP,FIELD_LAYOUT} from "../../src/graphics_adapters/vmware_svga/d9wg_constants.js";
-import {expand_primitives} from "../../src/graphics_adapters/geforce_6800/nv40_render.js";
+import {expand_primitives,nv40_blend_state} from "../../src/graphics_adapters/geforce_6800/nv40_render.js";
 const offset=(name,field)=>FIELD_LAYOUT[name].fields.find(item=>item[0]===field)[1];
 const input={bytes:Uint8Array.of(0,1,2,3,4),count:5,stride:1};
 assert.deepEqual([...expand_primitives(input,6).bytes],[0,1,2,2,1,3,2,3,4]);
 assert.deepEqual([...expand_primitives(input,8).bytes],[0,1,2,0,2,3]);
 assert.deepEqual([...expand_primitives(input,3).bytes],[0,1,1,2,2,3,3,4,4,0]);
+const blendState={methods:new Map([[0x310,1],[0x314,0x00010302],[0x318,0x303],[0x320,0x800A8006]])};
+const blendRegisters=new Map(nv40_blend_state(blendState));
+assert.equal(blendRegisters.get(19),5);assert.equal(blendRegisters.get(20),6);
+assert.equal(blendRegisters.get(207),2);assert.equal(blendRegisters.get(209),2,"separate alpha equation");
+blendState.methods.set(0x314,0x18003);assert.throws(()=>nv40_blend_state(blendState),/constant-alpha/);
 let remote=null,listener=null,submitted=null;
 const fake={listen:fn=>{listener=fn;},post:message=>{if(message.type==="submit")submitted=message;}};
 if(process.env.NV_GPU_RENDERER==="chrome")
@@ -87,6 +92,18 @@ try
         method(0x1808,5);method(0x1824,2<<24|1);method(0x1808,0);await engine.backend.wait();
         assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0x99,0x66,0x33,0xFF],"DMA indexed triangle renders actual pixels");
+        // Alpha comparison and independent RGB/alpha blending on the same VRAM.
+        new Float32Array(vram.buffer,0x9010,4).set([1,0,0,.5]);
+        for(const [at,value]of [[0x310,1],[0x314,0x10302],[0x318,0x303],[0x320,0x80068006]])method(at,value);
+        method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+        const blended=[...vram.subarray(0x10000,0x10004)];
+        [77,51,153,128].forEach((expected,i)=>assert(Math.abs(blended[i]-expected)<=1,"blend component "+i+": "+blended[i]));
+        method(0x310,0);method(0x304,1);method(0x308,0x204);method(0x30C,192);
+        method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],blended,"failed alpha comparison preserves destination");
+        method(0x308,0x201);method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,128],"passing alpha comparison writes the source");
+        method(0x304,0);
         // A real sampled checkerboard also tests Curie's output crossbar:
         // the VP writes raw TBUF5, mapped to the FP's TEX0 input.
         method(0x1E9C,0);

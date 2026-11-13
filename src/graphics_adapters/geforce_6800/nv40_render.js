@@ -6,6 +6,25 @@ import {NV40Texture} from "./nv40_texture.js";
 import {QUERY_REGION_BYTES,READBACK_MAX_BYTES,RESPONSE_OK} from "../renderer_protocol.js";
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength);
+const BLEND=new Map([[0,1],[1,2],[0x300,3],[0x301,4],[0x302,5],[0x303,6],[0x304,7],[0x305,8],
+    [0x306,9],[0x307,10],[0x308,11],[0x8001,14],[0x8002,15],[0x8003,14],[0x8004,15]]);
+const EQUATION=new Map([[0x8006,1],[0x800A,2],[0x800B,3],[0x8007,4],[0x8008,5]]);
+export function nv40_blend_state(o)
+{
+    const alpha=!!get(o,0x304),blend=!!get(o,0x310),compare=get(o,0x308,0x207);
+    if(alpha && (compare<0x200 || compare>0x207))throw new RangeError("NV40 invalid alpha comparison");
+    const result=[[15,+alpha],[25,compare-0x1FF],[24,get(o,0x30C)&255],[27,+blend]];
+    if(!blend)return result;
+    const source=get(o,0x314,0x00010001),destination=get(o,0x318),equation=get(o,0x320,0x80068006);
+    const convert=(table,value)=>{if(!table.has(value))throw new RangeError("NV40 unsupported blend enum");return table.get(value);};
+    if([source&65535,destination&65535].some(value=>value===0x8003 || value===0x8004))
+        throw new RangeError("NV40 constant-alpha RGB blend is not connected");
+    result.push([19,convert(BLEND,source&65535)],[20,convert(BLEND,destination&65535)],
+        [171,convert(EQUATION,equation&65535)],[193,get(o,0x31C)],
+        [206,1],[207,convert(BLEND,source>>>16)],[208,convert(BLEND,destination>>>16)],
+        [209,convert(EQUATION,equation>>>16)]);
+    return result;
+}
 
 export function expand_primitives(vertices,mode)
 {
@@ -109,7 +128,7 @@ export class NV40Render
         if(get(o,0x183C) || get(o,0x142C) || get(o,0x374) || get(o,0x1478) || get(o,0x36C) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
-        if(get(o,0x304) || get(o,0x310)) throw new RangeError("NV40 alpha/blend rendering is not connected");
+        const blend=nv40_blend_state(o);
         const target=this.engine.state.target(o);
         if(![21,22,23].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
         if(!(get(o,0x1E94)&0x100)) throw new RangeError("NV40 clip-space viewport lowering is not connected");
@@ -140,7 +159,8 @@ export class NV40Render
         this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,0,this.engine.vertex_constants(o,0,256));
         for(const [index,values]of shaders.vertex.viewport_constants)this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,index,values);
         shaders.fragment.constant_values.forEach((values,index)=>this.constants(OP.SET_PIXEL_SHADER_CONSTANT_F,index,values));
-        this.render_state(7,0);this.render_state(14,0);this.render_state(22,1);this.render_state(27,0);this.render_state(15,0);this.render_state(52,0);
+        this.render_state(7,0);this.render_state(14,0);this.render_state(22,1);this.render_state(52,0);
+        for(const [state,value]of blend)this.render_state(state,value);
         const mask=get(o,0x324,0x01010101);
         this.render_state(168,(mask&0x10000?1:0)|(mask&0x100?2:0)|(mask&1?4:0)|(mask&0x1000000?8:0));
         this.render_state(174,1);this.render_state(9,get(o,0x368,0x1D01)===0x1D00?1:2);this.render_state(26,get(o,0x300));
