@@ -2,6 +2,7 @@
 // snapshot authority: every submitted target is downloaded before FIFO resumes.
 import {D9WGWriter} from "../vmware_svga/svga3d_d9wg.js";
 import {OP} from "../vmware_svga/d9wg_constants.js";
+import {NV40Texture} from "./nv40_texture.js";
 import {QUERY_REGION_BYTES,READBACK_MAX_BYTES,RESPONSE_OK} from "../renderer_protocol.js";
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength);
@@ -28,7 +29,7 @@ export class NV40Render
 {
     constructor(engine,renderer)
     {
-        this.engine=engine;this.device=engine.device;this.renderer=renderer;
+        this.engine=engine;this.device=engine.device;this.renderer=renderer;this.textures=new NV40Texture(engine.state);
         this.writer=new D9WGWriter(0x3034564E); // "NV40", separate resource namespace
         this.next=2;this.sequence=0;this.request=0;this.created=false;
         this.resources=new Map();this.shaders=new Map();this.declarations=new Map();
@@ -113,7 +114,10 @@ export class NV40Render
         if(![21,22,23].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
         if(!(get(o,0x1E94)&0x100)) throw new RangeError("NV40 clip-space viewport lowering is not connected");
         const shaders=this.engine.shaders(o,{viewport:{width:target.width,height:target.height,bypass:true}});
-        if(shaders.fragment.samplers.length) throw new RangeError("NV40 texture sampling is not connected");
+        const textures=shaders.fragment.samplers.map(([unit])=>{
+            const surface=this.textures.describe(o,unit),bytes=this.textures.read(surface);
+            return {unit,surface,bytes};
+        });
         const fetched=indices?this.engine.state.array_vertices(o,indices,shaders.vertex.inputs):
             this.engine.state.inline_vertices(o,words,shaders.vertex.inputs);
         const vertices=expand_primitives(fetched,mode);if(!vertices.count)return;
@@ -125,6 +129,13 @@ export class NV40Render
         this.command(OP.SET_RENDER_TARGET,{"target_index":0,"color_texture_handle":handle});
         this.command(OP.SET_VIEWPORT,{"width":target.width,"height":target.height,"max_z":1});
         this.command(OP.SET_VERTEX_DECLARATION,{"declaration_handle":this.declaration(shaders.vertex.inputs)});
+        for(const {unit,surface,bytes}of textures)
+        {
+            const image=this.target({...surface,d3d:32,bpp:4},bytes);
+            this.command(OP.SET_TEXTURE,{"stage":unit,"texture_handle":image});
+            for(const [state,value]of [[1,surface.wrap_s],[2,surface.wrap_t],[3,3],[4,surface.border],[5,surface.mag],[6,surface.min],[7,0],[10,1],[11,0]])
+                this.command(OP.SET_SAMPLER_STATE,{"sampler":unit,"state":state,"value":value});
+        }
         this.command(OP.SET_VERTEX_SHADER,{"shader_handle":vs});this.command(OP.SET_PIXEL_SHADER,{"shader_handle":ps});
         this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,0,this.engine.vertex_constants(o,0,256));
         for(const [index,values]of shaders.vertex.viewport_constants)this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,index,values);

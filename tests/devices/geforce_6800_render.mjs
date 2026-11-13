@@ -67,6 +67,35 @@ try
     assert.equal(engine.busy,false);assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
     for(let at=0x10000;at<0x10100;at+=4)assert.deepEqual([...vram.subarray(at,at+4)],[0x99,0x66,0x33,0xFF],"actual target pixel "+at.toString(16));
     assert.equal(device.fifo.drain(),true);assert.equal(view.getUint32(0x800,true),0xABCD1234,"fence follows committed VRAM");
+    if(remote)
+    {
+        // A real sampled checkerboard also tests Curie's output crossbar:
+        // the VP writes raw TBUF5, mapped to the FP's TEX0 input.
+        method(0x1E9C,0);
+        [0x401F9C6C,0x0040080D,0x81000000,0x0001EF94,
+         0x401F9C6C,0x0040000D,0x81000000,0x0001EF81].forEach((word,i)=>method(0xB80+(i%4)*4,word));
+        [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        for(const [at,value]of [[0x1FC8,5],[0x1FF4,1<<14],[0x1740,0x1022],[0x1760,0x1022],
+            [0x1A00,0x20000],[0x1A04,0x12529],[0x1A08,0x30303],[0x1A0C,0x80000000],
+            [0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,8]])method(at,value);
+        vram.set([0,0,255,255,0,255,0,255,255,0,0,255,255,255,255,255],0x20000);
+        method(0x1808,6);
+        const floats=Float32Array.of(0,0,0,0,0,16,0,2,16,0,2,0);
+        for(const word of new Uint32Array(floats.buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();
+        assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        for(let y=0;y<8;y++)for(let x=0;x<8;x++)
+        {
+            const expected=y<4?x<4?[0,0,255,255]:[0,255,0,255]:x<4?[255,0,0,255]:[255,255,255,255];
+            assert.deepEqual([...vram.subarray(0x10000+(y*8+x)*4,0x10000+(y*8+x)*4+4)],expected,"sampled checker "+x+","+y);
+        }
+        method(0x1A14,0x02020000);method(0x1808,6);
+        for(const word of new Uint32Array(floats.buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();
+        const center=[...vram.subarray(0x10000+(3*8+3)*4,0x10000+(3*8+3)*4+4)];
+        [96,96,135,255].forEach((expected,i)=>assert(Math.abs(center[i]-expected)<=1,"bilinear center component "+i+": "+center[i]));
+        console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
+    }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));
 }
 finally {if(remote)await remote.close();}

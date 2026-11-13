@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+import assert from "node:assert/strict";
+import {NVDMA} from "../../src/graphics_adapters/geforce_6800/nv_dma.js";
+import {NV2D} from "../../src/graphics_adapters/geforce_6800/nv_2d.js";
+import {NV40State} from "../../src/graphics_adapters/geforce_6800/nv40_state.js";
+import {NV40Texture} from "../../src/graphics_adapters/geforce_6800/nv40_texture.js";
+const vram=new Uint8Array(2<<20),ramin=new DataView(vram.buffer,1<<20);
+const device={vram_size:vram.length,vram:()=>vram,vga:{lfb_region:1},machine:{mmio_ram_mark_dirty(){},is_bus_master:()=>true}};
+device.dma=new NVDMA(device);device.graph={device};device.graph.engine2d=new NV2D(device.graph);
+const state=new NV40State(device),texture=new NV40Texture(state),o={methods:new Map([[0x184,0x10],[0x1A00,0x1000],
+    [0x1A04,0x12529],[0x1A08,0x30303],[0x1A0C,0x80000000],[0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,12]])};
+ramin.setUint32(0x100,0x303D,true);ramin.setUint32(0x104,0xFFFF,true);ramin.setUint32(0x108,3,true);
+vram.set([0,0,255,255,0,255,0,255,99,98,97,96,255,0,0,255,255,255,255,255],0x1000);
+let t=texture.describe(o,0);assert.deepEqual([...texture.read(t)],[255,0,0,255,0,255,0,255,0,0,255,255,255,255,255,255]);
+o.methods.set(0x1A10,0xAAE4);assert.deepEqual([...texture.read(texture.describe(o,0)).subarray(0,4)],[0,0,255,255],"crossbar selects storage components, not format names");
+o.methods.set(0x1A18,4<<16|2);o.methods.set(0x1A04,0x10529);o.methods.set(0x1A00,0x2000);
+[1,2,5,6,3,4,7,8].forEach((red,i)=>vram.set([red,0,0,255],0x2000+i*4));
+const morton=texture.read(texture.describe(o,0));assert.deepEqual(Array.from({length:8},(_,i)=>morton[i*4]),[1,2,3,4,5,6,7,8]);
+o.methods.set(0x1A04,0x12429);o.methods.set(0x1A18,1<<16|1);o.methods.set(0x1A10,0xAA6C);o.methods.set(0x1840,2);
+vram.set([0,0xF8],0x2000);assert.deepEqual([...texture.read(texture.describe(o,0))],[255,0,0,255],"RGB565 storage components expand before swizzling");
+o.methods.set(0x1A04,0x12129);o.methods.set(0x1A10,0xA9FC);o.methods.set(0x1840,1);vram[0x2000]=128;
+assert.deepEqual([...texture.read(texture.describe(o,0))],[128,128,128,255],"luminance and constant-one component selection");
+o.methods.set(0x1A04,0x12B29);o.methods.set(0x1A10,0xAAFC);o.methods.set(0x1840,2);vram.set([64,128],0x2000);
+assert.deepEqual([...texture.read(texture.describe(o,0))],[64,64,64,128],"A8L8 alpha occupies storage component 3");
+o.methods.set(0x1A0C,0);assert.throws(()=>texture.describe(o,0),/disabled/);o.methods.set(0x1A0C,0x80000000);
+o.methods.set(0x1A04,0x22B29);assert.throws(()=>texture.describe(o,0),/mipmapped/);
+o.methods.set(0x1A04,0x12B29);o.methods.set(0x1A14,0x11010000);assert.throws(()=>texture.describe(o,0),/signed/);
+const invalid={...t,dma:{...t.dma,limit:0x100F}};assert.throws(()=>texture.read(invalid),/limit/);
+console.log("PASS: NV40 linear/Morton texture DMA, storage swizzles, RGB565/L8/A8L8 and unsupported-state faults");

@@ -306,6 +306,15 @@
   路由后的 WGSL；state/PGRAPH/绘制测试与 Closure 构建通过。额外插值器和双面颜色
   尚未接入执行器时明确拒绝，避免使用错误的语义。
 
+- 基础纹理接入：checked DMA 读取线性/Morton 的 2D 单级纹理，支持 L8、1555、4444、
+  RGB565、32-bit 存储与 A8L8，按组件交叉开关转换取色；绑定 wrap、边框与最近点/线性
+  过滤。16 个 texture size 状态地址均可保存；未接入的 mip/cube/volume/比较/sRGB/signed/
+  anisotropy/unnormalized 状态明确拒绝。单元测试比较字节顺序、Morton 和组件常量；
+  真实 WebGPU 棋盘格的最近点、双线性像素以及 TBUF5→TEX0 路由均正确。
+  XP 93.71 的前一条纹理复制现在也执行到 GPU，两个 draw、三个分块读回完成，PGRAPH
+  faults=[]，GDI 与 DirectDraw 微探针均 failures=0，见 `g2-xp-9371-ddraw-textures.json`。
+  设备/着色器测试和插件构建通过，完整 DxDiag 与 G3 门禁仍待后续实现。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-14",
+  "scope": "native DirectDraw7 microprobe with textured copy and color fill",
+  "driver": "93.71",
+  "probe": [
+    "PROBE_ID 39",
+    "MODE_TEST result=0",
+    "MODE_SET result=0",
+    "GDI_TEST failures=0",
+    "DDRAW_BEGIN",
+    "DDRAW_CREATE",
+    "DDRAW_COOPERATIVE",
+    "DDRAW_CAPS",
+    "DDRAW_SURFACES",
+    "DDRAW_BLIT",
+    "DDRAW_BITS=00000020",
+    "DDRAW_PIXEL=ff336699",
+    "DDRAW_PITCH=00000080",
+    "DDRAW_XOR_NOT_ADVERTISED",
+    "DDRAW_RELEASE",
+    "DDRAW_TEST failures=0",
+    "SCREEN 1024x768"
+  ],
+  "gpu": {
+    "draws": 2,
+    "bytes": 8405776,
+    "readbacks": 3,
+    "failures": 0
+  },
+  "graphFaults": [],
+  "imageUnchanged": true,
+  "remaining": [
+    "DxDiag full acceptance and G3-G7.",
+    "Mipmaps, compressed/cube/volume/depth/sRGB/signed textures, anisotropy and unnormalized coordinates are not connected yet."
+  ]
+}
