@@ -93,6 +93,11 @@ try
     const conditional=structuredClone(fragment);conditional.instructions[0].predicate.condition=1;
     validate("conditional",translate_fragment_program(conditional));
     for(let condition=1;condition<7;condition++) {conditional.instructions[0].predicate.condition=condition;conditional.instructions[0].predicate.update=true;validate("cc-"+condition,translate_fragment_program(conditional));}
+    for(let read=0;read<2;read++)for(let write=0;write<2;write++)
+    {
+        const p=structuredClone(conditional);p.instructions[0].predicate.register=read;p.instructions[0].predicate.destination=write;
+        validate("fragment-cc-banks-"+read+"-"+write,translate_fragment_program(p));
+    }
     const base=vertex.instructions[0],flowOp=(name,pc,target=0)=>{
         const i=structuredClone(base);i.pc=pc;i.end=false;i.vector.name="NOP";i.scalar={name,mask:0};
         i.target=target;return i;

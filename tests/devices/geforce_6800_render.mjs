@@ -360,9 +360,9 @@ try
             "fog clamp happens after interpolation at pixel "+x);
         console.log("PASS: real WebGPU NV linear/exponential/absolute fog factors, post-interpolation clamp and FOGC zero components");
         const conditionSwizzle=swizzle=>swizzle.reduce((bits,value,i)=>bits|value<<(21+i*2),0);
-        const ccInstruction=(value,{condition=7,swizzle=[0,1,2,3],update=false,disabled=false,mask=15,saturate=false,end=false}={})=>[
+        const ccInstruction=(value,{condition=7,swizzle=[0,1,2,3],update=false,disabled=false,mask=15,saturate=false,end=false,read=0,write=0}={})=>[
             (1<<24|128|mask<<9|+update<<8|+disabled<<30|+saturate<<31|+end)>>>0,
-            condition<<18|conditionSwizzle(swizzle)|0x1C802,0,0,...new Uint32Array(Float32Array.from(value).buffer)];
+            condition<<18|conditionSwizzle(swizzle)|0x1C802|read<<31|write<<30,0,0,...new Uint32Array(Float32Array.from(value).buffer)];
         const conditionalDraw=async(words)=>{
             words.forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
             method(0x1808,6);for(const word of new Uint32Array(floats.buffer))method(0x1818,word);
@@ -396,6 +396,23 @@ try
             assert.deepEqual(pixel,killed?[13,17,19,23]:[255,255,255,255],"KIL tests swizzled condition codes");
         }
         console.log("PASS: real WebGPU all fragment conditions, NaN/unordered, masked CC updates, saturation and conditional discard");
+        for(let read=0;read<2;read++)for(let condition=0;condition<8;condition++)
+        {
+            const values=[[-1,0,1,NaN],[1,-1,0,NaN]],pixel=await conditionalDraw([
+                ...ccInstruction([.25,.25,.25,.25]),
+                ...ccInstruction(values[0],{update:true,disabled:true,write:0}),
+                ...ccInstruction(values[1],{update:true,disabled:true,write:1}),
+                ...ccInstruction([.75,.75,.75,.75],{condition,swizzle:[3,2,1,0],read,end:true})]);
+            const rgba=[...values[read]].reverse().map(value=>conditions[condition](value)?191:64);
+            assert.deepEqual(pixel,[rgba[2],rgba[1],rgba[0],rgba[3]],"independent fragment condition bank "+read+" condition "+condition);
+        }
+        assert.deepEqual(await conditionalDraw([
+            ...ccInstruction([0,0,0,0]),...ccInstruction([1,-1,1,-1],{update:true,disabled:true,write:0}),
+            ...ccInstruction([0,1,-1,1],{update:true,disabled:true,write:1}),
+            ...ccInstruction([-1,-1,-1,-1],{condition:4,update:true,disabled:true,read:0,write:1}),
+            ...ccInstruction([1,1,1,1],{condition:1,read:1,end:true})]),[255,0,255,0],
+            "predicate reads one CC bank while a masked update preserves the other bank's false lanes");
+        console.log("PASS: real WebGPU both fragment condition banks, separate read/write selectors and preserved false lanes");
         const fpBranch=(opcode,otherwise,end,condition=7,swizzle=[0,1,2,3])=>[
             opcode<<24|0x40000000,condition<<18|conditionSwizzle(swizzle),0x80000000|otherwise,end];
         for(const condition of [0,1,2,4,5,7])

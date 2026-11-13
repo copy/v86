@@ -382,11 +382,11 @@ export function translate_fragment_program(program,options={})
         shader.input_overrides.set(3,fog);
     }
     const written=new Set(),needsCC=program.instructions.some(i=>i.predicate.update || i.predicate.condition!==7 && i.predicate.condition!==0 || i.name==="KIL");
-    const cc=needsCC?shader.temp("cc"):-1,blocks=[],boundaries=new Set(program.instructions.map(i=>i.pc));
+    const cc=needsCC?[shader.temp("cc0"),shader.temp("cc1")]:[-1,-1],blocks=[],boundaries=new Set(program.instructions.map(i=>i.pc));
     const flow=program.instructions.some(i=>i.branch),budget=flow?shader.temp("executed"):-1;
     const limit=Math.min(65536,Math.max(1,options.instruction_limit||65536));
     boundaries.add(program.word_count);
-    if(needsCC)shader.emit(OP.MOV,dst(0,cc),shader.literal(0));
+    if(needsCC)for(const index of cc)shader.emit(OP.MOV,dst(0,index),shader.literal(0));
     if(flow)shader.emit(OP.MOV,dst(0,budget),shader.literal(0));
     const close=pc=>{
         while(blocks.length && blocks[blocks.length-1].end===pc)
@@ -399,6 +399,7 @@ export function translate_fragment_program(program,options={})
     let loopRegister=0;
     for(const i of program.instructions)
     {
+        const readCC=cc[i.predicate.register||0],writeCC=cc[i.predicate.destination||0];
         close(i.pc);
         if(i.branch)
         {
@@ -410,7 +411,7 @@ export function translate_fragment_program(program,options={})
                 {
                     if(!boundaries.has(i.else_offset) || i.else_offset<i.pc+4 || i.else_offset>i.end_offset)
                         throw new RangeError("NV40 fragment ELSE outside block");
-                    shader.condition(i.predicate.condition,src(0,cc,i.predicate.swizzle),31);
+                    shader.condition(i.predicate.condition,src(0,readCC,i.predicate.swizzle),31);
                     shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[1,1,1,1]));
                     shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[2,2,2,2]));
                     shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[3,3,3,3]));
@@ -433,7 +434,7 @@ export function translate_fragment_program(program,options={})
             else if(i.name==="BRK")
             {
                 if(!blocks.some(b=>b.name==="REP" || b.name==="LOOP"))throw new RangeError("NV40 fragment BRK outside loop");
-                shader.condition(i.predicate.condition,src(0,cc,i.predicate.swizzle),31);
+                shader.condition(i.predicate.condition,src(0,readCC,i.predicate.swizzle),31);
                 shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[1,1,1,1]));
                 shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[2,2,2,2]));
                 shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[3,3,3,3]));
@@ -460,7 +461,7 @@ export function translate_fragment_program(program,options={})
         const conditional=i.predicate.condition!==7;
         if(conditional || i.name==="KIL")
         {
-            shader.condition(i.predicate.condition,src(0,cc,i.predicate.swizzle),31);
+            shader.condition(i.predicate.condition,src(0,readCC,i.predicate.swizzle),31);
             shader.emit(OP.SUB,dst(0,31),src(0,31),shader.literal(.5));
         }
         if(i.name==="KIL")
@@ -514,8 +515,8 @@ export function translate_fragment_program(program,options={})
             }
             if(i.predicate.update)
             {
-                if(conditional)shader.emit(OP.CMP,dst(0,cc,i.destination.mask),src(0,31),src(0,30),src(0,cc));
-                else shader.emit(OP.MOV,dst(0,cc,i.destination.mask),src(0,30));
+                if(conditional)shader.emit(OP.CMP,dst(0,writeCC,i.destination.mask),src(0,31),src(0,30),src(0,writeCC));
+                else shader.emit(OP.MOV,dst(0,writeCC,i.destination.mask),src(0,30));
             }
         }
         if(target>=0)

@@ -70,7 +70,7 @@ export function decode_fragment_program(words)
             name: branch ? ["BRK","CAL","IF","LOOP","REP","RET"][opcode] || null : FP[opcode] || (opcode===0x3A ? "DIV" : opcode===0x3C ? "LITEX2" : null),
             branch, sources, constant, destination: {index:a>>>1&63,half:!!(a&128),mask:a>>>9&15,disabled:!!(a&0x40000000)},
             precision:a>>>22&3,saturate:!!(a&0x80000000),scale:c>>>28&7,texture:a>>>17&15,
-            predicate:{condition:b>>>18&7,swizzle:swizzle(b,[21,23,25,27]),update:!!(a&256)},
+            predicate:{condition:b>>>18&7,swizzle:swizzle(b,[21,23,25,27]),update:!!(a&256),register:b>>>31,destination:b>>>30&1},
             input_relative:!branch && !!(d&0x40000000),address:d>>>19&15,else_offset:c&0x7FFFFFFF,end_offset:d&0x7FFFFFFF,
             loop:{count:c>>>2&255,initial:c>>>10&255,increment:c>>>19&255},
             end:!!(a&1)});
