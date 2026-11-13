@@ -102,6 +102,13 @@ const blend = object(0x5A00, 0x4A, [[0x198, 0x500], [0x2FC, 5]]);
 view.setUint32(256, 0xFF0000FF, true);
 engine.render(blend, engine.surface(blend, 0x198), [0,0,1,1], () => [128,0,0,128], [0x188,0x18C,0x190,0x194]);
 assert.equal(view.getUint32(256,true), 0xFF80007F, "premultiplied source over destination");
+dma(0x1300,0x303D,1023,0x1003);
+view.setUint16(0x1002,0xF800,true);view.setUint16(0x1004,0x07E0,true);view.setUint16(0x1006,0x001F,true);
+target.methods.set(0x300,4);target.methods.set(0x30C,640);
+const indexed = object(0x5B00,0x3064,[[0x184,0x130],[0x1A0,0x500],[0x3E4,3],[0x3E8,1],[0x3EC,0],
+    [0x3F0,0],[0x3F4,0],[0x3F8,1<<16|3]]);
+call(indexed,0x3FC,1<<16|4);call(indexed,0x400,0x231);
+assert.deepEqual([...vram.subarray(640,646)],[0,248,31,0,224,7],"I4 low nibble first with 16-bit LUT and output crop");
 console.log("PASS: NV40 8/16/32-bit fills, exhaustive ROP3, clipped/overlapping blits, PCI M2MF and atomic completion/faults");
 console.log("PASS: IFC row padding/crop and mid-row snapshot, GDI transparent/opaque bitmap expansion and bit order");
 console.log("PASS: nearest/bilinear scaling, both packed YUV orders, rectangular Morton surfaces and premultiplied blending");

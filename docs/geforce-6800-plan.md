@@ -144,6 +144,10 @@
   越界保护；快照升级 v7。设备测试覆盖 16-bit 地址拆分、部分写到高字节后提交、
   显存读回和越界不回绕；完整设备测试及插件构建通过。专属 VBE 后端仍待接入。
 
+- INDEX 续修：根据 hwtest 的合法值补齐 `INDEX_FORMAT=0`（I4）与 1（I8），
+  LUT 按源颜色格式使用 16/32-bit 条目。增加低 nibble 先行、RGB565 LUT 和裁剪测试；
+  2D 测试与插件构建通过，XP 复测已能绘制桌面图标。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

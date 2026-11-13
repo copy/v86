@@ -228,7 +228,8 @@ export class NV2D
     upload(o, value, indexed)
     {
         const base = indexed ? 0x3F4 : 0x304, [width, height] = wh(m(o, base + 8));
-        const input = m(o, indexed ? 0x3E8 : 0x300), bpp = indexed ? 1 : input <= 3 ? 2 : 4;
+        const input = m(o, indexed ? 0x3E8 : 0x300), indexFormat = m(o, 0x3EC);
+        const bpp = indexed ? indexFormat ? 1 : 0.5 : input <= 3 ? 2 : 4;
         if(!width || !height || width * height * bpp > this.device.vram_size || input < 1 || input > 5)
             throw new RangeError("NV IFC invalid image");
         const stride = Math.ceil(width * bpp / 4) * 4;
@@ -242,8 +243,8 @@ export class NV2D
         let lut = null;
         if(indexed)
         {
-            if(m(o, 0x3EC) !== 1) throw new RangeError("NV INDEX format unavailable");
-            lut = this.device.dma.read(this.dma(o, 0x184), m(o, 0x3F0), 256 * 4);
+            if(indexFormat > 1) throw new RangeError("NV INDEX invalid format");
+            lut = this.device.dma.read(this.dma(o, 0x184), m(o, 0x3F0), (indexFormat ? 256 : 16) * (input <= 3 ? 2 : 4));
         }
         const key = o.methods.has(indexed ? 0x188 : 0x184) ? this.ref(o, indexed ? 0x188 : 0x184) : null;
         const operation = m(o, 0x2FC);
@@ -251,7 +252,8 @@ export class NV2D
         try
         {
             this.render(o, dst, rect, px => {
-                const color = lut ? this.raw(lut, bytes[px - x] * 4, 4) : this.raw(bytes, (px - x) * bpp, bpp);
+                const pixel = px - x, index = indexFormat ? bytes[pixel] : bytes[pixel >>> 1] >>> ((pixel & 1) * 4) & 15;
+                const color = lut ? this.raw(lut, index * (input <= 3 ? 2 : 4), input <= 3 ? 2 : 4) : this.raw(bytes, pixel * bpp, bpp);
                 if(key && color === m(key, 0x304)) return null;
                 return this.convert(color, input, dst.format);
             }, indexed ? [0x190, 0x194, 0x198, 0x19C] : [0x18C, 0x190, 0x194, 0x198]);
