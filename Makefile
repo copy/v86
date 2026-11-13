@@ -2072,6 +2072,7 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 # make themselves (made-up keys, no Apple files)
 .PHONY: ios-tests ios-pvrtc-tests
 ios-tests:
+	node --test tests/ios/ipa.mjs
 	node tests/ios/boot-tree.mjs
 	node tests/ios/spi-dma.mjs
 	node tests/ios/multitouch-device.mjs

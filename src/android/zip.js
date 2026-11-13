@@ -16,8 +16,9 @@ const STORED = 0, DEFLATED = 8;
  * @param {number} size the archive's
  * @return {!Promise<!Array<{name: string, method: number, flags: number, crc32: number, compressed_size: number, size: number, offset: number}>>}
  */
-export async function zip_entries(read, size)
+export async function zip_entries(read, size, limits = {})
 {
+    if(!Number.isSafeInteger(size) || size < 22) throw new Error("zip: truncated archive");
     const tail_length = Math.min(size, 22 + 0xFFFF);
     const tail = await read(size - tail_length, tail_length);
     let e = -1;
@@ -33,8 +34,12 @@ export async function zip_entries(read, size)
         if(u32(z, 0) !== EOCD64) throw new Error("zip: no zip64 end of central directory");
         count = u64(z, 32); directory_size = u64(z, 40); directory = u64(z, 48);
     }
-    if(directory + directory_size > size) throw new Error("zip: the central directory is beyond the archive");
+    if(!Number.isSafeInteger(directory + directory_size) || directory + directory_size > size)
+        throw new Error("zip: the central directory is beyond the archive");
+    if(count > (limits.max_entries ?? Infinity) || directory_size > (limits.max_directory_bytes ?? Infinity))
+        throw new Error("zip: archive directory exceeds limits");
     const cd = await read(directory, directory_size);
+    if(cd.length !== directory_size) throw new Error("zip: truncated central directory");
     const entries = [];
     for(let at = 0, i = 0; i < count; i++)
     {
@@ -42,12 +47,14 @@ export async function zip_entries(read, size)
         const flags = u16(cd, at + 8), method = u16(cd, at + 10), crc = u32(cd, at + 16);
         let compressed_size = u32(cd, at + 20), uncompressed_size = u32(cd, at + 24), offset = u32(cd, at + 42);
         const name_length = u16(cd, at + 28), extra_length = u16(cd, at + 30), comment_length = u16(cd, at + 32);
+        if(at + 46 + name_length + extra_length + comment_length > cd.length) throw new Error("zip: truncated directory entry");
         const name_bytes = cd.subarray(at + 46, at + 46 + name_length);
         const name = flags & 0x800 ? new TextDecoder().decode(name_bytes) : latin1(name_bytes);
         // (zip64's extra field: the fields at their maximum, in this order)
         for(let p = at + 46 + name_length, end = p + extra_length; p + 4 <= end;)
         {
             const id = u16(cd, p), length = u16(cd, p + 2);
+            if(p + 4 + length > end) throw new Error("zip: truncated extra field");
             if(id === 1)
             {
                 let q = p + 4;
@@ -57,7 +64,8 @@ export async function zip_entries(read, size)
             }
             p += 4 + length;
         }
-        entries.push({ name, method, flags, crc32: crc, compressed_size, size: uncompressed_size, offset });
+        entries.push({ name, method, flags, crc32: crc, compressed_size, size: uncompressed_size, offset,
+            unix_mode: cd[at + 5] === 3 ? u32(cd, at + 38) >>> 16 : 0 });
         at += 46 + name_length + extra_length + comment_length;
     }
     return entries;

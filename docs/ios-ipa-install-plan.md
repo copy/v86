@@ -133,6 +133,9 @@ MobileInstallationInstall → installd → 应用容器与系统注册
   `V86GLES2Test.ipa` 和原生 `v86-app-agent` 安装探针。两个 IPA 已通过本机签名验证。
 - `tools/ios/prepare-install-probe.mjs` 从已有的离线图形系统卷构建独立测试 NAND，保留输入文件。
 - 正在以本地 10B329 固件验证原生安装返回结果；P0 的安装、启动和更新验收尚未完成。
+- P1 的 IPA 检查已实现：XML / binary plist、ARMv7 Fat 切片、加密与最低版本检查、路径和 CRC 检查。
+  两个自制 IPA 已通过检查；合成错误样本、原有 iOS 检查和 Android ZIP 使用方回归通过。
+  这部分不依赖原生安装结果，在 P0 的冷启动验收运行期间完成。
 
 ### P0：先验证 10B329 的原生安装链路
 

@@ -472,6 +472,7 @@ test("Mach-O: segments, sections, the entry point, UUID, symbols", () =>
     // LC_SYMTAB: two symbols
     v.setUint32(at, 2, true); v.setUint32(at + 4, 24, true); v.setUint32(at + 8, 0xC00, true); v.setUint32(at + 12, 2, true);
     v.setUint32(at + 16, 0xD00, true); v.setUint32(at + 20, 32, true);
+    v.setUint32(20, at + 24 - 28, true);
     name(0xD01, "_start\0_main\0");
     v.setUint32(0xC00, 1, true); b[0xC04] = 0x0F; b[0xC05] = 1; v.setUint32(0xC08, 0x80001800, true);
     v.setUint32(0xC0C, 8, true); b[0xC10] = 0x0F; b[0xC11] = 1; v.setUint32(0xC14, 0x80001820, true);
