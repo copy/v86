@@ -4,6 +4,7 @@
 // Unknown registers store values for tracing; this does not imply driver support.
 import { VGAScreen } from "../vga_core.js";
 import { NVTrace } from "./nv_trace.js";
+import { NVDisplay } from "./nv_display.js";
 
 const MMIO_SIZE = 16 << 20;
 const RAMIN_SIZE = 1 << 20;
@@ -24,8 +25,9 @@ export class NVDevice
             throw new Error("geforce_6800: vram_size must be 128 or 256 MiB");
         }
         this.trace = new NVTrace();
-        this.vga = new VGAScreen(machine, this.vram_size, { pci: false });
+        this.vga = new VGAScreen(machine, this.vram_size, { pci: false, display_source: false });
         this.registers = new Map();
+        this.display = new NVDisplay(this);
         this.mmio_address = 0;
         this.ramin_address = 0;
         this.mapped_mmio = 0;
@@ -80,6 +82,8 @@ export class NVDevice
         this.registers.set(0x000000, 0x040500A1);
         this.registers.set(0x000200, 0xFFFFFFFF);
         this.registers.set(0x002054, 2);
+        this.registers.set(0x003214, 0x10); // CACHE1 empty
+        this.registers.set(0x003304, 3); // NV40 CACHE1 UNK104, documented read-only idle value
         this.registers.set(0x009200, 1);
         this.registers.set(0x009210, 1);
         this.registers.set(0x10020C, this.vram_size);
@@ -89,6 +93,7 @@ export class NVDevice
         this.alarm_remaining = -1;
         this.alarm_sample = 0;
         if(this.pci_registered) this.machine.lower_irq();
+        this.display.reset();
     }
 
     vram()
@@ -166,6 +171,12 @@ export class NVDevice
 
     read8(offset)
     {
+        if(this.display.mirror(offset))
+        {
+            const value = this.display.read8(offset);
+            this.trace.record("mmio", offset, 1, false, value, true);
+            return value;
+        }
         if(offset >= 0x700000 && offset < 0x800000) return this.ramin_read(offset - 0x700000);
         if(offset >= 0x300000 && offset < 0x310000)
         {
@@ -179,6 +190,12 @@ export class NVDevice
 
     write8(offset, value)
     {
+        if(this.display.mirror(offset))
+        {
+            this.display.write8(offset, value);
+            this.trace.record("mmio", offset, 1, true, value, true);
+            return;
+        }
         if(offset >= 0x700000 && offset < 0x800000) { this.ramin_write(offset - 0x700000, value); return; }
         if(offset >= 0x300000 && offset < 0x310000) return;
         const shift = (offset & 3) * 8, mask = 255 << shift;
@@ -188,7 +205,7 @@ export class NVDevice
 
     read32(offset)
     {
-        if(offset >= 0x700000 && offset < 0x800000 || offset >= 0x300000 && offset < 0x310000)
+        if(this.display.mirror(offset) || offset >= 0x700000 && offset < 0x800000 || offset >= 0x300000 && offset < 0x310000)
         {
             return (this.read8(offset) | this.read8(offset + 1) << 8 |
                 this.read8(offset + 2) << 16 | this.read8(offset + 3) << 24) >>> 0;
@@ -209,7 +226,7 @@ export class NVDevice
 
     write32(offset, value)
     {
-        if(offset >= 0x700000 && offset < 0x800000 || offset >= 0x300000 && offset < 0x310000)
+        if(this.display.mirror(offset) || offset >= 0x700000 && offset < 0x800000 || offset >= 0x300000 && offset < 0x310000)
         {
             for(let i = 0; i < 4; i++) this.write8(offset + i, value >>> (i * 8) & 255);
             return;
@@ -220,7 +237,7 @@ export class NVDevice
 
     implemented(offset)
     {
-        return [0, 0x100, 0x140, 0x200, 0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x10020C, 0x101000].includes(offset) ||
+        return [0, 0x100, 0x140, 0x200, 0x3304, 0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x10020C, 0x101000].includes(offset) ||
             offset >= 0x1800 && offset < 0x1900 || IRQ_BLOCKS.some(([status, enable]) => offset === status || offset === enable);
     }
 
@@ -240,7 +257,7 @@ export class NVDevice
             }
             return;
         }
-        if(offset === 0 || offset === 0x10020C || offset === 0x101000) return;
+        if(offset === 0 || offset === 0x3304 || offset === 0x10020C || offset === 0x101000) return;
         const old = this.registers.get(offset) || 0;
         if(IRQ_BLOCKS.some(([status]) => status === offset))
         {
@@ -313,13 +330,13 @@ export class NVDevice
 
     get_state()
     {
-        return [1, this.vram_size, this.vga.get_state(), Array.from(this.registers),
-            this.time(), this.alarm_remaining, this.alarm_sample];
+        return [2, this.vram_size, this.vga.get_state(), Array.from(this.registers),
+            this.time(), this.alarm_remaining, this.alarm_sample, this.display.get_state()];
     }
 
     set_state(state)
     {
-        if(state[0] !== 1) throw new Error("geforce_6800: unsupported state version " + state[0]);
+        if(state[0] !== 1 && state[0] !== 2) throw new Error("geforce_6800: unsupported state version " + state[0]);
         if(state[1] !== this.vram_size) throw new Error("geforce_6800: snapshot vram_size mismatch");
         this.vga.set_state(state[2]);
         this.registers = new Map(state[3]);
@@ -327,6 +344,8 @@ export class NVDevice
         this.timer_epoch = this.machine.now();
         this.alarm_remaining = state[5];
         this.alarm_sample = state[6];
+        if(state[0] >= 2) this.display.set_state(state[7]);
+        else this.display.reset();
         this.update_irq();
     }
 }

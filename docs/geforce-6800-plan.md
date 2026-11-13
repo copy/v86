@@ -35,6 +35,12 @@
   这证明驱动走到了硬件访问，**不能**证明 PCI 模式最终可用，也不能据此启动 A1。
 - Win98 81.98 的第一次原生探针能运行，但其 26 个 SetupAPI 设备没有匹配到 NV40 的硬件 ID；
   未执行驱动安装，尚需检查 PCI 枚举及 Win9x 的设备发现路径。不是驱动加载成功的证据。
+- G1.1（显示前置工作，G1 未验收）：VGA 端口与 NV MMIO 镜像、扩展 CRTC 解锁、
+  8/15/16/32 bpp 线性扫描、CRTC 起始地址在 vblank 生效、单级 VPLL 时序、vblank 中断、
+  单 CRT 的 GPIO I2C EDID（重复 START、ACK/NACK）与显示状态快照已实现。
+  同时修正 G0 跟踪发现的只读 `CACHE1 UNK104=3`。小块真实 VRAM 的逐字节像素结果、
+  完整 128-byte EDID、端口/MMIO 别名、页翻转及锁寄存器已通过设备测试。
+  硬件光标、gamma、多级 PLL、NV VBE 后端、驱动加载和客体验收仍待实施。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
