@@ -70,7 +70,10 @@ assert.throws(()=>texture.images({...t,dma:{...t.dma,limit:0x202A}}),/limit/,"al
 o.methods.set(0x1A04,0x32529);o.methods.set(0x1840,20);
 vram.set([41,0,0,255,42,0,0,255],0x2028);vram.set([51,0,0,255],0x203C);
 const linear=texture.images(texture.describe(o,0));assert.equal(linear[1][0],41);assert.equal(linear[2][0],51,"linear levels retain the base pitch");
-o.methods.set(0x1A0C,0x80000080);assert.throws(()=>texture.describe(o,0),/fractional/);
+o.methods.set(0x1A0C,0x80000080);assert.equal(texture.describe(o,0).lod_max,1/256);
+assert.equal(texture.describe(o,0).level_count,2,"a fractional maximum uploads both levels used by trilinear filtering");
+o.methods.set(0x1A0C,0x8A000000);assert.equal(texture.describe(o,0).lod_min,1.25);
+assert.equal(texture.describe(o,0).lod_max,1.25,"minimum wins when it exceeds the maximum");
 // BC1 four-color indices and transparent mode; BC2 explicit alpha and BC3
 // both alpha endpoint orderings, including selectors straddling byte borders.
 o.methods.set(0x1A0C,0x80000000);o.methods.set(0x1A14,0x01010000);o.methods.set(0x1A18,4<<16|4);

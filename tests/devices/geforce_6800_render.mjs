@@ -310,6 +310,8 @@ try
         await mipDraw(0x01031F00,[0,0,255,255]);
         await mipDraw(0x01050080,[128,128,0,255]);
         method(0x1A0C,0x88018000);await mipDraw(0x01031F00,[0,255,0,255]);
+        method(0x1A0C,0x8A018000);await mipDraw(0x01050000,[64,191,0,255]);
+        method(0x1A0C,0x80004000);await mipDraw(0x01050000,[0,128,128,255]);
         console.log("PASS: real WebGPU mip derivative selection, positive/negative LOD bias, minimum level and trilinear filtering");
         method(0x1A18,4<<16|4);method(0x1A0C,0x80000000);
         for(const [format,bytes,expected]of [

@@ -66,10 +66,10 @@ export class NV40Texture
         const fullFloat=code===27 || code===28;
         if(fullFloat && (mag!==1 || min!==1 && min!==3))throw new RangeError("NV40 FP32 texture filtering is not connected");
         const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
-        if(minLod%1 || maxLod%1)throw new RangeError("NV40 fractional texture LOD clamp is not connected");
+        const lod_min=Math.min(levels-1,minLod),lod_max=Math.min(levels-1,Math.max(minLod,maxLod));
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,normalized,
             crossbar:get(o,at+16),srgb:gamma===7,wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
-            levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
+            levels,min_lod:0,lod_min,lod_max,level_count:Math.min(levels,Math.ceil(lod_max)+1),
             d3d:depthCompare?code===16?75:80:fullFloat?116:code===26?113:32,
             upload_bpp:depthCompare?bpp:fullFloat?16:code===26?8:4,depth_compare:depthCompare,
             bias:new Uint32Array(Float32Array.of((filter<<19>>19)/256).buffer)[0],border:get(o,at+28)};

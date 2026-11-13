@@ -257,8 +257,16 @@
                 const lodFloor = Math.min(levels - 1,
                     Math.max(mipFilter === 0 ? 0 : get(D3DSAMP_MAXMIPLEVEL, 0) >>> 0,
                         (texture && texture.lod) || 0));
+                // NV40 has independent fractional LOD clamps. Its frontend
+                // uses private sampler slots 62/63 (f32 bits); D3D callers
+                // leave them absent and retain their MAXMIPLEVEL/SetLOD rules.
+                const nativeClamp = state.samplerStates.has(stage * 64 + 62) || state.samplerStates.has(stage * 64 + 63);
+                const finiteLod = (raw, fallback) => { const value=floatFromDWORD(raw);return Number.isFinite(value)?value:fallback; };
+                const minimum = Math.min(levels-1,Math.max(lodFloor,finiteLod(get(62,0),0)));
+                const maximum = Math.max(minimum,Math.min(levels-1,finiteLod(get(63,0x42000000),levels-1)));
                 const key = [addressU, addressV, addressW, magFilter, minFilter,
                     mipFilter, maxAnisotropy, lodFloor,
+                    nativeClamp ? minimum : "",nativeClamp ? maximum : "",
                     this.debug.forceMipLevel0 ? "top" : "",
                     unfilterable ? "non-filtering" : "filtering"].join(",");
                 const cached = this.samplerCache.get(key);
@@ -284,6 +292,9 @@
                     // SetLOD has raised it; MAXMIPLEVEL is ignored with NONE.
                     descriptor.lodMinClamp = lodFloor;
                     descriptor.lodMaxClamp = lodFloor;
+                } else if (nativeClamp) {
+                    descriptor.lodMinClamp = minimum;
+                    descriptor.lodMaxClamp = maximum;
                 } else if (lodFloor > 0) {
                     descriptor.lodMinClamp = lodFloor;
                 }

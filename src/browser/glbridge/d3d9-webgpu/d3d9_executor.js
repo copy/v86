@@ -659,6 +659,7 @@
         D3DSAMP_BORDERCOLOR,
         D3DSAMP_MAGFILTER, D3DSAMP_MINFILTER, D3DSAMP_MIPFILTER,
         D3DSAMP_MAXANISOTROPY, D3DSAMP_SRGBTEXTURE,
+        62, 63, // NV40 private fractional min/max LOD, f32 bits
     ]);
 
     const CONSUMED_RENDER_STATES = new Set([

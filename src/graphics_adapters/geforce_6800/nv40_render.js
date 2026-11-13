@@ -312,7 +312,9 @@ export class NV40Render
             const image=this.target({...surface,bpp:surface.upload_bpp},bytes,0);
             this.command(OP.SET_TEXTURE,{"stage":unit,"texture_handle":image});
             for(const [state,value]of [[1,surface.wrap_s],[2,surface.wrap_t],[3,surface.wrap_r||3],[4,surface.border],[5,surface.mag],[6,surface.min],
-                [7,surface.mip],[8,surface.bias],[9,surface.min_lod],[10,1],[11,+!!surface.srgb]])
+                [7,surface.mip],[8,surface.bias],[9,surface.min_lod],[10,1],[11,+!!surface.srgb],
+                // Private NV sampler states, within the stage's 64-entry bank.
+                [62,float_word(surface.lod_min||0)],[63,float_word(surface.lod_max??surface.level_count-1)]])
                 this.command(OP.SET_SAMPLER_STATE,{"sampler":unit,"state":state,"value":value});
         }
         this.command(OP.SET_VERTEX_SHADER,{"shader_handle":vs});this.command(OP.SET_PIXEL_SHADER,{"shader_handle":ps});
