@@ -180,7 +180,7 @@ export class NV40_3D
     program(o)
     {
         const result={channel:o.channel,instance:o.instance,vertex:null,fragment:null,state:Array.from(o.methods).filter(([at])=>at<0x2000),errors:[]};
-        try { result.vertex=decode_vertex_program(this.vertex_program(o),get(o,0x1EA0)); }
+        try { result.vertex=decode_vertex_program(this.vertex_program(o,0),0,get(o,0x1EA0)); }
         catch(error) { result.errors.push(String(error)); }
         try
         {

@@ -516,9 +516,40 @@ try
                 method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
                 assert.deepEqual([...vram.subarray(0x10000,0x10004)],expected,name+" relative "+(relativeInput?"attribute":"constant")+" value "+value);
             }
+            method(0x1EFC,0);[...new Uint32Array(Float32Array.of(0,0,0,0,.25,.25,.25,.25,.75,.75,.75,.75,1,1,1,1).buffer)]
+                .forEach((word,i)=>method(0x1F00+(i%4)*4,word));
+            const instruction=(pc,name="NOP",destination=0,type="temp",constant=1)=>{
+                const i=structuredClone(base);i.pc=pc;i.end=false;i.vector={name,index:destination,type,mask:name==="NOP"?0:15};
+                i.sources[0]={...i.sources[0],type:"constant",index:constant};return i;
+            };
+            const flowInstruction=(pc,name,target=0,condition=7)=>{
+                const i=instruction(pc);i.scalar={name,mask:0};i.target=target;i.predicate.condition=condition;return i;
+            };
+            const flowDraw=async(instructions,expected)=>{
+                vertexProgram={stage:"vertex",entry:0,instructions};
+                method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+                assert.deepEqual([...vram.subarray(0x10000,0x10004)],Array(4).fill(expected));
+            };
+            const position=structuredClone(base);position.end=false;
+            for(const condition of [7,1,2])
+            {
+                const end=instruction(4);end.end=true;
+                await flowDraw([position,instruction(1,"MOV",1,"output"),flowInstruction(2,"BRA",4,condition),instruction(3,"MOV",1,"output",2),end],condition===1?191:64);
+            }
+            const copied=instruction(3,"MOV",1,"output");copied.sources[0]={...copied.sources[0],type:"temp",index:0};
+            const end=instruction(4);end.end=true;
+            await flowDraw([position,instruction(1,"MOV",1,"output"),flowInstruction(2,"CAL",6),copied,end,
+                instruction(6,"MOV",0,"temp",2),flowInstruction(7,"RET")],191);
+            const add=instruction(2,"ADD",0);add.sources[0]={...add.sources[0],type:"temp",index:0};add.sources[2]={...add.sources[0],type:"constant",index:1};
+            const compare=instruction(3,"ADD",1);compare.sources[0]={...compare.sources[0],type:"temp",index:0};
+            compare.sources[2]={...compare.sources[0],type:"constant",index:3,negate:true};compare.predicate={...compare.predicate,update:true,vector:true};
+            const color=instruction(5,"MOV",1,"output");color.sources[0]={...color.sources[0],type:"temp",index:0};
+            const loopEnd=instruction(6);loopEnd.end=true;
+            await flowDraw([position,instruction(1,"MOV",0),add,compare,flowInstruction(4,"BRA",2,1),color,loopEnd],255);
         }
         finally {engine.shaders=nativeShaders;}
-        console.log("PASS: real WebGPU vertex predicates, ARL/ARR rounding, relative attributes and guest constant 500");
+        console.log("PASS: real WebGPU vertex predicates, relative addressing, forward/backward branches and call/return");
 
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

@@ -3,7 +3,7 @@
 // Unsupported branches and register aliases fail before any draw.
 const OP = {MOV:1,ADD:2,SUB:3,MAD:4,MUL:5,RCP:6,RSQ:7,DP3:8,DP4:9,MIN:10,MAX:11,
     SLT:12,SGE:13,LIT:16,DST:17,FRC:19,DCL:31,SINCOS:37,MOVA:46,DEF:81,
-    KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90,CMP:88};
+    IFC:41,ENDIF:43,REP:38,ENDREP:39,BREAKC:45,DEFI:48,KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90,CMP:88};
 const bits = type => (type & 7) << 28 | (type & 24) << 8;
 const dst = (type,index,mask=15,saturate=false,shift=0) =>
     (0x80000000 | bits(type) | index | mask << 16 | +saturate << 20 | shift << 24) >>> 0;
@@ -190,7 +190,7 @@ export function translate_vertex_program(program,options={})
         return src(0,temp);
     };
     const conditions=new Map();
-    const condition=register=>{
+    const conditionRegister=register=>{
         if(!conditions.has(register))
         {
             const cc=shader.temp("cc"+register);conditions.set(register,cc);
@@ -199,25 +199,52 @@ export function translate_vertex_program(program,options={})
         return conditions.get(register);
     };
     // Declare condition storage before any instruction can read or update it.
-    for(const i of program.instructions)if(i.predicate.enabled || i.predicate.update)condition(i.predicate.register);
+    for(const i of program.instructions)if(i.predicate.enabled || i.predicate.update || ["BRA","CAL","RET"].includes(i.scalar.name))conditionRegister(i.predicate.register);
     const predicate=program.instructions.some(i=>i.predicate.enabled)?shader.temp("predicate"):-1;
+    const flow=program.instructions.some(i=>["BRA","CAL","RET"].includes(i.scalar.name));
+    let pc=-1,next=-1,stackPointer=-1,branch=-1,stack=[];
+    if(flow)
+    {
+        pc=shader.temp("pc");next=shader.temp("next");branch=shader.temp("branch");stackPointer=shader.temp("stackPointer");
+        stack=Array.from({length:8},(_,i)=>shader.temp("return"+i));
+        const limit=Math.min(65536,Math.max(1,options.instruction_limit||65536));
+        shader.declarations.push(0x05000030,dst(7,0),limit,0,1,0);
+        shader.emit(OP.MOV,dst(0,next),shader.literal(program.entry??program.instructions[0].pc));
+        shader.emit(OP.MOV,dst(0,stackPointer),shader.literal(0));
+        shader.emit(OP.REP,src(7,0,[0,0,0,0]));
+        shader.emit(OP.MOV,dst(0,pc),src(0,next));
+        shader.emit(OP.BREAKC|4<<16,src(0,pc),shader.literal(0));
+    }
     // r29 is arithmetic scratch; r30/r31 retain both VLIW results until both
     // slots have read their operands. Commit vector first, then scalar.
     for(const instruction of program.instructions)
     {
         const i=instruction;
         if(i.address.output)throw new RangeError("NV40 relative output addressing needs lowering");
-        if(i.predicate.enabled && i.predicate.condition===0)continue;
+        if(flow)
+        {
+            shader.emit(OP.IFC|2<<16,src(0,pc),shader.literal(i.pc));
+            shader.emit(OP.MOV,dst(0,next),shader.literal(i.end?-1:i.pc+1));
+        }
+        if(i.predicate.enabled && i.predicate.condition===0)
+        {if(flow)shader.emit(OP.ENDIF);continue;}
         const conditional=i.predicate.enabled && i.predicate.condition!==7;
         if(conditional)
         {
-            shader.condition(i.predicate.condition,src(0,condition(i.predicate.register),i.predicate.swizzle),predicate);
+            shader.condition(i.predicate.condition,src(0,conditionRegister(i.predicate.register),i.predicate.swizzle),predicate);
             shader.emit(OP.SUB,dst(0,predicate),src(0,predicate),shader.literal(.5));
+        }
+        if(flow && ["BRA","CAL","RET"].includes(i.scalar.name) && i.predicate.condition!==0 && i.predicate.condition!==7)
+        {
+            shader.condition(i.predicate.condition,src(0,conditionRegister(i.predicate.register),i.predicate.swizzle),branch);
+            shader.emit(OP.MAX,dst(0,branch,1),src(0,branch,[0,0,0,0]),src(0,branch,[1,1,1,1]));
+            shader.emit(OP.MAX,dst(0,branch,1),src(0,branch,[0,0,0,0]),src(0,branch,[2,2,2,2]));
+            shader.emit(OP.MAX,dst(0,branch,1),src(0,branch,[0,0,0,0]),src(0,branch,[3,3,3,3]));
         }
         const slots=[i.vector,i.scalar], results=[];
         for(let slot=0;slot<2;slot++)
         {
-            const op=slots[slot];if(op.name==="NOP" || !op.mask) continue;
+            const op=slots[slot];if(op.name==="NOP" || !op.mask || ["BRA","CAL","RET"].includes(op.name)) continue;
             const count=arity(op.name);if(!count && !nullary(op.name)) throw new RangeError("NV40 unsupported vertex opcode "+op.name);
             const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
             const sources=selectors.map(index=>source(i,i.sources[index],slot,index));
@@ -239,12 +266,52 @@ export function translate_vertex_program(program,options={})
             // CDST_IS_VEC selects which VLIW result supplies condition codes.
             if(i.predicate.update && slot===(i.predicate.vector?0:1))
             {
-                const cc=condition(i.predicate.register);
+                const cc=conditionRegister(i.predicate.register);
                 if(conditional)shader.emit(OP.CMP,dst(0,cc,mask),src(0,predicate),src(0,30+slot),src(0,cc));
                 else shader.emit(OP.MOV,dst(0,cc,mask),src(0,30+slot));
             }
         }
+        if(flow)
+        {
+            const op=i.scalar.name,condition=i.predicate.condition;
+            if(["BRA","CAL","RET"].includes(op) && condition!==0 && !i.end)
+            {
+                const conditional=condition!==7;
+                if(conditional)
+                {
+                    shader.emit(OP.IFC|1<<16,src(0,branch,[0,0,0,0]),shader.literal(0));
+                }
+                if(op==="BRA")shader.emit(OP.MOV,dst(0,next),shader.literal(i.target));
+                else if(op==="CAL")
+                {
+                    shader.emit(OP.MOV,dst(0,next),shader.literal(-1));
+                    shader.emit(OP.IFC|4<<16,src(0,stackPointer),shader.literal(8));
+                    for(let index=0;index<8;index++)
+                    {
+                        shader.emit(OP.IFC|2<<16,src(0,stackPointer),shader.literal(index));
+                        shader.emit(OP.MOV,dst(0,stack[index]),shader.literal(i.pc+1));shader.emit(OP.ENDIF);
+                    }
+                    shader.emit(OP.ADD,dst(0,stackPointer),src(0,stackPointer),shader.literal(1));
+                    shader.emit(OP.MOV,dst(0,next),shader.literal(i.target));shader.emit(OP.ENDIF);
+                }
+                else
+                {
+                    shader.emit(OP.MOV,dst(0,next),shader.literal(-1));
+                    shader.emit(OP.IFC|1<<16,src(0,stackPointer),shader.literal(0));
+                    shader.emit(OP.SUB,dst(0,stackPointer),src(0,stackPointer),shader.literal(1));
+                    for(let index=0;index<8;index++)
+                    {
+                        shader.emit(OP.IFC|2<<16,src(0,stackPointer),shader.literal(index));
+                        shader.emit(OP.MOV,dst(0,next),src(0,stack[index]));shader.emit(OP.ENDIF);
+                    }
+                    shader.emit(OP.ENDIF);
+                }
+                if(conditional)shader.emit(OP.ENDIF);
+            }
+            shader.emit(OP.ENDIF);
+        }
     }
+    if(flow)shader.emit(OP.ENDREP);
     const routes=options.result_map || VERTEX_OUTPUTS.map((_,index)=>[index,index,-1,null]);
     for(const [semantic,register,component,enabled]of routes)
     {

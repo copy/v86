@@ -89,6 +89,17 @@ try
     const conditional=structuredClone(fragment);conditional.instructions[0].predicate.condition=1;
     validate("conditional",translate_fragment_program(conditional));
     for(let condition=1;condition<7;condition++) {conditional.instructions[0].predicate.condition=condition;conditional.instructions[0].predicate.update=true;validate("cc-"+condition,translate_fragment_program(conditional));}
+    const base=vertex.instructions[0],flowOp=(name,pc,target=0)=>{
+        const i=structuredClone(base);i.pc=pc;i.end=false;i.vector.name="NOP";i.scalar={name,mask:0};
+        i.target=target;return i;
+    };
+    const final=structuredClone(base);final.pc=1;
+    validate("vertex-call",translate_vertex_program({entry:0,instructions:[flowOp("CAL",0,3),final,flowOp("RET",3)]}));
+    for(let condition=0;condition<8;condition++)
+    {
+        const jump=flowOp("BRA",0,1);jump.predicate.condition=condition;
+        validate("vertex-branch-"+condition,translate_vertex_program({entry:0,instructions:[jump,final]}));
+    }
     const branch=structuredClone(fragment);branch.instructions[0].branch=true;assert.throws(()=>translate_fragment_program(branch),/control flow/);
     const alias=structuredClone(fragment),later=structuredClone(alias.instructions[0]);later.sources[0]={type:"temp",index:0,half:false,swizzle:[0,1,2,3]};alias.instructions.push(later);
     assert.throws(()=>translate_fragment_program(alias),/alias/);

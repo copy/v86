@@ -26,17 +26,27 @@ export function decode_vertex_instruction(words, pc = 0)
         target: (c & 63) << 3 | d >>> 29, saturate: !!(a & 0x04000000), end: !!(d & 1)};
 }
 
-export function decode_vertex_program(words, first = 0)
+export function decode_vertex_program(words, first = 0, entry = first)
 {
     if(words.length % 4 || words.length > 544*4) throw new RangeError("NV40 vertex program size");
-    const instructions = [];
-    for(let at=0;at<words.length;at+=4)
+    const decoded=new Map(),pending=[entry];let ended=false,last=0;
+    while(pending.length)
     {
-        const instruction = decode_vertex_instruction(words.slice(at,at+4),first+at/4);
-        instructions.push(instruction);
-        if(instruction.end) return {stage: "vertex", instructions, word_count: at+4};
+        const pc=pending.pop();if(decoded.has(pc))continue;
+        const at=(pc-first)*4;
+        if(at<0 || at+4>words.length)throw new RangeError("NV40 vertex program has no end or branch outside program");
+        const i=decode_vertex_instruction(words.slice(at,at+4),pc);decoded.set(pc,i);last=Math.max(last,at+4);
+        if(i.end){ended=true;continue;}
+        const flow=i.scalar.name,condition=i.predicate.condition;
+        if(flow==="BRA" || flow==="CAL")
+        {
+            if(condition!==0)pending.push(i.target);
+            if(flow==="CAL" || condition!==7)pending.push(pc+1);
+        }
+        else if(flow!=="RET" || condition!==7)pending.push(pc+1);
     }
-    throw new RangeError("NV40 vertex program has no end instruction");
+    if(!ended)throw new RangeError("NV40 vertex program has no end instruction");
+    return {stage:"vertex",instructions:[...decoded.values()].sort((a,b)=>a.pc-b.pc),entry,word_count:last};
 }
 
 export function decode_fragment_program(words)

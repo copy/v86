@@ -15,6 +15,12 @@ assert.equal(dual.sources[1].index,7);assert.equal(dual.sources[0].index,3);asse
 assert.equal(dual.saturate,true);assert.equal(dual.predicate.register,1);assert.equal(dual.sources[0].absolute,true);
 assert.throws(()=>decode_vertex_program(Uint32Array.of(0,0,0,0)),/no end/);
 assert.throws(()=>decode_vertex_program(Uint32Array.of(0,0,0)),/size/);
+const jump=Uint32Array.of(7<<10,9<<27,0,2<<29);
+const jumped=decode_vertex_program(Uint32Array.from([...jump,0,0,0,0,...mov]));
+assert.deepEqual(jumped.instructions.map(i=>i.pc),[0,2],"decoder follows branches over unreachable storage");
+const call=Uint32Array.of(7<<10,11<<27,0,3<<29),ret=Uint32Array.of(7<<10,12<<27,0,0);
+const called=decode_vertex_program(Uint32Array.from([...call,...mov,0,0,0,0,...ret]));
+assert.deepEqual(called.instructions.map(i=>i.pc),[0,1,3],"call targets after the main END remain reachable");
 // MOV H0, inline_constant. Data resembling opcodes must stay out of the decoder
 // and out of the cache key; different constants share the normalized program.
 const fp=Uint32Array.of(0x01001E81,0x001DC802,0,0,0x3F800000,0x3F000000,0,0x3F800000);
