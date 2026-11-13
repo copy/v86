@@ -91,15 +91,18 @@ export function sign_macho(original, { identifier, info = null, resources = null
     if(entitlementBlob) { view(entitlementBlob).setUint32(0, 0xFADE7171); view(entitlementBlob).setUint32(4, entitlementBlob.length); entitlementBlob.set(entitlementBytes, 8); }
     const requirements = new Uint8Array(12); view(requirements).setUint32(0, 0xFADE0C01); view(requirements).setUint32(4, 12);
     const special = entitlementBlob ? 5 : resources ? 3 : 2;
-    const hashOffset = 44 + identity.length + special * 20;
+    const hashOffset = Math.ceil((48 + identity.length) / 4) * 4 + special * 20;
     const directory = new Uint8Array(hashOffset + slots * 20), d = view(directory);
-    d.setUint32(0, 0xFADE0C02); d.setUint32(4, directory.length); d.setUint32(8, 0x20001); d.setUint32(12, 2);
-    d.setUint32(16, hashOffset); d.setUint32(20, 44); d.setUint32(24, special); d.setUint32(28, slots); d.setUint32(32, limit);
-    directory.set([20, 1, 0, 12], 36); directory.set(identity, 44);
+    d.setUint32(0, 0xFADE0C02); d.setUint32(4, directory.length); d.setUint32(8, 0x20100); d.setUint32(12, 2);
+    d.setUint32(16, hashOffset); d.setUint32(20, 48); d.setUint32(24, special); d.setUint32(28, slots); d.setUint32(32, limit);
+    directory.set([20, 1, 0, 12], 36); directory.set(identity, 48);
     for(const [slot, data] of [[1, info], [2, requirements], [3, resources], [5, entitlementBlob]])
         if(data) directory.set(sha1(data), hashOffset - slot * 20);
-    const blobs = [[0, directory], [2, requirements], ...(entitlementBlob ? [[5, entitlementBlob]] : [])];
-    const signatureSize = 12 + blobs.length * 8 + blobs.reduce((sum, [, b]) => sum + b.length, 0);
+    // Match the platform signer's ad-hoc container: include an empty CMS
+    // wrapper and align each embedded blob to a word boundary.
+    const cms = new Uint8Array(8); view(cms).setUint32(0, 0xFADE0B01); view(cms).setUint32(4, 8);
+    const blobs = [[0, directory], [2, requirements], ...(entitlementBlob ? [[5, entitlementBlob]] : []), [0x10000, cms]];
+    const signatureSize = 12 + blobs.length * 8 + blobs.reduce((sum, [, b]) => sum + Math.ceil(b.length / 4) * 4, 0);
     const size = limit + signatureSize, output = new Uint8Array(size), out = view(output);
     output.set(bytes.subarray(0, oldOffset));
     out.setUint32(command + 8, limit, true); out.setUint32(command + 12, signatureSize, true);
@@ -111,7 +114,7 @@ export function sign_macho(original, { identifier, info = null, resources = null
     for(const [i, [type, blob]] of blobs.entries())
     {
         out.setUint32(limit + 12 + i * 8, type); out.setUint32(limit + 16 + i * 8, at);
-        output.set(blob, limit + at); at += blob.length;
+        output.set(blob, limit + at); at += Math.ceil(blob.length / 4) * 4;
     }
     return output;
 }
