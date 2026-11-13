@@ -632,6 +632,32 @@ try
         assert.equal(device.registers.get(0x3248),0x11223344,"waiting for a batch also drains the feedback continuation");
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[64,64,64,64],"render-to-texture sees the preceding GPU pixels through a different texture handle");
         console.log("PASS: render-to-texture alias barrier, preserved END stream and recursive snapshot quiescence");
+        const loopShaders=engine.shaders,loopPosition=structuredClone(base),loopValues=[.125,.25,.5,.75];
+        const loopVertex={stage:"vertex",instructions:[loopPosition,...loopValues.map((_,index)=>{
+            const i=structuredClone(base);i.vector.index=7+index;i.sources[0]={...i.sources[0],type:"constant",index};return i;
+        })]};
+        method(0x1EFC,0);for(const value of loopValues)for(let component=0;component<4;component++)method(0x1F00+component*4,floatWord(value));
+        engine.shaders=function(o,options){return {...loopShaders.call(this,o,options),vertex:translate_vertex_program(loopVertex,
+            {...options,result_map:[[0,0,-1,true],...loopValues.map((_,index)=>[7+index,7+index,-1,true]) ]})};};
+        const indexedMove=offset=>[1<<24|15<<9|128,7<<18|0x1C801,0,0x40000000|offset<<19];
+        const loopHeader=(count,initial,step,end)=>fpBranch(3,count<<2|initial<<10|step<<19,end);
+        const indexedDraw=async words=>{
+            method(0x8E4,0x9001);words.forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            return [...vram.subarray(0x10000,0x10004)];
+        };
+        try
+        {
+            for(const [initial,step,offset]of [[1,1,0],[0,1,1],[0,2,0]])
+                assert.deepEqual(await indexedDraw([...ccInstruction([0,0,0,0]),...loopHeader(2,initial,step,16),
+                    ...indexedMove(offset),1,7<<18,0,0]),Array(4).fill(128),"LOOP initial/index step and relative TEX offset");
+            assert.deepEqual(await indexedDraw([...ccInstruction([0,0,0,0]),...loopHeader(2,0,1,24),
+                ...loopHeader(1,3,0,20),...indexedMove(0),...indexedMove(0),1,7<<18,0,0]),Array(4).fill(64),
+                "inner LOOP restores the outer address register before subsequent indexed reads");
+        }
+        finally {engine.shaders=loopShaders;}
+        console.log("PASS: real WebGPU fragment LOOP counters, indexed texture attributes and nested index restoration");
 
 
 

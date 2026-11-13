@@ -114,6 +114,11 @@ try
         instructions:[fpFlow("IF",0,20,12,condition),fpMove(4),fpMove(12),fpMove(20)]}));
     validate("fragment-repeat-break",translate_fragment_program({constants:fragment.constants,word_count:24,
         instructions:[fpFlow("REP",0,16),fpMove(4),fpFlow("BRK",12,0),fpMove(16)]}));
+    const indexed=fpMove(4);indexed.input_relative=true;indexed.address=2;indexed.sources[0]={...indexed.sources[0],type:"input"};
+    const loop=fpFlow("LOOP",0,8);loop.loop={count:3,initial:1,increment:2};
+    const loopTranslated=translate_fragment_program({constants:fragment.constants,word_count:16,instructions:[loop,indexed,fpMove(8)]});
+    assert.equal(loopTranslated.inputs.length,10);validate("fragment-indexed-loop",loopTranslated);
+    assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:8,instructions:[indexed]}),/outside LOOP/);
     assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:8,instructions:[fpFlow("BRK",0,0),fpMove(4)]}),/outside loop/);
     assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:12,instructions:[fpFlow("IF",0,10),fpMove(4)]}),/scope/);
     const alias=structuredClone(fragment),later=structuredClone(alias.instructions[0]);later.sources[0]={type:"temp",index:0,half:false,swizzle:[0,1,2,3]};alias.instructions.push(later);

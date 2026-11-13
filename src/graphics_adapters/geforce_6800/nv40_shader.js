@@ -3,7 +3,7 @@
 // control flow and register aliases fail before any draw.
 const OP = {MOV:1,ADD:2,SUB:3,MAD:4,MUL:5,RCP:6,RSQ:7,DP3:8,DP4:9,MIN:10,MAX:11,
     SLT:12,SGE:13,LIT:16,DST:17,FRC:19,DCL:31,SINCOS:37,MOVA:46,DEF:81,
-    IFC:41,ELSE:42,ENDIF:43,REP:38,ENDREP:39,BREAKC:45,DEFI:48,KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90,CMP:88};
+    IFC:41,ELSE:42,ENDIF:43,LOOP:27,ENDLOOP:29,REP:38,ENDREP:39,BREAKC:45,DEFI:48,KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90,CMP:88};
 const bits = type => (type & 7) << 28 | (type & 24) << 8;
 const dst = (type,index,mask=15,saturate=false,shift=0) =>
     (0x80000000 | bits(type) | index | mask << 16 | +saturate << 20 | shift << 24) >>> 0;
@@ -357,6 +357,8 @@ export function translate_fragment_program(program,options={})
 {
     const shader=new Shader("fragment",program.constants.map((_,i)=>i));
     const textureConstants=new Map();
+    // The indexed input bank is TEX0..TEX9, independent of other declarations.
+    if(program.instructions.some(i=>i.input_relative))for(let index=4;index<14;index++)shader.input(index);
     // NV fragment FOGC is (coordinate, clamped fog factor, 0, 0), whereas
     // D3D9's FOG varying carries only the coordinate. Generate the factor after
     // interpolation; computing it in the vertex shader changes clamped edges.
@@ -389,7 +391,7 @@ export function translate_fragment_program(program,options={})
     const close=pc=>{
         while(blocks.length && blocks[blocks.length-1].end===pc)
         {
-            const block=blocks.pop();shader.emit(block.name==="IF"?OP.ENDIF:OP.ENDREP);
+            const block=blocks.pop();shader.emit(block.name==="IF"?OP.ENDIF:block.name==="LOOP"?OP.ENDLOOP:OP.ENDREP);
         }
         const block=blocks[blocks.length-1];
         if(block?.name==="IF" && block.otherwise===pc && pc!==block.end)shader.emit(OP.ELSE);
@@ -398,10 +400,9 @@ export function translate_fragment_program(program,options={})
     for(const i of program.instructions)
     {
         close(i.pc);
-        if(i.input_relative)throw new RangeError("NV40 relative fragment input needs lowering");
         if(i.branch)
         {
-            if(i.name==="IF" || i.name==="REP")
+            if(i.name==="IF" || i.name==="REP" || i.name==="LOOP")
             {
                 if(!boundaries.has(i.end_offset) || i.end_offset<=i.pc || blocks.length && i.end_offset>blocks[blocks.length-1].end)
                     throw new RangeError("NV40 fragment block end outside enclosing scope");
@@ -417,10 +418,11 @@ export function translate_fragment_program(program,options={})
                 }
                 else
                 {
-                    if(blocks.filter(b=>b.name==="REP").length>=4)throw new RangeError("NV40 fragment loop nesting limit");
+                    if(blocks.filter(b=>b.name==="REP" || b.name==="LOOP").length>=4)throw new RangeError("NV40 fragment loop nesting limit");
                     const register=loopRegister++;
-                    shader.declarations.push(0x05000030,dst(7,register),i.loop.count,0,1,0);
-                    shader.emit(OP.REP,src(7,register,[0,0,0,0]));
+                    shader.declarations.push(0x05000030,dst(7,register),i.loop.count,i.name==="LOOP"?i.loop.initial:0,i.name==="LOOP"?i.loop.increment:1,0);
+                    if(i.name==="LOOP")shader.emit(OP.LOOP,src(15,0),src(7,register));
+                    else shader.emit(OP.REP,src(7,register,[0,0,0,0]));
                     // Charge the implicit ENDREP as well as body instructions;
                     // even deeply nested empty loops have a bounded GPU cost.
                     shader.emit(OP.BREAKC|3<<16,src(0,budget),shader.literal(limit));
@@ -430,7 +432,7 @@ export function translate_fragment_program(program,options={})
             }
             else if(i.name==="BRK")
             {
-                if(!blocks.some(b=>b.name==="REP"))throw new RangeError("NV40 fragment BRK outside loop");
+                if(!blocks.some(b=>b.name==="REP" || b.name==="LOOP"))throw new RangeError("NV40 fragment BRK outside loop");
                 shader.condition(i.predicate.condition,src(0,cc,i.predicate.swizzle),31);
                 shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[1,1,1,1]));
                 shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[2,2,2,2]));
@@ -449,7 +451,12 @@ export function translate_fragment_program(program,options={})
         const count=arity(i.name),texture=["TEX","TXP","TXB","TXL","TXD"].includes(i.name);
         if(!count && !texture && i.name!=="KIL" && !nullary(i.name)) throw new RangeError("NV40 unsupported fragment opcode "+i.name);
         const sources=i.sources.slice(0,texture?i.name==="TXD"?3:1:i.name==="KIL"?0:count)
-            .map(source=>shader.source(source,i.constant));
+            .map(source=>{
+                if(!i.input_relative || source.type!=="input")return shader.source(source,i.constant);
+                if(!blocks.some(b=>b.name==="LOOP"))throw new RangeError("NV40 relative fragment input outside LOOP");
+                const token=shader.source({...source,index:4},i.constant);
+                return [(token|0x2000|i.address)>>>0,src(15,0,[0,0,0,0])];
+            });
         const conditional=i.predicate.condition!==7;
         if(conditional || i.name==="KIL")
         {

@@ -1199,3 +1199,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   该未实现陷阱，后续检查点将使用新实现复测；不能据旧长跑宣称完整基准已验收。
   语义参考：NVIDIA 的 [NV_fragment_program2](https://registry.khronos.org/OpenGL/extensions/NV/NV_fragment_program2.txt)
   与 Mesa nv30 的硬件编码定义。
+
+- G4 片元 LOOP：接通立即数次数、初始索引与步进，使用独立嵌套索引保存/恢复；
+  相对输入索引 TEX0..TEX9，不受颜色/雾声明顺序影响。BRK 可退出两种循环，
+  共用四层嵌套及执行预算保护，块外相对读取明确报错。99 个 Naga 模块与真实 GPU
+  验证三个索引/偏移组合及退出内层后重新读取外层属性，完整渲染回归和 Closure
+  构建通过。CAL/RET、half/full alias、顶点纹理等后续 G4 内容继续实现。
