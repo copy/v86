@@ -144,7 +144,7 @@
   越界保护；快照升级 v7。设备测试覆盖 16-bit 地址拆分、部分写到高字节后提交、
   显存读回和越界不回绕；完整设备测试及插件构建通过。专属 VBE 后端仍待接入。
 
-- INDEX 续修：根据 hwtest 的合法值补齐 `INDEX_FORMAT=0`（I4）与 1（I8），
+- INDEX 续修：根据 hwtest 的合法值补齐 `INDEX_FORMAT` 的两种合法值（具体编码经后续原生流校正，见续修），
   LUT 按源颜色格式使用 16/32-bit 条目。增加低 nibble 先行、RGB565 LUT 和裁剪测试；
   2D 测试与插件构建通过，XP 复测已能绘制桌面图标。
 
@@ -206,6 +206,12 @@
   `NV_HOLD` 暂停自动启动探针/END 退出以便调查界面；跟踪包含 PCI 配置。
   可选 `NV_DDRAW_TEST` 使用原生 DirectDraw7 测试显存表面的填充、复制、ROP 和 Lock 读回，
   每个阶段记录标记；目前不能据此宣布 DirectDraw 通过。
+
+- Win98 2D 初始化续修：接纳 GDI 字体 F/G 的字体/clip/color 参数别名。原生冷启动
+  已到 81.98 的真实 GDI/INDEX 命令，首先在 0xFF4 被误报非法方法；修复后继续到
+  INDEX 上传，确认编码应为 0=I8、1=I4。此前实现反了，32×32 的 I8 在 128 DWORD
+  后便错误耗尽。已修正像素宽度、LUT 项数及索引提取；I4/I8（含第 128 项 LUT）
+  与 GDI clip 别名测试、插件构建通过，客体复测进行中。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

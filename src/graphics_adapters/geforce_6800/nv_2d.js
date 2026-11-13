@@ -233,7 +233,7 @@ export class NV2D
     {
         const base = indexed ? 0x3F4 : 0x304, [width, height] = wh(m(o, base + 8));
         const input = m(o, indexed ? 0x3E8 : 0x300), indexFormat = m(o, 0x3EC);
-        const bpp = indexed ? indexFormat ? 1 : 0.5 : input <= 3 ? 2 : 4;
+        const bpp = indexed ? indexFormat ? 0.5 : 1 : input <= 3 ? 2 : 4;
         if(!width || !height || width * height * bpp > this.device.vram_size || input < 1 || input > 5)
             throw new RangeError("NV IFC invalid image");
         const stride = Math.ceil(width * bpp / 4) * 4;
@@ -248,7 +248,7 @@ export class NV2D
         if(indexed)
         {
             if(indexFormat > 1) throw new RangeError("NV INDEX invalid format");
-            lut = this.device.dma.read(this.dma(o, 0x184), m(o, 0x3F0), (indexFormat ? 256 : 16) * (input <= 3 ? 2 : 4));
+            lut = this.device.dma.read(this.dma(o, 0x184), m(o, 0x3F0), (indexFormat ? 16 : 256) * (input <= 3 ? 2 : 4));
         }
         const key = o.methods.has(indexed ? 0x188 : 0x184) ? this.ref(o, indexed ? 0x188 : 0x184) : null;
         const operation = m(o, 0x2FC);
@@ -256,7 +256,7 @@ export class NV2D
         try
         {
             this.render(o, dst, rect, px => {
-                const pixel = px - x, index = indexFormat ? bytes[pixel] : bytes[pixel >>> 1] >>> ((pixel & 1) * 4) & 15;
+                const pixel = px - x, index = indexFormat ? bytes[pixel >>> 1] >>> ((pixel & 1) * 4) & 15 : bytes[pixel];
                 const color = lut ? this.raw(lut, index * (input <= 3 ? 2 : 4), input <= 3 ? 2 : 4) : this.raw(bytes, pixel * bpp, bpp);
                 if(key && color === m(key, 0x304)) return null;
                 return this.input_color(color, input);
@@ -454,7 +454,7 @@ export class NV2D
         let accepted = false;
         if(type === 0x39) accepted = [0x184, 0x188, 0x30C, 0x310, 0x314, 0x318, 0x31C, 0x320, 0x324, 0x328].includes(at);
         else if(type === 0x5F || type === 0x9F) accepted = at >= 0x184 && at <= 0x19C || [0x2FC, 0x300, 0x304, 0x308].includes(at);
-        else if(type === 0x4A) accepted = at >= 0x184 && at <= 0x198 || [0x2FC, 0x300, 0x304, 0x3FC, 0x5F4, 0x5F8, 0x5FC].includes(at) || at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700 || at >= 0x7EC && at < 0xA00 || at >= 0xBE4 && at < 0xE00;
+        else if(type === 0x4A) accepted = at >= 0x184 && at <= 0x198 || [0x2FC, 0x300, 0x304, 0x3FC, 0x5F4, 0x5F8, 0x5FC, 0xFF0, 0xFF4, 0xFF8, 0xFFC, 0x17F0, 0x17F4, 0x17F8, 0x17FC].includes(at) || at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700 || at >= 0x7EC && at < 0xA00 || at >= 0xBE4 && at < 0xE00;
         else if(ifc) accepted = at >= 0x184 && at <= 0x19C || at >= 0x2F8 && at <= 0x30C || at >= 0x400 && at < 0x2000;
         else if(indexed) accepted = at >= 0x184 && at <= 0x1A0 || at >= 0x3E0 && at < 0x2000;
         else if([0x77, 0x89, 0x3089].includes(type)) accepted = at >= 0x184 && at <= 0x198 || at >= 0x2FC && at <= 0x31C || at >= 0x400 && at <= 0x40C;

@@ -79,6 +79,9 @@ call(mono, 0xBF4, 2 << 16 | 8); call(mono, 0xBF8, 2 << 16 | 8); call(mono, 0xBFC
 call(mono, 0x800, 0x4080);
 assert.equal(view.getUint16(64,true),0xFFFF); assert.equal(view.getUint16(96+2,true),0xFFFF);
 assert.equal(view.getUint16(96,true),0, "one DWORD spans multiple GDI bitmap rows");
+call(mono,0xFF4,1<<16|2);call(mono,0xFF8,3<<16|6);call(mono,0xFFC,0x1234);
+assert.equal(mono.methods.get(0x7EC),1<<16|2,"font clipping aliases the common GDI clip");
+assert.equal(mono.methods.get(0x7F0),3<<16|6);assert.equal(mono.methods.get(0x3FC),0x1234);
 const target = graph.object(0, 0x5000); target.methods.set(0x300, 10); target.methods.set(0x30C, 256);
 view.setUint32(0x1000, 0xFFFF0000, true); view.setUint32(0x1004, 0xFF00FF00, true);
 view.setUint32(0x1008, 0xFF0000FF, true); view.setUint32(0x100C, 0xFFFFFFFF, true);
@@ -105,12 +108,15 @@ assert.equal(view.getUint32(256,true), 0xFF80007F, "premultiplied source over de
 dma(0x1300,0x303D,1023,0x1003);
 view.setUint16(0x1002,0xF800,true);view.setUint16(0x1004,0x07E0,true);view.setUint16(0x1006,0x001F,true);
 target.methods.set(0x300,4);target.methods.set(0x30C,640);
-const indexed = object(0x5B00,0x3064,[[0x184,0x130],[0x1A0,0x500],[0x3E4,3],[0x3E8,1],[0x3EC,0],
+const indexed = object(0x5B00,0x3064,[[0x184,0x130],[0x1A0,0x500],[0x3E4,3],[0x3E8,1],[0x3EC,1],
     [0x3F0,0],[0x3F4,0],[0x3F8,1<<16|3]]);
 call(indexed,0x3FC,1<<16|4);call(indexed,0x400,0x231);
 assert.deepEqual([...vram.subarray(640,646)],[0,248,31,0,224,7],"I4 low nibble first with 16-bit LUT and output crop");
 call(indexed,0x3F4,1<<16);call(indexed,0x400,0x123);
 assert.deepEqual([...vram.subarray(672,678)],[31,0,224,7,0,248],"INDEX point starts a new image with unchanged size");
+view.setUint16(0x1100,0x07E0,true);call(indexed,0x3EC,0);call(indexed,0x3F4,2<<16);
+call(indexed,0x400,0x00038001);
+assert.deepEqual([...vram.subarray(704,710)],[0,248,224,7,31,0],"INDEX_FORMAT zero uploads I8 and can read LUT entries above fifteen");
 call(resumed,0x304,2<<16);call(resumed,0x400,0x07E0F800);
 assert.deepEqual(resumed.stream,[0,0,248,224,7],"IFC point restarts upload using the configured image size");
 target.methods.set(0x300,10);target.methods.set(0x30C,800);
