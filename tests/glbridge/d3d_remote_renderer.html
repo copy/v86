@@ -56,7 +56,7 @@
                 }
                 await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
                 const hostErrors=gpu.hostErrors.map(error=>({name:error.name,message:error.message,stack:error.stack}));
-                text(8,JSON.stringify({stats:gpu.stats,cleanup,sessionCleanup,devices:gpu.devices.size,resources:gpu.resources.size,sessions:gpu.sessionStates.size,gpuErrors:gpu.gpuErrors.errors,hostErrors}));
+                text(8,JSON.stringify({stats:gpu.stats,cleanup,sessionCleanup,devices:gpu.devices.size,resources:gpu.resources.size,sessions:gpu.sessionStates.size,gpuErrors:gpu.gpuErrors.errors,hostErrors,guestReports:gpu.guestReports||[]}));
                 if(gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.batchesFailed)throw new Error("GPU validation failed: "+JSON.stringify({gpu:gpu.gpuErrors.errors,host:hostErrors}));
                 send(4,seq);
             }).catch(error=>{failed=true;text(5,String(error.stack));document.querySelector("#result").textContent=String(error.stack);});

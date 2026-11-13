@@ -1,0 +1,451 @@
+{
+  "source": "glbridge/sample/ddraw_factory_reference.c",
+  "sourceSha256": "21e0aee5de0c0db8b6d4daa8326283a3824aac11ce3f3006a808372d67883326",
+  "executableSha256": "2e728ead57e823029be3c3bb6bf4526f534ed457148c67a11f3b41d12adabcfe",
+  "seconds": 114,
+  "batches": 0,
+  "factories": [
+    {
+      "flavor": 0,
+      "hr": 0
+    },
+    {
+      "flavor": 1,
+      "hr": 0
+    },
+    {
+      "flavor": 2,
+      "hr": 0
+    }
+  ],
+  "caps": [
+    {
+      "flavor": 0,
+      "hr": 0,
+      "hal": 0,
+      "hel": 4330320,
+      "hz": 0,
+      "sz": 1024,
+      "hflags": 33554432,
+      "sflags": 4106256961
+    },
+    {
+      "flavor": 1,
+      "hr": 0,
+      "hal": 0,
+      "hel": 0,
+      "hz": 0,
+      "sz": 0,
+      "hflags": 33554432,
+      "sflags": 0
+    },
+    {
+      "flavor": 2,
+      "hr": 0,
+      "hal": 0,
+      "hel": 4330320,
+      "hz": 0,
+      "sz": 1024,
+      "hflags": 33554432,
+      "sflags": 4106256961
+    }
+  ],
+  "surfaces": [
+    {
+      "flavor": 0,
+      "depth": 0,
+      "place": 0,
+      "hr": 0,
+      "caps": 2112,
+      "bpp": 32,
+      "width": 16,
+      "height": 16,
+      "pitch": 64
+    },
+    {
+      "flavor": 0,
+      "depth": 0,
+      "place": 1,
+      "hr": 0,
+      "caps": 2112,
+      "bpp": 32,
+      "width": 16,
+      "height": 16,
+      "pitch": 64
+    },
+    {
+      "flavor": 0,
+      "depth": 0,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 0,
+      "depth": 1,
+      "place": 0,
+      "hr": 0,
+      "caps": 133120,
+      "bpp": 16,
+      "width": 16,
+      "height": 16,
+      "pitch": 32
+    },
+    {
+      "flavor": 0,
+      "depth": 1,
+      "place": 1,
+      "hr": 0,
+      "caps": 133120,
+      "bpp": 16,
+      "width": 16,
+      "height": 16,
+      "pitch": 32
+    },
+    {
+      "flavor": 0,
+      "depth": 1,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 0,
+      "depth": 2,
+      "place": 0,
+      "hr": 2289434769,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 0,
+      "depth": 2,
+      "place": 1,
+      "hr": 2289434769,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 0,
+      "depth": 2,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 0,
+      "depth": 3,
+      "place": 0,
+      "hr": 0,
+      "caps": 133120,
+      "bpp": 32,
+      "width": 16,
+      "height": 16,
+      "pitch": 64
+    },
+    {
+      "flavor": 0,
+      "depth": 3,
+      "place": 1,
+      "hr": 0,
+      "caps": 133120,
+      "bpp": 32,
+      "width": 16,
+      "height": 16,
+      "pitch": 64
+    },
+    {
+      "flavor": 0,
+      "depth": 3,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 0,
+      "place": 0,
+      "hr": 2289435189,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 0,
+      "place": 1,
+      "hr": 2289435004,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 0,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 1,
+      "place": 0,
+      "hr": 2289435189,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 1,
+      "place": 1,
+      "hr": 2289434964,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 1,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 2,
+      "place": 0,
+      "hr": 2289435189,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 2,
+      "place": 1,
+      "hr": 2289434964,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 2,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 3,
+      "place": 0,
+      "hr": 2289435189,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 3,
+      "place": 1,
+      "hr": 2289434964,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 1,
+      "depth": 3,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 2,
+      "depth": 0,
+      "place": 0,
+      "hr": 0,
+      "caps": 2112,
+      "bpp": 32,
+      "width": 16,
+      "height": 16,
+      "pitch": 64
+    },
+    {
+      "flavor": 2,
+      "depth": 0,
+      "place": 1,
+      "hr": 0,
+      "caps": 2112,
+      "bpp": 32,
+      "width": 16,
+      "height": 16,
+      "pitch": 64
+    },
+    {
+      "flavor": 2,
+      "depth": 0,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 2,
+      "depth": 1,
+      "place": 0,
+      "hr": 0,
+      "caps": 133120,
+      "bpp": 16,
+      "width": 16,
+      "height": 16,
+      "pitch": 32
+    },
+    {
+      "flavor": 2,
+      "depth": 1,
+      "place": 1,
+      "hr": 0,
+      "caps": 133120,
+      "bpp": 16,
+      "width": 16,
+      "height": 16,
+      "pitch": 32
+    },
+    {
+      "flavor": 2,
+      "depth": 1,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 2,
+      "depth": 2,
+      "place": 0,
+      "hr": 2289434769,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 2,
+      "depth": 2,
+      "place": 1,
+      "hr": 2289434769,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 2,
+      "depth": 2,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    },
+    {
+      "flavor": 2,
+      "depth": 3,
+      "place": 0,
+      "hr": 0,
+      "caps": 133120,
+      "bpp": 32,
+      "width": 16,
+      "height": 16,
+      "pitch": 64
+    },
+    {
+      "flavor": 2,
+      "depth": 3,
+      "place": 1,
+      "hr": 0,
+      "caps": 133120,
+      "bpp": 32,
+      "width": 16,
+      "height": 16,
+      "pitch": 64
+    },
+    {
+      "flavor": 2,
+      "depth": 3,
+      "place": 2,
+      "hr": 2289435187,
+      "caps": 0,
+      "bpp": 0,
+      "width": 0,
+      "height": 0,
+      "pitch": 0
+    }
+  ]
+}

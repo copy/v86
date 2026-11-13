@@ -28,6 +28,9 @@ if(applicability) {
 }
 fs.mkdirSync(out,{recursive:true});
 if(applicability)fs.writeFileSync(out+"/applicability.json",JSON.stringify(applicability,null,2)+"\n");
+const diagnostic=process.env.D3D_WINE_DIAGNOSTIC==="1";
+const extraLogs=(process.env.D3D_WINE_EXTRA_LOGS||"").split(",").filter(Boolean);
+for(const name of extraLogs)assert(/^[a-z0-9_.-]+$/i.test(name),"Invalid extra log name");
 const cc=process.env.D9WG_CC||"i686-w64-mingw32-gcc";
 execFileSync(cc,["-std=gnu99","-O1","-g","-DDECLSPEC_EXPORT=","-I"+vendor+"include","-c",root+"tests/glbridge/wine_debug_standalone.c","-o",out+"/debug.o"],{stdio:"inherit"});
 // XP provides the PSAPI exports, not the Win7+ K32 aliases selected by newer
@@ -36,28 +39,37 @@ execFileSync(cc,["-std=gnu99","-O1","-g","-DSTANDALONE","-DPSAPI_VERSION=1","-DD
     ...(suite==="d3d8_visual"?["-include",root+"tests/glbridge/wine_mingw_teb.h"]:[]),
     ...(api==="ddraw"?["-DCOBJMACROS=","-D__WINESRC__","-include","windows.h","-include","initguid.h"]:[]),
     vendor+suite+".c",out+"/debug.o","-o",out+"/WINE.EXE","-l"+api,"-ldxguid","-luser32","-lgdi32","-lole32","-lpsapi"],{stdio:"inherit"});
-execFileSync("sh",[site+"/glbridge/"+api+"proxy/build.sh",out+"/"+api+".dll"],{stdio:"pipe"});
+// Resolve known boot-time PnP prompts before creating Wine's foreground thread.
+// Preserve the transcript and stop on an unexpected prompt; never send test input.
+const desktopPrepare=root+"tests/glbridge/wine_xp_desktop_prepare.c";
+execFileSync(cc,["-std=gnu99","-Os","-Wall","-Wextra","-Werror",desktopPrepare,
+    "-o",out+"/PREPARE.EXE","-luser32"],{stdio:"inherit"});
+const providedDll=process.env.D3D_WINE_PROXY_DLL;
+if(providedDll)fs.copyFileSync(path.resolve(providedDll),out+"/"+api+".dll");
+else execFileSync("sh",[site+"/glbridge/"+api+"proxy/build.sh",...(diagnostic?["--diagnostic"]:[]),out+"/"+api+".dll"],{stdio:"pipe"});
 const sha256=file=>createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 const rendererPage=root+"tests/glbridge/d3d_remote_renderer.html";
 const rendererSources=Object.fromEntries([...fs.readFileSync(rendererPage,"utf8").matchAll(/<script src="([^"]+)"/g)]
     .map(([,relative])=>{const file=path.resolve(path.dirname(rendererPage),relative);return [path.relative(root,file),sha256(file)];}));
-fs.writeFileSync(out+"/source.json",JSON.stringify({suite,commit:manifest.commit,source:manifest.files.find(f=>f.path===suite+".c"),
-    dllSha256:sha256(out+"/"+api+".dll"),executableSha256:sha256(out+"/WINE.EXE"),rendererPageSha256:sha256(rendererPage),rendererSources},null,2)+"\n");
+fs.writeFileSync(out+"/source.json",JSON.stringify({suite,diagnostic,extraLogs,dllBuild:providedDll?"provided":diagnostic?"diagnostic":"shipping",providedDll:providedDll?path.resolve(providedDll):null,commit:manifest.commit,source:manifest.files.find(f=>f.path===suite+".c"),
+    desktopPreparation:{sourceSha256:sha256(desktopPrepare),executableSha256:sha256(out+"/PREPARE.EXE"),scope:"Known PnP dialogs closed before suite start; no setup input during Wine"},dllSha256:sha256(out+"/"+api+".dll"),executableSha256:sha256(out+"/WINE.EXE"),rendererPageSha256:sha256(rendererPage),rendererSources},null,2)+"\n");
 if(process.env.D3D_WINE_BUILD_ONLY==="1")process.exit(0);
 
 const files={"V86GL.SYS":fs.readFileSync(site+"/glbridge/v86gl_driver/v86gl.sys"),
-    [api.toUpperCase()+".DLL"]:fs.readFileSync(out+"/"+api+".dll"),"WINE.EXE":fs.readFileSync(out+"/WINE.EXE")};
+    [api.toUpperCase()+".DLL"]:fs.readFileSync(out+"/"+api+".dll"),"WINE.EXE":fs.readFileSync(out+"/WINE.EXE"),"PREPARE.EXE":fs.readFileSync(out+"/PREPARE.EXE")};
 files["PROBE.CMD"]=Buffer.from(["@echo off","set D9WG_GDI_CURSOR=0","set WINETEST_PLATFORM=windows","set WINETEST_DEBUG=1","set WINETEST_INTERACTIVE=0",
     "sc stop v86gl","copy /y %~d0\\v86gl.sys C:\\WINDOWS\\system32\\drivers\\v86gl.sys","sc config v86gl binPath= C:\\WINDOWS\\system32\\drivers\\v86gl.sys","sc start v86gl","if errorlevel 1 goto failed",
-    "echo RUNNING "+suite+" >%~d0\\WINE.TXT","%~d0\\WINE.EXE >>%~d0\\WINE.TXT 2>&1","echo exit=%errorlevel% >>%~d0\\WINE.TXT","echo COMPLETE Wine full suite >%~d0\\OWNER.TXT","exit /b",":failed","echo FAIL driver startup >%~d0\\OWNER.TXT",""].join("\r\n"));
+    "%~d0\\PREPARE.EXE >%~d0\\PREPARE.TXT 2>&1","if errorlevel 1 goto setup_failed","echo RUNNING "+suite+" >%~d0\\WINE.TXT","%~d0\\WINE.EXE >>%~d0\\WINE.TXT 2>&1","echo exit=%errorlevel% >>%~d0\\WINE.TXT",...(diagnostic?['dir /a /b "%~d0\\*.log" >%~d0\\FLIST.TXT 2>&1','dir /a /b "%TEMP%\\*trace*" >>%~d0\\FLIST.TXT 2>&1','copy /b /y "%~d0\\*.log" "%~d0\\TRACE.TXT" >%~d0\\COPY.TXT 2>&1']:[]),"echo COMPLETE Wine full suite >%~d0\\OWNER.TXT","exit /b",":setup_failed","echo FAIL desktop preparation >%~d0\\OWNER.TXT","exit /b",":failed","echo FAIL driver startup >%~d0\\OWNER.TXT",""].join("\r\n"));
 const live=await create_d3d_live_renderer();
 try {
     const result=await run_xp_ram_probe({root,out,files,image:process.env.XP_IMAGE||site+"/windowsxp/windowsxp_multidisk_C_4G.img",
-        success:"COMPLETE Wine full suite",log_files:["WINE.TXT"],log_completion:{"WINE.TXT":"exit="},graphics_renderer:live,
+        success:"COMPLETE Wine full suite",log_files:["WINE.TXT","PREPARE.TXT",...(diagnostic?["TRACE.TXT","FLIST.TXT","COPY.TXT"]:[]),...extraLogs],log_completion:{"WINE.TXT":"exit=","PREPARE.TXT":"COMPLETE desktop_prepare=1"},graphics_renderer:live,
         probe_timeout_seconds:1800,
         rendering:"Complete upstream "+suite+" with Windows expectations and actual GPU readbacks; no failed assertion or unreviewed skip is accepted.",
         inspect(result) {
             fs.writeFileSync(out+"/WINE.TXT",result.logs["WINE.TXT"]);
+            fs.writeFileSync(out+"/PREPARE.TXT",result.logs["PREPARE.TXT"]);
+            for(const name of [...(diagnostic?["TRACE.TXT","FLIST.TXT","COPY.TXT"]:[]),...extraLogs])fs.writeFileSync(out+"/"+name,result.logs[name]);
             result.wineSummary=parse_wine_result(result.logs["WINE.TXT"],suite,{inapplicable:applicability?.inapplicable||[]});
             assert.deepEqual([...result.releases].sort(),[...result.owners].sort(),"Unreleased transport owner");
             assert_wine_graphics_cleanup(live.stats.snapshot);
