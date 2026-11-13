@@ -1,0 +1,1082 @@
+{
+  "source": "glbridge/sample/ddraw_attachment_graph_reference.c",
+  "sourceSha256": "48b23fd6288bc804395b925ead475a582ff6788e3981759e436a95fdfef2137e",
+  "includedSourceSha256": "271c2fcb29574dbe5b89d22dd18ff3e511c66eb6319c80b7e54dc7b1b021d0fb",
+  "executableSha256": "ece457f23a629a1cf1e022b259efe1cb357526c2385b6939ea581f22cf86cd9c",
+  "proxy": false,
+  "seconds": 176,
+  "batches": 0,
+  "rows": [
+    {
+      "action": "enum",
+      "view": 1,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": 1,
+      "count": 1,
+      "callback_refs": 2
+    },
+    {
+      "action": "enum",
+      "view": 2,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": 1,
+      "count": 1,
+      "callback_refs": 2
+    },
+    {
+      "action": "enum",
+      "view": 3,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": 1,
+      "count": 1,
+      "callback_refs": 2
+    },
+    {
+      "action": "enum",
+      "view": 4,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": 4,
+      "count": 1,
+      "callback_refs": 3
+    },
+    {
+      "action": "enum",
+      "view": 7,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": 7,
+      "count": 1,
+      "callback_refs": 2
+    },
+    {
+      "action": "complex_add",
+      "view": 1,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 0,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 0,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 0,
+      "selector": 4,
+      "hr": 0,
+      "found": 3,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 0,
+      "selector": 16,
+      "hr": 0,
+      "found": 3,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 0,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 1,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 1,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 1,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 1,
+      "selector": 16,
+      "hr": 0,
+      "found": 2,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 1,
+      "selector": 8,
+      "hr": 0,
+      "found": 2,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 2,
+      "selector": 512,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 2,
+      "selector": 32,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 2,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 2,
+      "selector": 16,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 2,
+      "selector": 8,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 3,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 3,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 3,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 3,
+      "selector": 16,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 1,
+      "node": 3,
+      "selector": 8,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex_delete",
+      "view": 1,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": -1,
+      "count": 2,
+      "callback_refs": 3
+    },
+    {
+      "action": "reverse_add",
+      "view": 1,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 0,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 0,
+      "selector": 32,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 0,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 0,
+      "selector": 16,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 0,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 1,
+      "selector": 512,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 1,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 1,
+      "selector": 4,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 1,
+      "selector": 16,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 1,
+      "node": 1,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse_delete",
+      "view": 1,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex_add",
+      "view": 4,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 0,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 0,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 0,
+      "selector": 4,
+      "hr": 0,
+      "found": 3,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 0,
+      "selector": 16,
+      "hr": 0,
+      "found": 3,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 0,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 1,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 1,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 1,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 1,
+      "selector": 16,
+      "hr": 0,
+      "found": 2,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 1,
+      "selector": 8,
+      "hr": 0,
+      "found": 2,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 2,
+      "selector": 512,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 2,
+      "selector": 32,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 2,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 2,
+      "selector": 16,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 2,
+      "selector": 8,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 3,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 3,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 3,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 3,
+      "selector": 16,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 4,
+      "node": 3,
+      "selector": 8,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex_delete",
+      "view": 4,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": -1,
+      "count": 2,
+      "callback_refs": 3
+    },
+    {
+      "action": "reverse_add",
+      "view": 4,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 0,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 0,
+      "selector": 32,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 0,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 0,
+      "selector": 16,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 0,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 1,
+      "selector": 512,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 1,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 1,
+      "selector": 4,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 1,
+      "selector": 16,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 4,
+      "node": 1,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse_delete",
+      "view": 4,
+      "node": 0,
+      "selector": 0,
+      "hr": 0,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex_add",
+      "view": 7,
+      "node": 0,
+      "selector": 0,
+      "hr": 2289434634,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 0,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 0,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 0,
+      "selector": 4,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 0,
+      "selector": 16,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 0,
+      "selector": 8,
+      "hr": 0,
+      "found": 1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 1,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 1,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 1,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 1,
+      "selector": 16,
+      "hr": 0,
+      "found": 2,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 1,
+      "selector": 8,
+      "hr": 0,
+      "found": 2,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 2,
+      "selector": 512,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 2,
+      "selector": 32,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 2,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 2,
+      "selector": 16,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 2,
+      "selector": 8,
+      "hr": 0,
+      "found": 0,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 3,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 3,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 3,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 3,
+      "selector": 16,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex",
+      "view": 7,
+      "node": 3,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "complex_delete",
+      "view": 7,
+      "node": 0,
+      "selector": 0,
+      "hr": 2289435084,
+      "found": -1,
+      "count": 2,
+      "callback_refs": 2
+    },
+    {
+      "action": "reverse_add",
+      "view": 7,
+      "node": 0,
+      "selector": 0,
+      "hr": 2289434634,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 0,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 0,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 0,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 0,
+      "selector": 16,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 0,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 1,
+      "selector": 512,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 1,
+      "selector": 32,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 1,
+      "selector": 4,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 1,
+      "selector": 16,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse",
+      "view": 7,
+      "node": 1,
+      "selector": 8,
+      "hr": 2289434879,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    },
+    {
+      "action": "reverse_delete",
+      "view": 7,
+      "node": 0,
+      "selector": 0,
+      "hr": 2289435084,
+      "found": -1,
+      "count": 0,
+      "callback_refs": 0
+    }
+  ],
+  "results": []
+}

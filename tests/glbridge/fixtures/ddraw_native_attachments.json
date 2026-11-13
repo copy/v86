@@ -1,0 +1,1626 @@
+{
+  "source": "glbridge/sample/ddraw_attachment_reference.c",
+  "sourceSha256": "271c2fcb29574dbe5b89d22dd18ff3e511c66eb6319c80b7e54dc7b1b021d0fb",
+  "executableSha256": "473442efbb442b160f66c09bac435045e34fae5a3d832ef10cf9438bd2027409",
+  "proxy": false,
+  "seconds": 155,
+  "batches": 0,
+  "rows": [
+    {
+      "action": "delete",
+      "add_view": 1,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 1,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289435034,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 1,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 1,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 1,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 1,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 1,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 1,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 1,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 1,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 1,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 1,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 1,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 1,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 1,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 4,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 1,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 7,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "retire",
+      "add_view": 1,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 1,
+      "other_view": 1,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 32,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 1,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        2,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 1,
+      "other_view": 1,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 128,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 2,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 2,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 2,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 2,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289435034,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 2,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 2,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 2,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 2,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 2,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 2,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 2,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 1,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 2,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 2,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 2,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 4,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 2,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 7,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "retire",
+      "add_view": 2,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 2,
+      "other_view": 2,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 32,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 2,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        2,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 2,
+      "other_view": 2,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 128,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 3,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 3,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 3,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 3,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 3,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 3,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289435034,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 3,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 3,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 3,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 3,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 3,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 3,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 3,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 3,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 4,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 3,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 7,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "retire",
+      "add_view": 3,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 3,
+      "other_view": 3,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 32,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 3,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        2,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 3,
+      "other_view": 3,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 128,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 4,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 4,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 4,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 4,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 4,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 4,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 4,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 4,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289435034,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 4,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 4,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 4,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 4,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 4,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 4,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 4,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 4,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 7,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "retire",
+      "add_view": 4,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 4,
+      "other_view": 4,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 32,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 4,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        2,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 4,
+      "other_view": 4,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 128,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 7,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 7,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 7,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 7,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 7,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 7,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 7,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289435084,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 7,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 2289434634,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "delete",
+      "add_view": 7,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "duplicate",
+      "add_view": 7,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 2289435034,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 7,
+      "other_view": 1,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 7,
+      "other_view": 2,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 7,
+      "other_view": 3,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 1,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 7,
+      "other_view": 4,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 4,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "query",
+      "add_view": 7,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 1,
+      "returned_view": 7,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "retire",
+      "add_view": 7,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 7,
+      "other_view": 7,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 32,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 7,
+      "other_view": 7,
+      "hr_add": 0,
+      "hr_op": 0,
+      "depth_size": 64,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "action": "size",
+      "add_view": 7,
+      "other_view": 7,
+      "hr_add": 2289434634,
+      "hr_op": 2289434634,
+      "depth_size": 128,
+      "same_view": 0,
+      "returned_view": 0,
+      "refs": [
+        1,
+        1,
+        1,
+        1,
+        1
+      ]
+    }
+  ],
+  "results": []
+}
