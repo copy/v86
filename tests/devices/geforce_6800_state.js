@@ -53,6 +53,13 @@ o.methods.set(0x1740,0x440);o.methods.set(0x1C00,f(0.75));vram.set([0,255,0,255]
 assert.deepEqual(floats(state.array_vertices(o,[0],[[0,[1,0]]]).bytes),[0,1,0,1]);
 o.methods.set(0x1740,0x423);vram.set([0,60,0,64],0x3000);
 assert.deepEqual(floats(state.array_vertices(o,[0],[[0,[1,0]]]).bytes),[1,2,0,1],"missing enabled components use (0,0,0,1), not current attributes");
+o.methods.set(0x1740,0x114BB);o.methods.set(0x174C,0x114CC);
+const packed=state.inline_vertices(o,[f(1),f(2),f(3),f(1),0xFF336699],inputs);
+assert.deepEqual(floats(packed.bytes),[1,2,3,1,Math.fround(.2),Math.fround(.4),Math.fround(.6),1],"native alternate FLOAT4/D3DCOLOR formats consume five DWORDs");
+assert.deepEqual(state.vertex_layout(0x114EE),{type:5,size:2,bytes:4});
+assert.throws(()=>state.vertex_layout(0x114BC),/DirectX/);
+o.methods.set(0x1740,0x23);o.methods.set(0x174C,2);
+assert.deepEqual(floats(state.inline_vertices(o,[0x40003C00],[[0,[1,0]]]).bytes),[1,2,0,1],"packed FP16 inline attributes consume one DWORD");
 o.methods.set(0x1FC4,0x0144FE43);o.methods.set(0x1FC8,5);o.methods.set(0x1FF4,1<<14);
 const routes=state.results(o);assert.deepEqual(routes.find(([semantic])=>semantic===7),[7,5,-1,true]);
 assert.deepEqual(routes.find(([semantic])=>semantic===1),[1,3,-1,false]);

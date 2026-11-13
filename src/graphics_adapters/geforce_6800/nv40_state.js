@@ -7,6 +7,11 @@ const COLOR=new Map([[1,[2,24]],[2,[2,24]],[3,[2,23]],[4,[4,22]],[5,[4,22]],
     [8,[4,21]],[9,[1,50]],[11,[8,113]],[12,[16,116]],[13,[4,114]],[15,[4,33]],[16,[4,32]]]);
 const RT_DMA=[0x194,0x18C,0x1B4,0x1B8],RT_OFFSET=[0x210,0x218,0x288,0x28C],RT_PITCH=[0x20C,0x21C,0x280,0x284];
 const f32bits=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
+// Curie's alternate DirectX declaration encoding (VTXFMT bit 16). The
+// replicated low nibble is a type code, not TYPE/SIZE. Native 93.71 uses
+// 0x114BB for FLOAT4 and 0x114CC for D3DCOLOR with a 20-byte stride.
+const DX_VERTEX=new Map([[0x44,[4,4]],[0x88,[2,1]],[0x99,[2,2]],[0xAA,[2,3]],
+    [0xBB,[2,4]],[0xCC,[0,4]],[0xEE,[5,2]]]);
 const half=value=>{
     const sign=value&0x8000?-1:1,exponent=value>>>10&31,mantissa=value&1023;
     return sign*(exponent===31?mantissa?NaN:Infinity:exponent?2**(exponent-15)*(1+mantissa/1024):2**-14*mantissa/1024);
@@ -79,10 +84,16 @@ export class NV40State
     }
     vertex_layout(format)
     {
-        const type=format&15,size=format>>>4&15;
-        if(size>4 || size && ![0,1,2,3,4,5,7].includes(type) || size && type===0 && size!==4)
+        let type=format&15,size=format>>>4&15;
+        if(format&0x10000)
+        {
+            const dx=DX_VERTEX.get(format&255);
+            if(!dx) throw new RangeError("NV40 unsupported DirectX vertex format");
+            [type,size]=dx;
+        }
+        if(size>4 || size && ![0,1,2,3,4,5,7].includes(type) || size && type===0 && size<3)
             throw new RangeError("NV40 unsupported vertex format");
-        return {type,size,bytes:size*(type===2?4:[1,3,5].includes(type)?2:1)};
+        return {type,size,bytes:type===0 && size?4:size*(type===2?4:[1,3,5].includes(type)?2:1)};
     }
     vertex_value(layout,bytes)
     {
@@ -105,13 +116,11 @@ export class NV40State
     // enabled attribute, including attributes the shader does not read.
     inline_vertices(o,words,inputs)
     {
-        const formats=Array.from({length:16},(_,i)=>get(o,0x1740+i*4));
+        const formats=Array.from({length:16},(_,i)=>this.vertex_layout(get(o,0x1740+i*4)));
         let stride=0;
         for(const format of formats)
         {
-            const size=format>>>4&15;
-            if(size>4 || size && (format&15)!==2) throw new RangeError("NV40 inline vertex format needs conversion");
-            stride+=size;
+            stride+=Math.ceil(format.bytes/4);
         }
         if(!stride || words.length%stride) throw new RangeError("NV40 incomplete inline vertex");
         const count=words.length/stride,bytes=new Uint8Array(count*inputs.length*16),view=new DataView(bytes.buffer);
@@ -120,8 +129,13 @@ export class NV40State
         {
             for(let attribute=0;attribute<16;attribute++)
             {
-                const values=this.attribute(o,attribute),size=formats[attribute]>>>4&15;
-                for(let i=0;i<size;i++) values[i]=words[at++];
+                const layout=formats[attribute],size=Math.ceil(layout.bytes/4);
+                let values=this.attribute(o,attribute);
+                if(size)
+                {
+                    const packed=new Uint32Array(size);for(let i=0;i<size;i++)packed[i]=words[at++];
+                    values=this.vertex_value(layout,new Uint8Array(packed.buffer));
+                }
                 if(!locations.has(attribute)) continue;
                 const offset=(vertex*inputs.length+locations.get(attribute))*16;
                 values.forEach((value,i)=>view.setUint32(offset+i*4,value,true));
