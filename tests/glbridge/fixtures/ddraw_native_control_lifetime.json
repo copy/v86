@@ -1,0 +1,161 @@
+{
+  "source": "glbridge/sample/ddraw_control_lifetime_reference.c",
+  "sourceSha256": "a1b004a3bbe0d9dd96ef8eec91314e9bca928e56c82f6f4c9e0faa89f2ac996f",
+  "executableSha256": "2d464a823eb9ab76a19f408980dfe3ee7f2e648ab75bd8dea3ac19eb67fa5e6c",
+  "seconds": 133,
+  "batches": 0,
+  "releases": [
+    {
+      "version": 1,
+      "refs": 0,
+      "procChanged": 0
+    },
+    {
+      "version": 2,
+      "refs": 0,
+      "procChanged": 0
+    },
+    {
+      "version": 4,
+      "refs": 1,
+      "procChanged": 1
+    },
+    {
+      "version": 7,
+      "refs": 1,
+      "procChanged": 1
+    }
+  ],
+  "results": [
+    {
+      "version": 1,
+      "name": "create",
+      "hr": 0
+    },
+    {
+      "version": 1,
+      "name": "exclusive",
+      "hr": 0
+    },
+    {
+      "version": 1,
+      "name": "primary",
+      "hr": 0
+    },
+    {
+      "version": 1,
+      "name": "create_contender",
+      "hr": 0
+    },
+    {
+      "version": 1,
+      "name": "before_release",
+      "hr": 2289435205
+    },
+    {
+      "version": 1,
+      "name": "after_release",
+      "hr": 0
+    },
+    {
+      "version": 2,
+      "name": "create",
+      "hr": 0
+    },
+    {
+      "version": 2,
+      "name": "exclusive",
+      "hr": 0
+    },
+    {
+      "version": 2,
+      "name": "primary",
+      "hr": 0
+    },
+    {
+      "version": 2,
+      "name": "create_contender",
+      "hr": 0
+    },
+    {
+      "version": 2,
+      "name": "before_release",
+      "hr": 2289435205
+    },
+    {
+      "version": 2,
+      "name": "after_release",
+      "hr": 0
+    },
+    {
+      "version": 4,
+      "name": "create",
+      "hr": 0
+    },
+    {
+      "version": 4,
+      "name": "exclusive",
+      "hr": 0
+    },
+    {
+      "version": 4,
+      "name": "primary",
+      "hr": 0
+    },
+    {
+      "version": 4,
+      "name": "create_contender",
+      "hr": 0
+    },
+    {
+      "version": 4,
+      "name": "before_release",
+      "hr": 2289435205
+    },
+    {
+      "version": 4,
+      "name": "after_release",
+      "hr": 2289435205
+    },
+    {
+      "version": 4,
+      "name": "after_surface_release",
+      "hr": 0
+    },
+    {
+      "version": 7,
+      "name": "create",
+      "hr": 0
+    },
+    {
+      "version": 7,
+      "name": "exclusive",
+      "hr": 0
+    },
+    {
+      "version": 7,
+      "name": "primary",
+      "hr": 0
+    },
+    {
+      "version": 7,
+      "name": "create_contender",
+      "hr": 0
+    },
+    {
+      "version": 7,
+      "name": "before_release",
+      "hr": 2289435205
+    },
+    {
+      "version": 7,
+      "name": "after_release",
+      "hr": 2289435205
+    },
+    {
+      "version": 7,
+      "name": "after_surface_release",
+      "hr": 0
+    }
+  ]
+}
