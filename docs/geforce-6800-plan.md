@@ -159,6 +159,10 @@
   与两路 VPLL，提供 13.5 MHz 参考频率及一致的 VCO/N/M/P 范围；VBE 求解器遵守 VCO
   范围。ROM 指针/字段测试和真实 INT 10h 模式、清屏及文本往返测试通过。
 
+- CPU 2D 第四部分：增加 SIFC 的逐行输入、20-bit 小数缩放、12:4 起点和输出裁剪，
+  IFC/INDEX 保留源 alpha 到混合阶段。测试覆盖 2×2 RGB565 输入水平放大与 ARGB
+  预乘上传混合到 RGB565；2D 测试和插件构建通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

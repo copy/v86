@@ -109,6 +109,16 @@ const indexed = object(0x5B00,0x3064,[[0x184,0x130],[0x1A0,0x500],[0x3E4,3],[0x3
     [0x3F0,0],[0x3F4,0],[0x3F8,1<<16|3]]);
 call(indexed,0x3FC,1<<16|4);call(indexed,0x400,0x231);
 assert.deepEqual([...vram.subarray(640,646)],[0,248,31,0,224,7],"I4 low nibble first with 16-bit LUT and output crop");
+target.methods.set(0x300,10);target.methods.set(0x30C,800);
+const sifc = object(0x5C00,0x3066,[[0x198,0x500],[0x300,1],[0x304,2<<16|2],[0x308,0x200000],[0x30C,0x100000],
+    [0x310,0],[0x314,2<<16|4],[0x2FC,3]]);
+call(sifc,0x318,0);call(sifc,0x400,0x07E0F800);call(sifc,0x404,0xFFFF001F);
+assert.deepEqual(Array.from({length:4},(_,i)=>view.getUint32(800+i*4,true)),[0xFFFF0000,0xFFFF0000,0xFF00FF00,0xFF00FF00]);
+assert.equal(view.getUint32(832,true),0xFF0000FF);assert.equal(view.getUint32(844,true),0xFFFFFFFF);
+target.methods.set(0x300,4);target.methods.set(0x30C,900);view.setUint16(900,0x001F,true);
+const alphaIfc=object(0x5D00,0x308A,[[0x19C,0x500],[0x300,4],[0x304,0],[0x308,1<<16|1],[0x2FC,5]]);
+call(alphaIfc,0x30C,1<<16|1);call(alphaIfc,0x400,0x80800000);
+assert.equal(view.getUint16(900,true),0x800F,"ARGB upload keeps alpha while blending into RGB565");
 console.log("PASS: NV40 8/16/32-bit fills, exhaustive ROP3, clipped/overlapping blits, PCI M2MF and atomic completion/faults");
 console.log("PASS: IFC row padding/crop and mid-row snapshot, GDI transparent/opaque bitmap expansion and bit order");
 console.log("PASS: nearest/bilinear scaling, both packed YUV orders, rectangular Morton surfaces and premultiplied blending");

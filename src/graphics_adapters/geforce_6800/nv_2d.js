@@ -94,11 +94,15 @@ export class NV2D
     }
     convert(color, input, output)
     {
+        return this.pack(this.input_color(color, input), output);
+    }
+    input_color(color, input)
+    {
         const format = input === 1 ? 4 : input === 2 || input === 3 ? 3 : 10;
         const rgba = this.unpack(color, format);
         if(input === 2) rgba[3] = color & 0x8000 ? 255 : 0;
         else if(input !== 4) rgba[3] = 255;
-        return this.pack(rgba, output);
+        return rgba;
     }
     rop(code, s, d, p)
     {
@@ -255,7 +259,7 @@ export class NV2D
                 const pixel = px - x, index = indexFormat ? bytes[pixel] : bytes[pixel >>> 1] >>> ((pixel & 1) * 4) & 15;
                 const color = lut ? this.raw(lut, index * (input <= 3 ? 2 : 4), input <= 3 ? 2 : 4) : this.raw(bytes, pixel * bpp, bpp);
                 if(key && color === m(key, 0x304)) return null;
-                return this.convert(color, input, dst.format);
+                return this.input_color(color, input);
             }, indexed ? [0x190, 0x194, 0x198, 0x19C] : [0x18C, 0x190, 0x194, 0x198]);
         }
         finally { if(indexed) o.methods.set(0x2FC, operation); }
@@ -304,6 +308,29 @@ export class NV2D
         else if(format !== 3) rgba[3] = 255;
         return rgba;
     }
+    scaled_upload(o, value)
+    {
+        const [width, height] = wh(m(o, 0x304)), input = m(o, 0x300), bpp = input <= 3 ? 2 : 4;
+        const dx = (m(o, 0x308) | 0) / 1048576, dy = (m(o, 0x30C) | 0) / 1048576;
+        if(!width || !height || dx <= 0 || dy <= 0 || input < 1 || input > 5) throw new RangeError("NV SIFC invalid image");
+        const stride = Math.ceil(width * bpp / 4) * 4;
+        if(!o.stream.length) o.stream = [0];
+        if(o.stream[0] >= height) throw new RangeError("NV SIFC excess data");
+        for(let i = 0; i < 4; i++) o.stream.push(value >>> (i * 8) & 255);
+        if(o.stream.length - 1 < stride) return;
+        const row = o.stream[0], bytes = new Uint8Array(o.stream.slice(1)), [px, py] = xy(m(o, 0x318));
+        const x = px / 16, y = py / 16, [cx, cy] = xy(m(o, 0x310)), [cw, ch] = wh(m(o, 0x314));
+        const left = Math.ceil(x - 0.5), right = Math.ceil(x + width * dx - 0.5);
+        const top = Math.ceil(y + row * dy - 0.5), bottom = Math.ceil(y + (row + 1) * dy - 0.5);
+        const rect = this.bounds(left, top, right - left, bottom - top, [cx, cy, cx + cw, cy + ch]);
+        const dst = this.surface(o, 0x198), key = o.methods.has(0x184) ? this.ref(o, 0x184) : null;
+        this.render(o, dst, rect, sx => {
+            const at = Math.max(0, Math.min(width - 1, Math.floor((sx + 0.5 - x) / dx))) * bpp;
+            const color = this.raw(bytes, at, bpp);
+            return key && color === m(key, 0x304) ? null : this.input_color(color, input);
+        }, [0x188, 0x18C, 0x190, 0x194]);
+        o.stream = [row + 1];
+    }
     scaled(o)
     {
         const [width, height] = wh(m(o, 0x400)), fmt = m(o, 0x404), pitch = fmt & 65535, format = m(o, 0x300);
@@ -341,6 +368,7 @@ export class NV2D
     {
         const type = o.class_id;
         const ifc = [0x61, 0x65, 0x8A, 0x308A].includes(type), indexed = [0x60, 0x64, 0x3064].includes(type);
+        const sifc = [0x76, 0x66, 0x3066].includes(type);
         let accepted = false;
         if(type === 0x39) accepted = [0x184, 0x188, 0x30C, 0x310, 0x314, 0x318, 0x31C, 0x320, 0x324, 0x328].includes(at);
         else if(type === 0x5F || type === 0x9F) accepted = at >= 0x184 && at <= 0x19C || [0x2FC, 0x300, 0x304, 0x308].includes(at);
@@ -348,6 +376,7 @@ export class NV2D
         else if(ifc) accepted = at >= 0x184 && at <= 0x19C || at >= 0x2F8 && at <= 0x30C || at >= 0x400 && at < 0x2000;
         else if(indexed) accepted = at >= 0x184 && at <= 0x1A0 || at >= 0x3E0 && at < 0x2000;
         else if([0x77, 0x89, 0x3089].includes(type)) accepted = at >= 0x184 && at <= 0x198 || at >= 0x2FC && at <= 0x31C || at >= 0x400 && at <= 0x40C;
+        else if(sifc) accepted = at >= 0x184 && at <= 0x198 || at >= 0x2F8 && at <= 0x318 || at >= 0x400 && at < 0x2000;
         if(!accepted || at & 3) return false;
         o.methods.set(at, value >>> 0);
         if(type === 0x4A)
@@ -363,11 +392,12 @@ export class NV2D
         if(type === 0x39 && at === 0x328) this.m2mf(o, value);
         else if((type === 0x5F || type === 0x9F) && at === 0x308) this.blit(o);
         else if(type === 0x4A && (at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700) && at & 4) this.rectangle(o, at);
-        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && at === 0x30C || indexed && at === 0x3FC) o.stream = [0];
+        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && at === 0x30C || indexed && at === 0x3FC || sifc && at === 0x318) o.stream = [0];
         else if(type === 0x4A && at >= 0x800 && at < 0xA00) this.monochrome(o, value, false);
         else if(type === 0x4A && at >= 0xC00 && at < 0xE00) this.monochrome(o, value, true);
         else if((ifc || indexed) && at >= 0x400) this.upload(o, value, indexed);
         else if([0x77, 0x89, 0x3089].includes(type) && at === 0x40C) this.scaled(o);
+        else if(sifc && at >= 0x400) this.scaled_upload(o, value);
         return true;
     }
 }
