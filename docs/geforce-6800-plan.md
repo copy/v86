@@ -1038,3 +1038,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
 - [Vogons：Catalyst 6.2 Win9x 不含 R5xx](https://www.vogons.org/viewtopic.php?p=1360576)
 - [UL legacy benchmarks](https://benchmarks.ul.com/legacy-benchmarks)：3DMark03/05/06 的下载与注册码
 - v86 内部：[gpu-devices.md](gpu-devices.md)（插件、渲染器通道、D9WG、测试与远程渲染器）、[gpu-deviations.md](gpu-deviations.md)、[glbridge.md](glbridge.md)（D3D9 代理与协议）、[display-design.md](display-design.md)、[profiling.md](profiling.md)
+
+- G1/G3 PFB 能力续修：实现只读 `PFB_ZCOMP_SIZE=0x2e3ff`，其值为 NV40 的末个片上
+  压缩标签索引，容量按 Nouveau `nv20_fb_tags` 的规则为寄存器值加一，与 128/256 MiB
+  VRAM 无关。快照升至 v8，旧状态中的未知寄存器存值迁移为硬件容量。DWORD/byte
+  只读语义、旧状态迁移及快照往返通过。Win98 冷启动确认读到正确值，但 DEFAULT
+  纹理分配仍失败；该寄存器缺失不是本轮分配失败的充分原因，继续定位。

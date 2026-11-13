@@ -12,6 +12,9 @@ import { NVRMA } from "./nv_rma.js";
 
 const MMIO_SIZE = 16 << 20;
 const RAMIN_SIZE = 1 << 20;
+// NV40 PFB_ZCOMP_SIZE is the last compression-tag index (Nouveau nv20_fb_tags).
+// The tag SRAM is on-chip and does not scale with the configured VRAM size.
+const ZCOMP_LAST_TAG = 0x2E3FF;
 const MMIO_BASE = 0xFD000000;
 const RAMIN_BASE = 0xFC000000;
 // PTIMER's 56-bit counter occupies timestamp bits 5..60 (envytools bus/ptimer).
@@ -112,6 +115,7 @@ export class NVDevice
         this.registers.set(0x009200, 1);
         this.registers.set(0x009210, 1);
         this.registers.set(0x10020C, this.vram_size);
+        this.registers.set(0x100320, ZCOMP_LAST_TAG);
         // Post-firmware memory geometry: four 64-bit partitions, one rank,
         // four banks, 8 column bits, 12/13 row bits for 128/256 MiB.
         // A zero column field also breaks the driver's tiled-pitch alignment.
@@ -305,7 +309,7 @@ export class NVDevice
     implemented(offset)
     {
         return [0, 0x100, 0x140, 0x200, 0x1218, 0x322C, 0x3230, 0x3234, 0x3238, 0x323C, 0x3304,
-            0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x100200, 0x100204, 0x10020C, 0x101000].includes(offset) ||
+            0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x100200, 0x100204, 0x10020C, 0x100320, 0x101000].includes(offset) ||
             this.fifo.implemented(offset) || this.graph.implemented(offset) || this.display.implemented(offset) || this.rma.implemented(offset) ||
             offset >= 0x1800 && offset < 0x1900 || IRQ_BLOCKS.some(([status, enable]) => offset === status || offset === enable);
     }
@@ -333,7 +337,7 @@ export class NVDevice
             }
             return;
         }
-        if(offset === 0 || offset === 0x3304 || offset === 0x10020C || offset === 0x101000) return;
+        if(offset === 0 || offset === 0x3304 || offset === 0x10020C || offset === 0x100320 || offset === 0x101000) return;
         const timestamp = offset === 0x9400 || offset === 0x9410 ? this.time() : 0n;
         const old = offset === 0x9400 ? Number(timestamp & TIMER_LOW) :
             offset === 0x9410 ? Number(timestamp >> 32n) : this.registers.get(offset) || 0;
@@ -442,17 +446,18 @@ export class NVDevice
 
     get_state()
     {
-        return [7, this.vram_size, this.vga.get_state(), Array.from(this.registers),
+        return [8, this.vram_size, this.vga.get_state(), Array.from(this.registers),
             timer_pair(this.time()), this.alarm_remaining, timer_pair(this.alarm_sample), this.display.get_state(),
             this.fifo.get_state(), this.graph.get_state(), this.rma.get_state()];
     }
 
     set_state(state)
     {
-        if(state[0] < 1 || state[0] > 7) throw new Error("geforce_6800: unsupported state version " + state[0]);
+        if(state[0] < 1 || state[0] > 8) throw new Error("geforce_6800: unsupported state version " + state[0]);
         if(state[1] !== this.vram_size) throw new Error("geforce_6800: snapshot vram_size mismatch");
         this.vga.set_state(state[2]);
         this.registers = new Map(state[3]);
+        if(state[0] < 8) this.registers.set(0x100320, ZCOMP_LAST_TAG);
         if(state[0] < 4) for(const [offset, value] of this.memory_defaults())
             if(!this.registers.has(offset)) this.registers.set(offset, value);
         this.timer_value = state[0] >= 3 ? timer_from_pair(state[4]) : BigInt(Math.floor(state[4])) & TIMER_MASK;

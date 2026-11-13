@@ -45,6 +45,19 @@ try
     write(mmio + 0x3304, 0);
     assert.equal(read(mmio + 0x3304), 3, "NV40 CACHE1 UNK104 is read-only and returns 3");
     assert.equal(read(mmio + 0x10020C), 128 << 20);
+    assert.equal(read(mmio + 0x100320), 0x2E3FF, "NV40 on-chip compression-tag capacity");
+    write(mmio + 0x100320, -1); cpu.write8(mmio + 0x100320, 0);
+    assert.equal(read(mmio + 0x100320), 0x2E3FF, "tag capacity is read-only for DWORD and byte writes");
+    const legacy_tags = nv.get_state(); legacy_tags[0] = 7;
+    // The snapshot serializer materializes the movable WASM view. Do the same
+    // for a direct device-state migration test instead of copying a Proxy bytewise.
+    legacy_tags[2][39] = nv.vram().slice();
+    legacy_tags[3] = legacy_tags[3].filter(([offset]) => offset !== 0x100320);
+    legacy_tags[3].push([0x100320, 0]); nv.set_state(legacy_tags);
+    assert.equal(read(mmio + 0x100320), 0x2E3FF, "older snapshots replace the unimplemented register latch");
+    const current_tags = nv.get_state(); current_tags[2][39] = nv.vram().slice();
+    nv.set_state(current_tags);
+    assert.equal(read(mmio + 0x100320), 0x2E3FF, "current snapshots retain the hardware capacity");
     assert.equal(read(mmio + 0x1218) & 0x300, 0x200, "GDDR3 memory type");
     const cfg0 = read(mmio + 0x100200), cfg1 = read(mmio + 0x100204);
     const parts = (cfg0 & 3) + 1, width = cfg0 & 4 ? 8 : 4;
