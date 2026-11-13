@@ -319,6 +319,43 @@ try
         for(let x=0;x<8;x++)assert(Math.abs(vram[0x10000+x*4+1]-Math.round(Math.max(0,(x+.5)/4-1)*255))<=1,
             "fog clamp happens after interpolation at pixel "+x);
         console.log("PASS: real WebGPU NV linear/absolute fog factors, post-interpolation clamp and FOGC zero components");
+        const conditionSwizzle=swizzle=>swizzle.reduce((bits,value,i)=>bits|value<<(21+i*2),0);
+        const ccInstruction=(value,{condition=7,swizzle=[0,1,2,3],update=false,disabled=false,mask=15,saturate=false,end=false}={})=>[
+            (1<<24|128|mask<<9|+update<<8|+disabled<<30|+saturate<<31|+end)>>>0,
+            condition<<18|conditionSwizzle(swizzle)|0x1C802,0,0,...new Uint32Array(Float32Array.from(value).buffer)];
+        const conditionalDraw=async(words)=>{
+            words.forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            method(0x1808,6);for(const word of new Uint32Array(floats.buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            return [...vram.subarray(0x10000,0x10004)];
+        };
+        const conditions=[()=>false,x=>x<0,x=>x===0,x=>x<=0,x=>x>0,x=>x!==0,x=>x>=0,()=>true];
+        for(let condition=0;condition<8;condition++)
+        {
+            const pixel=await conditionalDraw([
+                ...ccInstruction([.25,.25,.25,.25]),...ccInstruction([-1,0,1,NaN],{update:true,disabled:true}),
+                ...ccInstruction([.75,.75,.75,.75],{condition,swizzle:[3,2,1,0],end:true})]);
+            const rgba=[NaN,1,0,-1].map(value=>conditions[condition](value)?191:64),expected=[rgba[2],rgba[1],rgba[0],rgba[3]];
+            expected.forEach((value,i)=>assert(Math.abs(pixel[i]-value)<=1,"CC condition "+condition+" component "+i+": "+pixel));
+        }
+        const masked=await conditionalDraw([
+            ...ccInstruction([.5,.5,.5,.5]),...ccInstruction([-1,0,1,1],{update:true,disabled:true}),
+            ...ccInstruction([1,0,0,0],{condition:2,swizzle:[1,1,1,1],update:true,disabled:true,mask:1}),
+            ...ccInstruction([1,1,1,1],{condition:4,end:true})]);
+        assert.deepEqual(masked,[255,128,255,255],"conditional CC update respects swizzle and destination component mask");
+        const saturated=await conditionalDraw([
+            ...ccInstruction([.25,.25,.25,.25]),...ccInstruction([-1,.5,2,NaN],{update:true,disabled:true,saturate:true}),
+            ...ccInstruction([.75,.75,.75,.75],{condition:5,end:true})]);
+        assert.deepEqual(saturated.slice(0,3),[191,191,64],"CC classification follows result saturation");
+        for(const [component,killed]of [[1,false],[0,true]])
+        {
+            for(let at=0x10000;at<0x10100;at+=4)vram.set([13,17,19,23],at);
+            const pixel=await conditionalDraw([...ccInstruction([1,1,1,1]),
+                ...ccInstruction([-1,0,1,0],{update:true,disabled:true}),
+                18<<24|1,1<<18|conditionSwizzle(Array(4).fill(component)),0,0]);
+            assert.deepEqual(pixel,killed?[13,17,19,23]:[255,255,255,255],"KIL tests swizzled condition codes");
+        }
+        console.log("PASS: real WebGPU all fragment conditions, NaN/unordered, masked CC updates, saturation and conditional discard");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

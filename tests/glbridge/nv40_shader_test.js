@@ -71,7 +71,9 @@ try
     const relative=structuredClone(vertex);relative.instructions[0].address.constant=true;
     assert.throws(()=>translate_vertex_program(relative),/relative/);
     const conditional=structuredClone(fragment);conditional.instructions[0].predicate.condition=1;
-    assert.throws(()=>translate_fragment_program(conditional),/control flow/);
+    validate("conditional",translate_fragment_program(conditional));
+    for(let condition=1;condition<7;condition++) {conditional.instructions[0].predicate.condition=condition;conditional.instructions[0].predicate.update=true;validate("cc-"+condition,translate_fragment_program(conditional));}
+    const branch=structuredClone(fragment);branch.instructions[0].branch=true;assert.throws(()=>translate_fragment_program(branch),/control flow/);
     const alias=structuredClone(fragment),later=structuredClone(alias.instructions[0]);later.sources[0]={type:"temp",index:0,half:false,swizzle:[0,1,2,3]};alias.instructions.push(later);
     assert.throws(()=>translate_fragment_program(alias),/alias/);
     for(const full of [false,true])

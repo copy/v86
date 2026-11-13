@@ -1,9 +1,9 @@
 // NV40 decoded straight-line programs -> D3D9 SM3 bytecode. This module only
 // emits bytecode; the existing D3D9 pipeline owns WGSL generation and execution.
-// Unsupported predicates, branches and register aliases fail before any draw.
+// Unsupported branches and register aliases fail before any draw.
 const OP = {MOV:1,ADD:2,SUB:3,MAD:4,MUL:5,RCP:6,RSQ:7,DP3:8,DP4:9,MIN:10,MAX:11,
     SLT:12,SGE:13,LIT:16,DST:17,FRC:19,DCL:31,SINCOS:37,MOVA:46,DEF:81,
-    KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90};
+    KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90,CMP:88};
 const bits = type => (type & 7) << 28 | (type & 24) << 8;
 const dst = (type,index,mask=15,saturate=false,shift=0) =>
     (0x80000000 | bits(type) | index | mask << 16 | +saturate << 20 | shift << 24) >>> 0;
@@ -133,6 +133,16 @@ class Shader
         const op=OP[name];if(op===undefined) throw new RangeError("NV40 unsupported straight-line opcode "+name);
         this.emit(op,destination,...sources);
     }
+    condition(condition,value,target)
+    {
+        const destination=dst(0,target),zero=this.literal(0);
+        if(condition===1)this.emit(OP.SLT,destination,value,zero);
+        else if(condition===2 || condition===5)this.alu(condition===2?"SEQ":"SNE",destination,[value,zero]);
+        else if(condition===3)this.emit(OP.SGE,destination,zero,value);
+        else if(condition===4)this.emit(OP.SLT,destination,zero,value);
+        else if(condition===6)this.emit(OP.SGE,destination,value,zero);
+        else this.emit(OP.MOV,destination,this.literal(condition===7?1:0));
+    }
     finish()
     {
         const bytecode=Uint32Array.from([this.stage==="vertex"?0xFFFE0300:0xFFFF0300,...this.declarations,...this.body,0xFFFF]);
@@ -226,25 +236,34 @@ export function translate_fragment_program(program,options={})
             shader.literal(settings.linear),shader.literal(settings.constant-1));
         shader.input_overrides.set(3,fog);
     }
-    const written=new Set();
+    const written=new Set(),needsCC=program.instructions.some(i=>i.predicate.update || i.predicate.condition!==7 && i.predicate.condition!==0 || i.name==="KIL");
+    const cc=needsCC?shader.temp("cc"):-1;
+    if(needsCC)shader.emit(OP.MOV,dst(0,cc),shader.literal(0));
     for(const i of program.instructions)
     {
-        if(i.branch || i.input_relative || i.predicate.condition!==7 && i.predicate.condition!==0)
+        if(i.branch || i.input_relative)
             throw new RangeError("NV40 fragment control flow needs lowering");
         if(i.predicate.condition===0 || i.name==="NOP") continue;
         const count=arity(i.name),texture=["TEX","TXP","TXB","TXL","TXD"].includes(i.name);
         if(!count && !texture && i.name!=="KIL" && !nullary(i.name)) throw new RangeError("NV40 unsupported fragment opcode "+i.name);
-        const sources=i.sources.slice(0,texture?i.name==="TXD"?3:1:i.name==="KIL"?1:count)
+        const sources=i.sources.slice(0,texture?i.name==="TXD"?3:1:i.name==="KIL"?0:count)
             .map(source=>shader.source(source,i.constant));
+        const conditional=i.predicate.condition!==7;
+        if(conditional || i.name==="KIL")
+        {
+            shader.condition(i.predicate.condition,src(0,cc,i.predicate.swizzle),31);
+            shader.emit(OP.SUB,dst(0,31),src(0,31),shader.literal(.5));
+        }
         if(i.name==="KIL")
         {
-            shader.emit(OP.MOV,dst(0,29),sources[0]);shader.emit(OP.KIL,dst(0,29));continue;
+            // Native KIL tests the condition code, rather than a source register.
+            shader.emit(OP.MOV,dst(0,29),src(0,31,[0,1,2,3],true));shader.emit(OP.KIL,dst(0,29));continue;
         }
-        if(i.destination.disabled) throw new RangeError("NV40 destinationless arithmetic needs condition lowering");
-        const key=(i.destination.half?"h":"r")+i.destination.index, target=shader.temp(key);
+        const key=(i.destination.half?"h":"r")+i.destination.index;
+        const target=i.destination.disabled?-1:shader.temp(key),staged=conditional || i.predicate.update || i.destination.disabled;
         const shift=i.scale<4?i.scale:8-i.scale+12;
         if(i.scale===4) throw new RangeError("NV40 invalid fragment scale");
-        const destination=dst(0,target,i.destination.mask,i.saturate,shift);
+        const destination=dst(0,staged?30:target,i.destination.mask,i.saturate,shift);
         if(texture)
         {
             if(!shader.samplers.has(i.texture))
@@ -259,8 +278,24 @@ export function translate_fragment_program(program,options={})
                 destination,sources[0],sampler);
         }
         else shader.alu(i.name,destination,sources);
-        const base=i.destination.half?i.destination.index>>>1:i.destination.index;
-        shader.aliases.set(base,i.destination.half?"h":"r");written.add(key);
+        if(staged)
+        {
+            if(target>=0)
+            {
+                if(conditional)shader.emit(OP.CMP,dst(0,target,i.destination.mask),src(0,31),src(0,30),src(0,target));
+                else shader.emit(OP.MOV,dst(0,target,i.destination.mask),src(0,30));
+            }
+            if(i.predicate.update)
+            {
+                if(conditional)shader.emit(OP.CMP,dst(0,cc,i.destination.mask),src(0,31),src(0,30),src(0,cc));
+                else shader.emit(OP.MOV,dst(0,cc,i.destination.mask),src(0,30));
+            }
+        }
+        if(target>=0)
+        {
+            const base=i.destination.half?i.destination.index>>>1:i.destination.index;
+            shader.aliases.set(base,i.destination.half?"h":"r");written.add(key);
+        }
     }
     if(!written.has((options.fp32_outputs?"r":"h")+"0")) throw new RangeError("NV40 fragment color output is not written");
     for(let color=0;color<(options.targets||1);color++)
