@@ -778,6 +778,11 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   Chrome WebGPU 的不同纯色 mip 验证导数选级、正负 bias、最小级和三线性插值，
   纹理边界测试与 Closure 构建通过。小数 LOD clamp 仍显式报未实现。
 
+- G4 压缩纹理第一部分：支持 NV40 DXT1/3/5（BC1/2/3）线性块、紧密 mip 尾部、
+  非整块边界裁剪和组件 crossbar。BC1 透明分支、BC2 4-bit alpha、BC3 两种端点
+  插值及跨字节 3-bit selector 均有参考字节测试，DMA 越界仍报错。Chrome WebGPU
+  实际采样三种格式并读回颜色/alpha 正确；设备纹理测试和插件 Closure 构建通过。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

@@ -221,6 +221,15 @@ try
         await mipDraw(0x01050080,[128,128,0,255]);
         method(0x1A0C,0x88018000);await mipDraw(0x01031F00,[0,255,0,255]);
         console.log("PASS: real WebGPU mip derivative selection, positive/negative LOD bias, minimum level and trilinear filtering");
+        method(0x1A18,4<<16|4);method(0x1A0C,0x80000000);
+        for(const [format,bytes,expected]of [
+            [0x10629,[0,0xF8,0x1F,0,0xAA,0xAA,0xAA,0xAA],[85,0,170,255]],
+            [0x10729,[...Array(8).fill(0x88),0,0xF8,0,0,0,0,0,0],[0,0,255,136]],
+            [0x10829,[128,0,0,0,0,0,0,0,0,0xF8,0,0,0,0,0,0],[0,0,255,128]]])
+        {
+            method(0x1A04,format);vram.set(bytes,0x20000);await mipDraw(0x01010000,expected);
+        }
+        console.log("PASS: real WebGPU BC1/BC2/BC3 sampled colors, component routing and alpha");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

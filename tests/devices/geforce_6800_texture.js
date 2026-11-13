@@ -40,4 +40,29 @@ o.methods.set(0x1A04,0x32529);o.methods.set(0x1840,20);
 vram.set([41,0,0,255,42,0,0,255],0x2028);vram.set([51,0,0,255],0x203C);
 const linear=texture.images(texture.describe(o,0));assert.equal(linear[1][0],41);assert.equal(linear[2][0],51,"linear levels retain the base pitch");
 o.methods.set(0x1A0C,0x80000080);assert.throws(()=>texture.describe(o,0),/fractional/);
+// BC1 four-color indices and transparent mode; BC2 explicit alpha and BC3
+// both alpha endpoint orderings, including selectors straddling byte borders.
+o.methods.set(0x1A0C,0x80000000);o.methods.set(0x1A14,0x01010000);o.methods.set(0x1A18,4<<16|4);
+o.methods.set(0x1A04,0x10629);o.methods.set(0x1A10,0xAA6C);
+vram.set([0,0xF8,0x1F,0,0xE4,0xE4,0xE4,0xE4],0x2000);
+let bc=texture.read(texture.describe(o,0));assert.deepEqual([...bc.subarray(0,16)],[255,0,0,255,0,0,255,255,170,0,85,255,85,0,170,255]);
+vram.set([0,0,255,255,255,255,255,255],0x2000);
+assert.deepEqual([...texture.read(texture.describe(o,0)).subarray(0,4)],[0,0,0,0]);
+o.methods.set(0x1A04,0x10729);vram.set([0x10,0x32,0x54,0x76,0x98,0xBA,0xDC,0xFE,0,0xF8,0,0,0,0,0,0],0x2000);
+bc=texture.read(texture.describe(o,0));assert.deepEqual(Array.from({length:16},(_,i)=>bc[i*4+3]),Array.from({length:16},(_,i)=>i*17));
+o.methods.set(0x1A04,0x10829);
+for(const endpoints of [[255,0],[0,255]])
+{
+    let selectors=0n;for(let i=0;i<16;i++)selectors|=BigInt(i%8)<<BigInt(i*3);
+    vram.set([...endpoints,...Array.from({length:6},(_,i)=>Number(selectors>>BigInt(i*8)&255n)),0,0xF8,0,0,0,0,0,0],0x2000);
+    bc=texture.read(texture.describe(o,0));
+    const expected=endpoints[0]? [255,0,219,182,146,109,73,36]:[0,255,51,102,153,204,0,255];
+    assert.deepEqual(Array.from({length:16},(_,i)=>bc[i*4+3]),Array.from({length:16},(_,i)=>expected[i%8]));
+}
+// Packed BC mip tails occupy one complete block each, with NPOT edge cropping.
+o.methods.set(0x1A04,0x30629);o.methods.set(0x1A18,4<<16|4);o.methods.set(0x1A0C,0x80010000);
+for(let i=0;i<3;i++)vram.set([0,0xF8,0,0,0,0,0,0],0x2000+i*8);
+const bcChain=texture.images(texture.describe(o,0));assert.deepEqual(bcChain.map(x=>x.length),[64,16,4]);assert.equal(bcChain[2][0],255);
+o.methods.set(0x1A04,0x10629);o.methods.set(0x1A18,3<<16|2);assert.equal(texture.read(texture.describe(o,0)).length,24);
+assert.throws(()=>texture.read({...texture.describe(o,0),dma:{...t.dma,limit:0x2006}}),/limit/);
 console.log("PASS: NV40 linear/Morton texture DMA, storage swizzles, RGB565/L8/A8L8 and unsupported-state faults");
