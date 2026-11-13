@@ -69,6 +69,6 @@ export async function prepare_ipa(read, size, sink, { graphics = true, progress 
     const digest = new SHA256();
     const preparedSize = await write_ipa_zip(read, app.entries, replacements, removed, async bytes => { digest.update(bytes); await sink(bytes); },
         new Set(app.code.map(c => c.path)));
-    return { format: "v86-ios-install", version: 1, ...app.report, prepared_size: preparedSize,
+    return { format: "v86-ios-install", format_version: 1, ...app.report, prepared_size: preparedSize,
         prepared_sha256: digest.hex(), graphics, trusted };
 }

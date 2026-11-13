@@ -32,7 +32,7 @@ export function macho_signature_blobs(bytes)
         expect(offset >= 12 + count * 8 && offset + 8 <= length && !blobs.has(type), "invalid signature blob offset");
         const n = v.getUint32(at + offset + 4);
         expect(n >= 8 && offset + n <= length, "truncated signature blob");
-        blobs.set(type, bytes.slice(at + offset, at + offset + n));
+        blobs.set(type, new Uint8Array(bytes.subarray(at + offset, at + offset + n)));
     }
     return blobs;
 }
@@ -52,10 +52,10 @@ export function macho_entitlements(bytes)
 export function macho_link_library(original, path)
 {
     const { parsed } = commands(original);
-    if(parsed.dylibs.includes(path)) return original.slice();
+    if(parsed.dylibs.includes(path)) return new Uint8Array(original);
     expect(!path.includes("\0") && path.startsWith("/"), "invalid library path");
     const name = new TextEncoder().encode(path), size = Math.ceil((25 + name.length) / 4) * 4;
-    const bytes = original.slice(), v = view(bytes), end = 28 + v.getUint32(20, true);
+    const bytes = new Uint8Array(original), v = view(bytes), end = 28 + v.getUint32(20, true);
     const first = Math.min(...parsed.segments.flatMap(s => s.sections).map(s => s.offset).filter(Boolean));
     expect(Number.isFinite(first) && end + size <= first && bytes.subarray(end, end + size).every(b => !b),
         "insufficient Mach-O header padding for the graphics adapter");
@@ -71,7 +71,7 @@ export function sign_macho(original, { identifier, info = null, resources = null
     const { parsed, result } = commands(original), old = result.find(c => c.cmd === 29), link = result.find(c => c.cmd === 1 &&
         parsed.segments.find(s => s.name === "__LINKEDIT")?.fileoff === view(original).getUint32(c.at + 32, true));
     expect(link, "missing __LINKEDIT segment");
-    const bytes = original.slice(), v = view(bytes);
+    const bytes = new Uint8Array(original), v = view(bytes);
     let command = old?.at;
     if(command === undefined)
     {

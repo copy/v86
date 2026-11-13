@@ -129,7 +129,7 @@ export async function inspect_ipa(read, size, progress = () => {})
         digest.update(bytes);
     }
     const report = { name: String(info.CFBundleDisplayName || info.CFBundleName || [...roots][0].slice(0, -4)),
-        bundle_id: info.CFBundleIdentifier, version: String(info.CFBundleShortVersionString || info.CFBundleVersion || ""),
+        bundle_id: info.CFBundleIdentifier, executable, version: String(info.CFBundleShortVersionString || info.CFBundleVersion || ""),
         build: String(info.CFBundleVersion || ""), minimum_ios: minimum, architecture: "armv7", size, expanded_size: expanded,
         original_sha256: digest.hex(), code_count: code.length };
     return { report, entries, info, root, main, code };

@@ -23,6 +23,9 @@ function image()
 test("ad-hoc signatures preserve entitlements, seal pages, and detect code mutation", () => {
     const entitlements = { "application-identifier": "org.v86.Test", "get-task-allow": true };
     const signed = sign_macho(image(), { identifier: "org.v86.Test", entitlements });
+    const buffer = Buffer.from(signed), original = Buffer.from(buffer);
+    sign_macho(buffer, { identifier: "org.v86.Replacement", entitlements });
+    assert.deepEqual(buffer, original, "Node Buffer inputs must not be modified through Buffer.slice()");
     assert.deepEqual(macho_entitlements(signed), entitlements);
     assert.equal(cdhashes(signed).length, 1);
     const linked = macho_link_library(signed, SYSTEM_GL_LIBRARY);
