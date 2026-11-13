@@ -251,7 +251,9 @@ export function translate_fragment_program(program,options={})
     if(!written.has((options.fp32_outputs?"r":"h")+"0")) throw new RangeError("NV40 fragment color output is not written");
     for(let color=0;color<(options.targets||1);color++)
     {
-        const key=(options.fp32_outputs?"r":"h")+(color*2);
+        // R1 is reserved for depth. Color 1/2/3 use R2/R3/R4, or their
+        // corresponding even half registers H4/H6/H8.
+        const register=[0,2,3,4][color],key=(options.fp32_outputs?"r":"h")+(register*(options.fp32_outputs?1:2));
         if(written.has(key)) shader.emit(OP.MOV,dst(8,color),src(0,shader.temp(key)));
     }
     if(options.depth && written.has("r1")) shader.emit(OP.MOV,dst(9,0,1),src(0,shader.temp("r1"),[2,2,2,2]));

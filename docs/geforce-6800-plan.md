@@ -806,6 +806,13 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   0 PGRAPH fault，原系统盘未修改。证据见 `g2-win98-8198-dxdiag-ddraw.json`；
   字体 DMA 尚未完成，不能将其等同于全部 G2 类已实现。
 
+- G4 MRT 第一部分：接通四个颜色目标及各自 DMA/offset/pitch、MRT enable 和独立
+  color-write mask，所有附件验证后才提交，全部读回后才恢复 FIFO。修正颜色输出映射为
+  R0/R2/R3/R4（H0/H4/H6/H8），R1 留给深度；0x36c 在 NV40 上为 MRT blend enable，
+  不再误作 NV30 的 fog enable。Chrome WebGPU 验证四种颜色、每目标掩码、RT3 越界
+  原子性及退回单目标；44 个 WGSL 模块和 Closure 构建通过。混合使能不同的 MRT 组合
+  及不含 COLOR0 的 enable mask 仍显式拒绝，尚不是完整 G4 验收。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

@@ -70,6 +70,15 @@ try
     assert.throws(()=>translate_fragment_program(conditional),/control flow/);
     const alias=structuredClone(fragment),later=structuredClone(alias.instructions[0]);later.sources[0]={type:"temp",index:0,half:false,swizzle:[0,1,2,3]};alias.instructions.push(later);
     assert.throws(()=>translate_fragment_program(alias),/alias/);
+    for(const full of [false,true])
+    {
+        const multiple=structuredClone(fragment);
+        multiple.instructions=[0,2,3,4].map(register=>{
+            const i=structuredClone(fragment.instructions[0]);i.destination.index=register*(full?1:2);i.destination.half=!full;return i;
+        });
+        const output=validate("MRT-"+full,translate_fragment_program(multiple,{targets:4,fp32_outputs:full}));
+        assert.deepEqual(output.reflection.colorOutputs,[0,1,2,3],"Curie skips the depth register when exporting MRT colors");
+    }
     if(process.env.NV_PROGRAMS)
         for(const [index,p]of JSON.parse(fs.readFileSync(process.env.NV_PROGRAMS)).entries())
         {

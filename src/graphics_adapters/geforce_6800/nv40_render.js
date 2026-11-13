@@ -157,22 +157,26 @@ export class NV40Render
     draw(o,mode,words,indices=null,subc=0)
     {
         if(this.pending) throw new RangeError("NV40 renderer already busy");
-        if(get(o,0x220,1)!==1) throw new RangeError("NV40 MRT rendering is not connected");
+        const enable=get(o,0x220,1),active=enable&15;
+        if(enable&~31 || !(active&1) || active!==1 && !(enable&16))throw new RangeError("NV40 unsupported render target enable mask");
+        for(let i=1;i<4;i++)if(active&1<<i && !!(get(o,0x36C)&1<<i)!==!!get(o,0x310))
+            throw new RangeError("NV40 independent MRT blending is not connected");
         const zsa=nv40_depth_state(o);
-        if(get(o,0x142C) || get(o,0x374) || get(o,0x1478) || get(o,0x36C) ||
+        if(get(o,0x142C) || get(o,0x374) || get(o,0x1478) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
         const blend=nv40_blend_state(o);
         const cull=nv40_cull_state(o);
         const target=this.engine.state.target(o);
         if(![21,22,23].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
+        const colors=Array.from({length:4},(_,index)=>active&1<<index?this.engine.state.target(o,index):null);
         const viewport=this.engine.state.viewport(o,target);
         const x=get(o,0x8C0),y=get(o,0x8C4),clip=viewport.clip;
         const scissor={left:Math.max(x&65535,clip?clip.left:0),top:Math.max(y&65535,clip?clip.top:0),
             right:Math.min((x&65535)+(x>>>16),clip?clip.right:target.width),
             bottom:Math.min((y&65535)+(y>>>16),clip?clip.bottom:target.height)};
         if(scissor.left>=scissor.right || scissor.top>=scissor.bottom)return;
-        const shaders=this.engine.shaders(o,{viewport});
+        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14)});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};
@@ -180,8 +184,10 @@ export class NV40Render
         const fetched=indices?this.engine.state.array_vertices(o,indices,shaders.vertex.inputs):
             this.engine.state.inline_vertices(o,words,shaders.vertex.inputs);
         const vertices=expand_primitives(fetched,mode);if(!vertices.count || cull.all && vertices.primitive===4)return;
-        this.engine.state.validate(target,true);
-        const initial=this.engine.state.read(target);
+        const initial=colors.map(surface=>{
+            if(!surface)return null;
+            this.engine.state.validate(surface,true);return this.engine.state.read(surface);
+        });
         let depth=null,depthBytes=null;
         if(zsa.enabled)
         {
@@ -191,8 +197,9 @@ export class NV40Render
         }
         // Everything that can fault on guest state is checked before emitting
         // commands or changing the host's resource cache.
-        this.initialize();const handle=this.target(target,initial),vs=this.shader(shaders.vertex.bytecode,true),ps=this.shader(shaders.fragment.bytecode,false);
-        this.command(OP.SET_RENDER_TARGET,{"target_index":0,"color_texture_handle":handle});
+        this.initialize();const handles=colors.map((surface,index)=>surface?this.target(surface,initial[index]):0),
+            vs=this.shader(shaders.vertex.bytecode,true),ps=this.shader(shaders.fragment.bytecode,false);
+        handles.forEach((handle,index)=>this.command(OP.SET_RENDER_TARGET,{"target_index":index,"color_texture_handle":handle}));
         const depthHandle=depth?this.target(depth,depthBytes,2):0;
         this.command(OP.SET_DEPTH_STENCIL_SURFACE_LEVEL,{"depth_texture_handle":depthHandle});
         this.command(OP.SET_VIEWPORT,{"x":viewport.x,"y":viewport.y,"width":viewport.width,"height":viewport.height,"max_z":1});
@@ -213,6 +220,12 @@ export class NV40Render
         for(const [state,value]of blend)this.render_state(state,value);
         const mask=get(o,0x324,0x01010101);
         this.render_state(168,(mask&0x10000?1:0)|(mask&0x100?2:0)|(mask&1?4:0)|(mask&0x1000000?8:0));
+        const mrtMask=get(o,0x370);
+        for(let index=1;index<4;index++)
+        {
+            const bits=mrtMask>>>(index*4)&15;
+            this.render_state(189+index,(bits&2?1:0)|(bits&4?2:0)|(bits&8?4:0)|(bits&1?8:0));
+        }
         this.render_state(174,1);this.render_state(9,get(o,0x368,0x1D01)===0x1D00?1:2);this.render_state(26,get(o,0x300));
         this.command(OP.SET_SCISSOR_RECT,scissor);
         this.command(OP.BEGIN_SCENE);
@@ -220,7 +233,8 @@ export class NV40Render
             "stride":vertices.stride,"vertex_count":vertices.count,"vertex_bytes":vertices.bytes.length});
         w.patch_field("vertex_data_offset",w.data(vertices.bytes));this.command(OP.END_SCENE);
         let resolve;const promise=new Promise(done=>{resolve=done;});
-        const outputs=[{target,handle},...(depth?[{target:depth,handle:depthHandle}]:[])].map(output=>({...output,bytes:new Uint8Array(output.target.width*output.target.height*output.target.bpp)}));
+        const outputs=[...colors.flatMap((target,index)=>target?[{target,handle:handles[index]}]:[]),
+            ...(depth?[{target:depth,handle:depthHandle}]:[])].map(output=>({...output,bytes:new Uint8Array(output.target.width*output.target.height*output.target.bpp)}));
         const pending=this.pending={channel:o.channel,subc,outputs,requests:new Map(),promise,resolve,sequence:++this.sequence};
         outputs.forEach((output,index)=>{
         const {target,handle}=output,pitch=target.width*target.bpp,rows=Math.max(1,Math.floor(READBACK_MAX_BYTES/pitch));
