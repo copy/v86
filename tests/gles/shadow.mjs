@@ -70,6 +70,8 @@ const sent = () => { host.flush(); return renderer.records().filter(r => r.name 
     assert.deepEqual(await get_i(0x0B21), [3], "a float as an integer: rounded");
     assert.equal(await error(), GL.NO_ERROR);
     await call("gles2:glGetIntegerv", 0x1234, 4);
+    assert.deepEqual(host.summary().errors.at(-1), { context, command: "glGetIntegerv", error: GL.INVALID_ENUM, args: [0x1234, null] },
+        "query failures remain diagnosable even though queries do not reach the renderer");
     assert.equal(await error(), GL.INVALID_ENUM, "an unknown pname");
     console.log("PASS: the initial state, glGet's conversions, enables");
 }

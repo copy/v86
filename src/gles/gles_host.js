@@ -103,6 +103,10 @@ GLESHost.prototype.reset = function()
     this.stats = { batches: 0, bytes: 0, records: 0, refused: 0, reads: 0, throttled: 0, frames: 0, cpu_ms: 0 };
     /** @type {!Map<string, number>} refused calls by name and the error they left */
     this.refused = new Map();
+    // Queries can also set a GL error. Keep the first failures with scalar
+    // arguments so a compositor's later glGetError is diagnosable. Never
+    // retain guest uploads or unbounded history.
+    this.errors = [];
     if(this.renderer) this.renderer.post({ "type": "reset" });
 };
 
@@ -199,7 +203,11 @@ function is_query(name)
  */
 GLESHost.prototype.gl_call = function(conn, command, args, bytes)
 {
+    const context = this.shadow.context(conn.context), previous_error = context?.error;
     const { ret, keep } = this.shadow.call(conn.context, command, args);
+    if(context && !previous_error && context.error && this.errors.length < 32)
+        this.errors.push({ context: conn.context, command: command.name, error: context.error,
+            args: args.slice(0, 8).map(value => typeof value === "number" ? value : null) });
     if(command.name === "glReadPixels" || command.name === "glReadnPixelsEXT")
     {
         if(!keep) return ret;
@@ -492,7 +500,7 @@ GLESHost.prototype.get_state = function()
         shadow: this.shadow.get_state(),
         next_connection: this.next_connection, next_puid: this.next_puid, connections: this.connections, processes: this.processes,
         closed_counts: this.closed_counts, closed_unknown: this.closed_unknown, closed_malformed: this.closed_malformed,
-        closed_failed: this.closed_failed, stats: this.stats, refused: this.refused,
+        closed_failed: this.closed_failed, stats: this.stats, refused: this.refused, errors: this.errors,
     }, { classes: SHADOW_CLASSES, skip: shadow_skip });
     const page = this.page_state;
     this.page_state = null;
@@ -514,7 +522,7 @@ GLESHost.prototype.set_state = function(state)
     Object.assign(this.rc, saved.rc);
     this.shadow.set_state(saved.shadow);
     for(const key of ["next_connection", "next_puid", "connections", "processes", "closed_counts", "closed_unknown", "closed_malformed",
-        "closed_failed", "stats", "refused"])
+        "closed_failed", "stats", "refused", "errors"])
     {
         if(saved[key] !== undefined) this[key] = saved[key];
     }
@@ -551,6 +559,6 @@ GLESHost.prototype.summary = function()
         connections: this.connections, open_connections: this.streams.size, processes: this.processes,
         counts: sorted(counts), unknown: sorted(unknown), malformed: sorted(malformed), failed: sorted(failed), broken, dropped_bytes,
         render_control: this.rc.summary(), batches: Object.assign({ submitted: this.submitted, completed: this.completed }, this.stats),
-        shaders: this.shadow.stats, refused: sorted(this.refused),
+        shaders: this.shadow.stats, refused: sorted(this.refused), errors: this.errors.slice(),
     };
 };
