@@ -1097,3 +1097,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   GET/PUT、方法、参数和 trace sequence。软件 DAC 的 cache trap 仍是驱动处理路径，
   不能全部计作 DMA 失败。harness 导出 `fifoFaults`，避免长跑 reset/ack 后丢失起因；
   PGRAPH/FIFO 和渲染顺序测试、Closure 构建通过。
+
+- G4 volume：接通三维纹理与 sampler 3D、三轴 Morton 和固定 row/slice pitch、
+  随 mip 缩小的深度，以及 3D 纹理资源上传/释放。支持普通/FP16 存储格式，最大
+  512³，源数据和展开上传均受当前 VRAM 大小预算约束；压缩 volume 仍显式拒绝。
+  CPU 测试覆盖非等长三轴、mip/slice 偏移、末级 DMA 越界与分配预算；GPU 验证
+  两个切片、空间线性混合和显式 mip。纹理/渲染测试及 Closure 构建通过。

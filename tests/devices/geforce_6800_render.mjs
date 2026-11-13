@@ -403,6 +403,17 @@ try
             assert.deepEqual(await cubeDraw(direction),cubeColors[5-face],"explicit cube mip retains guest face alignment "+face);
         console.log("PASS: real WebGPU NV cubemap face directions, coordinate orientation and per-face mip chains");
 
+        for(const [at,value]of [[0x1A00,0x60000],[0x1A04,0x20539],[0x1840,2<<20],[0x1A08,0x30303],[0x1A14,0x01010000]])method(at,value);
+        for(let pixel=0;pixel<8;pixel++)vram.set(cubeColors[pixel<4?0:2],0x60000+pixel*4);
+        vram.set(cubeColors[3],0x60020);
+        [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        assert.deepEqual(await cubeDraw([.5,.5,.25]),cubeColors[0],"3D sampler selects first volume slice");
+        assert.deepEqual(await cubeDraw([.5,.5,.75]),cubeColors[2],"3D sampler selects second volume slice");
+        method(0x1A14,0x02020000);const volumeMiddle=await cubeDraw([.5,.5,.5]);
+        [128,0,128,255].forEach((expected,i)=>assert(Math.abs(volumeMiddle[i]-expected)<=1,"trilinear spatial volume filter "+volumeMiddle));
+        [47<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        method(0x1A14,0x01030000);assert.deepEqual(await cubeDraw([.5,.5,.5]),cubeColors[3],"volume mip chain shrinks all three dimensions");
+        console.log("PASS: real WebGPU NV 3D textures, Morton slice order, spatial filtering and volume mip levels");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

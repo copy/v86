@@ -88,4 +88,24 @@ o.methods.set(0x1A04,0x3252D);o.methods.set(0x1840,16);o.methods.set(0x1A0C,0x80
 for(let face=0;face<6;face++)for(const [offset,red]of [[0,70+face],[64,90+face],[96,110+face]])vram.set([red,0,0,255],0x2000+face*112+offset);
 assert.deepEqual(texture.images(texture.describe(o,0)).map(bytes=>bytes[0]),Array.from({length:6},(_,face)=>[70+face,90+face,110+face]).flat(),"uniform-pitch cube faces are not padded");
 o.methods.set(0x1A18,4<<16|2);assert.throws(()=>texture.describe(o,0),/square/);
+// Three-axis Morton order interleaves only the remaining dimension bits.
+o.methods.set(0x1A04,0x30539);o.methods.set(0x1A18,4<<16|2);o.methods.set(0x1840,2<<20);
+for(let z=0;z<2;z++)for(let y=0;y<2;y++)for(let x=0;x<4;x++)
+{
+    const index=(x&1)|(y<<1)|(z<<2)|(x&2)<<2;
+    vram.set([(z*2+y)*4+x+1,0,0,255],0x2000+index*4);
+}
+vram.set([21,0,0,255,22,0,0,255,31,0,0,255],0x2040);
+const volume=texture.describe(o,0),volumeImages=texture.images(volume);
+assert.equal(volume.volume,true);assert.equal(volume.depth,2);
+assert.deepEqual(Array.from({length:16},(_,i)=>volumeImages[0][i*4]),Array.from({length:16},(_,i)=>i+1));
+assert.deepEqual(volumeImages.map(image=>image.length),[64,8,4]);assert.equal(volumeImages[1][0],21);assert.equal(volumeImages[2][0],31);
+assert.throws(()=>texture.images({...volume,dma:{...volume.dma,limit:0x204A}}),/limit/);
+o.methods.set(0x1A04,0x32539);o.methods.set(0x1840,2<<20|20);
+for(let row=0;row<4;row++)for(let x=0;x<4;x++)vram.set([row*4+x+1,0,0,255],0x2000+row*20+x*4);
+vram.set([21,0,0,255,22,0,0,255],0x2050);vram.set([31,0,0,255],0x2064);
+const volumeLinear=texture.images(texture.describe(o,0));assert.deepEqual(volumeLinear.map(image=>image[0]),[1,21,31]);
+assert.deepEqual(Array.from({length:16},(_,i)=>volumeLinear[0][i*4]),Array.from({length:16},(_,i)=>i+1),"linear volume slice and row pitches");
+o.methods.set(0x1840,0);assert.throws(()=>texture.describe(o,0),/volume.*dimensions/);
+assert.throws(()=>texture.storage({...volume,width:128,height:128,depth:128,u:7,v:7,w:7,bpp:1}),/upload budget/,"expanded payload is bounded before allocating volume storage");
 console.log("PASS: NV40 linear/Morton texture DMA, storage swizzles, RGB565/L8/A8L8 and unsupported-state faults");

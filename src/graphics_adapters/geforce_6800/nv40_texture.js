@@ -1,4 +1,4 @@
-// NV40 2D/cube texture fetch/upload. The component crossbar operates
+// NV40 2D/cube/volume texture fetch/upload. The component crossbar operates
 // on the format's storage components, before the fragment program sees RGBA.
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[26,8]]);
@@ -13,25 +13,28 @@ export class NV40Texture
         const width=size>>>16,height=size&65535,block=BLOCK_BYTES.get(code),bpp=BYTES.get(code)||block,pitch=get(o,0x1840+unit*4)&65535;
         if(get(o,at+12)&0x70)throw new RangeError("NV40 anisotropic texture is not connected");
         if(!(get(o,at+12)&0x80000000))throw new RangeError("NV40 sampled texture is disabled");
-        const cube=!!(format&4);
-        if((format>>>4&15)!==2)throw new RangeError("NV40 volume texture is not connected");
+        const cube=!!(format&4),dimension=format>>>4&15,volume=dimension===3;
+        if(dimension!==2 && !volume || cube && volume)throw new RangeError("NV40 invalid texture dimension");
+        const depth=volume?get(o,0x1840+unit*4)>>>20:1;
+        if(volume && (!depth || Math.max(width,height,depth)>512))throw new RangeError("NV40 volume texture dimensions");
+        if(volume && block)throw new RangeError("NV40 compressed volume texture is not connected");
         if(cube && width!==height)throw new RangeError("NV40 cube faces must be square");
         if(format&0x4000)throw new RangeError("NV40 unnormalized texture coordinates are not connected");
         const levels=format>>>16&15;
-        if(!levels || levels>1+Math.floor(Math.log2(Math.max(width,height))))throw new RangeError("NV40 invalid texture mip count");
+        if(!levels || levels>1+Math.floor(Math.log2(Math.max(width,height,depth))))throw new RangeError("NV40 invalid texture mip count");
         if(!bpp)throw new RangeError("NV40 texture format is not connected: "+code);
         if(selector!==1 && selector!==2)throw new RangeError("NV40 texture DMA selector");
-        const swizzle=!(format&0x2000),u=Math.ceil(Math.log2(width)),v=Math.ceil(Math.log2(height));
+        const swizzle=!(format&0x2000),u=Math.ceil(Math.log2(width)),v=Math.ceil(Math.log2(height)),w=Math.ceil(Math.log2(depth));
         if(!width || !height || width>4096 || height>4096 || !swizzle && pitch<(block?Math.ceil(width/4)*block:width*bpp))throw new RangeError("NV40 texture dimensions/pitch");
-        const wrap=get(o,at+8),filter=get(o,at+20),s=wrap&15,t=wrap>>>8&15;
-        if(![1,2,3,4].includes(s) || ![1,2,3,4].includes(t))throw new RangeError("NV40 texture wrap mode is not connected");
+        const wrap=get(o,at+8),filter=get(o,at+20),s=wrap&15,t=wrap>>>8&15,r=wrap>>>16&15;
+        if(![1,2,3,4].includes(s) || ![1,2,3,4].includes(t) || volume && ![1,2,3,4].includes(r))throw new RangeError("NV40 texture wrap mode is not connected");
         if(wrap&0xF00000 || filter&0xF0000000)throw new RangeError("NV40 sRGB/signed texture is not connected");
         const min=filter>>>16&15,mag=filter>>>24&15;
         if(min<1 || min>6 || mag<1 || mag>2)throw new RangeError("NV40 texture filter");
         const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
         if(minLod%1 || maxLod%1)throw new RangeError("NV40 fractional texture LOD clamp is not connected");
-        return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,bpp,pitch,swizzle,u,v,code,block,cube,
-            crossbar:get(o,at+16),wrap_s:s,wrap_t:t,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
+        return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,
+            crossbar:get(o,at+16),wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
             d3d:code===26?113:32,upload_bpp:code===26?8:4,
             bias:new Uint32Array(Float32Array.of((filter<<19>>19)/256).buffer)[0],border:get(o,at+28)};
@@ -44,10 +47,10 @@ export class NV40Texture
         for(let level=0;level<texture.levels;level++)
         {
             const width=Math.max(1,texture.width>>>level),height=Math.max(1,texture.height>>>level);
-            const u=Math.max(0,texture.u-level),v=Math.max(0,texture.v-level);
-            layouts.push({width,height,u,v,offset:stride});
+            const u=Math.max(0,texture.u-level),v=Math.max(0,texture.v-level),w=Math.max(0,texture.w-level),depth=Math.max(1,texture.depth>>>level);
+            layouts.push({width,height,depth,u,v,w,offset:stride});
             stride+=texture.block?Math.ceil(height/4)*(texture.swizzle?Math.ceil(width/4)*texture.block:texture.pitch):
-                texture.swizzle?2**(u+v)*texture.bpp:height*texture.pitch;
+                texture.swizzle?2**(u+v+w)*texture.bpp:height*depth*texture.pitch;
         }
         // NV40 packed/Morton cube faces are 128-byte aligned. Uniform-pitch
         // linear faces follow their complete mip chains without that padding.
@@ -59,13 +62,39 @@ export class NV40Texture
         }
         return images;
     }
+    storage(texture)
+    {
+        if(!texture.volume)return this.state.read(texture);
+        const {width,height,depth,bpp,pitch,swizzle,u,v,w}=texture,device=this.state.device;
+        const length=swizzle?2**(u+v+w)*bpp:(depth*height-1)*pitch+width*bpp;
+        if(length>device.vram_size || width*height*depth*texture.upload_bpp>device.vram_size)
+            throw new RangeError("NV40 volume texture exceeds upload budget");
+        const source=device.dma.read(texture.dma,texture.offset,length),result=new Uint8Array(width*height*depth*bpp);
+        for(let z=0;z<depth;z++)for(let y=0;y<height;y++)for(let x=0;x<width;x++)
+        {
+            let at=(z*height+y)*pitch+x*bpp;
+            if(swizzle)
+            {
+                let index=0,bit=0;
+                for(let i=0;i<Math.max(u,v,w);i++)
+                {
+                    if(i<u)index|=(x>>>i&1)<<bit++;
+                    if(i<v)index|=(y>>>i&1)<<bit++;
+                    if(i<w)index|=(z>>>i&1)<<bit++;
+                }
+                at=index*bpp;
+            }
+            result.set(source.subarray(at,at+bpp),((z*height+y)*width+x)*bpp);
+        }
+        return result;
+    }
     read(texture)
     {
         if(texture.code===26)
         {
-            const bytes=this.state.read(texture),result=new Uint8Array(bytes.length),
+            const bytes=this.storage(texture),result=new Uint8Array(bytes.length),
                 source=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),output=new DataView(result.buffer);
-            for(let pixel=0;pixel<texture.width*texture.height;pixel++)for(let channel=0;channel<4;channel++)
+            for(let pixel=0;pixel<texture.width*texture.height*(texture.depth||1);pixel++)for(let channel=0;channel<4;channel++)
             {
                 const shift=(3-channel)*2,select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
                 if(select===3)throw new RangeError("NV40 invalid texture component selection");
@@ -73,9 +102,9 @@ export class NV40Texture
             }
             return result;
         }
-        const source=texture.block?this.blocks(texture):this.state.read(texture),result=new Uint8Array(texture.width*texture.height*4),view=new DataView(source.buffer);
+        const source=texture.block?this.blocks(texture):this.storage(texture),result=new Uint8Array(texture.width*texture.height*(texture.depth||1)*4),view=new DataView(source.buffer);
         const unit5=value=>Math.round(value*255/31),unit6=value=>Math.round(value*255/63);
-        for(let pixel=0;pixel<texture.width*texture.height;pixel++)
+        for(let pixel=0;pixel<texture.width*texture.height*(texture.depth||1);pixel++)
         {
             const at=pixel*(texture.block?4:texture.bpp),word=texture.bpp===1?source[at]:texture.bpp===2?view.getUint16(at,true):view.getUint32(at,true);
             let components;
