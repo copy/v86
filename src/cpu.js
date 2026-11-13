@@ -238,6 +238,9 @@ export function CPU(bus, wm, stop_idling)
      */
     this.firmware = null;
 
+    /** Patched VGA expansion ROM, attached after PCI construction. @type {?Uint8Array} */
+    this.vga_rom = null;
+
     /** The TPM's state store (tpm: docs/tpm.md), a buffer object @type {?Object} */
     this.tpm_store = null;
 
@@ -3320,6 +3323,7 @@ CPU.prototype.init = function(settings, device_bus)
         {
             this.devices.graphics_adapter = new GraphicsAdapter(this, this.graphics_adapter_descriptor,
                 { vram_size: settings.vram_size, test: settings.graphics_adapter_test, renderer: settings.graphics_adapter_renderer });
+            if(this.vga_rom) this.devices.pci.set_expansion_rom(this.devices.pci.devices[this.devices.graphics_adapter.pci_id], this.vga_rom);
             // (tests and debugging reach into the VGA core)
             this.devices.vga = this.devices.graphics_adapter.vga();
         }
@@ -3982,27 +3986,11 @@ CPU.prototype.load_bios = function()
         // older versions of seabios
         this.write_blob(vga_bios8, 0xC0000);
 
-        // newer versions of seabios (needs to match pci rom address, see
-        // vga_core.js). One block of the memory map, no more: SeaBIOS puts
-        // other devices' BARs right above the ROM (virtio-vga's capabilities),
-        // and this runs again at every reset
-        this.io.mmap_register(0xFEB00000, 0x20000,
-            function(addr)
-            {
-                addr = (addr - 0xFEB00000) | 0;
-                if(addr < vga_bios8.length)
-                {
-                    return vga_bios8[addr];
-                }
-                else
-                {
-                    return 0;
-                }
-            },
-            function(addr, value)
-            {
-                dbg_assert(false, "Unexpected write to VGA rom");
-            });
+        // SeaBIOS relocates the expansion ROM while assigning PCI resources.
+        // Keep this mapping tied to the BAR, including after a reset or restore.
+        this.vga_rom = vga_bios8;
+        if(this.devices.pci && this.devices.graphics_adapter)
+            this.devices.pci.set_expansion_rom(this.devices.pci.devices[this.devices.graphics_adapter.pci_id], vga_bios8);
     }
     else
     {

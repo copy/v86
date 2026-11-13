@@ -53,6 +53,18 @@ try
     assert.equal(capacity, 128 << 20, "PFB geometry agrees with configured VRAM");
     assert.equal(read(mmio + 0x1800), config(0), "PBUS config mirror");
     assert.equal(read(mmio + 0x300000) & 0xFFFF, 0xAA55, "BAR0 PROM works with the expansion-ROM BAR disabled");
+    const saved_rom = config(0x30), rom_base = 0xD8000000;
+    pci_write(0x30,-1); assert.equal(config(0x30),0xFFFF0000,"64 KiB expansion ROM sizing");
+    pci_write(0x30,rom_base|0x7FF); assert.equal(config(0x30),(rom_base|1)>>>0,"ROM BAR alignment and enable mask");
+    assert.equal(read(rom_base)&0xFFFF,0xAA55,"enabled relocated ROM decodes real firmware");
+    write(rom_base,0);assert.equal(read(rom_base)&0xFFFF,0xAA55,"expansion ROM is read only");
+    io.port_write32(0xCF8,0x80000000|bdf<<8|0x30);io.port_write8(0xCFC,0);
+    assert.equal(config(0x30),rom_base,"byte enable write preserves ROM base");
+    assert.equal(read(rom_base),0xFFFFFFFF,"disabled expansion ROM stops decoding");
+    write(mmio+0x1830,rom_base|1);assert.equal(read(rom_base)&0xFFFF,0xAA55,"PBUS can relocate/enable ROM through PCI semantics");
+    pci_write(4,config(4)&~2);assert.equal(read(rom_base),0xFFFFFFFF,"ROM also honors PCI memory decode");
+    pci_write(4,config(4)|2);assert.equal(read(rom_base)&0xFFFF,0xAA55);
+    pci_write(0x30,saved_rom);
     pci_write(0x30, config(0x30) | 1);
     assert.equal(read(mmio + 0x300000) & 0xFFFF, 0xAA55, "PROM exposes the selected adapter ROM");
     write(mmio + 0x1850, 1);
@@ -249,10 +261,15 @@ try
     crtc(0x28, 0); nv.display.render();
     console.log("PASS: NV CRTC lock/mirrors, 8/15/16/32bpp scanout, vblank flips and GPIO EDID");
 
+    pci_write(0x30, rom_base | 1);
     const saved = await vm.save_state();
+    pci_write(0x30, (rom_base + 0x10000) | 1);
+    assert.equal(read(rom_base), 0xFFFFFFFF, "old ROM address stops decoding after relocation");
     write(ramin + 0x120, 0);
     write(mmio + 0x100240, 0);
     await vm.restore_state(saved);
+    assert.equal(read(rom_base) & 0xFFFF, 0xAA55, "restored ROM BAR maps firmware at the saved address");
+    assert.equal(read(rom_base + 0x10000), 0xFFFFFFFF, "restore removes the later ROM mapping");
     assert.equal(read(ramin + 0x120), 0x12345678);
     assert.equal(read(mmio + 0x100240), 0xBADC0FFE);
     assert.equal(cpu.devices.graphics_adapter.get_state()[2], "geforce_6800");

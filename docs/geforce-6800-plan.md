@@ -191,6 +191,11 @@
   先恢复 DAC 精度再写标准 VGA 调色板。真实 INT 10h 测试覆盖非平凡的 8-bit 调色板、
   mode 3 的 6-bit 读回及 VBE 往返，`geforce_6800_vbe.js` 通过。
 
+- PCI ROM BAR 续修：地址按 ROM 大小对齐，字节/字写保留其余字段；通用 VGA ROM 的
+  映射随 BAR 地址、使能、PCI memory decode、上游窗口及快照恢复变化，PROM 仍独立。
+  原先只改配置地址会使 Bochs 的 ROM 留在旧地址，现已一并修正。
+  源码/release 的 NV40 与通用显示适配器测试、26 项 PCIe 测试及 Closure 构建均通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
