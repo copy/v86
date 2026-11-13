@@ -45,6 +45,7 @@
     const DDBLT_COLOR_FILL = 1 << 4;
     const DDBLT_DEPTH_FILL = 1 << 5;
     const DDBLT_FILTER_LINEAR = 1 << 6;
+    const DDBLT_SOURCE_RECT_F32 = 1 << 7;
 
     const DDCKEY_SOURCE_BLT = 0;
     const DDCKEY_DESTINATION_BLT = 1;
@@ -72,16 +73,18 @@
             const sourceHandle = view.getUint32(offset + D9WG.F.DDBlt.source_handle, true);
             const sourceLevel = view.getUint32(offset + D9WG.F.DDBlt.source_level, true);
             const sourceFace = view.getUint32(offset + D9WG.F.DDBlt.source_face, true);
+            const flags = view.getUint32(offset + D9WG.F.DDBlt.flags, true);
+            const sourceCoordinate = at => flags & DDBLT_SOURCE_RECT_F32
+                ? view.getFloat32(at, true) : view.getInt32(at, true);
             const sourceRect = {
-                left: view.getInt32(offset + D9WG.F.DDBlt.source_rect, true),
-                top: view.getInt32(offset + D9WG.F.DDBlt.source_rect + 4, true),
-                right: view.getInt32(offset + D9WG.F.DDBlt.source_rect + 8, true),
-                bottom: view.getInt32(offset + D9WG.F.DDBlt.source_rect + 12, true),
+                left: sourceCoordinate(offset + D9WG.F.DDBlt.source_rect),
+                top: sourceCoordinate(offset + D9WG.F.DDBlt.source_rect + 4),
+                right: sourceCoordinate(offset + D9WG.F.DDBlt.source_rect + 8),
+                bottom: sourceCoordinate(offset + D9WG.F.DDBlt.source_rect + 12),
             };
             const destinationHandle = view.getUint32(offset + D9WG.F.DDBlt.destination_handle, true);
             const destinationLevel = view.getUint32(offset + D9WG.F.DDBlt.destination_level, true);
             const destinationFace = view.getUint32(offset + D9WG.F.DDBlt.destination_face, true);
-            const flags = view.getUint32(offset + D9WG.F.DDBlt.flags, true);
             const destinationRect = {
                 left: view.getInt32(offset + D9WG.F.DDBlt.destination_rect, true),
                 top: view.getInt32(offset + D9WG.F.DDBlt.destination_rect + 4, true),
@@ -125,6 +128,13 @@
             // together or a partly off-screen sprite stretches instead of
             // being cut off.
             const isFill = (flags & (DDBLT_COLOR_FILL | DDBLT_DEPTH_FILL)) !== 0;
+            if ((flags & DDBLT_SOURCE_RECT_F32) && (isFill ||
+                    !Object.values(sourceRect).every(Number.isFinite) ||
+                    sourceRect.right <= sourceRect.left || sourceRect.bottom <= sourceRect.top)) {
+                this.ddRefuse("fractional-source-rectangle", "invalid fractional DirectDraw source rectangle",
+                    { sourceHandle, flags, sourceRect });
+                return;
+            }
             const clipped = isFill
                 ? clipDestination(destinationRect, destinationWidth,
                     destinationHeight)
@@ -336,7 +346,8 @@
                 height !== clipped.viewport[3];
             if (!colorKey && !destinationColorKey && !mirrorX && !mirrorY &&
                     !scaled && source && !selfBlt &&
-                    destination && sourceFormat === destinationFormat) {
+                    destination && sourceFormat === destinationFormat &&
+                    [src.left, src.top, width, height].every(Number.isInteger)) {
                 const frame = this.ensureFrame();
                 frame.record({ kind: "copy",
                     source: { texture: source.gpuTexture,
@@ -646,7 +657,7 @@
             OP_DD_SET_DISPLAY_MODE, OP_DD_UPDATE_OVERLAY,
             DDBLT_KEY_SOURCE, DDBLT_KEY_DESTINATION, DDBLT_MIRROR_X,
             DDBLT_MIRROR_Y, DDBLT_COLOR_FILL, DDBLT_DEPTH_FILL,
-            DDBLT_FILTER_LINEAR,
+            DDBLT_FILTER_LINEAR, DDBLT_SOURCE_RECT_F32,
             DDOVER_SHOW, DDOVER_HIDE, DDOVER_KEY_SOURCE,
             DDOVER_KEY_DESTINATION, DDOVER_MIRROR_X, DDOVER_MIRROR_Y,
             DDOVER_KEY_SOURCE_OVERRIDE, DDOVER_KEY_DESTINATION_OVERRIDE,

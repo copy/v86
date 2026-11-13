@@ -161,6 +161,31 @@ test("the shared packet encoder preserves minor headers, named blobs and caller 
     assert.throws(() => P.encodeBatch([{ opcode: P.OP.UPDATE_BUFFER, payload: {}, blobs: [{ field: "wrong", data: indices }] }]), /invalid blob/);
 });
 
+test("1.9 fractional blit rectangles preserve the 80-byte layout and 1.8 framing", () => {
+    const wire = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js");
+    assert(P.VERSION_MINOR >= 9);
+    assert.equal(P.C.D9WG_DDBLT_SOURCE_RECT_F32, 128);
+    assert.equal(P.STRUCTS.DDBlt.size, 80);
+    assert.equal(P.F.DDBlt.source_rect, 16);
+    assert.equal(P.F.DDBlt.flags, 44);
+    const values = new Float32Array([1, 4 / 3, 5, 2]);
+    const payload = P.encode("DDBlt", { device_handle: 3, source_handle: 4,
+        flags: P.C.D9WG_DDBLT_SOURCE_RECT_F32,
+        source_rect: [...new Int32Array(values.buffer)], destination_rect: [64, 32, 128, 96] });
+    const data = new DataView(payload.buffer);
+    for (let i = 0; i < 4; ++i)
+        assert.equal(data.getFloat32(P.F.DDBlt.source_rect + i * 4, true), values[i]);
+    for (const minor of [8, 9]) {
+        const old = P.encode("DDBlt", { source_rect: [1, 1, 5, 2] });
+        const batch = P.encodeBatch([{ opcode: P.OP.DD_BLT, payload: minor === 8 ? old : payload }],
+            { version_minor: minor });
+        const header = wire.readHeader(batch);
+        wire.checkStream(header.view, header.end, header.commandCount);
+        assert.equal(header.view.getUint16(P.F.BatchHeader.version_minor, true), minor);
+        if (minor === 8) assert.deepEqual(P.decode("DDBlt", new DataView(old.buffer), 0).source_rect, [1, 1, 5, 2]);
+    }
+});
+
 (async () => {
     for (const { name, fn } of tests) {
         try {

@@ -1,0 +1,42 @@
+<!doctype html><meta charset="utf-8"><title>DDraw fractional clipping packets</title><canvas id="screen" width="128" height="96"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+ const fault=new URLSearchParams(location.search).get('fault')||'',P=D9WGProtocol,C=P.C,gpu=new D3D9WebGPUExecutor(document.querySelector('canvas'),{strict:true,useShaderWorker:false}),W=128,H=96;
+ const command=(opcode,payload,blobs)=>({opcode,payload,...(blobs?{blobs}:{})});
+ try{
+  const response=await fetch('fixtures/ddraw_clipped_packets.json'),bytes=await response.arrayBuffer(),fixtureSha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join(''),fixture=JSON.parse(new TextDecoder().decode(bytes));
+  const scenes=[],failures=[],nativeComparisons=[];let compared=0,maxError=0;
+  for(const scene of fixture.scenes){
+   const dev=0x100002+scene.index*16,dst=0x200000+scene.index*2,src=0x300000+scene.index*2,words=new Uint32Array(scene.sourceWidth*scene.sourceHeight);
+   if(scene.index<4)[0xff0000,0xff00,0xff,0xffffff].forEach((v,i)=>words[scene.sourceWidth+i+1]=v);else for(let y=0;y<scene.sourceHeight;y++)for(let x=0;x<scene.sourceWidth;x++)words[y*scene.sourceWidth+x]=(((x*31+17)&255)<<16)|(((y*29+13)&255)<<8)|((x*43+y*47+5)&255);
+   const commands=[command(P.OP.CREATE_DEVICE,{device_handle:dev,hwnd:0x1234,width:W,height:H,backbuffer_format:22,windowed:1,behavior_flags:0x20,enable_auto_depth_stencil:0}),command(P.OP.CREATE_TEXTURE_2D,{device_handle:dev,resource_handle:src,width:scene.sourceWidth,height:scene.sourceHeight,level_count:1,format:22,usage:0,pool:0}),command(P.OP.CREATE_TEXTURE_2D,{device_handle:dev,resource_handle:dst,width:W,height:H,level_count:1,format:22,usage:1,pool:0}),command(P.OP.UPDATE_TEXTURE,{resource_handle:src,level:0,x:0,y:0,z:0,width:scene.sourceWidth,height:scene.sourceHeight,depth:1,row_pitch:scene.sourceWidth*4,slice_pitch:words.byteLength,data_bytes:words.byteLength},[{field:'data_offset',data:new Uint8Array(words.buffer)}]),command(P.OP.SET_RENDER_TARGET,{device_handle:dev,target_index:0,color_texture_handle:dst,color_level:0,color_face:0}),command(P.OP.CLEAR,{device_handle:dev,clear_flags:1,color:0xff000000,depth:1})];
+   for(const c of scene.commands){let flags=c.flags,sourceBits=c.sourceBits;if(scene.index>=4&&fault==='mirror')flags&=~(C.D9WG_DDBLT_MIRROR_X|C.D9WG_DDBLT_MIRROR_Y);if(scene.index>=4&&fault==='round'){const raw=new ArrayBuffer(16),view=new DataView(raw);sourceBits.forEach((v,i)=>view.setInt32(i*4,v,true));for(let i=0;i<4;i++)view.setFloat32(i*4,Math.trunc(view.getFloat32(i*4,true)),true);sourceBits=Array.from(new Int32Array(raw));}commands.push(command(P.OP.DD_BLT,{device_handle:dev,source_handle:c.source?src:0,source_rect:sourceBits,destination_handle:dst,destination_rect:c.destinationRect,flags,fill_color:c.fill}));}
+   commands.push(command(P.OP.DD_BLT,{device_handle:dev,source_handle:dst,source_rect:[0,0,W,H],destination_handle:0,destination_rect:[0,0,W,H],flags:0}),command(P.OP.PRESENT,{device_handle:dev,hwnd:0x1234,width:W,height:H}));
+   await gpu.submit(P.encodeBatch(commands,{session_id_low:scene.index+1,flags:C.D9WG_BATCH_FLAG_PRESENT}),{writeGuestMemory(){}});let reply;await gpu.submit(P.encodeBatch([command(P.OP.READBACK_SURFACE,{device_handle:dev,texture_handle:dst,format:21,width:W,height:H,first_row:0,row_count:H,destination_pitch:W*4,destination_bytes:W*H*4,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:1})],{session_id_low:scene.index+1}),{writeGuestMemory(at,data){if(at===(16<<20)-C.D9WG_RESPONSE_REGION_BYTES+C.D9WG_READBACK_REGION_OFFSET)reply=data.slice();}});
+   if(!reply||reply.length!==16+W*H*4||new DataView(reply.buffer).getUint32(P.F.ReadbackResponse.status,true)!==C.D9WG_RESPONSE_OK)throw Error('Missing fractional clipping readback');const pixels=new DataView(reply.buffer,reply.byteOffset+16,W*H*4);
+   const inside=(x,y,r)=>x>=r[0]&&x<r[2]&&y>=r[1]&&y<r[3],expectedAt=(x,y)=>{if(!inside(x,y,scene.destinationRect)||(scene.clips&&!scene.clips.some(r=>inside(x,y,r))))return 0;if(scene.fill)return 0xff0000;const d=scene.destinationRect,s=scene.sourceRect;let u=(x+.5-d[0])/(d[2]-d[0]),v=(y+.5-d[1])/(d[3]-d[1]);if(scene.mirror&1)u=1-u;if(scene.mirror&2)v=1-v;const sx=Math.floor(s[0]+u*(s[2]-s[0])),sy=Math.floor(s[1]+v*(s[3]-s[1]));return words[sy*scene.sourceWidth+sx]&0xffffff;};
+   for(let y=0;y<H;y++)for(let x=0;x<W;x++){const actual=pixels.getUint32((y*W+x)*4,true)&0xffffff,expected=expectedAt(x,y),error=Math.max(...[0,8,16].map(shift=>Math.abs((actual>>>shift&255)-(expected>>>shift&255))));maxError=Math.max(maxError,error);if(error>1&&failures.length<32)failures.push({scene:scene.label,x,y,actual,expected,error});compared++;}
+   for(const p of scene.nativePixels){const actual=pixels.getUint32((p.y*W+p.x)*4,true)&0xffffff;nativeComparisons.push({...p,actual});if(actual!==p.rgb)throw Error('Original XP pixel mismatch '+JSON.stringify({scene:scene.label,...p,actual}));}
+   scenes.push({label:scene.label,commands:scene.commands.length});await gpu.submit(P.encodeBatch([command(P.OP.SESSION_END,{session_id_low:scene.index+1})]),{writeGuestMemory(){}});
+  }
+  await gpu.device.queue.onSubmittedWorkDone();for(let i=0;i<4;i++)await new Promise(r=>setTimeout(r,0));const evidence={fault,fixtureSha256,frontSourceSha256:fixture.frontSourceSha256,scenes,compared,maxError,nativeComparisons,failures,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors,postCleanup:{devices:gpu.devices.size,resources:gpu.resources.size}};await fetch('/__test_file?name=ddraw-clipped-stretch-gpu'+(fault?'-fault-'+fault:'')+'.json',{method:'POST',body:JSON.stringify(evidence,null,2)});
+  if(scenes.length!==8||compared!==98304||nativeComparisons.length!==36||failures.length||gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.droppedDraws||gpu.stats.renderTargetReadbackFailures||gpu.devices.size||gpu.resources.size)throw Error('Fractional clipping mismatch '+JSON.stringify(evidence));document.querySelector('#result').textContent='PASS actual C fractional Blt packets: 8 scenes, 98304 full-frame RGB pixels, 36 original XP controls, global mirrors and HWND screen clipping, legacy integer compatibility, no GPU/host errors';
+ }catch(error){document.querySelector('#result').textContent='FAIL '+error.stack;}
+})();
+</script>

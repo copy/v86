@@ -27,6 +27,7 @@ async function settle() {
 const { D3D9WebGPUExecutor, buildFixedFunctionPixelShader } =
     require("../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js");
 const shaderPipeline = require("../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js");
+require("../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js").installDDrawOps(D3D9WebGPUExecutor);
 
 const OP = { ...P.OP, SET_VS_CONST_F: P.OP.SET_VERTEX_SHADER_CONSTANT_F, SET_VS_CONST_I: P.OP.SET_VERTEX_SHADER_CONSTANT_I, SET_VS_CONST_B: P.OP.SET_VERTEX_SHADER_CONSTANT_B, SET_PS_CONST_F: P.OP.SET_PIXEL_SHADER_CONSTANT_F, SET_PS_CONST_I: P.OP.SET_PIXEL_SHADER_CONSTANT_I, SET_PS_CONST_B: P.OP.SET_PIXEL_SHADER_CONSTANT_B, SET_CURRENT_PALETTE: P.OP.SET_CURRENT_TEXTURE_PALETTE };
 
@@ -565,6 +566,64 @@ async function test(name, body) {
 // ---- tests ----
 
 async function main() {
+
+async function fractionalBltFixture() {
+    const setup = makeExecutor(), { executor } = setup;
+    await executor.submit(buildBatch([
+        command(OP.CREATE_DEVICE, createDevicePayload(16, 16, 0)),
+        ...[0x101, 0x102].map(resource_handle => command(OP.CREATE_TEXTURE_2D,
+            encodePayload("CreateTexture2D", {device_handle: DEVICE, resource_handle,
+                width: resource_handle === 0x101 ? 8 : 16, height: resource_handle === 0x101 ? 8 : 16,
+                level_count: 1, format: 22, usage: resource_handle === 0x102 ? 1 : 0, pool: 0}))),
+    ], {versionMinor: 9}));
+    await executor.idle();
+    const frame = executor.ensureFrame(), record = frame.record, records = [];
+    frame.record = function(entry) { records.push(entry);return record.call(this, entry); };
+    const submit = (source, flags, destination = [0, 0, 4, 4]) => {
+        const source_rect = flags & P.C.D9WG_DDBLT_SOURCE_RECT_F32
+            ? [...new Int32Array(new Float32Array(source).buffer)] : source;
+        const payload = encodePayload("DDBlt", {device_handle: DEVICE, source_handle: 0x101,
+            source_rect, destination_handle: 0x102, destination_rect: destination, flags});
+        executor.onDDBlt(payload, new DataView(payload.buffer, payload.byteOffset, payload.byteLength), 0, payload.length);
+        return payload;
+    };
+    return {...setup, records, submit};
+}
+
+await test("DirectDraw fractional source rectangles survive recording without collapsing a row", async () => {
+    const {executor, records, submit} = await fractionalBltFixture();
+    const payload = submit([1, 4 / 3, 5, 2], P.C.D9WG_DDBLT_SOURCE_RECT_F32, [4, 5, 12, 13]);
+    const draw = records.find(r => r.kind === "ddblit"), y = Math.fround(4 / 3);
+    assert(draw);
+    assert.deepEqual(draw.sourceRect, [1 / 8, y / 8, 4 / 8, (2 - y) / 8]);
+    assert.deepEqual(draw.viewport, [4, 5, 8, 8]);
+    payload.writeFloatLE(7, P.F.DDBlt.source_rect);
+    assert.equal(draw.sourceRect[0], 1 / 8, "record owns the decoded coordinates");
+    executor.finishFrame(false);await executor.idle();
+});
+
+await test("DirectDraw fractional origins use sampling while integer rectangles retain exact copies", async () => {
+    const {executor, records, submit} = await fractionalBltFixture();
+    submit([.5, .5, 4.5, 4.5], P.C.D9WG_DDBLT_SOURCE_RECT_F32);
+    submit([1, 2, 5, 6], 0);
+    submit([1, 2, 5, 6], P.C.D9WG_DDBLT_SOURCE_RECT_F32);
+    assert.deepEqual(records.map(r => r.kind), ["ddblit", "copy", "copy"]);
+    assert.deepEqual(records[0].sourceRect, [.5 / 8, .5 / 8, .5, .5]);
+    for (const copy of records.slice(1)) {
+        assert.equal(copy.source.origin.x, 1);assert.equal(copy.source.origin.y, 2);
+        assert.equal(copy.size.width, 4);assert.equal(copy.size.height, 4);
+    }
+    executor.finishFrame(false);await executor.idle();
+});
+
+await test("DirectDraw rejects malformed fractional rectangles before recording GPU work", async () => {
+    const {executor, records, submit} = await fractionalBltFixture();
+    for (const rect of [[NaN, 0, 4, 4], [0, 0, Infinity, 4], [2, 0, 2, 4]])
+        submit(rect, P.C.D9WG_DDBLT_SOURCE_RECT_F32);
+    submit([0, 0, 4, 4], P.C.D9WG_DDBLT_SOURCE_RECT_F32 | P.C.D9WG_DDBLT_COLOR_FILL);
+    assert.equal(records.length, 0);assert.equal(executor.stats.ddBlitsSkipped, 4);
+    executor.finishFrame(false);await executor.idle();
+});
 
 await test("software and mixed constant banks survive Reset with cleared values and device isolation", async () => {
     const {executor} = makeExecutor();

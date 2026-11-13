@@ -14,7 +14,7 @@
     // still belongs to one command and is reported separately by dispatch.
     class D9WGStreamError extends Error {}
 
-    // Keep the deployed 1.3–1.7 contract: later fields have schema defaults,
+    // Keep deployed older-minor contracts: later fields have schema defaults,
     // and bytes outside command_bytes may belong to the transport's carrier.
     function readHeader(bytes) {
         if (bytes.byteLength < BATCH_BYTES)

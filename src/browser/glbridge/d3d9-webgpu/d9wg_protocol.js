@@ -46,7 +46,7 @@
     ] },
     { define: "D9WG_MAGIC", c: "0x47573944u", text: ["#define D9WG_MAGIC 0x47573944u /* \"D9WG\" */"] },
     { define: "D9WG_VERSION_MAJOR", c: "1u", text: ["#define D9WG_VERSION_MAJOR 1u"] },
-    { define: "D9WG_VERSION_MINOR", c: "8u", text: ["#define D9WG_VERSION_MINOR 8u"] },
+    { define: "D9WG_VERSION_MINOR", c: "9u", text: ["#define D9WG_VERSION_MINOR 9u"] },
     { raw: [
         "",
     ] },
@@ -1362,7 +1362,7 @@
         ["uint32_t", "source_handle"],
         ["uint32_t", "source_level"],
         ["uint32_t", "source_face"],
-        ["int32_t", "source_rect", [4], "left, top, right, bottom"],
+        ["int32_t", "source_rect", [4], "left, top, right, bottom; 1.9 SOURCE_RECT_F32 reinterprets these bits as float"],
         ["uint32_t", "destination_handle"],
         ["uint32_t", "destination_level"],
         ["uint32_t", "destination_face"],
@@ -1383,6 +1383,7 @@
     { define: "D9WG_DDBLT_COLOR_FILL", c: "(1u << 4)", text: ["#define D9WG_DDBLT_COLOR_FILL (1u << 4)"] },
     { define: "D9WG_DDBLT_DEPTH_FILL", c: "(1u << 5)", text: ["#define D9WG_DDBLT_DEPTH_FILL (1u << 5)"] },
     { define: "D9WG_DDBLT_FILTER_LINEAR", c: "(1u << 6)", text: ["#define D9WG_DDBLT_FILTER_LINEAR (1u << 6)"] },
+    { define: "D9WG_DDBLT_SOURCE_RECT_F32", c: "(1u << 7)", text: ["#define D9WG_DDBLT_SOURCE_RECT_F32 (1u << 7)"] },
     { raw: [
         "",
     ] },
