@@ -51,13 +51,16 @@ export async function inspect_ipa(read, size, progress = () => {})
         while(parts.length > 1)
         {
             parts.pop(); const parent = names.get(parts.join("/"));
-            if(parent && !parent.name.endsWith("/") && ![0o040000, 0o120000].includes(parent.unix_mode & 0o170000))
+            if(parent && (parent.unix_mode & 0o170000) === 0o120000) fail("symbolic link used as a parent directory: " + parent.name);
+            if(parent && !parent.name.endsWith("/") && (parent.unix_mode & 0o170000) !== 0o040000)
                 fail("file used as a parent directory: " + parent.name);
         }
     }
     const roots = new Set(entries.map(e => /^Payload\/([^/]+\.app)(?:\/|$)/.exec(e.name)?.[1]).filter(Boolean));
     if(roots.size !== 1) fail("expected exactly one Payload/*.app application");
     const root = "Payload/" + [...roots][0], prefix = root + "/";
+    if(entries.some(e => (e.unix_mode & 0o170000) === 0o120000 && (!e.name.startsWith(prefix) || e.name.endsWith("/"))))
+        fail("symbolic link outside the application or with a directory entry name");
     if(entries.some(e => e.name.startsWith("Payload/") && e.name !== root && !e.name.startsWith(prefix)))
         fail("unexpected entry beside the main application");
     const plistEntry = names.get(prefix + "Info.plist");
@@ -81,7 +84,7 @@ export async function inspect_ipa(read, size, progress = () => {})
     if(required && !Array.isArray(required) && typeof required === "object" &&
         ["arm64", "armv7s", "opengles-3", "metal"].some(k => required[k] === true))
         fail("application requires hardware newer than iPhone 4");
-    const code = []; let checked = 0;
+    const code = [], links = new Map(); let checked = 0;
     for(const entry of entries)
     {
         // Verify every ZIP member before modifying any data, including resources.
@@ -102,6 +105,7 @@ export async function inspect_ipa(read, size, progress = () => {})
                     if(part === "..") { if(!stack.length) fail("symbolic link escapes application"); stack.pop(); }
                     else if(part && part !== ".") stack.push(part);
                 }
+                links.set(entry.name.slice(prefix.length).normalize("NFC"), target.normalize("NFC"));
             }
             else
             {
@@ -118,6 +122,26 @@ export async function inspect_ipa(read, size, progress = () => {})
             }
         }
         progress("Checking IPA", ++checked, entries.length);
+    }
+    // Lexical ".." checks alone miss a/.. when a itself points at ".".
+    // Resolve the whole link graph, preserving Unix traversal semantics.
+    for(const [name, target] of links)
+    {
+        const pending = [...name.split("/").slice(0, -1), ...target.split("/")], path = [];
+        let followed = 0;
+        while(pending.length)
+        {
+            const part = pending.shift();
+            if(!part || part === ".") continue;
+            if(part === "..") { if(!path.length) fail("symbolic link chain escapes application"); path.pop(); continue; }
+            path.push(part);
+            const alias = links.get(path.join("/"));
+            if(alias !== undefined)
+            {
+                if(++followed > 40) fail("symbolic link cycle or excessive indirection");
+                path.pop(); pending.unshift(...alias.split("/"));
+            }
+        }
     }
     const main = code.find(c => c.path === prefix + executable);
     if(!main || main.parsed.filetype !== 2) fail("missing ARMv7 application executable");

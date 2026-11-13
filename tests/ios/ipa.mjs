@@ -87,3 +87,20 @@ test("Mach-O: selects ARMv7 Fat slice and validates slice bounds", () => {
     const malformed = executable(); new DataView(malformed.buffer).setUint32(20, 0, true);
     assert.throws(() => macho_armv7(malformed), /load command/);
 });
+
+test("IPA: resolves framework links and rejects indirect escapes, cycles and link parents", async()=>{
+    const packageWithLinks=(links,regular=[])=>{
+        const b=archive({extra:[...Object.entries(links).map(([name,target])=>({name:"Payload/Fixture.app/"+name,data:enc(target),store:true})),...regular]});
+        const v=new DataView(b.buffer,b.byteOffset,b.byteLength);let at=v.getUint32(b.length-6,true);
+        while(at+46<b.length && v.getUint32(at,true)===0x02014B50){
+            const length=v.getUint16(at+28,true),name=new TextDecoder().decode(b.subarray(at+46,at+46+length));
+            if(Object.hasOwn(links,name.slice("Payload/Fixture.app/".length))){v.setUint16(at+4,3<<8|20,true);v.setUint32(at+38,0o120777<<16,true);}
+            at+=46+length+v.getUint16(at+30,true)+v.getUint16(at+32,true);
+        }return b;
+    };
+    await inspect(packageWithLinks({"Versions/Current":"A",alias:"Versions/Current/asset.bin"},
+        [{name:"Payload/Fixture.app/Versions/A/asset.bin",data:enc("asset")}])) ;
+    await assert.rejects(inspect(packageWithLinks({a:".",b:"a/.."})),/chain escapes/);
+    await assert.rejects(inspect(packageWithLinks({a:"b",b:"a"})),/cycle/);
+    await assert.rejects(inspect(packageWithLinks({a:"."},[{name:"Payload/Fixture.app/a/child",data:enc("bad")}])),/parent directory/);
+});
