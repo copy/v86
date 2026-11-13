@@ -75,7 +75,7 @@ export async function run_geforce_guest(win98)
     const binary = path.join(out, "NVPROBE.EXE");
     run("i686-w64-mingw32-gcc", ["-Os", "-nostdlib", "-fno-builtin", "-fno-stack-protector", "-mno-stack-arg-probe",
         "-Wl,--entry,_entry@0", "-Wl,--subsystem,console", ...(win98 ? ["-DNV_WIN98"] : []), "-o", binary,
-        path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi"]);
+        path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32"]);
     files["NVPROBE.EXE"] = fs.readFileSync(binary);
     const tools_bytes = make_esp(files, 120);
     tools_bytes[450] = 0x0E; // normal FAT16, visible to Win9x/XP rather than an ESP
@@ -127,7 +127,12 @@ export async function run_geforce_guest(win98)
     finally
     {
         await vm.stop();
-        if(nv) fs.writeFileSync(path.join(out, "trace.json"), JSON.stringify(nv.trace.report(), null, 2) + "\n");
+        if(nv)
+        {
+            fs.writeFileSync(path.join(out, "trace.json"), JSON.stringify({ ...nv.trace.report(),
+                registers: Array.from(nv.registers, ([offset, value]) => [offset.toString(16), value >>> 0]) }, null, 2) + "\n");
+            fs.writeFileSync(path.join(out, "ramin.bin"), nv.vram().subarray(nv.vram_size - (1 << 20)));
+        }
         save_png(sink, out, "final");
         fs.writeFileSync(path.join(out, "screen.txt"), sink.text.join("\n"));
         if(process.env.NV_OVERLAY_SAVE) fs.writeFileSync(process.env.NV_OVERLAY_SAVE, serialize(disk.get_state()));

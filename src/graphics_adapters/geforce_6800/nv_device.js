@@ -5,6 +5,7 @@
 import { VGAScreen } from "../vga_core.js";
 import { NVTrace } from "./nv_trace.js";
 import { NVDisplay } from "./nv_display.js";
+import { NVDMA } from "./nv_dma.js";
 
 const MMIO_SIZE = 16 << 20;
 const RAMIN_SIZE = 1 << 20;
@@ -28,6 +29,7 @@ export class NVDevice
         this.vga = new VGAScreen(machine, this.vram_size, { pci: false, display_source: false });
         this.registers = new Map();
         this.display = new NVDisplay(this);
+        this.dma = new NVDMA(this);
         this.mmio_address = 0;
         this.ramin_address = 0;
         this.mapped_mmio = 0;
@@ -237,7 +239,8 @@ export class NVDevice
 
     implemented(offset)
     {
-        return [0, 0x100, 0x140, 0x200, 0x3304, 0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x10020C, 0x101000].includes(offset) ||
+        return [0, 0x100, 0x140, 0x200, 0x322C, 0x3230, 0x3234, 0x3238, 0x323C, 0x3304,
+            0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x10020C, 0x101000].includes(offset) ||
             offset >= 0x1800 && offset < 0x1900 || IRQ_BLOCKS.some(([status, enable]) => offset === status || offset === enable);
     }
 
@@ -276,6 +279,16 @@ export class NVDevice
                 this.timer_epoch = this.machine.now();
             }
             this.registers.set(offset, ((old & ~mask) | value & mask) >>> 0);
+            if(offset === 0x322C || offset === 0x3220 && value & 1)
+            {
+                try { this.dma.load_cache((this.registers.get(0x322C) || 0) * 16); }
+                catch(error)
+                {
+                    this.registers.set(0x3230, 0);
+                    this.registers.set(0x3228, ((this.registers.get(0x3228) || 0) & 0x1FFFFFFF | 6 << 29) >>> 0);
+                    this.registers.set(0x2100, (this.registers.get(0x2100) || 0) | 0x1000);
+                }
+            }
             if(offset === 0x9420)
             {
                 this.alarm_sample = this.time();

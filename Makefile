@@ -284,6 +284,7 @@ build/v86-geforce-6800.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/gr
 		--js $(GRAPHICS_ADAPTER_COMMON) --js src/graphics_adapters/virtio_gpu/edid.js \
 		--js src/graphics_adapters/geforce_6800/nv_trace.js --js src/graphics_adapters/geforce_6800/nv_ddc.js \
 		--js src/graphics_adapters/geforce_6800/nv_display.js \
+		--js src/graphics_adapters/geforce_6800/nv_dma.js \
 		--js src/graphics_adapters/geforce_6800/nv_device.js --js src/graphics_adapters/geforce_6800/plugin.js
 
 .PHONY: graphics-adapters device-plugins
@@ -796,6 +797,7 @@ devices-test: build/v86-debug.wasm
 	./tests/devices/graphics_adapter.js
 	./tests/devices/geforce_6800.js
 	./tests/devices/geforce_6800_bios.js
+	./tests/devices/geforce_6800_dma.js
 	./tests/devices/vmware_svga.js
 	./tests/devices/vmware_svga_3d.js
 	./tests/devices/vmware_svga_gb.js

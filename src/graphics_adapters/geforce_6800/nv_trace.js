@@ -11,6 +11,7 @@ export class NVTrace
         this.sequence = 0;
         this.untracked = 0;
         this.counts = new Map();
+        this.first = new Map();
     }
 
     record(space, offset, size, write, value, implemented)
@@ -22,6 +23,7 @@ export class NVTrace
         else this.untracked++;
         const event = { "sequence": this.sequence++, "space": space, "offset": offset, "size": size,
             "write": write, "value": value >>> 0, "implemented": implemented };
+        if(!this.first.has(key) && this.first.size < this.limit) this.first.set(key, event);
         if(this.events.length < this.limit) this.events.push(event);
         else
         {
@@ -35,6 +37,7 @@ export class NVTrace
     {
         this.events = [];
         this.counts.clear();
+        this.first.clear();
         this.dropped = 0;
         this.next = this.sequence = this.untracked = 0;
     }
@@ -42,6 +45,7 @@ export class NVTrace
     report()
     {
         return { "events": this.events.slice(this.next).concat(this.events.slice(0, this.next)),
-            "dropped": this.dropped, "untracked": this.untracked, "counts": Array.from(this.counts) };
+            "dropped": this.dropped, "untracked": this.untracked, "counts": Array.from(this.counts),
+            "first": Array.from(this.first.values()) };
     }
 }

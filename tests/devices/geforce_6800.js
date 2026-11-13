@@ -82,6 +82,18 @@ try
     pci_write(4, command);
     console.log("PASS: BAR relocation and PCI decode through CF8 and PBUS");
 
+    for(const [offset, value] of [[0x6000, 0x2303D], [0x6004, 31], [0x6008, 0x200002]]) write(ramin + offset, value);
+    nv.write32(0x322C, 0x600);
+    assert.equal(read(mmio + 0x3230), 0x80023000, "DMA_INSTANCE loads a valid CACHE1 descriptor");
+    assert.equal(read(mmio + 0x3234), 31);
+    assert.equal(read(mmio + 0x323C), 0x200002);
+    write(ramin + 0x6000, 0); nv.write32(0x322C, 0x600);
+    assert.equal(read(mmio + 0x3230), 0, "invalid descriptor clears VALID");
+    assert.equal(read(mmio + 0x3228) >>> 29, 6, "DMA memory fault recorded");
+    assert(read(mmio + 0x2100) & 0x1000);
+    write(mmio + 0x2100, 0x1000);
+    console.log("PASS: PFIFO CACHE1 DMA descriptor load and malformed-instance interrupt");
+
     write(mmio + 0x140, 2); write(mmio + 0x100, 0x80000000);
     assert.equal(read(mmio + 0x100), 0x80000000);
     write(mmio + 0x100, 0);

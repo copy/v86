@@ -35,6 +35,8 @@
   这证明驱动走到了硬件访问，**不能**证明 PCI 模式最终可用，也不能据此启动 A1。
 - Win98 81.98 的第一次原生探针能运行，但其 26 个 SetupAPI 设备没有匹配到 NV40 的硬件 ID；
   未执行驱动安装，尚需检查 PCI 枚举及 Win9x 的设备发现路径。不是驱动加载成功的证据。
+  后续原生注册表检查确认 `HKLM\Enum\PCI` 不存在（错误 2），枚举只有 PNP/ISA 设备。
+  需先在该镜像的 overlay 中安装微软 PCI bus，再进行 NVIDIA 驱动验收。
 - G1.1（显示前置工作，G1 未验收）：VGA 端口与 NV MMIO 镜像、扩展 CRTC 解锁、
   8/15/16/32 bpp 线性扫描、CRTC 起始地址在 vblank 生效、单级 VPLL 时序、vblank 中断、
   单 CRT 的 GPIO I2C EDID（重复 START、ACK/NACK）与显示状态快照已实现。
@@ -47,6 +49,12 @@
   5000 次随机更改）通过。源码及构建插件的 NV40 设备测试均通过。
   完整 `make app-tests` 在已有 iOS 控制器的 `storage_key` 类型推断处失败
   （`src/app/ui/console.js:620`），尚未运行完浏览器应用测试；NV40 插件本身 Closure 构建通过。
+- G1.2（PFIFO 前置）：根据 XP 下一处等待点，增加 DMA 实例装载与 CACHE1 的
+  `DMA_CTL/VALID`、LIMIT、PTE 缓存；非法实例触发 DMA_PUSHER 中断。DMA 访问实现
+  显存/PCI RAM、线性/分页映射、页内调整、包含末字节的 limit、方向/页权限、PCI bus master
+  检查；跨页写先验证完整范围，失败不留下半个通知器。
+  `tests/devices/geforce_6800_dma.js` 与设备寄存器集成测试通过。完整 FIFO pusher/puller、
+  RAMHT、RAMFC、PGRAPH 与 2D 类仍未实现，G2 尚未开始验收。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

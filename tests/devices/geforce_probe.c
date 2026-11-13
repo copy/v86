@@ -42,6 +42,9 @@ static void devices(void)
             continue;
         }
         properties++;
+#ifdef NV_WIN98
+        put("HARDWARE ");put(hardware);line();
+#endif
         if(match(hardware,"PCI\\")) { put("PCI ");put(hardware);line(); }
         if(!match(hardware,"PCI\\VEN_10DE&DEV_0045")) continue;
         ULONG status=0,problem=0; CONFIGRET rc=node_status?node_status(&status,&problem,dev.DevInst,0):CR_CALL_NOT_IMPLEMENTED;
@@ -70,6 +73,21 @@ void WINAPI entry(void)
 #endif
     lstrcatA(output,"NV.TXT"); DeleteFileA(output);
     put("BEGIN"); line(); devices();
+#ifdef NV_WIN98
+    HKEY pci;
+    LONG registry_result=RegOpenKeyExA(HKEY_LOCAL_MACHINE,"Enum\\PCI",0,KEY_READ,&pci);
+    put("PCI_REGISTRY status=");number(registry_result);line();
+    if(registry_result==ERROR_SUCCESS)
+    {
+        char name[256];
+        for(DWORD i=0;RegEnumKeyA(pci,i,name,sizeof(name))==ERROR_SUCCESS;i++) { put("PCI_REGISTRY ");put(name);line(); }
+        RegCloseKey(pci);
+    }
+    else if(registry_result==ERROR_FILE_NOT_FOUND)
+    {
+        put("PCI_BUS_MISSING Microsoft PCI bus must be installed before the GPU driver");line();
+    }
+#endif
     HMODULE dll=LoadLibraryA("newdev.dll");
     typedef BOOL (WINAPI *update_t)(HWND,LPCSTR,LPCSTR,DWORD,PBOOL);
     update_t update=dll?(update_t)GetProcAddress(dll,"UpdateDriverForPlugAndPlayDevicesA"):0;
