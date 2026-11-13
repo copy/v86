@@ -855,6 +855,14 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   测试覆盖 modulo/零 modulo 回绕、类隔离、非法值、等待快照恢复与后续 fence 顺序；
   PGRAPH/FIFO/渲染回归和插件构建通过。原生 XP 复测继续进行。
 
+- ZCULL 报告续修：RSX/NV4097 寄存器定义核对了原生驱动写入的 `0x1ea8/0x1eac`
+  为 ZCULL/SCULL 控制，GET_REPORT 的 2–5 号选择器为层次剔除统计。后端不维护
+  层次深度缓存，这些统计真实为零，普通逐片元深度/模板测试照常执行；不把它们冒充
+  遮挡计数。RESET=2 只清该组，RESET=1 才清 ZPASS。PGRAPH/真实 GPU 回归覆盖
+  两组独立与完整报告发布。事实参考：
+  [RPCS3 的硬件枚举](https://github.com/RPCS3/rpcs3/blob/master/rpcs3/Emu/RSX/gcm_enums.h)
+  （仅核对数值与名称，未复制实现）。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

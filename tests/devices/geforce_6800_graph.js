@@ -131,3 +131,16 @@ assert.equal(graph.flips[1][1],0,"zero modulo retains the hardware three-bit wra
 method(0,0x4200,0x120,8);assert.equal(device.registers.get(0x400720),0,"out-of-range counter faults");
 graph.set_state([1,flipSaved[1],flipSaved[2]]);assert.equal(graph.busy,false,"legacy snapshots start without pending flip waits");
 console.log("PASS: independent flip counters, modulo wrap, ISR wake, pending wait snapshot and v1 migration");
+
+device.registers.set(0x400720,1);word(0x4104,31);
+const queryObject=graph.object(0,0x4200);queryObject.methods.set(0x50008,77);
+method(0,0x4200,0x17C8,2);assert.equal(queryObject.methods.get(0x50008),77,"ZCULL reset is independent of ZPASS");
+method(0,0x4200,0x1EA8,0x202000);method(0,0x4200,0x1EAC,0);method(0,0x4200,0x1804,1);
+for(let type=2;type<=5;type++)
+{
+    vram.fill(255,0x8010,0x8020);method(0,0x4200,0x1800,type<<24|16);
+    assert.equal(new DataView(vram.buffer).getUint32(0x8018,true),0,"no hierarchical cull cache means no tile rejections");
+    assert.equal(new DataView(vram.buffer).getUint32(0x801C,true),0);
+}
+assert.equal(device.registers.get(0x400720),1);
+console.log("PASS: ZCULL control/report selectors and separate report reset groups");

@@ -178,7 +178,9 @@ try
         await depthDraw(.25,[1,0,0,1]);assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,255]);
         method(0x1800,0x01000810);assert.equal(view.getUint32(0x818,true),128,"separate visible draws accumulate");
         method(0x17C8,2);method(0x17CC,0);method(0x1800,0x01000810);
-        assert.equal(view.getUint32(0x818,true),0,"reset clears the accumulated count");
+        assert.equal(view.getUint32(0x818,true),128,"ZCULL reset preserves the ZPASS counter");
+        method(0x17C8,1);method(0x1800,0x01000810);
+        assert.equal(view.getUint32(0x818,true),0,"ZPASS reset clears the accumulated count");
         const nearDepth=view.getUint32(0x24000,true);assert(Math.abs((nearDepth>>>8)-Math.round(.25*0xFFFFFF))<=1);
         for(const [at,value]of [[0xA74,0],[0xA70,0],[0x328,1],[0x330,3],[0x334,0x34],[0x338,255],[0x32C,15],[0x33C,7]])method(at,value);
         await depthDraw(.5,[0,1,0,1]);assert.equal(view.getUint32(0x24000,true)&255,0x5B,"stencil fail increments through the write mask");

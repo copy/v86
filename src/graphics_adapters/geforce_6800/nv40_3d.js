@@ -59,7 +59,7 @@ const STATE_RANGES = [
     [0x1D98, 0x1D9C],
     [0x1DA4, 0x1DC0],
     [0x1E40, 0x1E7C],
-    [0x1E94, 0x1EA4],
+    [0x1E94, 0x1EAC],
     [0x1EE0, 0x1F7C],
     [0x1FC0, 0x1FE0],
     [0x1FF0, 0x1FF8],
@@ -114,22 +114,27 @@ export class NV40_3D
         if(at === 0x17C8)
         {
             if(value !== 1 && value !== 2) throw new RangeError("NV40 invalid query reset");
-            o.methods.set(NV40_QUERY_COUNT, 0);return true;
+            if(value === 1)o.methods.set(NV40_QUERY_COUNT, 0);
+            return true;
         }
-        if(at === 0x17CC)
+        if(at === 0x17CC || at === 0x1804)
         {
             if(value > 1) throw new RangeError("NV40 invalid query enable");
             return true;
         }
         if(at === 0x1800)
         {
-            if(value >>> 24 !== 1) throw new RangeError("NV40 unsupported query report type");
+            const type=value>>>24;
+            if(type<1 || type>5) throw new RangeError("NV40 unsupported query report type");
             if(!o.methods.has(0x1A8)) throw new RangeError("NV40 query DMA unbound");
             const dma = this.device.dma.descriptor(get(o,0x1A8)*16), bytes = new Uint8Array(16), view = new DataView(bytes.buffer);
             /** @type {bigint} */
             const time = this.device.time();
             view.setUint32(0,Number(time&0xFFFFFFFFn),true);view.setUint32(4,Number(time>>32n),true);
-            view.setUint32(8,get(o,NV40_QUERY_COUNT),true);
+            // Selectors 2..5 report hierarchical Z/Stencil cull statistics.
+            // This backend has no hierarchical cull cache: no tiles are
+            // rejected there. Ordinary per-fragment depth tests still run.
+            view.setUint32(8,type===1?get(o,NV40_QUERY_COUNT):0,true);
             // A single checked DMA write publishes the timestamp, count and
             // completion word together, after all preceding draws finish.
             this.device.dma.write(dma,value&0xFFFFFF,bytes);return true;
