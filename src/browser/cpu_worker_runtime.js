@@ -301,6 +301,13 @@ export function start_cpu_worker()
         "audio-info": () => ({ ...audio_stats, "direct": !!audio_port, "sample_rate": audio_rate }),
         "get_instruction_stats": () => emulator.get_instruction_stats(),
         "get_jit_info": () => emulator.get_jit_info(),
+        "ios_install_status": () => emulator["ios_install_status"](),
+        "ios_install_begin": manifest => emulator["ios_install_begin"](manifest),
+        "ios_install_write": (id, offset, data) => emulator["ios_install_write"](id, offset, data),
+        "ios_install_stage": id => emulator["ios_install_stage"](id),
+        "ios_install_commit": id => emulator["ios_install_commit"](id),
+        "ios_install_cancel": id => emulator["ios_install_cancel"](id),
+        "ios_install_lookup": bundle => emulator["ios_install_lookup"](bundle),
     };
     globalThis.onmessage = e => {
         const m = e.data;

@@ -44,6 +44,7 @@ import { android_bootloader, ANDROID_DEVICES } from "../android/bootloader.js";
 import { DEFAULT_GLES_VERSION, GLES_VERSIONS, ranchu_gpu_mode } from "../android/devices.js";
 import { PartitionBuffer } from "../android/partition_buffer.js";
 import { read_nand_boot } from "../ios/nand_boot.js";
+import { attach_ios_install_api } from "../ios/install_api.js";
 import { FS } from "../../lib/filesystem.js";
 
 /**
@@ -3416,3 +3417,5 @@ else if(typeof importScripts === "function")
     // web worker
     self["V86"] = V86;
 }
+
+attach_ios_install_api(V86);

@@ -40,6 +40,8 @@ try
         emulator.add_listener("emulator-loaded", resolve);
         emulator.add_listener("emulator-error", reject);
     });
+    if((await emulator.ios_install_status()).supported !== false)
+        throw new Error("A legacy iPhone must report that its native installation helper is absent");
     await emulator.run();
     // Let two different frames be scanned without asking the worker for
     // pixels, then make an incremental request. It must send the newest

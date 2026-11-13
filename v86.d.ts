@@ -1739,6 +1739,15 @@ export class V86 {
     /** Press or release one of the simulated iPhone's physical buttons. */
     ios_send_button(button: "home" | "power" | "volume-up" | "volume-down" | "mute", pressed: boolean): void;
 
+    /** Install an unencrypted ARMv7 IPA using the native iOS 6 helper. */
+    ios_install_status(): Promise<IOSInstallStatus>;
+    ios_install_begin(manifest: Record<string, unknown>): Promise<IOSInstallStatus>;
+    ios_install_write(install_id: string, offset: number, data: Uint8Array): Promise<IOSInstallStatus>;
+    ios_install_stage(install_id: string): Promise<IOSInstallStatus>;
+    ios_install_commit(install_id: string): Promise<IOSInstallStatus>;
+    ios_install_cancel(install_id: string): Promise<IOSInstallStatus>;
+    ios_install_lookup(bundle_id: string): Promise<IOSInstallStatus>;
+
     /** Rotate the simulated iPhone's gravity vector clockwise from portrait. */
     ios_set_orientation(angle: 0 | 90 | 180 | 270): void;
 
@@ -1950,4 +1959,21 @@ export interface V86JitInfo {
         /** The x64 page tier's 32-bit and 16-bit modes; counters wrap at 2^32. */
         page_tier: { legacy32: boolean; compat32: boolean; prot16: boolean; v86: boolean; functions: number; native_instructions: number; activations: number } | null;
     };
+}
+
+export interface IOSInstallStatus {
+    supported?: boolean;
+    available?: boolean;
+    running?: boolean;
+    phase?: string;
+    install_id?: string;
+    bundle_id?: string;
+    job_generation?: number;
+    generation?: number;
+    offset?: number;
+    total?: number;
+    installed?: boolean;
+    version?: string;
+    error?: string;
+    status?: string;
 }

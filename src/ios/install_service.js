@@ -2,7 +2,7 @@
 // protocol data crosses it; guest files are always written by the helper.
 import { INSTALL_SERVICE, INSTALL_OP as OP, install_frame, install_frame_reader, install_message_mac, install_job, INSTALL_CHUNK } from "./install_protocol.js";
 import { validate_install_state, stage_install_trust, finish_install_trust, install_hashes } from "./install_trust.js";
-import { runtime_trust_node, publish_runtime_trust, validate_runtime_arena } from "./runtime_trust.js";
+import { runtime_trust_node, publish_runtime_trust, validate_runtime_arena, IOS_TRUST_ARENA_BYTES } from "./runtime_trust.js";
 
 export class IOSInstallService
 {
@@ -127,7 +127,7 @@ export class IOSInstallService
     commit(install_id)
     {
         if(install_id !== this.peer?.install_id) throw new Error("Unknown iPhone installation task");
-        if(this.peer.job_generation !== this.state.generation) return Promise.resolve({ restart_required: true, phase: "staged", install_id });
+        if(this.peer.job_generation !== this.state.generation) throw new Error("The staged IPA belongs to a different code trust generation; reopen the iPhone before retrying");
         return this.request(OP.COMMIT, new Uint8Array(0), 1200000);
     }
     cancel(install_id)
@@ -156,10 +156,12 @@ export class IOSInstallService
     }
     check_state(saved)
     {
+        if(this.pending.size || ["transferring", "staged", "installing", "verifying"].includes(this.peer?.phase))
+            throw new Error("Finish or cancel the IPA installation before loading a snapshot");
         if(!saved || saved[0] !== 1 || saved[1] !== this.state.generation)
             throw new Error("The snapshot belongs to a different iPhone application generation");
         if(saved[2]) validate_runtime_arena(saved[2]);
-        if(!Array.isArray(saved[3]) || saved[3].length > 6553 || saved[3].some(h => !/^[0-9a-f]{40}$/.test(h)))
+        if(!Array.isArray(saved[3]) || saved[3].length > 189 + Math.floor(IOS_TRUST_ARENA_BYTES / 20) || saved[3].some(h => !/^[0-9a-f]{40}$/.test(h)))
             throw new Error("Invalid iPhone snapshot code trust state");
     }
     load_boot(boot)
