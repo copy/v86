@@ -1,0 +1,255 @@
+{
+  "source": "glbridge/sample/ddraw_primary_loss_reference.c",
+  "sourceSha256": "de3f65f11b47f6e8c95498042498fbfc296dcf6ba56912d8dbd6ac8d3c0648a3",
+  "executableSha256": "95292e0add2fcb5bef2abda4905a9dee62f0c4fb17a26323dd0235ae3bcc89f1",
+  "results": [
+    {
+      "name": "create",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "exclusive",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "primary",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "mode_640_480_16",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "restore_wrong",
+      "hr": 2289435211,
+      "paints": 0
+    },
+    {
+      "name": "mode_800_600_32",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "restore_matching",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "duplicate_mode",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "foreground_other",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "restore_away",
+      "hr": 2289435211,
+      "paints": 0
+    },
+    {
+      "name": "foreground_game",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "restore_focus",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "normal",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "exclusive_again",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "restore_exclusive",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "flip_primary",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "restore_mode",
+      "hr": 0,
+      "paints": 0
+    },
+    {
+      "name": "final_normal",
+      "hr": 0,
+      "paints": 0
+    }
+  ],
+  "surfaces": [
+    {
+      "name": "initial",
+      "desc": 0,
+      "lost": 0,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 1
+    },
+    {
+      "name": "after_640",
+      "desc": 0,
+      "lost": 2289435074,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 16,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "after_wrong_restore",
+      "desc": 0,
+      "lost": 2289435074,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 16,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "after_800",
+      "desc": 0,
+      "lost": 2289435074,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "restored_matching",
+      "desc": 0,
+      "lost": 0,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "after_duplicate",
+      "desc": 0,
+      "lost": 2289435074,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "focus_away",
+      "desc": 0,
+      "lost": 2289435074,
+      "cooperative": 2289434849,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 1
+    },
+    {
+      "name": "focus_back",
+      "desc": 0,
+      "lost": 2289435074,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 1
+    },
+    {
+      "name": "restored_focus",
+      "desc": 0,
+      "lost": 0,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "after_normal",
+      "desc": 0,
+      "lost": 2289435074,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "after_exclusive",
+      "desc": 0,
+      "lost": 2289435074,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "restored_exclusive",
+      "desc": 0,
+      "lost": 0,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35328,
+      "paints": 0
+    },
+    {
+      "name": "flip",
+      "desc": 0,
+      "lost": 0,
+      "cooperative": 0,
+      "width": 800,
+      "height": 600,
+      "bpp": 32,
+      "pitch": 3200,
+      "caps": 35384,
+      "paints": 0
+    }
+  ]
+}

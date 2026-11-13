@@ -10,6 +10,7 @@ import {run_xp_ram_probe} from '../lib/xp_ram_probe.mjs';
 import {compare_window_events} from '../lib/ddraw_window_trace.mjs';
 const root=fileURLToPath(new URL('../../',import.meta.url)),site=site_directory(root);
 const proxyDll=process.env.DDRAW_WINDOWS_PROXY_DLL&&path.resolve(process.env.DDRAW_WINDOWS_PROXY_DLL);
+const verifySurfaces=process.env.DDRAW_WINDOWS_SURFACES==='1';
 const driverReference=process.env.DDRAW_WINDOWS_DRIVER_REFERENCE==='1',bootstrap=!!proxyDll||driverReference;
 const out=path.resolve(process.env.DDRAW_WINDOWS_OUT||root+'build/d3d-review/'+(proxyDll?'stage6-proxy-windows':'stage6-native-windows'));
 const sha=p=>createHash('sha256').update(fs.readFileSync(p)).digest('hex');
@@ -24,7 +25,8 @@ function observations(text,logs,metadata){
         assert.deepEqual(windows,reference.windows,'native window snapshots');
         const messageComparison=compare_window_events(reference.events,events,windows);
         assert.deepEqual(results.filter(l=>!l.includes('name=restore_primary ')),reference.results.filter(l=>!l.includes('name=restore_primary ')),'native control return values');
-        const lf=root+'tests/glbridge/fixtures/ddraw_native_control_lifetime.json',lifetime=JSON.parse(fs.readFileSync(lf)),raw=logs['LIFE.TXT'];assert.match(raw,/COMPLETE control_lifetime=1/);const releases=[...raw.matchAll(/RELEASE version=(\d+) refs=(\d+) proc_changed=(\d+)/g)].map(m=>({version:+m[1],refs:+m[2],procChanged:+m[3]})),lifetimeResults=[...raw.matchAll(/RESULT version=(\d+) name=(\w+) hr=([0-9A-F]+)/g)].map(m=>({version:+m[1],name:m[2],hr:parseInt(m[3],16)}));assert.equal(sha(site+'/'+lifetime.source),lifetime.sourceSha256);assert.deepEqual(releases,lifetime.releases);assert.deepEqual(lifetimeResults,lifetime.results);fs.writeFileSync(out+'/comparison.json',JSON.stringify({messageComparison,lifetime:{releases,results:lifetimeResults,nativeFixtureSha256:sha(lf)},windows:windows.length,events:events.length,controlResults:results.length-3,unresolvedSurfaceResults:surfaces,primaryRestoreResults:results.filter(l=>l.includes('name=restore_primary ')),nativeFixtureSha256:sha(fixture),passed:true},null,2)+'\n');
+        if(verifySurfaces){assert.deepEqual(surfaces,reference.surfaces,'native primary surface metadata/loss');assert.deepEqual(results,reference.results,'all native control/restore results');}
+        const lf=root+'tests/glbridge/fixtures/ddraw_native_control_lifetime.json',lifetime=JSON.parse(fs.readFileSync(lf)),raw=logs['LIFE.TXT'];assert.match(raw,/COMPLETE control_lifetime=1/);const releases=[...raw.matchAll(/RELEASE version=(\d+) refs=(\d+) proc_changed=(\d+)/g)].map(m=>({version:+m[1],refs:+m[2],procChanged:+m[3]})),lifetimeResults=[...raw.matchAll(/RESULT version=(\d+) name=(\w+) hr=([0-9A-F]+)/g)].map(m=>({version:+m[1],name:m[2],hr:parseInt(m[3],16)}));assert.equal(sha(site+'/'+lifetime.source),lifetime.sourceSha256);assert.deepEqual(releases,lifetime.releases);assert.deepEqual(lifetimeResults,lifetime.results);fs.writeFileSync(out+'/comparison.json',JSON.stringify({verifiedPrimarySurfaces:verifySurfaces,messageComparison,lifetime:{releases,results:lifetimeResults,nativeFixtureSha256:sha(lf)},windows:windows.length,events:events.length,controlResults:results.length-3,unresolvedSurfaceResults:surfaces,primaryRestoreResults:results.filter(l=>l.includes('name=restore_primary ')),nativeFixtureSha256:sha(fixture),passed:true},null,2)+'\n');
     }
     if(process.argv.includes('--write-fixture')){
         assert(!proxyDll,'Only the original system DLL can produce the reference');
