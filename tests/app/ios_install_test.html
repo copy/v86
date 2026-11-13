@@ -45,6 +45,7 @@ try{
  await until(()=>vm.opened,"open through public API");check(vm.opened==="org.v86.BrowserTest","open installed identity");
  await until(()=>c.state.phase==="installed","native open request completed");
  await c.choose(new File([new Uint8Array(32)],"bad.ipa"));check(c.state.phase==="failed","bad IPA error");
+    check(c.state.launch_status==="","a new IPA clears the previous launch result");
  check(document.getElementById("ios_ipa_error").textContent.length>0,"error visible");
  vm.existing={installed:false};vm.blocks=[];let release;vm.write_gate=new Promise(ok=>release=ok);
  await c.choose(file);const uploading=c.install();await until(()=>vm.blocks.length===1,"first upload block");await c.cancel();release();

@@ -67,7 +67,7 @@ export class IOSInstallController extends EventTarget {
         if(this.state.capability.install_id&&["transferring","staged","interrupted"].includes(this.state.capability.phase)){
             this.update({error:"Cancel or continue the previous installation before choosing another IPA"});return;
         }
-        this.file=file;this.cancelled=false;this.update({phase:"checking",error:"",report:null,existing:null,existing_checked:false,progress:null});
+        this.file=file;this.cancelled=false;this.update({phase:"checking",error:"",launch_status:"",report:null,existing:null,existing_checked:false,progress:null});
         try{
             const report=await this.process({op:"inspect",file});if(this.cancelled)return;
             let existing=null;if(this.state.capability.available)existing=await this.emulator.ios_install_lookup(report.bundle_id);
