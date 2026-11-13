@@ -179,8 +179,8 @@ export function translate_vertex_program(program,options={})
     if(program.instructions.some(i=>i.address.input))for(let input=0;input<16;input++)shader.input(input);
     for(const i of program.instructions)
     {
-        if(i.address.input || i.address.constant)address(i.address.register);
-        if(["ARL","ARR"].includes(i.vector.name))address(i.vector.index);
+        if(i.address.input || i.address.constant || i.vector.name==="ARA")address(i.address.register);
+        if(["ARL","ARR","ARA"].includes(i.vector.name))address(i.vector.index);
     }
     // The scalar issue slot also contains vector MOV/LIT. Address loads on
     // Curie likewise consume all four source lanes, independently masked.
@@ -253,17 +253,27 @@ export function translate_vertex_program(program,options={})
         for(let slot=0;slot<2;slot++)
         {
             const op=slots[slot];if(op.name==="NOP" || !op.mask || ["BRA","CAL","RET"].includes(op.name)) continue;
-            const count=arity(op.name);if(!count && !nullary(op.name)) throw new RangeError("NV40 unsupported vertex opcode "+op.name);
+            const count=arity(op.name);if(!count && !nullary(op.name) && op.name!=="ARA") throw new RangeError("NV40 unsupported vertex opcode "+op.name);
             const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
-            const sources=selectors.map(index=>source(i,i.sources[index],slot,index));
-            const addressOp=["ARL","ARR"].includes(op.name);
-            if(op.name==="ARL")shader.alu("FLR",dst(0,30+slot,op.mask),sources);
+            const sources=op.name==="ARA"?[]:selectors.map(index=>source(i,i.sources[index],slot,index));
+            const addressOp=["ARL","ARR","ARA"].includes(op.name);
+            if(op.name==="ARA")
+            {
+                const register=address(i.address.register);
+                shader.emit(OP.ADD,dst(0,30+slot,op.mask),src(0,register,[0,1,0,1]),src(0,register,[2,3,2,3]));
+            }
+            else if(op.name==="ARL")shader.alu("FLR",dst(0,30+slot,op.mask),sources);
             else if(op.name==="ARR")
             {
                 shader.emit(OP.MOVA,dst(3,0,op.mask),sources[0]);
                 shader.emit(OP.MOV,dst(0,30+slot,op.mask),src(3,0));
             }
             else shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
+            if(addressOp)
+            {
+                shader.emit(OP.MAX,dst(0,30+slot,op.mask),src(0,30+slot),shader.literal(-512));
+                shader.emit(OP.MIN,dst(0,30+slot,op.mask),src(0,30+slot),shader.literal(511));
+            }
             const index=addressOp?address(op.index):op.type==="output"?output(op.index):shader.temp("r"+op.index);
             results.push({index,mask:op.mask,slot});
         }

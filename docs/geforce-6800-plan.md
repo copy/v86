@@ -1291,3 +1291,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   完整真实 GPU 像素/条件码回归、通用 D3D 的 57 项与 199 个 Naga 验证、
   Closure/WebGPU bundle 构建通过。语义参考 NVIDIA NV_vertex_program2；
   Mesa nvfx_vertprog 的 RSQ 显式 ABS 也验证硬件源与 D3D abs-helper 的差别。
+
+- G4 ARA：从指令 ASRC 选择的地址寄存器读取无 swizzle 向量，计算 X+Z、Y+W
+  并复制到 Z/W，遵守地址目标掩码、谓词及既有 VLIW 同时读取语义。
+  ARA/ARL/ARR 的结果按 NVIDIA 指令规范饱和至 [-512,511] 后提交及更新条件码。
+  119 个 Naga 模块、完整真实 GPU 回归和 Closure 构建通过；像素测试覆盖独立
+  Y 分量、部分目标写入与正溢出后从 c[511] 读取。

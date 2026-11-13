@@ -669,6 +669,23 @@ try
                 method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
                 assert.deepEqual([...vram.subarray(0x10000,0x10004)],expected,name+" relative "+(relativeInput?"attribute":"constant")+" value "+value);
             }
+            for(const [values,component,mask,expected]of [
+                [[1,2,1,1],1,15,191],[[1,2,1,1],1,1,64],[[400,0,400,0],0,15,128]])
+            {
+                method(0x1EFC,0);[...new Uint32Array(Float32Array.of(...values,.25,.25,.25,.25,.25,.25,.25,.25,.75,.75,.75,.75).buffer)]
+                    .forEach((word,i)=>method(0x1F00+(i%4)*4,word));
+                method(0x1EFC,511);[...new Uint32Array(Float32Array.of(.5,.5,.5,.5).buffer)].forEach((word,i)=>method(0x1F00+i*4,word));
+                const position=structuredClone(base),load=structuredClone(base),add=structuredClone(base),color=structuredClone(base);
+                load.vector={name:"ARL",type:"temp",index:1,mask:15};load.sources[0]={...load.sources[0],type:"constant",index:0};
+                add.vector={name:"ARA",type:"temp",index:1,mask};add.address.register=1;
+                add.sources=add.sources.map(s=>({...s,type:"invalid"})); // ARA reads ASRC, without float operand swizzle.
+                color.vector.index=1;color.sources[0]={...color.sources[0],type:"constant",index:0};
+                color.address={register:1,component,input:false,constant:true};
+                vertexProgram={stage:"vertex",instructions:[position,load,add,color]};
+                method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();
+                assert.deepEqual([...vram.subarray(0x10000,0x10004)],Array(4).fill(expected),"ARA paired sums, destination mask and address saturation");
+            }
             method(0x1EFC,0);[...new Uint32Array(Float32Array.of(0,0,0,0,.25,.25,.25,.25,.75,.75,.75,.75,1,1,1,1).buffer)]
                 .forEach((word,i)=>method(0x1F00+(i%4)*4,word));
             const instruction=(pc,name="NOP",destination=0,type="temp",constant=1)=>{

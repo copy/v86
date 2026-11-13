@@ -69,6 +69,10 @@ try
         i.scalar={name,type:"output",index:0,mask:15};i.sources[2]={...i.sources[0]};
         validate("nv-scalar-"+name,translate_vertex_program(p));
     }
+    const ara=structuredClone(vertex);
+    ara.instructions[0].vector={name:"ARA",type:"temp",index:1,mask:15};ara.instructions[0].address.register=0;
+    ara.instructions[0].sources=ara.instructions[0].sources.map(s=>({...s,type:"invalid"}));
+    validate("address-paired-add",translate_vertex_program(ara));
     const late=structuredClone(vertex),setTrue=structuredClone(late.instructions[0]);
     setTrue.vector={name:"STR",mask:15,type:"temp",index:0};late.instructions.unshift(setTrue);
     late.instructions[1].sources[0]={...late.instructions[1].sources[0],type:"constant",index:255};
