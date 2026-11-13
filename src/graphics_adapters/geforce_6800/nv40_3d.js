@@ -194,20 +194,11 @@ export class NV40_3D
         {
             const pointer=get(o,0x8E4), selector=pointer&3, at=selector===1?0x184:selector===2?0x188:0;
             if(!at || !o.methods.has(at)) throw new RangeError("NV40 fragment DMA unbound");
-            const dma=this.device.dma.descriptor(get(o,at)*16), offset=pointer&0xFFFFFFFC, words=[];
-            while(words.length<16384)
-            {
-                const bytes=this.device.dma.read(dma,offset+words.length*4,16), view=new DataView(bytes.buffer), header=[];
-                for(let i=0;i<4;i++)header.push(view.getUint32(i*4,true));
-                words.push(...header);
-                if(!(header[2]&0x80000000) && header.slice(1).some(word=>(word&3)===2))
-                {
-                    const bytes=this.device.dma.read(dma,offset+words.length*4,16), view=new DataView(bytes.buffer);
-                    for(let i=0;i<4;i++)words.push(view.getUint32(i*4,true));
-                }
-                if(header[0]&1) break;
-            }
-            result.fragment=decode_fragment_program(Uint32Array.from(words));
+            const dma=this.device.dma.descriptor(get(o,at)*16), offset=pointer&0xFFFFFFFC;
+            result.fragment=decode_fragment_program([],first=>{
+                const bytes=this.device.dma.read(dma,offset+first*4,16),view=new DataView(bytes.buffer);
+                return Array.from({length:4},(_,i)=>view.getUint32(i*4,true));
+            });
         }
         catch(error) { result.errors.push(String(error)); }
         return result;

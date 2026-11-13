@@ -21,6 +21,7 @@ assert.deepEqual(jumped.instructions.map(i=>i.pc),[0,2],"decoder follows branche
 const call=Uint32Array.of(7<<10,11<<27,0,3<<29),ret=Uint32Array.of(7<<10,12<<27,0,0);
 const called=decode_vertex_program(Uint32Array.from([...call,...mov,0,0,0,0,...ret]));
 assert.deepEqual(called.instructions.map(i=>i.pc),[0,1,3],"call targets after the main END remain reachable");
+assert.equal(decode_vertex_program(ret).instructions[0].scalar.name,"RET","an empty-stack return is a normal terminal instruction");
 // MOV H0, inline_constant. Data resembling opcodes must stay out of the decoder
 // and out of the cache key; different constants share the normalized program.
 const fp=Uint32Array.of(0x01001E81,0x001DC802,0,0,0x3F800000,0x3F000000,0,0x3F800000);
@@ -39,6 +40,17 @@ assert.deepEqual(repeat.instructions[0].loop,{count:3,initial:4,increment:2});
 const banks=fp.slice();banks[1]|=0xC0000000;
 assert.equal(decode_fragment_program(banks).instructions[0].predicate.register,1);
 assert.equal(decode_fragment_program(banks).instructions[0].predicate.destination,1);
+const fpRet=[5<<24,7<<18,0x80000000,0];
+const fpCall=Uint32Array.from([1<<24,7<<18,0x80000000|12,0,...fp,
+    ...[fp[0]&~1,...fp.slice(1)],...fpRet]);
+const fpCalled=decode_fragment_program(fpCall);
+assert.deepEqual(fpCalled.instructions.map(i=>i.pc),[0,4,12,20]);assert.equal(fpCalled.constants.length,2);
+assert.equal(fpCalled.word_count,24);assert.equal(decode_fragment_program(Uint32Array.from(fpRet)).instructions.length,1);
+const fetches=[];
+assert.deepEqual(decode_fragment_program([],at=>{fetches.push(at);return fpCall.slice(at,at+4);}),fpCalled);
+assert.deepEqual(fetches,[0,4,8,12,16,20],"the guest fetch stops after the reachable callee's RET");
+const badTarget=fpCall.slice();badTarget[2]=0x80000000|8;
+assert.throws(()=>decode_fragment_program(badTarget),/inline constant|outside program|truncated/);
 
 const selectOnly=decode_vertex_instruction(Uint32Array.of(0x20000000,0,0,1));
 assert.equal(selectOnly.predicate.update,false,"CDST_IS_VEC selects a slot, without enabling a condition write");

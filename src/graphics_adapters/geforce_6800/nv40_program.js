@@ -38,6 +38,7 @@ export function decode_vertex_program(words, first = 0, entry = first)
         const i=decode_vertex_instruction(words.slice(at,at+4),pc);decoded.set(pc,i);last=Math.max(last,at+4);
         if(i.end){ended=true;continue;}
         const flow=i.scalar.name,condition=i.predicate.condition;
+        if(flow==="RET" && condition===7)ended=true;
         if(flow==="BRA" || flow==="CAL")
         {
             if(condition!==0)pending.push(i.target);
@@ -49,32 +50,64 @@ export function decode_vertex_program(words, first = 0, entry = first)
     return {stage:"vertex",instructions:[...decoded.values()].sort((a,b)=>a.pc-b.pc),entry,word_count:last};
 }
 
-export function decode_fragment_program(words)
+export function decode_fragment_program(words,read=null)
 {
-    const instructions = [], constants = [], normalized = [];
-    for(let at=0;at+4<=words.length && instructions.length<4096;)
+    const storage=Array.from(words),decoded=new Map(),inline=new Map(),pending=[0];let last=0,ended=false;
+    const ensure=count=>{
+        if(count>16384)throw new RangeError("NV40 fragment program size");
+        while(storage.length<count && read)
+        {
+            const block=read(storage.length);
+            if(!block.length || block.length&3)throw new RangeError("NV40 invalid fragment fetch block");
+            storage.push(...block);
+        }
+        if(storage.length<count)throw new RangeError("NV40 truncated fragment instruction or branch outside program");
+    };
+    while(pending.length)
     {
-        const pc=at, a=words[at++], b=words[at++], c=words[at++], d=words[at++], branch=!!(c & 0x80000000);
+        let at=pending.pop();if(decoded.has(at))continue;
+        if(at<0 || at&3)throw new RangeError("NV40 invalid fragment branch target");
+        ensure(at+4);
+        const pc=at, a=storage[at++], b=storage[at++], c=storage[at++], d=storage[at++], branch=!!(c & 0x80000000);
         const opcode=a>>>24&63, input=a>>>13&15;
         const sources = [b,c,d].map((bits,i) => ({type: ["temp","input","constant","invalid"][bits&3],
             index: (bits&3)===1 ? input : bits>>>2&63, swizzle: swizzle(bits,[9,11,13,15]),
             half: !!(bits&256), negate: !!(bits&0x20000), absolute: !!([b>>>29,c>>>18,d>>>18][i]&1)}));
-        normalized.push(a>>>0,b>>>0,c>>>0,d>>>0);
         let constant=-1;
         if(!branch && sources.some(source=>source.type==="constant"))
         {
-            if(at+4>words.length) throw new RangeError("NV40 truncated inline fragment constant");
-            constant=constants.length;constants.push(Array.from(words.slice(at,at+4)));at+=4;normalized.push(0,0,0,0);
+            try {ensure(at+4);}catch(error){throw new RangeError("NV40 truncated inline fragment constant");}
+            inline.set(pc,storage.slice(at,at+4));constant=0;at+=4;
         }
-        instructions.push({pc,words:[a>>>0,b>>>0,c>>>0,d>>>0],opcode,
+        const instruction={pc,words:[a>>>0,b>>>0,c>>>0,d>>>0],opcode,
             name: branch ? ["BRK","CAL","IF","LOOP","REP","RET"][opcode] || null : FP[opcode] || (opcode===0x3A ? "DIV" : opcode===0x3C ? "LITEX2" : null),
             branch, sources, constant, destination: {index:a>>>1&63,half:!!(a&128),mask:a>>>9&15,disabled:!!(a&0x40000000)},
             precision:a>>>22&3,saturate:!!(a&0x80000000),scale:c>>>28&7,texture:a>>>17&15,
             predicate:{condition:b>>>18&7,swizzle:swizzle(b,[21,23,25,27]),update:!!(a&256),register:b>>>31,destination:b>>>30&1},
             input_relative:!branch && !!(d&0x40000000),address:d>>>19&15,else_offset:c&0x7FFFFFFF,end_offset:d&0x7FFFFFFF,
             loop:{count:c>>>2&255,initial:c>>>10&255,increment:c>>>19&255},
-            end:!!(a&1)});
-        if(a&1) return {stage:"fragment",instructions,constants,normalized:Uint32Array.from(normalized),word_count:at};
+            end:!!(a&1)};
+        decoded.set(pc,instruction);last=Math.max(last,at);
+        if(instruction.end){ended=true;continue;}
+        if(branch && instruction.name==="RET")
+        {
+            ended=true;if(instruction.predicate.condition===7)continue;
+        }
+        if(branch && instruction.name==="CAL" && instruction.predicate.condition!==0)pending.push(instruction.else_offset);
+        if(branch && ["IF","LOOP","REP"].includes(instruction.name))
+        {
+            pending.push(instruction.end_offset);
+            if(instruction.name==="IF")pending.push(instruction.else_offset);
+        }
+        pending.push(at);
     }
-    throw new RangeError("NV40 fragment program has no end instruction");
+    if(!ended)throw new RangeError("NV40 fragment program has no end instruction");
+    const instructions=[...decoded.values()].sort((a,b)=>a.pc-b.pc),constants=[],normalized=new Uint32Array(last);
+    for(const i of instructions)
+    {
+        if(inline.has(i.pc-4))throw new RangeError("NV40 fragment branch targets an inline constant");
+        normalized.set(i.words,i.pc);
+        if(inline.has(i.pc)){i.constant=constants.length;constants.push(inline.get(i.pc));}
+    }
+    return {stage:"fragment",instructions,constants,normalized,word_count:last};
 }
