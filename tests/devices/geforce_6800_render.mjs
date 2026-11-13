@@ -166,8 +166,8 @@ try
         method(0x1E94,0x101);
         for(const [at,value]of [[0x198,0x100],[0x214,0x24000],[0x22C,32],[0x1740,0x1042],[0xA74,1],[0xA70,1],[0xA6C,2]])method(at,value);
         for(let at=0x24000;at<0x24100;at+=4)view.setUint32(at,0xFFFFFF5A,true);
-        const depthDraw=async(z,color)=>{
-            new Float32Array(vram.buffer,0x4000,12).set([0,0,z,1,0,16,z,1,16,0,z,1]);
+        const depthDraw=async(z,color,slope=0)=>{
+            new Float32Array(vram.buffer,0x4000,12).set([0,0,z,1,0,16,z,1,16,0,z+slope,1]);
             new Float32Array(vram.buffer,0x9010,4).set(color);
             method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
             assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
@@ -209,10 +209,24 @@ try
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"disabling two-sided mode restores the ordinary bank for both windings");
         method(0x328,0);method(0x1834,0x901);
         console.log("PASS: real WebGPU two-sided stencil comparisons/operations, programmable front winding and one-sided restore");
+        method(0xA74,1);method(0xA70,1);method(0xA6C,8);await depthDraw(.25,[0,1,0,1]);
+        const unbiased=view.getUint32(0x24000,true)>>>8;
+        method(0xA7C,floatWord(65536));method(0xA68,1);await depthDraw(.25,[0,1,0,1]);
+        assert(Math.abs((view.getUint32(0x24000,true)>>>8)-unbiased-32768)<=1,"NV40 polygon units are half a stored step");
+        method(0xA68,0);await depthDraw(.25,[0,1,0,1],.125);
+        const sloped=view.getUint32(0x24000,true)>>>8,gradient=(view.getUint32(0x24004,true)>>>8)-sloped;
+        method(0xA7C,0);method(0xA78,floatWord(1));method(0xA68,1);await depthDraw(.25,[0,1,0,1],.125);
+        assert(gradient>0 && Math.abs((view.getUint32(0x24000,true)>>>8)-sloped-gradient)<=2,"slope factor follows the actual window-space depth derivative");
+        method(0xA68,0);method(0xA78,0);method(0xA7C,0);method(0xA6C,2);
         for(const [at,value]of [[0x208,0x128],[0x214,0x25000],[0x22C,16],[0xA74,1],[0xA70,1],[0x328,1],[0x330,1]])method(at,value);
         vram.fill(255,0x25000,0x25080);await depthDraw(.25,[0,1,0,1]);
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"D16 has no stencil bits: enabled NEVER stencil does not reject the draw");
         assert(Math.abs(view.getUint16(0x25000,true)-Math.round(.25*65535))<=1);
+        method(0xA6C,8);const d16Unbiased=view.getUint16(0x25000,true);
+        method(0xA7C,floatWord(256));method(0xA68,1);await depthDraw(.25,[0,1,0,1]);
+        assert(Math.abs(view.getUint16(0x25000,true)-d16Unbiased-128)<=1,"D16 polygon units use the attachment's own depth step");
+        method(0xA68,0);method(0xA7C,0);method(0xA6C,2);
+        console.log("PASS: real WebGPU polygon offset units for D24/D16, slope bias and disabled-state restore");
         for(const [at,value]of [[0x208,0x148],[0x214,0x24000],[0x22C,32],[0xA74,0],[0x328,0]])method(at,value);
         console.log("PASS: real WebGPU depth rejection, depth/stencil VRAM round trips and masked stencil operations");
         method(0x183C,1);method(0x1830,0x405);method(0x1834,0x900);

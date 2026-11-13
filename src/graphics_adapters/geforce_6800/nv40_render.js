@@ -6,6 +6,8 @@ import {NV40Texture} from "./nv40_texture.js";
 import {QUERY_REGION_BYTES,READBACK_MAX_BYTES,RESPONSE_OK} from "../renderer_protocol.js";
 const QUERY_COUNT=0x50008;
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
+const float_value=word=>new Float32Array(Uint32Array.of(word).buffer)[0];
+const float_word=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
 const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength);
 const equal_bytes=(a,b)=>{
     if(!a || a.length!==b.length)return false;
@@ -37,13 +39,18 @@ export function nv40_cull_state(o)
     // already accounted for by the position lowering.
     return {state:face===0x408?1:(face===0x404)===(front===0x900)?2:3,all:face===0x408};
 }
-export function nv40_depth_state(o,stencilAvailable=true)
+export function nv40_depth_state(o,stencilAvailable=true,mode=5)
 {
     const depth=!!get(o,0xA74),stencil=!!get(o,0x328)&&stencilAvailable;
-    if(get(o,0x380) || get(o,0xA60) || get(o,0xA64) || get(o,0xA68))
-        throw new RangeError("NV40 depth bounds/bias is not connected");
+    if(get(o,0x380))throw new RangeError("NV40 depth bounds is not connected");
+    const offset=mode>=5&&!!get(o,0xA68),factor=offset?float_value(get(o,0xA78)):0,units=offset?float_value(get(o,0xA7C)):0;
+    if(!Number.isFinite(factor) || !Number.isFinite(units))throw new RangeError("NV40 non-finite polygon offset");
     const twoSided=stencil&&!!get(o,0x348);
-    const result=[[7,+depth],[14,depth?+!!get(o,0xA70):0],[23,depth?comparison(get(o,0xA6C,0x201)):8],[52,+stencil],[185,+twoSided]];
+    // Curie stores twice the conventional polygon-offset units (Mesa nv30
+    // rasterizer state). D9WG adds a normalised constant in the pixel shader,
+    // so use the guest depth format's precision even when the host widens it.
+    const result=[[7,+depth],[14,depth?+!!get(o,0xA70):0],[23,depth?comparison(get(o,0xA6C,0x201)):8],
+        [175,float_word(factor)],[195,float_word(units/(stencilAvailable?0x2000000:0x20000))],[52,+stencil],[185,+twoSided]];
     if(stencil)
     {
         if(twoSided && [[0x32C,255],[0x334,0],[0x338,255]].some(([at,fallback])=>
@@ -228,7 +235,7 @@ export class NV40Render
         if(enable&~31 || !(active&1) || active!==1 && !(enable&16))throw new RangeError("NV40 unsupported render target enable mask");
         for(let i=1;i<4;i++)if(active&1<<i && !!(get(o,0x36C)&1<<i)!==!!get(o,0x310))
             throw new RangeError("NV40 independent MRT blending is not connected");
-        const zsa=nv40_depth_state(o,(get(o,0x208)>>>5&7)===2);
+        const zsa=nv40_depth_state(o,(get(o,0x208)>>>5&7)===2,mode);
         if(get(o,0x142C) || get(o,0x374) || get(o,0x1478) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
