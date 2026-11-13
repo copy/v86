@@ -145,7 +145,13 @@ export async function run_geforce_guest(win98)
     const tools = new MemoryDisk(tools_bytes), before = fs.statSync(image), disk = new ReadOnlyOverlayDisk(image);
     if(process.env.NV_OVERLAY_LOAD) disk.set_state(deserialize(fs.readFileSync(process.env.NV_OVERLAY_LOAD)));
     const sink = new ProbeSink();
-    const vm = new V86({ disable_jit:!!process.env.NV_DISABLE_JIT, ...(process.env.NV_WASM ? {wasm_path:path.resolve(process.env.NV_WASM)} : {}), graphics_adapter: "geforce_6800", vram_size: 128 << 20,
+    let remote=null;
+    if(process.env.NV_GPU_RENDERER==="chrome")
+    {
+        const {create_remote_renderer}=await import("../x64/gpu_remote_renderer.mjs");
+        remote=await create_remote_renderer({on_log:line=>console.log("NV40 GPU:",line)});
+    }
+    const vm = new V86({ ...(remote?{graphics_adapter_renderer_channel:remote.renderer}:{}), disable_jit:!!process.env.NV_DISABLE_JIT, ...(process.env.NV_WASM ? {wasm_path:path.resolve(process.env.NV_WASM)} : {}), graphics_adapter: "geforce_6800", vram_size: 128 << 20,
         bios: { url: root + "bios/seabios.bin" },
         ...(process.env.NV_ROM ? { vga_bios: { url: path.resolve(process.env.NV_ROM) } } : {}),
         hda: disk, hdb: tools, boot_order: 0x213, memory_size: (win98 ? 256 : 1024) << 20,
@@ -168,6 +174,7 @@ export async function run_geforce_guest(win98)
         pci: Array.from(nv.machine.pci_config()),
         cpu: {eip: vm.v86.cpu.instruction_pointer[0] >>> 0, regs: Array.from(vm.v86.cpu.reg32), halted: vm.v86.cpu.in_hlt[0], flags:vm.v86.cpu.get_eflags()},
         pic:vm.v86.cpu.get_state_pic(),pirq:Array.from(vm.v86.cpu.devices.pci.isa_bridge_space8.slice(0x60,0x64)),
+        gpu: nv.graph.engine3d.backend ? nv.graph.engine3d.backend.stats : null,
         scanout: sink.transitions,
         display: { crtc: Array.from(nv.display.crtc), front: nv.display.front, mode: nv.display.mode() },
         graph: nv.graph.get_state(), graphFaults: nv.graph.faults, fifo: nv.fifo.get_state() });
@@ -265,7 +272,7 @@ export async function run_geforce_guest(win98)
             if(bytes) fs.writeFileSync(path.join(out, name), bytes);
         }
         if(process.env.NV_OVERLAY_SAVE) fs.writeFileSync(process.env.NV_OVERLAY_SAVE, serialize(disk.get_state()));
-        await vm.destroy(); disk.close();
+        await vm.destroy(); if(remote) await remote.close(); disk.close();
         process.off("SIGINT", cancel);
         assert.equal(fs.statSync(image).mtimeMs, before.mtimeMs);
         assert.equal(fs.statSync(image).size, before.size);

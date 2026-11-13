@@ -18,6 +18,9 @@ const P = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
         assert.equal(P.decode("BatchHeader", new DataView(batch.buffer), 0).frame_id, 23);
         ++number;
     }
+    const nv=new D9WGWriter(0x3034564E,0x12345678);nv.command(P.OP.END_SCENE,{device_handle:1});
+    const nvHeader=P.decode("BatchHeader",new DataView(nv.finish(1,0).buffer),0);
+    assert.equal(nvHeader.session_id_low,0x3034564E);assert.equal(nvHeader.session_id_high,0x12345678);
     assert.throws(() => writer.command(0xffff, {}), /Unknown/);
     assert.throws(() => encode("SetMaterial", { diffuse: [1, 2, 3] }), /array size/);
     assert.throws(() => encode("SetTexture", { texture_hanlde: 12 }), /Unknown D9WG field/);

@@ -30,6 +30,7 @@ export class NVDevice
     constructor(machine, options = {})
     {
         this.machine = machine;
+        this.renderer = options.renderer || null;
         this.vram_size = options.vram_size === undefined ? 256 << 20 : options.vram_size;
         if(this.vram_size !== 128 << 20 && this.vram_size !== 256 << 20)
         {
@@ -436,6 +437,8 @@ export class NVDevice
         if((enable & 1 && pending & 0x7FFFFFFF) || (enable & 2 && pending & 0x80000000)) this.machine.raise_irq();
         else this.machine.lower_irq();
     }
+
+    prepare_save() {return this.graph.engine3d.backend ? this.graph.engine3d.backend.wait() : Promise.resolve();}
 
     get_state()
     {

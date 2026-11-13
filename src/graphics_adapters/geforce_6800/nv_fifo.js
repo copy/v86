@@ -220,6 +220,7 @@ export class NVFIFO
         if(!(this.reg(0x3250) & 1) || this.reg(0x2100) & 1) return false;
         while(this.reg(0x3270) !== this.reg(0x3210))
         {
+            if(this.device.graph && this.device.graph.engine3d && this.device.graph.engine3d.busy) return false;
             const get = this.reg(0x3270), at = 0x90000 + (get & 0x7FC) * 2, header = this.reg(at);
             if(!this.method(header >>> 13 & 7, header & 0x1FFC, this.reg(at + 4))) return false;
             this.set(0x3270, (get + 4) & 0xFFC);

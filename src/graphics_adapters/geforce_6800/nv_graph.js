@@ -25,7 +25,7 @@ export class NVGraph
         this.engine3d = new NV40_3D(this);
     }
 
-    reset() { this.objects.clear(); this.program.clear(); this.engine3d.captured.clear(); }
+    reset() { this.objects.clear(); this.program.clear(); this.engine3d.captured.clear(); if(this.engine3d.backend) this.engine3d.backend.reset(); }
     reg(at) { return this.device.registers.get(at) || 0; }
     set(at, value) { this.device.registers.set(at, value >>> 0); }
     implemented(at)
@@ -36,7 +36,7 @@ export class NVGraph
 
     read(at)
     {
-        if(at === 0x400700) return 0; // CPU operations retire before returning to PFIFO.
+        if(at === 0x400700) return this.engine3d.busy ? 1 : 0;
         if(at === 0x400328) return this.program.get(this.reg(0x400324)) || 0;
         return null;
     }
@@ -121,7 +121,7 @@ export class NVGraph
                 if(object.class_id === 0x44) accepted = accepted || method >= 0x400 && method < 0x440 ||
                     method >= 0x500 && method < 0x580 || method >= 0x600 && method < 0x680 || method >= 0x700 && method < 0x800;
             }
-            else if(object.class_id === 0x4097) accepted = accepted || this.engine3d.method(object, method, value);
+            else if(object.class_id === 0x4097) accepted = accepted || this.engine3d.method(object, method, value, subc);
             else if(this.engine2d) accepted = accepted || this.engine2d.method(object, method, value);
             if(accepted) object.methods.set(method, value >>> 0);
             else this.error(channel, subc, method, value);

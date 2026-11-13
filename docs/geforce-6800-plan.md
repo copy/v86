@@ -286,6 +286,19 @@
   未实现的压缩格式明确拒绝。表面填充字节、Morton 顺序、原生 X8R8G8B8 编码、
   行填充保持、原子故障及顶点数据测试通过，加入 devices-test，插件构建通过。
 
+- 首条主机 GPU 绘制路径：NV40_3D BEGIN/内联顶点/END 翻译成带原生 VP/FP 的 D9WG，
+  展开 strip/fan/quads/lines，独立 NV40 session；窗口坐标在 VS 尾部重建，viewport 变化
+  只更新常量。当前 D9WG 已由公共执行器演进到 1.9，沿用现有线协议，不降回计划中的 1.8。
+  GPU 目标读回完成后才提交 VRAM 并放行 FIFO/fence；快照先等待读回，恢复时重建主机缓存。
+  不支持的纹理、深度/模板、clip-space 视口和光栅状态明确报错。END 即使绘制报错也关闭
+  primitive，避免下一次 BEGIN 陷入错误。浏览器创建 renderer 的适配器列表已加入 NV40。
+  真实 Chrome WebGPU 的 8×8 像素全匹配 #336699，部分 primitive 快照、primitive 展开、
+  回写/完成/fence 顺序、错误恢复通过；34 个 WGSL 模块（含 XP 有效语料）通过 naga。
+  公共 writer 默认 SVGA session 保持一致，SVGA 3D/图形适配器测试与两个插件构建通过。
+  XP 93.71 原生 GDI 和 DirectDraw 显存填充/复制/Lock 读回均 failures=0，像素 ff336699，
+  原盘未变，见 `g2-xp-9371-ddraw.json`。前一条纹理复制仍报未实现，DxDiag 与 G2/G3
+  完整门禁尚未验收。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

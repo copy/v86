@@ -26,6 +26,11 @@ try
     assert.equal(validate("position",vs).reflection.outputDeclarations[0].usage,0);
     assert.deepEqual(validate("constant",ps).reflection.colorOutputs,[0]);
     assert.deepEqual([...ps.constant_values[0]],fragment.constants[0]);
+    const windowed=translate_vertex_program(vertex,{viewport:{width:32,height:16,bypass:true}});
+    validate("NV-window-position",windowed);assert.equal(windowed.viewport_constants.length,2);
+    const resized=translate_vertex_program(vertex,{viewport:{width:64,height:32,bypass:true}});
+    assert.deepEqual(windowed.bytecode,resized.bytecode,"viewport changes only upload constants");
+    assert.notDeepEqual(windowed.viewport_constants,resized.viewport_constants);
     const changed=structuredClone(fragment);changed.constants[0][0]=0x40000000;
     assert.deepEqual(translate_fragment_program(changed).bytecode,ps.bytecode,"inline values stay outside shader code/cache key");
     const dual=structuredClone(vertex);const i=dual.instructions[0];

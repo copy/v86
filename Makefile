@@ -282,6 +282,7 @@ build/v86-geforce-6800.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/gr
 		--compilation_level SIMPLE --jscomp_off=missingProperties \
 		--output_wrapper ';(function(){%output%}).call(this);' \
 		--js $(GRAPHICS_ADAPTER_COMMON) --js src/graphics_adapters/virtio_gpu/edid.js \
+		--js src/graphics_adapters/vmware_svga/d9wg_constants.js --js src/graphics_adapters/vmware_svga/svga3d_d9wg.js \
 		--js src/graphics_adapters/geforce_6800/nv_trace.js --js src/graphics_adapters/geforce_6800/nv_ddc.js \
 		--js src/graphics_adapters/geforce_6800/nv_display.js \
 		--js src/graphics_adapters/geforce_6800/nv_dma.js \
@@ -289,6 +290,7 @@ build/v86-geforce-6800.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/gr
 		--js src/graphics_adapters/geforce_6800/nv40_program.js \
 		--js src/graphics_adapters/geforce_6800/nv40_shader.js \
 		--js src/graphics_adapters/geforce_6800/nv40_state.js \
+		--js src/graphics_adapters/geforce_6800/nv40_render.js \
 		--js src/graphics_adapters/geforce_6800/nv40_3d.js \
 		--js src/graphics_adapters/geforce_6800/nv_graph.js \
 		--js src/graphics_adapters/geforce_6800/nv_2d.js \
@@ -811,6 +813,7 @@ devices-test: build/v86-debug.wasm
 	node tests/devices/geforce_6800_fifo.js
 	node tests/devices/geforce_6800_graph.js
 	node tests/devices/geforce_6800_state.js
+	node tests/devices/geforce_6800_render.mjs
 	node tests/devices/geforce_6800_2d.js
 	./tests/devices/vmware_svga.js
 	./tests/devices/vmware_svga_3d.js

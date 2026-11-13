@@ -115,7 +115,7 @@ V86.prototype.create_adapter_renderer = async function(options, host)
     if(remote) return remote;
     const create = globalThis["V86SVGARenderer"];
     const gpu = typeof navigator !== "undefined" && navigator["gpu"];
-    if(this.graphics_adapter !== "vmware_svga" && this.graphics_adapter !== "virtio_gpu" && !this.gles_host || typeof create !== "function" || !gpu) return null;
+    if(this.graphics_adapter !== "vmware_svga" && this.graphics_adapter !== "virtio_gpu" && this.graphics_adapter !== "geforce_6800" && !this.gles_host || typeof create !== "function" || !gpu) return null;
     let adapter = null;
     try
     {

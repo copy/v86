@@ -1,6 +1,7 @@
 import {decode_vertex_program,decode_fragment_program} from "./nv40_program.js";
 import {translate_vertex_program,translate_fragment_program} from "./nv40_shader.js";
 import {NV40State} from "./nv40_state.js";
+import {NV40Render} from "./nv40_render.js";
 // NV40_3D control state. Method layouts: envytools rnndb/graph/nv30-40_3d.xml
 // and hwtest/pgraph_class_kelvin.cc (MIT). This implementation is original.
 // Draw, query and clear triggers are deliberately outside the state whitelist.
@@ -65,12 +66,13 @@ const STATE_RANGES = [
 ];
 const get = (o, at) => o.methods.get(at) || 0;
 // Private decoded state keys live outside the guest's 8 KiB method window.
-const VP_CODE = 0x10000, VP_CONSTANTS = 0x20000, VP_WORD = 0x30000, CONST_WORD = 0x30004;
+const VP_CODE = 0x10000, VP_CONSTANTS = 0x20000, VP_WORD = 0x30000, CONST_WORD = 0x30004, PRIMITIVE = 0x50000;
 
 export class NV40_3D
 {
-    constructor(graph) { this.graph = graph; this.device = graph.device; this.captured = new Map(); this.state = new NV40State(this.device); }
-    method(o, at, value)
+    constructor(graph) { this.graph = graph; this.device = graph.device; this.captured = new Map(); this.state = new NV40State(this.device); this.backend = this.device.renderer ? new NV40Render(this,this.device.renderer) : null; }
+    get busy() {return !!(this.backend && this.backend.pending);}
+    method(o, at, value, subc=0)
     {
         if(at & 3 || o.class_id !== 0x4097) return false;
         if(at===0x1808 && value && this.device.trace.enabled)
@@ -78,6 +80,28 @@ export class NV40_3D
             const program=this.program(o), key=JSON.stringify([program.vertex,program.fragment && program.fragment.normalized]);
             if(!this.captured.has(key) && this.captured.size>=64) this.captured.delete(this.captured.keys().next().value);
             this.captured.set(key,program);
+        }
+        if(this.backend && at===0x1808)
+        {
+            if(value)
+            {
+                if(value>10 || get(o,PRIMITIVE)) throw new RangeError("NV40 nested/invalid BEGIN");
+                o.methods.set(PRIMITIVE,value);o.stream=[];
+            }
+            else
+            {
+                const mode=get(o,PRIMITIVE);
+                if(!mode) throw new RangeError("NV40 END without BEGIN");
+                const words=o.stream;
+                o.methods.delete(PRIMITIVE);o.stream=[];
+                if(words.length) this.backend.draw(o,mode,words,null,subc);
+            }
+            return true;
+        }
+        if(this.backend && at===0x1818)
+        {
+            if(!get(o,PRIMITIVE) || o.stream.length>=1<<20) throw new RangeError("NV40 invalid inline vertex stream");
+            o.stream.push(value>>>0);return true;
         }
         if(at === 0x1D70)
         {
@@ -118,7 +142,7 @@ export class NV40_3D
     }
     program(o)
     {
-        const result={channel:o.channel,instance:o.instance,vertex:null,fragment:null,errors:[]};
+        const result={channel:o.channel,instance:o.instance,vertex:null,fragment:null,state:Array.from(o.methods).filter(([at])=>at<0x2000),errors:[]};
         try { result.vertex=decode_vertex_program(this.vertex_program(o),get(o,0x1EA0)); }
         catch(error) { result.errors.push(String(error)); }
         try
@@ -147,7 +171,7 @@ export class NV40_3D
     {
         const program = this.program(o);
         if(program.errors.length) throw new RangeError(program.errors.join("; "));
-        return {vertex: translate_vertex_program(program.vertex), fragment: translate_fragment_program(program.fragment, options)};
+        return {vertex: translate_vertex_program(program.vertex, options), fragment: translate_fragment_program(program.fragment, options)};
     }
     vertex_program(o, first = get(o, 0x1EA0), count = 0x220 - first)
     {

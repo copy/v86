@@ -29,9 +29,13 @@ const SESSION_HIGH = 0;
 /**
  * Builds one batch at a time
  * @constructor
+ * @param {number=} session_low
+ * @param {number=} session_high
  */
-export function D9WGWriter()
+export function D9WGWriter(session_low = SESSION_LOW, session_high = SESSION_HIGH)
 {
+    this.session_low = session_low >>> 0;
+    this.session_high = session_high >>> 0;
     this.bytes = new Uint8Array(1 << 16);
     this.view = new DataView(this.bytes.buffer);
     this.length = BATCH_HEADER_BYTES;
@@ -205,7 +209,7 @@ D9WGWriter.prototype.finish = function(frame_id, flags)
     write_struct(this.view, 0, "BatchHeader", {
         "magic": D9WG_MAGIC, "version_major": D9WG_VERSION_MAJOR, "version_minor": D9WG_VERSION_MINOR,
         "frame_id": frame_id, "flags": flags, "command_count": this.count,
-        "command_bytes": this.length - BATCH_HEADER_BYTES, "session_id_low": SESSION_LOW, "session_id_high": SESSION_HIGH,
+        "command_bytes": this.length - BATCH_HEADER_BYTES, "session_id_low": this.session_low, "session_id_high": this.session_high,
     });
     const batch = this.bytes.slice(0, this.length);
     this.length = BATCH_HEADER_BYTES;

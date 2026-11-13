@@ -106,9 +106,9 @@ class Shader
 const arity = name => ["MOV","RCP","RSQ","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY"].includes(name)?1:
     ["MUL","ADD","DP3","DP4","DST","MIN","MAX","SLT","SGE"].includes(name)?2:name==="MAD"?3:0;
 
-export function translate_vertex_program(program)
+export function translate_vertex_program(program,options={})
 {
-    const shader=new Shader("vertex");
+    const shader=new Shader("vertex"),position=options.viewport?shader.temp("$position"):-1;
     // r29 is arithmetic scratch; r30/r31 retain both VLIW results until both
     // slots have read their operands. Commit vector first, then scalar.
     for(const instruction of program.instructions)
@@ -123,12 +123,43 @@ export function translate_vertex_program(program)
             const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
             const sources=selectors.map(index=>shader.source(i.sources[index],-1,slot===1));
             shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
-            const type=op.type==="output"?6:0,index=type===6?shader.output(op.index):shader.temp("r"+op.index);
+            const intercepted=position>=0 && op.type==="output" && op.index===0;
+            const type=op.type==="output"&&!intercepted?6:0;
+            const index=intercepted?position:type===6?shader.output(op.index):shader.temp("r"+op.index);
             results.push([dst(type,index,op.mask),src(0,30+slot)]);
         }
         for(const operands of results) shader.emit(OP.MOV,...operands);
     }
-    return shader.finish();
+    const viewport_constants=[];
+    if(position>=0)
+    {
+        const v=options.viewport,w=v.width,h=v.height;
+        if(!(w>0 && h>0)) throw new RangeError("NV40 viewport dimensions");
+        const reserve=()=>{
+            for(let i=255;i>=0;i--) if(!shader.constants.has(i)) {shader.constants.add(i);return i;}
+            throw new RangeError("NV40 viewport constant register budget");
+        };
+        const scale=reserve(),bias=reserve(),output=dst(6,shader.output(0));
+        // Cancel the D3D9 wrapper's half-pixel correction: NV rasterization
+        // already has its own pixel-center convention. In bypass mode W is
+        // reciprocal homogeneous W, while XYZ are window coordinates.
+        const factors=v.bypass?[2/w,-2/h,1,0]:[2*v.scale[0]/w,-2*v.scale[1]/h,v.scale[2],1];
+        const offsets=v.bypass?[-1-1/w,1+1/h,0,1]:[2*v.translate[0]/w-1-1/w,1-2*v.translate[1]/h+1/h,v.translate[2],0];
+        if(!factors.concat(offsets).every(Number.isFinite)) throw new RangeError("NV40 nonfinite viewport");
+        viewport_constants.push([scale,Float32Array.from(factors)],[bias,Float32Array.from(offsets)]);
+        if(v.bypass)
+        {
+            shader.emit(OP.MAD,dst(0,30),src(0,position),src(2,scale),src(2,bias));
+            shader.emit(OP.RCP,dst(0,31),src(0,position,[3,3,3,3]));
+            shader.emit(OP.MUL,output,src(0,30),src(0,31));
+        }
+        else
+        {
+            shader.emit(OP.MUL,dst(0,30),src(0,position),src(2,scale));
+            shader.emit(OP.MAD,output,src(0,position,[3,3,3,3]),src(2,bias),src(0,30));
+        }
+    }
+    return {...shader.finish(),viewport_constants};
 }
 
 export function translate_fragment_program(program,options={})
