@@ -66,7 +66,7 @@ const STATE_RANGES = [
 ];
 const get = (o, at) => o.methods.get(at) || 0;
 // Private decoded state keys live outside the guest's 8 KiB method window.
-const VP_CODE = 0x10000, VP_CONSTANTS = 0x20000, VP_WORD = 0x30000, CONST_WORD = 0x30004, PRIMITIVE = 0x50000;
+const VP_CODE = 0x10000, VP_CONSTANTS = 0x20000, VP_WORD = 0x30000, CONST_WORD = 0x30004, PRIMITIVE = 0x50000, VERTEX_MODE = 0x50004;
 
 export class NV40_3D
 {
@@ -86,22 +86,29 @@ export class NV40_3D
             if(value)
             {
                 if(value>10 || get(o,PRIMITIVE)) throw new RangeError("NV40 nested/invalid BEGIN");
-                o.methods.set(PRIMITIVE,value);o.stream=[];
+                o.methods.set(PRIMITIVE,value);o.methods.delete(VERTEX_MODE);o.stream=[];
             }
             else
             {
                 const mode=get(o,PRIMITIVE);
                 if(!mode) throw new RangeError("NV40 END without BEGIN");
-                const words=o.stream;
-                o.methods.delete(PRIMITIVE);o.stream=[];
-                if(words.length) this.backend.draw(o,mode,words,null,subc);
+                const words=o.stream,indexed=get(o,VERTEX_MODE)===2;
+                o.methods.delete(PRIMITIVE);o.methods.delete(VERTEX_MODE);o.stream=[];
+                if(words.length) this.backend.draw(o,mode,indexed?null:words,indexed?words:null,subc);
             }
             return true;
         }
-        if(this.backend && at===0x1818)
+        if(this.backend && [0x180C,0x1810,0x1814,0x1818,0x1824].includes(at))
         {
-            if(!get(o,PRIMITIVE) || o.stream.length>=1<<20) throw new RangeError("NV40 invalid inline vertex stream");
-            o.stream.push(value>>>0);return true;
+            const mode=at===0x1818?1:2,count=at===0x180C?2:at===0x1814 || at===0x1824?(value>>>24)+1:1;
+            if(!get(o,PRIMITIVE) || o.stream.length+count>1<<20) throw new RangeError("NV40 invalid vertex stream");
+            if(get(o,VERTEX_MODE) && get(o,VERTEX_MODE)!==mode) throw new RangeError("NV40 mixed inline and indexed vertices");
+            let values;
+            if(at===0x180C) values=[value&65535,value>>>16];
+            else if(at===0x1814) values=Array.from({length:count},(_,i)=>(value&0xFFFFFF)+i);
+            else if(at===0x1824) values=this.state.indices(o,value&0xFFFFFF,count);
+            else values=[value>>>0];
+            o.methods.set(VERTEX_MODE,mode);o.stream.push(...values);return true;
         }
         if(at === 0x1D70)
         {

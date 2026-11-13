@@ -67,8 +67,26 @@ try
     assert.equal(engine.busy,false);assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
     for(let at=0x10000;at<0x10100;at+=4)assert.deepEqual([...vram.subarray(at,at+4)],[0x99,0x66,0x33,0xFF],"actual target pixel "+at.toString(16));
     assert.equal(device.fifo.drain(),true);assert.equal(view.getUint32(0x800,true),0xABCD1234,"fence follows committed VRAM");
+    // Inline indices and DMA batches share one index stream, retained mid-BEGIN.
+    const draw=engine.backend.draw;let captured;
+    engine.backend.draw=(...args)=>{captured=args;};
+    method(0x1808,5);method(0x180C,1<<16);const indexedSaved=graph.get_state();graph.set_state(indexedSaved);
+    method(0x1810,2);method(0x1808,0);
+    assert.equal(captured[2],null);assert.deepEqual(captured[3],[0,1,2]);
+    method(0x1808,5);method(0x1814,2<<24|5);method(0x1808,0);assert.deepEqual(captured[3],[5,6,7]);
+    method(0x19C,0x100);method(0x181C,0x3000);method(0x1820,0x10);
+    new Uint16Array(vram.buffer,0x3000,4).set([99,2,0,1]);
+    method(0x1808,5);method(0x1824,2<<24|1);method(0x1808,0);assert.deepEqual(captured[3],[2,0,1]);
+    method(0x1808,5);method(0x1810,0);
+    assert.throws(()=>engine.method(graph.objects.values().next().value,0x1818,0),/mixed/);
+    method(0x1808,0);assert.deepEqual(captured[3],[0],"rejected mixed data leaves the index stream intact");
+    engine.backend.draw=draw;
     if(remote)
     {
+        method(0x1680,0x4000);new Float32Array(vram.buffer,0x4000,6).set([0,0,0,16,16,0]);
+        method(0x1808,5);method(0x1824,2<<24|1);method(0x1808,0);await engine.backend.wait();
+        assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0x99,0x66,0x33,0xFF],"DMA indexed triangle renders actual pixels");
         // A real sampled checkerboard also tests Curie's output crossbar:
         // the VP writes raw TBUF5, mapped to the FP's TEX0 input.
         method(0x1E9C,0);

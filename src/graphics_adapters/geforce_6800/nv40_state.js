@@ -101,6 +101,16 @@ export class NV40State
         }
         return {bytes,count,stride:inputs.length*16};
     }
+    indices(o,first,count)
+    {
+        const format=get(o,0x1820),type=format>>>4&15;
+        if(type>1 || format&~0x11) throw new RangeError("NV40 invalid index buffer format");
+        if(!Number.isSafeInteger(first) || !Number.isSafeInteger(count) || first<0 || count<0 || count>1<<20)
+            throw new RangeError("NV40 invalid index buffer range");
+        const size=type===1?2:4,dma=this.dma(o,format&1?0x1A0:0x19C);
+        const bytes=this.device.dma.read(dma,get(o,0x181C)+first*size,count*size),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+        return Array.from({length:count},(_,i)=>size===2?view.getUint16(i*2,true):view.getUint32(i*4,true));
+    }
     array_vertices(o,indices,inputs)
     {
         const bytes=new Uint8Array(indices.length*inputs.length*16),view=new DataView(bytes.buffer);

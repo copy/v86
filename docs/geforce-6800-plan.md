@@ -325,6 +325,13 @@ NV40，2D 在 CPU 侧完成，3D 翻译成现有的 D9WG 批次，由页面上�
 高层的 3D 命令（SVGA3D、VGPU10、virgl、Venus）；NV40 给客体的是真实硬件接口，客体驱动是闭源的
 NVIDIA 驱动，设备必须从硬件层面的方法流重建 D3D9 级的状态。
 
+- G3 顶点提交续修（2026-11-14）：实现 VB_ELEMENT_U16/U32、VB_VERTEX_BATCH、
+  VB_INDEX_BATCH，索引 DMA0/1、16/32-bit 读取与有符号 VB_ELEMENT_BASE。BEGIN 内的
+  索引流和类型随对象快照恢复；混合内联属性与索引、越界 DMA、过长批次明确报错。
+  状态/渲染测试、Closure 构建通过，真实 WebGPU 的 DMA 索引三角形像素读回正确。
+  此项不替代原生 DxDiag/3DMark 的 G3 验收。
+
+
 ## 选型结论
 
 2026-10-26 的选型过程（证据见“规范与实现参考”）：
