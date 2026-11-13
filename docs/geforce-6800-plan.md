@@ -270,6 +270,16 @@
   PGRAPH 可从真实对象生成 shader pair；31 个模块（含 XP 原生捕获）经现有 D3D9 管线
   转 WGSL 并通过 naga，PGRAPH 集成测试和插件 Closure 构建通过。绘制后端仍待接入。
 
+- G1 原生显示/模式/DOS/快照门禁复核：XP 93.71 与 Win98 81.98 均在无问题码下
+  显示 1024×768×32；98 实测 640×480×8、800×600×16、1024×768×32，CDS_TEST、
+  实际切换和 GetDeviceCaps 一致。DOS COM 进入 mode 13h，写/读 VGA 像素，等待两个秒钟
+  捕获完整 320×200 scanout，再回文本并返回桌面，退出码 0、标记 NV40DOS0。
+  debug/release 冷启动通过，两个系统快照恢复后显示与 FIFO 保持正常。证据见
+  `g1-native-modes-dos.json`。一次早先的 release 冷启动在 VBIOS shadow 中遇到文字字节
+  并停住，之后复测未重现；失败快照保留到 G6 排查稳定性，不据此掩盖未决问题。
+  探针还核对 GDI 桌面备份与恢复，均为 failures=0；DirectDraw 仅在驱动宣告支持时测 XOR，
+  实际填充读回仍失败，G2 未验收。G3-G7 尚未完成。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

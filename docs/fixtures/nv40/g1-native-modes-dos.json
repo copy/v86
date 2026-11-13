@@ -1,0 +1,191 @@
+{
+  "date": "2026-11-14",
+  "status": "native display, mode, DOS and snapshot gates verified",
+  "build": "release core, source JS plus Closure display plugin",
+  "guests": {
+    "win98": {
+      "driver": "81.98",
+      "status": "INITIALIZED",
+      "originalImageUnchanged": true,
+      "seconds": 127,
+      "mode": {
+        "width": 1024,
+        "height": 768,
+        "pitch": 4096,
+        "bytes": 4,
+        "rgb565": false
+      },
+      "probe": [
+        "PROBE_ID 36",
+        "DEVICE PCI\\VEN_10DE&DEV_0045 problem=0 cm=0 started=1 service= driver=Display\\0001 description=NVIDIA GeForce 6800 GT",
+        "MODE_TEST result=0",
+        "MODE_SET result=0",
+        "MODE_MATRIX 640x480x8 test=0 set=0 actual-bpp=8",
+        "MODE_MATRIX 800x600x16 test=0 set=0 actual-bpp=16",
+        "MODE_MATRIX 1024x768x32 test=0 set=0 actual-bpp=32",
+        "DOS_TEST started=1 error=0",
+        "DOS_TEST wait=0 exit=0 marker=NV40DOS0",
+        "GDI_TEST failures=0",
+        "DEVICE PCI\\VEN_10DE&DEV_0045 problem=0 cm=0 started=1 service= driver=Display\\0001 description=NVIDIA GeForce 6800 GT",
+        "SCREEN 1024x768"
+      ]
+    },
+    "xp": {
+      "driver": "93.71",
+      "status": "INITIALIZED",
+      "originalImageUnchanged": true,
+      "seconds": 16,
+      "mode": {
+        "width": 1024,
+        "height": 768,
+        "pitch": 4096,
+        "bytes": 4,
+        "rgb565": false
+      },
+      "probe": [
+        "PROBE_ID 28",
+        "DEVICE PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1 problem=0 cm=0 started=1 service=nv driver={4D36E968-E325-11CE-BFC1-08002BE10318}\\0000 description=NVIDIA GeForce 6800 GT",
+        "MODE_TEST result=0",
+        "MODE_SET result=0",
+        "GDI_TEST failures=0",
+        "DEVICE PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1 problem=0 cm=0 started=1 service=nv driver={4D36E968-E325-11CE-BFC1-08002BE10318}\\0000 description=NVIDIA GeForce 6800 GT",
+        "SCREEN 1024x768"
+      ]
+    }
+  },
+  "dosScanoutHistory": [
+    [
+      320,
+      25
+    ],
+    [
+      320,
+      200
+    ],
+    [
+      320,
+      400
+    ],
+    [
+      320,
+      25
+    ],
+    [
+      320,
+      200
+    ],
+    [
+      320,
+      400
+    ],
+    [
+      1016,
+      767
+    ],
+    [
+      1024,
+      768
+    ],
+    [
+      640,
+      767
+    ],
+    [
+      632,
+      767
+    ],
+    [
+      632,
+      512
+    ],
+    [
+      632,
+      511
+    ],
+    [
+      632,
+      480
+    ],
+    [
+      632,
+      479
+    ],
+    [
+      792,
+      479
+    ],
+    [
+      792,
+      223
+    ],
+    [
+      792,
+      735
+    ],
+    [
+      792,
+      600
+    ],
+    [
+      792,
+      599
+    ],
+    [
+      1016,
+      599
+    ],
+    [
+      1016,
+      767
+    ],
+    [
+      1024,
+      768
+    ],
+    [
+      320,
+      25
+    ],
+    [
+      320,
+      200
+    ],
+    [
+      1016,
+      767
+    ],
+    [
+      1024,
+      768
+    ]
+  ],
+  "snapshotRoundTrips": {
+    "win98": {
+      "mode": {
+        "width": 1024,
+        "height": 768,
+        "pitch": 4096,
+        "bytes": 4,
+        "rgb565": false
+      },
+      "graphFaults": [],
+      "originalImageUnchanged": true
+    },
+    "xp": {
+      "mode": {
+        "width": 1024,
+        "height": 768,
+        "pitch": 4096,
+        "bytes": 4,
+        "rgb565": false
+      },
+      "graphFaults": [],
+      "originalImageUnchanged": true
+    }
+  },
+  "limits": [
+    "G2 DirectDraw still fails its pixel readback until the NV40_3D draw backend is connected.",
+    "One earlier release cold boot stalled in VBIOS with text bytes in its shadow. Subsequent debug and release runs passed; retain the failed snapshot for G6 stability investigation.",
+    "Benchmarks, Direct3D and G3-G7 acceptance are not complete."
+  ]
+}

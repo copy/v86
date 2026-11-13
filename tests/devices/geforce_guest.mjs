@@ -16,6 +16,18 @@ import { V86 } from "../../src/main.js";
 // screenshot sink equally bounded when an old layer arrives after a resize.
 class ProbeSink extends PictureSink
 {
+    constructor() { super(); this.transitions = []; }
+    set_size_graphical(width, height)
+    {
+        super.set_size_graphical(width, height);
+        const last = this.transitions[this.transitions.length - 1];
+        if(!last || last[0] !== width || last[1] !== height)
+        {
+            if(this.transitions.length === 256) this.transitions.shift();
+            this.transitions.push([width, height]);
+        }
+    }
+
     update_buffer(layers)
     {
         for(const l of layers) for(let y = 0; y < l.buffer_height; y++)
@@ -104,10 +116,18 @@ export async function run_geforce_guest(win98)
         }
         else if(!/\.(cab|hdr|bmp|skin|ibt|iss|inx|bin)$/i.test(entry)) files["DRIVER/" + entry] = fs.readFileSync(path.join(source, entry));
     }
+    if(process.env.NV_DOS_TEST)
+    {
+        const dos=path.join(out,"NVDOS.COM");
+        run("nasm",["-f","bin",path.join(root,"tests/devices/geforce_dos.asm"),"-o",dos]);
+        files["NVDOS.COM"]=fs.readFileSync(dos);
+    }
     const binary = path.join(out, "NVPROBE.EXE");
     run("i686-w64-mingw32-gcc", ["-Os", "-nostdlib", "-fno-builtin", "-fno-stack-protector", "-mno-stack-arg-probe",
         "-Wl,--entry,_entry@0", "-Wl,--subsystem,console", ...(win98 ? ["-DNV_WIN98"] : []),
         ...(process.env.NV_MODE_TEST ? ["-DNV_MODE_TEST"] : []),
+        ...(process.env.NV_MODE_MATRIX ? ["-DNV_MODE_MATRIX"] : []),
+        ...(process.env.NV_DOS_TEST ? ["-DNV_DOS_TEST"] : []),
         ...(process.env.NV_SKIP_INSTALL ? ["-DNV_SKIP_INSTALL"] : []),
         ...(process.env.NV_AUTOSTART ? ["-DNV_AUTOSTART"] : []),
         ...(process.env.NV_REBOOT ? ["-DNV_REBOOT"] : []), "-o", binary,
@@ -125,7 +145,7 @@ export async function run_geforce_guest(win98)
     const tools = new MemoryDisk(tools_bytes), before = fs.statSync(image), disk = new ReadOnlyOverlayDisk(image);
     if(process.env.NV_OVERLAY_LOAD) disk.set_state(deserialize(fs.readFileSync(process.env.NV_OVERLAY_LOAD)));
     const sink = new ProbeSink();
-    const vm = new V86({ graphics_adapter: "geforce_6800", vram_size: 128 << 20,
+    const vm = new V86({ disable_jit:!!process.env.NV_DISABLE_JIT, ...(process.env.NV_WASM ? {wasm_path:path.resolve(process.env.NV_WASM)} : {}), graphics_adapter: "geforce_6800", vram_size: 128 << 20,
         bios: { url: root + "bios/seabios.bin" },
         ...(process.env.NV_ROM ? { vga_bios: { url: path.resolve(process.env.NV_ROM) } } : {}),
         hda: disk, hdb: tools, boot_order: 0x213, memory_size: (win98 ? 256 : 1024) << 20,
@@ -146,7 +166,9 @@ export async function run_geforce_guest(win98)
     const trace_report = () => ({ ...nv.trace.report(),
         registers: Array.from(nv.registers, ([offset, value]) => [offset.toString(16), value >>> 0]),
         pci: Array.from(nv.machine.pci_config()),
-        cpu: {eip: vm.v86.cpu.instruction_pointer[0] >>> 0, regs: Array.from(vm.v86.cpu.reg32), halted: vm.v86.cpu.in_hlt[0]},
+        cpu: {eip: vm.v86.cpu.instruction_pointer[0] >>> 0, regs: Array.from(vm.v86.cpu.reg32), halted: vm.v86.cpu.in_hlt[0], flags:vm.v86.cpu.get_eflags()},
+        pic:vm.v86.cpu.get_state_pic(),pirq:Array.from(vm.v86.cpu.devices.pci.isa_bridge_space8.slice(0x60,0x64)),
+        scanout: sink.transitions,
         display: { crtc: Array.from(nv.display.crtc), front: nv.display.front, mode: nv.display.mode() },
         graph: nv.graph.get_state(), graphFaults: nv.graph.faults, fifo: nv.fifo.get_state() });
     try
@@ -156,6 +178,7 @@ export async function run_geforce_guest(win98)
         {
             await vm.restore_state(fs.readFileSync(process.env.NV_STATE_LOAD));
             if(process.env.NV_PROBE_REPLACE) replace_probe(tools.bytes, probe);
+            if(process.env.NV_DISABLE_JIT) vm.v86.cpu.configure_jit_backend({disable_jit:true});
             await vm.run();
         }
         const cpu = vm.v86.cpu;
@@ -165,6 +188,8 @@ export async function run_geforce_guest(win98)
         {
             await delay(1000);
             cpu.devices.display.request_frame(true);
+            if(process.env.NV_DOS_TEST && sink.graphical && (sink.width === 320 || sink.width === 640 && sink.height === 400))
+                save_png(sink, out, "dos");
             if(!reboot_seen && result_text().includes("REBOOT_REQUEST"))
             {
                 reboot_seen = true; launches = 0; next_launch = elapsed() + 100;

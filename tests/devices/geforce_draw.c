@@ -8,8 +8,10 @@ DWORD nv_gdi_probe(void)
     HDC screen=GetDC(0),saved=CreateCompatibleDC(screen);
     HBITMAP bitmap=CreateCompatibleBitmap(screen,80,40);
     if(!screen || !saved || !bitmap) return 8;
+    COLORREF before=GetPixel(screen,20,20);
     HGDIOBJ original=SelectObject(saved,bitmap);
     if(!BitBlt(saved,0,0,80,40,screen,16,16,SRCCOPY)) failures|=8;
+    if(GetPixel(saved,4,4)!=before) failures|=16;
     HBRUSH brush=CreateSolidBrush(RGB(0x33,0x66,0x99));
     RECT rect={16,16,96,56};
     if(!FillRect(screen,&rect,brush)) failures|=8;
@@ -29,6 +31,7 @@ DWORD nv_gdi_probe(void)
     if(pixels<20) failures|=4;
     SetTextColor(screen,color);SetBkMode(screen,background);SelectObject(screen,font);
     BitBlt(screen,16,16,80,40,saved,0,0,SRCCOPY);GdiFlush();
+    if(GetPixel(screen,20,20)!=before) failures|=32;
     DeleteObject(brush);SelectObject(saved,original);DeleteObject(bitmap);DeleteDC(saved);ReleaseDC(0,screen);
     return failures;
 }
@@ -72,6 +75,7 @@ DWORD nv_ddraw_probe(void (*mark)(const char*))
     detail(mark,"DDRAW_BITS",desc.ddpfPixelFormat.dwRGBBitCount);detail(mark,"DDRAW_PIXEL",*(DWORD*)desc.lpSurface);detail(mark,"DDRAW_PITCH",desc.lPitch);
     if(desc.ddpfPixelFormat.dwRGBBitCount!=32 || (*(DWORD*)desc.lpSurface&0xFFFFFF)!=0x00336699) failures|=128;
     IDirectDrawSurface7_Unlock(target,0);
+    if(!(caps.dwRops[0x66>>5] & (1u<<(0x66&31)))) {mark("DDRAW_XOR_NOT_ADVERTISED");goto done;}
     fx.dwROP=SRCINVERT;
     HRESULT rop_result=IDirectDrawSurface7_Blt(target,0,source,0,DDBLT_ROP|DDBLT_WAIT,&fx);
     detail(mark,"DDRAW_ROP_RESULT",rop_result);

@@ -475,7 +475,35 @@ void WINAPI entry(void)
         }
     }
 #endif
-    #ifdef NV_GDI_TEST
+    #ifdef NV_MODE_MATRIX
+    static const DWORD dimensions[][3]={{640,480,8},{800,600,16},{1024,768,32}};
+    for(unsigned int i=0;i<3;i++)
+    {
+        DEVMODEA m;for(unsigned int j=0;j<sizeof(m);j++)((BYTE*)&m)[j]=0;
+        m.dmSize=sizeof(m);m.dmDriverExtra=0;m.dmFields=DM_PELSWIDTH|DM_PELSHEIGHT|DM_BITSPERPEL;
+        m.dmPelsWidth=dimensions[i][0];m.dmPelsHeight=dimensions[i][1];m.dmBitsPerPel=dimensions[i][2];
+        LONG test=ChangeDisplaySettingsA(&m,CDS_TEST),set=test==DISP_CHANGE_SUCCESSFUL?ChangeDisplaySettingsA(&m,0):test;
+        HDC dc=GetDC(0);DWORD bits=dc?GetDeviceCaps(dc,BITSPIXEL):0;if(dc)ReleaseDC(0,dc);
+        put("MODE_MATRIX ");number(m.dmPelsWidth);put("x");number(m.dmPelsHeight);put("x");number(m.dmBitsPerPel);
+        put(" test=");number(test);put(" set=");number(set);put(" actual-bpp=");number(bits);line();
+    }
+#endif
+#ifdef NV_DOS_TEST
+    char dos[MAX_PATH],directory[MAX_PATH],marker[MAX_PATH];lstrcpyA(dos,output);lstrcpyA(dos+end,"NVDOS.COM");
+    lstrcpyA(directory,output);directory[end]=0;lstrcpyA(marker,directory);lstrcatA(marker,"NVDOS.TXT");DeleteFileA(marker);
+    STARTUPINFOA startup;for(unsigned int i=0;i<sizeof(startup);i++)((BYTE*)&startup)[i]=0;startup.cb=sizeof(startup);
+    PROCESS_INFORMATION process;BOOL started=CreateProcessA(dos,0,0,0,FALSE,CREATE_NEW_CONSOLE,0,directory,&startup,&process);
+    put("DOS_TEST started=");number(started);put(" error=");number(started?0:GetLastError());line();
+    if(started)
+    {
+        DWORD waited=WaitForSingleObject(process.hProcess,60000),exit=STILL_ACTIVE;
+        GetExitCodeProcess(process.hProcess,&exit);CloseHandle(process.hThread);CloseHandle(process.hProcess);
+        char result[9]={0};DWORD read=0;HANDLE file=CreateFileA(marker,GENERIC_READ,FILE_SHARE_READ|FILE_SHARE_WRITE,0,OPEN_EXISTING,0,0);
+        if(file!=INVALID_HANDLE_VALUE){ReadFile(file,result,8,&read,0);CloseHandle(file);}
+        put("DOS_TEST wait=");number(waited);put(" exit=");number(exit);put(" marker=");put(result);line();
+    }
+#endif
+#ifdef NV_GDI_TEST
     extern DWORD nv_gdi_probe(void);
     put("GDI_TEST failures=");number(nv_gdi_probe());line();
     #endif
