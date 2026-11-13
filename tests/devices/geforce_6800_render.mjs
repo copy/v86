@@ -230,6 +230,20 @@ try
             method(0x1A04,format);vram.set(bytes,0x20000);await mipDraw(0x01010000,expected);
         }
         console.log("PASS: real WebGPU BC1/BC2/BC3 sampled colors, component routing and alpha");
+        const operand=swizzle=>2|swizzle.reduce((bits,value,i)=>bits|value<<(9+i*2),0),identity=[0,1,2,3],reverse=[3,2,1,0];
+        for(const [opcode,swizzle,expected]of [[12,reverse,[0,255,255,0]],[13,reverse,[255,0,0,255]],
+            [15,identity,[255,255,255,255]],[15,reverse,[0,0,0,0]],[14,identity,[0,0,0,0]],[14,reverse,[255,255,255,255]],
+            [32,identity,[255,255,255,255]],[33,identity,[0,0,0,0]],[58,[1,1,1,1],[255,255,128,255]],[46,reverse,[153,153,153,153]]])
+        {
+            const words=[opcode<<24|0x1E81,7<<18|operand(identity),operand(swizzle),operand(identity),
+                ...new Uint32Array(Float32Array.of(.2,.4,.6,.8).buffer)];
+            words.forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            method(0x1808,6);for(const word of new Uint32Array(floats.buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();
+            const pixel=[...vram.subarray(0x10000,0x10004)];
+            expected.forEach((value,i)=>assert(Math.abs(pixel[i]-value)<=1,"native ALU opcode "+opcode+" component "+i+": "+pixel));
+        }
+        console.log("PASS: real WebGPU native SLE/SGT/SEQ/SNE/STR/SFL/DIV/DP2A instruction pixels");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

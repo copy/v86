@@ -3,7 +3,7 @@
 // Unsupported predicates, branches and register aliases fail before any draw.
 const OP = {MOV:1,ADD:2,SUB:3,MAD:4,MUL:5,RCP:6,RSQ:7,DP3:8,DP4:9,MIN:10,MAX:11,
     SLT:12,SGE:13,LIT:16,DST:17,FRC:19,DCL:31,SINCOS:37,MOVA:46,DEF:81,
-    KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95};
+    KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90};
 const bits = type => (type & 7) << 28 | (type & 24) << 8;
 const dst = (type,index,mask=15,saturate=false,shift=0) =>
     (0x80000000 | bits(type) | index | mask << 16 | +saturate << 20 | shift << 24) >>> 0;
@@ -17,10 +17,10 @@ const FRAGMENT_INPUTS = [[0,0],[10,0],[10,1],[11,0],...Array.from({length:10},(_
 
 class Shader
 {
-    constructor(stage)
+    constructor(stage,reserved=[])
     {
         this.stage=stage;this.declarations=[];this.body=[];this.inputs=new Map();this.outputs=new Map();
-        this.temps=new Map();this.samplers=new Map();this.constants=new Set();this.aliases=new Map();
+        this.temps=new Map();this.samplers=new Map();this.constants=new Set(reserved);this.aliases=new Map();this.literals=new Map();
     }
     emit(op,...operands) { this.body.push((operands.length<<24|op)>>>0,...operands); }
     declare(type,index,meaning) { this.declarations.push(0x0200001F,semantic(...meaning),dst(type,index)); }
@@ -82,8 +82,45 @@ class Shader
         const swizzle=scalar?Array(4).fill(source.swizzle[0]):source.swizzle;
         return src(type,index,swizzle,source.negate,source.absolute);
     }
+    literal(value)
+    {
+        if(!this.literals.has(value))
+        {
+            let index=(this.stage==="vertex"?256:224)-1;
+            while(index>=0 && this.constants.has(index))index--;
+            if(index<0)throw new RangeError("NV40 arithmetic constant register budget");
+            this.constants.add(index);this.literals.set(value,index);
+            const word=new Uint32Array(Float32Array.of(value).buffer)[0];
+            this.declarations.push(0x05000051,dst(2,index),word,word,word,word);
+        }
+        return src(2,this.literals.get(value));
+    }
     alu(name,destination,sources)
     {
+        if(name==="SFL" || name==="STR") {this.emit(OP.MOV,destination,this.literal(name==="STR"?1:0));return;}
+        if(name==="SLE" || name==="SGT") {this.emit(name==="SLE"?OP.SGE:OP.SLT,destination,sources[1],sources[0]);return;}
+        if(name==="SEQ" || name==="SNE")
+        {
+            this.emit(OP.SUB,dst(0,29),sources[0],sources[1]);this.emit(OP.ABS,dst(0,29),src(0,29));
+            // Equality compares against zero, preserving unordered comparisons.
+            if(name==="SEQ")this.emit(OP.SGE,destination,this.literal(0),src(0,29));
+            else
+            {
+                this.emit(OP.SGE,dst(0,29),this.literal(0),src(0,29));
+                this.emit(OP.SUB,destination,this.literal(1),src(0,29));
+            }
+            return;
+        }
+        if(name==="SSG") {this.emit(OP.SGN,destination,sources[0],sources[0],sources[0]);return;}
+        if(name==="DPH")
+        {
+            this.emit(OP.MOV,dst(0,29),sources[0]);this.emit(OP.MOV,dst(0,29,8),this.literal(1));
+            this.emit(OP.DP4,destination,src(0,29),sources[1]);return;
+        }
+        if(name==="DIV")
+        {
+            this.emit(OP.RCP,dst(0,29),sources[1]);this.emit(OP.MUL,destination,sources[0],src(0,29));return;
+        }
         if(name==="FLR")
         {
             this.emit(OP.FRC,dst(0,29),sources[0]);this.emit(OP.SUB,destination,sources[0],src(0,29));return;
@@ -103,12 +140,14 @@ class Shader
             constants:Array.from(this.constants).sort((a,b)=>a-b)};
     }
 }
-const arity = name => ["MOV","RCP","RSQ","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY"].includes(name)?1:
-    ["MUL","ADD","DP3","DP4","DST","MIN","MAX","SLT","SGE"].includes(name)?2:name==="MAD"?3:0;
+const arity = name => ["MOV","RCP","RSQ","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG"].includes(name)?1:
+    ["MUL","ADD","DP3","DP4","DPH","DST","MIN","MAX","SLT","SGE","SLE","SGT","SEQ","SNE","DIV"].includes(name)?2:
+    name==="MAD" || name==="DP2A"?3:0;
+const nullary=name=>name==="SFL" || name==="STR";
 
 export function translate_vertex_program(program,options={})
 {
-    const shader=new Shader("vertex"),raw=new Map();
+    const shader=new Shader("vertex",program.instructions.flatMap(i=>i.sources.filter(s=>s.type==="constant").map(s=>s.index))),raw=new Map();
     const output=index=>{if(!raw.has(index))raw.set(index,shader.temp("output"+index));return raw.get(index);};
     // r29 is arithmetic scratch; r30/r31 retain both VLIW results until both
     // slots have read their operands. Commit vector first, then scalar.
@@ -120,7 +159,7 @@ export function translate_vertex_program(program,options={})
         for(let slot=0;slot<2;slot++)
         {
             const op=slots[slot];if(op.name==="NOP" || !op.mask) continue;
-            const count=arity(op.name);if(!count) throw new RangeError("NV40 unsupported vertex opcode "+op.name);
+            const count=arity(op.name);if(!count && !nullary(op.name)) throw new RangeError("NV40 unsupported vertex opcode "+op.name);
             const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
             const sources=selectors.map(index=>shader.source(i.sources[index],-1,slot===1));
             shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
@@ -172,7 +211,7 @@ export function translate_vertex_program(program,options={})
 
 export function translate_fragment_program(program,options={})
 {
-    const shader=new Shader("fragment");
+    const shader=new Shader("fragment",program.constants.map((_,i)=>i));
     const written=new Set();
     for(const i of program.instructions)
     {
@@ -180,7 +219,7 @@ export function translate_fragment_program(program,options={})
             throw new RangeError("NV40 fragment control flow needs lowering");
         if(i.predicate.condition===0 || i.name==="NOP") continue;
         const count=arity(i.name),texture=["TEX","TXP","TXB","TXL","TXD"].includes(i.name);
-        if(!count && !texture && i.name!=="KIL") throw new RangeError("NV40 unsupported fragment opcode "+i.name);
+        if(!count && !texture && i.name!=="KIL" && !nullary(i.name)) throw new RangeError("NV40 unsupported fragment opcode "+i.name);
         const sources=i.sources.slice(0,texture?i.name==="TXD"?3:1:i.name==="KIL"?1:count)
             .map(source=>shader.source(source,i.constant));
         if(i.name==="KIL")

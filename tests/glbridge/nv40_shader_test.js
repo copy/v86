@@ -48,11 +48,17 @@ try
     assert.equal(dualCode[first+4]&65535,6,"scalar result computed before vector destination commits");
     assert.equal(dualCode[first+7]&65535,1,"both slots commit after reading their old operands");
     validate("dual",{bytecode:dualCode});
-    for(const name of ["MOV","MUL","ADD","MAD","DP3","DP4","DST","MIN","MAX","SLT","SGE","FRC","FLR","RCP","RSQ","EX2","LG2","SIN","COS","DDX","DDY"])
+    for(const name of ["MOV","MUL","ADD","MAD","DP3","DP4","DST","MIN","MAX","SLT","SGE","FRC","FLR","RCP","RSQ","EX2","LG2","SIN","COS","DDX","DDY",
+        "DPH","DP2A","SEQ","SNE","SLE","SGT","SSG","SFL","STR","DIV"])
     {
         const p=structuredClone(fragment);p.instructions[0].name=name;p.instructions[0].sources=Array.from({length:3},()=>p.instructions[0].sources[0]);
         validate("alu-"+name,translate_fragment_program(p));
     }
+    const late=structuredClone(vertex),setTrue=structuredClone(late.instructions[0]);
+    setTrue.vector={name:"STR",mask:15,type:"temp",index:0};late.instructions.unshift(setTrue);
+    late.instructions[1].sources[0]={...late.instructions[1].sources[0],type:"constant",index:255};
+    const lateCode=translate_vertex_program(late);validate("late-constant",lateCode);
+    assert(lateCode.constants.includes(254) && lateCode.constants.includes(255),"internal constants cannot shadow a later guest operand");
     for(const name of ["TEX","TXP","TXB","TXL","TXD"])
     {
         const p=structuredClone(fragment),i=p.instructions[0];i.name=name;i.sources=Array.from({length:3},()=>({type:"input",index:4,swizzle:[0,1,2,3],negate:false,absolute:false}));

@@ -788,6 +788,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   重复行，继续在目标改写前检查完整 DMA 范围。新增逐行像素、零 pitch 和源越界
   原子性回归；2D 测试与插件 Closure 构建通过。
 
+- G4 ALU 续修：补齐 DPH、DP2A、SEQ/SNE/SLE/SGT、SSG、SFL/STR 与 vector/scalar DIV
+  的 SM3 降低，内部 DEF 常量避开全部客体常量及视口常量。DIV 语义参考 NVIDIA
+  [CineFX 3.0 规范](https://developer.download.nvidia.com/opengl/specs/nv40specs.pdf)，
+  当前使用 RCP/MUL，保留原生除法可能存在的末位舍入偏差。42 个 WGSL 模块通过 Naga；
+  真实 NV 指令编码的比较、常量、DIV、DP2A 结果通过 GPU 逐分量读回，Closure 构建通过。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。
