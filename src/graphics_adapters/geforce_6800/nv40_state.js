@@ -49,6 +49,24 @@ export class NV40State
         this.validate(surface,true);
         for(let row=0;row<surface.height;row++) this.device.graph.engine2d.writerow(surface,0,row,bytes.subarray(row*pitch,(row+1)*pitch));
     }
+    results(o)
+    {
+        // Curie output routing, not the compiler's conventional register names.
+        // envytools hwtest MthdCurieXfOutMapMisc/TxcA/TxcB: packed nibbles,
+        // and 6-bit register/component selectors for fog and point size.
+        const misc=get(o,0x1FC4,0x06144321),tex=get(o,0x1FC8,0xEDCBA987);
+        const mask=o.methods.has(0x1FF4)?get(o,0x1FF4):null;
+        const enabled=bit=>mask===null?null:!!(mask&1<<bit),routes=[[0,0,-1,true]];
+        for(let i=0;i<4;i++) routes.push([i+1,misc>>>(i*4)&15,-1,enabled(i)]);
+        for(let i=0;i<2;i++)
+        {
+            const selector=misc>>>(16+i*6)&63;
+            routes.push([5+i,selector>>>2,selector&3,enabled(4+i)]);
+        }
+        for(let i=0;i<8;i++) routes.push([7+i,tex>>>(i*4)&15,-1,enabled(14+i)]);
+        if(mask!==null && mask&0x3000) throw new RangeError("NV40 extra texture interpolators are not connected");
+        return routes;
+    }
     attribute(o,index)
     {
         if(index<0 || index>=16) throw new RangeError("NV40 invalid vertex attribute");

@@ -299,6 +299,13 @@
   原盘未变，见 `g2-xp-9371-ddraw.json`。前一条纹理复制仍报未实现，DxDiag 与 G2/G3
   完整门禁尚未验收。
 
+- Curie 输出路由续修：VP 的 TBUF 槽与颜色/纹理语义分开。按硬件测试中的 1FC4、
+  1FC8/1FCC 和 1FF4 读取颜色、标量与纹理坐标路由/使能；标准编译器的寄存器约定不能
+  替代这些状态。XP 原生复制程序用槽 5 输出 TEX0，旧翻译却将其声明为 fog。
+  改为先保存原始输出，再按路由写 D3D9 语义。测试覆盖槽 5→TEX0、颜色/标量选择、
+  路由后的 WGSL；state/PGRAPH/绘制测试与 Closure 构建通过。额外插值器和双面颜色
+  尚未接入执行器时明确拒绝，避免使用错误的语义。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

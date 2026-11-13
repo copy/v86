@@ -108,7 +108,8 @@ const arity = name => ["MOV","RCP","RSQ","EX2","LG2","LIT","FRC","FLR","SIN","CO
 
 export function translate_vertex_program(program,options={})
 {
-    const shader=new Shader("vertex"),position=options.viewport?shader.temp("$position"):-1;
+    const shader=new Shader("vertex"),raw=new Map();
+    const output=index=>{if(!raw.has(index))raw.set(index,shader.temp("output"+index));return raw.get(index);};
     // r29 is arithmetic scratch; r30/r31 retain both VLIW results until both
     // slots have read their operands. Commit vector first, then scalar.
     for(const instruction of program.instructions)
@@ -123,16 +124,23 @@ export function translate_vertex_program(program,options={})
             const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
             const sources=selectors.map(index=>shader.source(i.sources[index],-1,slot===1));
             shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
-            const intercepted=position>=0 && op.type==="output" && op.index===0;
-            const type=op.type==="output"&&!intercepted?6:0;
-            const index=intercepted?position:type===6?shader.output(op.index):shader.temp("r"+op.index);
-            results.push([dst(type,index,op.mask),src(0,30+slot)]);
+            const index=op.type==="output"?output(op.index):shader.temp("r"+op.index);
+            results.push([dst(0,index,op.mask),src(0,30+slot)]);
         }
         for(const operands of results) shader.emit(OP.MOV,...operands);
     }
-    const viewport_constants=[];
-    if(position>=0)
+    const routes=options.result_map || VERTEX_OUTPUTS.map((_,index)=>[index,index,-1,null]);
+    for(const [semantic,register,component,enabled]of routes)
     {
+        if(enabled===false || !raw.has(register) || semantic===0 && options.viewport)continue;
+        shader.emit(OP.MOV,dst(6,shader.output(semantic),component<0?15:1),
+            src(0,raw.get(register),component<0?[0,1,2,3]:Array(4).fill(component)));
+    }
+    const viewport_constants=[];
+    if(options.viewport)
+    {
+        if(!raw.has(0)) throw new RangeError("NV40 vertex position is not written");
+        const position=raw.get(0);
         const v=options.viewport,w=v.width,h=v.height;
         if(!(w>0 && h>0)) throw new RangeError("NV40 viewport dimensions");
         const reserve=()=>{

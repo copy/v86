@@ -31,6 +31,12 @@ try
     const resized=translate_vertex_program(vertex,{viewport:{width:64,height:32,bypass:true}});
     assert.deepEqual(windowed.bytecode,resized.bytecode,"viewport changes only upload constants");
     assert.notDeepEqual(windowed.viewport_constants,resized.viewport_constants);
+    const routed=structuredClone(vertex),texOut=structuredClone(vertex.instructions[0]);
+    texOut.vector.index=5;texOut.sources[0].index=8;routed.instructions.unshift(texOut);
+    const routing=translate_vertex_program(routed,{result_map:[[0,0,-1,true],[7,5,-1,true]]});
+    const reflected=validate("NV-output-routing",routing).reflection.outputDeclarations;
+    assert(reflected.some(item=>item.usage===5&&item.usageIndex===0),"raw TBUF5 becomes TEX0 via the output map");
+    assert(!reflected.some(item=>item.usage===11),"raw register numbers are not fixed semantics");
     const changed=structuredClone(fragment);changed.constants[0][0]=0x40000000;
     assert.deepEqual(translate_fragment_program(changed).bytecode,ps.bytecode,"inline values stay outside shader code/cache key");
     const dual=structuredClone(vertex);const i=dual.instructions[0];

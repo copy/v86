@@ -105,7 +105,7 @@ export class NV40Render
         if(this.pending) throw new RangeError("NV40 renderer already busy");
         if(get(o,0x220,1)!==1) throw new RangeError("NV40 MRT rendering is not connected");
         if(get(o,0xA74) || get(o,0x328) || get(o,0x348)) throw new RangeError("NV40 depth/stencil rendering is not connected");
-        if(get(o,0x183C) || get(o,0x374) || get(o,0x1478) || get(o,0x36C) ||
+        if(get(o,0x183C) || get(o,0x142C) || get(o,0x374) || get(o,0x1478) || get(o,0x36C) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
         if(get(o,0x304) || get(o,0x310)) throw new RangeError("NV40 alpha/blend rendering is not connected");

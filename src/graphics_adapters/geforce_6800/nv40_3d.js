@@ -171,7 +171,7 @@ export class NV40_3D
     {
         const program = this.program(o);
         if(program.errors.length) throw new RangeError(program.errors.join("; "));
-        return {vertex: translate_vertex_program(program.vertex, options), fragment: translate_fragment_program(program.fragment, options)};
+        return {vertex: translate_vertex_program(program.vertex, {...options,result_map:this.state.results(o)}), fragment: translate_fragment_program(program.fragment, options)};
     }
     vertex_program(o, first = get(o, 0x1EA0), count = 0x220 - first)
     {
