@@ -772,6 +772,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   Chrome WebGPU 对整数偏移、原生半像素偏移、两侧越界的逐像素结果，以及深度/模板、
   混合和纹理回归均通过；插件 Closure 构建通过。原生 D3D8/9 验收继续进行。
 
+- G3/G4 纹理续修：补齐线性固定 pitch 与 Morton 紧密 mip 链、逐级 DMA 检查及 D9WG
+  逐级上传；接通最近 mip/三线性过滤、8.8 格式正负 LOD bias 与整数 LOD 范围。
+  XP DxDiag 原生流确认使用 256×256、9 级 RGB565；不再因 mipmap 抛错。
+  Chrome WebGPU 的不同纯色 mip 验证导数选级、正负 bias、最小级和三线性插值，
+  纹理边界测试与 Closure 构建通过。小数 LOD clamp 仍显式报未实现。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。

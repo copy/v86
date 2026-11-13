@@ -198,6 +198,29 @@ try
         method(0x1808,0);await engine.backend.wait();
         const center=[...vram.subarray(0x10000+(3*8+3)*4,0x10000+(3*8+3)*4+4)];
         [96,96,135,255].forEach((expected,i)=>assert(Math.abs(center[i]-expected)<=1,"bilinear center component "+i+": "+center[i]));
+        // Distinct solid levels expose derivative LOD, signed sampler bias and
+        // trilinear interpolation without depending on checkerboard placement.
+        let mipOffset=0x20000;
+        for(const [size,color]of [[8,[0,0,255,255]],[4,[0,255,0,255]],[2,[255,0,0,255]],[1,[255,255,255,255]]])
+        {
+            for(let i=0;i<size*size;i++)vram.set(color,mipOffset+i*4);
+            mipOffset+=size*size*4;
+        }
+        method(0x1A04,0x40529);method(0x1A18,8<<16|8);method(0x1A0C,0x80018000);
+        const mipDraw=async(filter,expected)=>{
+            method(0x1A14,filter);method(0x1808,6);
+            for(const word of new Uint32Array(Float32Array.of(0,0,0,0,0,16,0,4,16,0,4,0).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();
+            assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            const pixel=[...vram.subarray(0x10000+(3*8+3)*4,0x10000+(3*8+3)*4+4)];
+            expected.forEach((value,i)=>assert(Math.abs(pixel[i]-value)<=1,"mip filter "+filter.toString(16)+" component "+i+": "+pixel));
+        };
+        await mipDraw(0x01030000,[0,255,0,255]);
+        await mipDraw(0x01030100,[255,0,0,255]);
+        await mipDraw(0x01031F00,[0,0,255,255]);
+        await mipDraw(0x01050080,[128,128,0,255]);
+        method(0x1A0C,0x88018000);await mipDraw(0x01031F00,[0,255,0,255]);
+        console.log("PASS: real WebGPU mip derivative selection, positive/negative LOD bias, minimum level and trilinear filtering");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

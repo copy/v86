@@ -10,11 +10,12 @@ export class NV40Texture
         if(unit<0 || unit>=16)throw new RangeError("NV40 invalid texture unit");
         const at=0x1A00+unit*32,format=get(o,at+4),size=get(o,at+24),code=format>>>8&31,selector=format&3;
         const width=size>>>16,height=size&65535,bpp=BYTES.get(code),pitch=get(o,0x1840+unit*4)&65535;
-        if(get(o,at+12)&0xF0)throw new RangeError("NV40 anisotropic texture is not connected");
+        if(get(o,at+12)&0x70)throw new RangeError("NV40 anisotropic texture is not connected");
         if(!(get(o,at+12)&0x80000000))throw new RangeError("NV40 sampled texture is disabled");
         if((format>>>4&15)!==2 || format&4)throw new RangeError("NV40 cube/volume texture is not connected");
         if(format&0x4000)throw new RangeError("NV40 unnormalized texture coordinates are not connected");
-        if((format>>>16&15)!==1)throw new RangeError("NV40 mipmapped texture is not connected");
+        const levels=format>>>16&15;
+        if(!levels || levels>1+Math.floor(Math.log2(Math.max(width,height))))throw new RangeError("NV40 invalid texture mip count");
         if(!bpp)throw new RangeError("NV40 texture format is not connected: "+code);
         if(selector!==1 && selector!==2)throw new RangeError("NV40 texture DMA selector");
         const swizzle=!(format&0x2000),u=Math.ceil(Math.log2(width)),v=Math.ceil(Math.log2(height));
@@ -24,8 +25,25 @@ export class NV40Texture
         if(wrap&0xF00000 || filter&0xF0000000)throw new RangeError("NV40 sRGB/signed texture is not connected");
         const min=filter>>>16&15,mag=filter>>>24&15;
         if(min<1 || min>6 || mag<1 || mag>2)throw new RangeError("NV40 texture filter");
+        const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
+        if(minLod%1 || maxLod%1)throw new RangeError("NV40 fractional texture LOD clamp is not connected");
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,bpp,pitch,swizzle,u,v,code,
-            crossbar:get(o,at+16),wrap_s:s,wrap_t:t,min:min&1?1:2,mag,border:get(o,at+28)};
+            crossbar:get(o,at+16),wrap_s:s,wrap_t:t,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
+            levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
+            bias:new Uint32Array(Float32Array.of((filter<<19>>19)/256).buffer)[0],border:get(o,at+28)};
+    }
+    images(texture)
+    {
+        const images=[];let offset=texture.offset;
+        for(let level=0;level<texture.level_count;level++)
+        {
+            const width=Math.max(1,texture.width>>>level),height=Math.max(1,texture.height>>>level);
+            const u=Math.max(0,texture.u-level),v=Math.max(0,texture.v-level);
+            const surface={...texture,width,height,u,v,offset};
+            images.push(this.read(surface));
+            offset+=texture.swizzle?2**(u+v)*texture.bpp:height*texture.pitch;
+        }
+        return images;
     }
     read(texture)
     {

@@ -101,7 +101,8 @@ export class NV40Render
     }
     target(surface,bytes,usage=1)
     {
-        const key=JSON.stringify([surface.dma,surface.offset,surface.pitch,surface.width,surface.height,surface.d3d,surface.swizzle,surface.u,surface.v]);
+        const images=Array.isArray(bytes)?bytes:[bytes],levels=images.length;
+        const key=JSON.stringify([surface.dma,surface.offset,surface.pitch,surface.width,surface.height,surface.d3d,surface.swizzle,surface.u,surface.v,levels,usage]);
         let handle=this.resources.get(key);
         if(!handle)
         {
@@ -112,11 +113,14 @@ export class NV40Render
             }
             handle=this.next++;this.resources.set(key,handle);
             this.command(OP.CREATE_TEXTURE_2D,{"resource_handle":handle,"width":surface.width,"height":surface.height,
-                "level_count":1,"format":surface.d3d,"usage":usage});
+                "level_count":levels,"format":surface.d3d,"usage":usage});
         }
-        const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"width":surface.width,"height":surface.height,
-            "depth":1,"row_pitch":surface.width*surface.bpp,"data_bytes":bytes.length});
-        w.patch_field("data_offset",w.data(bytes));
+        images.forEach((bytes,level)=>{
+            const width=Math.max(1,surface.width>>>level),height=Math.max(1,surface.height>>>level);
+            const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"level":level,"width":width,"height":height,
+                "depth":1,"row_pitch":width*surface.bpp,"data_bytes":bytes.length});
+            w.patch_field("data_offset",w.data(bytes));
+        });
         return handle;
     }
     shader(code,vertex)
@@ -170,7 +174,7 @@ export class NV40Render
         if(scissor.left>=scissor.right || scissor.top>=scissor.bottom)return;
         const shaders=this.engine.shaders(o,{viewport});
         const textures=shaders.fragment.samplers.map(([unit])=>{
-            const surface=this.textures.describe(o,unit),bytes=this.textures.read(surface);
+            const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};
         });
         const fetched=indices?this.engine.state.array_vertices(o,indices,shaders.vertex.inputs):
@@ -197,7 +201,8 @@ export class NV40Render
         {
             const image=this.target({...surface,d3d:32,bpp:4},bytes);
             this.command(OP.SET_TEXTURE,{"stage":unit,"texture_handle":image});
-            for(const [state,value]of [[1,surface.wrap_s],[2,surface.wrap_t],[3,3],[4,surface.border],[5,surface.mag],[6,surface.min],[7,0],[10,1],[11,0]])
+            for(const [state,value]of [[1,surface.wrap_s],[2,surface.wrap_t],[3,3],[4,surface.border],[5,surface.mag],[6,surface.min],
+                [7,surface.mip],[8,surface.bias],[9,surface.min_lod],[10,1],[11,0]])
                 this.command(OP.SET_SAMPLER_STATE,{"sampler":unit,"state":state,"value":value});
         }
         this.command(OP.SET_VERTEX_SHADER,{"shader_handle":vs});this.command(OP.SET_PIXEL_SHADER,{"shader_handle":ps});
