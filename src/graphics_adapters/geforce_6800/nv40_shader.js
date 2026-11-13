@@ -157,7 +157,8 @@ class Shader
             constants:Array.from(this.constants).sort((a,b)=>a-b)};
     }
 }
-const arity = name => ["MOV","RCP","RCC","RSQ","EXP","LOG","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG","ARL","ARR"].includes(name)?1:
+const arity = name => ["MOV","RCP","RCC","RSQ","EXP","LOG","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG","ARL","ARR",
+    "PK2H","PK2US","PK4B","PK4UB","UP2H","UP2US","UP4B","UP4UB"].includes(name)?1:
     ["MUL","ADD","DP3","DP4","DPH","DST","MIN","MAX","SLT","SGE","SLE","SGT","SEQ","SNE","DIV"].includes(name)?2:
     name==="MAD" || name==="DP2A"?3:0;
 const nullary=name=>name==="SFL" || name==="STR";
@@ -619,6 +620,17 @@ export function translate_fragment_program(program,options={})
             if(flow)shader.emit(OP.ENDIF);if(calls && i.end)terminate();continue;
         }
         const half=!!i.destination.half,base=half?i.destination.index>>>1:i.destination.index;
+        const pack=["PK2H","PK2US","PK4B","PK4UB"].indexOf(i.name),unpack=["UP2H","UP2US","UP4B","UP4UB"].indexOf(i.name);
+        if(pack>=0)
+        {
+            if(half || i.scale || i.saturate || i.predicate.update)throw new RangeError("NV40 pack requires an unmodified full register destination");
+            if(!i.destination.disabled)
+            {
+                shader.emit(0x1005|pack<<16,dst(0,i.destination.index,i.destination.mask),sources[0],conditional?src(0,31):shader.literal(1));
+                written.add(base);
+            }
+            if(flow)shader.emit(OP.ENDIF);if(calls && i.end)terminate();continue;
+        }
         const shift=i.scale<4?i.scale:8-i.scale+12;
         if(i.scale===4) throw new RangeError("NV40 invalid fragment scale");
         const copy=i.name==="MOV" && i.sources[0].type==="temp" && !!i.sources[0].half===half && !i.scale && !i.saturate;
@@ -652,6 +664,13 @@ export function translate_fragment_program(program,options={})
             if(i.name==="TXD") shader.emit(OP.TXD,destination,sources[0],sampler,sources[1],sources[2]);
             else shader.emit((i.name==="TXL"?OP.TXL:OP.TEX) | (i.name==="TXP"?1:i.name==="TXB"?2:0)<<16,
                 destination,sources[0],sampler);
+        }
+        else if(unpack>=0)
+        {
+            const source=i.sources[0],physical=source.type==="temp";
+            if(physical && source.half)throw new RangeError("NV40 unpack requires a full register source");
+            const token=physical?src(0,source.index,source.swizzle,source.negate,source.absolute):sources[0];
+            shader.emit(0x1006|(unpack|+physical<<2)<<16,destination,token);
         }
         else if(!copy)shader.alu(i.name,destination,sources);
         if(!i.destination.disabled)

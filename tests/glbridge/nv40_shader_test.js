@@ -173,6 +173,18 @@ try
         p.instructions[1].destination.half=half;p.instructions[1].predicate.update=true;
         validate("fragment-raw-copy-"+half,translate_fragment_program(p));
     }
+    for(const name of ["PK2H","PK2US","PK4B","PK4UB","UP2H","UP2US","UP4B","UP4UB"])
+    {
+        const p=structuredClone(fragment);p.instructions[0].name=name;
+        p.instructions[0].destination.half=false;
+        validate("fragment-pack-constant-"+name,translate_fragment_program(p,{fp32_outputs:true}));
+        p.instructions[0].sources[0]={type:"temp",index:1,half:false,swizzle:[2,2,2,2],negate:true,absolute:true};
+        validate("fragment-pack-register-"+name,translate_fragment_program(p,{fp32_outputs:true}));
+    }
+    const invalidPack=structuredClone(fragment);invalidPack.instructions[0].name="PK2H";
+    assert.throws(()=>translate_fragment_program(invalidPack),/pack requires/);
+    invalidPack.instructions[0].name="UP2H";invalidPack.instructions[0].sources[0]={type:"temp",index:1,half:true,swizzle:[0,1,2,3]};
+    assert.throws(()=>translate_fragment_program(invalidPack),/unpack requires/);
     for(const full of [false,true])
     {
         const multiple=structuredClone(fragment);

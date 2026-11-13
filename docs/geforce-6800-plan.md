@@ -1317,3 +1317,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   125 个 Naga 模块、完整真实 GPU 回归、通用 D3D 57 项/199 个 Naga 验证、
   PGRAPH/FIFO/解码测试及 Closure/WebGPU bundle 构建通过。指令 precision 字段的
   低精度算术模式与 pack/unpack 尚待后续步骤，不能据此宣称全部精度语义完成。
+
+- G4 打包指令：实现 PK2H/PK2US/PK4B/PK4UB 与四种对应 UP 指令，pack 直接将
+  原始 u32 复制到所有启用结果分量，unpack 从指定源分量读取原始位。PK4B 使用
+  NVIDIA 的偏置字节编码；两元素 unpack 在 XY/ZW 重复。保留掩码、谓词、源 swizzle
+  与正负/绝对值位操作，H 目标 pack 和 H 源 unpack 明确拒绝。141 个 Naga 模块、
+  完整真实 GPU 回归、通用 D3D 57 项/199 个 Naga 验证与 Closure/WebGPU bundle
+  构建通过；像素用例覆盖八种格式、越界 clamp、复制、跨 MOV 的 NaN payload 和条件写。

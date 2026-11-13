@@ -109,6 +109,7 @@
         // proxy: control selects RCC, legacy EXP/LOG, LIT, RCP, RSQ or LG2.
         NV_ALU: 0x1000,
         NV_LOAD: 0x1001, NV_STORE: 0x1002, NV_HALF: 0x1003, NV_COPY: 0x1004,
+        NV_PACK: 0x1005, NV_UNPACK: 0x1006,
         PHASE: 0xfffd, COMMENT: 0xfffe, END: 0xffff,
     };
 
@@ -142,6 +143,7 @@
         [OP.NV_ALU]: [1, 1],
         [OP.NV_LOAD]: [1, 1], [OP.NV_STORE]: [1, 2],
         [OP.NV_HALF]: [1, 1], [OP.NV_COPY]: [1, 2],
+        [OP.NV_PACK]: [1, 2], [OP.NV_UNPACK]: [1, 1],
         [OP.CMP]: [1, 3], [OP.DP2ADD]: [1, 3], [OP.DSX]: [1, 1],
         [OP.DSY]: [1, 1], [OP.TEXLDD]: [1, 4], [OP.TEXLDL]: [1, 2],
         [OP.TEXREG2AR]: [1, 1], [OP.TEXREG2GB]: [1, 1],
@@ -1192,6 +1194,35 @@
                 }
                 return;
             }
+            case OP.NV_PACK: case OP.NV_UNPACK: {
+                const pack = opcode === OP.NV_PACK, control = instruction.control;
+                if (this.kind !== "pixel" || control > (pack ? 3 : 7) || instruction.predicated ||
+                    dest.relative || dest.type !== REG_TEMP || pack && (dest.index >= 64 || dest.modifier || dest.shift))
+                    throw new Error("invalid private NV40 fragment packing operation");
+                this.nvRegisters = true;
+                if (pack) {
+                    const value = this.fresh("nv_pack"), predicate = this.fresh("nv_gate");
+                    this.emit("let " + value + " = nv40_pack(" + control + "u, " + s(0) + ");");
+                    this.emit("let " + predicate + " = " + s(1) + ";");
+                    for (let lane = 0; lane < 4; lane++) if (dest.writeMask & 1 << lane) {
+                        const component = WRITEMASK_NAMES[lane];
+                        this.emit("if (" + predicate + "." + component + " >= 0.0) { nv40_write(" +
+                            dest.index + "u, 0u, " + lane + "u, " + value + "); }");
+                    }
+                } else {
+                    const source = sources[0], physical = !!(control & 4);
+                    if (source.relative || physical && (source.type !== REG_TEMP || source.index >= 64) ||
+                        ![SRCMOD_NONE, SRCMOD_NEG, SRCMOD_ABS, SRCMOD_ABSNEG].includes(source.modifier))
+                        throw new Error("invalid private NV40 unpack source");
+                    let value = physical ? "nv40_raw(" + source.index + "u, 0u)"
+                        : "bitcast<vec4<u32>>(" + this.rawSource(source) + ")";
+                    value = "(" + value + ")." + SWIZZLE_CHARS[source.swizzle & 3];
+                    if ([SRCMOD_ABS, SRCMOD_ABSNEG].includes(source.modifier)) value = "(" + value + " & 0x7fffffffu)";
+                    if ([SRCMOD_NEG, SRCMOD_ABSNEG].includes(source.modifier)) value = "(" + value + " ^ 0x80000000u)";
+                    this.store(dest, "nv40_unpack(" + (control & 3) + "u, " + value + ")");
+                }
+                return;
+            }
             case OP.RSQ: this.store(dest, "vec4<f32>(d9_rsq(" + scalar(0) + "))"); return;
             case OP.EXP: this.store(dest, "vec4<f32>(exp2(" + scalar(0) + "))"); return;
             case OP.LOG: this.store(dest, "vec4<f32>(d9_log(" + scalar(0) + "))"); return;
@@ -2055,6 +2086,24 @@ fn nv40_write(index: u32, half: u32, lane: u32, value: u32) {
     let shift = (lane & 1u) * 16u;
     let old = nv40_registers[index >> 1u][component];
     nv40_registers[index >> 1u][component] = (old & ~(0xffffu << shift)) | ((value & 0xffffu) << shift);
+}
+fn nv40_pack(op: u32, value: vec4<f32>) -> u32 {
+    if (op == 0u) { return nv40_f16(value.x) | (nv40_f16(value.y) << 16u); }
+    if (op == 1u) {
+        let words = vec2<u32>(round(clamp(value.xy, vec2<f32>(0.0), vec2<f32>(1.0)) * 65535.0));
+        return words.x | (words.y << 16u);
+    }
+    var converted = round(clamp(value, vec4<f32>(0.0), vec4<f32>(1.0)) * 255.0);
+    if (op == 2u) { converted = round(clamp(value, vec4<f32>(-128.0/127.0), vec4<f32>(1.0)) * 127.0 + 128.0); }
+    let bytes = vec4<u32>(converted);
+    return bytes.x | (bytes.y << 8u) | (bytes.z << 16u) | (bytes.w << 24u);
+}
+fn nv40_unpack(op: u32, value: u32) -> vec4<f32> {
+    if (op == 0u) { return vec4<f32>(nv40_f32(value & 0xffffu), nv40_f32(value >> 16u), nv40_f32(value & 0xffffu), nv40_f32(value >> 16u)); }
+    if (op == 1u) { return vec4<f32>(f32(value & 0xffffu), f32(value >> 16u), f32(value & 0xffffu), f32(value >> 16u)) / 65535.0; }
+    let bytes = vec4<f32>(f32(value & 255u), f32((value >> 8u) & 255u), f32((value >> 16u) & 255u), f32(value >> 24u));
+    if (op == 2u) { return (bytes - 128.0) / 127.0; }
+    return bytes / 255.0;
 }
 `);
             if (this.nvAlu) out.push(`

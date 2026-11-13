@@ -407,6 +407,34 @@ try
             ...ccInstruction([1,1,1,1],{condition:2,end:true})]),[0,255,255,0],
             "half destination condition codes observe rounded signed zero");
         console.log("PASS: real WebGPU shared R/H bits, partial half writes, raw NaN MOV, FP16 subnormals and rounded condition codes");
+        const fpPacked=(opcode,destination,half,source,{swizzle=[0,1,2,3],mask=15,condition=7,end=false}={})=>[
+            (opcode<<24|destination<<1|+half<<7|mask<<9|+end)>>>0,
+            source<<2|swizzle.reduce((bits,value,i)=>bits|value<<(9+i*2),0)|condition<<18,0,0];
+        for(const [pack,unpack,values,expected]of [
+            [36,37,[.25,.75,0,0],[64,191,64,191]],
+            [41,42,[.25,1,0,0],[64,255,64,255]],
+            [39,40,[.25,.5,1,127/255],[255,128,64,127]],
+            [19,40,[-128/127,0,1,2],[255,128,0,255]],
+            [19,20,[0,.5,1,1],[255,128,0,255]]])
+        {
+            for(let component=0;component<4;component++)
+                assert.deepEqual(await conditionalDraw([
+                    ...fpLiteral(2,false,values),...fpPacked(pack,3,false,2),...fpMove(1,false,3,false),
+                    ...fpPacked(unpack,0,true,1,{swizzle:Array(4).fill(component),end:true})]),expected,
+                    "pack " + pack + " replicates raw bits, survives MOV, and unpacks component " + component);
+        }
+        // Constant/input operands and raw full-register operands take separate
+        // routes through the private instruction; neither may normalize NaNs.
+        assert.deepEqual(await conditionalDraw([
+            40<<24|128|15<<9|1,7<<18|0x1C802,0,0,0x7FFF8040,0,0,0]),[255,128,64,127],
+            "unpacking an inline NaN payload preserves all four encoded bytes");
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(0,true,[.5,.5,.5,.5]),...fpLiteral(2,false,[1,0,.25,1]),
+            ...ccInstruction([1,-1,1,-1],{update:true,disabled:true}),
+            ...fpPacked(39,3,false,2,{mask:5,condition:4}),
+            ...fpPacked(40,0,true,3,{mask:5,end:true})]),[64,128,255,128],
+            "pack and unpack honor masks and per-component predicates");
+        console.log("PASS: real WebGPU all pack/unpack formats, biased signed bytes, replication, raw NaN payloads and predicates");
         for(let condition=0;condition<8;condition++)
         {
             const pixel=await conditionalDraw([
