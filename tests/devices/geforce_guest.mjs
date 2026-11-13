@@ -222,6 +222,26 @@ export async function run_geforce_guest(win98)
         const cpu = vm.v86.cpu;
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = true;
+        if(process.env.NV_WATCH_RAMIN)
+        {
+            const address=Number.parseInt(process.env.NV_WATCH_RAMIN,16);assert(address>=0 && address+4<=1<<20 && !(address&3));
+            const original=nv.ramin_write.bind(nv),captures=[];
+            nv.ramin_write=(offset,value)=>{
+                original(offset,value);
+                if(offset!==address+3 || captures.length>=8)return;
+                const word=nv.dma.word(address);if(word&1)return;
+                const stack=cpu.reg32[4]>>>0,read=at=>{
+                    try{return cpu.mem8[cpu.translate_address_system_read(at)>>>0];}catch{return 0;}
+                };
+                captures.push({elapsed:elapsed(),sequence:nv.trace.sequence,address,word,
+                    eip:cpu.instruction_pointer[0]>>>0,regs:Array.from(cpu.reg32,v=>v>>>0),
+                    stack:Array.from({length:48},(_,i)=>{
+                        const at=(stack+i*4)>>>0;return (read(at)|read(at+1)<<8|read(at+2)<<16|read(at+3)<<24)>>>0;
+                    }),fifo:nv.fifo.get_state(),graph:nv.graph.get_state(),gpu:{...nv.graph.engine3d.backend?.stats}});
+                fs.writeFileSync(path.join(out,"ramin-watch.json"),JSON.stringify(captures,null,2));
+            };
+        }
+
         for(; elapsed() < seconds && !error && !cancelled;)
         {
             await delay(capture_interval?Math.min(1000,Math.max(100,capture_interval*1000)):1000);
