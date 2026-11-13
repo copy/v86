@@ -435,6 +435,13 @@ try
             ...fpPacked(40,0,true,3,{mask:5,end:true})]),[64,128,255,128],
             "pack and unpack honor masks and per-component predicates");
         console.log("PASS: real WebGPU all pack/unpack formats, biased signed bytes, replication, raw NaN payloads and predicates");
+        for(const [values,expected]of [
+            [[.9,.5,.8,-2],[64,128,255,255]],[[.9,0,.8,-2],[0,0,255,255]],
+            [[.9,-.5,.8,1],[0,0,255,255]],[[0,.25,0,0],[255,64,255,255]]])
+            assert.deepEqual(await conditionalDraw([
+                0x3C<<24|128|15<<9|1,7<<18|0x1C802,0,0,...new Uint32Array(Float32Array.from(values).buffer)]),expected,
+                "native LITEX2 uses Y/W and suppresses specular for nonpositive diffuse");
+        console.log("PASS: real WebGPU native LITEX2 diffuse/specular final lighting stage");
         for(let condition=0;condition<8;condition++)
         {
             const pixel=await conditionalDraw([

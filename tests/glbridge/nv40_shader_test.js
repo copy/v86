@@ -58,7 +58,7 @@ try
     }
 
     for(const name of ["MOV","MUL","ADD","MAD","DP3","DP4","DST","MIN","MAX","SLT","SGE","FRC","FLR","RCP","RSQ","EX2","LG2","SIN","COS","DDX","DDY",
-        "DPH","DP2A","SEQ","SNE","SLE","SGT","SSG","SFL","STR","DIV"])
+        "DPH","DP2A","SEQ","SNE","SLE","SGT","SSG","SFL","STR","DIV","LITEX2"])
     {
         const p=structuredClone(fragment);p.instructions[0].name=name;p.instructions[0].sources=Array.from({length:3},()=>p.instructions[0].sources[0]);
         validate("alu-"+name,translate_fragment_program(p));

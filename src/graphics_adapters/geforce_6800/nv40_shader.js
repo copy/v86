@@ -132,6 +132,18 @@ class Shader
         {
             this.emit(OP.FRC,dst(0,29),sources[0]);this.emit(OP.SUB,destination,sources[0],src(0,29));return;
         }
+        if(name==="LITEX2")
+        {
+            // Curie's final lighting stage takes the already clamped diffuse
+            // term from Y and the logarithmic specular exponent from W.
+            const value=this.temp("litex2-source");this.emit(OP.MOV,dst(0,value),sources[0]);
+            this.emit(OP.MOV,dst(0,29),this.literal(1));
+            this.emit(OP.MOV,dst(0,29,2),src(0,value,[1,1,1,1]));
+            this.emit(OP.IFC|1<<16,src(0,value,[1,1,1,1]),this.literal(0));
+            this.emit(OP.EX2,dst(0,29,4),src(0,value,[3,3,3,3]));
+            this.emit(OP.ELSE);this.emit(OP.MOV,dst(0,29,4),this.literal(0));this.emit(OP.ENDIF);
+            this.emit(OP.MOV,destination,src(0,29));return;
+        }
         if(name==="SIN" || name==="COS")
         {
             this.emit(OP.SINCOS,dst(0,29,name==="COS"?1:2),sources[0]);
@@ -158,7 +170,7 @@ class Shader
     }
 }
 const arity = name => ["MOV","RCP","RCC","RSQ","EXP","LOG","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG","ARL","ARR",
-    "PK2H","PK2US","PK4B","PK4UB","UP2H","UP2US","UP4B","UP4UB"].includes(name)?1:
+    "PK2H","PK2US","PK4B","PK4UB","UP2H","UP2US","UP4B","UP4UB","LITEX2"].includes(name)?1:
     ["MUL","ADD","DP3","DP4","DPH","DST","MIN","MAX","SLT","SGE","SLE","SGT","SEQ","SNE","DIV"].includes(name)?2:
     name==="MAD" || name==="DP2A"?3:0;
 const nullary=name=>name==="SFL" || name==="STR";

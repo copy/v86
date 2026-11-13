@@ -1324,3 +1324,8 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   与正负/绝对值位操作，H 目标 pack 和 H 源 unpack 明确拒绝。141 个 Naga 模块、
   完整真实 GPU 回归、通用 D3D 57 项/199 个 Naga 验证与 Closure/WebGPU bundle
   构建通过；像素用例覆盖八种格式、越界 clamp、复制、跨 MOV 的 NaN payload 和条件写。
+
+- G4 LITEX2：接通 Curie 光照末段，Y 为 diffuse，Y>0 时 Z=exp2(W)，X/W=1；
+  普通目标掩码、谓词、缩放、饱和和条件码继续共用提交路径。编码与输入布局复核
+  Mesa nvfx 的 LIT 降低过程。142 个 Naga 模块、完整真实 GPU 回归和 Closure 构建
+  通过，像素用例区分 Y/W 与 X/Z，覆盖正数、零及负 diffuse。
