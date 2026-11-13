@@ -3,7 +3,7 @@
 // control flow and register aliases fail before any draw.
 const OP = {MOV:1,ADD:2,SUB:3,MAD:4,MUL:5,RCP:6,RSQ:7,DP3:8,DP4:9,MIN:10,MAX:11,
     SLT:12,SGE:13,LIT:16,DST:17,FRC:19,DCL:31,SINCOS:37,MOVA:46,DEF:81,
-    IFC:41,ELSE:42,ENDIF:43,LOOP:27,ENDLOOP:29,REP:38,ENDREP:39,BREAKC:45,DEFI:48,KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90,CMP:88};
+    CALL:25,RET:28,LABEL:30,IFC:41,ELSE:42,ENDIF:43,LOOP:27,ENDLOOP:29,REP:38,ENDREP:39,BREAKC:45,DEFI:48,KIL:65,TEX:66,EX2:14,LG2:15,DDX:91,DDY:92,TXD:93,TXL:95,ABS:35,SGN:34,DP2A:90,CMP:88};
 const bits = type => (type & 7) << 28 | (type & 24) << 8;
 const dst = (type,index,mask=15,saturate=false,shift=0) =>
     (0x80000000 | bits(type) | index | mask << 16 | +saturate << 20 | shift << 24) >>> 0;
@@ -392,21 +392,85 @@ export function translate_fragment_program(program,options={})
         while(blocks.length && blocks[blocks.length-1].end===pc)
         {
             const block=blocks.pop();shader.emit(block.name==="IF"?OP.ENDIF:block.name==="LOOP"?OP.ENDLOOP:OP.ENDREP);
+            if(calls)shader.emit(OP.SUB,dst(0,scopeDepth,block.name==="IF"?2:1),src(0,scopeDepth),shader.literal(1));
         }
         const block=blocks[blocks.length-1];
         if(block?.name==="IF" && block.otherwise===pc && pc!==block.end)shader.emit(OP.ELSE);
     };
-    let loopRegister=0;
-    for(const i of program.instructions)
+    // WGSL forbids recursive functions. Specialize each entry by its bounded
+    // hardware call depth; registers and condition codes remain shared globals.
+    const calls=program.instructions.some(i=>i.branch && ["CAL","RET"].includes(i.name));
+    const scopeDepth=calls?shader.temp("scope-depth"):-1;
+    if(calls)shader.emit(OP.MOV,dst(0,scopeDepth),shader.literal(0));
+    const loopConstants=new Map(),routines=[],labels=new Map(),functionBodies=[],prefix=shader.body;
+    const label=(entry,depth)=>{
+        const key=entry+":"+depth;
+        if(!labels.has(key)){labels.set(key,routines.length);routines.push({entry,depth,label:routines.length});}
+        return labels.get(key);
+    };
+    const routineInstructions=entry=>{
+        const byPC=new Map(program.instructions.map(i=>[i.pc,i])),seen=new Set(),pending=[entry];
+        while(pending.length)
+        {
+            const pc=pending.pop();if(seen.has(pc))continue;
+            const i=byPC.get(pc);if(!i)throw new RangeError("NV40 fragment call outside decoded program");
+            seen.add(pc);if(i.end || i.branch && i.name==="RET" && i.predicate.condition===7)continue;
+            if(i.branch && ["IF","LOOP","REP"].includes(i.name))
+            {pending.push(i.end_offset);if(i.name==="IF")pending.push(i.else_offset);}
+            pending.push(pc+4+(!i.branch && i.constant>=0?4:0));
+        }
+        return program.instructions.filter(i=>seen.has(i.pc));
+    };
+    const terminate=()=>{shader.emit(OP.MOV,dst(0,budget),shader.literal(limit));shader.emit(OP.RET);};
+    if(calls){label(program.instructions[0].pc,0);shader.body=[];}
+    else routines.push({entry:0,depth:0,label:0});
+    for(let routineIndex=0;routineIndex<routines.length;routineIndex++)
+    {
+    const routine=routines[routineIndex],instructions=calls?routineInstructions(routine.entry):program.instructions;
+    if(calls)shader.emit(OP.LABEL,src(18,routine.label));
+    for(const i of instructions)
     {
         const readCC=cc[i.predicate.register||0],writeCC=cc[i.predicate.destination||0];
         close(i.pc);
         if(i.branch)
         {
+            if(i.name==="CAL" || i.name==="RET")
+            {
+                if(i.predicate.condition===0)continue;
+                const conditional=i.predicate.condition!==7;
+                if(conditional)
+                {
+                    shader.condition(i.predicate.condition,src(0,readCC,i.predicate.swizzle),31);
+                    shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[1,1,1,1]));
+                    shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[2,2,2,2]));
+                    shader.emit(OP.MAX,dst(0,31,1),src(0,31,[0,0,0,0]),src(0,31,[3,3,3,3]));
+                    shader.emit(OP.IFC|1<<16,src(0,31,[0,0,0,0]),shader.literal(0));
+                }
+                if(i.name==="RET")shader.emit(OP.RET);
+                else if(routine.depth>=4)terminate();
+                else
+                {
+                    shader.emit(OP.IFC|4<<16,src(0,budget),shader.literal(limit));
+                    shader.emit(OP.ADD,dst(0,budget),src(0,budget),shader.literal(1));
+                    const savedScope=shader.temp("call-scope-"+routine.depth);
+                    shader.emit(OP.MOV,dst(0,savedScope),src(0,scopeDepth));
+                    shader.emit(OP.CALL,src(18,label(i.else_offset,routine.depth+1)));
+                    shader.emit(OP.MOV,dst(0,scopeDepth),src(0,savedScope));shader.emit(OP.ENDIF);
+                }
+                if(conditional)shader.emit(OP.ENDIF);
+                continue;
+            }
             if(i.name==="IF" || i.name==="REP" || i.name==="LOOP")
             {
                 if(!boundaries.has(i.end_offset) || i.end_offset<=i.pc || blocks.length && i.end_offset>blocks[blocks.length-1].end)
                     throw new RangeError("NV40 fragment block end outside enclosing scope");
+                if(calls)
+                {
+                    const component=i.name==="IF"?1:0;
+                    shader.emit(OP.IFC|3<<16,src(0,scopeDepth,Array(4).fill(component)),shader.literal(component?48:4));
+                    shader.emit(OP.MOV,dst(0,budget),shader.literal(limit));shader.emit(OP.ENDIF);
+                    shader.emit(OP.ADD,dst(0,scopeDepth,1<<component),src(0,scopeDepth),shader.literal(1));
+                }
                 if(i.name==="IF")
                 {
                     if(!boundaries.has(i.else_offset) || i.else_offset<i.pc+4 || i.else_offset>i.end_offset)
@@ -420,8 +484,13 @@ export function translate_fragment_program(program,options={})
                 else
                 {
                     if(blocks.filter(b=>b.name==="REP" || b.name==="LOOP").length>=4)throw new RangeError("NV40 fragment loop nesting limit");
-                    const register=loopRegister++;
-                    shader.declarations.push(0x05000030,dst(7,register),i.loop.count,i.name==="LOOP"?i.loop.initial:0,i.name==="LOOP"?i.loop.increment:1,0);
+                    const values=[i.loop.count,i.name==="LOOP"?i.loop.initial:0,i.name==="LOOP"?i.loop.increment:1,0],key=values.join(",");
+                    if(!loopConstants.has(key))
+                    {
+                        loopConstants.set(key,loopConstants.size);
+                        shader.declarations.push(0x05000030,dst(7,loopConstants.get(key)),...values);
+                    }
+                    const register=loopConstants.get(key);
                     if(i.name==="LOOP")shader.emit(OP.LOOP,src(15,0),src(7,register));
                     else shader.emit(OP.REP,src(7,register,[0,0,0,0]));
                     // Charge the implicit ENDREP as well as body instructions;
@@ -443,7 +512,8 @@ export function translate_fragment_program(program,options={})
             else throw new RangeError("NV40 fragment control flow needs lowering: "+i.name);
             continue;
         }
-        if(i.predicate.condition===0 || i.name==="NOP") continue;
+        if(i.predicate.condition===0 || i.name==="NOP")
+        {if(calls && i.end)terminate();continue;}
         if(flow)
         {
             shader.emit(OP.IFC|4<<16,src(0,budget),shader.literal(limit));
@@ -468,7 +538,7 @@ export function translate_fragment_program(program,options={})
         {
             // Native KIL tests the condition code, rather than a source register.
             shader.emit(OP.MOV,dst(0,29),src(0,31,[0,1,2,3],true));shader.emit(OP.KIL,dst(0,29));
-            if(flow)shader.emit(OP.ENDIF);continue;
+            if(flow)shader.emit(OP.ENDIF);if(calls && i.end)terminate();continue;
         }
         const key=(i.destination.half?"h":"r")+i.destination.index;
         const target=i.destination.disabled?-1:shader.temp(key),staged=conditional || i.predicate.update || i.destination.disabled;
@@ -525,10 +595,16 @@ export function translate_fragment_program(program,options={})
             shader.aliases.set(base,i.destination.half?"h":"r");written.add(key);
         }
         if(flow)shader.emit(OP.ENDIF);
+        if(calls && i.end)terminate();
     }
     close(program.word_count);
     if(blocks.length)throw new RangeError("NV40 unterminated fragment block");
-    if(!written.has((options.fp32_outputs?"r":"h")+"0")) throw new RangeError("NV40 fragment color output is not written");
+    if(calls){shader.emit(OP.RET);for(const word of shader.body)functionBodies.push(word);shader.body=[];}
+    }
+    if(calls){shader.body=prefix;shader.emit(OP.CALL,src(18,0));}
+    const primary=(options.fp32_outputs?"r":"h")+"0";
+    if(calls)written.add(primary); // Unwritten result registers are undefined; choose zero.
+    if(!written.has(primary)) throw new RangeError("NV40 fragment color output is not written");
     for(let color=0;color<(options.targets||1);color++)
     {
         // R1 is reserved for depth. Color 1/2/3 use R2/R3/R4, or their
@@ -537,5 +613,6 @@ export function translate_fragment_program(program,options={})
         if(written.has(key)) shader.emit(OP.MOV,dst(8,color),src(0,shader.temp(key)));
     }
     if(options.depth && written.has("r1")) shader.emit(OP.MOV,dst(9,0,1),src(0,shader.temp("r1"),[2,2,2,2]));
+    if(calls){shader.emit(OP.RET);shader.body=shader.body.concat(functionBodies);}
     return {...shader.finish(),constant_values:program.constants.map(words=>Uint32Array.from(words)),texture_constants:[...textureConstants.values()]};
 }

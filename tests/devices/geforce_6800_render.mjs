@@ -449,6 +449,38 @@ try
         }
         finally {engine.shaders=unrestrictedShaders;}
         console.log("PASS: real WebGPU fragment IF/ELSE conditions, zero/255 repeat counts and loop break");
+        const fpAdd=(value,end=false)=>[3<<24|128|15<<9|+end,7<<18|0x1C900,0x1C802,0,
+            ...new Uint32Array(Float32Array.of(value,value,value,value).buffer)];
+        const fpReturn=()=>fpBranch(5,0,0),fpGap=[0,7<<18,0,0];
+        for(const condition of [0,1,2,4,7])
+            assert.deepEqual(await conditionalDraw([...ccInstruction([.125,.125,.125,.125]),...fpBranch(1,24,0,condition),
+                ...fpAdd(.125,true),...fpGap,...fpAdd(.25),...fpReturn()]),Array(4).fill(condition===2 || condition===7?128:64),
+                "fragment conditional call and return across the main END, condition "+condition);
+        assert.deepEqual(await conditionalDraw([...ccInstruction([.25,.25,.25,.25]),...fpReturn(),
+            ...ccInstruction([.75,.75,.75,.75],{end:true})]),Array(4).fill(64),"empty-stack RET terminates and exports the current result");
+        assert.deepEqual(await conditionalDraw(fpReturn()),[0,0,0,0],"unwritten outputs on an empty return use the defined zero fallback");
+        for(const condition of [0,2])
+            assert.deepEqual(await conditionalDraw([...ccInstruction([.125,.125,.125,.125]),...fpBranch(1,24,0),
+                ...fpAdd(.125,true),...fpGap,...fpBranch(5,0,0,condition),...fpAdd(.25),...fpReturn()]),Array(4).fill(condition===2?64:128),
+                "conditional RET uses the current condition code");
+        assert.deepEqual(await conditionalDraw([...ccInstruction([.25,.25,.25,.25]),...fpBranch(1,24,0),
+            ...ccInstruction([.75,.75,.75,.75],{condition:1,read:1,end:true}),...fpGap,
+            ...ccInstruction([-1,-1,-1,-1],{update:true,disabled:true,write:1}),...fpReturn()]),Array(4).fill(191),
+            "a callee's condition-code update remains visible to its caller");
+        assert.deepEqual(await conditionalDraw([...ccInstruction([.125,.125,.125,.125]),...fpBranch(1,24,0),
+            ...fpAdd(1,true),...fpGap,...fpAdd(.25,true)]),Array(4).fill(96),"END inside a callee terminates the whole fragment program");
+        assert.deepEqual(await conditionalDraw([...ccInstruction([0,0,0,0]),...fpBranch(1,24,0),
+            ...ccInstruction([1,1,1,1],{end:true}),...fpGap,...fpAdd(.125),...fpBranch(1,24,0),...fpReturn()]),Array(4).fill(128),
+            "recursive calls terminate at the four-entry stack limit without executing caller writes");
+        assert.deepEqual(await conditionalDraw([...ccInstruction([.125,.125,.125,.125]),...fpBranch(1,24,0),
+            ...fpAdd(.125,true),...fpGap,...fpBranch(3,3<<2|2<<10|1<<19,44),...fpAdd(.125),
+            ...fpReturn(),...fpGap,...fpReturn()]),Array(4).fill(96),"RET exits a callee's LOOP immediately");
+        assert.deepEqual(await conditionalDraw([...ccInstruction([.25,.25,.25,.25]),
+            ...Array.from({length:4},()=>fpBranch(3,1<<2|1<<19,28)).flat(),...fpBranch(1,44,0),
+            ...ccInstruction([1,1,1,1],{end:true}),...fpGap,...fpGap,
+            ...fpBranch(3,1<<2|1<<19,56),...fpAdd(.125),...fpReturn()]),Array(4).fill(64),
+            "a callee exceeding the caller's active four-loop limit terminates the whole program");
+        console.log("PASS: real WebGPU fragment calls, conditional/empty returns, callee END and bounded recursion");
 
         method(0x1FF4,1<<14);method(0xA74,1);method(0xA70,0);method(0xA6C,8);
         for(const [at,value]of [[0x1A04,0x12529],[0x1A18,1<<16|1],[0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1840,4]])method(at,value);

@@ -124,6 +124,13 @@ try
     const loopTranslated=translate_fragment_program({constants:fragment.constants,word_count:16,instructions:[loop,indexed,fpMove(8)]});
     assert.equal(loopTranslated.inputs.length,10);validate("fragment-indexed-loop",loopTranslated);
     assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:8,instructions:[indexed]}),/outside LOOP/);
+    const fpReturn=[5<<24,7<<18,0x80000000,0],fpConstant=end=>[fragment.instructions[0].words[0]&~1|end,...fragment.instructions[0].words.slice(1),...fragment.constants[0]];
+    const fpCall=(target,condition=7)=>[1<<24,condition<<18,0x80000000|target,0];
+    for(const condition of [0,1,2,4,7])validate("fragment-call-"+condition,translate_fragment_program(decode_fragment_program(Uint32Array.from([
+        ...fpCall(12,condition),...fpConstant(1),...fpConstant(0),...fpReturn]))));
+    validate("fragment-recursion",translate_fragment_program(decode_fragment_program(Uint32Array.from([
+        ...fpConstant(0),...fpCall(0),...fpConstant(1)]))));
+    validate("fragment-empty-return",translate_fragment_program(decode_fragment_program(Uint32Array.from([...fpConstant(0),...fpReturn]))));
     assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:8,instructions:[fpFlow("BRK",0,0),fpMove(4)]}),/outside loop/);
     assert.throws(()=>translate_fragment_program({constants:fragment.constants,word_count:12,instructions:[fpFlow("IF",0,10),fpMove(4)]}),/scope/);
     const alias=structuredClone(fragment),later=structuredClone(alias.instructions[0]);later.sources[0]={type:"temp",index:0,half:false,swizzle:[0,1,2,3]};alias.instructions.push(later);
