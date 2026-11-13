@@ -11,6 +11,8 @@ import { make_esp } from "../lib/fat.mjs";
 import { PictureSink, save_png } from "../lib/picture_sink.mjs";
 import { site_directory } from "../lib/site.mjs";
 import { V86 } from "../../src/main.js";
+import { IDEInterface } from "../../src/ide.js";
+import { read_fat32_file } from "../lib/fat32_reader.mjs";
 
 // A canvas clips transient layers during VGA mode switches. Keep the headless
 // screenshot sink equally bounded when an old layer arrives after a resize.
@@ -147,6 +149,11 @@ export async function run_geforce_guest(win98)
     new DataView(tools_bytes.buffer).setUint32(440, 0x4E563430, true);
     const tools = new MemoryDisk(tools_bytes), before = fs.statSync(image), disk = new ReadOnlyOverlayDisk(image);
     if(process.env.NV_OVERLAY_LOAD) disk.set_state(deserialize(fs.readFileSync(process.env.NV_OVERLAY_LOAD)));
+    // Keep the existing writable RAM tools disk at primary-slave. Benchmarks
+    // use secondary-slave, with the same read-only host backing as the OS.
+    const game_path=process.env.NV_HDB && path.resolve(process.env.NV_HDB);
+    const game=game_path?new ReadOnlyOverlayDisk(game_path):null,game_before=game_path?fs.statSync(game_path):null;
+    if(game && process.env.NV_GAME_OVERLAY_LOAD)game.set_state(deserialize(fs.readFileSync(process.env.NV_GAME_OVERLAY_LOAD)));
     const sink = new ProbeSink();
     let remote=null;
     if(process.env.NV_GPU_RENDERER==="chrome")
@@ -160,7 +167,7 @@ export async function run_geforce_guest(win98)
         hda: disk, hdb: tools, boot_order: 0x213, memory_size: (win98 ? 256 : 1024) << 20,
         ...(win98 || process.env.NV_CDROM ? { cdrom: { url: process.env.NV_CDROM || process.env.NV_WIN98_ISO || path.join(site_directory(root), "windows98/windows98se.iso"), async: true }, boot_order: 0x132 } : {}),
         screen_adapter: sink, acpi: false, net_device: { type: "none" }, disable_speaker: true,
-        autostart: !process.env.NV_STATE_LOAD, log_level: 0 });
+        autostart: !process.env.NV_STATE_LOAD && !game, log_level: 0 });
     const seconds = Number(process.env.NV_SECONDS || 360);
     const launch = Number(process.env.NV_LAUNCH_SECONDS || (process.env.NV_STATE_LOAD ? 10 : 90));
     assert(Number.isFinite(seconds) && seconds > 0 && seconds <= 3600);
@@ -188,6 +195,11 @@ export async function run_geforce_guest(win98)
     try
     {
         await new Promise((resolve, reject) => { vm.add_listener("emulator-ready", resolve); vm.add_listener("emulator-error", reject); });
+        if(game)
+        {
+            const channel=vm.v86.cpu.devices.ide.secondary;
+            channel.slave=new IDEInterface(channel,1,game,false);
+        }
         if(process.env.NV_STATE_LOAD)
         {
             await vm.restore_state(fs.readFileSync(process.env.NV_STATE_LOAD));
@@ -195,6 +207,7 @@ export async function run_geforce_guest(win98)
             if(process.env.NV_DISABLE_JIT) vm.v86.cpu.configure_jit_backend({disable_jit:true});
             await vm.run();
         }
+        else if(game)await vm.run();
         const cpu = vm.v86.cpu;
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = true;
@@ -225,8 +238,9 @@ export async function run_geforce_guest(win98)
                     if(command.keys) await vm.keyboard_send_scancodes(command.keys, 30);
                     if(command.run)
                     {
+                        await vm.keyboard_send_scancodes([184,157,170,182,0xE0,0xDB,0xE0,0xDC],30);
                         await vm.keyboard_send_scancodes([0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB], 30);
-                        await delay(1000);
+                        await delay(1500);
                         await vm.keyboard_send_text(command.run, 30);
                         await vm.keyboard_send_scancodes([28, 156], 30);
                     }
@@ -285,7 +299,21 @@ export async function run_geforce_guest(win98)
             if(bytes) fs.writeFileSync(path.join(out, name), bytes);
         }
         if(process.env.NV_OVERLAY_SAVE) fs.writeFileSync(process.env.NV_OVERLAY_SAVE, serialize(disk.get_state()));
+        if(game)
+        {
+            if(process.env.NV_GAME_OVERLAY_SAVE)fs.writeFileSync(process.env.NV_GAME_OVERLAY_SAVE,serialize(game.get_state()));
+            for(const name of (process.env.NV_GAME_ARTIFACTS || "").split(";").filter(Boolean))
+            {
+                const bytes=await read_fat32_file(game,name);
+                if(bytes)fs.writeFileSync(path.join(out,path.basename(name.replaceAll("\\","/"))),bytes);
+            }
+        }
         await vm.destroy(); if(remote) await remote.close(); disk.close();
+        if(game)
+        {
+            game.close();const after=fs.statSync(game_path);
+            assert.equal(after.mtimeMs,game_before.mtimeMs);assert.equal(after.size,game_before.size);
+        }
         process.off("SIGINT", cancel);
         assert.equal(fs.statSync(image).mtimeMs, before.mtimeMs);
         assert.equal(fs.statSync(image).size, before.size);
@@ -297,7 +325,8 @@ export async function run_geforce_guest(win98)
     const result = { status: initialized ? "INITIALIZED" : "BLOCKED", seconds: Math.round(elapsed()),
         guest: win98 ? "win98" : "xp", driver, rom: process.env.NV_ROM || "v86 G0 SeaVGABIOS",
         error, probe: text, trace: "trace.json", imageUnchanged: true,
-        reason: initialized ? "FIFO-channel creation still needs trace review" : text ? "driver install/initialization did not complete" : "guest probe did not start" };
+        ...(game_path?{game:{path:game_path,slot:"secondary-slave",imageUnchanged:true}}:{}),
+        reason: initialized ? "native device started; rendering acceptance is recorded separately" : text ? "driver install/initialization did not complete" : "guest probe did not start" };
     fs.writeFileSync(path.join(out, "result.json"), JSON.stringify(result, null, 2) + "\n");
     console.log(JSON.stringify(result, null, 2));
     if(!initialized) process.exitCode = 1;

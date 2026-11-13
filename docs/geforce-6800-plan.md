@@ -794,6 +794,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   当前使用 RCP/MUL，保留原生除法可能存在的末位舍入偏差。42 个 WGSL 模块通过 Naga；
   真实 NV 指令编码的比较、常量、DIV、DP2A 结果通过 GPU 逐分量读回，Closure 构建通过。
 
+- G3/G5 benchmark harness：`NV_HDB` 将只读游戏盘连接到 secondary-slave，保留
+  primary-slave 的 RAM 工具盘；`NV_GAME_OVERLAY_LOAD/SAVE` 独立保存扇区写入，
+  `NV_GAME_ARTIFACTS` 按分号分隔读取有界 FAT32 结果文件，结束检查游戏原盘大小/mtime。
+  已用 XP 冷启动读到 legacy 镜像的原版 3DMark99 EXE，进入其 DirectX 版本检查；
+  99 在 XP 的兼容启动仍待解决。已有游戏盘的快照须用同一游戏盘恢复。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。
