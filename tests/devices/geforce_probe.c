@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <setupapi.h>
 #include <cfgmgr32.h>
+#include <regstr.h>
 static char output[MAX_PATH], inf[MAX_PATH], text[1024], hardware[4096];
 static unsigned int used;
 typedef CONFIGRET (WINAPI *status_t)(PULONG,PULONG,DEVINST,ULONG);
@@ -20,6 +21,9 @@ static void line(void)
     if(f!=INVALID_HANDLE_VALUE) { SetFilePointer(f,0,0,FILE_END); WriteFile(f,text,used,&wrote,0); FlushFileBuffers(f); CloseHandle(f); }
     used=0;
 }
+#ifdef NV_DDRAW_TEST
+static void probe_mark(const char *s) { put(s);line(); }
+#endif
 static int match(const char *s, const char *prefix)
 {
     while(*prefix) { char c=*s++; if(c>='a' && c<='z') c-=32; if(c!=*prefix++) return 0; }
@@ -92,6 +96,21 @@ static void disable_legacy_vga(void)
         BOOL ok=SetupDiSetClassInstallParamsA(set,&dev,&change.ClassInstallHeader,sizeof(change));
         if(ok) ok=SetupDiCallClassInstaller(DIF_PROPERTYCHANGE,set,&dev);
         put("LEGACY_VGA disabled=");number(ok);put(" error=");number(ok?0:GetLastError());line();
+        DWORD flags=0;
+        SetupDiGetDeviceRegistryPropertyA(set,&dev,SPDRP_CONFIGFLAGS,0,(BYTE*)&flags,sizeof(flags),0);
+        flags|=CONFIGFLAG_DISABLED;
+        ok=SetupDiSetDeviceRegistryPropertyA(set,&dev,SPDRP_CONFIGFLAGS,(const BYTE*)&flags,sizeof(flags));
+        put("LEGACY_VGA persistent-disable=");number(ok);put(" error=");number(ok?0:GetLastError());line();
+        typedef CONFIGRET (WINAPI *disable_t)(DEVINST,ULONG);
+        HMODULE cfg=GetModuleHandleA("cfgmgr32.dll");
+        disable_t disable=(disable_t)GetProcAddress(cfg,"CM_Disable_DevNode");
+        CONFIGRET rc=disable?disable(dev.DevInst,0):CR_CALL_NOT_IMPLEMENTED;
+        put("LEGACY_VGA stop cm=");number(rc);line();
+        if(rc==CR_NOT_DISABLEABLE)
+        {
+            ok=SetupDiRemoveDevice(set,&dev);
+            put("LEGACY_VGA remove=");number(ok);put(" error=");number(ok?0:GetLastError());line();
+        }
     }
     SetupDiDestroyDeviceInfoList(set);
 }
@@ -102,12 +121,14 @@ static void resources(DEVINST node)
     typedef CONFIGRET (WINAPI *data_t)(RES_DES,void*,ULONG,ULONG);
     typedef CONFIGRET (WINAPI *size_t_)(ULONG*,RES_DES,ULONG);
     typedef CONFIGRET (WINAPI *free_t)(ULONG);
+    typedef CONFIGRET (WINAPI *detect_t)(DEVINST,RESOURCEID,const void*,ULONG,BOOL*,ULONG);
     HMODULE cfg=GetModuleHandleA("cfgmgr32.dll");
     first_t first=(first_t)GetProcAddress(cfg,"CM_Get_First_Log_Conf");
     next_t next=(next_t)GetProcAddress(cfg,"CM_Get_Next_Res_Des");
     data_t data=(data_t)GetProcAddress(cfg,"CM_Get_Res_Des_Data");
     size_t_ size=(size_t_)GetProcAddress(cfg,"CM_Get_Res_Des_Data_Size");
     free_t free_res=(free_t)GetProcAddress(cfg,"CM_Free_Res_Des_Handle"),free_log=(free_t)GetProcAddress(cfg,"CM_Free_Log_Conf_Handle");
+    detect_t detect=(detect_t)GetProcAddress(cfg,"CM_Detect_Resource_Conflict");
     if(!first || !next || !data || !size || !free_res || !free_log) return;
     for(ULONG kind=0;kind<=4;kind++)
     {
@@ -122,7 +143,15 @@ static void resources(DEVINST node)
             ULONG length=0;BYTE bytes[256];rc=size(&length,resource,0);
             put("RESOURCE type=");number(type);put(" bytes=");number(length);put(" words=");
             if(rc==CR_SUCCESS && length<=sizeof(bytes) && data(resource,bytes,length,0)==CR_SUCCESS)
+            {
                 for(ULONG at=0;at+4<=length;at+=4){number(*(DWORD*)(bytes+at));put(",");}
+                if(detect && kind==BASIC_LOG_CONF && (type==ResType_Mem || type==ResType_IO || type==ResType_IRQ))
+                {
+                    BOOL conflict=FALSE;*(DWORD*)bytes=0;
+                    CONFIGRET check=detect(node,type,bytes,type==ResType_Mem?32:type==ResType_IO?28:20,&conflict,0);
+                    put(" conflict=");number(conflict);put(" check-cm=");number(check);
+                }
+            }
             line();
         }
         if(cursor!=log) free_res(cursor);free_log(log);
@@ -256,10 +285,9 @@ static void devices(void)
         if(!match(hardware,"PCI\\VEN_10DE&DEV_0045"))
         {
 #ifdef NV_WIN98
-            if(match(hardware,"*PNP0900"))
             {
                 ULONG status=0,problem=0;if(node_status) node_status(&status,&problem,dev.DevInst,0);
-                put("LEGACY_VGA problem=");number(problem);put(" started=");number(!!(status&DN_STARTED));line();
+                put("RESOURCE_OWNER ");put(hardware);put(" problem=");number(problem);put(" started=");number(!!(status&DN_STARTED));line();
                 resources(dev.DevInst);
             }
 #endif
@@ -308,7 +336,11 @@ void WINAPI entry(void)
         RegCloseKey(crash);
     }
 #endif
-    put("BEGIN"); line(); devices();
+    put("BEGIN"); line();
+#ifdef NV_PROBE_ID
+    put("PROBE_ID ");number(NV_PROBE_ID);line();
+#endif
+    devices();
 #ifdef NV_WIN98
     HKEY pci;
     LONG registry_result=RegOpenKeyExA(HKEY_LOCAL_MACHINE,"Enum\\PCI",0,KEY_READ,&pci);
@@ -438,6 +470,11 @@ void WINAPI entry(void)
     extern DWORD nv_gdi_probe(void);
     put("GDI_TEST failures=");number(nv_gdi_probe());line();
     #endif
+#ifdef NV_DDRAW_TEST
+    extern DWORD nv_ddraw_probe(void (*mark)(const char*));
+    put("DDRAW_BEGIN");line();
+    put("DDRAW_TEST failures=");number(nv_ddraw_probe(probe_mark));line();
+#endif
     devices(); put("SCREEN ");number(GetSystemMetrics(SM_CXSCREEN));put("x");number(GetSystemMetrics(SM_CYSCREEN));line();
     put("REGISTRY_FLUSH status=");number(RegFlushKey(HKEY_LOCAL_MACHINE));line();
 #ifdef NV_REBOOT

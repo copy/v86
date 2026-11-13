@@ -32,6 +32,29 @@ class ProbeSink extends PictureSink
     }
 }
 
+// Warm diagnostic snapshots reserve a fixed-size executable. Replace only its
+// data clusters while the CPU is stopped; FAT/directory geometry stays intact.
+function replace_probe(bytes, replacement)
+{
+    const old = read_fat16(bytes, "NVPROBE.EXE");
+    assert.equal(old?.length, 65536, "probe replacement needs a snapshot made with a reserved 64 KiB executable");
+    const view = new DataView(bytes.buffer, bytes.byteOffset), word = at => view.getUint16(at, true);
+    const boot = view.getUint32(454, true) * 512, cluster_bytes = bytes[boot + 13] * 512;
+    const fat = boot + word(boot + 14) * 512, root = fat + bytes[boot + 16] * word(boot + 22) * 512;
+    const data = root + Math.ceil(word(boot + 17) * 32 / 512) * 512;
+    let entry = root;
+    for(; entry < data; entry += 32) if(Buffer.from(bytes.subarray(entry, entry + 11)).toString("ascii") === "NVPROBE EXE") break;
+    assert(entry < data);
+    let cluster = word(entry + 26), offset = 0;
+    while(offset < replacement.length)
+    {
+        assert(cluster >= 2 && cluster < 0xFFF8);
+        const count = Math.min(cluster_bytes, replacement.length - offset);
+        bytes.set(replacement.subarray(offset, offset + count), data + (cluster - 2) * cluster_bytes);
+        offset += count; cluster = word(fat + cluster * 2);
+    }
+}
+
 export async function run_geforce_guest(win98)
 {
     const root = new URL("../../", import.meta.url).pathname;
@@ -87,9 +110,14 @@ export async function run_geforce_guest(win98)
         ...(process.env.NV_MODE_TEST ? ["-DNV_MODE_TEST"] : []),
         ...(process.env.NV_SKIP_INSTALL ? ["-DNV_SKIP_INSTALL"] : []),
         ...(process.env.NV_REBOOT ? ["-DNV_REBOOT"] : []), "-o", binary,
-        ...(process.env.NV_GDI_TEST ? ["-DNV_GDI_TEST", path.join(root, "tests/devices/geforce_draw.c")] : []),
-        path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32", "-lgdi32"]);
-    files["NVPROBE.EXE"] = fs.readFileSync(binary);
+        ...(process.env.NV_PROBE_ID ? ["-DNV_PROBE_ID=" + Number(process.env.NV_PROBE_ID)] : []),
+        ...(process.env.NV_GDI_TEST ? ["-DNV_GDI_TEST"] : []),
+        ...(process.env.NV_DDRAW_TEST ? ["-DNV_DDRAW_TEST"] : []),
+        ...(process.env.NV_GDI_TEST || process.env.NV_DDRAW_TEST ? [path.join(root, "tests/devices/geforce_draw.c")] : []),
+        path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32", "-lgdi32", "-ldxguid"]);
+    const probe = new Uint8Array(65536), executable = fs.readFileSync(binary);
+    assert(executable.length <= probe.length); probe.set(executable);
+    files["NVPROBE.EXE"] = probe;
     const tools_bytes = make_esp(files, 120);
     tools_bytes[450] = 0x0E; // normal FAT16, visible to Win9x/XP rather than an ESP
     new DataView(tools_bytes.buffer).setUint32(440, 0x4E563430, true);
@@ -115,6 +143,7 @@ export async function run_geforce_guest(win98)
     const result_text = () => Buffer.from(read_fat16(tools.bytes, "NV.TXT") || []).toString("ascii");
     const trace_report = () => ({ ...nv.trace.report(),
         registers: Array.from(nv.registers, ([offset, value]) => [offset.toString(16), value >>> 0]),
+        pci: Array.from(nv.machine.pci_config()),
         display: { crtc: Array.from(nv.display.crtc), front: nv.display.front, mode: nv.display.mode() },
         graph: nv.graph.get_state(), graphFaults: nv.graph.faults, fifo: nv.fifo.get_state() });
     try
@@ -123,6 +152,7 @@ export async function run_geforce_guest(win98)
         if(process.env.NV_STATE_LOAD)
         {
             await vm.restore_state(fs.readFileSync(process.env.NV_STATE_LOAD));
+            if(process.env.NV_PROBE_REPLACE) replace_probe(tools.bytes, probe);
             await vm.run();
         }
         const cpu = vm.v86.cpu;
@@ -162,7 +192,7 @@ export async function run_geforce_guest(win98)
                 checkpoint = true;
                 await vm.run();
             }
-            if(launches < 3 && elapsed() >= next_launch && (!result_text() || reboot_seen))
+            if(!process.env.NV_HOLD && launches < 3 && elapsed() >= next_launch && (!result_text() || reboot_seen))
             {
                 launches++; next_launch = elapsed() + 45;
                 for(let i = 0; i < 3; i++) { await vm.keyboard_send_scancodes([1, 129], 30); await delay(500); }
@@ -178,7 +208,7 @@ export async function run_geforce_guest(win98)
                 save_png(sink, out, "progress");
                 fs.writeFileSync(path.join(out, "progress-trace.json"), JSON.stringify(trace_report()));
             }
-            if(result_text().includes("END\r\n"))
+            if(!process.env.NV_HOLD && result_text().includes("END\r\n"))
             {
                 await delay(Number(process.env.NV_GRACE_SECONDS || 5) * 1000);
                 cpu.devices.display.request_frame(true);

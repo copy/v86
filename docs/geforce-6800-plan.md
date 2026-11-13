@@ -200,6 +200,13 @@
   先前仅在写尺寸时重置会把下一幅图的数据误报为 excess data；新增复用尺寸的
   INDEX 像素检查和 IFC 部分行状态检查，全部 2D 测试与插件构建通过。
 
+- 原生诊断续修：Win98 探针输出各节点逻辑配置及 CM_Detect_Resource_Conflict，旧 VGA
+  不可停用时走原生设备移除；工具盘预留 64 KiB 探针，`NV_PROBE_REPLACE` / `NV_PROBE_ID`
+  支持在首次打开探针前的调查快照中替换代码，已用不同编号的真实探针验证。
+  `NV_HOLD` 暂停自动启动探针/END 退出以便调查界面；跟踪包含 PCI 配置。
+  可选 `NV_DDRAW_TEST` 使用原生 DirectDraw7 测试显存表面的填充、复制、ROP 和 Lock 读回，
+  每个阶段记录标记；目前不能据此宣布 DirectDraw 通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
