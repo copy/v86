@@ -122,6 +122,9 @@ export class NV40Render
             this.command(OP.CREATE_TEXTURE_2D,{"resource_handle":handle,"width":surface.width,"height":surface.height,
                 "level_count":levels,"format":surface.d3d,"usage":usage});
         }
+        // Refresh recency on every use. A frequently bound color/depth target
+        // must survive eviction while new sampled textures fill the cache.
+        this.resources.delete(key);this.resources.set(key,handle);
         images.forEach((bytes,level)=>{
             const width=Math.max(1,surface.width>>>level),height=Math.max(1,surface.height>>>level);
             const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"level":level,"width":width,"height":height,
@@ -133,7 +136,10 @@ export class NV40Render
     shader(code,vertex)
     {
         const key=(vertex?"v":"p")+Array.from(code).join(",");
-        if(this.shaders.has(key)) return this.shaders.get(key);
+        if(this.shaders.has(key))
+        {
+            const handle=this.shaders.get(key);this.shaders.delete(key);this.shaders.set(key,handle);return handle;
+        }
         if(this.shaders.size>=256)
         {
             const first=this.shaders.entries().next().value;
