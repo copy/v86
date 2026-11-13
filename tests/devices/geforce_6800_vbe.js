@@ -26,6 +26,8 @@ try
     assert.equal(word(0x600C),0x4F,"banked mode selection");
     assert.equal(word(0x600E),0x4F,"VBE save state");assert.equal(word(0x6010),0x4F,"800x600x16 mode");
     assert.equal(word(0x6012),0,"mode switch clears visible VRAM");assert.equal(word(0x6014),0x4F,"VBE restore through DOS text mode");
+    assert.equal(cpu.read8(0x6016),63,"DOS mode restores 6-bit VGA DAC precision");
+    assert.deepEqual([...nv.display.gamma.subarray(0x40*3,0x41*3)],[0x12,0x34,0x56],"VBE state restores 8-bit DAC precision before its palette");
     assert.equal(String.fromCharCode(...Array.from({length:4},(_,i)=>cpu.read8(0x5000+i))),"VESA");
     assert.equal(word(0x5200+18),1024);assert.equal(word(0x5200+20),768);assert.equal(cpu.read8(0x5200+25),32);
     assert.equal(word(0x5200+16),4096,"VBE mode pitch");

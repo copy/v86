@@ -93,6 +93,13 @@ int nv40_set_dacformat(struct vgamode_s *mode,int val)
 static u32 regs[] VAR16={0x600800,0x600804,0x600810,0x680508,0x68050c,0x680578,0x680600};
 int nv40_save_restore(int cmd,u16 seg,void *data)
 {
+    if((cmd&(SR_RESTORE|SR_REGISTERS))==(SR_RESTORE|SR_REGISTERS))
+    {
+        int bytes=stdvga_save_restore(cmd&~(SR_SAVE|SR_RESTORE),seg,data);
+        if(bytes<0)return bytes;
+        // Restore DAC precision before the standard helper writes palette data.
+        nw(0x680600,GET_FARVAR(seg,*(u32*)((u8*)data+bytes+0x60)));
+    }
     int size=stdvga_save_restore(cmd,seg,data),i;
     if(size<0 || !(cmd&SR_REGISTERS)) return size;
     u8 *extra=data+size;
@@ -126,7 +133,11 @@ static u32 pll(u32 target)
 int nv40_set_mode(struct vgamode_s *mode,int flags)
 {
     cw(0x1f,0x57);cw(0x28,0);cw(0x38,0);
-    if(!extended(mode)) { int ret=stdvga_set_mode(mode,flags);cw(0x1f,0x99);return ret; }
+    if(!extended(mode))
+    {
+        nw(0x680600,nr(0x680600)&~0x101000);nw(0x600810,0);cw(0x31,0);
+        int ret=stdvga_set_mode(mode,flags);cw(0x1f,0x99);return ret;
+    }
     if(!valid(mode) || flags&MF_CUSTOMCRTC) return -1;
     stdvga_set_mode(stdvga_find_mode(0x13),MF_NOCLEARMEM);
     cw(0x1f,0x57);

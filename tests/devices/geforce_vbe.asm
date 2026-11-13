@@ -41,6 +41,17 @@ ORG 0x7C00
     mov dx,32 ; bank 4 points at framebuffer scanline 32
     int 0x10
     mov [0x6008],ax
+    ; Use nontrivial 8-bit palette values before saving the VBE state.
+    mov dx,0x3C8
+    mov al,0x40
+    out dx,al
+    inc dx
+    mov al,0x12
+    out dx,al
+    mov al,0x34
+    out dx,al
+    mov al,0x56
+    out dx,al
     mov ax,0x4F04
     mov cx,15
     mov dx,1
@@ -59,6 +70,12 @@ ORG 0x7C00
     mov es,ax
     mov ax,3
     int 0x10
+    mov dx,0x3C7
+    mov al,0x3F
+    out dx,al
+    mov dx,0x3C9
+    in al,dx
+    mov [0x6016],al
     mov ax,0x4F04
     mov cx,15
     mov dx,2

@@ -187,6 +187,10 @@
   冷启动、1024×768×32 下 `GDI_TEST failures=0`，设备仍为 started/problem=0，见
   `g2-xp-9371-gdi.json`。DirectDraw/DxDiag、字体 DMA 和 Win98 门禁仍未完成。
 
+- VBE/DOS DAC 续修：返回传统模式时恢复 6-bit DAC 并关闭硬件光标；恢复 VBE 状态时，
+  先恢复 DAC 精度再写标准 VGA 调色板。真实 INT 10h 测试覆盖非平凡的 8-bit 调色板、
+  mode 3 的 6-bit 读回及 VBE 往返，`geforce_6800_vbe.js` 通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
