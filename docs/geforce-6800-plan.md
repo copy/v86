@@ -16,7 +16,7 @@
 - G0.2：独立探路 ROM 从 SeaVGABIOS rel-1.16.2 构建（`bios/nv40/build.py`、`tables.S`），
   预留 `0x36` 的 DCB 指针，带 BIT/i/I、终止初始化脚本、单 CRT DCB 与 CRTC DDC 表。
   描述符的 `vga_bios` 提供默认路径，显式 `vga_bios` 可以覆盖；专属 ROM 不再经过 PCI ID 修补。
-  CPU Worker 保留页面的 ROM 路径基准。PROM 遵守 ROM BAR 使能位，PCI 核心保留该位。
+  CPU Worker 保留页面的 ROM 路径基准，PCI 核心保留 ROM BAR 使能位。
 - 已验证 G0.2：ROM/PCIR/BIT 校验和及表指针、默认 ROM 的文本启动、PROM 使能、设备快照；
   `node tests/devices/geforce_6800_bios.js`、`node tests/devices/geforce_6800.js`，
   `node tests/devices/graphics_adapter.js`；插件 Closure 构建 0 errors/warnings。
@@ -73,6 +73,10 @@
   现实现清除后的实例缓存重新装载（包括 PUSH 停止时）；VALID 表示取回实例完成，
   DMA 类/页权限在实际访问时检查，不能把尚未填入对象的零实例误判为装载失败。
   寄存器测试覆盖停推时失效/重取、内容更新、零实例与越界实例；DMA 测试及插件构建通过。
+- PROM 续修：BAR0 的 PROM 窗口独立于 expansion-ROM BAR；按 Nouveau 的
+  [shadowrom 实现](https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/nouveau/nvkm/subdev/bios/shadowrom.c)
+  由 PBUS `0x1850` bit 0 控制读取。此前错误的 ROM BAR 门控使 XP 读到首字节 0，跳过 ROM 表。
+  已修正并覆盖 ROM BAR 关闭时读取、PBUS 禁用/恢复的设备测试；插件构建通过。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

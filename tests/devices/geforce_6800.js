@@ -46,9 +46,14 @@ try
     assert.equal(read(mmio + 0x3304), 3, "NV40 CACHE1 UNK104 is read-only and returns 3");
     assert.equal(read(mmio + 0x10020C), 128 << 20);
     assert.equal(read(mmio + 0x1800), config(0), "PBUS config mirror");
-    assert.equal(read(mmio + 0x300000), 0, "PROM disabled until ROM BAR enable");
+    assert.equal(read(mmio + 0x300000) & 0xFFFF, 0xAA55, "BAR0 PROM works with the expansion-ROM BAR disabled");
     pci_write(0x30, config(0x30) | 1);
     assert.equal(read(mmio + 0x300000) & 0xFFFF, 0xAA55, "PROM exposes the selected adapter ROM");
+    write(mmio + 0x1850, 1);
+    assert.equal(read(mmio + 0x300000), 0, "PBUS ROM shadow control inhibits PROM");
+    pci_write(0x30, config(0x30) & ~1);
+    write(mmio + 0x1850, 0);
+    assert.equal(read(mmio + 0x300000) & 0xFFFF, 0xAA55, "clearing PBUS shadow control re-enables PROM");
     assert.equal(cpu.read8(0xC0000 + 0x36), nv.machine.handle["vga_bios"]()[0x36]);
     write(mmio + 0x1800, 0x11223344);
     assert.equal(config(0), 0x004510DE, "mirror retains PCI readonly identity");

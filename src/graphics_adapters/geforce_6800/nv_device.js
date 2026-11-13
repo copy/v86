@@ -219,7 +219,9 @@ export class NVDevice
         if(offset >= 0x300000 && offset < 0x310000)
         {
             const rom = this.machine.handle["vga_bios"]();
-            const value = this.machine.pci_config()[0x30] & 1 ? rom[offset - 0x300000] || 0 : 0;
+            // PROM is a BAR0 window, independent of the expansion-ROM BAR.
+            // NV04..NV40's PBUS PCI_NV_20 bit 0 inhibits the PROM reader.
+            const value = this.machine.pci_config()[0x50] & 1 ? 0 : rom[offset - 0x300000] || 0;
             this.trace.record("rom", offset - 0x300000, 1, false, value, true);
             return value;
         }
