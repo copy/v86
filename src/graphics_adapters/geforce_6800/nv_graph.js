@@ -44,7 +44,10 @@ export class NVGraph
 
     read(at)
     {
-        if(at === 0x400700) return this.busy ? 1 : 0;
+        // FLIP_WAIT blocks the FIFO front end, while the raster engine can be
+        // idle. The display ISR must be able to save that idle context before
+        // advancing its READ counter.
+        if(at === 0x400700) return this.engine3d.busy ? 1 : 0;
         if(at === 0x400710)
         {
             let value=this.reg(at)&~0x77777700;
