@@ -45,6 +45,12 @@ try
     write(mmio + 0x3304, 0);
     assert.equal(read(mmio + 0x3304), 3, "NV40 CACHE1 UNK104 is read-only and returns 3");
     assert.equal(read(mmio + 0x10020C), 128 << 20);
+    assert.equal(read(mmio + 0x1218) & 0x300, 0x200, "GDDR3 memory type");
+    const cfg0 = read(mmio + 0x100200), cfg1 = read(mmio + 0x100204);
+    const parts = (cfg0 & 3) + 1, width = cfg0 & 4 ? 8 : 4;
+    const capacity = parts * width * 4 * 2 ** (cfg1 >>> 12 & 15) * 2 ** (cfg1 >>> 16 & 15);
+    assert.equal(parts * width * 8, 256, "256-bit memory bus");
+    assert.equal(capacity, 128 << 20, "PFB geometry agrees with configured VRAM");
     assert.equal(read(mmio + 0x1800), config(0), "PBUS config mirror");
     assert.equal(read(mmio + 0x300000) & 0xFFFF, 0xAA55, "BAR0 PROM works with the expansion-ROM BAR disabled");
     pci_write(0x30, config(0x30) | 1);

@@ -2095,6 +2095,7 @@ sse-fault-tests: build/libv86.mjs build/jit-capacity.bin build/v86.wasm build/v8
 ios-tests:
 	node --test tests/ios/ipa.mjs
 	node --test tests/ios/ipa-prepare.mjs
+	node --test tests/ios/code-hash.mjs
 	node --test tests/ios/install-trust.mjs tests/ios/runtime-trust.mjs tests/ios/install-service.mjs tests/ios/install-api.mjs
 	node tests/ios/boot-tree.mjs
 	node tests/ios/spi-dma.mjs

@@ -1,4 +1,5 @@
-// Read the SHA-1 CodeDirectory identity of a prepared thin ARMv7 image.
+// Read a thin ARMv7 image's SHA-1 CodeDirectory identity, after verifying
+// every signed page. A copied CodeDirectory alone is never trusted.
 extern long long lseek(int, long long, int);
 extern unsigned char *CC_SHA1(const void *, unsigned, unsigned char *);
 static unsigned code_le(const unsigned char *b) { return b[0] | b[1]<<8 | b[2]<<16 | (unsigned)b[3]<<24; }
@@ -31,7 +32,22 @@ static int app_code_hash(const char *path, unsigned char digest[20])
         if(code_be(blob+12+i*8)!=0)continue;unsigned off=code_be(blob+16+i*8);
         if(off>length-44 || code_be(blob+off)!=0xFADE0C02 || code_be(blob+off+4)<44 || code_be(blob+off+4)>length-off ||
             blob[off+36]!=20 || blob[off+37]!=1)goto cleanup;
-        CC_SHA1(blob+off,code_be(blob+off+4),digest);ok=1;break;
+        const unsigned char *directory=blob+off;
+        unsigned directory_size=code_be(directory+4),hashes=code_be(directory+16),special=code_be(directory+24);
+        unsigned pages=code_be(directory+28),limit=code_be(directory+32),identifier=code_be(directory+20),version=code_be(directory+8);
+        if(version<0x20001 || version>0x20400 || directory[39]!=12 || limit!=sig || limit>128*1024*1024 ||
+            pages!=(limit+4095)/4096 || special>7 || hashes<special*20 || hashes>directory_size ||
+            pages>(directory_size-hashes)/20 || identifier<44 || identifier>=directory_size)goto cleanup;
+        unsigned id_end=identifier;while(id_end<directory_size && directory[id_end])id_end++;
+        if(id_end==identifier || id_end==directory_size || id_end-identifier>1024)goto cleanup;
+        unsigned char page[4096],actual[20];
+        for(unsigned j=0;j<pages;j++)
+        {
+            unsigned size=limit-j*4096;if(size>4096)size=4096;
+            if(!code_read_at(fd,j*4096,page,size))goto cleanup;
+            CC_SHA1(page,size,actual);if(memcmp(actual,directory+hashes+j*20,20))goto cleanup;
+        }
+        CC_SHA1(directory,directory_size,digest);ok=1;break;
     }
 cleanup:free(blob);
 done:close(fd);return ok;

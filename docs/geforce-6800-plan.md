@@ -65,9 +65,9 @@
   实现路径还是存值/默认值。`g0-win98-8198.json` 保存 Win98 原生设备和 PCI 注册表证据。
   使用 `node tools/nv40_trace_report.mjs <trace.json> <report.json>` 可重新生成清单。
   原始 RAMIN、跟踪、驱动包及截图留在 `build/nv40-*`，不分发 NVIDIA 固件或微码。
-- **当前门禁仍未通过**：XP 93.71 在初始化中持续等待 PFIFO 状态，DMA 实例/推送仍为 0；
-  Win98 81.98 尚无 PCI 设备可绑定。不能把单元测试通过称作 NVIDIA 驱动可用。
-  下一步先实现 PFIFO 缓存、引擎启停/复位、通道/上下文语义和 NV VBE/BIOS 表；
+- **G1 门禁仍未通过**：XP 93.71 已完成设备初始化（下列续修记录），Win98 已枚举 NV40；
+  两者的 NVIDIA 桌面显示与加速尚未验收。不能把单元测试通过称作完整驱动可用。
+  下一步实现引擎启停/复位、通道/上下文语义和 NV VBE/BIOS 表；
   G2 的 2D、G3/G4 的 D9WG/着色器与 G5/G6/G7 最终验收均未完成。
 - PFIFO 调查续修：93.71 miniport 的初始化路径清除 `DMA_CTL.VALID` 后轮询该位变为 1。
   现实现清除后的实例缓存重新装载（包括 PUSH 停止时）；VALID 表示取回实例完成，
@@ -86,6 +86,12 @@
   harness 的 `NV_WIN98_ISO` 可指定安装 ISO；`NV_STATE_SAVE/LOAD`、可选
   `NV_STATE_SAVE_AT` 保存/恢复调查快照，`NV_CONTROL` 接受 Run 命令或 JSON `keys` 扫描码。
   定期输出 progress-trace，XP 禁用 overlay 内的自动崩溃重启，便于保留故障证据。
+- XP 设备初始化已通过：PFIFO 续修后产生的 `0x7f / divide error` 转储定位到 miniport
+  RVA `0x151581` 的 tiled-pitch 计算；PFB 的零 column 配置导致除零。增加一致的启动后
+  显存几何配置（四个 64-bit 分区、GDDR3、8 column bits、12/13 row bits，128/256 MiB），
+  快照 v4 向旧快照补齐此前缺失的字段。93.71 安装返回成功、无需重启；原生设备报告
+  `problem=0 cm=0 started=1 service=nv`，见 `g1-xp-9371-initialized.json`。
+  当前屏幕仍是 640×480；下一步验证显示驱动接管、1024×768×32 与 FIFO 命令。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

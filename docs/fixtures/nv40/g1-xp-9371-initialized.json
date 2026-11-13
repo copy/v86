@@ -1,0 +1,17 @@
+{
+  "status": "INITIALIZED",
+  "seconds": 107,
+  "guest": "xp",
+  "driver": "NVIDIA ForceWare 93.71 (official XP package)",
+  "rom": "source-built v86 NV40 SeaVGABIOS",
+  "error": null,
+  "probe": "BEGIN\r\nPCI PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1\r\nDEVICE PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1 problem=1 cm=0 started=0 service= driver= description=Video Controller (VGA Compatible)\r\nPCI PCI\\VEN_8086&DEV_1237&SUBSYS_00000000&REV_02\r\nPCI PCI\\VEN_8086&DEV_7000&SUBSYS_00000000&REV_00\r\nPCI PCI\\VEN_8086&DEV_7010&SUBSYS_82D41043&REV_00\r\nENUM_END error=259 count=74 properties=46\r\nINSTALL d:\\DRIVER\\nv4_disp.inf\r\nINSTALL_RESULT ok=1 error=0 reboot=0\r\nPCI PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1\r\nDEVICE PCI\\VEN_10DE&DEV_0045&SUBSYS_004510DE&REV_A1 problem=0 cm=0 started=1 service=nv driver={4D36E968-E325-11CE-BFC1-08002BE10318}\\0000 description=NVIDIA GeForce 6800 GT\r\nPCI PCI\\VEN_8086&DEV_1237&SUBSYS_00000000&REV_02\r\nPCI PCI\\VEN_8086&DEV_7000&SUBSYS_00000000&REV_00\r\nPCI PCI\\VEN_8086&DEV_7010&SUBSYS_82D41043&REV_00\r\nENUM_END error=259 count=75 properties=47\r\nSCREEN 640x480\r\nEND\r\n",
+  "trace": "local build/nv40-xp-pfb-geometry/trace.json",
+  "imageUnchanged": true,
+  "reason": "FIFO-channel creation still needs trace review",
+  "memory": "128 MiB GDDR3, 4 x 64-bit partitions, 8 column / 12 row bits",
+  "limitations": [
+    "Desktop is still 640x480. Display-driver mode setting, FIFO commands and 2D/3D acceptance are pending.",
+    "Installation API/device start alone is not G1 acceptance."
+  ]
+}

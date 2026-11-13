@@ -101,6 +101,10 @@ export class NVDevice
         this.registers.set(0x009200, 1);
         this.registers.set(0x009210, 1);
         this.registers.set(0x10020C, this.vram_size);
+        // Post-firmware memory geometry: four 64-bit partitions, one rank,
+        // four banks, 8 column bits, 12/13 row bits for 128/256 MiB.
+        // A zero column field also breaks the driver's tiled-pitch alignment.
+        for(const [offset, value] of this.memory_defaults()) this.registers.set(offset, value);
         this.registers.set(0x101000, 0); // PCI strap, 13.5 MHz crystal
         this.timer_epoch = this.machine.now();
         this.timer_value = 0n;
@@ -114,6 +118,12 @@ export class NVDevice
     {
         return new Uint8Array(this.machine.wasm_memory.buffer,
             this.machine.mmio_ram_backing(this.vga.lfb_region) >>> 0, this.vram_size);
+    }
+
+    memory_defaults()
+    {
+        return [[0x1218, 0x200], [0x100200, 7],
+            [0x100204, 0x01008000 | (this.vram_size === 128 << 20 ? 12 : 13) << 16]];
     }
 
     move_vram(base)
@@ -277,8 +287,8 @@ export class NVDevice
 
     implemented(offset)
     {
-        return [0, 0x100, 0x140, 0x200, 0x322C, 0x3230, 0x3234, 0x3238, 0x323C, 0x3304,
-            0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x10020C, 0x101000].includes(offset) ||
+        return [0, 0x100, 0x140, 0x200, 0x1218, 0x322C, 0x3230, 0x3234, 0x3238, 0x323C, 0x3304,
+            0x9200, 0x9210, 0x9400, 0x9410, 0x9420, 0x100200, 0x100204, 0x10020C, 0x101000].includes(offset) ||
             offset >= 0x1800 && offset < 0x1900 || IRQ_BLOCKS.some(([status, enable]) => offset === status || offset === enable);
     }
 
@@ -400,16 +410,18 @@ export class NVDevice
 
     get_state()
     {
-        return [3, this.vram_size, this.vga.get_state(), Array.from(this.registers),
+        return [4, this.vram_size, this.vga.get_state(), Array.from(this.registers),
             timer_pair(this.time()), this.alarm_remaining, timer_pair(this.alarm_sample), this.display.get_state()];
     }
 
     set_state(state)
     {
-        if(state[0] < 1 || state[0] > 3) throw new Error("geforce_6800: unsupported state version " + state[0]);
+        if(state[0] < 1 || state[0] > 4) throw new Error("geforce_6800: unsupported state version " + state[0]);
         if(state[1] !== this.vram_size) throw new Error("geforce_6800: snapshot vram_size mismatch");
         this.vga.set_state(state[2]);
         this.registers = new Map(state[3]);
+        if(state[0] < 4) for(const [offset, value] of this.memory_defaults())
+            if(!this.registers.has(offset)) this.registers.set(offset, value);
         this.timer_value = state[0] >= 3 ? timer_from_pair(state[4]) : BigInt(Math.floor(state[4])) & TIMER_MASK;
         this.timer_epoch = this.machine.now();
         this.alarm_remaining = state[5];
