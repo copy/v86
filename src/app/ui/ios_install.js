@@ -15,6 +15,7 @@ export function show_ios_install(controller,name)
     const downgrade=/** @type {HTMLInputElement} */(h("input#ios_ipa_downgrade",{type:"checkbox",onchange:()=>render()}));
     const downgrade_row=h("label",{hidden:true},downgrade," Allow installing this older version");
     const install=/** @type {HTMLButtonElement} */(h("button.primary#ios_ipa_install",{type:"button",onclick:()=>controller.install()},"Install"));
+    const open=/** @type {HTMLButtonElement} */(h("button.primary#ios_ipa_open",{type:"button",hidden:true,onclick:()=>controller.open()},"Open application"));
     const resume=/** @type {HTMLButtonElement} */(h("button.primary#ios_ipa_resume",{type:"button",hidden:true,onclick:()=>controller.resume()},"Continue installation"));
     const cancel=/** @type {HTMLButtonElement} */(h("button#ios_ipa_cancel",{type:"button",hidden:true,onclick:()=>controller.cancel()},"Cancel installation"));
     const close=()=>{controller.removeEventListener("change",render);element.close();element.remove();previous?.focus();};
@@ -24,11 +25,11 @@ export function show_ios_install(controller,name)
         h("p",null,"Install a local, unencrypted ARMv7 application compatible with iOS 6.1.3 on ",h("strong",null,name),"."),
         h("label",null,"Choose or drop an IPA",picker),report,status,progress,error,downgrade_row,
         h("details",null,h("summary",null,"Technical details"),detail)),
-        h("div.dialog-buttons",null,cancel,resume,h("button",{type:"button",onclick:close},"Close"),install)));
+        h("div.dialog-buttons",null,cancel,resume,h("button",{type:"button",onclick:close},"Close"),install,open)));
     const phases={choose:"Choose an IPA to inspect it.",checking:"Checking IPA…",ready:"Ready to install.",preparing:"Preparing application…",
         transferring:"Transferring IPA…",staged:"The IPA is staged on the iPhone.",committing:"Committing installation…",
         installing:"Installing through iOS…",verifying:"Verifying the installed application…",installed:"Installed. Return to the Home screen and tap the application icon.",
-        failed:"Installation failed.",cancelled:"Installation cancelled.",interrupted:"The previous installation was interrupted.",recoverable:"Checking the previous installation result."};
+        failed:"Installation failed.",cancelled:"Installation cancelled.",opening:"Opening application…",interrupted:"The previous installation was interrupted.",recoverable:"Checking the previous installation result."};
     const older=(a,b)=>{const x=String(a).split(/[.-]/).map(Number),y=String(b).split(/[.-]/).map(Number);for(let i=0;i<Math.max(x.length,y.length);i++){if((x[i]||0)!==(y[i]||0))return(x[i]||0)<(y[i]||0);}return false;};
     let shown=null;
     const render=()=>{
@@ -43,12 +44,14 @@ export function show_ios_install(controller,name)
         if(s.phase==="transferring")text+=" "+format_size(s.offset||0)+" / "+format_size(s.total||0);
         if(s.phase==="installing"&&s.status)text+=" "+s.status.replace(/([a-z])([A-Z])/g,"$1 $2");
         status.textContent=text;error.textContent=s.error||"";
+        if(s.phase==="installed"&&s.launch_status)status.textContent=s.launch_status;
         if(r!==shown){shown=r;downgrade.checked=false;replace(report,r?h("dl.ios-ipa-info",null,
             ...[["Application",r.name],["Bundle ID",r.bundle_id],["Version",r.version],["Minimum iOS",r.minimum_ios],["Architecture",r.architecture],["IPA size",format_size(r.size)]].flatMap(([k,v])=>[h("dt",null,k),h("dd",null,v)])):null);}
         const update=!!s.existing?.installed,down=update&&older(r?.version,s.existing.version);
         downgrade_row.hidden=!down;
         install.textContent=update?"Update":"Install";install.hidden=s.phase!=="ready";
         install.disabled=!c.available||!c.running||!s.existing_checked||down&&!downgrade.checked;
+        open.hidden=s.phase!=="installed"||!c.can_launch;open.disabled=!c.available||!c.running;
         if(update&&s.phase==="ready")status.textContent+=" Existing version: "+(s.existing.version||"unknown")+". Application data will be kept.";
         cancel.hidden=!controller.cancellable();
         resume.hidden=!["staged","recoverable"].includes(s.phase)||!c.available;

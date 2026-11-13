@@ -67,7 +67,7 @@ static int reply(unsigned op,unsigned seq,int ok,const char *detail,int installe
 {
     char error[1024],status[256],version[256];json_string(error,sizeof(error),last_error);json_string(status,sizeof(status),detail?detail:"");json_string(version,sizeof(version),reported_version);
     char *body=(char *)packet+48;
-    int n=snprintf(body,4096,"{\"protocol\":1,\"build\":\"10B329\",\"ok\":%s,\"phase\":\"%s\",\"install_id\":\"%s\",\"bundle_id\":\"%s\",\"job_generation\":%u,\"offset\":%u,\"total\":%u,\"native_percent\":%d,\"status\":\"%s\",\"error\":\"%s\",\"version\":\"%s\",\"installed\":%s}",
+    int n=snprintf(body,4096,"{\"protocol\":1,\"build\":\"10B329\",\"can_launch\":true,\"ok\":%s,\"phase\":\"%s\",\"install_id\":\"%s\",\"bundle_id\":\"%s\",\"job_generation\":%u,\"offset\":%u,\"total\":%u,\"native_percent\":%d,\"status\":\"%s\",\"error\":\"%s\",\"version\":\"%s\",\"installed\":%s}",
         ok?"true":"false",phases[phase],job_size?(char *)job+32:"",job_size?(char *)job+112:"",job_size?code_le(job+8):0,offset,job_size?code_le(job+4):0,native_percent,status,error,version,installed?"true":"false");
     if(n<0 || n>=4096)return 0;
     unsigned char auth[40+4096];memcpy(auth,nonce,32);put32(auth+32,op);put32(auth+36,seq);memcpy(auth+40,body,n);
@@ -183,6 +183,19 @@ static void command(unsigned op,unsigned char *b,unsigned n)
         if(job_size && !strcmp(bundle,(char *)job+112) && found && verify_installed()){phase=INSTALLED;persist();}
         ok=1;reply(31,sequence,1,found?"Application registered":"Application not registered",found);return;
     }
+    else if(op==17)
+    {
+        if(phase==TRANSFERRING || phase==STAGED || phase==INSTALLING || phase==VERIFYING){snprintf(last_error,sizeof(last_error),"Finish the installation before opening an application");goto answer;}
+        if(!n || n>=256){snprintf(last_error,sizeof(last_error),"Invalid application identifier");goto answer;}
+        char bundle[256];memcpy(bundle,b,n);bundle[n]=0;struct app_identity app;
+        if(!app_native_lookup(bundle,&app)){snprintf(last_error,sizeof(last_error),"The application is not registered");goto answer;}
+        unsigned char list[12+189*20];int fd=open(ROOT "install-trust.bin",0),used=fd<0?-1:read(fd,list,sizeof(list));if(fd>=0)close(fd);
+        if(used>=12 && !memcmp(list,"V86T",4) && code_le(list+4)==1 && code_le(list+8)<=189 && used==12+20*code_le(list+8))
+            for(unsigned i=0;i<code_le(list+8);i++)if(!memcmp(app.cdhash,list+12+i*20,20))ok=1;
+        if(!ok){snprintf(last_error,sizeof(last_error),"The application has no approved local code identity");goto answer;}
+        ok=app_native_launch(bundle,last_error,sizeof(last_error));
+        reply(31,sequence,ok,ok?"Application launch requested":"",1);return;
+    }
     else {snprintf(last_error,sizeof(last_error),"Unknown native installation command");}
 answer:reply(31,sequence,ok,"",phase==INSTALLED);
 }
@@ -191,6 +204,7 @@ int app_service(void)
     mkdir(ROOT,0755);int lock=open(ROOT "install-lock",0x201,0600);if(lock<0 || flock(lock,6))return 4;
     int fd=open(ROOT "install-token",0);if(fd<0)return 5;int got=read(fd,token,32);close(fd);if(got!=32)return 5;
     mkdir("/private/var/mobile/Media/PublicStaging",0755);mkdir(STAGING,0700);chown(STAGING,501,501);chmod(STAGING,0700);
+    app_native_start_diagnostics();
     if(!app_native_load())return 3;
     while(!app_native_ready())usleep(1000000);
     restore();

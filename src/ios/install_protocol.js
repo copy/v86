@@ -6,7 +6,7 @@ export const INSTALL_SERVICE = "v86.ios.install";
 export const INSTALL_CHUNK = 64 << 10;
 export const INSTALL_FRAME_MAX = INSTALL_CHUNK + 8192;
 export const INSTALL_OP = Object.freeze({ CHALLENGE: 1, HELLO: 2, READY: 3, BEGIN: 10, WRITE: 11, STAGE: 12,
-    COMMIT: 13, CANCEL: 14, LOOKUP: 15, SHUTDOWN: 16, PROGRESS: 30, REPLY: 31 });
+    COMMIT: 13, CANCEL: 14, LOOKUP: 15, SHUTDOWN: 16, LAUNCH: 17, PROGRESS: 30, REPLY: 31 });
 const encoder = new TextEncoder();
 
 export function install_frame(op, sequence, payload = new Uint8Array(0))

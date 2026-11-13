@@ -70,6 +70,27 @@ unsigned long long app_native_free(void)
     unsigned long long available=number?((unsigned long long (*)(void *,void *))objc_msgSend)(number,sel_registerName("unsignedLongLongValue")):0;
     CFRelease(path);CFRelease(key);objc_autoreleasePoolPop(pool);return available;
 }
+int app_native_launch(const char *bundle,char *error,unsigned capacity)
+{
+    void *pool=objc_autoreleasePoolPush();
+    void *sbs=dlopen("/System/Library/PrivateFrameworks/SpringBoardServices.framework/SpringBoardServices",1);
+    int (*launch)(CFStringRef,Boolean)=sbs?(int (*)(CFStringRef,Boolean))dlsym(sbs,"SBSLaunchApplicationWithIdentifier"):0;
+    int (*launch_options)(CFStringRef,CFDictionaryRef,Boolean)=sbs?(int (*)(CFStringRef,CFDictionaryRef,Boolean))dlsym(sbs,"SBSLaunchApplicationWithIdentifierAndLaunchOptions"):0;
+    CFStringRef *unlock_key=sbs?(CFStringRef *)dlsym(sbs,"SBSApplicationLaunchOptionUnlockDeviceKey"):0;
+    void (*undim)(void)=sbs?(void (*)(void))dlsym(sbs,"SBSUndimScreen"):0;
+    CFStringRef (*description)(int)=sbs?(CFStringRef (*)(int))dlsym(sbs,"SBSApplicationLaunchingErrorString"):0;
+    if(!launch){snprintf(error,capacity,"The native application launcher is unavailable");objc_autoreleasePoolPop(pool);return 0;}
+    CFStringRef identifier=string(bundle);int result;
+    if(undim)undim();
+    if(launch_options && unlock_key){extern const void *kCFBooleanTrue;
+        CFMutableDictionaryRef options=CFDictionaryCreateMutable(0,0,kCFTypeDictionaryKeyCallBacks,kCFTypeDictionaryValueCallBacks);
+        CFDictionarySetValue(options,*unlock_key,kCFBooleanTrue);result=launch_options(identifier,options,0);CFRelease(options);
+    }else result=launch(identifier,0);
+    CFRelease(identifier);
+    if(result){CFStringRef text=description?description(result):0;
+        if(!text || !CFStringGetCString(text,error,capacity,UTF8))snprintf(error,capacity,"The native application launch failed (%d)",result);}
+    objc_autoreleasePoolPop(pool);return result==0;
+}
 static int callback_failed;
 static void trace(const char *text) { write(1, text, strlen(text)); }
 static int signature_probe(const char *filename)
@@ -135,7 +156,7 @@ static int signature_probe(const char *filename)
     }
     CFRelease(path);trace("V86 MIS diagnostic complete\n");return 0;
 }
-static void dump_install_log(void)
+static void dump_asl(const char *sender)
 {
     void *(*new_query)(unsigned)=(void *(*)(unsigned))dlsym((void *)-2,"asl_new");
     int (*set_query)(void *,const char *,const char *,unsigned)=(int (*)(void *,const char *,const char *,unsigned))dlsym((void *)-2,"asl_set_query");
@@ -146,10 +167,14 @@ static void dump_install_log(void)
     void (*release_result)(void *)=(void (*)(void *))dlsym((void *)-2,"aslresponse_free");
     if(new_query && set_query && search && next && get && release_query && release_result)
     {
-        trace("V86 installd ASL messages begin\n");void *q=new_query(1);set_query(q,"Sender","installd",1);void *r=search(0,q),*message;unsigned count=0;
-        if(r){while(count++<512 && (message=next(r))){const char *text=get(message,"Message");if(text){trace(text);trace("\n");}}release_result(r);}release_query(q);
-        trace("V86 installd ASL messages end\n");
+        printf("V86 ASL sender=%s begin\n",sender);void *q=new_query(1);set_query(q,"Sender",sender,1);void *r=search(0,q),*message;unsigned count=0;
+        if(r){while(count++<256 && (message=next(r))){const char *text=get(message,"Message");if(text){trace(text);trace("\n");}}release_result(r);}release_query(q);
+        printf("V86 ASL sender=%s end\n",sender);
     }
+}
+static void dump_install_log(void)
+{
+    dump_asl("installd");
     char data[4096];int fd=open("/var/mobile/Library/Logs/MobileInstallation/mobile_installation.log",0);
     if(fd<0){trace("V86 native installation log is not present\n");return;}
     long long end=lseek(fd,0,2);if(end>65536)lseek(fd,end-65536,0);else lseek(fd,0,0);
@@ -158,6 +183,22 @@ static void dump_install_log(void)
 void app_native_diagnostics(void)
 {
     int fd=open("/private/var/v86/install-diagnostics",0);if(fd<0)return;close(fd);dump_install_log();
+}
+static void *display_diagnostics(void *unused)
+{
+    (void)unused;
+    for(unsigned round=0;round<12;round++){
+        for(unsigned second=0;second<60;second++)usleep(1000000);
+        printf("V86 display diagnostics round=%u\n",round);
+        dump_asl("backboardd");dump_asl("SpringBoard");dump_asl("sandboxd");dump_asl("V86Test");dump_asl("DataMigrator");dump_asl("mediaserverd");
+    }
+    return 0;
+}
+void app_native_start_diagnostics(void)
+{
+    int fd=open("/private/var/v86/install-diagnostics",0);if(fd<0)return;close(fd);
+    extern int pthread_create(void *,const void *,void *(*)(void *),void *),pthread_detach(unsigned);
+    unsigned thread;if(!pthread_create(&thread,0,display_diagnostics,0))pthread_detach(thread);
 }
 static void status(CFDictionaryRef info)
 {

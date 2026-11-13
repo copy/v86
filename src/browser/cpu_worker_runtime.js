@@ -308,6 +308,7 @@ export function start_cpu_worker()
         "ios_install_commit": id => emulator["ios_install_commit"](id),
         "ios_install_cancel": id => emulator["ios_install_cancel"](id),
         "ios_install_lookup": bundle => emulator["ios_install_lookup"](bundle),
+        "ios_open_application": bundle => emulator["ios_open_application"](bundle),
     };
     globalThis.onmessage = e => {
         const m = e.data;

@@ -18,6 +18,7 @@ class Emulator {
  async ios_install_stage(){this.event({phase:"staged"});return{};}
  async ios_install_commit(){this.committed=true;this.event({phase:"installing"});await new Promise(ok=>this.complete=ok);this.event({phase:"installed",installed:true});return{phase:"installed",installed:true};}
  async ios_install_cancel(){this.event({phase:"cancelled"});return{};}
+ async ios_open_application(bundle){this.opened=bundle;return{status:"Application launch requested"};}
 }
 let c;
 try{
@@ -40,6 +41,9 @@ try{
  check(document.getElementById("ios_ipa_cancel").hidden,"cannot cancel native commit");vm.complete();
  await until(()=>c.state.phase==="installed","final success");await c.refresh();check(c.state.phase==="installed","completed task stays completed");
  check(document.getElementById("ios_ipa_status").textContent.startsWith("Installed"),"verified success shown");
+ vm.cap.can_launch=true;await c.refresh();document.getElementById("ios_ipa_open").click();
+ await until(()=>vm.opened,"open through public API");check(vm.opened==="org.v86.BrowserTest","open installed identity");
+ await until(()=>c.state.phase==="installed","native open request completed");
  await c.choose(new File([new Uint8Array(32)],"bad.ipa"));check(c.state.phase==="failed","bad IPA error");
  check(document.getElementById("ios_ipa_error").textContent.length>0,"error visible");
  vm.existing={installed:false};vm.blocks=[];let release;vm.write_gate=new Promise(ok=>release=ok);

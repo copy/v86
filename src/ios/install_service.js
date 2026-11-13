@@ -149,6 +149,13 @@ export class IOSInstallService
         if(typeof bundle_id !== "string" || !/^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(bundle_id)) throw new Error("Invalid application identifier");
         return this.request(OP.LOOKUP, new TextEncoder().encode(bundle_id));
     }
+    launch(bundle_id)
+    {
+        if(!this.peer?.can_launch)throw new Error("This iPhone helper cannot open applications");
+        if(!this.state.apps.some(a=>a.bundle_id===bundle_id))throw new Error("The application is not in this iPhone's installed application list");
+        if(!/^[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+$/.test(bundle_id))throw new Error("Invalid application identifier");
+        return this.request(OP.LAUNCH,new TextEncoder().encode(bundle_id));
+    }
     get_state()
     {
         if(this.pending.size || ["transferring", "staged", "installing", "verifying", "restarting"].includes(this.peer?.phase))

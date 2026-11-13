@@ -1749,6 +1749,7 @@ export class V86 {
     ios_install_commit(install_id: string): Promise<IOSInstallStatus>;
     ios_install_cancel(install_id: string): Promise<IOSInstallStatus>;
     ios_install_lookup(bundle_id: string): Promise<IOSInstallStatus>;
+    ios_open_application(bundle_id: string): Promise<IOSInstallStatus>;
 
     /** Rotate the simulated iPhone's gravity vector clockwise from portrait. */
     ios_set_orientation(angle: 0 | 90 | 180 | 270): void;
@@ -1975,6 +1976,7 @@ export interface IOSInstallStatus {
     offset?: number;
     total?: number;
     native_percent?: number;
+    can_launch?: boolean;
     installed?: boolean;
     version?: string;
     error?: string;

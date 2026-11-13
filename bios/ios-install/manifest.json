@@ -5,17 +5,17 @@
   "protocol": 1,
   "sources": {
     "tools/ios/guest/ios-api.h": "fd47c2ad74d136550b25ffbc3734987399c1f7949c535830ef93e5b1efd164b3",
-    "tools/ios/guest/app-native.h": "712070c88800f6376697510c83e9562c1d61a4450d819b6db37351750f58ccf2",
+    "tools/ios/guest/app-native.h": "6c4e07e749455e7fac48c43e359430b4f1772b2e09d5ed8c549547b0181075d3",
     "tools/ios/guest/app-code-hash.h": "07248f7b77d526c0fe10c8c37983419e8dbbe6546ce027ee3e95ccff5b4132ca",
-    "tools/ios/guest/app-agent.c": "c74c87054dad61a00857ce0478d107210918febcaf4ede7810c50a1b51db8f4e",
-    "tools/ios/guest/app-agent.entitlements.plist": "85483d4f250a5aa9773157407cc01aab86e7fd4a98af3649527761a95e9028ba",
-    "tools/ios/guest/app-service.c": "52a826dad8c2cb72360d6f18dfdc90247ff82f5eea19c1e0e0527c666f79ad4b",
+    "tools/ios/guest/app-agent.c": "c00bb99ea8c356773285af079a92909d8960608603aa563ee15bf4549dc50b85",
+    "tools/ios/guest/app-agent.entitlements.plist": "32ab2d5f22fb4b20fa2acf259420c62bcabe7d8394df3ac8450bbf09ea0e839a",
+    "tools/ios/guest/app-service.c": "92611c2654a62315669b16ae99a01ba005457f5e05762df44632b4e6e616e09f",
     "tools/ios/guest/app-bootstrap.c": "365efa127b2a4ad6a5e31cc3f775a7b2ff29dbb108c7309d305503ece6489752",
     "tools/ios/guest/install-policy.c": "9e659915cf1c4ddc843c47e9c5c04fc6c00002e72115a737cb9b1930545c4a4e",
     "tools/ios/guest/build-apps.sh": "41394866c82c2d12baec61e4e79ab08d77b3fcae2a97dfdacef0640d3eeb8bde"
   },
   "files": {
-    "v86-app-agent": "d8fc139fa950b03e773fbbc8ffd1ef070fd37262f013072832bd0eb38e1ad101",
+    "v86-app-agent": "d02378a8c87cc16cb83dd6b0452fd732c6d0bc6134419d1c5e99a9cc5d46709f",
     "libv86appbootstrap.dylib": "23c7c057580722753ce23d3c9ce5c2df0dded8b1b9ea5dae90c196e8227ae30a",
     "libv86install.dylib": "8307a9737c2dc6738f22da2f3ad55169ffa874d26fa5d073b632dca3d32737e4"
   }

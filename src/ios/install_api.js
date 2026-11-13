@@ -106,6 +106,7 @@ export function attach_ios_install_api(V86)
             return result;
         },
         async ios_install_lookup(bundle) { return running(this).lookup(bundle); },
+        async ios_open_application(bundle) { return running(this).launch(bundle); },
     };
     for(const [name, method] of Object.entries(methods)) V86.prototype[name] = function(...args) {
         if(this.worker_controller) return this.worker_controller.serialize(() => this.worker_controller.rpc(name, args));

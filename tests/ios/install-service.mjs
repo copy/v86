@@ -18,9 +18,9 @@ function setup()
     const challenge = drain()[0];
     return { host, pipe, events, state, challenge, drain };
 }
-function authenticate(s)
+function authenticate(s,features={})
 {
-    const packet = signed(s, OP.HELLO, 0, { protocol: 1, build: "10B329", phase: "idle" });
+    const packet = signed(s, OP.HELLO, 0, { protocol: 1, build: "10B329", phase: "idle",...features });
     for(let at = 0; at < packet.length; at += 3) s.pipe.write(packet.subarray(at, at + 3));
     return s.drain();
 }
@@ -38,6 +38,16 @@ test("installer handshake matches independent HMAC and supports fragmented reads
     assert.equal(authenticate(s)[0].op, OP.READY); assert.equal(s.host.status().available, true);
     assert.ok(!("token" in s.host.status())); assert.equal(s.host.service(INSTALL_SERVICE), null);
     assert.deepEqual(s.host.get_state(), [2, 1, null, ["01".repeat(20)]]);
+});
+test("application launch requires capability and a persisted local application",async()=>{
+    const s=setup();authenticate(s,{can_launch:true});
+    assert.throws(()=>s.host.launch("com.apple.Preferences"),/installed application list/);
+    s.host.state.apps.push({bundle_id:"org.v86.Test",hashes:["02".repeat(20)],version:"1"});
+    const pending=s.host.launch("org.v86.Test"),command=s.drain()[0];
+    assert.equal(command.op,OP.LAUNCH);assert.equal(new TextDecoder().decode(command.payload),"org.v86.Test");
+    s.pipe.write(signed(s,OP.REPLY,command.sequence,{ok:true,phase:"installed",status:"Application launch requested",installed:true}));
+    assert.equal((await pending).status,"Application launch requested");
+    const old=setup();authenticate(old);assert.throws(()=>old.host.launch("org.v86.Test"),/cannot open/);
 });
 test("installation arena round-trips through the real snapshot serializer",()=>{
     globalThis.DEBUG=false;

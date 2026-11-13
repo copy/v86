@@ -1,7 +1,7 @@
 // One controller per running iPhone. The UI uses only V86's public API.
 import { query_append } from "./emulator_bridge.js";
 import { SHA256 } from "../image/sha256.js";
-const busy=new Set(["checking","preparing","transferring","staged","installing","verifying","committing"]);
+const busy=new Set(["checking","preparing","transferring","staged","installing","verifying","committing","opening"]);
 async function remove_scratch(name){
     if(!name)return;
     for(let attempt=0;attempt<10;attempt++){
@@ -23,7 +23,7 @@ export class IOSInstallController extends EventTarget {
             this.state.capability={...this.state.capability,...event};
             // A successful native callback still needs host persistence.
             if(["transferring","staged","installing","verifying"].includes(event.phase))this.update({...event,phase:event.phase});
-            else if(!this.uploading && !["checking","ready","committing","installed"].includes(this.state.phase) &&
+            else if(!this.uploading && !["checking","ready","committing","installed","opening"].includes(this.state.phase) &&
                 ["installed","failed","interrupted"].includes(event.phase))this.update({...event,phase:event.phase==="installed"?"recoverable":event.phase});
             else this.update({});
         };
@@ -121,6 +121,13 @@ export class IOSInstallController extends EventTarget {
             catch(error){this.update({phase:"interrupted",error:error.message});}
         }
         // Upload cancellation is processed after the current acknowledged block.
+    }
+    async open(){
+        const bundle=this.state.report?.bundle_id||this.state.capability.bundle_id;
+        if(this.active()||!bundle||!this.state.capability.can_launch)return;
+        this.update({phase:"opening",error:"",launch_status:""});
+        try{await this.emulator.ios_open_application(bundle);this.update({phase:"installed",launch_status:"Application launch requested."});}
+        catch(error){this.update({phase:"installed",error:error.message});}
     }
     dispose(){this.disposed=true;this.cancelled=true;clearInterval(this.poll);this.emulator.remove_listener("ios-install-progress",this.listener);
         this.worker?.terminate();this.worker=null;this.reject_worker?.(new Error("The iPhone was powered off"));this.reject_worker=null;remove_scratch(this.scratch);}
