@@ -196,6 +196,10 @@
   原先只改配置地址会使 Bochs 的 ROM 留在旧地址，现已一并修正。
   源码/release 的 NV40 与通用显示适配器测试、26 项 PCIe 测试及 Closure 构建均通过。
 
+- IFC/INDEX 游标续修：POINT 方法开始一幅新图像，允许驱动复用原有的 SIZE_IN。
+  先前仅在写尺寸时重置会把下一幅图的数据误报为 excess data；新增复用尺寸的
+  INDEX 像素检查和 IFC 部分行状态检查，全部 2D 测试与插件构建通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

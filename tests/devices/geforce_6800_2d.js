@@ -109,6 +109,10 @@ const indexed = object(0x5B00,0x3064,[[0x184,0x130],[0x1A0,0x500],[0x3E4,3],[0x3
     [0x3F0,0],[0x3F4,0],[0x3F8,1<<16|3]]);
 call(indexed,0x3FC,1<<16|4);call(indexed,0x400,0x231);
 assert.deepEqual([...vram.subarray(640,646)],[0,248,31,0,224,7],"I4 low nibble first with 16-bit LUT and output crop");
+call(indexed,0x3F4,1<<16);call(indexed,0x400,0x123);
+assert.deepEqual([...vram.subarray(672,678)],[31,0,224,7,0,248],"INDEX point starts a new image with unchanged size");
+call(resumed,0x304,2<<16);call(resumed,0x400,0x07E0F800);
+assert.deepEqual(resumed.stream,[0,0,248,224,7],"IFC point restarts upload using the configured image size");
 target.methods.set(0x300,10);target.methods.set(0x30C,800);
 const sifc = object(0x5C00,0x3066,[[0x198,0x500],[0x300,1],[0x304,2<<16|2],[0x308,0x200000],[0x30C,0x100000],
     [0x310,0],[0x314,2<<16|4],[0x2FC,3]]);

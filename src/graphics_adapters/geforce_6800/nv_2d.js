@@ -476,7 +476,7 @@ export class NV2D
         if(type === 0x39 && at === 0x328) this.m2mf(o, value);
         else if((type === 0x5F || type === 0x9F) && at === 0x308) this.blit(o);
         else if(type === 0x4A && (at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700) && at & 4) this.rectangle(o, at);
-        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && at === 0x30C || indexed && at === 0x3FC || sifc && at === 0x318) o.stream = [0];
+        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && (at === 0x304 || at === 0x30C) || indexed && (at === 0x3F4 || at === 0x3FC) || sifc && at === 0x318) o.stream = [0];
         else if(type === 0x4A && at >= 0x800 && at < 0xA00) this.monochrome(o, value, false);
         else if(type === 0x4A && at >= 0xC00 && at < 0xE00) this.monochrome(o, value, true);
         else if((ifc || indexed) && at >= 0x400) this.upload(o, value, indexed);
