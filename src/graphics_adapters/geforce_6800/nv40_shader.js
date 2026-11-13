@@ -179,8 +179,14 @@ export function translate_vertex_program(program,options={})
     if(program.instructions.some(i=>i.address.input))for(let input=0;input<16;input++)shader.input(input);
     for(const i of program.instructions)
     {
-        if(i.address.input || i.address.constant || i.vector.name==="ARA")address(i.address.register);
+        if(i.address.input || i.address.constant || i.vector.name==="ARA" || i.scalar.name==="PUSHA")address(i.address.register);
         if(["ARL","ARR","ARA"].includes(i.vector.name))address(i.vector.index);
+        if(i.scalar.name==="POPA")
+        {
+            address(i.scalar.index);
+            if(i.scalar.mask!==15 || i.predicate.enabled && i.predicate.condition!==7 || i.predicate.update && !i.predicate.vector)
+                throw new RangeError("NV40 POPA requires an unconditional full address-register write");
+        }
     }
     // The scalar issue slot also contains vector MOV/LIT. Address loads on
     // Curie likewise consume all four source lanes, independently masked.
@@ -209,12 +215,14 @@ export function translate_vertex_program(program,options={})
     // Declare condition storage before any instruction can read or update it.
     for(const i of program.instructions)if(i.predicate.enabled || i.predicate.update || ["BRA","CAL","RET"].includes(i.scalar.name))conditionRegister(i.predicate.register);
     const predicate=program.instructions.some(i=>i.predicate.enabled)?shader.temp("predicate"):-1;
-    const flow=program.instructions.some(i=>["BRA","CAL","RET"].includes(i.scalar.name));
-    let pc=-1,next=-1,stackPointer=-1,branch=-1,stack=[];
+    const flow=program.instructions.some(i=>["BRA","CAL","RET","PUSHA","POPA"].includes(i.scalar.name));
+    let pc=-1,next=-1,stackPointer=-1,branch=-1,pushSource=-1,stack=[],stackKinds=[];
     if(flow)
     {
         pc=shader.temp("pc");next=shader.temp("next");branch=shader.temp("branch");stackPointer=shader.temp("stackPointer");
         stack=Array.from({length:8},(_,i)=>shader.temp("return"+i));
+        stackKinds=Array.from({length:8},(_,i)=>shader.temp("stackKind"+i));
+        pushSource=shader.temp("pushSource");
         const limit=Math.min(65536,Math.max(1,options.instruction_limit||65536));
         shader.declarations.push(0x05000030,dst(7,0),limit,0,1,0);
         shader.emit(OP.MOV,dst(0,next),shader.literal(program.entry??program.instructions[0].pc));
@@ -249,10 +257,11 @@ export function translate_vertex_program(program,options={})
             shader.emit(OP.MAX,dst(0,branch,1),src(0,branch,[0,0,0,0]),src(0,branch,[2,2,2,2]));
             shader.emit(OP.MAX,dst(0,branch,1),src(0,branch,[0,0,0,0]),src(0,branch,[3,3,3,3]));
         }
+        if(i.scalar.name==="PUSHA")shader.emit(OP.MOV,dst(0,pushSource),src(0,address(i.address.register)));
         const slots=[i.vector,i.scalar], results=[];
         for(let slot=0;slot<2;slot++)
         {
-            const op=slots[slot];if(op.name==="NOP" || !op.mask || ["BRA","CAL","RET"].includes(op.name)) continue;
+            const op=slots[slot];if(op.name==="NOP" || !op.mask || ["BRA","CAL","RET","PUSHA","POPA"].includes(op.name)) continue;
             const count=arity(op.name);if(!count && !nullary(op.name) && op.name!=="ARA") throw new RangeError("NV40 unsupported vertex opcode "+op.name);
             const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
             const sources=op.name==="ARA"?[]:selectors.map(index=>source(i,i.sources[index],slot,index));
@@ -307,7 +316,8 @@ export function translate_vertex_program(program,options={})
                     for(let index=0;index<8;index++)
                     {
                         shader.emit(OP.IFC|2<<16,src(0,stackPointer),shader.literal(index));
-                        shader.emit(OP.MOV,dst(0,stack[index]),shader.literal(i.pc+1));shader.emit(OP.ENDIF);
+                        shader.emit(OP.MOV,dst(0,stack[index]),shader.literal(i.pc+1));
+                        shader.emit(OP.MOV,dst(0,stackKinds[index]),shader.literal(0));shader.emit(OP.ENDIF);
                     }
                     shader.emit(OP.ADD,dst(0,stackPointer),src(0,stackPointer),shader.literal(1));
                     shader.emit(OP.MOV,dst(0,next),shader.literal(i.target));shader.emit(OP.ENDIF);
@@ -320,11 +330,40 @@ export function translate_vertex_program(program,options={})
                     for(let index=0;index<8;index++)
                     {
                         shader.emit(OP.IFC|2<<16,src(0,stackPointer),shader.literal(index));
-                        shader.emit(OP.MOV,dst(0,next),src(0,stack[index]));shader.emit(OP.ENDIF);
+                        shader.emit(OP.IFC|2<<16,src(0,stackKinds[index]),shader.literal(0));
+                        shader.emit(OP.MOV,dst(0,next),src(0,stack[index]));shader.emit(OP.ENDIF);shader.emit(OP.ENDIF);
                     }
                     shader.emit(OP.ENDIF);
                 }
                 if(conditional)shader.emit(OP.ENDIF);
+            }
+            if(op==="PUSHA" && !i.end)
+            {
+                shader.emit(OP.MOV,dst(0,next),shader.literal(-1));
+                shader.emit(OP.IFC|4<<16,src(0,stackPointer),shader.literal(8));
+                for(let index=0;index<8;index++)
+                {
+                    shader.emit(OP.IFC|2<<16,src(0,stackPointer),shader.literal(index));
+                    shader.emit(OP.MOV,dst(0,stack[index]),src(0,pushSource));
+                    shader.emit(OP.MOV,dst(0,stackKinds[index]),shader.literal(1));shader.emit(OP.ENDIF);
+                }
+                shader.emit(OP.ADD,dst(0,stackPointer),src(0,stackPointer),shader.literal(1));
+                shader.emit(OP.MOV,dst(0,next),shader.literal(i.pc+1));shader.emit(OP.ENDIF);
+            }
+            if(op==="POPA" && !i.end)
+            {
+                shader.emit(OP.MOV,dst(0,next),shader.literal(-1));
+                shader.emit(OP.IFC|1<<16,src(0,stackPointer),shader.literal(0));
+                shader.emit(OP.SUB,dst(0,stackPointer),src(0,stackPointer),shader.literal(1));
+                for(let index=0;index<8;index++)
+                {
+                    shader.emit(OP.IFC|2<<16,src(0,stackPointer),shader.literal(index));
+                    shader.emit(OP.IFC|2<<16,src(0,stackKinds[index]),shader.literal(1));
+                    shader.emit(OP.MOV,dst(0,address(i.scalar.index)),src(0,stack[index]));
+                    shader.emit(OP.MOV,dst(0,next),shader.literal(i.pc+1));
+                    shader.emit(OP.ENDIF);shader.emit(OP.ENDIF);
+                }
+                shader.emit(OP.ENDIF);
             }
             shader.emit(OP.ENDIF);
         }

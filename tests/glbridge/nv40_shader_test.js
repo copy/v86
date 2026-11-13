@@ -73,6 +73,14 @@ try
     ara.instructions[0].vector={name:"ARA",type:"temp",index:1,mask:15};ara.instructions[0].address.register=0;
     ara.instructions[0].sources=ara.instructions[0].sources.map(s=>({...s,type:"invalid"}));
     validate("address-paired-add",translate_vertex_program(ara));
+    const stackPush=structuredClone(vertex.instructions[0]),stackPop=structuredClone(vertex.instructions[0]);
+    stackPush.pc=0;stackPush.end=false;stackPush.vector={name:"NOP",mask:0};stackPush.scalar={name:"PUSHA",mask:0};
+    stackPush.address.register=1;
+    stackPop.pc=1;stackPop.end=false;stackPop.vector={name:"NOP",mask:0};stackPop.scalar={name:"POPA",type:"temp",index:0,mask:15};
+    const stackEnd=structuredClone(vertex.instructions[0]);stackEnd.pc=2;
+    validate("vertex-address-stack",translate_vertex_program({entry:0,instructions:[stackPush,stackPop,stackEnd]}));
+    const badPop=structuredClone(stackPop);badPop.scalar.mask=1;
+    assert.throws(()=>translate_vertex_program({entry:0,instructions:[badPop,stackEnd]}),/POPA requires/);
     const late=structuredClone(vertex),setTrue=structuredClone(late.instructions[0]);
     setTrue.vector={name:"STR",mask:15,type:"temp",index:0};late.instructions.unshift(setTrue);
     late.instructions[1].sources[0]={...late.instructions[1].sources[0],type:"constant",index:255};

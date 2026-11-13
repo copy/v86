@@ -717,6 +717,33 @@ try
             const color=instruction(5,"MOV",1,"output");color.sources[0]={...color.sources[0],type:"temp",index:0};
             const loopEnd=instruction(6);loopEnd.end=true;
             await flowDraw([position,instruction(1,"MOV",0),add,compare,flowInstruction(4,"BRA",2,1),color,loopEnd],255);
+            method(0x1EFC,0);
+            [...new Uint32Array(Float32Array.of(1,2,3,4,...Array(4).fill(.25),...Array(4).fill(.5),
+                ...Array(4).fill(.75),...Array(4).fill(1),...Array(4).fill(0),...Array(4).fill(4)).buffer)]
+                .forEach((word,i)=>method(0x1F00+(i%4)*4,word));
+            const loadAddress=(pc,register=1,constant=0)=>instruction(pc,"ARL",register,"temp",constant);
+            const addressPush=pc=>{const i=flowInstruction(pc,"PUSHA");i.address.register=1;return i;};
+            const addressPop=pc=>{const i=flowInstruction(pc,"POPA");i.scalar={name:"POPA",type:"temp",index:0,mask:15};return i;};
+            const addressColor=(pc,component)=>{const i=instruction(pc,"MOV",1,"output",0);i.address={register:0,component,constant:true,input:false};return i;};
+            const terminal=pc=>{const i=instruction(pc);i.end=true;return i;};
+            for(let component=0;component<4;component++)
+                await flowDraw([position,loadAddress(1),addressPush(2),loadAddress(3,1,5),addressPop(4),addressColor(5,component),terminal(6)],
+                    [64,128,191,255][component]);
+            await flowDraw([position,loadAddress(1),addressPush(2),flowInstruction(3,"CAL",8),addressPop(4),addressColor(5,2),terminal(6),
+                loadAddress(8,1,5),flowInstruction(9,"RET")],191);
+            await flowDraw([position,loadAddress(1),flowInstruction(2,"CAL",7),addressColor(3,2),terminal(4),
+                addressPush(7),loadAddress(8,1,5),addressPop(9),flowInstruction(10,"RET")],191);
+            const simultaneousPush=addressPush(2);simultaneousPush.vector=loadAddress(2,1,5).vector;
+            simultaneousPush.sources[0]=loadAddress(2,1,5).sources[0];
+            await flowDraw([position,loadAddress(1),simultaneousPush,addressPop(3),addressColor(4,2),terminal(5)],191);
+            const black=pc=>instruction(pc,"SFL",1,"output"),white=pc=>instruction(pc,"STR",1,"output");
+            await flowDraw([position,black(1),addressPop(2),white(3),terminal(4)],0);
+            await flowDraw([position,black(1),flowInstruction(2,"CAL",6),white(3),terminal(4),addressPop(6),white(7),terminal(8)],0);
+            await flowDraw([position,black(1),loadAddress(2,1,6),addressPush(3),flowInstruction(4,"RET"),white(5),terminal(6)],0);
+            await flowDraw([position,black(1),loadAddress(2),...Array.from({length:8},(_,i)=>addressPush(3+i)),
+                flowInstruction(11,"CAL",15),white(12),terminal(13),flowInstruction(15,"RET")],0);
+            await flowDraw([position,black(1),...Array.from({length:9},(_,i)=>addressPush(2+i)),white(11),terminal(12)],0);
+
         }
         finally {engine.shaders=nativeShaders;}
         console.log("PASS: real WebGPU vertex predicates, relative addressing, forward/backward branches and call/return");
