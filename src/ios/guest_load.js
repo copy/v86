@@ -143,9 +143,55 @@ export function graphics_kernel(original, linkedExecutables, library, lockdown =
         trusted.push(lockdown);
     }
     if(!trusted.length) return original;
-    require_layout(new SHA256().update(original).hex() ===
-        "82127c1ea84dbc1b55f423a4d60cdfe6a3baaabc117d4a891af0b502e57a2c47", "Expected the stock N90 10B329 kernel");
-    const hashes = trusted.flatMap(cdhashes);
+    return n90_trust_kernel(original, trusted.flatMap(cdhashes));
+}
+
+export const N90_TRUST_CAPACITY = Math.floor((0x80425000 - 0x80424120 - 24) / 20);
+const STOCK_KERNEL_SHA256 = "82127c1ea84dbc1b55f423a4d60cdfe6a3baaabc117d4a891af0b502e57a2c47";
+
+function trust_offsets(kernel)
+{
+    const macho = macho_parse(kernel);
+    const head = macho_offset(macho, 0x80423B3C), at = macho_offset(macho, 0x80424120), clear = macho_offset(macho, 0x80413142);
+    require_layout(head >= 0 && at >= 0 && clear >= 0 && at + 24 + N90_TRUST_CAPACITY * 20 <= kernel.length,
+        "Unexpected N90 trust cache addresses");
+    return { head, at, clear };
+}
+
+// A recognized local trust node is reversible. Recover the exact original
+// kernel and check its full fingerprint before rebuilding from a new list.
+export function n90_kernel_baseline(input)
+{
+    const kernel = new Uint8Array(input instanceof Uint8Array ? input : new Uint8Array(input));
+    if(new SHA256().update(kernel).hex() === STOCK_KERNEL_SHA256) return kernel;
+    const { head, at, clear } = trust_offsets(kernel), v = view(kernel), count = v.getUint32(at + 20, true);
+    require_layout(v.getUint32(head, true) === 0x80424120 && v.getUint16(clear, true) === 0xBF00 &&
+        v.getUint32(at, true) === 0 && count <= N90_TRUST_CAPACITY, "Unrecognized N90 kernel trust modifications");
+    kernel.fill(0, at, at + 24 + count * 20);
+    v.setUint32(head, 0, true); v.setUint16(clear, 0x60E5, true);
+    require_layout(new SHA256().update(kernel).hex() === STOCK_KERNEL_SHA256, "Expected the stock N90 10B329 kernel baseline");
+    return kernel;
+}
+
+export function n90_kernel_hashes(kernel)
+{
+    if(!(kernel instanceof Uint8Array)) kernel = new Uint8Array(kernel);
+    n90_kernel_baseline(kernel);
+    const { head, at } = trust_offsets(kernel), v = view(kernel);
+    if(!v.getUint32(head, true)) return [];
+    return Array.from({ length: v.getUint32(at + 20, true) }, (_, i) => new Uint8Array(kernel.subarray(at + 24 + i * 20, at + 44 + i * 20)));
+}
+
+export function n90_trust_kernel(input, supplied)
+{
+    const original = n90_kernel_baseline(input), unique = new Map();
+    for(const hash of supplied)
+    {
+        require_layout(hash instanceof Uint8Array && hash.length === 20, "Invalid N90 CDHash");
+        unique.set([...hash].map(b => b.toString(16).padStart(2, "0")).join(""), new Uint8Array(hash));
+    }
+    require_layout(unique.size <= N90_TRUST_CAPACITY, "iPhone application trust cache is full (" + N90_TRUST_CAPACITY + " code hashes maximum)");
+    const hashes = [...unique.values()];
     hashes.sort((a, b) => {
         for(let i = 0; i < a.length; i++) if(a[i] !== b[i]) return a[i] - b[i];
         return 0;
@@ -155,10 +201,8 @@ export function graphics_kernel(original, linkedExecutables, library, lockdown =
     node.set(new SHA256().update(node.subarray(24)).digest().subarray(0, 16), 4);
     view(node).setUint32(20, hashes.length, true);
 
-    const kernel = new Uint8Array(original), v = view(kernel), macho = macho_parse(kernel);
-    const head = macho_offset(macho, 0x80423B3C), address = 0x80424120, at = macho_offset(macho, address);
-    const clear = macho_offset(macho, 0x80413142);
-    require_layout(head >= 0 && v.getUint32(head, true) === 0 && at >= 0 && address + node.length <= 0x80425000 &&
+    const kernel = new Uint8Array(original), v = view(kernel), { head, at, clear } = trust_offsets(kernel), address = 0x80424120;
+    require_layout(v.getUint32(head, true) === 0 && address + node.length <= 0x80425000 &&
         kernel.subarray(at, at + node.length).every(b => b === 0) && clear >= 0 && v.getUint16(clear, true) === 0x60E5,
         "Unexpected N90 AMFI trust cache layout");
     // Keep AMFI's native checks and trust only the validated local binaries.
