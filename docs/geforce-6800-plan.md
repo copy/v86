@@ -60,6 +60,15 @@
   超过 JS Number 精确范围的时间戳与快照保持精确；计数、闹钟和比例寄存器保留硬件位宽。
   VRAM BAR 随 PCI memory decode 与上游转发开关映射；PM capability 的只读字段受保护。
   设备测试覆盖高时间戳往返、低 5 位清零、显存解码关闭/恢复及 PMCSR 掩码。
+- 最新客体验证：`docs/fixtures/nv40/g1-xp-9371.json` 与
+  `g1-xp-9371-registers.json` 保存复测结论和 469 项 MMIO 地址/读写方向清单，标明访问时走的是
+  实现路径还是存值/默认值。`g0-win98-8198.json` 保存 Win98 原生设备和 PCI 注册表证据。
+  使用 `node tools/nv40_trace_report.mjs <trace.json> <report.json>` 可重新生成清单。
+  原始 RAMIN、跟踪、驱动包及截图留在 `build/nv40-*`，不分发 NVIDIA 固件或微码。
+- **当前门禁仍未通过**：XP 93.71 在初始化中持续等待 PFIFO 状态，DMA 实例/推送仍为 0；
+  Win98 81.98 尚无 PCI 设备可绑定。不能把单元测试通过称作 NVIDIA 驱动可用。
+  下一步先实现 PFIFO 缓存、引擎启停/复位、通道/上下文语义和 NV VBE/BIOS 表；
+  G2 的 2D、G3/G4 的 D9WG/着色器与 G5/G6/G7 最终验收均未完成。
 
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：

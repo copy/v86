@@ -1,0 +1,27 @@
+{
+  "guest": "Windows XP SP3",
+  "driver": "ForceWare 93.71 (XP 32-bit)",
+  "device": "10DE:0045 rev A1, PCI mode",
+  "status": "blocked during initialization; no FIFO-channel acceptance",
+  "seconds": 210,
+  "image_unchanged": true,
+  "register_inventory": "g1-xp-9371-registers.json",
+  "most_read_registers": [
+    "0x00009410",
+    "0x00009400",
+    "0x00002080",
+    "0x00003230",
+    "0x00000100"
+  ],
+  "observations": [
+    "The initial CACHE1 UNK104 wait is passed after its documented read-only value is implemented.",
+    "The driver programs PTIMER high/low and reads PFIFO DEBUG_0 (0x2080), DMA_CTL (0x3230) and PMC_INTR while waiting.",
+    "DMA_INSTANCE and DMA_PUSH remain zero at the end of this capture. A DMA object was not submitted; descriptor access tests do not certify FIFO execution.",
+    "No completed NVIDIA driver installation, desktop acceleration or 3D result."
+  ],
+  "next": [
+    "Implement PFIFO cache, enable/reset and channel/context behavior against the captured sequence.",
+    "Add the NV40 SeaVGABIOS VBE backend and remaining required BIOS tables.",
+    "Prepare a Windows 98 overlay with Microsoft PCI bus enumeration before attempting ForceWare 81.98."
+  ]
+}
