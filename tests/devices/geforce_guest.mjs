@@ -178,7 +178,8 @@ export async function run_geforce_guest(win98)
     const trace_report = () => ({ ...nv.trace.report(),
         registers: Array.from(nv.registers, ([offset, value]) => [offset.toString(16), value >>> 0]),
         pci: Array.from(nv.machine.pci_config()),
-        cpu: {eip: vm.v86.cpu.instruction_pointer[0] >>> 0, regs: Array.from(vm.v86.cpu.reg32), halted: vm.v86.cpu.in_hlt[0], flags:vm.v86.cpu.get_eflags()},
+        cpu: {eip: vm.v86.cpu.instruction_pointer[0] >>> 0, regs: Array.from(vm.v86.cpu.reg32), halted: vm.v86.cpu.in_hlt[0], flags:vm.v86.cpu.get_eflags(),
+            segments:Array.from(vm.v86.cpu.segment_offsets),romHeader:Array.from(vm.v86.cpu.mem8.subarray(0xC0000,0xC0040)),romCode:Array.from(vm.v86.cpu.mem8.subarray(0xC1700,0xC1740))},
         pic:vm.v86.cpu.get_state_pic(),pirq:Array.from(vm.v86.cpu.devices.pci.isa_bridge_space8.slice(0x60,0x64)),
         gpu: nv.graph.engine3d.backend ? nv.graph.engine3d.backend.stats : null,
         scanout: sink.transitions,
@@ -278,7 +279,7 @@ export async function run_geforce_guest(win98)
         }
         save_png(sink, out, "final");
         fs.writeFileSync(path.join(out, "screen.txt"), sink.text.join("\n"));
-        for(const name of ["MACHINE.INF", "NVDOS.TXT"])
+        for(const name of ["MACHINE.INF", "NVDOS.TXT", "DXDIAG.TXT", "DDXP.TXT"])
         {
             const bytes = read_fat16(tools.bytes, name);
             if(bytes) fs.writeFileSync(path.join(out, name), bytes);

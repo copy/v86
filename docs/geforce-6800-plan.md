@@ -402,6 +402,15 @@ NVIDIA 驱动，设备必须从硬件层面的方法流重建 D3D9 级的状态�
   面分类；渲染测试与 Closure 构建通过。
 
 
+- G2 XP DxDiag 门禁（2026-11-14）：在 93.71 下实际运行微软 DxDiag 的三段
+  DirectDraw 测试。高频截图核对主表面黑白矩形、屏幕外表面的窗口内跳动白块、
+  640×480 全屏跳动白块；报告 DDXP.TXT 明确写出“All tests were successful.”
+  测试后的 PGRAPH 无故障，原盘未改变。报告与选定帧的哈希、GPU 统计见
+  g2-xp-9371-dxdiag-ddraw.json。Direct3D 7/8/9 此时尚未运行，Win98 DxDiag
+  仍待验证，不能将 G2 整体标为完成。harness 导出诊断文本并记录 ROM shadow
+  和段基址，方便继续 Win98 冷启动调查。
+
+
 ## 选型结论
 
 2026-10-26 的选型过程（证据见“规范与实现参考”）：

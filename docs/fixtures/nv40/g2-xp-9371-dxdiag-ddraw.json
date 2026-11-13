@@ -1,0 +1,42 @@
+{
+  "stage": "G2 XP DxDiag DirectDraw gate",
+  "scope": "XP native DxDiag DirectDraw primary/offscreen/fullscreen tests passed; Win98 DxDiag and G2 completion still pending",
+  "driver": "93.71",
+  "report_sha256": "9ff91b143f8035576bf77f93f02924bd2063949b35a08147ca05fc08535143b0",
+  "report_lines": [
+    "DDraw Test Result: All tests were successful.",
+    "D3D7 Test Result: Not run",
+    "D3D8 Test Result: Not run",
+    "D3D9 Test Result: Not run"
+  ],
+  "gpu": {
+    "draws": 6281,
+    "bytes": 1518576472,
+    "readbacks": 6282,
+    "failures": 0
+  },
+  "graphFaults": [],
+  "visual_evidence": [
+    {
+      "file": "capture-0592.png",
+      "sha256": "8013d4b0cd786c526c2a2b6723d1e0c7a49eb9e0bea31729b51608c7491caf52"
+    },
+    {
+      "file": "capture-0595.png",
+      "sha256": "9aa598052bc7bb0e127dcef4b6a8b1fc284db5220a6cc05cebab34407e887053"
+    },
+    {
+      "file": "capture-0785.png",
+      "sha256": "4ff3f57050d8bb21b3f208932bb78f21c5de802a3e48517b6a7d3fc880c09dc4"
+    },
+    {
+      "file": "capture-0810.png",
+      "sha256": "aa86b2c6dcf6d5ff74f92901826371deebaa6cb1becd8a847aa345df4e986145"
+    },
+    {
+      "file": "capture-1120.png",
+      "sha256": "6bb8bd697ae0babd078220da93c06ec9170633ee040d2131dde34b0bc4c3b111"
+    }
+  ],
+  "imageUnchanged": true
+}
