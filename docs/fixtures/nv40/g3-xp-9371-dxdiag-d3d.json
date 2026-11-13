@@ -1,0 +1,52 @@
+{
+  "stage": "G3 XP native DxDiag Direct3D gate",
+  "scope": "Native Direct3D7/8/9 visuals and report pass; 3DMark99/2000 acceptance remains pending",
+  "driver": "93.71",
+  "report_sha256": "6e9ef6c95ae35459dcfed07af502ee6d1b5b3fc1512a566a88ba7771097ce4c3",
+  "report_lines": [
+    "DDraw Test Result: All tests were successful.",
+    "D3D7 Test Result: All tests were successful.",
+    "D3D8 Test Result: All tests were successful.",
+    "D3D9 Test Result: All tests were successful."
+  ],
+  "gpu": {
+    "draws": 1365,
+    "bytes": 1441052656,
+    "readbacks": 1369,
+    "failures": 0
+  },
+  "graphFaults": [],
+  "visual_evidence": [
+    {
+      "api": 7,
+      "file": "capture-0462.png",
+      "sha256": "ae8a01374fedf17a10a3bb87a8dad1a56e9517c1b39099a1f80bad5b21121bd6"
+    },
+    {
+      "api": 7,
+      "file": "capture-0511.png",
+      "sha256": "f93d8f746f1f79d2b74961dad8e68bc2f96ee1df21db0004dec8e159ce4803b8"
+    },
+    {
+      "api": 8,
+      "file": "capture-0722.png",
+      "sha256": "0fe2ad693a47d2a7f8e3c2633cdef631d4e63f8f1e4eff8d1597d6ee408f6f93"
+    },
+    {
+      "api": 8,
+      "file": "capture-0754.png",
+      "sha256": "410469f95b0f5bb8f43c864b935cb2cbc07f28d1f7be02a958f3a59438bfa547"
+    },
+    {
+      "api": 9,
+      "file": "capture-1238.png",
+      "sha256": "3c7bbaa883552251b5d1653cefd50d27b17a26c922212d07ed5771ca6d6406f3"
+    },
+    {
+      "api": 9,
+      "file": "capture-1284.png",
+      "sha256": "5d38a6ec83331aaf7832917c4859786a6e0d0a1a81c41b216ae06e4a0e23c206"
+    }
+  ],
+  "imageUnchanged": true
+}

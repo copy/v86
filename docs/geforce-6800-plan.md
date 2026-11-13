@@ -813,6 +813,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   原子性及退回单目标；44 个 WGSL 模块和 Closure 构建通过。混合使能不同的 MRT 组合
   及不含 COLOR0 的 enable mask 仍显式拒绝，尚不是完整 G4 验收。
 
+- G3 XP DxDiag Direct3D 客体验收通过：93.71 的 D3D7/8/9 均显示正确纹理的旋转
+  立方体，保存的原版报告三项均为 `All tests were successful.`。修复视口、mip 和
+  SIFM 后重新完整运行，1365 次绘制、1369 次读回、0 GPU failure、0 PGRAPH fault，
+  原盘未修改。证据见 `g3-xp-9371-dxdiag-d3d.json`；Win98 D3D 与 99/2000 benchmark
+  仍在验收，整个 G3 尚未完成。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。
