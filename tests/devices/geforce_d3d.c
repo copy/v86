@@ -12,7 +12,7 @@ static void report(void (*mark)(const char*),const char *label,DWORD value)
 }
 DWORD nv_d3d_probe(void (*mark)(const char*))
 {
-    DWORD failure=1;HRESULT hr=E_FAIL;
+    DWORD failure=1,texture_failures=0;HRESULT hr=E_FAIL;
     HMODULE library=LoadLibraryA("d3d9.dll");
     typedef IDirect3D9* (WINAPI *create_t)(UINT);
     create_t create=library?(create_t)GetProcAddress(library,"Direct3DCreate9"):0;
@@ -46,6 +46,25 @@ DWORD nv_d3d_probe(void (*mark)(const char*))
     }
 #endif
     if(FAILED(hr)){failure=2;goto done;}
+#ifdef NV_D3D_TEXTURE_TEST
+    report(mark,"D3D9_TEXTURE_CAPS",caps.TextureCaps);report(mark,"D3D9_MAX_TEXTURE_W",caps.MaxTextureWidth);
+    report(mark,"D3D9_MAX_TEXTURE_H",caps.MaxTextureHeight);report(mark,"D3D9_TEXTURE_FREE",IDirect3DDevice9_GetAvailableTextureMem(device));
+    const D3DFORMAT formats[]={D3DFMT_A8R8G8B8,D3DFMT_X8R8G8B8,D3DFMT_R5G6B5,D3DFMT_A1R5G5B5};
+    for(unsigned int pool=0;pool<4;pool++)for(unsigned int f=0;f<4;f++)for(unsigned int shape=0;shape<(pool?4:12);shape++)
+    {
+        IDirect3DTexture9 *texture=0;UINT kind=shape%4,size=kind==0?1:kind==1?64:256,levels=kind==3?0:1;
+        DWORD usage=shape<4?0:shape<8?D3DUSAGE_DYNAMIC:D3DUSAGE_RENDERTARGET;
+        mark("D3D9_TEXTURE_ATTEMPT");report(mark,"POOL",pool);report(mark,"FORMAT",formats[f]);
+        report(mark,"SIZE",size);report(mark,"LEVELS",levels);report(mark,"USAGE",usage);
+        HRESULT allowed=IDirect3D9_CheckDeviceFormat(d3d,0,D3DDEVTYPE_HAL,present.BackBufferFormat,usage,D3DRTYPE_TEXTURE,formats[f]);
+        report(mark,"CHECK_FORMAT",allowed);
+        HRESULT created=IDirect3DDevice9_CreateTexture(device,size,size,levels,usage,formats[f],(D3DPOOL)pool,&texture,0);
+        report(mark,"CREATE_TEXTURE",created);
+        if(FAILED(created))texture_failures++;
+        if(texture)IDirect3DTexture9_Release(texture);
+    }
+    report(mark,"D3D9_TEXTURE_FAILURES",texture_failures);
+#endif
     hr=IDirect3DDevice9_Clear(device,0,0,D3DCLEAR_TARGET,0xFF102030,1,0);
     report(mark,"D3D9_CLEAR_RESULT",hr);if(FAILED(hr)){failure=4;goto done;}
     struct vertex {float x,y,z,w;DWORD color;} vertices[3]={{0,0,0,1,0xFF336699},{0,128,0,1,0xFF336699},{128,0,0,1,0xFF336699}};
@@ -70,5 +89,5 @@ done:
     if(readback)IDirect3DSurface9_Release(readback);if(target)IDirect3DSurface9_Release(target);
     if(device)IDirect3DDevice9_Release(device);if(d3d)IDirect3D9_Release(d3d);
     if(window)DestroyWindow(window);if(library)FreeLibrary(library);
-    mark("D3D9_DONE");return failure;
+    mark("D3D9_DONE");return failure|(texture_failures?256:0);
 }

@@ -92,6 +92,15 @@ export async function run_geforce_guest(win98)
     const sevenzip = process.env.SEVENZIP || (fs.existsSync("/opt/homebrew/opt/sevenzip/bin/7zz") ? "/opt/homebrew/opt/sevenzip/bin/7zz" : "7z");
     const files = {};
     if(process.env.NV_DX9) files["DX9.EXE"]=fs.readFileSync(process.env.NV_DX9);
+    if(process.env.NV_BENCH_LAUNCH)
+    {
+        assert(!win98,"catalog priming launcher is an XP compatibility helper");
+        const launcher=path.join(out,"NVLAUNCH.EXE");
+        run("i686-w64-mingw32-gcc",["-Os","-nostdlib","-fno-builtin","-fno-stack-protector","-mno-stack-arg-probe",
+            "-Wall","-Wextra","-Werror","-Wl,--entry,_entry@0","-Wl,--subsystem,console",
+            path.join(root,"tests/devices/geforce_benchmark.c"),"-lkernel32","-o",launcher]);
+        files["NVLAUNCH.EXE"]=fs.readFileSync(launcher);
+    }
     if(win98)
     {
         const iso = process.env.NV_WIN98_ISO || path.join(site_directory(root), "windows98/windows98se.iso");
@@ -138,10 +147,11 @@ export async function run_geforce_guest(win98)
         ...(process.env.NV_GDI_TEST ? ["-DNV_GDI_TEST"] : []),
         ...(process.env.NV_DDRAW_TEST ? ["-DNV_DDRAW_TEST"] : []),
         ...(process.env.NV_D3D_TEST ? ["-DNV_D3D_TEST",path.join(root,"tests/devices/geforce_d3d.c")] : []),
+        ...(process.env.NV_D3D_TEXTURE_TEST ? ["-DNV_D3D_TEXTURE_TEST"] : []),
         ...(process.env.NV_DX9_INSTALL ? ["-DNV_DX9_INSTALL"] : []),
         ...(process.env.NV_GDI_TEST || process.env.NV_DDRAW_TEST ? [path.join(root, "tests/devices/geforce_draw.c")] : []),
         path.join(root, "tests/devices/geforce_probe.c"), "-lkernel32", "-luser32", "-lsetupapi", "-ladvapi32", "-lgdi32"]);
-    const probe = new Uint8Array(65536), executable = fs.readFileSync(binary);
+    const probe = new Uint8Array(65536), executable = fs.readFileSync(process.env.NV_PROBE_BINARY || binary);
     assert(executable.length <= probe.length); probe.set(executable);
     files["NVPROBE.EXE"] = probe;
     const tools_bytes = make_esp(files, 120);
@@ -161,7 +171,8 @@ export async function run_geforce_guest(win98)
         const {create_remote_renderer}=await import("../x64/gpu_remote_renderer.mjs");
         remote=await create_remote_renderer({on_log:line=>console.log("NV40 GPU:",line)});
     }
-    const vm = new V86({ ...(remote?{graphics_adapter_renderer_channel:remote.renderer}:{}), disable_jit:!!process.env.NV_DISABLE_JIT, ...(process.env.NV_WASM ? {wasm_path:path.resolve(process.env.NV_WASM)} : {}), graphics_adapter: "geforce_6800", vram_size: 128 << 20,
+    const vram_mb=Number(process.env.NV_VRAM_MB || 128);assert([128,256].includes(vram_mb));
+    const vm = new V86({ ...(remote?{graphics_adapter_renderer_channel:remote.renderer}:{}), disable_jit:!!process.env.NV_DISABLE_JIT, ...(process.env.NV_WASM ? {wasm_path:path.resolve(process.env.NV_WASM)} : {}), graphics_adapter: "geforce_6800", vram_size: vram_mb << 20,
         bios: { url: root + "bios/seabios.bin" },
         ...(process.env.NV_ROM ? { vga_bios: { url: path.resolve(process.env.NV_ROM) } } : {}),
         hda: disk, hdb: tools, boot_order: 0x213, memory_size: (win98 ? 256 : 1024) << 20,
@@ -293,7 +304,7 @@ export async function run_geforce_guest(win98)
         }
         save_png(sink, out, "final");
         fs.writeFileSync(path.join(out, "screen.txt"), sink.text.join("\n"));
-        for(const name of ["MACHINE.INF", "NVDOS.TXT", "DXDIAG.TXT", "DDXP.TXT"])
+        for(const name of ["MACHINE.INF", "NVDOS.TXT", "DXDIAG.TXT", "DDXP.TXT", "NVLAUNCH.TXT"])
         {
             const bytes = read_fat16(tools.bytes, name);
             if(bytes) fs.writeFileSync(path.join(out, name), bytes);

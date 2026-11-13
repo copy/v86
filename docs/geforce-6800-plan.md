@@ -824,6 +824,19 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   读回精确验证负值、超过 1 的 HDR 值、跨提交的加法混合，以及浮点纹理双线性平均；
   纹理 DMA/half bits 测试和插件 Closure 构建通过。完整 HDR/SM3 benchmark 仍待验收。
 
+- G3 benchmark 启动续修：3DMark99 的 E2 引擎在 `DllMain` 内调用 DirectDrawEnumerate，
+  XP 随后在 WINTRUST 的 RegisterWaitForSingleObject 初始化中与 loader lock 相互等待，
+  已由客体自带 NTSD 的所有线程栈确认。新增仅用于 XP 的 `NV_BENCH_LAUNCH=1` 原生
+  启动器：在原 EXE 入口前预热并释放 CryptCATAdmin context，再恢复原寄存器继续入口；
+  临时入口断点先恢复，磁盘 EXE/DLL 及图形 API 保持原版。Win98 兼容层绕过 99 的旧 DX
+  版本检测；已进入原版 99 Max Pro 的 Welcome 界面，尚未跑分。调试事件循环保留到退出。
+  `NV_PROBE_BINARY` 可替换尚未首次打开的 64 KiB 预留探针，用于暖快照中的测试工具。
+- Win98 分配诊断：`NV_D3D_TEXTURE_TEST=1` 按格式、大小、mip、pool、usage 输出真实
+  CheckDeviceFormat/CreateTexture 返回值。128 MiB 下 16 个 DEFAULT 静态纹理均返回
+  8876017c，MANAGED/SYSTEMMEM/SCRATCH 的各 16 项均成功；原生 GDI/DirectDraw 和
+  全屏 D3D9 三角形读回通过且无 PGRAPH/GPU fault。`NV_VRAM_MB=128/256` 支持独立
+  冷启动对照；这只是分配问题定位，不是 Win98 D3D8/9 通过。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。
