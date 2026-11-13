@@ -286,6 +286,7 @@ build/v86-geforce-6800.js: $(CLOSURE) src/*.js src/graphics_adapters/*.js src/gr
 		--js src/graphics_adapters/geforce_6800/nv_display.js \
 		--js src/graphics_adapters/geforce_6800/nv_dma.js \
 		--js src/graphics_adapters/geforce_6800/nv_fifo.js \
+		--js src/graphics_adapters/geforce_6800/nv40_program.js \
 		--js src/graphics_adapters/geforce_6800/nv40_3d.js \
 		--js src/graphics_adapters/geforce_6800/nv_graph.js \
 		--js src/graphics_adapters/geforce_6800/nv_2d.js \

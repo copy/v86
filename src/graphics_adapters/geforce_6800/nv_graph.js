@@ -25,7 +25,7 @@ export class NVGraph
         this.engine3d = new NV40_3D(this);
     }
 
-    reset() { this.objects.clear(); this.program.clear(); }
+    reset() { this.objects.clear(); this.program.clear(); this.engine3d.captured.clear(); }
     reg(at) { return this.device.registers.get(at) || 0; }
     set(at, value) { this.device.registers.set(at, value >>> 0); }
     implemented(at)

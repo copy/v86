@@ -1,3 +1,4 @@
+import {decode_vertex_program,decode_fragment_program} from "./nv40_program.js";
 // NV40_3D control state. Method layouts: envytools rnndb/graph/nv30-40_3d.xml
 // and hwtest/pgraph_class_kelvin.cc (MIT). This implementation is original.
 // Draw, query and clear triggers are deliberately outside the state whitelist.
@@ -66,10 +67,16 @@ const VP_CODE = 0x10000, VP_CONSTANTS = 0x20000, VP_WORD = 0x30000, CONST_WORD =
 
 export class NV40_3D
 {
-    constructor(graph) { this.graph = graph; this.device = graph.device; }
+    constructor(graph) { this.graph = graph; this.device = graph.device; this.captured = new Map(); }
     method(o, at, value)
     {
         if(at & 3 || o.class_id !== 0x4097) return false;
+        if(at===0x1808 && value && this.device.trace.enabled)
+        {
+            const program=this.program(o), key=JSON.stringify([program.vertex,program.fragment && program.fragment.normalized]);
+            if(!this.captured.has(key) && this.captured.size>=64) this.captured.delete(this.captured.keys().next().value);
+            this.captured.set(key,program);
+        }
         if(at === 0x1D70)
         {
             const offset = get(o, 0x1D6C);
@@ -101,6 +108,38 @@ export class NV40_3D
             if((at & 12) === 12) o.methods.set(CONST_WORD, cursor + 1);
         }
         return true;
+    }
+    programs()
+    {
+        return this.captured.size ? Array.from(this.captured.values()) :
+            Array.from(this.graph.objects.values()).filter(o=>o.class_id===0x4097).map(o=>this.program(o));
+    }
+    program(o)
+    {
+        const result={channel:o.channel,instance:o.instance,vertex:null,fragment:null,errors:[]};
+        try { result.vertex=decode_vertex_program(this.vertex_program(o),get(o,0x1EA0)); }
+        catch(error) { result.errors.push(String(error)); }
+        try
+        {
+            const pointer=get(o,0x8E4), selector=pointer&3, at=selector===1?0x184:selector===2?0x188:0;
+            if(!at || !o.methods.has(at)) throw new RangeError("NV40 fragment DMA unbound");
+            const dma=this.device.dma.descriptor(get(o,at)*16), offset=pointer&0xFFFFFFFC, words=[];
+            while(words.length<16384)
+            {
+                const bytes=this.device.dma.read(dma,offset+words.length*4,16), view=new DataView(bytes.buffer), header=[];
+                for(let i=0;i<4;i++)header.push(view.getUint32(i*4,true));
+                words.push(...header);
+                if(!(header[2]&0x80000000) && header.slice(1).some(word=>(word&3)===2))
+                {
+                    const bytes=this.device.dma.read(dma,offset+words.length*4,16), view=new DataView(bytes.buffer);
+                    for(let i=0;i<4;i++)words.push(view.getUint32(i*4,true));
+                }
+                if(header[0]&1) break;
+            }
+            result.fragment=decode_fragment_program(Uint32Array.from(words));
+        }
+        catch(error) { result.errors.push(String(error)); }
+        return result;
     }
     vertex_program(o, first = get(o, 0x1EA0), count = 0x220 - first)
     {

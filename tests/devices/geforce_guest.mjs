@@ -229,11 +229,12 @@ export async function run_geforce_guest(win98)
         if(nv)
         {
             fs.writeFileSync(path.join(out, "trace.json"), JSON.stringify(trace_report(), null, 2) + "\n");
+            if(process.env.NV_DUMP_PROGRAMS) fs.writeFileSync(path.join(out, "programs.json"),JSON.stringify(nv.graph.engine3d.programs(),null,2)+"\n");
             fs.writeFileSync(path.join(out, "ramin.bin"), nv.vram().subarray(nv.vram_size - (1 << 20)));
         }
         save_png(sink, out, "final");
         fs.writeFileSync(path.join(out, "screen.txt"), sink.text.join("\n"));
-        for(const name of ["MACHINE.INF"])
+        for(const name of ["MACHINE.INF", "NVDOS.TXT"])
         {
             const bytes = read_fat16(tools.bytes, name);
             if(bytes) fs.writeFileSync(path.join(out, name), bytes);

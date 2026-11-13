@@ -17,6 +17,7 @@ register_graphics_adapter({
             "reset": () => device.reset(),
             "nvlog": enabled => { device.trace.enabled = !!enabled; },
             "nvtrace": () => device.trace.report(),
+            "nvprograms": () => device.graph.engine3d.programs(),
         };
     },
 });

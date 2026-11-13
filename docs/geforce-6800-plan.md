@@ -246,6 +246,12 @@
   返回值与阶段日志分开输出，并记录像素/位宽/pitch 和 ROP HRESULT。XP 已测到
   32-bit 表面黑像素与 DDERR_NORASTEROPHW，不能称作 G2 通过。
 
+- 程序解码前置：`nv40_program.js` 解码 VP 的双发射/掩码/源寄存器与 swizzle、
+  FP 的寄存器/条件/分支字段和指令后的内联常量；归一化代码排除常量内容。
+  调试 `nvprograms()` 在 draw 开始时保留语料，防止驱动释放程序 BO 后只读到零。
+  手写编码、常量边界、控制数据与常量的区分、BO 释放后语料保持测试和插件构建通过；
+  `nv40_program_test.js` 自动纳入 glbridge 测试扫描。D3D9 字节码翻译和实际渲染尚待接入。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

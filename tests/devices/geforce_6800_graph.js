@@ -80,3 +80,16 @@ assert.equal(device.registers.get(0x400720),0,"upload address bounds fault befor
 device.registers.set(0x400720,1);method(0,0x4200,0x1808,5);
 assert.equal(device.registers.get(0x400108)&0x40,0x40,"unimplemented drawing stays an explicit method trap");
 console.log("PASS: NV40_3D control state, vector uploads across snapshots and checked four-byte fences");
+// Capture programs when a draw begins, while the driver's BO is still alive.
+// Later releases can overwrite its VRAM without destroying diagnostic input.
+word(0x4400,0x4097);word(0x4300,0x3002);word(0x4304,0x9FFF);word(0x4308,3);
+device.registers.set(0x400720,1);method(0,0x4400,0x1E9C,0);
+[0x401F9C6C,0x0040000D,0x81000000,0x0001EF81].forEach((v,i)=>method(0,0x4400,0xB80+i*4,v));
+method(0,0x4400,0x184,0x430);method(0,0x4400,0x8E4,0x9001);
+[0x01001E81,0x001DC802,0,0,0x3F800000,0,0,0x3F800000].forEach((v,i)=>new DataView(vram.buffer).setUint32(0x9000+i*4,v,true));
+device.trace.enabled=true;method(0,0x4400,0x1808,6);
+vram.fill(0,0x9000,0x9020);
+const captured=graph.engine3d.programs();assert.equal(captured.length,1);assert.deepEqual(captured[0].errors,[]);
+assert.equal(captured[0].vertex.instructions[0].vector.name,"MOV");
+assert.deepEqual(captured[0].fragment.constants[0],[0x3F800000,0,0,0x3F800000]);
+console.log("PASS: draw-time shader capture survives guest buffer release");
