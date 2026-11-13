@@ -20,7 +20,7 @@ class Shader
     constructor(stage,reserved=[])
     {
         this.stage=stage;this.declarations=[];this.body=[];this.inputs=new Map();this.outputs=new Map();
-        this.temps=new Map();this.samplers=new Map();this.constants=new Set(reserved);this.aliases=new Map();this.literals=new Map();
+        this.input_overrides=new Map();this.temps=new Map();this.samplers=new Map();this.constants=new Set(reserved);this.aliases=new Map();this.literals=new Map();
     }
     emit(op,...operands) { this.body.push((operands.length<<24|op)>>>0,...operands); }
     declare(type,index,meaning) { this.declarations.push(0x0200001F,semantic(...meaning),dst(type,index)); }
@@ -71,7 +71,7 @@ class Shader
             }
             type=0;index=this.temp((source.half?"h":"r")+source.index);
         }
-        else if(source.type==="input") [type,index]=this.input(source.index);
+        else if(source.type==="input") [type,index]=this.input_overrides.has(source.index)?[0,this.input_overrides.get(source.index)]:this.input(source.index);
         else if(source.type==="constant")
         {
             type=2;index=this.stage==="fragment"?constant:source.index;
@@ -212,6 +212,20 @@ export function translate_vertex_program(program,options={})
 export function translate_fragment_program(program,options={})
 {
     const shader=new Shader("fragment",program.constants.map((_,i)=>i));
+    // NV fragment FOGC is (coordinate, clamped fog factor, 0, 0), whereas
+    // D3D9's FOG varying carries only the coordinate. Generate the factor after
+    // interpolation; computing it in the vertex shader changes clamped edges.
+    if(program.instructions.some(i=>i.sources.some(s=>s.type==="input" && s.index===3)))
+    {
+        const [type,index]=shader.input(3),fog=shader.temp("fog"),settings=options.fog || {mode:0x2601,constant:1,linear:1};
+        if(![0x2601,0x804].includes(settings.mode))throw new RangeError("NV40 exponential fog factor is not connected");
+        if(!Number.isFinite(settings.constant) || !Number.isFinite(settings.linear))throw new RangeError("NV40 nonfinite fog equation");
+        shader.emit(OP.MOV,dst(0,fog),shader.literal(0));
+        shader.emit(OP.MOV,dst(0,fog,1),src(type,index,[0,0,0,0]));
+        shader.emit(OP.MAD,dst(0,fog,2,true),src(type,index,[0,0,0,0],false,settings.mode===0x804),
+            shader.literal(settings.linear),shader.literal(settings.constant-1));
+        shader.input_overrides.set(3,fog);
+    }
     const written=new Set();
     for(const i of program.instructions)
     {
