@@ -100,6 +100,12 @@
   子通道 6 绑定 clip 类 `0x19` 后提交 `0x300`；此前只写 PUT、GET 不动的问题已推进。
   PGRAPH/2D 类仍待实现，当前会报告未实现方法而非伪造完成；G1/G2 尚未验收。
 
+- PGRAPH 上下文前置：增加按通道/实例隔离的对象状态、clip/ROP/pattern/beta/surface
+  上下文方法、精确 PTIMER 通知器、DMA 全范围检查、非法方法陷阱、中断确认、上下文程序
+  存取与快照 v6。NV40 中断使能修正为 `0x40013c`，NOTIFY 使用 `0x104`。
+  `geforce_6800_graph.js`、寄存器/扫描输出/快照测试和插件构建通过。XP 已继续提交
+  GDI、blit、IFC、SIFM 与 line 等类；其绘制尚未实现，仍按非法方法报告，G2 未验收。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的
