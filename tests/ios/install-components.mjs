@@ -11,7 +11,8 @@ test("native adapter rejects an unknown installation daemon",()=>{
 test("10B329 ad-hoc metadata keeps native checks and permits an absent certificate",{skip:!process.env.IPHONE4_INSTALLD&&"set IPHONE4_INSTALLD to the owner's stock installd"},()=>{
     const original=fs.readFileSync(process.env.IPHONE4_INSTALLD),copy=Buffer.from(original),patched=link_install_policy(original);
     assert.deepEqual(original,copy);
-    assert.deepEqual(patched.subarray(0x1057c,0x10582),Uint8Array.of(0,0x29,0x5c,0xd0,0x14,0xe0));
+    assert.deepEqual(patched.subarray(0x1057c,0x10582),Uint8Array.of(0xb1,0xb9,0x04,0xa1,0x28,0x46));
+    assert.equal(new TextDecoder().decode(patched.subarray(0x10590,0x105a0)),"v86 local ad-hoc");
     assert.ok(macho_parse(patched).dylibs.includes(INSTALL_POLICY));
     assert.ok(cdhashes(patched).length);
     const changed=Buffer.from(original);changed[0x1057c]^=1;

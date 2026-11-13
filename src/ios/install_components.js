@@ -27,11 +27,15 @@ export function link_install_policy(original)
         throw new Error("Expected the stock N90 10B329 installation daemon");
     // Native libmis returns SigningID/Entitlements for valid ad-hoc code,
     // with no signer certificate. Preserve that dictionary. installd's
-    // optional certificate summary must stay null in that case; signatures
-    // with a certificate still take its original certificate parsing path.
-    // Thumb VA 0x1157c: cbnz r1,0x115ac; ldr.w r0,[r10] becomes
-    // cmp r1,#0; beq 0x1163a; b 0x115ac. Signature errors return earlier.
-    const patched=patch_guest_code(original,0x1057c,Uint8Array.of(0xb1,0xb9,0xda,0xf8,0,0),
-        Uint8Array.of(0,0x29,0x5c,0xd0,0x14,0xe0));
+    // install map requires a non-null signer *description*. Supply an
+    // explicit local ad-hoc label, without inventing a signing certificate.
+    // Actual certificates keep the original parsing/subject-summary path.
+    // Thumb VA 0x1157c: cbnz r1,0x115ac; else create a CFString through
+    // the existing 0x6cd38 stub, store it in the owned summary output,
+    // and continue at 0x1163a. Signature errors return before this block.
+    const replacement=new Uint8Array(48);
+    replacement.set([0xb1,0xb9,0x04,0xa1,0x28,0x46,0x5b,0xf0,0xda,0xeb,0x03,0x99,0x08,0x60,0x56,0xe0,0,0xbf,0,0xbf]);
+    replacement.set(new TextEncoder().encode("v86 local ad-hoc\0"),20);
+    const patched=patch_guest_code(original,0x1057c,original.subarray(0x1057c,0x105ac),replacement);
     return link_guest_gles(patched, INSTALL_POLICY);
 }
