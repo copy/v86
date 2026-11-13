@@ -388,6 +388,14 @@ NVIDIA 驱动，设备必须从硬件层面的方法流重建 D3D9 级的状态�
   双面模板、depth bounds 与 polygon offset 仍明确报未连接。
 
 
+- 客体调查工具续修（2026-11-14）：NV_CAPTURE_SECONDS/NV_CAPTURE_LIMIT 提供有界
+  高频截图，NV_CONTROL 的 {"stop":true} 经过正常 finally 保存现场并退出，供 DxDiag
+  短暂测试画面和中途状态使用。DirectDraw 探针补充显存/caps、3D heap 与 render
+  surface 分配结果；D3D9 探针区分 HWVP、HAL+SWVP 与 Win98 全屏创建结果。
+  原生 C 构建通过。Win98 报告约 118 MiB 空闲显存，但 HWVP/SWVP 仍返回
+  OUTOFVIDEOMEMORY；全屏复测受到可复现的 VBIOS shadow 停顿阻塞，尚未下结论。
+
+
 ## 选型结论
 
 2026-10-26 的选型过程（证据见“规范与实现参考”）：

@@ -37,6 +37,14 @@ DWORD nv_d3d_probe(void (*mark)(const char*))
         hr=IDirect3D9_CreateDevice(d3d,0,D3DDEVTYPE_HAL,window,D3DCREATE_SOFTWARE_VERTEXPROCESSING|D3DCREATE_FPU_PRESERVE,&present,&device);
         report(mark,"D3D9_HAL_SWVP_RESULT",hr);
     }
+#ifdef NV_WIN98
+    if(FAILED(hr))
+    {
+        present.Windowed=FALSE;present.BackBufferWidth=640;present.BackBufferHeight=480;
+        hr=IDirect3D9_CreateDevice(d3d,0,D3DDEVTYPE_HAL,window,D3DCREATE_HARDWARE_VERTEXPROCESSING|D3DCREATE_FPU_PRESERVE,&present,&device);
+        report(mark,"D3D9_HAL_FULLSCREEN_RESULT",hr);
+    }
+#endif
     if(FAILED(hr)){failure=2;goto done;}
     hr=IDirect3DDevice9_Clear(device,0,0,D3DCLEAR_TARGET,0xFF102030,1,0);
     report(mark,"D3D9_CLEAR_RESULT",hr);if(FAILED(hr)){failure=4;goto done;}
@@ -49,7 +57,7 @@ DWORD nv_d3d_probe(void (*mark)(const char*))
     if(SUCCEEDED(hr)) {hr=IDirect3DDevice9_DrawPrimitiveUP(device,D3DPT_TRIANGLELIST,1,vertices,sizeof(vertices[0]));IDirect3DDevice9_EndScene(device);}
     report(mark,"D3D9_DRAW_RESULT",hr);if(FAILED(hr)){failure=8;goto done;}
     hr=IDirect3DDevice9_GetRenderTarget(device,0,&target);if(FAILED(hr)){failure=16;goto done;}
-    hr=IDirect3DDevice9_CreateOffscreenPlainSurface(device,64,64,D3DFMT_X8R8G8B8,D3DPOOL_SYSTEMMEM,&readback,0);
+    hr=IDirect3DDevice9_CreateOffscreenPlainSurface(device,present.BackBufferWidth,present.BackBufferHeight,D3DFMT_X8R8G8B8,D3DPOOL_SYSTEMMEM,&readback,0);
     if(FAILED(hr)){failure=16;goto done;}
     mark("D3D9_READBACK");hr=IDirect3DDevice9_GetRenderTargetData(device,target,readback);
     report(mark,"D3D9_READBACK_RESULT",hr);if(FAILED(hr)){failure=32;goto done;}

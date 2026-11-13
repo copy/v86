@@ -170,6 +170,9 @@ export async function run_geforce_guest(win98)
     vm.add_listener("emulator-error", e => { error = String(e); });
     const started = performance.now(), elapsed = () => (performance.now() - started) / 1000;
     let control_time = 0, next_report = 30, reboot_seen = false;
+    let next_capture=0,capture_index=0;
+    const capture_interval=Number(process.env.NV_CAPTURE_SECONDS || 0),capture_limit=Number(process.env.NV_CAPTURE_LIMIT || 180);
+    assert(Number.isFinite(capture_interval) && capture_interval>=0 && capture_limit>0 && capture_limit<=2000);
     const control_file = process.env.NV_CONTROL || path.join(out, "control.json");
     const result_text = () => Buffer.from(read_fat16(tools.bytes, "NV.TXT") || []).toString("ascii");
     const trace_report = () => ({ ...nv.trace.report(),
@@ -196,8 +199,13 @@ export async function run_geforce_guest(win98)
         nv.trace.enabled = true;
         for(; elapsed() < seconds && !error && !cancelled;)
         {
-            await delay(1000);
+            await delay(capture_interval?Math.min(1000,Math.max(100,capture_interval*1000)):1000);
             cpu.devices.display.request_frame(true);
+            if(capture_interval && elapsed()>=next_capture && capture_index<capture_limit)
+            {
+                next_capture=elapsed()+capture_interval;
+                save_png(sink,out,"capture-"+String(capture_index++).padStart(4,"0"));
+            }
             if(process.env.NV_DOS_TEST && sink.graphical && (sink.width === 320 || sink.width === 640 && sink.height === 400))
                 save_png(sink, out, "dos");
             if(!reboot_seen && result_text().includes("REBOOT_REQUEST"))
@@ -212,6 +220,7 @@ export async function run_geforce_guest(win98)
                     control_time = modified;
                     const input = fs.readFileSync(control_file, "utf8").trim();
                     const command = input.startsWith("{") ? JSON.parse(input) : { run: input };
+                    if(command.stop) {cancelled=true;break;}
                     if(command.keys) await vm.keyboard_send_scancodes(command.keys, 30);
                     if(command.run)
                     {

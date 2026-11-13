@@ -75,9 +75,18 @@ DWORD nv_ddraw_probe(void (*mark)(const char*))
     mark("DDRAW_CAPS");
     if(IDirectDraw7_GetCaps(dd,&caps,0)!=DD_OK || !(caps.dwCaps&DDCAPS_BLT)) {failures=4;goto done;}
     detail(mark,"DDRAW_VIDMEM_TOTAL",caps.dwVidMemTotal);detail(mark,"DDRAW_VIDMEM_FREE",caps.dwVidMemFree);
+    detail(mark,"DDRAW_CAPS_FLAGS",caps.dwCaps);detail(mark,"DDRAW_CAPS2_FLAGS",caps.dwCaps2);
+    DDSCAPS2 memory_caps;zero_bytes(&memory_caps,sizeof(memory_caps));memory_caps.dwCaps=DDSCAPS_VIDEOMEMORY|DDSCAPS_3DDEVICE;
+    DWORD memory_total=0,memory_free=0;
+    HRESULT available=IDirectDraw7_GetAvailableVidMem(dd,&memory_caps,&memory_total,&memory_free);
+    detail(mark,"DDRAW_3D_MEMORY_RESULT",available);detail(mark,"DDRAW_3D_MEMORY_TOTAL",memory_total);detail(mark,"DDRAW_3D_MEMORY_FREE",memory_free);
     DDSURFACEDESC2 desc;zero_bytes(&desc,sizeof(desc));desc.dwSize=sizeof(desc);
     desc.dwFlags=DDSD_CAPS|DDSD_WIDTH|DDSD_HEIGHT;desc.dwWidth=32;desc.dwHeight=32;
     desc.ddsCaps.dwCaps=DDSCAPS_OFFSCREENPLAIN|DDSCAPS_VIDEOMEMORY;
+    IDirectDrawSurface7 *render_target=0;desc.ddsCaps.dwCaps|=DDSCAPS_3DDEVICE;
+    HRESULT allocated=IDirectDraw7_CreateSurface(dd,&desc,&render_target,0);
+    detail(mark,"DDRAW_3D_SURFACE_RESULT",allocated);if(render_target)IDirectDrawSurface7_Release(render_target);
+    desc.ddsCaps.dwCaps&=~DDSCAPS_3DDEVICE;
     mark("DDRAW_SURFACES");
     if(IDirectDraw7_CreateSurface(dd,&desc,&source,0)!=DD_OK || IDirectDraw7_CreateSurface(dd,&desc,&target,0)!=DD_OK) {failures=8;goto done;}
     DDBLTFX fx;zero_bytes(&fx,sizeof(fx));fx.dwSize=sizeof(fx);fx.dwFillColor=0x00336699;
