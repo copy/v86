@@ -1,0 +1,1986 @@
+{
+  "source": "tests/glbridge/fixtures/ddraw_native_rgb_sphere_reference.c",
+  "sourceSha256": "4e4949619af14794fa971ed77152adfd6c7a093528aeef5fdf115ac6a70fafa5",
+  "pinnedWineCommit": "415a275e3844c252ad385b46023095e9401ca234",
+  "originalSourceSha256": "5788fe13e3e2a5d893688fc09f9bc97d1945ce72428378335cfcd69a935d5433",
+  "scope": "264 exact XP system RGB Device3 numerical observations; unchanged original selected sphere assertions all0hard/0flaky/0skip. Explicit HAL-to-RGB diagnostic factory substitution, not a complete native HAL or rendered-pixel certificate. Two completed executions in one RAM VM; first OS postcheck rejected a restart prompt, second passed, and both264-row observations match exactly.",
+  "nativeDirectory": "stage6-82-native-rgb-sphere-stable-final",
+  "rawLogSha256": "e8d84cbd166da9e7ab9ce6629e075e43637758e1f58e3bfba5ec9012b6b79a2b",
+  "environmentExecutions": {
+    "selected": 2,
+    "attempts": [
+      {
+        "attempt": 1,
+        "selected": false,
+        "preparation": "PNP readiness_api=cfgmgr32.dll\r\nPREPARE start=211524\r\nPNP pending_wait=00000102\r\nPNP pending_wait=00000000\r\nCOMPLETE desktop_prepare=1 dialogs_closed=0 actions=0 quiet_ms=10014\r\n",
+        "postcheck": "PNP readiness_api=cfgmgr32.dll\r\nCHECK pending_wait=00000000 restart=1 wizard=0\r\nUNREADY desktop changed during suite\r\n"
+      },
+      {
+        "attempt": 2,
+        "selected": true,
+        "preparation": "PNP readiness_api=cfgmgr32.dll\r\nPREPARE start=226645\r\nPNP pending_wait=00000000\r\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\r\r\n\r\r\nDo you want to restart your computer now? \r\nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\r\nPNP action=decline_restart\r\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10085\r\n",
+        "postcheck": "PNP readiness_api=cfgmgr32.dll\r\nCHECK pending_wait=00000000 restart=0 wizard=0\r\nCOMPLETE desktop_postcheck=1\r\n"
+      }
+    ],
+    "scope": "One RAM VM, identical original numerical assertions and native EXE; at most one repeat after a completed execution is explicitly rejected by the OS environment postcheck. No repeat based on numerical failures."
+  },
+  "projections": [
+    [
+      1065353216,
+      0,
+      0,
+      0,
+      0,
+      1065353216,
+      0,
+      0,
+      0,
+      0,
+      1065353216,
+      0,
+      0,
+      0,
+      0,
+      1065353216
+    ],
+    [
+      1092616192,
+      0,
+      0,
+      0,
+      0,
+      1092616192,
+      0,
+      0,
+      0,
+      0,
+      1092616192,
+      0,
+      0,
+      0,
+      0,
+      1065353216
+    ],
+    [
+      1072153525,
+      0,
+      0,
+      0,
+      0,
+      1075479159,
+      0,
+      0,
+      0,
+      0,
+      1065524411,
+      1065353216,
+      0,
+      0,
+      3184589535,
+      0
+    ]
+  ],
+  "centers": [
+    [
+      0,
+      0,
+      1056964608
+    ],
+    [
+      3212836864,
+      3212836864,
+      1056964608
+    ],
+    [
+      0,
+      0,
+      1028443341
+    ],
+    [
+      0,
+      0,
+      0
+    ],
+    [
+      3204448256,
+      0,
+      1056964608
+    ],
+    [
+      0,
+      0,
+      1048576000
+    ],
+    [
+      0,
+      0,
+      1061158912
+    ],
+    [
+      0,
+      0,
+      1065353216
+    ]
+  ],
+  "rows": [
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 0,
+      "hr": 0,
+      "result": 0
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 0,
+      "hr": 0,
+      "result": 261
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 0,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 0,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 0,
+      "hr": 0,
+      "result": 0
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 0,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 0,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 0,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 5121
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 5381
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 5125
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 5121
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 5381
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 5125
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 5121
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 5381
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 5125
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 5121
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 5381
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 5125
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5121
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5381
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5121
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1025
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5125
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5121
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5121
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 4097
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5381
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5445
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5381
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5445
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 0,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 1,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 2,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 3,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 4,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 5,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 6,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 0,
+      "center": 7,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 0,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 0,
+      "hr": 0,
+      "result": 8714
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 0,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 0,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 0,
+      "hr": 0,
+      "result": 8522
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 0,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 0,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 0,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 9738
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 9546
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 9738
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 9546
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 9738
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 9546
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 9738
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 9562
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5642
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 8534
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5722
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 9558
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 0,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 1,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 2,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 3,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 4,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 5,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 6,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 1,
+      "center": 7,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 0,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 0,
+      "hr": 0,
+      "result": 1546
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 0,
+      "hr": 0,
+      "result": 2390
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 0,
+      "hr": 0,
+      "result": 2730
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 0,
+      "hr": 0,
+      "result": 1354
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 0,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 0,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 0,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 1546
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 2390
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 2390
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 1354
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1008981770,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 1546
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 2390
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 2390
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 1354
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1025758986,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 1546
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 2390
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 1354
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1036831949,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1546
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1048576000,
+      "hr": 0,
+      "result": 341
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1546
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1056964608,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1061158912,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1065353216,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1073741824,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1077936128,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 0,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 1,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 2,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 3,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 4,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 5,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 1365
+    },
+    {
+      "projection": 2,
+      "center": 6,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    },
+    {
+      "projection": 2,
+      "center": 7,
+      "radius": 1082130432,
+      "hr": 0,
+      "result": 5461
+    }
+  ],
+  "nativeImplementation": {
+    "module": "D3DIM.DLL",
+    "moduleSha256": "1d5044e3f4b6f9b333b0c8ea4d91e85df7ef0b6ed85d1e12d5d2a085e90b43fa",
+    "publicMethodRva": 79012,
+    "classificationRva": 78879,
+    "intersectionConstantRva": 7932,
+    "intersectionConstantFloat": 0.5,
+    "outsideThreshold": 0,
+    "scope": "Read-only local runtime inspection confirms separate outside0 and intersection0.5 comparisons. No native binary or disassembly is committed."
+  },
+  "producerSnapshotScope": "Exact captured native producer source retained before adding the explicit app-local proxy loader branch to the reusable runner; numerical reference-row and float-bit function bodies remain identical."
+}

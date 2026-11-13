@@ -32,6 +32,8 @@ const diagnostic=process.env.D3D_WINE_DIAGNOSTIC==="1";
 const extraLogs=(process.env.D3D_WINE_EXTRA_LOGS||"").split(",").filter(Boolean);
 for(const name of extraLogs)assert(/^[a-z0-9_.-]+$/i.test(name),"Invalid extra log name");
 const cc=process.env.D9WG_CC||"i686-w64-mingw32-gcc";
+const minimumBootSeconds=Number(process.env.D3D_WINE_MINIMUM_BOOT_SECONDS||60);
+assert(Number.isInteger(minimumBootSeconds)&&minimumBootSeconds>=60&&minimumBootSeconds<=210,"Invalid Wine minimum boot interval");
 execFileSync(cc,["-std=gnu99","-O1","-g","-DDECLSPEC_EXPORT=","-I"+vendor+"include","-c",root+"tests/glbridge/wine_debug_standalone.c","-o",out+"/debug.o"],{stdio:"inherit"});
 // XP provides the PSAPI exports, not the Win7+ K32 aliases selected by newer
 // SDK defaults. Keep the original tests while targeting their actual guest ABI.
@@ -54,7 +56,7 @@ const rendererPage=root+"tests/glbridge/d3d_remote_renderer.html";
 const rendererSources=Object.fromEntries([...fs.readFileSync(rendererPage,"utf8").matchAll(/<script src="([^"]+)"/g)]
     .map(([,relative])=>{const file=path.resolve(path.dirname(rendererPage),relative);return [path.relative(root,file),sha256(file)];}));
 fs.writeFileSync(out+"/source.json",JSON.stringify({suite,diagnostic,extraLogs,dllBuild:providedDll?"provided":diagnostic?"diagnostic":"shipping",providedDll:providedDll?path.resolve(providedDll):null,commit:manifest.commit,source:manifest.files.find(f=>f.path===suite+".c"),
-    desktopPreparation:{sourceSha256:sha256(desktopPrepare),executableSha256:sha256(out+"/PREPARE.EXE"),scope:"PnP idle and known-dialog checks before/after Wine; at most two executions in one RAM VM, retried only after explicit environment rejection of a completed suite; every attempt retained",maxEnvironmentAttempts:2},dllSha256:sha256(out+"/"+api+".dll"),executableSha256:sha256(out+"/WINE.EXE"),rendererPageSha256:sha256(rendererPage),rendererSources},null,2)+"\n");
+    desktopPreparation:{minimumBootSeconds,sourceSha256:sha256(desktopPrepare),executableSha256:sha256(out+"/PREPARE.EXE"),scope:"PnP idle and known-dialog checks before/after Wine; at most two executions in one RAM VM, retried only after explicit environment rejection of a completed suite; every attempt retained",maxEnvironmentAttempts:2},dllSha256:sha256(out+"/"+api+".dll"),executableSha256:sha256(out+"/WINE.EXE"),rendererPageSha256:sha256(rendererPage),rendererSources},null,2)+"\n");
 if(process.env.D3D_WINE_BUILD_ONLY==="1")process.exit(0);
 
 const files={"V86GL.SYS":fs.readFileSync(site+"/glbridge/v86gl_driver/v86gl.sys"),
@@ -88,7 +90,7 @@ const live=await create_d3d_live_renderer();
 try {
     const result=await run_xp_ram_probe({root,out,files,image:process.env.XP_IMAGE||site+"/windowsxp/windowsxp_multidisk_C_4G.img",
         success:"COMPLETE Wine full suite",log_files:captureLogs,log_completion:{"WINE.TXT":"exit=","PREPARE.TXT":"COMPLETE desktop_prepare=1","START.TXT":"START Wine desktop preflight","AFTER.TXT":"COMPLETE desktop_postcheck=1"},graphics_renderer:live,
-        probe_timeout_seconds:1800,
+        probe_timeout_seconds:1800,minimum_boot_seconds:minimumBootSeconds,
         rendering:"Complete upstream "+suite+" with Windows expectations and actual GPU readbacks; no failed assertion or unreviewed skip is accepted.",
         inspect(result) {
             for(const name of captureLogs)fs.writeFileSync(out+"/"+name,result.logs[name]);

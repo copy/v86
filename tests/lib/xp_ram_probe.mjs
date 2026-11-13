@@ -10,8 +10,10 @@ import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
     success, log_files = [], log_completion = {}, binary_files = [], capture_graphics = false, expected_releases = null,
     rendering = "not exercised", simulated_host_features = null, observe_batch = null, graphics_renderer = null,
-    probe_timeout_seconds = 180, inspect })
+    probe_timeout_seconds = 180, minimum_boot_seconds = 60, inspect })
 {
+    assert(Number.isInteger(minimum_boot_seconds) && minimum_boot_seconds >= 60 && minimum_boot_seconds <= 210,
+        "Invalid XP minimum boot interval");
     assert(Number.isInteger(probe_timeout_seconds) && probe_timeout_seconds > 0 && probe_timeout_seconds <= 10800,
         "Invalid XP probe execution timeout");
     assert(!graphics_renderer || (!observe_batch && simulated_host_features === null), "A live GPU cannot be combined with simulated replies/capabilities");
@@ -111,7 +113,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             const picture = frame(), key = picture && picture.width + "x" + picture.height + ":" + crc32(picture.raw);
             if(key !== last) { last = key;stable_since = performance.now(); }
             if(elapsed() % 10 < 2) console.log("XP boot", elapsed(), "s", picture ? picture.width + "x" + picture.height : "VGA");
-            if(picture && elapsed() >= 60 && performance.now() - stable_since > 20000) break;
+            if(picture && elapsed() >= minimum_boot_seconds && performance.now() - stable_since > 20000) break;
         }
         save_frame("probe-desktop.png", frame());
         for(let attempt = 0; attempt < 3 && !completed(result_text(), read_logs()); attempt++)
