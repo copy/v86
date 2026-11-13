@@ -1,4 +1,4 @@
-// NV40 2D texture fetch/upload. The component crossbar operates
+// NV40 2D/cube texture fetch/upload. The component crossbar operates
 // on the format's storage components, before the fragment program sees RGBA.
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[26,8]]);
@@ -13,7 +13,9 @@ export class NV40Texture
         const width=size>>>16,height=size&65535,block=BLOCK_BYTES.get(code),bpp=BYTES.get(code)||block,pitch=get(o,0x1840+unit*4)&65535;
         if(get(o,at+12)&0x70)throw new RangeError("NV40 anisotropic texture is not connected");
         if(!(get(o,at+12)&0x80000000))throw new RangeError("NV40 sampled texture is disabled");
-        if((format>>>4&15)!==2 || format&4)throw new RangeError("NV40 cube/volume texture is not connected");
+        const cube=!!(format&4);
+        if((format>>>4&15)!==2)throw new RangeError("NV40 volume texture is not connected");
+        if(cube && width!==height)throw new RangeError("NV40 cube faces must be square");
         if(format&0x4000)throw new RangeError("NV40 unnormalized texture coordinates are not connected");
         const levels=format>>>16&15;
         if(!levels || levels>1+Math.floor(Math.log2(Math.max(width,height))))throw new RangeError("NV40 invalid texture mip count");
@@ -28,7 +30,7 @@ export class NV40Texture
         if(min<1 || min>6 || mag<1 || mag>2)throw new RangeError("NV40 texture filter");
         const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
         if(minLod%1 || maxLod%1)throw new RangeError("NV40 fractional texture LOD clamp is not connected");
-        return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,bpp,pitch,swizzle,u,v,code,block,
+        return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,bpp,pitch,swizzle,u,v,code,block,cube,
             crossbar:get(o,at+16),wrap_s:s,wrap_t:t,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:Math.min(levels-1,minLod),level_count:Math.min(levels,maxLod+1),
             d3d:code===26?113:32,upload_bpp:code===26?8:4,
@@ -36,17 +38,24 @@ export class NV40Texture
     }
     images(texture)
     {
-        const images=[];let offset=texture.offset;
-        for(let level=0;level<texture.level_count;level++)
+        const images=[],layouts=[];let stride=0;
+        // Face offsets include the complete guest mip chain, even when the
+        // sampler's LOD clamp makes only its first levels visible.
+        for(let level=0;level<texture.levels;level++)
         {
             const width=Math.max(1,texture.width>>>level),height=Math.max(1,texture.height>>>level);
             const u=Math.max(0,texture.u-level),v=Math.max(0,texture.v-level);
-            const surface={...texture,width,height,u,v,offset};
-            images.push(this.read(surface));
-            // BC blocks are linear even without LINEAR; only their levels
-            // shrink tightly. Linear textures retain the base row pitch.
-            offset+=texture.block?Math.ceil(height/4)*(texture.swizzle?Math.ceil(width/4)*texture.block:texture.pitch):
+            layouts.push({width,height,u,v,offset:stride});
+            stride+=texture.block?Math.ceil(height/4)*(texture.swizzle?Math.ceil(width/4)*texture.block:texture.pitch):
                 texture.swizzle?2**(u+v)*texture.bpp:height*texture.pitch;
+        }
+        // NV40 packed/Morton cube faces are 128-byte aligned. Uniform-pitch
+        // linear faces follow their complete mip chains without that padding.
+        if(texture.cube && texture.swizzle)stride=Math.ceil(stride/128)*128;
+        for(let face=0;face<(texture.cube?6:1);face++)for(let level=0;level<texture.level_count;level++)
+        {
+            const layout=layouts[level];
+            images.push(this.read({...texture,...layout,offset:texture.offset+face*stride+layout.offset}));
         }
         return images;
     }

@@ -372,6 +372,37 @@ try
         }
         assert.equal(engine.backend.resources.size,64,"texture resources remain bounded while hot attachments survive");
         console.log("PASS: real WebGPU color/depth attachments survive 70 rotating textures in the bounded resource cache");
+        const cubeColors=[[0,0,255,255],[0,255,0,255],[255,0,0,255],[0,255,255,255],[255,0,255,255],[255,255,0,255]],
+            directions=[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+        for(const [at,value]of [[0x1A00,0x50000],[0x1A04,0x1052D],[0x1A18,1<<16|1],[0x1760,0x1032]])method(at,value);
+        cubeColors.forEach((color,face)=>vram.set(color,0x50000+face*128));
+        for(const [face,direction]of directions.entries())
+        {
+            method(0x1808,6);
+            for(const word of new Uint32Array(Float32Array.of(0,0,...direction,0,16,...direction,16,0,...direction).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            assert.deepEqual([...vram.subarray(0x10000,0x10004)],cubeColors[face],"native cube direction selects face "+face);
+        }
+        method(0x1A04,0x2052D);method(0x1A18,2<<16|2);method(0x1A0C,0x80008000);
+        for(let face=0;face<6;face++)
+        {
+            for(let pixel=0;pixel<4;pixel++)vram.set(cubeColors[pixel],0x50000+face*128+pixel*4);
+            vram.set(cubeColors[5-face],0x50000+face*128+16);
+        }
+        const cubeDraw=async(direction)=>{
+            method(0x1808,6);
+            for(const word of new Uint32Array(Float32Array.of(0,0,...direction,0,16,...direction,16,0,...direction).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            return [...vram.subarray(0x10000,0x10004)];
+        };
+        for(const [corner,direction]of [[1,.5,.5],[1,.5,-.5],[1,-.5,.5],[1,-.5,-.5]].entries())
+            assert.deepEqual(await cubeDraw(direction),cubeColors[corner],"cube +X face coordinate orientation "+corner);
+        [47<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        method(0x1A14,0x01030000);
+        for(const [face,direction]of directions.entries())
+            assert.deepEqual(await cubeDraw(direction),cubeColors[5-face],"explicit cube mip retains guest face alignment "+face);
+        console.log("PASS: real WebGPU NV cubemap face directions, coordinate orientation and per-face mip chains");
+
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
     }
     console.log("PASS: NV40 primitive expansion, partial draw snapshot, GPU readback ordering and delayed fence"+(remote?"; real WebGPU pixels matched":""));

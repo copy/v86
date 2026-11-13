@@ -71,4 +71,21 @@ const fp16=texture.describe(o,0);assert.equal(fp16.d3d,113);assert.equal(fp16.up
 assert.deepEqual([...new Uint16Array(texture.read(fp16).buffer)],[0x4000,0xBC00,0x3800,0x3400],"FP16 preserves HDR, negative channels and exact half bits");
 o.methods.set(0x1A10,0xAA6C);assert.deepEqual([...new Uint16Array(texture.read(texture.describe(o,0)).buffer)],
     [0x3800,0xBC00,0x4000,0x3400],"FP16 component crossbar");
+// Each packed cube face carries its complete mip chain and starts on a
+// 128-byte boundary. A clamped upload must not move the following faces.
+o.methods.set(0x1A04,0x3052D);o.methods.set(0x1A18,4<<16|4);o.methods.set(0x1A10,0xAAE4);o.methods.set(0x1A0C,0x80010000);
+for(let face=0;face<6;face++)
+{
+    for(const [offset,count,red]of [[0,16,10+face],[64,4,30+face],[80,1,50+face]])
+        for(let pixel=0;pixel<count;pixel++)vram.set([red,0,0,255],0x2000+face*128+offset+pixel*4);
+}
+const cube=texture.describe(o,0);assert.equal(cube.cube,true);
+assert.deepEqual(texture.images(cube).map(bytes=>bytes[0]),Array.from({length:6},(_,face)=>[10+face,30+face,50+face]).flat());
+o.methods.set(0x1A0C,0x80000000);
+assert.deepEqual(texture.images(texture.describe(o,0)).map(bytes=>bytes[0]),Array.from({length:6},(_,face)=>10+face),"LOD clamp retains full face strides");
+assert.throws(()=>texture.images({...cube,dma:{...cube.dma,limit:0x2000+5*128+82}}),/limit/,"last face mip is checked before any upload");
+o.methods.set(0x1A04,0x3252D);o.methods.set(0x1840,16);o.methods.set(0x1A0C,0x80010000);
+for(let face=0;face<6;face++)for(const [offset,red]of [[0,70+face],[64,90+face],[96,110+face]])vram.set([red,0,0,255],0x2000+face*112+offset);
+assert.deepEqual(texture.images(texture.describe(o,0)).map(bytes=>bytes[0]),Array.from({length:6},(_,face)=>[70+face,90+face,110+face]).flat(),"uniform-pitch cube faces are not padded");
+o.methods.set(0x1A18,4<<16|2);assert.throws(()=>texture.describe(o,0),/square/);
 console.log("PASS: NV40 linear/Morton texture DMA, storage swizzles, RGB565/L8/A8L8 and unsupported-state faults");

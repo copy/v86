@@ -1085,3 +1085,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
 - Win98 原生分配验收：探针按真实 CheckDeviceFormat 能力统计，未声明支持的格式
   单独记录；重新冷启动后 GDI/DirectDraw/D3D9 均为 0 failure，全部已声明支持的
   纹理创建成功，0 GPU/PGRAPH fault。证据见 `g3-win98-8198-texture-allocation.json`。
+
+- G4 cubemap：接通六面纹理与 sampler cube 声明、完整 mip 链和每面上传。
+  packed/Morton 面按 128-byte 对齐，uniform-pitch 面紧接全部 mip；LOD clamp
+  不改变后续面起点。CPU 字节测试覆盖线性/packed 面、末面越界和 clamp；GPU
+  逐面验证六方向、+X 四角坐标及显式 mip，缓存区分 2D/cube 并使用正确资源类型
+  释放。纹理测试、真实 WebGPU 回归与 Closure 构建通过。volume 尚待实施。

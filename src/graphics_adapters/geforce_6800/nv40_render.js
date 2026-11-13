@@ -108,26 +108,30 @@ export class NV40Render
     }
     target(surface,bytes,usage=1)
     {
-        const images=Array.isArray(bytes)?bytes:[bytes],levels=images.length;
-        const key=JSON.stringify([surface.dma,surface.offset,surface.pitch,surface.width,surface.height,surface.d3d,surface.swizzle,surface.u,surface.v,levels,usage]);
-        let handle=this.resources.get(key);
-        if(!handle)
+        const images=Array.isArray(bytes)?bytes:[bytes],levels=surface.cube?surface.level_count:images.length;
+        const key=JSON.stringify([surface.dma,surface.offset,surface.pitch,surface.width,surface.height,surface.d3d,surface.swizzle,surface.u,surface.v,levels,usage,!!surface.cube]);
+        let resource=this.resources.get(key);
+        if(!resource)
         {
             if(this.resources.size>=64)
             {
                 const first=this.resources.entries().next().value;
-                this.writer.command(OP.DESTROY_RESOURCE,{"resource_handle":first[1],"resource_kind":3});this.resources.delete(first[0]);
+                this.writer.command(OP.DESTROY_RESOURCE,{"resource_handle":first[1].handle,"resource_kind":first[1].kind});this.resources.delete(first[0]);
             }
-            handle=this.next++;this.resources.set(key,handle);
-            this.command(OP.CREATE_TEXTURE_2D,{"resource_handle":handle,"width":surface.width,"height":surface.height,
-                "level_count":levels,"format":surface.d3d,"usage":usage});
+            resource={handle:this.next++,kind:surface.cube?4:3};
+            this.resources.set(key,resource);
+            this.command(surface.cube?OP.CREATE_TEXTURE_CUBE:OP.CREATE_TEXTURE_2D,
+                {"resource_handle":resource.handle,...(surface.cube?{"edge_length":surface.width}:{"width":surface.width,"height":surface.height}),
+                    "level_count":levels,"format":surface.d3d,"usage":usage});
         }
         // Refresh recency on every use. A frequently bound color/depth target
         // must survive eviction while new sampled textures fill the cache.
-        this.resources.delete(key);this.resources.set(key,handle);
-        images.forEach((bytes,level)=>{
+        this.resources.delete(key);this.resources.set(key,resource);
+        const handle=resource.handle;
+        images.forEach((bytes,index)=>{
+            const level=index%levels,face=surface.cube?Math.floor(index/levels):0;
             const width=Math.max(1,surface.width>>>level),height=Math.max(1,surface.height>>>level);
-            const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"level":level,"width":width,"height":height,
+            const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"level":level,"z":face,"width":width,"height":height,
                 "depth":1,"row_pitch":width*surface.bpp,"data_bytes":bytes.length});
             w.patch_field("data_offset",w.data(bytes));
         });
@@ -189,7 +193,8 @@ export class NV40Render
             right:Math.min((x&65535)+(x>>>16),clip?clip.right:target.width),
             bottom:Math.min((y&65535)+(y>>>16),clip?clip.bottom:target.height)};
         if(scissor.left>=scissor.right || scissor.top>=scissor.bottom)return;
-        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14)});
+        const samplers=Array.from({length:16},(_,unit)=>get(o,0x1A04+unit*32)&4?3:2);
+        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14),samplers});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};
