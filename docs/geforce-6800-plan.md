@@ -1372,3 +1372,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   改写与淘汰，完整真实 GPU 回归、FIFO 测试及 Closure 构建通过。含 DMA 解码和
   精确键构造的 48 条片元指令 CPU 微基准，1000 次从 179.9 ms 降至 113.5 ms；
   这不是客体帧率或 3DMark06 的性能门禁，完整 G6 报告继续后续实施。
+
+- G4 FP32 输出：把原生 FP_CONTROL bit 6 接入翻译选项，四个颜色目标分别读取
+  R0/R2/R3/R4；关闭时仍读取 H0/H4/H6/H8，深度仍使用 R1.z。此前翻译器支持
+  此选项但真实绘制没有传入，会把全精度输出误读为 packed half。控制位与输出
+  映射核对 RPCS3 的 gcm_enums.h / GLFragmentProgram.cpp，NV40 合法位范围核对
+  envytools 的 MthdRankinePsControl。完整真实 WebGPU 回归验证 FP16/FP32 两种
+  四目标输出、独立颜色掩码与单目标复用；插件 Closure 构建通过。

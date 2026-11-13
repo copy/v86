@@ -290,10 +290,11 @@ try
         for(const [at,value]of [[0x18C,0x100],[0x1B4,0x100],[0x1B8,0x100],[0x218,0x30000],[0x288,0x31000],
             [0x28C,0x60000],[0x21C,32],[0x280,32],[0x284,32],[0x220,0x1F],[0x370,0xFFF0]])method(at,value);
         const mrtColors=[[1,0,0,1],[0,1,0,1],[0,0,1,1],[1,1,0,.5]],mrtOffsets=[0x10000,0x30000,0x31000,0x60000];
-        const mrtDraw=async()=>{
+        const mrtDraw=async(full=false)=>{
+            method(0x1D60,0x04000000|+full<<6);
             let at=0x9000;
             mrtColors.forEach((color,index)=>{
-                const register=[0,4,6,8][index],words=[0x01001E80|register<<1|+(index===3),0x1DC802,0,0,
+                const register=(full?[0,2,3,4]:[0,4,6,8])[index],words=[0x01001E00|+!full<<7|register<<1|+(index===3),0x1DC802,0,0,
                     ...new Uint32Array(Float32Array.from(color).buffer)];
                 for(const word of words){view.setUint32(at,word,true);at+=4;}
             });
@@ -303,6 +304,9 @@ try
         await mrtDraw();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         for(const [index,expected]of [[0,[0,0,255,255]],[1,[0,255,0,255]],[2,[255,0,0,255]],[3,[0,255,255,128]]])
             assert.deepEqual([...vram.subarray(mrtOffsets[index],mrtOffsets[index]+4)],expected,"MRT color "+index);
+        await mrtDraw(true);
+        for(const [index,expected]of [[0,[0,0,255,255]],[1,[0,255,0,255]],[2,[255,0,0,255]],[3,[0,255,255,128]]])
+            assert.deepEqual([...vram.subarray(mrtOffsets[index],mrtOffsets[index]+4)],expected,"FP32 MRT color "+index);
         method(0x370,0x1020);method(0x324,0);mrtColors[1]=[1,0,0,.25];mrtColors[3]=[0,0,0,.25];
         await mrtDraw();
         assert.deepEqual([...vram.subarray(0x30000,0x30004)],[0,255,255,255],"MRT1 independent red write mask");
@@ -314,7 +318,8 @@ try
         assert.equal(engine.backend.stats.draws,beforeMrtFault,"invalid MRT3 DMA emits no partial GPU work");
         ram.setUint32(0x1004,0xFFFFF,true);method(0x220,1);method(0x324,0x01010101);
         await mrtDraw();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
-        console.log("PASS: real WebGPU four MRT outputs, independent color masks, atomic DMA validation and single-target reuse");
+        method(0x1D60,0);
+        console.log("PASS: real WebGPU four FP16/FP32 MRT exports, independent color masks, atomic DMA validation and single-target reuse");
         method(0x208,0x14B);method(0x20C,64);vram.fill(0,0x10000,0x10200);
         const fp16Draw=async(color)=>{
             [0x01001E81,0x001DC802,0,0,...new Uint32Array(Float32Array.from(color).buffer)]
