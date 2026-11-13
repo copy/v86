@@ -7,9 +7,18 @@ import {QUERY_REGION_BYTES,READBACK_MAX_BYTES,RESPONSE_OK} from "../renderer_pro
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength);
 const BLEND=new Map([[0,1],[1,2],[0x300,3],[0x301,4],[0x302,5],[0x303,6],[0x304,7],[0x305,8],
-    [0x306,9],[0x307,10],[0x308,11],[0x8001,14],[0x8002,15],[0x8003,14],[0x8004,15]]);
-const EQUATION=new Map([[0x8006,1],[0x800A,2],[0x800B,3],[0x8007,4],[0x8008,5]]);
-const STENCIL=new Map([[0x1E00,1],[0,2],[0x1E01,3],[0x1E02,4],[0x1E03,5],[0x150A,6],[0x8507,7],[0x8508,8]]);
+    [0x306,9],[0x307,10],[0x308,11],[0x8001,14],[0x8002,15],[0x8003,14],[0x8004,15],
+    ...Array.from({length:11},(_,i)=>[0x1001+i,i+1]),[0x100C,5],[0x100D,6],[0x100E,14],[0x100F,15]]);
+const EQUATION=new Map([[0x8006,1],[0x800A,2],[0x800B,3],[0x8007,4],[0x8008,5],...[1,2,3,4,5].map(i=>[i,i])]);
+const STENCIL=new Map([[0x1E00,1],[0,2],[0x1E01,3],[0x1E02,4],[0x1E03,5],[0x150A,6],[0x8507,7],[0x8508,8],
+    ...Array.from({length:8},(_,i)=>[i+1,i+1])]);
+// Curie accepts the native DirectX comparison aliases as well as GL enums
+// (envytools hwtest MthdKelvin{DepthFunc,AlphaFuncFunc,StencilFunc}).
+const comparison=value=>{
+    if(value>=1 && value<=8)return value;
+    if(value>=0x200 && value<=0x207)return value-0x1FF;
+    throw new RangeError("NV40 invalid depth/stencil/alpha comparison");
+};
 export function nv40_cull_state(o)
 {
     if(!get(o,0x183C))return {state:1,all:false};
@@ -25,8 +34,7 @@ export function nv40_depth_state(o)
     const depth=!!get(o,0xA74),stencil=!!get(o,0x328);
     if(get(o,0x348) || get(o,0x380) || get(o,0xA60) || get(o,0xA64) || get(o,0xA68))
         throw new RangeError("NV40 two-sided stencil/depth bounds/bias is not connected");
-    const compare=value=>{if(value<0x200 || value>0x207)throw new RangeError("NV40 invalid depth/stencil comparison");return value-0x1FF;};
-    const result=[[7,+depth],[14,depth?+!!get(o,0xA70):0],[23,compare(get(o,0xA6C,0x201))],[52,+stencil],[185,0]];
+    const result=[[7,+depth],[14,depth?+!!get(o,0xA70):0],[23,depth?comparison(get(o,0xA6C,0x201)):8],[52,+stencil],[185,0]];
     if(stencil)
     {
         for(const [state,at]of [[53,0x33C],[54,0x340],[55,0x344]])
@@ -35,15 +43,14 @@ export function nv40_depth_state(o)
             if(!STENCIL.has(operation))throw new RangeError("NV40 invalid stencil operation");
             result.push([state,STENCIL.get(operation)]);
         }
-        result.push([56,compare(get(o,0x330,0x207))],[57,get(o,0x334)&255],[58,get(o,0x338,255)&255],[59,get(o,0x32C,255)&255]);
+        result.push([56,comparison(get(o,0x330,0x207))],[57,get(o,0x334)&255],[58,get(o,0x338,255)&255],[59,get(o,0x32C,255)&255]);
     }
     return {enabled:depth||stencil,stencil,states:result};
 }
 export function nv40_blend_state(o)
 {
     const alpha=!!get(o,0x304),blend=!!get(o,0x310),compare=get(o,0x308,0x207);
-    if(alpha && (compare<0x200 || compare>0x207))throw new RangeError("NV40 invalid alpha comparison");
-    const result=[[15,+alpha],[25,compare-0x1FF],[24,get(o,0x30C)&255],[27,+blend]];
+    const result=[[15,+alpha],[25,alpha?comparison(compare):8],[24,get(o,0x30C)&255],[27,+blend]];
     if(!blend)return result;
     const source=get(o,0x314,0x00010001),destination=get(o,0x318),equation=get(o,0x320,0x80068006);
     const convert=(table,value)=>{if(!table.has(value))throw new RangeError("NV40 unsupported blend enum");return table.get(value);};

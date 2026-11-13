@@ -20,6 +20,12 @@ blendState.methods.set(0x314,0x18003);assert.throws(()=>nv40_blend_state(blendSt
 const depthState={methods:new Map([[0xA74,1],[0xA70,1],[0xA6C,0x203],[0x328,1],[0x344,0x8507]])};
 const depthRegisters=new Map(nv40_depth_state(depthState).states);
 assert.equal(depthRegisters.get(23),4);assert.equal(depthRegisters.get(55),7);
+depthState.methods.set(0xA6C,4);depthState.methods.set(0x330,3);depthState.methods.set(0x344,8);
+assert.equal(new Map(nv40_depth_state(depthState).states).get(23),4,"native 99 uses DirectX LEQUAL alias 4");
+assert.equal(new Map(nv40_depth_state(depthState).states).get(56),3);assert.equal(new Map(nv40_depth_state(depthState).states).get(55),8);
+const dxBlend=new Map(nv40_blend_state({methods:new Map([[0x310,1],[0x304,1],[0x308,5],
+    [0x314,0x10021005],[0x318,0x10011006],[0x320,0x00010001]])}));
+assert.equal(dxBlend.get(25),5);assert.equal(dxBlend.get(19),5);assert.equal(dxBlend.get(20),6);assert.equal(dxBlend.get(207),2);assert.equal(dxBlend.get(171),1);
 depthState.methods.set(0x348,1);assert.throws(()=>nv40_depth_state(depthState),/two-sided/);
 assert.deepEqual(nv40_cull_state({methods:new Map([[0x183C,1],[0x1830,0x405],[0x1834,0x900]])}),{state:3,all:false});
 let remote=null,listener=null,submitted=null;
@@ -99,14 +105,14 @@ try
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0x99,0x66,0x33,0xFF],"DMA indexed triangle renders actual pixels");
         // Alpha comparison and independent RGB/alpha blending on the same VRAM.
         new Float32Array(vram.buffer,0x9010,4).set([1,0,0,.5]);
-        for(const [at,value]of [[0x310,1],[0x314,0x10302],[0x318,0x303],[0x320,0x80068006]])method(at,value);
+        for(const [at,value]of [[0x310,1],[0x314,0x10021005],[0x318,0x10011006],[0x320,0x00010001]])method(at,value);
         method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
         const blended=[...vram.subarray(0x10000,0x10004)];
         [77,51,153,128].forEach((expected,i)=>assert(Math.abs(blended[i]-expected)<=1,"blend component "+i+": "+blended[i]));
-        method(0x310,0);method(0x304,1);method(0x308,0x204);method(0x30C,192);
+        method(0x310,0);method(0x304,1);method(0x308,5);method(0x30C,192);
         method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],blended,"failed alpha comparison preserves destination");
-        method(0x308,0x201);method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+        method(0x308,2);method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,128],"passing alpha comparison writes the source");
         method(0x304,0);
         // The affine transform and pixel-center clipping must both survive
@@ -136,7 +142,7 @@ try
         method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
         assert.equal(engine.backend.stats.draws,outside,"a fully clipped viewport emits no GPU work");
         method(0x1E94,0x101);
-        for(const [at,value]of [[0x198,0x100],[0x214,0x24000],[0x22C,32],[0x1740,0x1042],[0xA74,1],[0xA70,1],[0xA6C,0x201]])method(at,value);
+        for(const [at,value]of [[0x198,0x100],[0x214,0x24000],[0x22C,32],[0x1740,0x1042],[0xA74,1],[0xA70,1],[0xA6C,2]])method(at,value);
         for(let at=0x24000;at<0x24100;at+=4)view.setUint32(at,0xFFFFFF5A,true);
         const depthDraw=async(z,color)=>{
             new Float32Array(vram.buffer,0x4000,12).set([0,0,z,1,0,16,z,1,16,0,z,1]);
@@ -153,10 +159,10 @@ try
         assert.equal(view.getUint32(0x24000,true),firstDepth);
         await depthDraw(.25,[1,0,0,1]);assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,255]);
         const nearDepth=view.getUint32(0x24000,true);assert(Math.abs((nearDepth>>>8)-Math.round(.25*0xFFFFFF))<=1);
-        for(const [at,value]of [[0xA74,0],[0xA70,0],[0x328,1],[0x330,0x202],[0x334,0x34],[0x338,255],[0x32C,15],[0x33C,0x8507]])method(at,value);
+        for(const [at,value]of [[0xA74,0],[0xA70,0],[0x328,1],[0x330,3],[0x334,0x34],[0x338,255],[0x32C,15],[0x33C,7]])method(at,value);
         await depthDraw(.5,[0,1,0,1]);assert.equal(view.getUint32(0x24000,true)&255,0x5B,"stencil fail increments through the write mask");
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,255,255],"stencil failure preserves color");
-        method(0x330,0x207);method(0x334,0x2C);method(0x344,0x1E01);
+        method(0x330,8);method(0x334,0x2C);method(0x344,3);
         await depthDraw(.5,[0,1,0,1]);assert.equal(view.getUint32(0x24000,true)&255,0x5C,"stencil replace preserves masked high bits");
         assert.equal(view.getUint32(0x24000,true)>>>8,nearDepth>>>8,"stencil-only rendering preserves depth");
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255]);method(0x328,0);

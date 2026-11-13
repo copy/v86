@@ -837,6 +837,12 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
   全屏 D3D9 三角形读回通过且无 PGRAPH/GPU fault。`NV_VRAM_MB=128/256` 支持独立
   冷启动对照；这只是分配问题定位，不是 Win98 D3D8/9 通过。
 
+- G3 原生 DirectX 枚举续修：3DMark99 的首批绘制使用 DEPTH_FUNC=4（LEQUAL）。
+  envytools 的 Curie 硬件测试确认比较的 1..8、blend 的 0x1001..0x100f、方程 1..5
+  与 stencil op 的 1..8 均为合法别名，现与 GL 编码统一转换；关闭的比较状态不再验证
+  未使用枚举。GPU 回归改用原生别名验证深度/模板、alpha 和独立 alpha 混合，全部通过；
+  插件 Closure 构建通过。99 已开始 benchmark，完整结果仍待验收。
+
 ## 阶段
 
 每个阶段都写明交付物、验收条件和测试。客体验收见“测试”。
