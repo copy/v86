@@ -235,11 +235,21 @@ export class NV40Render
             const format=get(o,0x1A04+unit*32),size=get(o,0x1A18+unit*32);
             return format&0x4000?[size>>>16,size&65535,(format>>>4&15)===3?get(o,0x1840+unit*4)>>>20:1]:null;
         });
-        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14),samplers,texture_sizes});
+        const vertex_textures=Array.from({length:4},(_,unit)=>{
+            const at=0x900+unit*32,enable=get(o,at+12);
+            return {dimension:get(o,at+4)>>>4&3,code:get(o,at+4)>>>8&31,bias:(get(o,at+20)<<19>>19)/256,
+                min_lod:(enable>>>19&4095)/256,max_lod:(enable>>>7&4095)/256};
+        });
+        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(get(o,0x1D60)&14),samplers,texture_sizes,vertex_textures});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};
         });
+        for(const [unit]of shaders.vertex.samplers)
+        {
+            const surface=this.textures.vertex(o,unit);
+            textures.push({unit:257+unit,surface,bytes:this.textures.images(surface)});
+        }
         if(this.batch && textures.some(({surface})=>{
             const source=this.range(surface,true);
             return [...this.batch.outputs.values()].some(({target})=>{
@@ -282,6 +292,7 @@ export class NV40Render
         this.command(OP.SET_VERTEX_SHADER,{"shader_handle":vs});this.command(OP.SET_PIXEL_SHADER,{"shader_handle":ps});
         this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,0,this.engine.vertex_constants(o,0,544));
         for(const [index,values]of shaders.vertex.viewport_constants)this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,index,values);
+        for(const [index,values]of shaders.vertex.texture_constants)this.constants(OP.SET_VERTEX_SHADER_CONSTANT_F,index,values);
         shaders.fragment.constant_values.forEach((values,index)=>this.constants(OP.SET_PIXEL_SHADER_CONSTANT_F,index,values));
         for(const [index,values]of shaders.fragment.texture_constants)this.constants(OP.SET_PIXEL_SHADER_CONSTANT_F,index,values);
         this.render_state(22,cull.state);for(const [state,value]of zsa.states)this.render_state(state,value);

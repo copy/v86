@@ -632,6 +632,34 @@ try
             {...options,result_map:[[0,0,-1,true],[1,1,-1,true]]})};};
         try
         {
+            const vertexTextureDraw=async(unit,coordinate)=>{
+                const position=structuredClone(base),color=structuredClone(base);
+                color.vector={name:"TXL",type:"output",index:1,mask:15};color.texture=unit;
+                color.sources[0]={...base.sources[0],type:"constant",index:0};
+                vertexProgram={instructions:[position,color]};
+                method(0x1EFC,0);new Uint32Array(Float32Array.from(coordinate).buffer).forEach((word,i)=>method(0x1F00+i*4,word));
+                method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+                return [...vram.subarray(0x10000,0x10004)];
+            };
+            for(let unit=0;unit<4;unit++)
+            {
+                const at=0x900+unit*32,offset=0x80000+unit*128;
+                for(const [field,value]of [[0,offset],[4,0x1BB21],[8,0x303],[12,0x80000000],[16,16],[20,0],[24,1<<16|1]])method(at+field,value);
+                vram.set(new Uint8Array(Float32Array.of(.25,unit/4,.75,1).buffer),offset);
+                assert.deepEqual(await vertexTextureDraw(unit,[.5,.5,0,0]),[191,Math.round(unit/4*255),64,255],
+                    "vertex texture unit " + unit + " uses independent RGBA32F storage and vertex sampler binding");
+            }
+            for(const [at,value]of [[0x904,0x2BC11],[0x910,12],[0x918,2<<16|1],[0x90C,0x80008000]])method(at,value);
+            vram.set(new Uint8Array(Float32Array.of(.25,.75,123,.5).buffer),0x80000);
+            assert.deepEqual(await vertexTextureDraw(0,[.75,999,0,0]),[0,0,191,255],"1D R32F ignores Y and supplies zero G/B and one alpha");
+            assert.deepEqual(await vertexTextureDraw(0,[.75,999,0,1]),[0,0,128,255],"vertex TXL W selects the padded mip level");
+            method(0x914,256);assert.deepEqual(await vertexTextureDraw(0,[.75,999,0,0]),[0,0,128,255],"vertex sampler bias is added to explicit LOD");
+            method(0x914,0);method(0x90C,0x80000000);
+            assert.deepEqual(await vertexTextureDraw(0,[.75,999,0,1]),[0,0,191,255],"vertex maximum LOD clamps the instruction operand");
+            method(0x90C,0x80000000|192<<19|192<<7);
+            assert.deepEqual(await vertexTextureDraw(0,[.75,999,0,0]),[0,0,128,255],"fractional vertex LOD clamp selects the nearest mip");
+            console.log("PASS: real WebGPU four vertex samplers, RGBA32F/R32F, 1D coordinates, explicit LOD, bias and fractional clamp");
             method(0x1EFC,0);
             [...new Uint32Array(Float32Array.of(.25,.5,0,2).buffer)].forEach((word,i)=>method(0x1F00+i*4,word));
             for(const [name,swizzle,expected]of [["MOV",[0,1,2,3],[0,128,64,255]],

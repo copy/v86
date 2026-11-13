@@ -23,7 +23,7 @@ export function decode_vertex_instruction(words, pc = 0)
         predicate: {enabled: !!(a & 0x2000), update: !!(a & 0x4000), vector: !!(a & 0x20000000), register: a >>> 25 & 1,
             condition: a >>> 10 & 7, swizzle: swizzle(a,[8,6,4,2])},
         address: {register: a >>> 24 & 1, component: a & 3, input: !!(a & 0x08000000), output: !!(a & 0x10000000), constant: !!(d & 2)},
-        target: (c & 63) << 3 | d >>> 29, saturate: !!(a & 0x04000000), end: !!(d & 1)};
+        target: (c & 63) << 3 | d >>> 29, texture:c>>>8&3, saturate: !!(a & 0x04000000), end: !!(d & 1)};
 }
 
 export function decode_vertex_program(words, first = 0, entry = first)

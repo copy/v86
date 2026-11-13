@@ -6,6 +6,31 @@ const BLOCK_BYTES=new Map([[6,8],[7,16],[8,16]]);
 export class NV40Texture
 {
     constructor(state) {this.state=state;}
+    vertex(o,unit)
+    {
+        if(!Number.isInteger(unit) || unit<0 || unit>=4)throw new RangeError("NV40 invalid vertex texture unit");
+        const at=0x900+unit*32,format=get(o,at+4),code=format>>>8&31,dimension=format>>>4&3;
+        const enable=get(o,at+12),control=get(o,at+16),filter=get(o,at+20),rect=get(o,at+24),wrap=get(o,at+8);
+        // Curie XF textures support linear R32F/RGBA32F, 1D/2D, nearest
+        // sampling only. These constraints are exercised by envytools hwtest.
+        if(format&~0xFFF33 || (format&0xE000)!==0xA000 || ![27,28].includes(code) || ![1,2].includes(dimension))
+            throw new RangeError("NV40 invalid vertex texture format");
+        const selector=format&3,levels=format>>>16&15,width=rect>>>16,height=dimension===1?1:rect&65535,bpp=code===27?16:4;
+        if(selector!==1 && selector!==2 || !levels || levels>13)throw new RangeError("NV40 invalid vertex texture DMA/mips");
+        if(!(enable&0x80000000))throw new RangeError("NV40 sampled vertex texture is disabled");
+        if(enable&127 || control&~0x3FFFF || filter&~0x1FFF || get(o,at)&127 || wrap&~0xF0F)
+            throw new RangeError("NV40 invalid vertex texture state");
+        const pitch=control&0x3FFFF,s=wrap&15,t=wrap>>>8&15;
+        if(!width || !height || width>4096 || height>4096 || pitch<width*bpp || levels>1+Math.floor(Math.log2(Math.max(width,height))))
+            throw new RangeError("NV40 invalid vertex texture dimensions/pitch");
+        if(![1,2,3,4].includes(s) || ![1,2,3,4].includes(t))throw new RangeError("NV40 vertex texture wrap mode is not connected");
+        // Clamp the explicit LOD in the vertex shader, preserving fractional
+        // limits and bias without adding either to the shader cache key.
+        return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth:1,bpp,pitch,swizzle:false,
+            u:Math.ceil(Math.log2(width)),v:Math.ceil(Math.log2(height)),w:0,code,block:0,cube:false,volume:false,normalized:true,vertex:true,
+            wrap_s:s,wrap_t:t,wrap_r:3,min:1,mag:1,mip:1,levels,min_lod:0,level_count:levels,bias:0,border:get(o,at+28),
+            d3d:code===27?116:114,upload_bpp:bpp};
+    }
     describe(o,unit)
     {
         if(unit<0 || unit>=16)throw new RangeError("NV40 invalid texture unit");
@@ -91,6 +116,7 @@ export class NV40Texture
     }
     read(texture)
     {
+        if(texture.vertex)return this.storage(texture);
         if(texture.code===26)
         {
             const bytes=this.storage(texture),result=new Uint8Array(bytes.length),

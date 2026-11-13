@@ -10,6 +10,23 @@ device.dma=new NVDMA(device);device.graph={device};device.graph.engine2d=new NV2
 const state=new NV40State(device),texture=new NV40Texture(state),o={methods:new Map([[0x184,0x10],[0x1A00,0x1000],
     [0x1A04,0x12529],[0x1A08,0x30303],[0x1A0C,0x80000000],[0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,12]])};
 ramin.setUint32(0x100,0x303D,true);ramin.setUint32(0x104,0xFFFF,true);ramin.setUint32(0x108,3,true);
+const vertexObject={methods:new Map([[0x184,0x10]])};
+for(let unit=0;unit<4;unit++)
+{
+    const at=0x900+unit*32,offset=0x8000+unit*128;
+    for(const [field,value]of [[0,offset],[4,0x2BB21],[8,0x303],[12,0x80008000],[16,40],[20,0],[24,2<<16|2]])vertexObject.methods.set(at+field,value);
+    const surface=texture.vertex(vertexObject,unit);assert.equal(surface.d3d,116);assert.equal(surface.bpp,16);
+    vram.fill(unit+1,offset,offset+80);vram.fill(unit+11,offset+80,offset+96);
+    const levels=texture.images(surface);assert.deepEqual(levels.map(bytes=>bytes.length),[64,16]);
+    assert.equal(levels[1][0],unit+11,"vertex mip retains the base pitch and row padding");
+    assert.throws(()=>texture.images({...surface,dma:{...surface.dma,limit:offset+94}}),/limit/);
+}
+vertexObject.methods.set(0x904,0x1BC11);vertexObject.methods.set(0x910,12);vertexObject.methods.set(0x918,2<<16|7);
+assert.equal(texture.vertex(vertexObject,0).height,1,"1D vertex textures ignore the rectangle height");
+assert.equal(texture.vertex(vertexObject,0).d3d,114);
+vertexObject.methods.set(0x904,0x1BA21);assert.throws(()=>texture.vertex(vertexObject,0),/format/);
+assert.throws(()=>texture.vertex(vertexObject,4),/unit/);
+console.log("PASS: four linear FP32 vertex texture units, 1D height, padded mip chains and DMA bounds");
 vram.set([0,0,255,255,0,255,0,255,99,98,97,96,255,0,0,255,255,255,255,255],0x1000);
 let t=texture.describe(o,0);assert.deepEqual([...texture.read(t)],[255,0,0,255,0,255,0,255,0,0,255,255,255,255,255,255]);
 assert.equal(t.normalized,true);o.methods.set(0x1A04,0x16529);assert.equal(texture.describe(o,0).normalized,false);

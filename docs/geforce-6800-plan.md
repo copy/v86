@@ -1329,3 +1329,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   普通目标掩码、谓词、缩放、饱和和条件码继续共用提交路径。编码与输入布局复核
   Mesa nvfx 的 LIT 降低过程。142 个 Naga 模块、完整真实 GPU 回归和 Closure 构建
   通过，像素用例区分 Y/W 与 X/Z，覆盖正数、零及负 diffuse。
+
+- G4 顶点纹理：TXL 解码四个纹理单元，经 vs_3_0 texldl 和独立 D9WG 顶点 sampler
+  取样。实现 Curie 的线性 R32F/RGBA32F、1D/2D、最近点 mip、基础 pitch 的完整
+  mip 链，以及显式 W LOD、4:8 bias 和分数 min/max clamp；LOD 参数使用 uniform。
+  NV R32F 展开为 (R,0,0,1)，修正 D3D R32F 的 (R,1,1,1) 差别。纹理反馈继续走
+  物理 DMA 重叠 barrier，未知格式及 wrap 模式明确拒绝。150 个 Naga 模块、完整
+  真实 GPU 回归、纹理/解码/PGRAPH/FIFO 测试与 Closure 构建通过。硬件限制复核
+  envytools 的 MthdCurieXfTex*，像素覆盖四个单元、两种格式、1D 和 LOD 参数。

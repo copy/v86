@@ -178,6 +178,7 @@ const nullary=name=>name==="SFL" || name==="STR";
 export function translate_vertex_program(program,options={})
 {
     const shader=new Shader("vertex",program.instructions.flatMap(i=>i.sources.filter(s=>s.type==="constant").map(s=>s.index))),raw=new Map();
+    const vertexTextureConstants=new Map();
     const output=index=>{if(!raw.has(index))raw.set(index,shader.temp("output"+index));return raw.get(index);};
     // TBUF is write only. Keep just results observed by the configured output
     // routing, plus explicit writes; unrouted indexed destinations are dead.
@@ -289,7 +290,7 @@ export function translate_vertex_program(program,options={})
         for(let slot=0;slot<2;slot++)
         {
             const op=slots[slot];if(op.name==="NOP" || !op.mask || ["BRA","CAL","RET","PUSHA","POPA"].includes(op.name)) continue;
-            const count=arity(op.name);if(!count && !nullary(op.name) && op.name!=="ARA") throw new RangeError("NV40 unsupported vertex opcode "+op.name);
+            const count=op.name==="TXL"?1:arity(op.name);if(!count && !nullary(op.name) && op.name!=="ARA") throw new RangeError("NV40 unsupported vertex opcode "+op.name);
             const selectors=slot?[2]:op.name==="ADD"?[0,2]:[0,1,2].slice(0,count);
             const sources=op.name==="ARA"?[]:selectors.map(index=>source(i,i.sources[index],slot,index));
             const addressOp=["ARL","ARR","ARA"].includes(op.name);
@@ -303,6 +304,29 @@ export function translate_vertex_program(program,options={})
             {
                 shader.emit(OP.MOVA,dst(3,0,op.mask),sources[0]);
                 shader.emit(OP.MOV,dst(0,30+slot,op.mask),src(3,0));
+            }
+            else if(op.name==="TXL")
+            {
+                const unit=i.texture,settings=options.vertex_textures?.[unit]||{dimension:2,bias:0,min_lod:0,max_lod:12};
+                if(slot || !Number.isInteger(unit) || unit<0 || unit>=4 || ![1,2].includes(settings.dimension))
+                    throw new RangeError("NV40 invalid vertex texture instruction");
+                if(!vertexTextureConstants.has(unit))
+                {
+                    let index=544;while(shader.constants.has(index))index++;
+                    shader.constants.add(index);vertexTextureConstants.set(unit,[index,
+                        Float32Array.of(settings.bias,settings.min_lod,settings.max_lod,0)]);
+                    shader.samplers.set(unit,2);shader.declare(10,unit,[0,0,2]);
+                }
+                const coordinate=shader.temp("vertex-texture-coordinate"),constant=vertexTextureConstants.get(unit)[0];
+                shader.emit(OP.MOV,dst(0,coordinate),sources[0]);
+                if(settings.dimension===1)shader.emit(OP.MOV,dst(0,coordinate,2),shader.literal(.5));
+                shader.emit(OP.ADD,dst(0,coordinate,8),src(0,coordinate),src(2,constant,[0,0,0,0]));
+                shader.emit(OP.MAX,dst(0,coordinate,8),src(0,coordinate),src(2,constant,[1,1,1,1]));
+                shader.emit(OP.MIN,dst(0,coordinate,8),src(0,coordinate),src(2,constant,[2,2,2,2]));
+                shader.emit(OP.TXL,dst(0,30,op.mask,i.saturate),src(0,coordinate),src(10,unit));
+                // D3D R32F supplies (R,1,1,1); NV's FLOAT_R expansion is
+                // (R,0,0,1). Keep that difference in the NV frontend.
+                if(settings.code===28 && op.mask&6)shader.emit(OP.MOV,dst(0,30,op.mask&6),shader.literal(0));
             }
             else shader.alu(op.name,dst(0,30+slot,op.mask,i.saturate),sources);
             if(addressOp)
@@ -441,7 +465,7 @@ export function translate_vertex_program(program,options={})
             shader.emit(OP.MAD,output,src(0,position,[3,3,3,3]),src(2,bias),src(0,30));
         }
     }
-    return {...shader.finish(),viewport_constants};
+    return {...shader.finish(),viewport_constants,texture_constants:[...vertexTextureConstants.values()]};
 }
 
 export function translate_fragment_program(program,options={})

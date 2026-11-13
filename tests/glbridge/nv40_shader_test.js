@@ -82,6 +82,15 @@ try
     const badPop=structuredClone(stackPop);badPop.scalar.mask=1;
     assert.throws(()=>translate_vertex_program({entry:0,instructions:[badPop,stackEnd]}),/POPA requires/);
     const indexedOut=structuredClone(vertex);indexedOut.instructions[0].address.output=true;indexedOut.instructions[0].vector.index=7;
+    for(let unit=0;unit<4;unit++)for(const dimension of [1,2])
+    {
+        const p=structuredClone(vertex);p.instructions[0].vector.name="TXL";p.instructions[0].texture=unit;
+        const vertex_textures=[];vertex_textures[unit]={dimension,bias:.25,min_lod:.5,max_lod:2.5};
+        const translated=translate_vertex_program(p,{vertex_textures});
+        validate("vertex-texture-"+unit+"-"+dimension,translated);assert.deepEqual(translated.samplers,[[unit,2]]);
+        vertex_textures[unit]={dimension,bias:-.5,min_lod:0,max_lod:1};
+        assert.deepEqual(translate_vertex_program(p,{vertex_textures}).bytecode,translated.bytecode,"LOD settings remain uniform values");
+    }
     validate("vertex-indexed-output",translate_vertex_program(indexedOut));
     const indexedRoute=translate_vertex_program(indexedOut,{result_map:[[0,0,-1,true],[7,5,-1,true]]});
     validate("vertex-indexed-output-routing",indexedRoute);

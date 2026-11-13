@@ -9,6 +9,12 @@ const vertex=decode_vertex_program(mov),v=vertex.instructions[0];
 assert.equal(v.vector.name,"MOV");assert.equal(v.vector.type,"output");assert.equal(v.vector.index,0);assert.equal(v.vector.mask,15);
 assert.deepEqual(v.sources[0],{type:"input",index:0,swizzle:[0,1,2,3],negate:false,absolute:false});
 assert.equal(v.scalar.name,"NOP");assert.equal(vertex.word_count,4);assert.equal(v.end,true);
+for(let unit=0;unit<4;unit++)
+{
+    const instruction=mov.slice();instruction[1]=(instruction[1]&~(31<<22))|25<<22;instruction[2]|=unit<<8;
+    const decoded=decode_vertex_instruction(instruction);assert.equal(decoded.vector.name,"TXL");assert.equal(decoded.texture,unit);
+    assert.deepEqual(decoded.sources[0],v.sources[0],"texture selection does not alter the coordinate operand");
+}
 const dual=decode_vertex_instruction(Uint32Array.of(0x06E11C6C,0x0880730D,0x8106C0E3,0x60AB427D));
 assert.equal(dual.vector.name,"MUL");assert.equal(dual.scalar.name,"MOV");assert.equal(dual.sources[1].type,"constant");
 assert.equal(dual.sources[1].index,7);assert.equal(dual.sources[0].index,3);assert.equal(dual.sources[2].negate,true);
