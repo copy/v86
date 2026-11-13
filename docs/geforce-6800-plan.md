@@ -280,6 +280,12 @@
   探针还核对 GDI 桌面备份与恢复，均为 failures=0；DirectDraw 仅在驱动宣告支持时测 XOR，
   实际填充读回仍失败，G2 未验收。G3-G7 尚未完成。
 
+- 3D 取数前置：新增 render target 的颜色/深度格式、四目标 DMA/offset/pitch、线性与
+  矩形 Morton 布局；主机读回前验证所有目标行，末行 DMA 故障不留下部分更新。
+  顶点取数先支持 float 数组、索引/基址和内联数据，未启用属性使用当前 float4；
+  未实现的压缩格式明确拒绝。表面填充字节、Morton 顺序、原生 X8R8G8B8 编码、
+  行填充保持、原子故障及顶点数据测试通过，加入 devices-test，插件构建通过。
+
 本计划为 v86 增加第四种显示适配器 `graphics_adapter: "geforce_6800"`。它是一张 Windows 98 和
 Windows XP 都能用、支持 DirectX 9.0c 与 Shader Model 3.0 的复古显卡。客体装 NVIDIA 官方驱动：
 98 用 ForceWare 81.98（Win9x 版），XP 用 ForceWare 的 XP 版。设备在寄存器和命令层面模拟真实的

@@ -1,5 +1,6 @@
 import {decode_vertex_program,decode_fragment_program} from "./nv40_program.js";
 import {translate_vertex_program,translate_fragment_program} from "./nv40_shader.js";
+import {NV40State} from "./nv40_state.js";
 // NV40_3D control state. Method layouts: envytools rnndb/graph/nv30-40_3d.xml
 // and hwtest/pgraph_class_kelvin.cc (MIT). This implementation is original.
 // Draw, query and clear triggers are deliberately outside the state whitelist.
@@ -68,7 +69,7 @@ const VP_CODE = 0x10000, VP_CONSTANTS = 0x20000, VP_WORD = 0x30000, CONST_WORD =
 
 export class NV40_3D
 {
-    constructor(graph) { this.graph = graph; this.device = graph.device; this.captured = new Map(); }
+    constructor(graph) { this.graph = graph; this.device = graph.device; this.captured = new Map(); this.state = new NV40State(this.device); }
     method(o, at, value)
     {
         if(at & 3 || o.class_id !== 0x4097) return false;
