@@ -1,6 +1,6 @@
 {
   "stage": "G6 release guest harness validation",
-  "scope": "Native Win98 bump checkpoint and release device regression. Does not establish full benchmark completion or an isolated 3DMark06 performance result.",
+  "scope": "Native Win98 texture-filtering checkpoint (historical filename contains bump) and release device regression. Does not establish full benchmark completion or an isolated 3DMark06 performance result.",
   "directory": "build/nv40-win98-bump-release",
   "checkpoint": "build/nv40-win98-mark99-continue2/checkpoint-bump-timing.state",
   "build": {
@@ -60,5 +60,42 @@
     "TEST_RELEASE_BUILD=1 node tests/devices/geforce_6800.js",
     "Native checkpoint restore, compiled IDE secondary-slave disk attachment, actual GPU rendering, CPU profile, shutdown and read-only image checks"
   ],
-  "finding": "The release run still has multi-second submission intervals and approximately 72% idle self samples; source/debug tracing is not the sole cause. Concurrent native workloads prevent an isolated FPS claim."
+  "finding": "The release run still has multi-second submission intervals and approximately 72% idle self samples; source/debug tracing is not the sole cause. Concurrent native workloads prevent an isolated FPS claim.",
+  "flip_timing_followup": {
+    "directory": "build/nv40-win98-bump-release-flips",
+    "intervals": [
+      {
+        "increment": 11.9394395,
+        "isr_read_advance": 11.949078375,
+        "milliseconds": 9.639
+      },
+      {
+        "increment": 23.410095583,
+        "isr_read_advance": 23.428521666,
+        "milliseconds": 18.426
+      },
+      {
+        "increment": 34.408545875,
+        "isr_read_advance": 34.414939458,
+        "milliseconds": 6.394
+      },
+      {
+        "increment": 45.273818208,
+        "isr_read_advance": 45.28060575,
+        "milliseconds": 6.788
+      },
+      {
+        "increment": 56.215433916,
+        "isr_read_advance": 56.233963958,
+        "milliseconds": 18.53
+      }
+    ],
+    "finding": "Five WRITE increments reached an ISR READ increment in 6.394\u201318.530 ms; inter-frame increments are about 11 s apart. These samples do not show an 11 s pending flip. Investigate the gap before later submissions."
+  },
+  "phase_correction": {
+    "phase": "Texture Filtering Speed",
+    "evidence": "build/nv40-win98-mark99-continue2/capture-0273.png",
+    "evidence_sha256": "95d27e483283c413dc83a8e25f1568d98c605bb127c53ecedac8cd0dad040adf",
+    "note": "The checkpoint and existing artifact directory names containing bump are historical labels. Loading-screen audit shows all three Emboss bump tests finished before this texture-filtering stage; preserve the file paths but correct their meaning."
+  }
 }

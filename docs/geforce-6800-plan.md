@@ -1461,7 +1461,7 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   的完整验收继续后续实施。
 
 - G6 调查计量：客体 harness 输出机器时钟、宿主经过时间及 PIT 状态，新增
-  `NV_TRACE=0` 关闭记录路径以便与生产默认状态对照。Win98 同一 bump 检查点
+  `NV_TRACE=0` 关闭记录路径以便与生产默认状态对照。Win98 同一纹理过滤检查点（旧名 bump）
   两组配对各运行约 90 秒：10 倍刷新频率分别为 13/13 次绘制；另一组关闭/
   开启跟踪分别为 8/8 次。后组机器时间约 87 秒、宿主约 91 秒，不能解释
   数秒一帧的等待。两组负载不同，不比较跨组帧率；均无 GPU/PGRAPH/DMA
@@ -1505,7 +1505,7 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   构建通过；这些是传输预算验证，不代替原生 06 的最终性能报告。
 
 - G6 CPU profile 前置：harness 的 `NV_CPU_PROFILE=1` 在恢复/初始化后
-  采样，退出时写出标准 `.cpuprofile`，默认关闭。Win98 bump 检查点
+  采样，退出时写出标准 `.cpuprofile`，默认关闭。Win98 纹理过滤检查点（旧名 bump）
   90 秒复现 8 次绘制、无 GPU/PGRAPH 故障；宿主样本约 63% 为 idle，
   扫描/纹理复制不是单一主导热点。调试构建仍有栈追踪成本；此调查
   不代替 release 构建的 06 性能门禁，等待根因继续调查。见
@@ -1554,7 +1554,7 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   `CLOCK_MUL/DIV=3125/6667` 每毫秒恰好推进 1,000,000 时间戳单位。
   此频率是模拟板的明确契约，不宣称已测得实体卡时钟树。回归覆盖比率
   改写连续性、闹钟、停止计数及高位快照，设备、2D/PGRAPH/FIFO 和
-  Closure 构建通过。相同 Win98 bump 检查点的 90 秒诊断完成 13 次绘制、
+  Closure 构建通过。相同 Win98 纹理过滤检查点（旧名 bump）的 90 秒诊断完成 13 次绘制、
   无 GPU/PGRAPH 故障，长等待仍在，未宣称性能改善。硬件编码依据见
   [PTIMER](https://envytools.readthedocs.io/en/latest/hw/bus/ptimer.html)，
   实测数据追加到 `g6-win98-99-timing-investigation.json`。
@@ -1566,3 +1566,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   退出和原盘只读检查通过；90 秒仍只有 8 次绘制、约 72% idle，
   长等待尚未解决，也未据并行负载下的结果宣称帧率改善。构建与 profile
   SHA 见 `g6-release-guest-harness.json`，最终 06 报告仍需独立测量。
+
+- G6 阶段标注复核：逐张核对原生加载截图，`continue2/capture-0273.png`
+  明确显示 Texture Filtering Speed；旧名 `checkpoint-bump-timing` 实际
+  位于此阶段。保留文件路径，修正各计量 fixture 的解释，未把新的 Emboss
+  3-pass 时钟样本混作纹理过滤证据。独立 3-pass 运行的 33 组 tick 为
+  5000–5100 ms、QPC 为 4.996–5.094 s，原始日志及正常 UI 选择记录已保存；
+  真正纹理过滤阶段的持续时钟诊断继续进行。

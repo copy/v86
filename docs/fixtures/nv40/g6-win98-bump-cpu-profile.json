@@ -1,5 +1,5 @@
 {
-  "stage": "G6 Win98 bump CPU profile",
+  "stage": "G6 Win98 texture-filtering CPU profile",
   "directory": "build/nv40-win98-bump-cpu-profile",
   "checkpoint": "build/nv40-win98-mark99-continue2/checkpoint-bump-timing.state",
   "scope": "90-second native saved-state diagnostic under concurrent load; rendering/driver/query behavior unchanged. Not a release-build 06 performance gate.",
@@ -106,5 +106,11 @@
     "Idle accounts for approximately 63% of the sampled host time; this is not dominated by a single scanout or texture-copy loop.",
     "Eight draws and zero GPU/PGRAPH faults reproduce the prior paired timing runs. The native wait root remains unresolved.",
     "Source/debug CPU code contributes stack-trace construction even with log level zero; final G6 comparisons must use release builds."
-  ]
+  ],
+  "phase_correction": {
+    "phase": "Texture Filtering Speed",
+    "evidence": "build/nv40-win98-mark99-continue2/capture-0273.png",
+    "evidence_sha256": "95d27e483283c413dc83a8e25f1568d98c605bb127c53ecedac8cd0dad040adf",
+    "note": "The checkpoint and existing artifact directory names containing bump are historical labels. Loading-screen audit shows all three Emboss bump tests finished before this texture-filtering stage; preserve the file paths but correct their meaning."
+  }
 }

@@ -5,6 +5,9 @@
  * NV.TXT is written beside this executable (including on a RAM floppy). */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#ifndef NV_CLOCK_SAMPLES
+#define NV_CLOCK_SAMPLES 3
+#endif
 
 static HANDLE output;
 
@@ -61,7 +64,7 @@ void WINAPI entry(void)
     BOOL ok = QueryPerformanceFrequency(&frequency);
     number("QPF_OK", ok);
     if(ok) { number("QPF_LO", frequency.LowPart); number("QPF_HI", frequency.HighPart); }
-    for(unsigned sample = 0; sample < 3; sample++)
+    for(unsigned sample = 0; sample < NV_CLOCK_SAMPLES; sample++)
     {
         LARGE_INTEGER before, after;
         DWORD start = GetTickCount();

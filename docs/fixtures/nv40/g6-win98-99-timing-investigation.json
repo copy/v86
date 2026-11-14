@@ -1,5 +1,5 @@
 {
-  "stage": "G6 Win98 3DMark99 bump-stage timing investigation",
+  "stage": "G6 Win98 3DMark99 texture-filtering-stage timing investigation",
   "scope": "Two independent paired 90-second diagnostics from the same saved native benchmark state; not benchmark completion or a performance score. No query, fence or flip overrides.",
   "checkpoint": "build/nv40-win98-mark99-continue2/checkpoint-bump-timing.state",
   "runs": [
@@ -234,5 +234,369 @@
     "image_unchanged": true,
     "game_image_unchanged": true,
     "interpretation": "No evidence that the corrected HCLK-to-timestamp conversion resolves the multi-second waits. Independent earlier 90 s runs produced 8 or 13 draws; concurrent workloads differ, so these are diagnostic observations, not an FPS improvement claim."
+  },
+  "phase_correction": {
+    "phase": "Texture Filtering Speed",
+    "evidence": "build/nv40-win98-mark99-continue2/capture-0273.png",
+    "evidence_sha256": "95d27e483283c413dc83a8e25f1568d98c605bb127c53ecedac8cd0dad040adf",
+    "note": "The checkpoint and existing artifact directory names containing bump are historical labels. Loading-screen audit shows all three Emboss bump tests finished before this texture-filtering stage; preserve the file paths but correct their meaning."
+  },
+  "native_emboss_3pass_clock_probe": {
+    "directory": "build/nv40-win98-bump-clock-long2",
+    "scope": "Separate native run with only the three Bump Mapping tests selected through their normal UI. Captures show Emboss 3-pass (0 of 3) then its textured floor. This does not measure the later Texture Filtering Speed checkpoint.",
+    "source": "tests/devices/geforce_clock.c",
+    "sample_limit": 120,
+    "complete_sample_count": 33,
+    "termination": "Manually stopped after 33 complete samples; ongoing sampling and benchmark state saved, not a benchmark completion.",
+    "clock_exe_sha256": "4c6a8c461f67412067993433f81eb1ed7dd9d5624ada6708faf9545a5ef89c39",
+    "ui_source": "build/nv40_bump_ui.c",
+    "ui_exe_sha256": "5b3279de5c9668b8d6004d076a656420009ee420a789b49af88d253308365f31",
+    "raw_log": "NATIVE_CLOCK_DIAGNOSTIC\r\nWAIT_FOR_800x600\r\nFULLSCREEN_STARTED\r\nQPF_OK=00000001\r\nQPF_LO=001234dc\r\nQPF_HI=00000000\r\nSAMPLE=00000000\r\nTICK_MS=0000138c\r\nQPC_DELTA_LO=005b12e9\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=437b0830\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000001\r\nTICK_MS=0000138c\r\nQPC_DELTA_LO=005b082e\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=2b3565eb\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000002\r\nTICK_MS=000013ec\r\nQPC_DELTA_LO=005cbe22\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=3af1a5b3\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000003\r\nTICK_MS=0000138b\r\nQPC_DELTA_LO=005b0661\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=798c713b\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000004\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005af949\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=5f2c90ec\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000005\r\nTICK_MS=0000138a\r\nQPC_DELTA_LO=005b16f6\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=7d6f55c2\r\nTSC_DELTA_HI=00000002\r\nSAMPLE=00000006\r\nTICK_MS=0000138b\r\nQPC_DELTA_LO=005b0d68\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=5ddc1763\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000007\r\nTICK_MS=0000138b\r\nQPC_DELTA_LO=005b02c6\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=8e520a39\r\nTSC_DELTA_HI=00000002\r\nSAMPLE=00000008\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b0b3e\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=5bcf271d\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000009\r\nTICK_MS=0000138a\r\nQPC_DELTA_LO=005b027a\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=0708b157\r\nTSC_DELTA_HI=00000002\r\nSAMPLE=0000000a\r\nTICK_MS=0000138a\r\nQPC_DELTA_LO=005afd29\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=593f01f8\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000000b\r\nTICK_MS=0000138d\r\nQPC_DELTA_LO=005b0d25\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=d4cf7e79\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000000c\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b0610\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=3e8b5b89\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000000d\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005afa59\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=be6bf4df\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000000e\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005af5c2\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=6d1d1520\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000000f\r\nTICK_MS=0000138a\r\nQPC_DELTA_LO=005b0a45\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=a39ae2dd\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000010\r\nTICK_MS=00001388\r\nQPC_DELTA_LO=005b0569\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=3762387f\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000011\r\nTICK_MS=0000138d\r\nQPC_DELTA_LO=005b0615\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=c6705b6c\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000012\r\nTICK_MS=0000138a\r\nQPC_DELTA_LO=005b0f34\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=3fd838ea\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000013\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b0908\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=90ff8263\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000014\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b0679\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=4d265010\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000015\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b0315\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=a8df680e\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000016\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b011c\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=4a90edc6\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000017\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b07e0\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=d38dac14\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000018\r\nTICK_MS=0000138d\r\nQPC_DELTA_LO=005b1ca6\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=3da3c2f6\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000019\r\nTICK_MS=0000138e\r\nQPC_DELTA_LO=005b1c15\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=7b125979\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000001a\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b08f6\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=4738a37c\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000001b\r\nTICK_MS=0000138c\r\nQPC_DELTA_LO=005b0d26\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=bf9e5bd6\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000001c\r\nTICK_MS=0000138c\r\nQPC_DELTA_LO=005b15fd\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=48e5c9f4\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000001d\r\nTICK_MS=0000138c\r\nQPC_DELTA_LO=005b0ed6\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=b4f15ea7\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000001e\r\nTICK_MS=0000138c\r\nQPC_DELTA_LO=005b154a\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=4a5b65d5\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000001f\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b0e97\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=98f0802f\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000020\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005afa78\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=6ce0b495\r\nTSC_DELTA_HI=00000001\r\n",
+    "ui_log": "NATIVE_BUMP_UI_SELECT_ONLY; NO BENCHMARK AUTO START\r\nUI_TOGGLE_ID=0x0000042b\r\nUI_TOGGLE_ID=0x0000042c\r\nUI_TOGGLE_ID=0x00000431\r\nUI_TOGGLE_ID=0x0000042a\r\nUI_TOGGLE_ID=0x00000430\r\nUI_TOGGLE_ID=0x0000042f\r\nUI_TOGGLE_ID=0x0000041b\r\nUI_TOGGLE_ID=0x00000432\r\nBUMP_ONLY_APPLIED; VERIFY SUMMARY BEFORE RUN\r\n",
+    "samples": [
+      {
+        "sample": 0,
+        "tick_ms": 5004,
+        "qpc_delta_lo": 5968617,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1132136496,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.002277108231784,
+        "tsc_seconds_at_1GHz": 5.427103792
+      },
+      {
+        "sample": 1,
+        "tick_ms": 5004,
+        "qpc_delta_lo": 5965870,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 724919787,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.999974857104545,
+        "tsc_seconds_at_1GHz": 5.019887083
+      },
+      {
+        "sample": 2,
+        "tick_ms": 5100,
+        "qpc_delta_lo": 6077986,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 988915123,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.093938886002112,
+        "tsc_seconds_at_1GHz": 5.283882419
+      },
+      {
+        "sample": 3,
+        "tick_ms": 5003,
+        "qpc_delta_lo": 5965409,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2039247163,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.999588494611039,
+        "tsc_seconds_at_1GHz": 6.334214459
+      },
+      {
+        "sample": 4,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5962057,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1596756204,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.996779195092107,
+        "tsc_seconds_at_1GHz": 5.8917235
+      },
+      {
+        "sample": 5,
+        "tick_ms": 5002,
+        "qpc_delta_lo": 5969654,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2104448450,
+        "tsc_delta_hi": 2,
+        "qpc_seconds": 5.003146214318041,
+        "tsc_seconds_at_1GHz": 10.694383042
+      },
+      {
+        "sample": 6,
+        "tick_ms": 5003,
+        "qpc_delta_lo": 5967208,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1574704995,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.001096230241875,
+        "tsc_seconds_at_1GHz": 5.869672291
+      },
+      {
+        "sample": 7,
+        "tick_ms": 5003,
+        "qpc_delta_lo": 5964486,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2387741241,
+        "tsc_delta_hi": 2,
+        "qpc_seconds": 4.998814931527515,
+        "tsc_seconds_at_1GHz": 10.977675833
+      },
+      {
+        "sample": 8,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5966654,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1540302621,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.000631924772457,
+        "tsc_seconds_at_1GHz": 5.835269917
+      },
+      {
+        "sample": 9,
+        "tick_ms": 5002,
+        "qpc_delta_lo": 5964410,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 118010199,
+        "tsc_delta_hi": 2,
+        "qpc_seconds": 4.99875123619236,
+        "tsc_seconds_at_1GHz": 8.707944791
+      },
+      {
+        "sample": 10,
+        "tick_ms": 5002,
+        "qpc_delta_lo": 5963049,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1497301496,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.99761058683518,
+        "tsc_seconds_at_1GHz": 5.792268792
+      },
+      {
+        "sample": 11,
+        "tick_ms": 5005,
+        "qpc_delta_lo": 5967141,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 3570368121,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.0010400777753565,
+        "tsc_seconds_at_1GHz": 7.865335417
+      },
+      {
+        "sample": 12,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5965328,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1049320329,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.999520608793309,
+        "tsc_seconds_at_1GHz": 5.344287625
+      },
+      {
+        "sample": 13,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5962329,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 3194746079,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.99700715734424,
+        "tsc_seconds_at_1GHz": 7.489713375
+      },
+      {
+        "sample": 14,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5961154,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1830622496,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.996022393938886,
+        "tsc_seconds_at_1GHz": 6.125589792
+      },
+      {
+        "sample": 15,
+        "tick_ms": 5002,
+        "qpc_delta_lo": 5966405,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2744836829,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.000423238740173,
+        "tsc_seconds_at_1GHz": 7.039804125
+      },
+      {
+        "sample": 16,
+        "tick_ms": 5000,
+        "qpc_delta_lo": 5965161,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 929183871,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.999380646675271,
+        "tsc_seconds_at_1GHz": 5.224151167
+      },
+      {
+        "sample": 17,
+        "tick_ms": 5005,
+        "qpc_delta_lo": 5965333,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 3329252204,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.999524799275885,
+        "tsc_seconds_at_1GHz": 7.6242195
+      },
+      {
+        "sample": 18,
+        "tick_ms": 5002,
+        "qpc_delta_lo": 5967668,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1071134954,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.001481754638864,
+        "tsc_seconds_at_1GHz": 5.36610225
+      },
+      {
+        "sample": 19,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5966088,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2432664163,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.000157562144857,
+        "tsc_seconds_at_1GHz": 6.727631459
+      },
+      {
+        "sample": 20,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5965433,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1294356496,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.999608608927404,
+        "tsc_seconds_at_1GHz": 5.589323792
+      },
+      {
+        "sample": 21,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5964565,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2833213454,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.998881141152215,
+        "tsc_seconds_at_1GHz": 7.12818075
+      },
+      {
+        "sample": 22,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5964060,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1251012038,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.998457902412042,
+        "tsc_seconds_at_1GHz": 5.545979334
+      },
+      {
+        "sample": 23,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5965792,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 3549277204,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.999909485576359,
+        "tsc_seconds_at_1GHz": 7.8442445
+      },
+      {
+        "sample": 24,
+        "tick_ms": 5005,
+        "qpc_delta_lo": 5971110,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1034142454,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.004366482844165,
+        "tsc_seconds_at_1GHz": 5.32910975
+      },
+      {
+        "sample": 25,
+        "tick_ms": 5006,
+        "qpc_delta_lo": 5970965,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2064800121,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.004244958849461,
+        "tsc_seconds_at_1GHz": 6.359767417
+      },
+      {
+        "sample": 26,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5966070,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1194894204,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.000142476407583,
+        "tsc_seconds_at_1GHz": 5.4898615
+      },
+      {
+        "sample": 27,
+        "tick_ms": 5004,
+        "qpc_delta_lo": 5967142,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 3214826454,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.001040915871871,
+        "tsc_seconds_at_1GHz": 7.50979375
+      },
+      {
+        "sample": 28,
+        "tick_ms": 5004,
+        "qpc_delta_lo": 5969405,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1223018996,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.0029375282857576,
+        "tsc_seconds_at_1GHz": 5.517986292
+      },
+      {
+        "sample": 29,
+        "tick_ms": 5004,
+        "qpc_delta_lo": 5967574,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 3035717287,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.001402973566436,
+        "tsc_seconds_at_1GHz": 7.330684583
+      },
+      {
+        "sample": 30,
+        "tick_ms": 5004,
+        "qpc_delta_lo": 5969226,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1247503829,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.002787509009537,
+        "tsc_seconds_at_1GHz": 5.542471125
+      },
+      {
+        "sample": 31,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5967511,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2565898287,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.001350173485979,
+        "tsc_seconds_at_1GHz": 6.860865583
+      },
+      {
+        "sample": 32,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5962360,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1826665621,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.997033138336211,
+        "tsc_seconds_at_1GHz": 6.121632917
+      }
+    ],
+    "gpu": {
+      "batches": 69,
+      "draws": 71,
+      "bytes": 48853512,
+      "readbacks": 136,
+      "failures": 0,
+      "uploads": 74,
+      "uploadBytes": 34962960
+    },
+    "graph_faults": [],
+    "error": null,
+    "original_image_unchanged": true,
+    "game_image_unchanged": true
   }
 }
