@@ -283,9 +283,21 @@ GLESExecutor.prototype.run = function(record)
         case "COLOR_BUFFER_READ":
         {
             const cb = this.rc.color_buffers.get(record.color_buffer);
-            if(!cb) return this.answer_failed(record.request);
+            if(!cb || record.type !== GL.UNSIGNED_BYTE ||
+                record.format !== GL.RGBA && record.format !== GL.BGRA_EXT)
+                return this.answer_failed(record.request);
             return this.read_texture(cb.texture, record.x, record.y, record.width, record.height, false,
-                (rgba, sink) => this.answer(sink, record.request, rgba));
+                (rgba, sink) =>
+                {
+                    // Native IOSurfaces store BGRA. Pack on the host instead of
+                    // executing a channel-swap loop on the emulated ARM CPU.
+                    if(record.format === GL.BGRA_EXT)
+                        for(let i = 0; i < rgba.length; i += 4)
+                        {
+                            const r = rgba[i]; rgba[i] = rgba[i + 2]; rgba[i + 2] = r;
+                        }
+                    this.answer(sink, record.request, rgba);
+                });
         }
         case "COLOR_BUFFER_BIND":
         {

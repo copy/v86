@@ -217,7 +217,7 @@ static int publish_bytes(struct binding *b)
     for(unsigned y = 0; ok && y < h; y += rows)
     {
         unsigned n = rows < h - y ? rows : h - y, bytes = n * w * 4;
-        ok = SEND(b->lease, rc_rcReadColorBuffer, b->handle, 0, y, w, n, 0x1908, 0x1401, bytes) &&
+        ok = SEND(b->lease, rc_rcReadColorBuffer, b->handle, 0, y, w, n, 0x80e1, 0x1401, bytes) &&
             gles_read(b->lease, rgba, bytes);
         if(ok)
             for(unsigned j = 0; j < n; j++)
@@ -227,10 +227,7 @@ static int publish_bytes(struct binding *b)
                 unsigned row = y + j;
                 unsigned char *dst = base + (b->window ? h - 1 - row : row) * stride;
                 const unsigned char *src = rgba + j * w * 4;
-                for(unsigned x = 0; x < w; x++, src += 4, dst += 4)
-                {
-                    dst[0] = src[2]; dst[1] = src[1]; dst[2] = src[0]; dst[3] = src[3];
-                }
+                memcpy(dst, src, w * 4);
             }
     }
     int unlocked = IOSurfaceUnlock(b->surface, 0, 0) == 0;

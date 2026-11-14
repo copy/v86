@@ -1,5 +1,23 @@
 # Infinity Blade 安装与帧率验证
 
+## 当前续作结果
+
+更新后的正式构建已从 generation 5 NAND 完整冷启，通过 UI 打开原包。
+全部 925 个初始 PVRTC mip 上传成功，原生 renderbuffer 查询得到 960×640，
+没有 framebuffer 拒绝或 WebGPU validation error。关闭原生推送提示、跳过电影后，
+实际显示了城堡大厅、人物、光照和主菜单；尚未验收战斗操作。
+
+开场动态场景采样（面板实际变更图像，非 VBL/rAF）：带 CPU profiler 的 50.28 s
+记录 31 帧、0.617 fps；关闭 profiler 的另一个 30.82 s 窗口记录 11 帧、0.357 fps，
+中位帧间隔 2246 ms。两个窗口处于不同开场进度，不能当作优化 A/B。
+证据在忽略目录 `build/ios/infinity-play/`。60 fps 目标仍未达成。
+
+已将自有 native 适配器的 IOSurface 发布改为请求 BGRA 后按行 memcpy，
+通道交换移到宿主回读完成后执行；保留 GPU 真实回读、alpha、窗口倒行、stride
+及原生 IOSurfaceLock/Unlock。真实 GPU 回归 97 项通过，包括逐字节 BGRA、
+不支持格式显式失败和原纹理不变；ARMv7 dylib 构建通过。
+该优化尚待在原生游戏中做 A/B，不据此声称帧率提升。
+
 ## 测试输入（2026-11-14）
 
 机主本地提供 `Infinity_Blade_1.4.3_ios_6.0.ipa`。原包只读，

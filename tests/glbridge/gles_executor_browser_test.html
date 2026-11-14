@@ -65,9 +65,9 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
             await device.queue.onSubmittedWorkDone();
             check(!executor.stats.errors.length, "no executor errors: " + executor.stats.errors.join("; "));
         };
-        const read_color_buffer = async (handle, w, h) => {
+        const read_color_buffer = async (handle, w, h, format = 0x1908, type = 0x1401) => {
             const id = request++;
-            record(GLES.COLOR_BUFFER_READ, handle, 0, 0, w, h, 0x1908, 0x1401, id);
+            record(GLES.COLOR_BUFFER_READ, handle, 0, 0, w, h, format, type, id);
             await run();
             return answers.get(id);
         };
@@ -243,6 +243,10 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         writer.command(GLES.COLOR_BUFFER_UPDATE, [50, 0, 0, 4, 4, 0x1908, 0x1401, bytes.length], bytes);
         const back = await read_color_buffer(50, 4, 4);
         check(back.every((v, i) => v === bytes[i]), "a color buffer reads back what was written");
+        const bgra = await read_color_buffer(50, 4, 4, 0x80e1);
+        check(bgra.every((v, i) => v === bytes[(i & ~3) + [2, 1, 0, 3][i & 3]]), "BGRA color-buffer reads preserve every pixel and alpha");
+        check(await read_color_buffer(50, 4, 4, 0x1908, 0x8363) === null, "unsupported color-buffer packing fails explicitly");
+        check((await read_color_buffer(50, 4, 4)).every((v, i) => v === bytes[i]), "BGRA packing leaves GPU storage unchanged");
         record(GLES.IMAGE_CREATE, 60, 0, 0x3140, 50);
         const ext_text = "#extension GL_OES_EGL_image_external : require\nprecision mediump float; uniform samplerExternalOES tex; varying vec2 v_uv; " +
             "void main() { gl_FragColor = texture2D(tex, v_uv); }";
