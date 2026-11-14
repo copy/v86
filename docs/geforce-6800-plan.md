@@ -1770,3 +1770,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   恢复后继续；普通 `wait` 的完整递归排空保持原义。真实 FIFO/GPU
   验证两次绘制保存、余下两次恢复、两个 REF 顺序及像素值，
   设备/完整 GPU/Closure 通过，见 `g6-snapshot-submitted-work.json`。
+
+- G6 顶点提取热点：原版 03 GT4 的 release profile 中，
+  vertex_value/attribute 自身采样约 20%/13%。同步绘制内现
+  复用 float 转换缓冲、预取当前属性/base vertex，并按实际地址
+  复用重复索引（含零 stride）的 checked DMA/转换结果；下一次
+  绘制重新读取客体数据。11 种格式与旧实现逐字节一致，修改可见性、
+  后续非法索引、状态/完整 GPU/Closure 通过。相同宿主合成样例
+  1683→126 ms，非客体 FPS，见 `g6-profiled-vertex-fetch.json`。

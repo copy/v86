@@ -1,0 +1,201 @@
+{
+  "date": "2026-11-14",
+  "trigger": "Original 3DMark03 GT4, release saved-state 150-second CPU profile under concurrent guests",
+  "profileSampleSeconds": 142.980301,
+  "nativeGPU": {
+    "batches": 155,
+    "draws": 597,
+    "bytes": 1256434128,
+    "readbacks": 304,
+    "failures": 0,
+    "uploads": 420,
+    "uploadBytes": 212116624
+  },
+  "topSelfSamples": [
+    {
+      "function": "vertex_value",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 28.784052,
+      "percent": 20.13148090938765
+    },
+    {
+      "function": "attribute",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 19.195875,
+      "percent": 13.425538249496341
+    },
+    {
+      "function": "decode",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 15.819001,
+      "percent": 11.063762552856844
+    },
+    {
+      "function": "blocks",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 14.49931,
+      "percent": 10.140774567260143
+    },
+    {
+      "function": "read",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 7.557602,
+      "percent": 5.285764505419526
+    },
+    {
+      "function": "",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 4.065948,
+      "percent": 2.8437120159650524
+    },
+    {
+      "function": "ranges",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 3.286691,
+      "percent": 2.298701972938216
+    },
+    {
+      "function": "(garbage collector)",
+      "source": "",
+      "selfSeconds": 2.996193,
+      "percent": 2.0955285301854274
+    },
+    {
+      "function": "vram",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 2.254927,
+      "percent": 1.5770892802918355
+    },
+    {
+      "function": "writeSync",
+      "source": "",
+      "selfSeconds": 2.168965,
+      "percent": 1.5169677115171272
+    },
+    {
+      "function": "(program)",
+      "source": "",
+      "selfSeconds": 1.910694,
+      "percent": 1.336333737330711
+    },
+    {
+      "function": "crc",
+      "source": "picture_sink.mjs",
+      "selfSeconds": 1.871509,
+      "percent": 1.3089278641258422
+    },
+    {
+      "function": "array_vertices",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 1.85168,
+      "percent": 1.2950595201222859
+    },
+    {
+      "function": "D",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 1.819302,
+      "percent": 1.2724144426021315
+    },
+    {
+      "function": "",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 1.573634,
+      "percent": 1.100594969372739
+    },
+    {
+      "function": "",
+      "source": "gpu_remote_renderer.mjs",
+      "selfSeconds": 1.554913,
+      "percent": 1.0875015572949451
+    },
+    {
+      "function": "",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 1.486714,
+      "percent": 1.039803378229005
+    },
+    {
+      "function": "render",
+      "source": "v86-geforce-6800.js",
+      "selfSeconds": 1.452448,
+      "percent": 1.0158378390880574
+    },
+    {
+      "function": "_ZN3v863x645pages13execute_inner17h206e0952987cb769E",
+      "source": "v86.wasm-00b9425e",
+      "selfSeconds": 0.907528,
+      "percent": 0.634722401374718
+    },
+    {
+      "function": "(idle)",
+      "source": "",
+      "selfSeconds": 0.889843,
+      "percent": 0.6223535646354528
+    }
+  ],
+  "behavior": [
+    "Reuse one synchronous float conversion scratch word.",
+    "Read disabled current attributes and base vertex once per synchronous draw.",
+    "Fetch and convert a repeated checked vertex address only once within that draw, including zero stride; refresh the cache every draw."
+  ],
+  "correctness": [
+    "Eleven synthetic native/standard vertex format cases match the prior implementation byte for byte, including NaN/raw FLOAT words and signed zero inline records.",
+    "The next draw observes modified guest bytes/current attributes.",
+    "A later invalid index still traps even after cache hits.",
+    "CPU state, complete real WebGPU suite and Closure pass."
+  ],
+  "syntheticComparison": {
+    "cases": 11,
+    "indicesPerDraw": 6000,
+    "uniqueIndices": 127,
+    "bitExactSHA256": [
+      "be31a26a23c54edc54e80c7c151dbede545735fed68f4734917acce369e2e0e3",
+      "b582295bfdd6da0231d6d7b75ab84b738c01719e917ac7120105ede5fed78699",
+      "6fd52b275eae332b6efe6be278adba2de7b2d6c2d23abad7c8137d58d0d82410",
+      "5876d0e1f8df25a4624902980e4293879013990a0739679ce34099a78859f11d",
+      "9fde37fcf6f712e709261984d71bcdb2972cfa7ad6d2b0bde72c37abdc4c6ec9",
+      "100903710be78fc754dba3cc752d23548952f08ec80aca2f3551644518fa42cb",
+      "4e38be7fc6f2ba0a7207cde9a4651f886df78905d8123a3a8a7f577067e1cc1c",
+      "be31a26a23c54edc54e80c7c151dbede545735fed68f4734917acce369e2e0e3",
+      "4e38be7fc6f2ba0a7207cde9a4651f886df78905d8123a3a8a7f577067e1cc1c",
+      "7a2741c677ef58d18d79eed2bcd1e40af0e76e7aa3067e225a72e3f809a30955",
+      "4b1c71a19eb41a43cc3b312e317c7944a7fd5450023048b624c96a34d640bc1b"
+    ],
+    "beforeMs": 1683.22075,
+    "afterMs": 126.33141700000033,
+    "counts": {
+      "before": {
+        "reads": 594000,
+        "attrs": 1188432
+      },
+      "after": {
+        "reads": 12573,
+        "attrs": 144
+      }
+    },
+    "scope": "Same host synthetic repeated-index workload; not native FPS or isolated 06 performance"
+  },
+  "limitation": "Synthetic CPU improvement, not a native FPS comparison or the isolated 06 report.",
+  "logs": {
+    "build/nv40-vertex-fetch-unit.log": {
+      "bytes": 95,
+      "sha256": "3b46c030f7cbdd9d353ab75ba47c23365445405c52fa541ce758ffc113f38667"
+    },
+    "build/nv40-vertex-fetch-gpu.log": {
+      "bytes": 4438,
+      "sha256": "0bf4fd6a99b1e95a1cb038d5089a1bed52e6c5703a6f2e2ac2e751fc8da447d4"
+    },
+    "build/nv40-vertex-fetch-closure.log": {
+      "bytes": 3020,
+      "sha256": "4e71c7bd7e46947fd2fca3badcb191779db51a5ab1a42b3f9b9f963ce8c05b81"
+    },
+    "build/nv40-vertex-fetch-comparison.json": {
+      "bytes": 1196,
+      "sha256": "a488cc83c422e5fcaa7e470772c08b4c134ab5b8ff8bd8667e4aebd11e6afaba"
+    },
+    "build/nv40-xp-mark03-gt4-profile/cpu-profile.cpuprofile": {
+      "bytes": 1270082,
+      "sha256": "bebdc85e45ae4a30df6ba880efa8d1151244e3e66e4c8a742f06f49504ea52d2"
+    }
+  }
+}

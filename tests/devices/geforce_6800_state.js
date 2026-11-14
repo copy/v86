@@ -45,6 +45,23 @@ o.methods.set(0x19C,0x10);o.methods.set(0x1680,0x3000);
 new Float32Array(vram.buffer,0x3000,6).set([10,11,20,21,30,31]);
 const fetched=state.array_vertices(o,[2,0],inputs);
 assert.deepEqual([...new Float32Array(fetched.bytes.buffer)],[30,31,0,1,.25,0,0,1,10,11,0,1,.25,0,0,1]);
+const readVertex=device.dma.read.bind(device.dma),currentAttribute=state.attribute.bind(state);let vertexReads=0,currentReads=0;
+device.dma.read=(...args)=>{vertexReads++;return readVertex(...args);};
+state.attribute=(...args)=>{currentReads++;return currentAttribute(...args);};
+try
+{
+    const repeated=state.array_vertices(o,[2,0,2,0],inputs);
+    assert.deepEqual(repeated.bytes,new Uint8Array([...fetched.bytes,...fetched.bytes]));
+    assert.equal(vertexReads,2,"duplicate vertex addresses are fetched once within a synchronous draw");
+    assert.equal(currentReads,1,"only the disabled attribute reads its current value, once per draw");
+    new Float32Array(vram.buffer,0x3010,1)[0]=77;o.methods.set(0x1C30,f(.75));
+    const changed=state.array_vertices(o,[2],inputs);
+    assert.deepEqual([...new Float32Array(changed.bytes.buffer)],[77,31,0,1,.75,0,0,1],"the next draw observes CPU data and current-attribute changes");
+    assert.throws(()=>state.array_vertices(o,[0,-1],inputs),/index/,"cached data cannot hide a later invalid index");
+    o.methods.set(0x1740,0x22);vertexReads=0;state.array_vertices(o,[0,100,0],inputs);
+    assert.equal(vertexReads,1,"zero stride shares one actual vertex address");
+}
+finally {device.dma.read=readVertex;state.attribute=currentAttribute;o.methods.set(0x1740,0x822);o.methods.set(0x1C30,f(.25));}
 o.methods.set(0x181C,0x3100);o.methods.set(0x1820,0x10);
 new Uint16Array(vram.buffer,0x3100,4).set([99,2,0,1]);
 assert.deepEqual(state.indices(o,1,3),[2,0,1]);

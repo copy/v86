@@ -6,7 +6,10 @@ const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const COLOR=new Map([[1,[2,24]],[2,[2,24]],[3,[2,23]],[4,[4,22]],[5,[4,22]],
     [8,[4,21]],[9,[1,50]],[11,[8,113]],[12,[16,116]],[13,[4,114]],[15,[4,33]],[16,[4,32]]]);
 const RT_DMA=[0x194,0x18C,0x1B4,0x1B8],RT_OFFSET=[0x210,0x218,0x288,0x28C],RT_PITCH=[0x20C,0x21C,0x280,0x284];
-const f32bits=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
+// Synchronous conversions share one scalar scratch word; allocating two typed
+// arrays per converted vertex component dominated native GT4 vertex fetch.
+const converted=new Float32Array(1),convertedBits=new Uint32Array(converted.buffer);
+const f32bits=value=>{converted[0]=value;return convertedBits[0];};
 // Curie's alternate DirectX declaration encoding (VTXFMT bit 16). The
 // replicated low nibble is a type code, not TYPE/SIZE. Native 93.71 uses
 // 0x114BB for FLOAT4 and 0x114CC for D3DCOLOR with a 20-byte stride.
@@ -230,12 +233,13 @@ export class NV40State
         if(!stride || words.length%stride) throw new RangeError("NV40 incomplete inline vertex");
         const count=words.length/stride,bytes=new Uint8Array(count*inputs.length*16),view=new DataView(bytes.buffer);
         const locations=new Map(inputs.map(([attribute],slot)=>[attribute,slot]));
+        const current=formats.map((layout,attribute)=>layout.size?null:this.attribute(o,attribute));
         for(let vertex=0,at=0;vertex<count;vertex++)
         {
             for(let attribute=0;attribute<16;attribute++)
             {
                 const layout=formats[attribute],size=Math.ceil(layout.bytes/4);
-                let values=this.attribute(o,attribute);
+                let values=current[attribute];
                 if(size)
                 {
                     const packed=new Uint32Array(size);for(let i=0;i<size;i++)packed[i]=words[at++];
@@ -261,18 +265,28 @@ export class NV40State
     array_vertices(o,indices,inputs)
     {
         const bytes=new Uint8Array(indices.length*inputs.length*16),view=new DataView(bytes.buffer);
+        const baseVertex=get(o,0x173C)|0;
         for(let slot=0;slot<inputs.length;slot++)
         {
             const attribute=inputs[slot][0],format=get(o,0x1740+attribute*4),layout=this.vertex_layout(format),stride=format>>>8&255;
             const offset=get(o,0x1680+attribute*4),dma=layout.size?this.dma(o,offset&0x80000000?0x1A0:0x19C):null;
+            const current=layout.size?null:this.attribute(o,attribute),fetched=new Map();
             for(let vertex=0;vertex<indices.length;vertex++)
             {
-                let values=this.attribute(o,attribute);const index=indices[vertex]+(get(o,0x173C)|0);
+                let values=current;const index=indices[vertex]+baseVertex;
                 if(!Number.isSafeInteger(index) || index<0) throw new RangeError("NV40 invalid vertex index");
                 if(layout.size)
                 {
-                    const data=this.device.dma.read(dma,(offset&0x0FFFFFFF)+index*stride,layout.bytes);
-                    values=this.vertex_value(layout,data);
+                    // Guest memory cannot change within this synchronous draw.
+                    // Repeated indices (and zero stride) share the same checked
+                    // fetch; the next draw starts with a fresh cache.
+                    const address=(offset&0x0FFFFFFF)+index*stride;
+                    values=fetched.get(address);
+                    if(!values)
+                    {
+                        values=this.vertex_value(layout,this.device.dma.read(dma,address,layout.bytes));
+                        fetched.set(address,values);
+                    }
                 }
                 const at=(vertex*inputs.length+slot)*16;
                 values.forEach((value,i)=>view.setUint32(at+i*4,value,true));
