@@ -279,6 +279,32 @@ export async function run_geforce_guest(win98)
                 }
             };
         }
+        if(process.env.NV_DRAW_CAPTURE && nv.graph.engine3d.backend)
+        {
+            const engine=nv.graph.engine3d,backend=engine.backend,draw=backend.draw.bind(backend),file=path.join(out,"draw-captures.jsonl");
+            const first=Number(process.env.NV_DRAW_CAPTURE_FIRST || 0),limit=Number(process.env.NV_DRAW_CAPTURE_LIMIT || 256),
+                budget=Number(process.env.NV_DRAW_CAPTURE_MB || 16)*1048576;
+            assert(Number.isSafeInteger(first) && first>=0 && Number.isSafeInteger(limit) && limit>0 && limit<=4096 &&
+                Number.isSafeInteger(budget) && budget>0 && budget<=64*1048576,"invalid draw capture bounds");
+            let count=0,bytes=0;fs.writeFileSync(file,"");
+            backend.draw=(object,mode,words,indices,subc)=>{
+                const before=backend.stats.draws,result=draw(object,mode,words,indices,subc);
+                if(backend.stats.draws===before || backend.stats.draws<first || count>=limit || bytes>=budget ||
+                    indices && indices.length>64 || words && words.length>256)return result;
+                let capture={ordinal:count++,elapsed:elapsed(),draw:backend.stats.draws,mode,subc,channel:object.channel,instance:object.instance};
+                try
+                {
+                    const program=engine.program(object),attributes=[...new Set(program.vertex.instructions.flatMap(instruction=>
+                        instruction.sources.filter(source=>source.type==="input").map(source=>source.index)))].sort((a,b)=>a-b);
+                    const inputs=attributes.map(attribute=>[attribute,[1,0]]),vertices=indices?engine.state.array_vertices(object,indices,inputs):engine.state.inline_vertices(object,words,inputs);
+                    capture={...capture,program,methods:Array.from(object.methods),attributes,vertices:{count:vertices.count,stride:vertices.stride,
+                        words:Array.from(new Uint32Array(vertices.bytes.buffer,vertices.bytes.byteOffset,vertices.bytes.byteLength/4))}};
+                }
+                catch(captureError){capture.error=String(captureError);}
+                const line=JSON.stringify(capture)+"\n";if(bytes+line.length<=budget){fs.appendFileSync(file,line);bytes+=line.length;}
+                return result;
+            };
+        }
         if(process.env.NV_CPU_PROFILE)
         {
             const {Session}=await import("node:inspector"),session=new Session();session.connect();
