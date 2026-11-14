@@ -130,6 +130,7 @@ try
     method(0x1808,0x1015);method(0x1814,3<<24);const fanSaved=graph.get_state();graph.set_state(fanSaved);
     assert.throws(()=>engine.method(graph.objects.values().next().value,0x1808,0x1015),/nested/);
     method(0x1808,0);assert.equal(captured[1],7);assert.deepEqual(captured[3],[0,1,2,3]);
+    method(0x1808,0x1001);method(0x1810,0);method(0x1808,0);assert.equal(captured[1],1);
     assert.throws(()=>engine.method(graph.objects.values().next().value,0x1808,0x1016),/invalid/);
     engine.backend.draw=draw;
     if(remote)
@@ -413,6 +414,34 @@ try
         method(0x1808,0);await engine.backend.wait();
         const center=[...vram.subarray(0x10000+(3*8+3)*4,0x10000+(3*8+3)*4+4)];
         [96,96,135,255].forEach((expected,i)=>assert(Math.abs(center[i]-expected)<=1,"bilinear center component "+i+": "+center[i]));
+        const pointProgram=vram.slice(0x9000,0x9040);method(0x1A14,0x01010000);method(0x1EE8,0x101);method(0x1EE0,new Uint32Array(Float32Array.of(4).buffer)[0]);
+        vram.fill(0,0x10000,0x10100);method(0x1808,0x1001);
+        for(const word of new Uint32Array(Float32Array.of(4,4,99,99).buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();
+        for(let y=0;y<8;y++)for(let x=0;x<8;x++)
+        {
+            const pixel=[...vram.subarray(0x10000+(y*8+x)*4,0x10000+(y*8+x)*4+4)];
+            const expected=x>=2&&x<6&&y>=2&&y<6?(y<4?x<4?[0,0,255,255]:[0,255,0,255]:x<4?[255,0,0,255]:[255,255,255,255]):[0,0,0,0];
+            assert.deepEqual(pixel,expected,"native point sprite size/TEX0 coordinate replacement "+x+","+y);
+        }
+        const pointRoute=graph.object(0,0x2000).methods.get(0x1FC4)??0x06144321;
+        method(0x1E9C,0);
+        [0x401F9C6C,0x0040080D,0x81000000,0x0001EF94,
+            0x401F9C6C,0x0040000D,0x81000000,0x0001EF80,
+            0x401F9C6C,0x00400600,0x01000000,0x00008F85].forEach((word,i)=>method(0xB80+(i%4)*4,word));
+        method(0x1758,0x1012);method(0x1FC4,pointRoute&~(63<<22)|5<<22);method(0x1FF4,1<<14|1<<5);method(0x1EE0,0x3F800000);
+        vram.fill(0,0x10000,0x10100);method(0x1808,0x1001);
+        for(const word of new Uint32Array(Float32Array.of(4,4,4,99,99).buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();
+        assert.equal(Array.from({length:64},(_,i)=>vram[0x10003+i*4]).filter(Boolean).length,16,"routed per-vertex PSIZE overrides the one-pixel constant");
+        method(0x1758,2);method(0x1FC4,pointRoute);method(0x1FF4,1<<14);method(0x1E9C,0);
+        [0x401F9C6C,0x0040080D,0x81000000,0x0001EF94,
+            0x401F9C6C,0x0040000D,0x81000000,0x0001EF81].forEach((word,i)=>method(0xB80+(i%4)*4,word));
+        method(0x1EE8,0x103);
+        assert.throws(()=>engine.backend.draw(graph.object(0,0x2000),1,[0,0,0,0],null,0),/point size\/sprite control/);
+        method(0x1EE8,0);method(0x1EE0,0x3F800000);method(0x1A14,0x02020000);vram.set(pointProgram,0x9000);
+        console.log("PASS: native Direct3D points, constant/per-vertex PSIZE and TEX0 point sprites");
+        method(0x1808,6);for(const word of new Uint32Array(floats.buffer))method(0x1818,word);method(0x1808,0);await engine.backend.wait();
         const normalizedPixels=vram.slice(0x10000,0x10100);
         method(0x1A04,0x16529);method(0x1808,6);
         const pixelCoordinates=floats.map((value,index)=>index%4>=2?value*2:value);

@@ -1,0 +1,42 @@
+{
+  "date": "2026-11-14",
+  "nativeTrigger": {
+    "file": "build/nv40-xp-mark03-alpha-capture/graph-fault-captures.json",
+    "sha256": "7c72ab547f54497c9ef82983034757ffe8fc9c6764b861d0e631c9e6641a3ca5",
+    "elapsed": 304.497662083,
+    "method": "0x1808",
+    "value": "0x1001",
+    "evidence": "Inline FLOAT4 XYZRHW + FLOAT1 point-size attribute 6 + packed diffuse attribute 3, 24-byte records; POINT_SPRITE 0x101 and result mask 0x4021. The point-list interpretation is inferred from this native producer/point state, not arbitrary masking of unknown BEGIN values."
+  },
+  "behavior": "Accept only observed Direct3D point-list encoding 0x1001 as topology 1. Connect native constant POINT_SIZE and the already-routed vertex PSIZE result to shared point expansion, clamp 1..64, and connect exact 0x101 control to TEX0 (S,T,0,1) replacement. Reject other enabled sprite/R-mode combinations and sampling other units when TEX0-only replacement is active.",
+  "sources": [
+    {
+      "url": "https://github.com/envytools/envytools/blob/master/rnndb/graph/nv30-40_3d.xml",
+      "fact": "POINT_SIZE 0x1ee0 and POINT_SPRITE enable/R-mode/per-unit coordinate bits."
+    },
+    {
+      "url": "https://chromium.googlesource.com/external/gitlab.freedesktop.org/mesa/mesa/+/a9e75e34661414afe02ab9d1050560c19d3a21c3/src/gallium/drivers/nouveau/nv30/nv30_screen.c",
+      "fact": "Nouveau NV30/40 point size range 1..64."
+    }
+  ],
+  "tests": {
+    "frontEnd": "Native point encoding reaches topology 1; adjacent unsupported BEGIN remains rejected.",
+    "realWebGPU": "Four-pixel point sprite shows correct four checker quadrants and exact 4x4 coverage. Routed per-vertex PSIZE overrides a one-pixel constant. Unsupported R-mode is rejected. Full GPU regression passed.",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "nativeRerun": "pending from matching pre-fault GT4 bundle",
+  "logs": {
+    "build/nv40-native-points-unit.log": {
+      "bytes": 95,
+      "sha256": "22897543f5914fffc623ba01f5b67f6b1e7fa050e7b8d13b7346ade243901c63"
+    },
+    "build/nv40-native-points-gpu.log": {
+      "bytes": 5042,
+      "sha256": "1527521f63e35362c0eb6b475fce13effea52deaa7f2b5c1d07ed56c0a506575"
+    },
+    "build/nv40-native-points-closure.log": {
+      "bytes": 3020,
+      "sha256": "6b9d8970c7c18b6d267ab94868ba727e8fe5de7e427bb4d0e60c686fad358f98"
+    }
+  }
+}

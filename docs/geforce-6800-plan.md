@@ -1880,3 +1880,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   拒绝。真实 03 成套文件通过，其他 XP OS overlay 被拒绝；
   早期 GT4 的 OS overlay 在该续跑中未变化，字节相同因此合法。
   旧无 manifest 状态仍只作调查恢复，见 `g6-checkpoint-load-verification.json`。
+
+- G4 原生点精灵：03 的 CPU 测试下一首错为 BEGIN `0x1001`，
+  原始记录为 XYZRHW + PSIZE + diffuse，sprite control=`0x101`。
+  据原生生产者推断为点列表，接通该精确编码、常量/逐点 PSIZE
+  和 TEX0 的 `(S,T,0,1)` 替换，沿用 Nouveau 1–64 尺寸范围。
+  四像素点的方位/覆盖、逐点尺寸覆盖常量、非法 R-mode 拒绝及
+  完整 GPU/Closure 通过，见 `g4-native-point-sprites.json`。
+  其他坐标替换/R-mode 组合明确拒绝，原生复跑继续。

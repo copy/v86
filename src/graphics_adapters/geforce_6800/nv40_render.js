@@ -357,8 +357,13 @@ export class NV40Render
             return [16,18].includes(code)?{compare:get(o,at+8)>>>28,crossbar:get(o,at+16)}:null;
         });
         const control=get(o,0x1D60);
+        const sprite=mode===1?get(o,0x1EE8):0,pointSize=mode===1?float_value(get(o,0x1EE0,0x3F800000)):1;
+        if(mode===1 && (!Number.isFinite(pointSize) || pointSize<0 || sprite!==0 && sprite!==0x101))
+            throw new RangeError("NV40 unsupported point size/sprite control");
         const shaders=this.engine.shaders(o,{viewport,targets:active?(enable&16?4:1):0,depth:!!(control&14),fp32_outputs:!!(control&64),
             samplers,sampler_1d,texture_sizes,vertex_textures,depth_samplers});
+        if(sprite && shaders.fragment.samplers.some(([unit])=>unit!==0))
+            throw new RangeError("NV40 point sprite only replaces TEX0 coordinates");
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
             return {unit,surface,bytes};
@@ -432,6 +437,8 @@ export class NV40Render
             const bits=mrtMask>>>(index*4)&15;
             this.render_state(189+index,(bits&2?1:0)|(bits&4?2:0)|(bits&8?4:0)|(bits&1?8:0));
         }
+        this.render_state(154,mode===1?get(o,0x1EE0,0x3F800000):0x3F800000);this.render_state(155,0x3F800000);this.render_state(166,0x42800000);
+        this.render_state(156,+!!sprite);this.render_state(157,0); // Curie's VP already produces window point size.
         this.render_state(174,1);this.render_state(9,get(o,0x368,0x1D01)===0x1D00?1:2);this.render_state(26,get(o,0x300));
         this.command(OP.SET_SCISSOR_RECT,scissor);
         this.command(OP.BEGIN_SCENE);
