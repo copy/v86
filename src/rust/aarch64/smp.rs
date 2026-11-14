@@ -179,6 +179,7 @@ pub fn a32_iop_reset() {
 
 #[no_mangle]
 pub fn a32_iop_slice(budget: u32, irq: bool, fiq: bool) {
+    use crate::aarch64::jit::pages::{self, Ran};
     a32_iop_select(true);
     if fiq && cpu::get_pstate() & cpu::PSTATE_F == 0 {
         crate::aarch64::a32_system::take_interrupt(true);
@@ -186,13 +187,42 @@ pub fn a32_iop_slice(budget: u32, irq: bool, fiq: bool) {
     else if irq && cpu::get_pstate() & cpu::PSTATE_I == 0 {
         crate::aarch64::a32_system::take_interrupt(false);
     }
-    for _ in 0..budget {
-        if matches!(execute::interpret_one(), Flow::Off | Flow::Wait(_)) {
+    let mut executed = 0;
+    let mut boundary = true;
+    while executed < budget {
+        let flow = if boundary && unsafe { pages::ENABLED } {
+            match pages::run(budget - executed) {
+                Ran::Native { retired, flow } => {
+                    executed += retired.max(1);
+                    unsafe { IOP_NATIVE += retired as u64 };
+                    boundary = true;
+                    flow
+                },
+                Ran::None => {
+                    boundary = false;
+                    executed += 1;
+                    pages::interpreted();
+                    execute::interpret_one()
+                },
+            }
+        }
+        else {
+            executed += 1;
+            pages::interpreted();
+            execute::interpret_one()
+        };
+        if matches!(flow, Flow::Jump(_) | Flow::Set) { boundary = true; }
+        if matches!(flow, Flow::Off | Flow::Wait(_)) {
             break;
         }
     }
     a32_iop_select(false);
 }
+
+static mut IOP_NATIVE: u64 = 0;
+/// Native instructions of the IOP, independent of the application core.
+#[no_mangle]
+pub fn a32_iop_native() -> f64 { unsafe { IOP_NATIVE as f64 } }
 
 /// An event for `core` (its WFE ends)
 pub fn event_to(core: usize) {

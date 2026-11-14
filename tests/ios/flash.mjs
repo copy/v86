@@ -25,6 +25,7 @@ try
     execFileSync(process.execPath, [fileURLToPath(new URL("../../tools/ios/nand_build.mjs", import.meta.url)),
         ...(partition ? [formatted ? "format" : "bootstrap", disk] : ["blank", disk, "0:0:0:" + pageFile])]);
     emulator = new V86({ machine_type: "s5l8930", graphics_adapter: "none", autostart: false, log_level: 0,
+        jit_switches: process.argv.includes("--jit") ? { a64_page: 1 } : undefined,
         wasm_path: fileURLToPath(new URL("../../build/v86-arm64.wasm", import.meta.url)),
         ios: { kernelcache: { url: path.resolve(dir, "kernelcache.n90.macho") },
             devicetree: { url: path.resolve(dir, "DeviceTree.n90ap.bin") }, nand: { url: disk, size: fs.statSync(disk).size } } });
@@ -62,6 +63,7 @@ try
     assert.ok(iop.running && read && serial.includes(marker) && !serial.includes("panic(cpu"), serial.slice(-2000));
     assert.equal(iop.regs[0x114 >>> 2], 0x40000);
     assert.equal(cpu.wm.exports.a64_current_core(), 0);
+    if(process.argv.includes("--jit")) assert.ok(cpu.wm.exports.a32_iop_native() > 0, "original IOP firmware ran compiled code");
     if(lockers) console.log("PASS: AppleEffaceableStorage read generation 1 from the NAND locker partition");
     if(formatted)
     {

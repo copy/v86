@@ -15,6 +15,7 @@ const emulator = new V86({
     wasm_path: fileURLToPath(new URL("../../build/v86-arm64.wasm", import.meta.url)),
     ios: { bootlogo, kernelcache: image("kernelcache.n90.macho"), devicetree: image("DeviceTree.n90ap.bin") },
     autostart: false, log_level: 0,
+    jit_switches: process.argv.includes("--iop-jit") ? { a64_page: 1 } : undefined,
 });
 let serial = "";
 emulator.add_listener("serial0-output-byte", byte => { serial += String.fromCharCode(byte); });
@@ -33,32 +34,37 @@ try
         assert.ok(frame.some(pixel => pixel !== 0), "iBootIm drawn before XNU starts");
         assert.equal(frame[0], 0);
     }
-    if(process.argv.includes("--iop"))
+    if(process.argv.includes("--iop") || process.argv.includes("--iop-jit"))
     {
         // A tiny private ARM firmware increments its own local word. The
         // application CPU sees the alias in DRAM and retains its own PC.
-        const base = 0x41000000, offset = cpu.ram_offset(base, 4096);
-        const saved = cpu.mem8.slice(offset, offset + 4096), pc = cpu.read_pc();
-        const program = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset + offset, 4096);
-        [0xE3A00080, 0xE5901000, 0xE2811001, 0xE5801000, 0xEAFFFFFB]
+        const base = 0x41000000, offset = cpu.ram_offset(base, 8192);
+        const saved = cpu.mem8.slice(offset, offset + 8192), pc = cpu.read_pc();
+        const program = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset + offset, 8192);
+        [0xE3A00A01, 0xE5901000, 0xE2811001, 0xE5801000, 0xEAFFFFFB]
             .forEach((word, i) => program.setUint32(i * 4, word, true));
-        program.setUint32(128, 0, true);
+        program.setUint32(4096, 0, true);
         const iop = cpu.devices.apple_iop;
         iop.write(0x110, base);
-        iop.write(0x114, 4096);
+        iop.write(0x114, 8192);
         iop.write(0x100, 1);
         iop.run();
-        const first = program.getUint32(128, true);
+        if(process.argv.includes("--iop-jit"))
+        {
+            for(let n = 0; n < 50; n++) { iop.run(); await new Promise(resolve => setImmediate(resolve)); }
+            assert.ok(cpu.wm.exports.a32_iop_native() > 0, "IOP executed compiled firmware");
+        }
+        const first = program.getUint32(4096, true);
         assert.ok(first > 0);
         assert.equal(cpu.read_pc(), pc);
         const state = iop.get_state();
         iop.run();
-        const next = program.getUint32(128, true);
+        const next = program.getUint32(4096, true);
         assert.ok(next > first);
         iop.set_state(state);
-        program.setUint32(128, first, true);
+        program.setUint32(4096, first, true);
         iop.run();
-        assert.equal(program.getUint32(128, true), next);
+        assert.equal(program.getUint32(4096, true), next);
         assert.equal(cpu.read_pc(), pc);
         iop.reset();
         cpu.write_blob_physical(saved, base);

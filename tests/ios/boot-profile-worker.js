@@ -51,7 +51,8 @@ A64CPU.prototype.get_diagnostics = function()
         finally { iop.core.a32_iop_select(false); }
     }
     return { ...diagnostics.call(this), profile: structuredClone(timings), steps: this.step_stats(15),
-        delays: { ...delays }, iop: iop ? { pc: iop_pc, irq: iop.irq, fiq: iop.fiq, polling: iop.polling?.size || 0 } : null,
+        delays: { ...delays }, iop: iop ? { pc: iop_pc, irq: iop.irq, fiq: iop.fiq,
+            polling: iop.polling?.size || 0, native: iop.core.a32_iop_native?.() } : null,
         lcd: lcd ? { panel_on: lcd.panel_on, backlight: lcd.backlight, base: lcd.regs[0x4044 >>> 2] } : null };
 };
 start_cpu_worker();

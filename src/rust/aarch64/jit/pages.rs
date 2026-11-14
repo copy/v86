@@ -717,7 +717,7 @@ fn allowed() -> bool {
     let sctlr = cpu::sctlr();
     unsafe {
         ENABLED
-            && sctlr & cpu::SCTLR_M != 0
+            && (sctlr & cpu::SCTLR_M != 0 || bus::iop_active())
             && sctlr & cpu::SCTLR_A == 0
             && !crate::aarch64::debug::ANY_BREAKPOINT
             && !crate::aarch64::debug::ANY_WATCHPOINT
@@ -735,14 +735,16 @@ fn code_page(pc: u64, mode: u32) -> Option<u32> {
     if cached_tag == tag && page == pc >> 12 {
         return Some(key);
     }
-    let pa = crate::aarch64::mmu::translate(
+    let pa = if cpu::sctlr() & cpu::SCTLR_M == 0 {
+        crate::aarch64::mmu::mmu_off(pc)?
+    } else { crate::aarch64::mmu::translate(
         pc,
         crate::aarch64::memory::Access::Fetch,
         cpu::el() == 0,
         4,
     )
     .ok()?
-    .pa;
+    .pa };
     let code_key = bus::bus().code_key(pa)?;
     // (code in extended RAM: compiled with the cores in one instance; in
     // workers it is interpreted, P8.5)
@@ -1146,6 +1148,14 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
     let size = kind & 255;
     let write = kind & 0x100 != 0;
     let r = rt();
+    // The MMU-less IOP can compile arithmetic and branches, but all data
+    // accesses keep the interpreter's Device alignment and MMIO rules.
+    // In particular, never walk its inactive translation tables.
+    if cpu::sctlr() & cpu::SCTLR_M == 0 {
+        r.stats[ACCESS_REFUSED] += 1;
+        refused(REFUSED_TRANSLATION);
+        return 0;
+    }
     // (an access across pages, and with SCTLR_EL1.A every access: the
     // interpreter, which splits it or raises the alignment fault)
     if (address & 0xFFF) + size as u64 > 0x1000 || cpu::sctlr() & cpu::SCTLR_A != 0 {

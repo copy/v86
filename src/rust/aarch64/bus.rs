@@ -115,6 +115,10 @@ pub static mut MEM8: *mut u8 = std::ptr::null_mut();
 static mut IOP_BASE: u32 = 0;
 static mut IOP_SIZE: u32 = 0;
 
+/// The A4's separate ARM7 bank is executing its remapped firmware.
+#[inline(always)]
+pub fn iop_active() -> bool { crate::isa::current_core() == 1 && unsafe { IOP_SIZE != 0 } }
+
 #[no_mangle]
 pub fn a32_iop_remap(base: u32, size: u32) -> bool {
     let offset = (base as u64).wrapping_sub(RAM_BASE);
@@ -132,6 +136,9 @@ pub fn a32_iop_remap(base: u32, size: u32) -> bool {
         IOP_BASE = offset as u32;
         IOP_SIZE = size;
     }
+    // A saved firmware bank may now name a different backing page. Drop
+    // its translated code/data/chaining entries even if its VA is unchanged.
+    crate::aarch64::jit::pages::tlb_flushed(1);
     true
 }
 
