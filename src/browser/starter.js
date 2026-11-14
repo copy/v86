@@ -1885,10 +1885,10 @@ V86.prototype.restart = async function(reason)
  * controllers, ACPI device and tables) as plain data. For debugging and test
  * reports; the format is not a stable API.
  */
-V86.prototype.get_diagnostics = async function()
+V86.prototype.get_diagnostics = async function(include_steps = false)
 {
-    if(this.worker_controller) return this.worker_controller.rpc("get_diagnostics");
-    return this.v86.cpu.get_diagnostics();
+    if(this.worker_controller) return this.worker_controller.rpc("get_diagnostics", [include_steps]);
+    return this.v86.cpu.get_diagnostics(include_steps);
 };
 
 /**

@@ -24,6 +24,11 @@ try
     iop.run();
     assert.ok(cpu.wm.exports.a32_iop_native()>before);
     assert.equal(cpu.page_tier_stats().helpers,helpers,"compiled MRS does not save/reload GPRs through the interpreter");
+    const diagnostics=await emulator.get_diagnostics(true);
+    assert.ok(Number.isInteger(diagnostics.cores[0].fpcr));
+    assert.ok(Number.isInteger(diagnostics.cores[0].fpsr));
+    assert.ok(Array.isArray(diagnostics.steps.helped_words));
+    assert.equal((await emulator.get_diagnostics()).steps,undefined,"instruction counters are opt-in");
     console.log("PASS: privileged native IOP MRS preserves flags, GE and interrupt masks without interpreter helpers");
 }
 finally{await emulator.destroy();}

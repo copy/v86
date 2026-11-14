@@ -33,7 +33,7 @@ async function capture(name)
 }
 async function sample()
 {
-    const diagnostics = await emulator.get_diagnostics();
+    const diagnostics = await emulator.get_diagnostics(query.has("deep"));
     const value = { cycle, ms: elapsed(), ...diagnostics };
     samples.push(value);
     await artifact("profile.json", JSON.stringify({ cycles, milestones, samples }, null, 2));

@@ -489,13 +489,13 @@ test("iPhone 4 enables the ARM32 JIT by default and honors an explicit opt-out",
 {
     const c = new_ios_config("iPhone 4", { kind: "browser", path: "v86/disks/iphone.img", size: N90_RESTORE.nand_bytes }, true);
     assert.deepEqual(validate_config(c), []);
-    assert.deepEqual(config_to_options(c, ENV).jit_switches, { a64_page: 1, a64_page_code_mb: 256 });
+    assert.deepEqual(config_to_options(c, ENV).jit_switches, { a64_page: 1 });
     assert.equal(config_to_options(c, ENV).memory_size, 512 * 1024 * 1024);
     c.cpu.jit = false;
     assert.deepEqual(validate_config(c), []);
-    assert.deepEqual(config_to_options(c, ENV).jit_switches, { a64_page: 0, a64_page_code_mb: 256 });
+    assert.deepEqual(config_to_options(c, ENV).jit_switches, { a64_page: 0 });
     delete c.cpu.jit;
-    assert.deepEqual(config_to_options(migrate(c), ENV).jit_switches, { a64_page: 1, a64_page_code_mb: 256 });
+    assert.deepEqual(config_to_options(migrate(c), ENV).jit_switches, { a64_page: 1 });
     c.cpu.jit = "false";
     assert.equal(validate_config(c)[0].path, "cpu.jit");
 });

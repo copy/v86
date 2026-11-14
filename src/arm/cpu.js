@@ -1412,7 +1412,7 @@ A64CPU.prototype.zstd_free_ctx = function(ctx) { return this.wm.exports["zstd_fr
 A64CPU.prototype.zstd_read = function(ctx, length) { return this.wm.exports["zstd_read"](ctx, length); };
 A64CPU.prototype.zstd_read_free = function(ptr, length) { return this.wm.exports["zstd_read_free"](ptr, length); };
 
-A64CPU.prototype.get_diagnostics = function()
+A64CPU.prototype.get_diagnostics = function(include_steps = false)
 {
     const exports = this.wm.exports;
     const nand = this.devices?.apple_nand;
@@ -1429,6 +1429,8 @@ A64CPU.prototype.get_diagnostics = function()
             // (AArch32's modes: User is EL0, the others PL1)
             "el": word(STATE_OFFSETS.pstate) & 0x10 ? +((word(STATE_OFFSETS.pstate) & 0xF) !== 0) : word(STATE_OFFSETS.pstate) >> 2 & 3,
             "retired_instructions": this.retired_instructions(core),
+            "fpcr": word(STATE_OFFSETS.fpcr) >>> 0,
+            "fpsr": word(STATE_OFFSETS.fpsr) >>> 0,
             "halt_count": worker ? this.parallel.core_counters(core).waits :
                 exports["core_statistics_get"] ? exports["core_statistics_get"](core, 3) : 0,
         };
@@ -1446,6 +1448,7 @@ A64CPU.prototype.get_diagnostics = function()
         "retired": exports["core_statistics_get"] ? exports["core_statistics_get"](0, 0) : 0,
         "undefined": this.undefined_instructions(),
         "page_tier": this.page_tier_stats(),
+        ...(include_steps ? { "steps": this.step_stats(25) } : {}),
         ...(nand ? { "nand": { "bytes_read": nand.bytes_read, "bytes_written": nand.bytes_written } } : {}),
     };
 };
