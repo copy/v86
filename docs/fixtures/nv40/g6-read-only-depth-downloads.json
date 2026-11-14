@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-14",
+  "status": "real WebGPU verified; native whole-plan performance gate pending",
+  "behavior": "Depth-test-only attachments remain checked and ordered but do not download unchanged GPU pixels. Stencil attachments remain conservative.",
+  "correctness": [
+    "Read-only attachment handles are protected from resource eviction.",
+    "IFC physical alias checks cover queued outputs and read-only depth guards.",
+    "A depth write earlier in the same batch retains its output even when a later draw disables depth writes.",
+    "Completion/query ordering and guest DMA validation are unchanged."
+  ],
+  "gpuRegression": {
+    "colorlessD16Query": {
+      "visibleSamples": 64,
+      "occludedAdditionalSamples": 0,
+      "attachmentReadbacks": 0,
+      "rawDepthBits": "unchanged"
+    },
+    "twoDrawIFCShaderUpdate": {
+      "batches": 1,
+      "colorReadbacks": 1,
+      "depthReadbacks": 0,
+      "finalRGBA": [
+        191,
+        191,
+        191,
+        191
+      ]
+    },
+    "IFCDepthAlias": "waited for the preceding GPU read before the CPU upload",
+    "existingDepthStencilWrites": "full GPU suite passes"
+  },
+  "tests": {
+    "unit": "pass",
+    "realChromeWebGPU": "pass",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "logs": {
+    "build/nv40-readonly-depth-unit.log": {
+      "bytes": 95,
+      "sha256": "22897543f5914fffc623ba01f5b67f6b1e7fa050e7b8d13b7346ade243901c63"
+    },
+    "build/nv40-readonly-depth-gpu.log": {
+      "bytes": 4360,
+      "sha256": "e990a3ea50ee917f6f2962e43d10012d0a80d379e93cb6e4f1db50219a4ee01c"
+    },
+    "build/nv40-readonly-depth-closure.log": {
+      "bytes": 3020,
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7"
+    }
+  }
+}

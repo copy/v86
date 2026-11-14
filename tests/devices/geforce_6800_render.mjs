@@ -317,6 +317,15 @@ try
         for(const [at,value]of [[0x208,0x128],[0x214,0x25000],[0x22C,16],[0x328,0],[0xA70,1]])method(at,value);
         vram.fill(255,0x25000,0x25080);await depthDraw(.25,[1,1,0,1]);
         for(let at=0x25000;at<0x25080;at+=2)assert(Math.abs(view.getUint16(at,true)-16384)<=1,"colorless D16 writes real depth");
+        const readOnlyDepth=vram.slice(0x25000,0x25080),readOnlyDownloads=engine.backend.stats.readbacks;
+        for(const [at,value]of [[0xA70,0],[0xA6C,2],[0x17C8,1],[0x17CC,1]])method(at,value);
+        await depthDraw(.125,[1,0,0,1]);method(0x1800,0x01000810);
+        assert.equal(view.getUint32(0x818,true),64,"read-only depth query counts visible samples");
+        await depthDraw(.5,[1,0,0,1]);method(0x1800,0x01000810);
+        assert.equal(view.getUint32(0x818,true),64,"read-only depth query rejects occluded samples");
+        assert.equal(engine.backend.stats.readbacks,readOnlyDownloads,"read-only depth queries need no attachment downloads");
+        assert.deepEqual(vram.slice(0x25000,0x25080),readOnlyDepth,"query preserves every raw D16 bit");
+        for(const [at,value]of [[0xA70,1],[0xA6C,8],[0x17CC,0]])method(at,value);
         const beforeDepthFault=engine.backend.stats.draws,originalDepth=vram.slice(0x25000,0x25080);
         ram.setUint32(0x1004,0x2500F,true);method(0x1808,5);method(0x1814,2<<24);
         graph.method(0,0,0x2000,0x1808,0);assert.match(graph.faults.pop().reason,/limit/);
@@ -1235,6 +1244,8 @@ try
         const uploadMethod=(at,value)=>graph.method(0,1,0x5000,at,value);
         const savedUploadProgram=vram.slice(0x9000,0x9040);
         method(0x8E4,0x9001);method(0x1A0C,0);
+        for(const [at,value]of [[0x208,0x148],[0x214,0x24000],[0x22C,32],[0xA74,1],[0xA70,0],[0xA6C,2],[0x328,0]])method(at,value);
+        vram.fill(255,0x24000,0x24100);
         [0x01001E81,0x001DC802,0,0,...Array(4).fill(floatWord(.25))].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
         vram.fill(0,0x10000,0x10100);
         const drawInline=()=>{
@@ -1261,6 +1272,14 @@ try
         assert.equal(engine.backend.stats.batches-beforeUpload.batches,1);
         assert.equal(engine.backend.stats.readbacks-beforeUpload.readbacks,1);
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[191,191,191,191]);
+        assert(vram.subarray(0x24000,0x24100).every(byte=>byte===255),"batched read-only D24 preserves depth and stencil");
+        // The depth attachment is unchanged, but CPU writes must still wait
+        // until earlier GPU draws have finished reading it.
+        uploadSurface.methods.set(0x30C,0x24000);uploadMethod(0x304,0);
+        drawInline();const beforeDepthAlias=engine.backend.stats.batches;
+        assert.equal(uploadMethod(0x400,0xFFFFFFFF),false);
+        assert.equal(engine.backend.stats.batches,beforeDepthAlias+1);
+        await engine.backend.wait();assert.equal(uploadMethod(0x400,0xFFFFFFFF),true);
         // The same IFC operation must wait when it aliases the color output.
         uploadSurface.methods.set(0x30C,0x10000);uploadMethod(0x304,0);
         drawInline();const beforeAlias=engine.backend.stats.batches;
@@ -1269,6 +1288,7 @@ try
         await engine.backend.wait();assert.equal(uploadMethod(0x400,0xFF2468AC),true);
         assert.equal(view.getUint32(0x10000,true),0xFF2468AC);
         device.fifo.running=false;
+        method(0xA74,0);
         vram.set(savedUploadProgram,0x9000);
         assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         console.log("PASS: disjoint IFC shader uploads preserve batching; overlapping CPU writes wait for authoritative pixels");

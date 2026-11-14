@@ -1,5 +1,5 @@
 // Hardware method draws -> the shared D9WG/WebGPU executor. VRAM remains the
-// snapshot authority: every submitted target is downloaded before FIFO resumes.
+// snapshot authority: every written target is downloaded before FIFO resumes.
 import {D9WGWriter} from "../vmware_svga/svga3d_d9wg.js";
 import {OP,NV_RS} from "../vmware_svga/d9wg_constants.js";
 import {NV40Texture} from "./nv40_texture.js";
@@ -159,7 +159,8 @@ export class NV40Render
         {
             if(this.resources.size>=64)
             {
-                const first=[...this.resources].find(([,resource])=>!this.batch?.outputs.has(resource.handle));
+                const protectedHandles=new Set(this.batch?[...this.batch.outputs.keys(),...this.batch.guards.keys()]:[]);
+                const first=[...this.resources].find(([,resource])=>!protectedHandles.has(resource.handle));
                 if(!first)throw new RangeError("NV40 pending target cache is full");
                 this.writer.command(OP.DESTROY_RESOURCE,{"resource_handle":first[1].handle,"resource_kind":first[1].kind});this.resources.delete(first[0]);
             }
@@ -251,7 +252,8 @@ export class NV40Render
         {
             // IFC state changes do not touch memory. For data, share the exact
             // next-DWORD footprint with the CPU engine; only a checked linear
-            // destination disjoint from every queued output can proceed.
+            // destination disjoint from every queued attachment can proceed.
+            // Read-only depth still guards against intervening CPU writes.
             if(method>=0x184 && method<=0x19C || method>=0x2F8 && method<=0x30C)return false;
             if(method>=0x400 && method<0x2000 && !(method&3))try
             {
@@ -262,7 +264,7 @@ export class NV40Render
                     for(const at of [0x184,0x18C,0x190,0x194,0x198])if(o.methods.has(at))cpu.ref(o,at);
                     const offset=cpu.row(dst,x,y,width,false);cpu.row(dst,x,y,width,true);
                     const write=this.range({...dst,offset,width,height:1});
-                    if(![...this.batch.outputs.values()].some(({target})=>{
+                    if(![...this.batch.outputs.values(),...this.batch.guards.values()].some(({target})=>{
                         const output=this.range(target);
                         return write.memory===output.memory && write.first<output.last && output.first<write.last;
                     }))return false;
@@ -351,7 +353,7 @@ export class NV40Render
         }
         // Everything that can fault on guest state is checked before emitting
         // commands or changing the host's resource cache.
-        if(!this.batch)this.batch={channel:o.channel,subc,outputs:new Map(),draws:0,query:null};
+        if(!this.batch)this.batch={channel:o.channel,subc,outputs:new Map(),guards:new Map(),draws:0,query:null};
         this.initialize();const handles=colors.map((surface,index)=>surface?this.target(surface,initial[index]):0),
             vs=this.shader(shaders.vertex.bytecode,true),ps=this.shader(shaders.fragment.bytecode,false);
         // The shared D3D executor expects a color attachment. Bind a scratch
@@ -409,7 +411,11 @@ export class NV40Render
         if(query)this.command(OP.END_QUERY,{"resource_handle":this.query,"response_offset":0,"request_id":query.id});
         this.command(OP.END_SCENE);
         colors.forEach((target,index)=>{if(target)this.batch.outputs.set(handles[index],{target,handle:handles[index]});});
-        if(depth)this.batch.outputs.set(depthHandle,{target:depth,handle:depthHandle});
+        // Z testing alone leaves the guest's depth bits untouched. Keep the
+        // attachment alive and ordered, but avoid a full GPU download. Stencil
+        // stays conservative even for KEEP operations or a zero write mask.
+        if(depth)(zsa.stencil || get(o,0xA74)&&get(o,0xA70)?this.batch.outputs:this.batch.guards)
+            .set(depthHandle,{target:depth,handle:depthHandle});
         this.batch.query=query;this.batch.draws++;this.stats.draws++;
         if(query || this.batch.draws>=32 || this.writer.size()>=(8<<20) || !this.device.fifo?.running)this.flush();
     }
