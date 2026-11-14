@@ -24,21 +24,27 @@ export class NV40State
         if(!o.methods.has(at)) throw new RangeError("NV40 DMA unbound");
         return this.device.dma.descriptor(get(o,at)*16);
     }
+    raster_area(o)
+    {
+        const format=get(o,0x208);
+        const type=format>>>8&15,u=format>>>16&255,v=format>>>24;
+        if(type!==1 && type!==2 || type===2 && (u>12 || v>12)) throw new RangeError("NV40 invalid render target layout");
+        const x=get(o,0x200)&65535,y=get(o,0x204)&65535;
+        const width=x+(get(o,0x200)>>>16),height=y+(get(o,0x204)>>>16);
+        if(!width || !height || width>4096 || height>4096 ||
+            type===2 && (width>2**u || height>2**v)) throw new RangeError("NV40 invalid render target dimensions/pitch");
+        return {width,height,x,y,swizzle:type===2,u,v};
+    }
     target(o,index=0,depth=false)
     {
         if(index<0 || index>3) throw new RangeError("NV40 invalid color target");
         const format=get(o,0x208),code=depth?format>>>5&7:format&31;
         const layout=depth?code===1?[2,80]:code===2?[4,75]:null:COLOR.get(code);
         if(!layout) throw new RangeError("NV40 unsupported render target format "+code);
-        const type=format>>>8&15,u=format>>>16&255,v=format>>>24;
-        if(type!==1 && type!==2 || type===2 && (u>12 || v>12)) throw new RangeError("NV40 invalid render target layout");
-        const x=get(o,0x200)&65535,y=get(o,0x204)&65535;
-        const width=x+(get(o,0x200)>>>16),height=y+(get(o,0x204)>>>16);
-        const [bpp,d3d]=layout,pitch=get(o,depth?0x22C:RT_PITCH[index]);
-        if(!width || !height || width>4096 || height>4096 || type===1 && pitch<width*bpp ||
-            type===2 && (width>2**u || height>2**v)) throw new RangeError("NV40 invalid render target dimensions/pitch");
+        const area=this.raster_area(o),[bpp,d3d]=layout,pitch=get(o,depth?0x22C:RT_PITCH[index]);
+        if(!area.swizzle && pitch<area.width*bpp)throw new RangeError("NV40 invalid render target dimensions/pitch");
         const surface={dma:this.dma(o,depth?0x198:RT_DMA[index]),offset:get(o,depth?0x214:RT_OFFSET[index]),
-            pitch,bpp,d3d,width,height,x,y,swizzle:type===2,u,v};
+            pitch,bpp,d3d,...area};
         return surface;
     }
     validate(surface,write)

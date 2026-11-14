@@ -149,7 +149,9 @@ export class NV40Render
     }
     target(surface,bytes,usage=1)
     {
-        const images=Array.isArray(bytes)?bytes:[bytes],levels=surface.cube?surface.level_count:images.length;
+        // A null image creates a host-only scratch attachment. Colorless NV
+        // draws never upload, download or access guest memory for this image.
+        const images=bytes===null?null:Array.isArray(bytes)?bytes:[bytes],levels=surface.cube?surface.level_count:images?images.length:1;
         const key=JSON.stringify([surface.dma,surface.offset,surface.pitch,surface.width,surface.height,surface.d3d,surface.swizzle,surface.u,surface.v,levels,usage,!!surface.cube,!!surface.volume,surface.depth]);
         let resource=this.resources.get(key);
         if(!resource)
@@ -170,7 +172,7 @@ export class NV40Render
         // must survive eviction while new sampled textures fill the cache.
         this.resources.delete(key);this.resources.set(key,resource);
         const handle=resource.handle;
-        images.forEach((bytes,index)=>{
+        if(images)images.forEach((bytes,index)=>{
             const previous=resource.images && resource.images[index],changed=changed_bytes(previous,bytes);
             if(!changed)return;
             const level=index%levels,face=surface.cube?Math.floor(index/levels):0;
@@ -252,14 +254,15 @@ export class NV40Render
     {
         if(this.pending) throw new RangeError("NV40 renderer already busy");
         const enable=get(o,0x220,1),active=enable&15;
-        if(enable&~31 || !(active&1) || active!==1 && !(enable&16))throw new RangeError("NV40 unsupported render target enable mask");
+        if(enable&~31 || active && (!(active&1) || active!==1 && !(enable&16)))throw new RangeError("NV40 unsupported render target enable mask");
         const zsa=nv40_depth_state(o,(get(o,0x208)>>>5&7)===2,mode);
         if(get(o,0x142C) || get(o,0x374) || get(o,0x1478) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
         const blend=nv40_blend_state(o,active);
         const cull=nv40_cull_state(o);
-        const target=this.engine.state.target(o);
+        const area=active?null:this.engine.state.raster_area(o);
+        const target=active?this.engine.state.target(o):{...area,pitch:area.width*4,bpp:4,d3d:21};
         if(![21,22,23,113,114,116].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
         if([114,116].includes(target.d3d) && (((get(o,0x310)?1:0)|(get(o,0x36C)&14))&active))throw new RangeError("NV40 FP32 target blending is not connected");
         if(target.d3d===116 && [0,1,2,3].filter(index=>active&1<<index).length>2)
@@ -287,7 +290,7 @@ export class NV40Render
             return [16,18].includes(code)?{compare:get(o,at+8)>>>28,crossbar:get(o,at+16)}:null;
         });
         const control=get(o,0x1D60);
-        const shaders=this.engine.shaders(o,{viewport,targets:enable&16?4:1,depth:!!(control&14),fp32_outputs:!!(control&64),
+        const shaders=this.engine.shaders(o,{viewport,targets:active && enable&16?4:1,depth:!!(control&14),fp32_outputs:!!(control&64),
             samplers,sampler_1d,texture_sizes,vertex_textures,depth_samplers});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
@@ -308,6 +311,9 @@ export class NV40Render
         const fetched=indices?this.engine.state.array_vertices(o,indices,shaders.vertex.inputs):
             this.engine.state.inline_vertices(o,words,shaders.vertex.inputs);
         const vertices=expand_primitives(fetched,mode);if(!vertices.count || cull.all && vertices.primitive===4)return;
+        // With no outputs or active query, rasterization has no observable
+        // effect. Earlier queued work still follows its normal fence barrier.
+        if(!active && !zsa.enabled && !get(o,0x17CC))return;
         const initial=colors.map(surface=>{
             if(!surface)return null;
             this.engine.state.validate(surface,true);return this.engine.state.read(surface);
@@ -324,6 +330,10 @@ export class NV40Render
         if(!this.batch)this.batch={channel:o.channel,subc,outputs:new Map(),draws:0,query:null};
         this.initialize();const handles=colors.map((surface,index)=>surface?this.target(surface,initial[index]):0),
             vs=this.shader(shaders.vertex.bytecode,true),ps=this.shader(shaders.fragment.bytecode,false);
+        // The shared D3D executor expects a color attachment. Bind a scratch
+        // texture with all writes disabled; only real depth/stencil outputs
+        // enter the authoritative VRAM downloads below.
+        if(!active)handles[0]=this.target(target,null);
         handles.forEach((handle,index)=>this.command(OP.SET_RENDER_TARGET,{"target_index":index,"color_texture_handle":handle}));
         const depthHandle=depth?this.target(depth,depthBytes,2):0;
         this.command(OP.SET_DEPTH_STENCIL_SURFACE_LEVEL,{"depth_texture_handle":depthHandle});
@@ -348,7 +358,7 @@ export class NV40Render
         this.render_state(22,cull.state);for(const [state,value]of zsa.states)this.render_state(state,value);
         for(const [state,value]of blend)this.render_state(state,value);
         const mask=get(o,0x324,0x01010101);
-        this.render_state(168,(mask&0x10000?1:0)|(mask&0x100?2:0)|(mask&1?4:0)|(mask&0x1000000?8:0));
+        this.render_state(168,active?((mask&0x10000?1:0)|(mask&0x100?2:0)|(mask&1?4:0)|(mask&0x1000000?8:0)):0);
         const mrtMask=get(o,0x370);
         for(let index=1;index<4;index++)
         {
@@ -385,7 +395,7 @@ export class NV40Render
         const batch=this.batch;this.batch=null;
         let resolve;const promise=new Promise(done=>{resolve=done;});
         const outputs=[...batch.outputs.values()].map(output=>({...output,bytes:new Uint8Array(output.target.width*output.target.height*output.target.bpp)}));
-        const pending=this.pending={channel:batch.channel,subc:batch.subc,outputs,query:batch.query,requests:new Map(),promise,resolve,sequence:++this.sequence};
+        const pending=this.pending={channel:batch.channel,subc:batch.subc,outputs,query:batch.query,requests:new Map(),promise,resolve,done:false,sequence:++this.sequence};
         outputs.forEach((output,index)=>{
             const {target,handle}=output,pitch=target.width*target.bpp,rows=Math.max(1,Math.floor(READBACK_MAX_BYTES/pitch));
             for(let first=0;first<target.height;first+=rows)
@@ -418,7 +428,7 @@ export class NV40Render
             if(pending.query && id===pending.query.id)
             {
                 if(view.getUint32(12,true)!==RESPONSE_OK) {this.fail("invalid occlusion query readback");return;}
-                pending.query.value=view.getUint32(4,true);return;
+                pending.query.value=view.getUint32(4,true);this.complete();return;
             }
             if(!request)return;
             if(view.getUint32(12,true)!==RESPONSE_OK || view.getUint32(4,true)!==request.bytes || bytes.length<16+request.bytes)
@@ -427,8 +437,18 @@ export class NV40Render
         }
         else if(message["type"]==="done" && message["seq"]===pending.sequence)
         {
-            if(pending.query && pending.query.value===null) {this.fail("GPU completed without occlusion query readback");return;}
             if(pending.requests.size) {this.fail("GPU completed without target readback");return;}
+            // Query maps can finish after the transport's submit marker when
+            // no synchronous surface readback follows them. Keep FIFO held
+            // until the real query response arrives in either ordering.
+            pending.done=true;this.complete();
+        }
+    }
+    complete()
+    {
+        const pending=this.pending;
+        if(pending && pending.done && (!pending.query || pending.query.value!==null))
+        {
             try
             {
                 for(const {target}of pending.outputs)this.engine.state.validate(target,true);

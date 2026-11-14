@@ -94,9 +94,11 @@ try
         const queryBytes=new Uint8Array(16),queryView=new DataView(queryBytes.buffer);
         queryView.setUint32(0,query.view.getUint32(query.at+offset("QueryIssue","request_id"),true),true);
         queryView.setUint32(4,64,true);queryView.setUint32(12,1,true);
-        listener({type:"write",bytes:queryBytes,offset:12<<20});
         assert.equal(graph.object(0,0x2000).methods.get(0x50008),0,"query counter waits for done too");
         listener({type:"done",seq:submitted.seq});
+        assert.equal(engine.busy,true,"a submit marker cannot outrun an asynchronous query map");
+        assert.equal(view.getUint32(0x10000,true),0,"color and query results commit atomically after both arrive");
+        listener({type:"write",bytes:queryBytes,offset:12<<20});
     }
     let timer;
     try {await Promise.race([drained,new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error("NV40 GPU completion timeout")),30000);})]);}
@@ -282,6 +284,41 @@ try
         console.log("PASS: real WebGPU polygon offset units for D24/D16, slope bias and disabled-state restore");
         for(const [at,value]of [[0x208,0x148],[0x214,0x24000],[0x22C,32],[0xA74,0],[0x328,0]])method(at,value);
         console.log("PASS: real WebGPU depth rejection, depth/stencil VRAM round trips and masked stencil operations");
+        const colorlessObject=graph.object(0,0x2000),untouchedColor=vram.slice(0x10000,0x10100);
+        method(0x220,0);colorlessObject.methods.delete(0x194);
+        method(0x20C,0);method(0x210,0xFFFFFFFF);
+        for(const [at,value]of [[0xA74,1],[0xA70,1],[0xA6C,8],[0x328,0]])method(at,value);
+        for(let at=0x24000;at<0x24100;at+=4)view.setUint32(at,0xFFFFFF5A,true);
+        const colorlessReadbacks=engine.backend.stats.readbacks;
+        await depthDraw(.5,[1,0,1,1]);
+        assert.equal(engine.backend.stats.readbacks-colorlessReadbacks,1,"colorless draw downloads only its depth/stencil surface");
+        for(let at=0x24000;at<0x24100;at+=4)
+        {
+            const value=view.getUint32(at,true);assert.equal(value&255,0x5A);
+            assert(Math.abs((value>>>8)-Math.round(.5*0xFFFFFF))<=1,"colorless D24 writes real depth");
+        }
+        const colorlessDepth=view.getUint32(0x24000,true)>>>8;
+        for(const [at,value]of [[0xA70,0],[0x328,1],[0x330,8],[0x32C,255],[0x338,255],[0x344,7]])method(at,value);
+        await depthDraw(.25,[0,1,0,1]);
+        assert.equal(view.getUint32(0x24000,true)>>>8,colorlessDepth,"native 03 depth-test/no-depth-write preserves Z");
+        assert.equal(view.getUint32(0x24000,true)&255,0x5B,"colorless stencil operations remain active");
+        for(const [at,value]of [[0x208,0x128],[0x214,0x25000],[0x22C,16],[0x328,0],[0xA70,1]])method(at,value);
+        vram.fill(255,0x25000,0x25080);await depthDraw(.25,[1,1,0,1]);
+        for(let at=0x25000;at<0x25080;at+=2)assert(Math.abs(view.getUint16(at,true)-16384)<=1,"colorless D16 writes real depth");
+        const beforeDepthFault=engine.backend.stats.draws,originalDepth=vram.slice(0x25000,0x25080);
+        ram.setUint32(0x1004,0x2500F,true);method(0x1808,5);method(0x1814,2<<24);
+        graph.method(0,0,0x2000,0x1808,0);assert.match(graph.faults.pop().reason,/limit/);
+        assert.equal(engine.backend.stats.draws,beforeDepthFault,"bad colorless depth DMA emits no GPU work");
+        assert.deepEqual(vram.slice(0x25000,0x25080),originalDepth);ram.setUint32(0x1004,0xFFFFF,true);
+        for(const [at,value]of [[0x208,0x148],[0x220,16],[0xA74,0],[0xA70,0],[0x17C8,1],[0x17CC,1]])method(at,value);
+        colorlessObject.methods.delete(0x198);const queryOnlyReadbacks=engine.backend.stats.readbacks;
+        await depthDraw(.5,[1,0,0,1]);method(0x1800,0x01000810);
+        assert.equal(view.getUint32(0x818,true),64,"colorless draw without Z still counts occlusion samples");
+        assert.equal(engine.backend.stats.readbacks,queryOnlyReadbacks,"scratch attachment never downloads to guest memory");
+        assert.deepEqual(vram.slice(0x10000,0x10100),untouchedColor,"disabled color DMA and bogus pitch/offset are never accessed");
+        for(const [at,value]of [[0x220,1],[0x194,0x100],[0x198,0x100],[0x20C,32],[0x210,0x10000],
+            [0x214,0x24000],[0x22C,32],[0x17CC,0]])method(at,value);
+        console.log("PASS: real WebGPU colorless D16/D24/stencil, inactive color DMA, query-only draws and atomic depth faults");
         method(0x183C,1);method(0x1830,0x405);method(0x1834,0x900);
         await depthDraw(.5,[1,0,0,1]);assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"CW front faces cull the CCW window-space triangle");
         method(0x1834,0x901);await depthDraw(.5,[1,0,0,1]);
