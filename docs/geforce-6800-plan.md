@@ -1486,3 +1486,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   XP 03 从冷启动已正常显示 GT1 加载图、无 PGRAPH/GPU 故障；客体长跑继续，
   尚未接受完整 benchmark。语义依据是原版 producer 与显示证据的推断，
   不把 hwtest 的合法位掩码当作语义说明，见 `g3-xp-9371-display-semaphore.json`。
+
+- G3 视口旁路 W 续修：93.71 的 XYZRHW VP 已对输入 W 执行 RCP，
+  `c194=(1,1,1,1)`、`c195=(0.5,0.5,0,0)` 保留输出的齐次 W。
+  边界转换此前再次取倒数，反转了透视插值；改为将窗口 XYZ 转成 clip
+  时乘以该 W，并保留 W 输出。独立的 1/W 重心插值检查 64 个棋盘
+  像素，旧代码失败、修复后精确通过；完整 GPU 回归、168 个 Naga
+  模块、CPU 状态测试和 Closure 构建通过。原生 IQ02 横条与赛道路面
+  拉伸的证据及 producer 常量见 `g3-xp-9371-bypass-perspective.json`；
+  修复后的完整原生 IQ 文件正在重新生成，尚未据此接受整个 G3。

@@ -448,8 +448,9 @@ export function translate_vertex_program(program,options={})
         };
         const scale=reserve(),bias=reserve(),output=dst(6,shader.output(0));
         // Cancel the D3D9 wrapper's half-pixel correction: NV rasterization
-        // already has its own pixel-center convention. In bypass mode W is
-        // reciprocal homogeneous W, while XYZ are window coordinates.
+        // already has its own pixel-center convention. In bypass mode XYZ
+        // are window coordinates, while W is still homogeneous W. Native
+        // XYZRHW programs have already emitted RCP before this boundary.
         const factors=v.bypass?[2/w,-2/h,1,0]:[2*v.scale[0]/w,-2*v.scale[1]/h,v.scale[2],1];
         const offsets=v.bypass?[-1-1/w,1+1/h,0,1]:[2*v.translate[0]/w-1-1/w,1-2*v.translate[1]/h+1/h,v.translate[2],0];
         if(!factors.concat(offsets).every(Number.isFinite)) throw new RangeError("NV40 nonfinite viewport");
@@ -457,8 +458,7 @@ export function translate_vertex_program(program,options={})
         if(v.bypass)
         {
             shader.emit(OP.MAD,dst(0,30),src(0,position),src(2,scale),src(2,bias));
-            shader.emit(OP.RCP,dst(0,31),src(0,position,[3,3,3,3]));
-            shader.emit(OP.MUL,output,src(0,30),src(0,31));
+            shader.emit(OP.MUL,output,src(0,30),src(0,position,[3,3,3,3]));
         }
         else
         {

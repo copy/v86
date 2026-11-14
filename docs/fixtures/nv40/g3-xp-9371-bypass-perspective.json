@@ -1,0 +1,71 @@
+{
+  "stage": "G3 bypass homogeneous W",
+  "finding": "93.71 XYZRHW vertex program explicitly computes RCP of input W before writing position. In ENGINE 0x101 the boundary consumes window XYZ and homogeneous W; taking another reciprocal in the host clip conversion reverses perspective interpolation.",
+  "native_evidence": {
+    "snapshot": "build/nv40-xp99-iq-correct.state",
+    "object_instance": 957280,
+    "engine": "0x101",
+    "program": "build/nv40-xp-mark99-rect/programs.json: vertex pc 6..11",
+    "constant_194": [
+      1,
+      1,
+      1,
+      1
+    ],
+    "constant_195": [
+      0.5,
+      0.5,
+      0,
+      0
+    ],
+    "operation": "input0 copied to R1; RCP R1.w; MUL R1,c194; ADD position,R1,c195",
+    "original_IQ02": "build/nv40-xp-mark99-native-quality/Quality_IQ02I_nv99.bmp",
+    "reference_IQ02": "build/d3d-review/stage6-99-scalar/Quality_IQ02I_S6SC99.bmp"
+  },
+  "regression": {
+    "screen_triangle": [
+      [
+        0,
+        0,
+        0.25,
+        1
+      ],
+      [
+        0,
+        16,
+        0.25,
+        4
+      ],
+      [
+        16,
+        0,
+        0.25,
+        2
+      ]
+    ],
+    "texture_coordinates": [
+      [
+        0,
+        0
+      ],
+      [
+        0,
+        2
+      ],
+      [
+        2,
+        0
+      ]
+    ],
+    "expected": "point-sampled 2x2 checker computed independently with barycentric 1/W interpolation at each of 64 pixel centers",
+    "before": "FAIL (wrong sampled checker color)",
+    "after": "all 64 pixels match exactly"
+  },
+  "validation": [
+    "complete real WebGPU rendering regression",
+    "168 Naga modules",
+    "CPU state test",
+    "Closure zero errors/warnings"
+  ],
+  "limit": "A fresh native 99 IQ image set is being generated; full fixed-frame acceptance remains pending."
+}

@@ -297,6 +297,23 @@ try
             const expected=y<4?x<4?[0,0,255,255]:[0,255,0,255]:x<4?[255,0,0,255]:[255,255,255,255];
             assert.deepEqual([...vram.subarray(0x10000+(y*8+x)*4,0x10000+(y*8+x)*4+4)],expected,"sampled checker "+x+","+y);
         }
+        // Bypass positions are window XYZ plus homogeneous W, after the
+        // native VP has already converted incoming XYZRHW. Preserve 1/W
+        // interpolation instead of taking another reciprocal at the boundary.
+        method(0x1740,0x1042);method(0x1808,6);
+        const perspective=Float32Array.of(0,0,.25,1,0,0,0,16,.25,4,0,2,16,0,.25,2,2,0);
+        for(const word of new Uint32Array(perspective.buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();
+        for(let y=0;y<8;y++)for(let x=0;x<8;x++)
+        {
+            const b=(y+.5)/16,c=(x+.5)/16,a=1-b-c,denominator=a+b/4+c/2;
+            const u=c/denominator,v=b/2/denominator;
+            const expected=v<.5?u<.5?[0,0,255,255]:[0,255,0,255]:u<.5?[255,0,0,255]:[255,255,255,255];
+            assert.deepEqual([...vram.subarray(0x10000+(y*8+x)*4,0x10000+(y*8+x)*4+4)],expected,
+                "bypass homogeneous W perspective sample "+x+","+y);
+        }
+        method(0x1740,0x1022);
+        console.log("PASS: real WebGPU bypass window positions retain homogeneous W and perspective-correct texture coordinates");
         method(0x1A14,0x02020000);method(0x1808,6);
         for(const word of new Uint32Array(floats.buffer))method(0x1818,word);
         method(0x1808,0);await engine.backend.wait();
