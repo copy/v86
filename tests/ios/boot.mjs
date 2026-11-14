@@ -39,8 +39,8 @@ try
         // A tiny private ARM firmware increments its own local word. The
         // application CPU sees the alias in DRAM and retains its own PC.
         const base = 0x41000000, offset = cpu.ram_offset(base, 8192);
-        const saved = cpu.mem8.slice(offset, offset + 8192), pc = cpu.read_pc();
-        const program = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset + offset, 8192);
+        const saved = cpu.mem8.slice(offset, offset + 16384), pc = cpu.read_pc();
+        const program = new DataView(cpu.mem8.buffer, cpu.mem8.byteOffset + offset, 16384);
         [0xE3A00A01, 0xE5901000, 0xE2811001, 0xE5801000, 0xEAFFFFFB]
             .forEach((word, i) => program.setUint32(i * 4, word, true));
         program.setUint32(4096, 0, true);
@@ -49,6 +49,7 @@ try
         iop.write(0x114, 8192);
         iop.write(0x100, 1);
         iop.run();
+        const firstSlice = program.getUint32(4096, true);
         if(process.argv.includes("--iop-jit"))
         {
             for(let n = 0; n < 50; n++) { iop.run(); await new Promise(resolve => setImmediate(resolve)); }
@@ -66,6 +67,42 @@ try
         iop.run();
         assert.equal(program.getUint32(4096, true), next);
         assert.equal(cpu.read_pc(), pc);
+        if(process.argv.includes("--iop-jit"))
+        {
+            // The loop has filled the RAM access cache. Reuse its LDR
+            // with an unaligned address: a cache hit must still abort.
+            const bank = new DataView(cpu.wasm_memory.buffer, cpu.state_base, 4096);
+            const setLoad = address => {
+                cpu.wm.exports.a32_iop_select(true);
+                bank.setBigUint64(64, BigInt(address), true);
+                bank.setBigUint64(320, 4n, true);
+                cpu.wm.exports.a32_iop_select(false);
+            };
+            setLoad(4097);
+            cpu.wm.exports.a32_iop_slice(1, false, false);
+            cpu.wm.exports.a32_iop_select(true);
+            assert.equal(bank.getBigUint64(320, true), 0x10n, "unaligned cached IOP load takes Data Abort");
+            assert.equal(bank.getUint32(332, true) & 31, 0x17);
+            cpu.wm.exports.a32_iop_select(false);
+            iop.set_state(state);
+            setLoad(0x86300100);
+            cpu.wm.exports.a32_iop_slice(1, false, false);
+            cpu.wm.exports.a32_iop_select(true);
+            assert.equal(bank.getUint32(72, true), 1, "MMIO still reads the ARM7M device, not cached RAM");
+            cpu.wm.exports.a32_iop_select(false);
+            iop.set_state(state);
+            // Reusing VA zero with a different physical firmware must
+            // select its own code and RAM instead of the old cached aliases.
+            [0xE3A00A01, 0xE5901000, 0xE2811002, 0xE5801000, 0xEAFFFFFB]
+                .forEach((word, i) => program.setUint32(8192 + i * 4, word, true));
+            program.setUint32(12288, 0, true);
+            const previousCount = program.getUint32(4096, true);
+            iop.write(0x110, base + 8192);
+            iop.write(0x100, 1);
+            iop.run();
+            assert.equal(program.getUint32(12288, true), firstSlice * 2, "remapped firmware uses new code and data backing");
+            assert.equal(program.getUint32(4096, true), previousCount);
+        }
         iop.reset();
         cpu.write_blob_physical(saved, base);
     }

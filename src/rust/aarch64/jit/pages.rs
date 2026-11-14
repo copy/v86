@@ -135,12 +135,13 @@ pub fn a32_trace_dump(why: &str) {
                     pagegen::CompileEnv {
                         el1: false,
                         sp_checked: false,
+                        aligned_data: mode & MODE_IOP != 0,
                         chaining: true,
                         neon: unsafe { super::NEON },
                         helpers: unsafe { super::HELPERS },
                         system: unsafe { super::SYSTEM },
                         relaxed_fma: unsafe { super::RELAXED_FMA },
-                        isa: if mode & !1 == MODE_T32 {
+                        isa: if mode & !(1 | MODE_IOP) == MODE_T32 {
                             pagegen::Isa::T32
                         }
                         else {
@@ -179,20 +180,26 @@ const MAX_BUDGET: u32 = 1 << 14;
 const MODE_SHIFT: u32 = 28;
 /// Modes: bit 0 EL1, bit 1 SP alignment checked; AArch32, A32 and T32 at
 /// EL0 (Q6), or PL1 with bit 0 (cpu_type arm32, R5.3)
-pub const MODES: usize = 8;
+pub const MODES: usize = 16;
 pub const MODE_A32: u32 = 4;
 pub const MODE_T32: u32 = 6;
+/// Separate compiled templates: MMU-less IOP accesses require alignment
+/// even after an aligned access filled the same data cache entry.
+const MODE_IOP: u32 = 8;
 
 /// Whether a mode is AArch32's (A32 or T32, either privilege)
 #[inline(always)]
-fn aarch32_mode(mode: u32) -> bool { mode & !1 == MODE_A32 || mode & !1 == MODE_T32 }
+fn aarch32_mode(mode: u32) -> bool {
+    mode & !(1 | MODE_IOP) == MODE_A32 || mode & !(1 | MODE_IOP) == MODE_T32
+}
 
 /// The mode the running core's code would be compiled for
 #[inline(always)]
 fn mode() -> u32 {
     if cpu::aarch32() {
         let isa = if cpu::get_pstate() & cpu::PSTATE_T != 0 { MODE_T32 } else { MODE_A32 };
-        return isa | (cpu::el() != 0) as u32;
+        let iop = bus::iop_active() && cpu::sctlr() & cpu::SCTLR_M == 0;
+        return isa | (cpu::el() != 0) as u32 | if iop { MODE_IOP } else { 0 };
     }
     let el1 = cpu::el() != 0;
     let sctlr = cpu::sctlr();
@@ -944,7 +951,7 @@ fn compile(key: u32, pc: u64) {
             "a32 page {:x} key {:x} {}",
             pc & !0xFFF,
             code_key,
-            if mode & !1 == MODE_T32 { "T32" } else { "A32" }
+            if mode & !(1 | MODE_IOP) == MODE_T32 { "T32" } else { "A32" }
         );
     }
     let bytes = if code_key >= bus::EXTENDED_CODE_KEY {
@@ -973,13 +980,14 @@ fn compile(key: u32, pc: u64) {
         pagegen::CompileEnv {
             el1: mode & 1 != 0,
             sp_checked: mode & 2 != 0,
+            aligned_data: mode & MODE_IOP != 0,
             // (a64_page_aarch32_filter's bit 15: AArch32's functions do not chain)
             chaining: unsafe { CHAINING } && !(aarch32_mode(mode) && filter & 0x8000 != 0),
             neon: unsafe { super::NEON },
             helpers: unsafe { super::HELPERS },
             system: unsafe { super::SYSTEM },
             relaxed_fma: unsafe { super::RELAXED_FMA },
-            isa: match mode & !1 {
+            isa: match mode & !(1 | MODE_IOP) {
                 MODE_A32 => pagegen::Isa::A32,
                 MODE_T32 => pagegen::Isa::T32,
                 _ => pagegen::Isa::A64,
@@ -1148,10 +1156,8 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
     let size = kind & 255;
     let write = kind & 0x100 != 0;
     let r = rt();
-    // The MMU-less IOP can compile arithmetic and branches, but all data
-    // accesses keep the interpreter's Device alignment and MMIO rules.
-    // In particular, never walk its inactive translation tables.
-    if cpu::sctlr() & cpu::SCTLR_M == 0 {
+    let mmu_off = cpu::sctlr() & cpu::SCTLR_M == 0;
+    if mmu_off && (!bus::iop_active() || address & (size as u64 - 1) != 0) {
         r.stats[ACCESS_REFUSED] += 1;
         refused(REFUSED_TRANSLATION);
         return 0;
@@ -1174,7 +1180,12 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
         && kind & 0x200 == 0;
     // (kind bit 11: an unprivileged access at EL1, LDTR/STTR: EL0's permissions and table)
     let el0 = cpu::el() == 0 || kind & 0x800 != 0;
-    let Some((pa, _large, global)) = crate::aarch64::mmu::translate_for_cache(address, write, el0)
+    // The IOP has a physical RAM window, not active translation tables.
+    // RAM below is cached; MMIO, watched code and reservations still refuse.
+    let translated = if mmu_off {
+        crate::aarch64::mmu::mmu_off(address).map(|pa| (pa, false, true))
+    } else { crate::aarch64::mmu::translate_for_cache(address, write, el0) };
+    let Some((pa, _large, global)) = translated
     else {
         r.stats[ACCESS_REFUSED] += 1;
         refused(REFUSED_TRANSLATION);

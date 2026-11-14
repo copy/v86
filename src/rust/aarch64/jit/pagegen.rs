@@ -60,6 +60,8 @@ pub struct CompileEnv {
     pub el1: bool,
     /// SP alignment is checked for SP-based accesses (SCTLR_EL1.SA or SA0)
     pub sp_checked: bool,
+    /// MMU-less IOP data accesses keep Device memory's natural alignment.
+    pub aligned_data: bool,
     /// leaving the page tail-calls the next page's function (jitrt::chain)
     pub chaining: bool,
     /// AdvSIMD templates (a64_neon; P6.3b)
@@ -1152,6 +1154,13 @@ impl Emitter<'_> {
     /// As `host`, an unaligned read copied to bounce slot `slot` (0 or 1:
     /// a pair's second element, whose copy must not replace the first's)
     fn host_in(&mut self, size: u32, write: bool, offset: u16, slot: u32) {
+        if self.env.aligned_data && size > 1 {
+            self.g(ADDR);
+            self.b.wrap_i64_to_i32();
+            self.c32(size as i32 - 1);
+            self.b.and_i32();
+            self.retry_if(offset);
+        }
         let (l, abi) = (self.lookup_locals(), Self::access_abi());
         let retry = self.f().retry;
         self.inline_lookup(
