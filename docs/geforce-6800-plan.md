@@ -1857,3 +1857,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   不按低位任意截断其他值，嵌套和非法 BEGIN 仍拒绝。索引/快照
   与四顶点双三角的真实 GPU 全像素覆盖、完整 GPU/Closure 通过，
   见 `g4-native-d3d-triangle-fan.json`；成套故障前状态的原生复跑继续。
+
+- G6 CPU 上下文设置：原生 03 屏障计数确认 `0x3062:0x188`
+  surface DMA 设置反复触发回读。现复用 PGRAPH 方法白名单，
+  surface/clip/ROP/pattern 的纯 CPU 元数据设置保留待提交批次；
+  绘图内存访问和非法方法仍保持屏障。真实 GPU 中换绑后 IFC
+  读取新映射，两次绘制仍一批/一次回读、RGBA191；图形/2D、
+  完整 GPU/Closure 通过，见 `g6-context-setter-batching.json`。

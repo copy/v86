@@ -1320,7 +1320,8 @@ try
         assert.equal(engine.backend.barrier(upload,0x400,0),true,"paged IFC remains conservative");
         ram.setUint32(0x1800,0x703D,true);
         assert.equal(engine.backend.barrier(upload,0x400,0),true,"invalid write permission retires earlier work before trapping");
-        uploadSurface.methods.set(0x188,0x100);
+        assert.equal(graph.method(0,3,0x4000,0x188,0x100),true,"surface DMA context setter does not download queued 3D pixels");
+        assert.equal(engine.backend.stats.batches,beforeUpload.batches);
         assert.equal(uploadMethod(0x304,4),true);
         for(let i=0;i<4;i++)assert.equal(uploadMethod(0x400,floatWord(.5)),true);
         assert.equal(engine.backend.stats.batches,beforeUpload.batches,"disjoint IFC shader words keep the first draw queued");

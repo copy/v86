@@ -1,0 +1,29 @@
+{
+  "date": "2026-11-14",
+  "trigger": "Native 03 GT4 barrier counters identify class 0x3062 method 0x188 surface-DMA setters as repeated batch download boundaries.",
+  "behavior": "Reuse the PGRAPH context-method whitelist for CPU-only surface, clip, ROP and pattern metadata setters. Pending GPU commands retain their already-decoded state. Memory-writing drawing methods and invalid methods retain their previous barriers.",
+  "tests": {
+    "graphAndCPU2D": "pass",
+    "realWebGPU": "Set a different checked 2D surface DMA binding while a draw is queued, then upload the next fragment constants through IFC; both additive draws retain one batch/readback and RGBA191. Existing attachment-alias and full GPU suite passed.",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "limitation": "The diagnostic native run predates this optimization and does not establish a native FPS improvement or driver timeout recovery.",
+  "logs": {
+    "build/nv40-context-setter-native-barriers.json": {
+      "bytes": 744,
+      "sha256": "2a657aec6de067d3c6cc15965a3b1085a3a8fe13324fa0a887f54067a70a30f1"
+    },
+    "build/nv40-context-setter-unit.log": {
+      "bytes": 1558,
+      "sha256": "a35608e98eccdcec3db9fa1c02879d554dbaa651a0dc62a3af29aee7313faa30"
+    },
+    "build/nv40-context-setter-gpu.log": {
+      "bytes": 4885,
+      "sha256": "2f2bbb4b3564f8ac450c4736f00badfbf07f84b538604f81198e247814f388eb"
+    },
+    "build/nv40-context-setter-closure.log": {
+      "bytes": 3020,
+      "sha256": "6b9d8970c7c18b6d267ab94868ba727e8fe5de7e427bb4d0e60c686fad358f98"
+    }
+  }
+}

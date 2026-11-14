@@ -240,6 +240,14 @@ export class NVGraph
         else flip[3]=+(flip[0]===flip[1]);
     }
 
+    context_method(object,method)
+    {
+        const methods=CONTEXT_METHODS.get(object.class_id);
+        return !!methods && (methods.includes(method) || object.class_id===0x44 &&
+            (method>=0x400 && method<0x440 || method>=0x500 && method<0x580 ||
+                method>=0x600 && method<0x680 || method>=0x700 && method<0x800));
+    }
+
     method(channel, subc, instance, method, value)
     {
         if(!(this.reg(0x200) & 0x1000) || !(this.reg(0x400720) & 1)) return false;
@@ -266,9 +274,7 @@ export class NVGraph
             else if(method === 0x180) accepted = true;
             else if(CONTEXT_METHODS.has(object.class_id))
             {
-                accepted = accepted || CONTEXT_METHODS.get(object.class_id).includes(method);
-                if(object.class_id === 0x44) accepted = accepted || method >= 0x400 && method < 0x440 ||
-                    method >= 0x500 && method < 0x580 || method >= 0x600 && method < 0x680 || method >= 0x700 && method < 0x800;
+                accepted = accepted || this.context_method(object,method);
             }
             else if(object.class_id === 0x4097) accepted = accepted || this.engine3d.method(object, method, value, subc);
             else if(this.engine2d) accepted = accepted || this.engine2d.method(object, method, value);

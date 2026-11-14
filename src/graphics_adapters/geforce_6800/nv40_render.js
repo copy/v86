@@ -257,6 +257,9 @@ export class NV40Render
     barrier(o,method,value)
     {
         if(!this.batch)return false;
+        // Surface/clip/ROP/pattern context setters change CPU metadata only.
+        // Pending draw commands already contain their own decoded state.
+        if(this.device.graph.context_method(o,method))return false;
         if(o.class_id===0x39)
         {
             if([0x180,0x184,0x188,0x30C,0x310,0x314,0x318,0x31C,0x320,0x324].includes(method))return false;
