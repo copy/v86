@@ -1911,3 +1911,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   纹理可见，GPU/PGRAPH 故障为 0。像素历史诊断默认关闭且有界；强制
   逐绘制提交仅用于调查。见 `g4-native-color-interpolators.json`，03
   整套图像门禁仍继续。
+
+- G6 呈现诊断补齐：默认关闭的 `NV_WATCH_FLIP` 同时记录 Curie
+  `1D6C/1D70/1D74` 和 BLIT/Curie 翻页计数，仍限制 512 条；关闭完整
+  trace 时也可使用。原生 03 CPU 续跑捕获了普通 selector-zero fence，
+  目标 0 已有场景但当前扫描面仍黑；继续调查，未据此修改翻页或时钟。
+  见 `g6-native-presentation-trace.json`。

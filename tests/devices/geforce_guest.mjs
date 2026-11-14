@@ -478,7 +478,9 @@ export async function run_geforce_guest(win98)
             const original=nv.trace.record.bind(nv.trace),captures=[];
             nv.trace.record=(space,offset,size,write,value,implemented)=>{
                 original(space,offset,size,write,value,implemented);
-                const graphMethod=space==="graph" && offset>=0x4097*0x2000+0x120 && offset<=0x4097*0x2000+0x130;
+                const class_id=Math.floor(offset/0x2000),method=offset&0x1FFF;
+                const graphMethod=space==="graph" && ([0x4097,0x9F].includes(class_id) && method>=0x120 && method<=0x130 ||
+                    class_id===0x4097 && method>=0x1D6C && method<=0x1D74);
                 if(!write || !graphMethod && !(space==="mmio" && [0x400304,0x400310,0x40032C,0x400710,0x40071C,0x400720,0x600800].includes(offset)))return;
                 const position=nv.graph.flip_context_offset();
                 captures.push({elapsed:elapsed(),sequence:nv.trace.sequence,space,offset,value,eip:cpu.instruction_pointer[0]>>>0,

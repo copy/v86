@@ -1,0 +1,21 @@
+{
+  "date": "2026-11-14",
+  "scope": "Default-off bounded native presentation diagnosis. Include Curie 1D6C/1D70/1D74 releases and both Curie/BLIT flip-counter methods, alongside existing display/context MMIO.",
+  "run": "build/nv40-xp-mark03-cpu-presentation",
+  "records": 512,
+  "limit": 512,
+  "traceEnabled": false,
+  "gpu": {
+    "batches": 1486,
+    "draws": 5596,
+    "bytes": 835031872,
+    "readbacks": 1895,
+    "failures": 0,
+    "uploads": 513,
+    "uploadBytes": 122983836
+  },
+  "graphFaults": [],
+  "watchSha256": "9a85d89f51441bf6a57cbd75f363f7da393cf53f1649251cebbccdc98c0b1570",
+  "observation": "Native CPU-test continuation renders a complete Troll scene in target 0 while scanout at 0x130000 remains black. Captured release traffic is currently ordinary selector-zero fence updates. This is diagnostic evidence, not a claimed presentation fix.",
+  "unchanged": "Guest graphics APIs, driver, clocks and benchmark binary are unchanged."
+}
