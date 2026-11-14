@@ -1895,3 +1895,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   VP/FP/常量/纹理单独重放得到 5601 个蝴蝶像素、零黑色像素。
   完整 GT4 黑色区域仍未定位，不能据此称为修复，见
   `g4-native-alpha-cutout-regression.json`。
+
+- G3 XP 2000 无故障冷启动全跑：signed/packed/DP2 修复后重新从磁盘启动，
+  同一次原生运行完成全部 22 项并显示 61 分，144,035 次绘制、GPU/PGRAPH
+  故障均为 0。正常关机后导出 `NV2KSN.3DP` 和 18 张完整 IQ BMP，
+  RAM/OS/game 三件套与 SHA-256 manifest 保留，原盘未变。IQ 1/2 精确，
+  3–7 最大通道误差 8，8/9 仍有较大差异；并行调查分数不作为性能验收。
+  见 `g3-xp-9371-2000-full-clean.json`；完整图像和性能门禁仍未通过。

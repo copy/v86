@@ -1,0 +1,316 @@
+{
+  "date": "2026-11-14",
+  "status": "Cold native run completed all 22 selected tests without GPU/PGRAPH faults; project and IQ exported after normal shutdown. Image and performance gates remain open.",
+  "driver": "NVIDIA 93.71",
+  "settings": "1024x768x16, 16-bit textures, Z16, triple buffer, hardware T&L; all 22 tests including both IQ groups",
+  "score": {
+    "3DMarks": 61,
+    "performanceGate": false,
+    "reason": "Concurrent investigation jobs; score documents native completion only."
+  },
+  "run": {
+    "directory": "build/nv40-xp-2000-signed-cold",
+    "coldBoot": true,
+    "restoredGuestRAM": false,
+    "seconds": 2957,
+    "gpu": {
+      "batches": 20738,
+      "draws": 144035,
+      "bytes": 13748514264,
+      "readbacks": 35024,
+      "failures": 0,
+      "uploads": 81079,
+      "uploadBytes": 6277735288
+    },
+    "graphFaults": [],
+    "imageUnchanged": true,
+    "game": {
+      "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/3dmarklegacy.img",
+      "slot": "secondary-slave",
+      "imageUnchanged": true
+    }
+  },
+  "savedArtifacts": [
+    {
+      "file": "NV2KSN.3DP",
+      "name": "NV2KSN.3DP",
+      "bytes": 4809,
+      "sha256": "edb213d2fcedba4d2c7038ecc2313283a592a2a6651da12179ac1b430a4c0ddc"
+    },
+    {
+      "file": "Quality/IQ01I_NV2KSN.bmp",
+      "name": "Quality_IQ01I_NV2KSN.bmp",
+      "bytes": 249856,
+      "sha256": "9013df2843080d45e1d1a06276eb4e5dc708d4a8fa7897a99f8b7f9e95e44bf1"
+    },
+    {
+      "file": "Quality/IQ01T_NV2KSN.bmp",
+      "name": "Quality_IQ01T_NV2KSN.bmp",
+      "bytes": 16384,
+      "sha256": "73f01bc478ad38f5072245abb106b84a8211bc024aaafed0121a53d9b14cf8e3"
+    },
+    {
+      "file": "Quality/IQ02I_NV2KSN.bmp",
+      "name": "Quality_IQ02I_NV2KSN.bmp",
+      "bytes": 249856,
+      "sha256": "a3824c888535556fcd168789e3e3932ab4fcdefbcdf1cf35335ac2a06a51ce57"
+    },
+    {
+      "file": "Quality/IQ02T_NV2KSN.bmp",
+      "name": "Quality_IQ02T_NV2KSN.bmp",
+      "bytes": 16384,
+      "sha256": "61b644dcb080a9fdaae1ba27248edab7b1a6752671989d8671a6d83397d6358a"
+    },
+    {
+      "file": "Quality/IQ03I_NV2KSN.bmp",
+      "name": "Quality_IQ03I_NV2KSN.bmp",
+      "bytes": 249856,
+      "sha256": "70cc5b79626a263db10803db4a13a3c06ee1b742bae3b6a33cbf026dbb1549c9"
+    },
+    {
+      "file": "Quality/IQ03T_NV2KSN.bmp",
+      "name": "Quality_IQ03T_NV2KSN.bmp",
+      "bytes": 16384,
+      "sha256": "5686a82c8f579dffd9c7d4191cd15bb7b4c4243c0bd7877c2a8a7cdf6952fe53"
+    },
+    {
+      "file": "Quality/IQ04I_NV2KSN.bmp",
+      "name": "Quality_IQ04I_NV2KSN.bmp",
+      "bytes": 249856,
+      "sha256": "c978403856b9fa6e75ec820d05465e4f4f2766a65a6583c84d3f8059ddc89448"
+    },
+    {
+      "file": "Quality/IQ04T_NV2KSN.bmp",
+      "name": "Quality_IQ04T_NV2KSN.bmp",
+      "bytes": 16384,
+      "sha256": "6facf25a2be5c852e3bd864ff87a9461b7430333770e1386312ba92115a9d441"
+    },
+    {
+      "file": "Quality/IQ05I_NV2KSN.bmp",
+      "name": "Quality_IQ05I_NV2KSN.bmp",
+      "bytes": 249856,
+      "sha256": "1718091476349e6318cfdd747cf701b1d25b6f5cee38e29e9a4d723d68017338"
+    },
+    {
+      "file": "Quality/IQ05T_NV2KSN.bmp",
+      "name": "Quality_IQ05T_NV2KSN.bmp",
+      "bytes": 16384,
+      "sha256": "51a938f9ee46bab7f24c23d351ffcf2f1257a0ef257b08d4d184f7ff7af0dc2e"
+    },
+    {
+      "file": "Quality/IQ06I_NV2KSN.bmp",
+      "name": "Quality_IQ06I_NV2KSN.bmp",
+      "bytes": 249856,
+      "sha256": "c598d5f5efdd6964311b477153476a41379297e2b6b7ddbacb862a4d2f76cd53"
+    },
+    {
+      "file": "Quality/IQ06T_NV2KSN.bmp",
+      "name": "Quality_IQ06T_NV2KSN.bmp",
+      "bytes": 16384,
+      "sha256": "62d1f757cabd1074d1d660db47544549c7379ce1bbe2eae86e8b1e05950b1645"
+    },
+    {
+      "file": "Quality/IQ07I_NV2KSN.bmp",
+      "name": "Quality_IQ07I_NV2KSN.bmp",
+      "bytes": 249856,
+      "sha256": "a1a7884f85d1f13dcae9dbbbabd41c87333c9d95ae53677b5c67ed4f06e91ccd"
+    },
+    {
+      "file": "Quality/IQ07T_NV2KSN.bmp",
+      "name": "Quality_IQ07T_NV2KSN.bmp",
+      "bytes": 16384,
+      "sha256": "011d80de90bd626f027bc58d253efbc3b0fbe35fca0d336c3b0bee361997f634"
+    },
+    {
+      "file": "Quality/IQ08I_NV2KSN.bmp",
+      "name": "Quality_IQ08I_NV2KSN.bmp",
+      "bytes": 2560000,
+      "sha256": "a381df9819c4ca4232fc2f2ed3c1e23a14edce32b9ae053be25f12cb1569a334"
+    },
+    {
+      "file": "Quality/IQ08T_NV2KSN.bmp",
+      "name": "Quality_IQ08T_NV2KSN.bmp",
+      "bytes": 18496,
+      "sha256": "7f9dce50be30b2062a99aa308f248167af3447ec3bdf779f801adebe078e6952"
+    },
+    {
+      "file": "Quality/IQ09I_NV2KSN.bmp",
+      "name": "Quality_IQ09I_NV2KSN.bmp",
+      "bytes": 2560000,
+      "sha256": "a40ab344c7bc0a3ae50d7ef24e5f8ab2a3a599ad45f1dee934b798a074486073"
+    },
+    {
+      "file": "Quality/IQ09T_NV2KSN.bmp",
+      "name": "Quality_IQ09T_NV2KSN.bmp",
+      "bytes": 18496,
+      "sha256": "5d0b163f4494015797ba72620aff7179d10e435381cd01881800335ad1ab9f50"
+    }
+  ],
+  "comparison": [
+    {
+      "case": 1,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.0,
+      "max_channel_error": 0,
+      "exact_pixel_percent": 100.0,
+      "native_sha256": "9013df2843080d45e1d1a06276eb4e5dc708d4a8fa7897a99f8b7f9e95e44bf1",
+      "reference_sha256": "0da313c8b34fc7c4e08beb9cefa5a7c332d98086dc719abef4fe80f1a4c8d520"
+    },
+    {
+      "case": 2,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.0,
+      "max_channel_error": 0,
+      "exact_pixel_percent": 100.0,
+      "native_sha256": "a3824c888535556fcd168789e3e3932ab4fcdefbcdf1cf35335ac2a06a51ce57",
+      "reference_sha256": "c0f3de49a85e1e2b03e30140292cdc5a831cd5090d52da0ba186c017f3bd1bb9"
+    },
+    {
+      "case": 3,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 553,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.02008056640625,
+      "max_channel_error": 8,
+      "exact_pixel_percent": 99.15618896484375,
+      "native_sha256": "70cc5b79626a263db10803db4a13a3c06ee1b742bae3b6a33cbf026dbb1549c9",
+      "reference_sha256": "2c6b591c0d5ea4d299b7c5a63348502a82306cbcf5fa8af4ed34e6ed956d6d7d"
+    },
+    {
+      "case": 4,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 540,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.019999186197916668,
+      "max_channel_error": 8,
+      "exact_pixel_percent": 99.176025390625,
+      "native_sha256": "c978403856b9fa6e75ec820d05465e4f4f2766a65a6583c84d3f8059ddc89448",
+      "reference_sha256": "a5951c3c965c18c8dec33342d5414ca65deea79fbe1aef8deaadfb02307c451c"
+    },
+    {
+      "case": 5,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 617,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.020772298177083332,
+      "max_channel_error": 8,
+      "exact_pixel_percent": 99.05853271484375,
+      "native_sha256": "1718091476349e6318cfdd747cf701b1d25b6f5cee38e29e9a4d723d68017338",
+      "reference_sha256": "621317632376c082714ca4117bcd6181ca161f3a2a5c9f591e463b705a41dd83"
+    },
+    {
+      "case": 6,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 554,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.019999186197916668,
+      "max_channel_error": 8,
+      "exact_pixel_percent": 99.1546630859375,
+      "native_sha256": "c598d5f5efdd6964311b477153476a41379297e2b6b7ddbacb862a4d2f76cd53",
+      "reference_sha256": "d324ed6b6e7281769a857904bb2457ed92cc5fc01338cde89a9f2e0d97df9e77"
+    },
+    {
+      "case": 7,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 375,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.00762939453125,
+      "max_channel_error": 4,
+      "exact_pixel_percent": 99.42779541015625,
+      "native_sha256": "a1a7884f85d1f13dcae9dbbbabd41c87333c9d95ae53677b5c67ed4f06e91ccd",
+      "reference_sha256": "77d76eb60967406651b15c61a2e459ded9f5ac0d0aa5f186c72c73b2577c0d6b"
+    },
+    {
+      "case": 8,
+      "width": 1024,
+      "height": 832,
+      "roi_y": 64,
+      "different_pixels": 333674,
+      "pixels": 786432,
+      "mean_absolute_rgb_error": 6.551495022243923,
+      "max_channel_error": 176,
+      "exact_pixel_percent": 57.571156819661454,
+      "native_sha256": "a381df9819c4ca4232fc2f2ed3c1e23a14edce32b9ae053be25f12cb1569a334",
+      "reference_sha256": "fb969ac1941880a20d186f2ef8e392365f995460f2c2cccb943caf7014fa85af"
+    },
+    {
+      "case": 9,
+      "width": 1024,
+      "height": 832,
+      "roi_y": 64,
+      "different_pixels": 92886,
+      "pixels": 786432,
+      "mean_absolute_rgb_error": 4.003028021918403,
+      "max_channel_error": 248,
+      "exact_pixel_percent": 88.18893432617188,
+      "native_sha256": "a40ab344c7bc0a3ae50d7ef24e5f8ab2a3a599ad45f1dee934b798a074486073",
+      "reference_sha256": "16d5837ce7630b87f7bb9c9f9208bd7de01dc7886cf62c4287fb866710a56866"
+    }
+  ],
+  "comparisonMethod": "Original BMP RGB against stage6-2000-first proxy reference; exclude top 64 metadata rows only. No shifts, resampling or channel swaps.",
+  "observations": [
+    "Replaces earlier 23/92-point runs as fault-free completion evidence after DP2, packed aliases and signed byte texture fixes.",
+    "Original Congratulations window shows 61; saved project title is NV2KSN and Save IQ was checked.",
+    "Guest reached It is now safe to turn off your computer before final matching RAM/disk bundle was saved.",
+    "Harness result BLOCKED refers to deliberately unlaunched installation probe under NV_HOLD; benchmark evidence is the original score, project, images and fault trace, not that probe status.",
+    "IQ 1/2 are exact; 3-7 retain small quantization/filter residuals; larger game-frame IQ 8/9 differences remain. Full image gate is not accepted."
+  ],
+  "screenshots": {
+    "build/nv40-xp-2000-signed-cold/capture-0469.png": {
+      "bytes": 55699,
+      "sha256": "720630be9fa5cace0ba5696401b9b220b82f3df9ad0d984873090974676f024f"
+    },
+    "build/nv40-xp-2000-signed-cold/capture-0486.png": {
+      "bytes": 32593,
+      "sha256": "8df4cfb40fbb1a6c5551c018a44e6239e808e718b6c9ce76d28999843d0cc100"
+    },
+    "build/nv40-xp-2000-signed-cold/capture-0501.png": {
+      "bytes": 31222,
+      "sha256": "dfe3fbd66b6a72c96034117caebb038bcc3f4ccb3090fbc2cc270aa14a5377ca"
+    },
+    "build/nv40-xp-2000-signed-cold/capture-0545.png": {
+      "bytes": 6346,
+      "sha256": "f98dc3a08b2c22263dde39dfcbbf740011acb922f7814fae1957d803b26618f2"
+    }
+  },
+  "checkpointBundle": {
+    "status": "complete",
+    "guest": "xp",
+    "vramMiB": 128,
+    "osImage": "/Users/renruisi/Desktop/Code/retro-gaming-site/windowsxp/windowsxp_multidisk_C_4G.img",
+    "gameImage": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/3dmarklegacy.img",
+    "state": {
+      "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-xp-2000-signed-cold.state",
+      "bytes": 648093508,
+      "sha256": "d387d0ab983cfe9b3e61a85735d49302e447da6b9f78e9a81e924f1328b78084"
+    },
+    "osOverlay": {
+      "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-xp-2000-signed-cold-overlay.bin",
+      "bytes": 118018008,
+      "sha256": "93bac5ebf4f2a313ebe244118ab6c370e76ec5de068ab50cd21a6f772f62667d"
+    },
+    "gameOverlay": {
+      "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-xp-2000-signed-cold-game-overlay.bin",
+      "bytes": 2255472,
+      "sha256": "7aba892c8b0dea6d39697d9738ff3174443de8542624a4aa8d68ab7062bb53ce"
+    }
+  }
+}
