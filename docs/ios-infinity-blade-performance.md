@@ -56,7 +56,61 @@ BROWSER_FOCUS=1 TEST_ARTIFACT_DIR=build/ios/infinity-blade/acceptance \
 
 ## 验收状态
 
-预检已通过；实际安装和启动、动态场景帧率尚待验证。此处不声称已达到 60 fps。
+| 验收项 | 本轮结果 |
+| --- | --- |
+| 真实 UI 安装 | **通过**。MobileInstallation 完成，原生回查版本 1.4.3 和主程序代码摘要一致 |
+| 真实 UI 打开 | **请求被接受**。创建 `SwordGame`（pid 107），GLI 创建 context 37，原生屏幕显示 Unreal 启动画面 |
+| 进入动态游戏 / 可交互场景 | **失败**。首次加载触发媒体服务线程中的内核 panic |
+| 游戏 FPS / 60 fps 目标 | **无法测量 / 未通过**，不能把启动画面或浏览器刷新计为游戏帧率 |
+| 原包完整性 | 测试后 SHA-256 与测试前一致 |
+
+本轮旧核心的时间线，从测试页面加载起计（包含盘复制、启动和人工操作间隔，
+不是冷启动成绩或游戏加载成绩）：
+
+| 事件 | 时间 |
+| --- | ---: |
+| 开始向原生助手传输 | 195 s |
+| 613,364,632 bytes 传输完成 | 1081 s |
+| 原生 SHA-256 校验完成、staged | 1154 s |
+| 再次校验后调用原生安装器 | 1228 s |
+| 原生版本 / 代码摘要回查通过 | 1502 s |
+| UI 点击 Open application | 1504 s |
+| 原生启动请求接受 | 1508 s |
+
+### 首次运行的确定性阻塞
+
+串口报告：
+
+```text
+panic(cpu 0 caller 0x8008ce28): kernel abort type 4:
+fault_type=0x3, fault_addr=0xd2f048f0
+pc: 0x807fc1cc
+Task ... pid 42: mediaserverd
+```
+
+通过正在运行的客户机页表核对，故障 VA `0xd2f048f0` 映射到物理地址
+`0x841008f0`。10B329 原始 DeviceTree 的 `/arm-io/amc` 声明了
+`0x84100000+0x3000`、`0x84000000+0x40000`、`0x84300000+0x5000` 三个银行；
+故障 PC 位于预链接的 `com.apple.driver.AppleAMC_r2` 176.0.0
+（`0x807f5000+0x79000`）。本轮 CPU 的 MMIO 表没有覆盖该地址，N90 设备构造器也没有 AMC。
+这是已定位的音频硬件缺口，不能作为 IPA 签名失败或纯 GPU 性能问题处理。
+
+GLES 累计 draw 数停在 127，命令拒绝和着色器编译错误均为 0；这些主要是系统/UI
+启动画面的绘制，**127 不是 FPS**。在解决 AMC 访问、验证音频解码路线和重新进入动态
+游戏前，不应发布游戏帧率结论，也不应只填充零寄存器或伪造音频任务完成来宣称通过。
+
+后续顺序：验证 AMC 的寄存器、任务队列与完成中断，或通过原生软件解码路线完成兼容性
+验证；通过正常游戏场景后，再加入应用实际 present 的帧时间采样、检查限帧设置，
+区分 CPU、GPU 和 IOSurface 回读成本并做 A/B。60 fps 仍是未达成的目标。
+
+### 保留的本地产物
+
+`build/ios/infinity-blade/` 保留了预检、指令采样、原生进程状态、完整串口 panic、
+`acceptance/launch-*.png`、`acceptance/launch-samples.json` 和 `result.json`。
+已安装的独立测试盘另存为 `installed-after-panic.packed`，大小 4,000,751,104 bytes；
+关闭虚拟机后分块导出、合并并记录 SHA-256，避免丢失这次大包安装成果。
+此盘经历内核 panic 后的强制断电，下一次需要正常文件系统恢复，不能用来冒充干净关机的
+冷启动性能样本。原有机主虚拟机和 Downloads 原包均未修改。
 
 ## 已定位的 CPU 开销
 
@@ -68,4 +122,5 @@ BROWSER_FOCUS=1 TEST_ARTIFACT_DIR=build/ios/infinity-blade/acceptance \
 新增 `qspcopy` 的 10 个案例覆盖 IA/IB/DA/DB、写回、单独 SP 和条件不成立。
 解释器及启用 MMU 的 JIT 均与 QEMU 一致；JIT 循环的总 helper 数为 9。
 原有 10 组 A32/T32 回归通过，40 个随机程序、每个 100 个构造运行 32 轮，差异为 0。
-主核心与 fallback 均已构建。这一变化的游戏帧率收益仍须在启动游戏后测量。
+主核心与 fallback 均已构建。当前测试 VM 的核心在改动前已载入，因此上述首次运行结果
+仍来自旧核心；本轮没有对新核心做游戏帧率 A/B，不声称它已提高游戏 FPS。
