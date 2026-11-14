@@ -183,7 +183,7 @@ export async function run_geforce_guest(win98)
     const seconds = Number(process.env.NV_SECONDS || 360);
     const launch = Number(process.env.NV_LAUNCH_SECONDS || (process.env.NV_STATE_LOAD ? 10 : 90));
     assert(Number.isFinite(seconds) && seconds > 0 && seconds <= 3600);
-    let nv, error = null, launches = 0, next_launch = launch, cancelled = false, checkpoint = false;
+    let nv, error = null, launches = 0, next_launch = launch, cancelled = false, checkpoint = false, clock_start = 0;
     const cancel = () => { cancelled = true; };
     process.on("SIGINT", cancel);
     vm.add_listener("emulator-error", e => { error = String(e); });
@@ -195,6 +195,11 @@ export async function run_geforce_guest(win98)
     const control_file = process.env.NV_CONTROL || path.join(out, "control.json");
     const result_text = () => Buffer.from(read_fat16(tools.bytes, "NV.TXT") || []).toString("ascii");
     const trace_report = () => ({ ...nv.trace.report(),
+        clock: {mode:vm.v86.cpu.clock.mode, elapsedMs:vm.v86.cpu.clock.now()-clock_start,
+            hostElapsedMs:elapsed()*1000, ...vm.v86.cpu.clock.get_diagnostics()},
+        pit: {mode:Array.from(vm.v86.cpu.devices.pit.counter_mode),enabled:Array.from(vm.v86.cpu.devices.pit.counter_enabled),
+            reload:Array.from(vm.v86.cpu.devices.pit.counter_reload),startTime:Array.from(vm.v86.cpu.devices.pit.counter_start_time),
+            startValue:Array.from(vm.v86.cpu.devices.pit.counter_start_value)},
         registers: Array.from(nv.registers, ([offset, value]) => [offset.toString(16), value >>> 0]),
         pci: Array.from(nv.machine.pci_config()),
         cpu: {eip: vm.v86.cpu.instruction_pointer[0] >>> 0, regs: Array.from(vm.v86.cpu.reg32), halted: vm.v86.cpu.in_hlt[0], flags:vm.v86.cpu.get_eflags(),
@@ -223,7 +228,8 @@ export async function run_geforce_guest(win98)
         else if(game)await vm.run();
         const cpu = vm.v86.cpu;
         nv = cpu.devices.graphics_adapter.device["nv"];
-        nv.trace.enabled = true;
+        nv.trace.enabled = process.env.NV_TRACE !== "0";
+        clock_start = cpu.clock.now();
         if(process.env.NV_WATCH_FLIP)
         {
             const original=nv.trace.record.bind(nv.trace),captures=[];

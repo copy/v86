@@ -1,0 +1,111 @@
+{
+  "stage": "G6 Win98 3DMark99 bump-stage timing investigation",
+  "scope": "Two independent paired 90-second diagnostics from the same saved native benchmark state; not benchmark completion or a performance score. No query, fence or flip overrides.",
+  "checkpoint": "build/nv40-win98-mark99-continue2/checkpoint-bump-timing.state",
+  "runs": [
+    {
+      "label": "fast_refresh",
+      "artifact_directory": "build/nv40-win98-bump-poll-fast",
+      "seconds": 91,
+      "gpu": {
+        "batches": 13,
+        "draws": 13,
+        "bytes": 12748488,
+        "readbacks": 26,
+        "failures": 0,
+        "uploads": 30,
+        "uploadBytes": 11413160
+      },
+      "clock": null,
+      "graph_faults": 0,
+      "dma_faults": 0,
+      "original_image_unchanged": true,
+      "game_image_unchanged": true,
+      "error": null
+    },
+    {
+      "label": "slow_refresh",
+      "artifact_directory": "build/nv40-win98-bump-poll-slow",
+      "seconds": 91,
+      "gpu": {
+        "batches": 13,
+        "draws": 13,
+        "bytes": 12748488,
+        "readbacks": 26,
+        "failures": 0,
+        "uploads": 30,
+        "uploadBytes": 11413160
+      },
+      "clock": null,
+      "graph_faults": 0,
+      "dma_faults": 0,
+      "original_image_unchanged": true,
+      "game_image_unchanged": true,
+      "error": null
+    },
+    {
+      "label": "trace_off",
+      "artifact_directory": "build/nv40-win98-bump-trace-off",
+      "seconds": 93,
+      "gpu": {
+        "batches": 8,
+        "draws": 8,
+        "bytes": 10612728,
+        "readbacks": 16,
+        "failures": 0,
+        "uploads": 27,
+        "uploadBytes": 9427624
+      },
+      "clock": {
+        "mode": "normal",
+        "elapsedMs": 87387.00337526947,
+        "hostElapsedMs": 91031.921667,
+        "host_pause_count": 9,
+        "discarded_host_ms": 1132.5514589994855,
+        "host_backwards_count": 0,
+        "committed_instructions": 0,
+        "idle_ms": 0
+      },
+      "graph_faults": 0,
+      "dma_faults": 0,
+      "original_image_unchanged": true,
+      "game_image_unchanged": true,
+      "error": null
+    },
+    {
+      "label": "trace_on",
+      "artifact_directory": "build/nv40-win98-bump-trace-on",
+      "seconds": 92,
+      "gpu": {
+        "batches": 8,
+        "draws": 8,
+        "bytes": 10609032,
+        "readbacks": 16,
+        "failures": 0,
+        "uploads": 27,
+        "uploadBytes": 9427624
+      },
+      "clock": {
+        "mode": "normal",
+        "elapsedMs": 86831.90892040636,
+        "hostElapsedMs": 90429.6565,
+        "host_pause_count": 9,
+        "discarded_host_ms": 1132.5514589994855,
+        "host_backwards_count": 0,
+        "committed_instructions": 0,
+        "idle_ms": 0
+      },
+      "graph_faults": 0,
+      "dma_faults": 0,
+      "original_image_unchanged": true,
+      "game_image_unchanged": true,
+      "error": null
+    }
+  ],
+  "findings": [
+    "Changing harness refresh from 1 s to 0.1 s produced 13 draws in each of the first paired runs.",
+    "Disabling method/shader tracing produced 8 draws in each of the later paired runs under concurrent load. Do not compare their raw frame rates against the earlier pair.",
+    "The later runs advanced machine time by approximately 87 s over approximately 91 s of host time. This does not explain the long per-frame waits.",
+    "No GPU, PGRAPH or DMA failures occurred; continue investigating driver/synchronization waits."
+  ]
+}

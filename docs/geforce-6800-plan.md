@@ -1023,6 +1023,7 @@ CI 运行 `make devices-test` 与 `make test-glbridge`，浏览器与客体测�
   | `NV_OVERLAY_SAVE`、`NV_OVERLAY_LOAD` | 保存或加载 overlay |
   | `NV_GPU_RENDERER=chrome` | 渲染器放在无头 Chrome 里 |
   | `NV_OUT` | 输出目录 |
+  | `NV_TRACE=0` | 关闭方法/程序跟踪，保留故障、GPU 与翻译缓存计数；默认开启 |
   | `TEST_RELEASE_BUILD` | 用 release 构建 |
 
   XP 的配置与 XP 性能门禁相同：i440FX、IDE、无 ACPI，内存 1024–2048 MB。
@@ -1458,3 +1459,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   提交部分绘制及切回普通目标；CPU 状态测试与 Closure 构建通过。宿主约束
   核对 [WebGPU 规范](https://www.w3.org/TR/webgpu/#limits)；原生 HDR benchmark
   的完整验收继续后续实施。
+
+- G6 调查计量：客体 harness 输出机器时钟、宿主经过时间及 PIT 状态，新增
+  `NV_TRACE=0` 关闭记录路径以便与生产默认状态对照。Win98 同一 bump 检查点
+  两组配对各运行约 90 秒：10 倍刷新频率分别为 13/13 次绘制；另一组关闭/
+  开启跟踪分别为 8/8 次。后组机器时间约 87 秒、宿主约 91 秒，不能解释
+  数秒一帧的等待。两组负载不同，不比较跨组帧率；均无 GPU/PGRAPH/DMA
+  故障，原盘及游戏盘未变。见 `g6-win98-99-timing-investigation.json`；同步等待
+  根因和最终 3DMark06 性能报告仍未完成。
