@@ -1,0 +1,289 @@
+{
+  "stage": "G3 XP 93.71 corrected complete native 3DMark99 MAX run",
+  "scope": "All 26 selected tests completed in one corrected native run from the pre-launcher desktop state, with readable native scores and saved project/IQ artifacts. Remaining per-pixel differences and the other G3 guest/benchmark gates remain open. Not a cold-boot or isolated performance measurement.",
+  "started_from": "build/nv40-xp99-iq-ui3/checkpoint-desktop-before-launcher.state",
+  "run": "build/nv40-xp99-full-corrected",
+  "completed_state": "build/nv40-xp99-full-corrected.state",
+  "flushed_save_run": "build/nv40-xp99-full-save",
+  "saved_artifacts": "build/nv40-xp99-full-saved-artifacts",
+  "driver": "93.71",
+  "selected_tests": 26,
+  "settings": "800x600, 16-bit color, 16-bit Z, triple buffer; all default performance and IQ groups selected",
+  "scores": {
+    "3dmarks": 44,
+    "cpu_3dmarks": 14372
+  },
+  "source_fixes_verified": [
+    "NV texture A/R/G/B crossbar",
+    "Viewport-bypass homogeneous W",
+    "Packed INDEX font image streams"
+  ],
+  "gpu": {
+    "batches": 9242,
+    "draws": 55234,
+    "bytes": 10724169888,
+    "readbacks": 18479,
+    "failures": 0,
+    "uploads": 40171,
+    "uploadBytes": 5701117120
+  },
+  "graph_faults": [],
+  "error": null,
+  "original_image_unchanged": true,
+  "game_image_unchanged": true,
+  "captures": [
+    {
+      "file": "build/nv40-xp99-full-corrected/capture-0625.png",
+      "sha256": "e8bd07675f7ee9d982bddb8954732156cda11b02ff82d0dd54b9a4b4a9f4f2c4"
+    },
+    {
+      "file": "build/nv40-xp99-full-corrected/final.png",
+      "sha256": "b0e05a100b29c14227802a054523c4cd55615d5f9094f826c693812438ab5773"
+    }
+  ],
+  "artifacts": [
+    {
+      "file": "NVFULL.3DP",
+      "name": "NVFULL.3DP",
+      "bytes": 3795,
+      "sha256": "168067f2b1d5fde872b892485b7116696e9afb98b0a8099c30474ad49962b139"
+    },
+    {
+      "file": "Quality/IQ01I_NVFULL.bmp",
+      "name": "Quality_IQ01I_NVFULL.bmp",
+      "bytes": 249856,
+      "sha256": "c305d327f852c41d7fe5561f6efb44167a9f289887f50a7da90eb5dfb1f36476"
+    },
+    {
+      "file": "Quality/IQ01T_NVFULL.bmp",
+      "name": "Quality_IQ01T_NVFULL.bmp",
+      "bytes": 16384,
+      "sha256": "a1d5ae75bd0cb38446437d9a2f988f059c7648b9dfc2cbb71e5a0c607b282348"
+    },
+    {
+      "file": "Quality/IQ02I_NVFULL.bmp",
+      "name": "Quality_IQ02I_NVFULL.bmp",
+      "bytes": 249856,
+      "sha256": "4820e0ad4e1fa9f30e3945485cfa3ad4e6b4dab9789654e0514c972c59a97c7d"
+    },
+    {
+      "file": "Quality/IQ02T_NVFULL.bmp",
+      "name": "Quality_IQ02T_NVFULL.bmp",
+      "bytes": 16384,
+      "sha256": "d2f920990e5e1e245d13b95ba107aa8cc8b12453ccae45cfeca4b881a58002a0"
+    },
+    {
+      "file": "Quality/IQ03I_NVFULL.bmp",
+      "name": "Quality_IQ03I_NVFULL.bmp",
+      "bytes": 249856,
+      "sha256": "a994fec9da1403fca97d4013a53fe591b71e2e92cda997af13dc8700bf837593"
+    },
+    {
+      "file": "Quality/IQ03T_NVFULL.bmp",
+      "name": "Quality_IQ03T_NVFULL.bmp",
+      "bytes": 16384,
+      "sha256": "e600d2d900816eec7c74135f39fd88ace0ef2e35bc6ac62bf51f6e9488a66cb2"
+    },
+    {
+      "file": "Quality/IQ04I_NVFULL.bmp",
+      "name": "Quality_IQ04I_NVFULL.bmp",
+      "bytes": 249856,
+      "sha256": "9ba35cd803e64874e97e18b80ab1a9f6000fa2568fdf7bd1cad8a9939854fd22"
+    },
+    {
+      "file": "Quality/IQ04T_NVFULL.bmp",
+      "name": "Quality_IQ04T_NVFULL.bmp",
+      "bytes": 16384,
+      "sha256": "0649849a72ce41516f1794013464d6956619078926a600aa78f7baf64fc0d561"
+    },
+    {
+      "file": "Quality/IQ05I_NVFULL.bmp",
+      "name": "Quality_IQ05I_NVFULL.bmp",
+      "bytes": 249856,
+      "sha256": "cb5f831176675df21eb15dd372188aa66b639899354cb6323a5bc500ebc1f15c"
+    },
+    {
+      "file": "Quality/IQ05T_NVFULL.bmp",
+      "name": "Quality_IQ05T_NVFULL.bmp",
+      "bytes": 16384,
+      "sha256": "11d12edb2b5dac9619ef2cdf7d48cc0b46f8aea3cafdb01563cd7f26b7cb85b5"
+    },
+    {
+      "file": "Quality/IQ06I_NVFULL.bmp",
+      "name": "Quality_IQ06I_NVFULL.bmp",
+      "bytes": 249856,
+      "sha256": "3bbf7e6ba995eae48b4422ae8075e479fcbdadbebd330fdd6a81f06254fed116"
+    },
+    {
+      "file": "Quality/IQ06T_NVFULL.bmp",
+      "name": "Quality_IQ06T_NVFULL.bmp",
+      "bytes": 16384,
+      "sha256": "9311db7abf74f79ea5bdcb60aefc5c666a798bd8fac444bf7d014c2303dffd88"
+    },
+    {
+      "file": "Quality/IQ07I_NVFULL.bmp",
+      "name": "Quality_IQ07I_NVFULL.bmp",
+      "bytes": 249856,
+      "sha256": "a72354061e2ff957478ff4393766b629fdf78ee0d914040708e5b183a8ebd8d3"
+    },
+    {
+      "file": "Quality/IQ07T_NVFULL.bmp",
+      "name": "Quality_IQ07T_NVFULL.bmp",
+      "bytes": 16384,
+      "sha256": "d1798041e20c31b53c2408f0a24d9d43f78a06d74ba3dce3ee0864a0a9cfc26c"
+    },
+    {
+      "file": "Quality/IQ08I_NVFULL.bmp",
+      "name": "Quality_IQ08I_NVFULL.bmp",
+      "bytes": 1597696,
+      "sha256": "9d9fb949dbfed7a2b50f25df292722e877d52121ae809c7d80612ad45bd91c86"
+    },
+    {
+      "file": "Quality/IQ08T_NVFULL.bmp",
+      "name": "Quality_IQ08T_NVFULL.bmp",
+      "bytes": 18496,
+      "sha256": "f5d1ad3f859789fd1790c182e5fa27f67f3f0a99e9fff43ca7a5d9ed2fb01c60"
+    },
+    {
+      "file": "Quality/IQ09I_NVFULL.bmp",
+      "name": "Quality_IQ09I_NVFULL.bmp",
+      "bytes": 1597696,
+      "sha256": "18e54b2fc9000bcde5f9c43bda50bc0b7bc1aaf19ef5dbc01b2cdd1e2aec68b1"
+    },
+    {
+      "file": "Quality/IQ09T_NVFULL.bmp",
+      "name": "Quality_IQ09T_NVFULL.bmp",
+      "bytes": 18496,
+      "sha256": "ef83b88649e34c66f6223c8e3428b6d9a849882b0886a1393a63a76ef3652d4a"
+    }
+  ],
+  "iq_comparison": {
+    "reference": "build/d3d-review/stage6-99-scalar",
+    "method": "Original BMP pixels, RGB order unchanged, exclude only the top 64 metadata rows; no channel swaps, shifts or image corrections.",
+    "all_nine_numeric_results_equal_prior_corrected_iq_only_run": true,
+    "cases": [
+      {
+        "case": 1,
+        "width": 256,
+        "height": 320,
+        "roi_y": 64,
+        "different_pixels": 1,
+        "pixels": 65536,
+        "mean_absolute_rgb_error": 0.0038045247395833335,
+        "max_channel_error": 252,
+        "exact_pixel_percent": 99.99847412109375,
+        "native_sha256": "c305d327f852c41d7fe5561f6efb44167a9f289887f50a7da90eb5dfb1f36476",
+        "reference_sha256": "b010eb1527157c6bd27d249833060d1e81b3e98fbfe4efa5bd7a8701a092ef96"
+      },
+      {
+        "case": 2,
+        "width": 256,
+        "height": 320,
+        "roi_y": 64,
+        "different_pixels": 1,
+        "pixels": 65536,
+        "mean_absolute_rgb_error": 2.0345052083333332e-05,
+        "max_channel_error": 4,
+        "exact_pixel_percent": 99.99847412109375,
+        "native_sha256": "4820e0ad4e1fa9f30e3945485cfa3ad4e6b4dab9789654e0514c972c59a97c7d",
+        "reference_sha256": "e073e322a024dc775adefce4b908ea25a84f950dc479717d12d5d9be4317e236"
+      },
+      {
+        "case": 3,
+        "width": 256,
+        "height": 320,
+        "roi_y": 64,
+        "different_pixels": 608,
+        "pixels": 65536,
+        "mean_absolute_rgb_error": 0.017923990885416668,
+        "max_channel_error": 8,
+        "exact_pixel_percent": 99.072265625,
+        "native_sha256": "a994fec9da1403fca97d4013a53fe591b71e2e92cda997af13dc8700bf837593",
+        "reference_sha256": "2748efd53df08b966976ca94f613898293021687ad54674c7bcb4cd7f18010b2"
+      },
+      {
+        "case": 4,
+        "width": 256,
+        "height": 320,
+        "roi_y": 64,
+        "different_pixels": 539,
+        "pixels": 65536,
+        "mean_absolute_rgb_error": 0.0167236328125,
+        "max_channel_error": 8,
+        "exact_pixel_percent": 99.17755126953125,
+        "native_sha256": "9ba35cd803e64874e97e18b80ab1a9f6000fa2568fdf7bd1cad8a9939854fd22",
+        "reference_sha256": "55393fd1fa089d180361b57df9918fc818929b36fc936164c60aac18642681b5"
+      },
+      {
+        "case": 5,
+        "width": 256,
+        "height": 320,
+        "roi_y": 64,
+        "different_pixels": 714,
+        "pixels": 65536,
+        "mean_absolute_rgb_error": 0.02239990234375,
+        "max_channel_error": 8,
+        "exact_pixel_percent": 98.9105224609375,
+        "native_sha256": "cb5f831176675df21eb15dd372188aa66b639899354cb6323a5bc500ebc1f15c",
+        "reference_sha256": "725c91384282e03db2b505e020ce926ee32fee5440c218d62dcb9f84e8195d4c"
+      },
+      {
+        "case": 6,
+        "width": 256,
+        "height": 320,
+        "roi_y": 64,
+        "different_pixels": 548,
+        "pixels": 65536,
+        "mean_absolute_rgb_error": 0.019490559895833332,
+        "max_channel_error": 8,
+        "exact_pixel_percent": 99.163818359375,
+        "native_sha256": "3bbf7e6ba995eae48b4422ae8075e479fcbdadbebd330fdd6a81f06254fed116",
+        "reference_sha256": "02d47a2df3ea5c3cf99e3a49dd49f53aacebac3eb279c3aad93d28286e31ee4a"
+      },
+      {
+        "case": 7,
+        "width": 256,
+        "height": 320,
+        "roi_y": 64,
+        "different_pixels": 478,
+        "pixels": 65536,
+        "mean_absolute_rgb_error": 0.012613932291666666,
+        "max_channel_error": 8,
+        "exact_pixel_percent": 99.2706298828125,
+        "native_sha256": "a72354061e2ff957478ff4393766b629fdf78ee0d914040708e5b183a8ebd8d3",
+        "reference_sha256": "ff472d99c92c1c77d4c4fa74fee298ac5f21606a3ee184885e975dd8eb2cdf70"
+      },
+      {
+        "case": 8,
+        "width": 800,
+        "height": 664,
+        "roi_y": 64,
+        "different_pixels": 200162,
+        "pixels": 480000,
+        "mean_absolute_rgb_error": 1.8248,
+        "max_channel_error": 120,
+        "exact_pixel_percent": 58.29958333333334,
+        "native_sha256": "9d9fb949dbfed7a2b50f25df292722e877d52121ae809c7d80612ad45bd91c86",
+        "reference_sha256": "4466e3fb5b8133c4cc2bb8e8ef7d8c73e6104329a27c6e107528efcac809a6e1"
+      },
+      {
+        "case": 9,
+        "width": 800,
+        "height": 664,
+        "roi_y": 64,
+        "different_pixels": 117870,
+        "pixels": 480000,
+        "mean_absolute_rgb_error": 1.306788888888889,
+        "max_channel_error": 108,
+        "exact_pixel_percent": 75.44375,
+        "native_sha256": "18e54b2fc9000bcde5f9c43bda50bc0b7bc1aaf19ef5dbc01b2cdd1e2aec68b1",
+        "reference_sha256": "9399f3c5c5f8fc4f59ff6d269abb7a935c8acc1f7825fe2ab82e6a90bad9777e"
+      }
+    ]
+  },
+  "notes": [
+    "The first Save As completed before the harness time limit, but the immediate offline FAT export still lacked dirty filesystem entries. The completed VM was resumed and a normal guest shutdown requested; the subsequent state contains the saved native project and all 18 BMPs.",
+    "Scores reflect concurrent native workloads and the diagnostic source build; they are evidence of completion, not final G6 performance results.",
+    "Native 99 game-image residuals and the isolated IQ01 coverage pixel remain recorded; do not claim bit-exact hardware output or whole-plan completion."
+  ]
+}
