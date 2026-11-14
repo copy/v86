@@ -106,6 +106,49 @@
     "Changing harness refresh from 1 s to 0.1 s produced 13 draws in each of the first paired runs.",
     "Disabling method/shader tracing produced 8 draws in each of the later paired runs under concurrent load. Do not compare their raw frame rates against the earlier pair.",
     "The later runs advanced machine time by approximately 87 s over approximately 91 s of host time. This does not explain the long per-frame waits.",
-    "No GPU, PGRAPH or DMA failures occurred; continue investigating driver/synchronization waits."
-  ]
+    "No GPU, PGRAPH or DMA failures occurred; continue investigating driver/synchronization waits.",
+    "A separate native desktop probe reports QPF=1193180 Hz; three Sleep(5000) intervals advance GetTickCount by exactly 5000 ms and QPC by approximately 4.999 s. This does not establish timing under the running benchmark. TSC wall-time deltas vary, especially the first sample, and are preserved rather than normalized."
+  ],
+  "native_api_clock_probe": {
+    "directory": "build/nv40-win98-native-clock",
+    "context": "cold desktop from the installed 81.98 benchmark OS overlay; GPU renderer disabled, no benchmark APIs replaced",
+    "source": "build/nv40_clock_probe.c",
+    "probe_sha256": "22055dcded07cd55ebfa94ecad26ec68a08faa4efbb2044d8a8aae9facae7a33",
+    "frequency_hz": 1193180,
+    "samples": [
+      {
+        "sample": 0,
+        "tick_ms": 5000,
+        "qpc_delta_lo": 5964209,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 156390737,
+        "tsc_delta_hi": 3,
+        "qpc_seconds": 4.998582778792806,
+        "tsc_seconds_at_1GHz": 13.041292625
+      },
+      {
+        "sample": 1,
+        "tick_ms": 5000,
+        "qpc_delta_lo": 5963880,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1286125246,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.998307045039307,
+        "tsc_seconds_at_1GHz": 5.581092542
+      },
+      {
+        "sample": 2,
+        "tick_ms": 5000,
+        "qpc_delta_lo": 5964641,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1081823454,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.99894483648737,
+        "tsc_seconds_at_1GHz": 5.37679075
+      }
+    ],
+    "original_image_unchanged": true,
+    "error": null,
+    "status_note": "Harness BLOCKED is expected: the clock-only probe intentionally does not print device-initialization evidence."
+  }
 }
