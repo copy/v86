@@ -54,6 +54,10 @@ static void object_query(struct context *ctx, unsigned name, unsigned pname, int
     if(!SEND(ctx->driver.connection, opcode, name, pname, 4) ||
         !gles_read(ctx->driver.connection, out, 4)) ctx->driver.ok = 0;
 }
+static void renderbuffer_query(struct context *ctx, unsigned target, unsigned pname, int *out)
+{
+    object_query(ctx, target, pname, out, gles2_glGetRenderbufferParameteriv);
+}
 static void shader_query(struct context *ctx, unsigned name, unsigned pname, int *out)
 {
     object_query(ctx, name, pname, out, gles2_glGetShaderiv);
@@ -88,6 +92,7 @@ static void shader_text(struct context *ctx, unsigned name, int size, int *lengt
 
 static void install_query_functions(driver_word *table)
 {
+    table[N90_glGetRenderbufferParameteriv - 5] = (driver_word)renderbuffer_query;
     table[N90_glGetIntegerv - 5] = (driver_word)get_integers;
     table[N90_glGetFloatv - 5] = (driver_word)get_floats;
     table[N90_glGetBooleanv - 5] = (driver_word)get_booleans;
