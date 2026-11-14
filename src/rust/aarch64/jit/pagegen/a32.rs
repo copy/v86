@@ -252,6 +252,8 @@ pub fn kind_name(kind: &Kind) -> String {
 /// Data processing's second operand
 #[derive(Clone, Copy)]
 pub enum Operand {
+    /// T16 high-register ADD/CMP/MOV reads PC + 4 without ADR's alignment.
+    ThumbPc,
     /// a constant, and its shifter carry (None: C as it was)
     Imm { value: u32, carry: Option<bool> },
     /// a register shifted by a constant: `kind` 0 LSL, 1 LSR, 2 ASR, 3 ROR,
@@ -1583,28 +1585,31 @@ fn t32_native(word: u32, length: u8) -> Option<Kind> {
                         _ => None,
                     };
                 }
-                // ADD, CMP, MOV of the high registers (not of the PC)
+                // ADD/MOV: a source PC is the unaligned PC + 4.
+                // Destinations of PC retain the interpreter's branch path.
                 let rdn = (hw >> 4 & 8 | hw & 7) as u8;
                 let rm = (hw >> 3 & 15) as u8;
-                if rm == 15 || rdn == 15 {
+                let op = hw >> 8 & 3;
+                if rdn == 15 || op == 1 && (rm == 15 || rdn < 8 && rm < 8) {
                     return None;
                 }
-                match hw >> 8 & 3 {
+                let source = if rm == 15 { Operand::ThumbPc } else { reg(rm) };
+                match op {
                     0 => Some(Kind::Data {
                         op: ADD,
                         s: false,
                         rd: rdn,
                         rn: rdn,
-                        op2: reg(rm),
+                        op2: source,
                         cond: 14,
                     }),
-                    1 => data(CMP, 0, rdn, reg(rm)),
+                    1 => data(CMP, 0, rdn, source),
                     2 => Some(Kind::Data {
                         op: MOV,
                         s: false,
                         rd: rdn,
                         rn: NONE,
-                        op2: reg(rm),
+                        op2: source,
                         cond: 14,
                     }),
                     _ => None,
@@ -2456,6 +2461,12 @@ impl Emitter<'_> {
     /// `carry` and the operand has one (the answer)
     fn operand2(&mut self, op2: Operand, offset: u16, carry: bool) -> bool {
         match op2 {
+            Operand::ThumbPc => {
+                self.linear(offset as u64 + 4);
+                self.b.wrap_i64_to_i32();
+                self.si(A1);
+                false
+            },
             Operand::Imm { value, carry: c } => {
                 self.c32(value as i32);
                 self.si(A1);
