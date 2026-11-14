@@ -727,8 +727,8 @@ impl Emitter<'_> {
     fn load_registers(&mut self) {
         // (AArch32's registers and NZCV stay in memory: pagegen::a32)
         let a64 = self.env.isa == Isa::A64;
-        if a64 {
-            for i in 0..32 {
+        if a64 || self.env.aligned_data {
+            for i in 0..if a64 { 32 } else { 15 } {
                 self.load64(x_address(i));
                 self.s(i);
             }
@@ -746,6 +746,9 @@ impl Emitter<'_> {
     }
     fn writeback(&mut self) {
         if self.env.isa != Isa::A64 {
+            if self.env.aligned_data {
+                for i in 0..15 { self.store64_at(x_address(i), i); }
+            }
             self.store64_at(state::pc as u32, PC);
             return;
         }

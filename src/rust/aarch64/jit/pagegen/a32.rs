@@ -2368,16 +2368,22 @@ pub(super) fn discover(
 
 impl Emitter<'_> {
     /// Push X[n]'s low half, an i32 (R0-R14 in memory)
-    fn r32(&mut self, n: u8) { self.load32(super::x_address(n as usize)); }
+    fn r32(&mut self, n: u8) {
+        if self.env.aligned_data {
+            self.g(n as usize);
+            self.b.wrap_i64_to_i32();
+        } else { self.load32(super::x_address(n as usize)); }
+    }
     /// LR := the address after the instruction (T32's with bit 0 set)
     fn link(&mut self, offset: u16, length: u8) {
-        self.c32(super::x_address(14) as i32);
+        if !self.env.aligned_data { self.c32(super::x_address(14) as i32); }
         self.linear(offset as u64 + length as u64);
         self.c64(if self.env.isa == Isa::T32 { 1 } else { 0 });
         self.b.or_i64();
         self.c64(0xFFFF_FFFF);
         self.b.and_i64();
-        self.b.store_aligned_i64(0);
+        if self.env.aligned_data { self.s(14); }
+        else { self.b.store_aligned_i64(0); }
     }
 
     // ---- Q6.2's native forms: the registers and NZCV in memory
@@ -2399,10 +2405,11 @@ impl Emitter<'_> {
     }
     /// R[n] := the i32 in local `l`
     fn set_r32(&mut self, n: u8, l: usize) {
-        self.c32(super::x_address(n as usize) as i32);
+        if !self.env.aligned_data { self.c32(super::x_address(n as usize) as i32); }
         self.gi(l);
         self.b.extend_unsigned_i32_to_i64();
-        self.b.store_aligned_i64(0);
+        if self.env.aligned_data { self.s(n as usize); }
+        else { self.b.store_aligned_i64(0); }
     }
     /// Push NZCV (memory's)
     fn nzcv(&mut self) { self.load32(state::nzcv as u32); }
@@ -2831,9 +2838,10 @@ impl Emitter<'_> {
             if writeback {
                 self.set_r32(rn, A2);
             }
-            self.c32(super::x_address(rt as usize) as i32);
+            if !self.env.aligned_data { self.c32(super::x_address(rt as usize) as i32); }
             self.g(super::T1);
-            self.b.store_aligned_i64(0);
+            if self.env.aligned_data { self.s(rt as usize); }
+            else { self.b.store_aligned_i64(0); }
         }
         else {
             self.operand(rt, offset);
@@ -2907,14 +2915,15 @@ impl Emitter<'_> {
         let mut at = 0;
         for r in (0..15u8).filter(|r| list & 1 << r != 0) {
             if load {
-                self.c32(super::x_address(r as usize) as i32);
+                if !self.env.aligned_data { self.c32(super::x_address(r as usize) as i32); }
                 self.gi(super::HH);
                 if at != 0 {
                     self.c32(at);
                     self.b.add_i32();
                 }
                 self.load_value(2, false, true);
-                self.b.store_aligned_i64(0);
+                if self.env.aligned_data { self.s(r as usize); }
+                else { self.b.store_aligned_i64(0); }
             }
             else {
                 self.gi(super::HH);
@@ -3025,6 +3034,7 @@ impl Emitter<'_> {
     /// A helper call: the interpreter's execute of the instruction
     /// (pages::a32_page_helper), a refusal retried in the interpreter
     fn a32_helper(&mut self, word: u32, length: u8, offset: u16) {
+        if self.env.aligned_data { self.writeback(); }
         self.c32(word as i32);
         self.linear(offset as u64);
         self.c32(length as i32);
@@ -3035,6 +3045,11 @@ impl Emitter<'_> {
                 &[WasmType::I32],
             ),
         );
+        if self.env.aligned_data {
+            self.si(super::ST);
+            self.load_registers();
+            self.gi(super::ST);
+        }
         self.retry_if(offset);
     }
 
@@ -3498,14 +3513,15 @@ impl Emitter<'_> {
         self.si(super::HH);
         for (k, r) in [rt, rt2].into_iter().enumerate() {
             if load {
-                self.c32(super::x_address(r as usize) as i32);
+                if !self.env.aligned_data { self.c32(super::x_address(r as usize) as i32); }
                 self.gi(super::HH);
                 if k != 0 {
                     self.c32(4);
                     self.b.add_i32();
                 }
                 self.load_value(2, false, true);
-                self.b.store_aligned_i64(0);
+                if self.env.aligned_data { self.s(r as usize); }
+                else { self.b.store_aligned_i64(0); }
             }
             else {
                 self.gi(super::HH);
