@@ -1021,6 +1021,7 @@ CI 运行 `make devices-test` 与 `make test-glbridge`，浏览器与客体测�
   | `NV_DRIVER` | 驱动安装包 |
   | `NV_HDB` | 3DMark 镜像（第二块盘） |
   | `NV_OVERLAY_SAVE`、`NV_OVERLAY_LOAD` | 保存或加载 overlay |
+  | `NV_STATE_SAVE`、`NV_STATE_LOAD` | 保存/恢复 RAM；有 `.bundle.json` 时自动核对 RAM 与 OS/game overlay 的尺寸、SHA、客体、显存及原盘路径 |
   | `NV_GPU_RENDERER=chrome` | 渲染器放在无头 Chrome 里 |
   | `NV_OUT` | 输出目录 |
   | `NV_TRACE=0` | 关闭方法/程序跟踪，保留故障、GPU 与翻译缓存计数；默认开启 |
@@ -1872,3 +1873,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   03 release 原生续跑已捕获查询、信号量、surface DMA 与附件切换，
   用于定位后续优化。首错诊断另保留 GET 附近 128-byte 原始命令。
   见 `g6-batch-barrier-diagnostics.json`，不把并发运行计为独立性能报告。
+
+- G1/G6 检查点加载校验：存在 `.bundle.json` 时，在创建客体/
+  渲染器前验证 complete 状态、guest/VRAM/原盘路径及三份组件
+  的尺寸和流式 SHA；同内容的异名副本允许，缺失或错误 overlay
+  拒绝。真实 03 成套文件通过，其他 XP OS overlay 被拒绝；
+  早期 GT4 的 OS overlay 在该续跑中未变化，字节相同因此合法。
+  旧无 manifest 状态仍只作调查恢复，见 `g6-checkpoint-load-verification.json`。

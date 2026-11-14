@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-14",
+  "behavior": "Before creating the guest or Chrome renderer, if STATE.bundle.json exists, require complete status, matching guest/VRAM/base image paths, and RAM/OS/game companion sizes and streamed SHA-256. Identical copies at different paths are accepted. Legacy snapshots without manifests retain their investigation restore path.",
+  "tests": {
+    "unit": "Matching and relocated companions accepted; same-size wrong pagefile bytes, missing overlays, wrong guest/VRAM/game image, changed RAM size and incomplete manifest rejected. Added to devices-test.",
+    "nativeFiles": "Real XP 03 bundle: 1424508652-byte RAM, 105930708-byte OS overlay, 28414-byte game overlay verified. Earlier GT4 source OS overlay was byte-identical and correctly accepted; another native XP OS overlay was rejected."
+  },
+  "limitation": "Legacy snapshots without manifests cannot have disk pairing retroactively proven. This does not attribute earlier native failures to disk mismatch.",
+  "logs": {
+    "build/nv40-checkpoint-load-unit.log": {
+      "bytes": 133,
+      "sha256": "f396fde261208f1eec3cd14b8f944af4df0a3d12aabe0975d10ac436515e8faa"
+    },
+    "build/nv40-checkpoint-load-native.log": {
+      "bytes": 274,
+      "sha256": "b9eb11b32ff1bdd42ae2228959de16bb631e623638fdeaba47c3b3bb2662f31d"
+    }
+  }
+}

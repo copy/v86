@@ -12,6 +12,7 @@ import { make_esp } from "../lib/fat.mjs";
 import { PictureSink, save_png } from "../lib/picture_sink.mjs";
 import { site_directory } from "../lib/site.mjs";
 import { read_fat32_file } from "../lib/fat32_reader.mjs";
+import { verify_geforce_checkpoint_bundle } from "../lib/geforce_checkpoint.mjs";
 const release_build = !!+process.env.TEST_RELEASE_BUILD;
 const { V86 } = await import(release_build ? "../../build/libv86.mjs" : "../../src/main.js");
 
@@ -189,13 +190,17 @@ export async function run_geforce_guest(win98)
     const game=game_path?new ReadOnlyOverlayDisk(game_path):null,game_before=game_path?fs.statSync(game_path):null;
     if(game && process.env.NV_GAME_OVERLAY_LOAD)game.set_state(deserialize(fs.readFileSync(process.env.NV_GAME_OVERLAY_LOAD)));
     const sink = new ProbeSink();
+    const vram_mb=Number(process.env.NV_VRAM_MB || 128);assert([128,256].includes(vram_mb));
+    const restored_bundle=await verify_geforce_checkpoint_bundle({state:process.env.NV_STATE_LOAD,
+        osOverlay:process.env.NV_OVERLAY_LOAD,gameOverlay:process.env.NV_GAME_OVERLAY_LOAD,
+        guest:win98?"win98":"xp",vramMiB:vram_mb,osImage:image,gameImage:game_path});
+    if(restored_bundle)console.log("NV40 verified matching checkpoint RAM/disk bundle");
     let remote=null;
     if(process.env.NV_GPU_RENDERER==="chrome")
     {
         const {create_remote_renderer}=await import("../x64/gpu_remote_renderer.mjs");
         remote=await create_remote_renderer({on_log:line=>console.log("NV40 GPU:",line)});
     }
-    const vram_mb=Number(process.env.NV_VRAM_MB || 128);assert([128,256].includes(vram_mb));
     const wasm_path=path.resolve(process.env.NV_WASM || path.join(root,"build",release_build?"v86.wasm":"v86-debug.wasm"));
     const vm = new V86({ ...(remote?{graphics_adapter_renderer_channel:remote.renderer}:{}), disable_jit:!!process.env.NV_DISABLE_JIT, wasm_path, graphics_adapter: "geforce_6800", vram_size: vram_mb << 20,
         bios: { url: root + "bios/seabios.bin" },
