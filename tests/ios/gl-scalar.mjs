@@ -33,6 +33,7 @@ for(const [name, ret, params] of commands)
         ret === "void" ? "      " + call + ";" : "      if(" + call + " != " + (ret === "u8" ? 1 : 0x34567812) + ") return 1;",
         "      if(!driver.ok || sent != 1 || read_back != " + Number(ret !== "void") + ") { puts(\"" + name + "\"); return 1; } }");
 }
+const mmu = process.env.IOS_SCALAR_MMU === "1";
 const c = `#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -55,8 +56,19 @@ static int gles_read(unsigned conn, void *out, unsigned n)
 }
 #include "gl-scalar.h"
 static driver_word tls[64], table[N90_GL_TABLE_WORDS];
+${mmu ? `static uint32_t l1[4096] __attribute__((aligned(16384)));
+static void enable_mmu(void)
+{
+    for(unsigned i = 0; i < 4096; i++) l1[i] = (i << 20) | 0xc02;
+    unsigned table = (uintptr_t)l1, domain = 3, zero = 0, control;
+    __asm__ volatile("mcr p15,0,%0,c2,c0,0\\n\\tmcr p15,0,%1,c3,c0,0\\n\\tmcr p15,0,%2,c2,c0,2\\n\\tdsb sy\\n\\tisb" :: "r"(table),"r"(domain),"r"(zero) : "memory");
+    __asm__ volatile("mrc p15,0,%0,c1,c0,0" : "=r"(control));
+    control |= 1;
+    __asm__ volatile("mcr p15,0,%0,c1,c0,0\\n\\tisb" :: "r"(control) : "memory");
+}` : ""}
 int main(void)
 {
+    ${mmu ? "enable_mmu();" : ""}
     struct n90_driver driver = {27, 1};
     driver_word ptr = (driver_word)tls;
     __asm__ volatile("mcr p15,0,%0,c13,c0,3\\n\\tisb" :: "r"(ptr) : "memory");
@@ -73,4 +85,5 @@ const guest = build32("ios-scalar-wire", [path.join(dir, "scalars.c"), path.join
 const result = await actual32(guest, { timeout: 30000 });
 assert.equal(result.status, "ok", result.text);
 assert.match(result.text, /all scalar packets passed/);
+if(mmu && +process.env.A64_JIT) assert.ok(result.page_tier.activations > 0, "the MMU/JIT run must execute compiled code");
 console.log("PASS: " + commands.length + " original N90 OpenGLES entry points emitted the expected scalar packets and returned the host results");
