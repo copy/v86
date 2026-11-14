@@ -1,6 +1,6 @@
 # GeForce 6800 GT（NV40）显示适配器实施计划
 
-状态：实施中，G0 探路。2026-10-26 初稿；2026-11-13 开始实现。所有者决定模拟 AGP 版 GeForce 6800 GT。
+状态：实施中；XP/Win98 原生驱动、显示、DirectDraw 和 DxDiag 已验证，完整 3DMark 图像与性能门禁未完成。2026-10-26 初稿；2026-11-13 开始实现。所有者决定模拟 AGP 版 GeForce 6800 GT，当前在 i440FX 上以 PCI 模式运行。
 
 ### 实施记录（2026-11-13）
 
@@ -941,7 +941,7 @@ StretchRect），在 GPU 上执行（`STRETCH_RECT`），见“显存一致性�
 ### G3 3D 基础
 
 - `NV40_3D` 的状态、表面与纹理缓存、绘制、清除、坐标约定；VP/FP 的直线代码（无分支），覆盖驱动为
-  固定功能生成的程序；D9WG 协议 1.8。
+  固定功能生成的程序；共享 D9WG 协议的 NV40 私有扩展。
 
 验收：
 
@@ -1044,7 +1044,7 @@ CI 运行 `make devices-test` 与 `make test-glbridge`，浏览器与客体测�
 | 3DMark03、05、06 | 有：`retro-gaming-site/game/3dmark03.img`、`3dmark05.img`、`3dmark06.img`（已核对不含 D3D9 代理的 DLL） | G4 |
 | 3DMark99 MAX、2000、2001 SE（与 Everest） | 有：`retro-gaming-site/game/3dmarklegacy.img` | G3–G5 |
 | 3DMark 注册码 | UL 官方 [legacy benchmarks](https://benchmarks.ul.com/legacy-benchmarks) 页面公布 | G4 |
-| ForceWare 81.98（Win9x）、81.98（XP）、93.71（XP）、307.83（XP） | 没有：所有者从 NVIDIA 官方存档下载 | G0–G5 |
+| ForceWare 81.98（Win9x）、93.71（XP） | 已下载并在原生客体中验证；安装包留在忽略目录 | G0–G5 |
 | OpenGL 游戏 | 没有：所有者提供 | O1 |
 
 各版 3DMark 的系统要求不同：98 上测 99 MAX、2000、2001 SE、03；05 与 06 只在 XP 上测。
@@ -1063,15 +1063,15 @@ CI 运行 `make devices-test` 与 `make test-glbridge`，浏览器与客体测�
 | 性能：FIFO 解析与翻译在 JS 中进行 | CPU 侧开销 | 翻译缓存（内联常量去除后的键）、按区间的上传缓存、批量提交；G6 测量 |
 | 98 的老游戏缺调色板纹理 | 部分 DX5/6 游戏贴图错 | 真卡行为，记入客体说明；需要时 98 预设继续用其他适配器 |
 
-## 待所有者决定
+## 初稿配置项的实施复核
 
-1. 适配器名 `"geforce_6800"`（Bochs 用 `geforce6800`）是否合适。
-2. 默认显存 256 MiB（可选 128 MiB）。
-3. XP 的主驱动用 93.71 还是 307.83。
-4. G0 若证明需要 AGP，是否做 A1（i440BX 机器类型）。
-5. XP 与 98 的预设在 G7 后是否默认用它。
-6. D9WG 协议升到 1.8（私有操作码与视口命令）。
-7. 是否做 O1、V1、W1。
+1. 已采用适配器名 `"geforce_6800"`。
+2. 默认显存 256 MiB，可选 128 MiB。
+3. 已验证 XP 93.71 与 Win98 81.98，其他驱动版本未计作验收。
+4. 两种驱动都接受当前 PCI 模式，G0 未触发 A1 的 AGP 前置条件。
+5. XP 与 98 的现有预设继续使用原适配器；NV40 保持 experimental，完整门禁后再评估默认选择。
+6. 已接入共享 D9WG 执行器及 NV40 私有操作码、视口和采样状态。
+7. O1、V1、W1 保留为可选阶段，不计入当前 G0–G7 门禁。
 
 ## 建议的首批提交
 
@@ -1444,3 +1444,8 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   差异，原始 RGB 差异继续记录，不计作颜色精度验收。见
   `g2-xp-9371-aa-packed-index.json`；完整设备/2D/DMA/FIFO/PGRAPH、真实 GPU
   渲染回归及 Closure 构建通过，原盘未变。
+
+- G7 文档前置更新：设备文档改为当前已验证的 XP/98 驱动、显示与 3D 范围，
+  补充 Win98 PCI 总线/资源冲突与 XP 原生驱动安装路径、专属 ROM 部署说明及
+  NV40 偏差清单。初稿配置项按实际实现复核，阶段状态仍为实施中；完整
+  3DMark 参考图、Win98 游戏抽查及 3DMark06 性能门禁通过后才可完成 G7。

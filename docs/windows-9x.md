@@ -147,6 +147,35 @@ The default VGA display driver only supports 640x480x4 video mode, to fix this, 
 5. Select "VESA ISA" adapter and press "OK".
 6. After installing, restart Windows.
 
+#### 3.2.3 GeForce 6800 GT (experimental)
+
+Windows 98 SE has been tested with `graphics_adapter: "geforce_6800"`,
+128/256 MiB VRAM, 256 MiB system RAM, IDE and ACPI disabled. The adapter
+uses its bundled `bios/vgabios-geforce6800.bin` ROM. Use the original
+ForceWare 81.98 Win9x package, `81.98_forceware_win9x_english.exe`;
+its `NVAGP.INF` includes GeForce 6800 GT (`PCI\VEN_10DE&DEV_0045`).
+
+1. In Device Manager, confirm that Microsoft's PCI bus and the NV40 PCI
+   device are present. An image originally installed without PCI enumeration
+   needs the PCI bus from `MACHINE.INF`, with `PCI.VXD` and `PCIMP.PCI` from
+   its Windows 98 installation CD. The validation harness installs a live
+   `ROOT\*PNP0A03` node; an unattached phantom node does not enumerate the bus.
+2. Install the Microsoft i440FX/PIIX system, IDE and IRQ-steering drivers
+   when requested. If the display reports code 12, check which device owns
+   the VGA I/O and memory ranges; remove the obsolete standard VGA instance
+   when it is the conflicting owner.
+3. Extract ForceWare and update the NV40 display device using `NVAGP.INF`,
+   then restart Windows. Confirm GeForce 6800 GT has no problem code before
+   changing the display mode.
+4. Install a Win98-compatible DirectX 9.0c runtime. Run DxDiag's DirectDraw
+   and Direct3D 7/8/9 tests with a WebGPU renderer available in the host.
+
+1024×768×32, 640×480×8, 800×600×16 and a DOS mode-13h/text/desktop round trip
+are recorded in the [native display fixture](fixtures/nv40/g1-native-modes-dos.json).
+The [clean DxDiag fixture](fixtures/nv40/g3-win98-8198-dxdiag-clean.json)
+records the three successful D3D tests. Full 3DMark and game compatibility
+remains in progress; see [GeForce 6800 GT](gpu-devices.md#geforce-6800-gt).
+
 ### 3.3 Enabling absolute mouse positioning (VBMOUSE)
 
 v86 emulates the VMware absolute pointing device. With an absolute mouse driver installed in the guest, the guest cursor follows the host cursor directly, without having to lock the mouse.

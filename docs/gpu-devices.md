@@ -116,13 +116,10 @@ owns the device.
 | `virtio_gpu` | `build/v86-virtio-gpu.js` | `src/graphics_adapters/virtio_gpu/plugin.js` | `1AF4:1050` |
 | `geforce_6800` (experimental) | `build/v86-geforce-6800.js` | `src/graphics_adapters/geforce_6800/plugin.js` | `10DE:0045` |
 
-`geforce_6800` is an NV40 hardware investigation device. PCI/BARs, legacy VGA,
-extended CRT scanout, GPIO EDID and snapshots are implemented and tested with
-128/256 MiB VRAM. Its default ROM is `bios/vgabios-geforce6800.bin`, built from
-SeaVGABIOS with `bios/nv40/build.py`. NVIDIA driver initialization, FIFO/2D
-acceleration and 3D are not yet supported. Existing XP/98 presets retain their
-current adapter. Implementation and real-driver blockers are tracked in
-[geforce-6800-plan.md](geforce-6800-plan.md).
+`geforce_6800` runs native NVIDIA XP/98 drivers with CPU 2D and translated 3D.
+It remains experimental while benchmark and image-quality gates are completed;
+see [GeForce 6800 GT](#geforce-6800-gt). Existing XP/98 presets retain their
+current adapter.
 
 - **Descriptor.** A plugin file calls `register_graphics_adapter(descriptor)`
   (`src/graphics_adapters/machine.js`), which stores it under its name in the
@@ -210,7 +207,7 @@ current adapter. Implementation and real-driver blockers are tracked in
   The plugin is fetched while the disk images load. A file that cannot be
   loaded, that registers no such adapter or whose descriptor is invalid is an
   error naming the adapter.
-- **VGA BIOS IDs.** One `bios/vgabios.bin` serves every adapter. SeaBIOS runs
+- **VGA BIOS IDs.** For adapters using the shared `bios/vgabios.bin`, SeaBIOS runs
   a PCI option ROM only when its PCI header names the device's vendor and
   device, so v86 rewrites those IDs, and the checksum, when it loads the VGA
   BIOS (`patch_vga_bios_ids`, from the descriptor's `pci_vendor` and
@@ -236,8 +233,54 @@ current adapter. Implementation and real-driver blockers are tracked in
   display), renames `vga_memory_size` to `vram_size`, and deploys
   `build/v86-<adapter>.js` beside its libv86 bundle or names it with
   `graphics_adapter_path`; the npm package's `files` include `build/v86-*.js`.
-  There is no VGA BIOS per adapter to ship. Old snapshots restore into
+  Ship `bios/vgabios-geforce6800.bin` when using `geforce_6800`; its firmware
+  includes the NVIDIA tables and NV VBE backend. Old snapshots restore into
   `bochs_vga`, and `cpu.devices.vga` is still the VGA core.
+
+## GeForce 6800 GT
+
+`graphics_adapter: "geforce_6800"` exposes NV40, PCI `10DE:0045`, with
+128 or 256 MiB of VRAM (256 MiB by default). The tested i440FX guests use
+PCI mode; XP 93.71 and Win98 81.98 initialize without an AGP bridge. The
+default ROM is `bios/vgabios-geforce6800.bin`, built from SeaVGABIOS and the
+repository's NV firmware source with `bios/nv40/build.py`. No NVIDIA ROM,
+driver binary or microcode is distributed with the device.
+
+| Guest | Native driver | Verified scope |
+| --- | --- | --- |
+| XP SP3, 1024 MiB RAM, IDE, ACPI off | ForceWare 93.71 | Device started, 1024×768×32, GDI, DirectDraw, DxDiag D3D7/8/9 and native RGB565 render/readback |
+| Win98 SE, 256 MiB RAM, IDE, ACPI off | ForceWare 81.98 and a Win98-compatible DirectX 9.0c runtime | Device started, 8/16/32 bpp mode changes, DOS graphics/text/desktop round trip, GDI, DirectDraw and DxDiag D3D7/8/9 |
+
+Driver setup is described in [Windows 9x](windows-9x.md#323-geforce-6800-gt-experimental)
+and [Windows XP](windows-nt.md#44-geforce-6800-gt-on-windows-xp-experimental).
+The [native display fixture](fixtures/nv40/g1-native-modes-dos.json),
+[Win98 DxDiag fixture](fixtures/nv40/g3-win98-8198-dxdiag-clean.json) and
+[XP RGB565 fixture](fixtures/nv40/g3-xp-9371-rgb565.json) record the scope
+and read-only image checks.
+
+PFIFO, checked VRAM/PCI DMA, RAMHT/RAMFC and CPU GDI/blit/image operations
+feed the real driver. NV40 vertex and fragment programs are decoded and
+translated to the shared D9WG/WebGPU executor. The implemented subset includes
+control flow, predicates, R/H register aliasing, FP16/FP32 textures, vertex
+textures, cube/volume textures, MRT, queries, depth comparison and blending.
+Native Direct3D and the driver's 3D-assisted DirectDraw paths require a
+WebGPU renderer. Legacy VGA and CPU GDI do not require one.
+
+VRAM remains the snapshot authority. Pending GPU work is completed and read
+back before saving; host resources and translation caches are recreated on
+restore. Driver installation fixtures use overlays and cold reboots;
+long-lived investigation snapshots are not substitutes for a clean guest
+acceptance run.
+
+Full benchmark acceptance remains open. XP 3DMark99 completed its 26-test
+run, but fixed IQ images still differ from the proxy reference. Win98's
+3DMark99 run, the 3DMark2000 fence selector, later 3DMark versions and the
+3DMark06 performance report remain under investigation. The unmodified
+NVIDIA driver advertises SM3.0 capabilities beyond the validated subset;
+known unsupported draw states and instructions produce bounded faults;
+some other register paths still store values. See
+[NV40 deviations](gpu-deviations.md#geforce-6800-gt) and the
+[implementation plan](geforce-6800-plan.md) for current limits and evidence.
 
 ## Architecture
 

@@ -1,6 +1,6 @@
 # GPU devices: deviations from real hardware
 
-Where the emulated VMware SVGA II and virtio-gpu ([gpu-devices.md](gpu-devices.md))
+Where the emulated graphics adapters ([gpu-devices.md](gpu-devices.md))
 do not behave like the hardware they model, because WebGPU lacks something or
 because something is not done yet. The rule is the one the D3D8/D3D9 proxies
 follow: a capability is declared only when code backs it; what WebGPU cannot
@@ -20,6 +20,28 @@ virgl), Venus and gfxstream. gfxstream's Vulkan runs on Venus's Vulkan model
 and VX ([gfxstream](gpu-devices.md#gfxstream)), so the Venus entries hold for
 it too, but for G-38 and G-43, which are about Mesa's venus driver; G-59 to
 G-63 are gfxstream's own.
+
+## GeForce 6800 GT
+
+The experimental `geforce_6800` device runs the unmodified NVIDIA drivers.
+Their advertised SM3.0 capabilities describe NV40 hardware and are broader
+than the currently validated emulator subset. This differs from the
+capability filtering of the shared proxy/executor paths. Known unsupported
+draw states and instructions fault explicitly; some other register paths
+still store values while implementation continues.
+
+| Area | Current implementation or limit |
+| --- | --- |
+| Bus and firmware | NV40 is exposed on PCI with a repository-built SeaVGABIOS/NV ROM. XP 93.71 and Win98 81.98 initialize in PCI mode; AGP/GART, a second CRT and vendor option-ROM behavior are not validated. |
+| Host execution and snapshots | CPU GDI and checked DMA operate on guest VRAM. 3D is translated to D9WG/WebGPU, with GPU results read back before the guest resumes dependent FIFO work or saves a snapshot. This is more expensive than hardware scanout and does not model NV40 pipeline timing. |
+| Texture states | Depth comparison is single-level. FP32 textures support nearest sampling; FP32 linear filtering, anisotropy, signed formats, partial-channel gamma masks and compressed volume textures remain unconnected. |
+| Render state | Two-sided stencil currently requires equal reference/read/write masks. Mixed RGB constant-color and constant-alpha factors need equal constant components. Independent MRT blending, depth bounds, polygon line/point mode and the other explicitly rejected raster states remain unconnected. |
+| Formats and outputs | FP16 color attachments and FP32 fragment exports are tested. FP32 color attachments remain unconnected. TEX8/TEX9 routing is implemented within the shared executor's twelve-output budget. |
+| AA GDI fonts | Packed I4/I8 uploads span rows correctly. The tested software DIB and NVIDIA INDEX path have different AA tone curves; non-AA RGB and AA coverage-rank comparisons pass. Exact AA RGB differences remain recorded in the [font fixture](fixtures/nv40/g2-xp-9371-aa-packed-index.json). |
+| Acceptance | DxDiag 7/8/9 passes in XP and Win98. 3DMark99 IQ still differs from the proxy reference, 3DMark2000 uses an unresolved high fence selector, and later benchmark/performance gates remain open. |
+
+The [implementation plan](geforce-6800-plan.md) records individual changes
+and native fixtures; these limits are not a claim of full NV40 compatibility.
 
 ## Emulated
 

@@ -184,6 +184,28 @@ Models: Sound Blaster 16 or AWE32 or compatible (WDM)
 > For Windows Server 2003: you will need to [extract](https://www.betaarchive.com/forum/viewtopic.php?t=37969) the `ctlsb16.sys` and `wdma_ctl.inf` files from the Windows XP installation CD (or download them [here](https://github.com/copy/v86/issues/1358#issuecomment-3014178756)), then press "Have disk" and select the `wdma_ctl.inf` file. After installation, enable the Windows Audio service.
 
 
+### 4.4 GeForce 6800 GT on Windows XP (experimental)
+
+The tested configuration is XP SP3 on i440FX with IDE, ACPI disabled,
+1024 MiB system RAM and `graphics_adapter: "geforce_6800"`. Select 128 or
+256 MiB VRAM and retain the bundled `bios/vgabios-geforce6800.bin` ROM.
+
+1. Extract `93.71_forceware_winxp2k_english_whql.exe` inside the guest.
+2. In Device Manager, update the display adapter from the extracted NVIDIA
+   INF. The package includes `PCI\VEN_10DE&DEV_0045` and installs the `nv`
+   service. Restart, then confirm GeForce 6800 GT starts without a problem code.
+3. Select 1024×768, 32-bit color, and enable full display acceleration.
+4. With a WebGPU renderer available on the host, run DxDiag's DirectDraw
+   and Direct3D tests. Native 93.71 has been verified with D3D7/8/9; the
+   [RGB565 fixture](fixtures/nv40/g3-xp-9371-rgb565.json) also checks native
+   D3D9 rendering, system-memory readback and GDI conversion.
+
+The driver runs in PCI mode; an AGP bridge is not required for this tested
+configuration. Benchmark image quality and the later 3DMark gates remain
+open. See [GeForce 6800 GT](gpu-devices.md#geforce-6800-gt) for current
+capabilities, snapshot behavior and known limits. This validation does not
+cover Windows 2000 or NVIDIA WDDM drivers on Vista and newer.
+
 ## 5. Windows Vista and newer
 
 ### 5.1 Installing using QEMU
