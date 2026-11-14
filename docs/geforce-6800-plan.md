@@ -1503,3 +1503,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   128/1024、R32F 32/256、D16 16/128；2×2 cube face 改一行只传
   8/16。无变化仍零上传，首次上传仍完整。完整 GPU 回归和 Closure
   构建通过；这些是传输预算验证，不代替原生 06 的最终性能报告。
+
+- G6 CPU profile 前置：harness 的 `NV_CPU_PROFILE=1` 在恢复/初始化后
+  采样，退出时写出标准 `.cpuprofile`，默认关闭。Win98 bump 检查点
+  90 秒复现 8 次绘制、无 GPU/PGRAPH 故障；宿主样本约 63% 为 idle，
+  扫描/纹理复制不是单一主导热点。调试构建仍有栈追踪成本；此调查
+  不代替 release 构建的 06 性能门禁，等待根因继续调查。见
+  `g6-win98-bump-cpu-profile.json`。

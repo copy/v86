@@ -1,0 +1,110 @@
+{
+  "stage": "G6 Win98 bump CPU profile",
+  "directory": "build/nv40-win98-bump-cpu-profile",
+  "checkpoint": "build/nv40-win98-mark99-continue2/checkpoint-bump-timing.state",
+  "scope": "90-second native saved-state diagnostic under concurrent load; rendering/driver/query behavior unchanged. Not a release-build 06 performance gate.",
+  "profile_sha256": "de00222597f279cefcff37c1bac90db8783119c254cbf6890193f0c0b341b058",
+  "profile_sampled_seconds": 84.016,
+  "gpu": {
+    "batches": 8,
+    "draws": 8,
+    "bytes": 10279912,
+    "readbacks": 16,
+    "failures": 0,
+    "uploads": 27,
+    "uploadBytes": 9094824
+  },
+  "clock": {
+    "mode": "normal",
+    "elapsedMs": 84162.78333360981,
+    "hostElapsedMs": 90366.913375,
+    "host_pause_count": 9,
+    "discarded_host_ms": 1132.5514589994855,
+    "host_backwards_count": 0,
+    "committed_instructions": 0,
+    "idle_ms": 0
+  },
+  "graph_faults": [],
+  "error": null,
+  "original_image_unchanged": true,
+  "game_image_unchanged": true,
+  "top_self_samples": [
+    {
+      "function": "(idle)",
+      "source": "",
+      "self_seconds": 53.1623,
+      "sample_percent": 63.276
+    },
+    {
+      "function": "(program)",
+      "source": "",
+      "self_seconds": 3.0356,
+      "sample_percent": 3.613
+    },
+    {
+      "function": "(garbage collector)",
+      "source": "",
+      "self_seconds": 1.0747,
+      "sample_percent": 1.279
+    },
+    {
+      "function": "dbg_trace",
+      "source": "src/log.js",
+      "self_seconds": 0.9687,
+      "sample_percent": 1.153
+    },
+    {
+      "function": "writeSync",
+      "source": "",
+      "self_seconds": 0.8902,
+      "sample_percent": 1.06
+    },
+    {
+      "function": "dbg_trace",
+      "source": "src/log.js",
+      "self_seconds": 0.8128,
+      "sample_percent": 0.967
+    },
+    {
+      "function": "post",
+      "source": "node:inspector",
+      "self_seconds": 0.5656,
+      "sample_percent": 0.673
+    },
+    {
+      "function": "read",
+      "source": "src/graphics_adapters/geforce_6800/nv_dma.js",
+      "self_seconds": 0.4655,
+      "sample_percent": 0.554
+    },
+    {
+      "function": "render",
+      "source": "src/graphics_adapters/geforce_6800/nv_display.js",
+      "self_seconds": 0.3917,
+      "sample_percent": 0.466
+    },
+    {
+      "function": "defaultPrepareStackTrace",
+      "source": "node:internal/errors",
+      "self_seconds": 0.3495,
+      "sample_percent": 0.416
+    },
+    {
+      "function": "processTimers",
+      "source": "node:internal/timers",
+      "self_seconds": 0.3078,
+      "sample_percent": 0.366
+    },
+    {
+      "function": "render",
+      "source": "src/graphics_adapters/geforce_6800/nv_display.js",
+      "self_seconds": 0.3028,
+      "sample_percent": 0.36
+    }
+  ],
+  "findings": [
+    "Idle accounts for approximately 63% of the sampled host time; this is not dominated by a single scanout or texture-copy loop.",
+    "Eight draws and zero GPU/PGRAPH faults reproduce the prior paired timing runs. The native wait root remains unresolved.",
+    "Source/debug CPU code contributes stack-trace construction even with log level zero; final G6 comparisons must use release builds."
+  ]
+}

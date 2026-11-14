@@ -184,6 +184,7 @@ export async function run_geforce_guest(win98)
     const launch = Number(process.env.NV_LAUNCH_SECONDS || (process.env.NV_STATE_LOAD ? 10 : 90));
     assert(Number.isFinite(seconds) && seconds > 0 && seconds <= 3600);
     let nv, error = null, launches = 0, next_launch = launch, cancelled = false, checkpoint = false, clock_start = 0;
+    let profiler=null;
     const cancel = () => { cancelled = true; };
     process.on("SIGINT", cancel);
     vm.add_listener("emulator-error", e => { error = String(e); });
@@ -230,6 +231,12 @@ export async function run_geforce_guest(win98)
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = process.env.NV_TRACE !== "0";
         clock_start = cpu.clock.now();
+        if(process.env.NV_CPU_PROFILE)
+        {
+            const {Session}=await import("node:inspector"),session=new Session();session.connect();
+            const post=(method)=>new Promise((resolve,reject)=>session.post(method,(error,result)=>error?reject(error):resolve(result)));
+            profiler={session,post};await post("Profiler.enable");await post("Profiler.start");
+        }
         if(process.env.NV_WATCH_FLIP)
         {
             const original=nv.trace.record.bind(nv.trace),captures=[];
@@ -357,6 +364,16 @@ export async function run_geforce_guest(win98)
     catch(e) { error = e.stack || String(e); }
     finally
     {
+        if(profiler)
+        {
+            try
+            {
+                const {profile}=await profiler.post("Profiler.stop");
+                fs.writeFileSync(path.join(out,"cpu-profile.cpuprofile"),JSON.stringify(profile));
+            }
+            catch(e) {error=error || e.stack || String(e);}
+            finally {profiler.session.disconnect();}
+        }
         await vm.stop();
         if(process.env.NV_STATE_SAVE && !checkpoint)
             fs.writeFileSync(process.env.NV_STATE_SAVE, new Uint8Array(await vm.save_state()));
