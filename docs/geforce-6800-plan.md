@@ -1714,3 +1714,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   像素、完整 GPU 回归、170 个 WGSL 模块和 Closure 通过，见
   `g4-vp-ten-bit-constant-address.json`。06 仍需补齐新捕获的
   DirectX 0xDD 顶点格式与 NRM 并重新验证整个 GT1。
+
+- G4 原生 NRM：06 GT1 的 opcode `0x39` 按 CineFX 3.0 的
+  XYZ 归一化语义降低为 DP3/RSQ/MUL，沿用源修饰、谓词、目标掩码
+  和半寄存器提交；规范未定义的 W 不作图像验收依据，实体硬件的
+  近似精度暂不复刻。真实 GPU 验证正/负 XYZ、未用 W 的 NaN/Infinity
+  及目标 alpha 保留；完整 GPU、171 个 WGSL 模块、Closure 通过，
+  原生捕获 FP 已重新解码/降低，见 `g4-native-fragment-nrm.json`。
+  06 全程与参考图仍须在后续原生复跑中验证。

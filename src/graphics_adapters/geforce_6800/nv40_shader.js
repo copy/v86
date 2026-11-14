@@ -128,6 +128,15 @@ class Shader
         {
             this.emit(OP.DP2A,destination,sources[0],sources[1],this.literal(0));return;
         }
+        if(name==="NRM")
+        {
+            // CineFX 3.0 defines XYZ normalization; W is undefined. Keep the
+            // arithmetic in float32 here, then use the normal destination,
+            // predicate and half-register commit path.
+            this.emit(OP.DP3,dst(0,29),sources[0],sources[0]);
+            this.emit(OP.RSQ,dst(0,29),src(0,29));
+            this.emit(OP.MUL,destination,sources[0],src(0,29));return;
+        }
         if(name==="DIV")
         {
             if(this.stage==="fragment") {this.emit(0x1008,destination,...sources);return;}
@@ -174,7 +183,7 @@ class Shader
             constants:Array.from(this.constants).sort((a,b)=>a-b)};
     }
 }
-const arity = name => ["MOV","RCP","RCC","RSQ","EXP","LOG","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG","ARL","ARR",
+const arity = name => ["MOV","RCP","RCC","RSQ","EXP","LOG","EX2","LG2","LIT","FRC","FLR","SIN","COS","DDX","DDY","SSG","ARL","ARR","NRM",
     "PK2H","PK2US","PK4B","PK4UB","UP2H","UP2US","UP4B","UP4UB","LITEX2"].includes(name)?1:
     ["MUL","ADD","DP2","DP3","DP4","DPH","DST","MIN","MAX","SLT","SGE","SLE","SGT","SEQ","SNE","DIV"].includes(name)?2:
     name==="MAD" || name==="DP2A"?3:0;

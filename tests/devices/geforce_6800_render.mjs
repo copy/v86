@@ -705,6 +705,12 @@ try
                 0x3C<<24|128|15<<9|1,7<<18|0x1C802,0,0,...new Uint32Array(Float32Array.from(values).buffer)]),expected,
                 "native LITEX2 uses Y/W and suppresses specular for nonpositive diffuse");
         console.log("PASS: real WebGPU native LITEX2 diffuse/specular final lighting stage");
+        for(const [values,expected]of [[[3,4,0,NaN],[0,204,153,64]],[[-3,4,0,Infinity],[0,204,0,64]]])
+            assert.deepEqual(await conditionalDraw([
+                ...fpLiteral(0,true,[0,0,0,.25]),0x39<<24|128|7<<9|1,7<<18|0x1C802,0,0,
+                ...new Uint32Array(Float32Array.from(values).buffer)]),expected,
+                "native NRM normalizes XYZ without reading W and preserves masked destination alpha");
+        console.log("PASS: real WebGPU native NRM, negative XYZ, unused NaN/Infinity W and destination mask");
         const fpUnary=(opcode,values,{destination=0,half=true,disabled=false,update=false,end=false}={})=>[
             (opcode<<24|destination<<1|+half<<7|15<<9|+update<<8|+disabled<<30|+end)>>>0,7<<18|0x1C802,0,0,
             ...new Uint32Array(Float32Array.from(values).buffer)];
