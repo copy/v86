@@ -222,3 +222,19 @@ SHA-256 `e45d263fdde3f1d9e11eccf626e6768cba21266bc65d50f81fb08468c93930c3`）。
 `node tests/ios/gl-scalar.mjs <10B329 cache>` 的 76 个原始 OpenGLES 入口全部发出
 正确协议参数。原始 renderbuffer 失败记录中的 format 为 `0x88f0`，但 width/height
 为指针/返回地址，说明必须核查实际加载的桥接库及其 ABI，不能改成忽略深度缓冲。
+
+### 原生 drawable 查询与实际 glslang 路径
+
+`7429e7e8` 补齐原生 `glGetRenderbufferParameteriv`：之前函数表中的默认无效操作没有
+写调用方指针，游戏使用了未写入的宽高。真实 OpenGLES 入口回归覆盖宽、高和深度位数
+的写回；`4c2b74fe` 为 scalar 回归增加 MMU/JIT 模式，确认实际执行了编译代码。
+修复后 generation 5 的正式冷启动记录 `glRenderbufferStorage(0x8d41,0x88f0,960,640)`，
+不再拒绝深度缓冲创建。测试库写入与启动归档回读均通过，游戏安装记录保留。
+
+`58f44e83` 修复实际 iOS 的 API 20 / GLSL ES 1.00 经 glslang 路径：该路径原先将
+PVRTC 交给 GLES3 压缩格式分支，925 次上传没有生成 texel，虽然基础 API 2 的测试通过。
+现为该路径执行同一真实 PVRTC 解码并上传到 RGBA GPU 纹理。GLES3 executor 真实 GPU
+回归 107 项通过，包含四种 PVRTC 格式的上传、替换与各向异性 sampler。
+
+最新含 query 修复的测试盘保存在 `build/ios/infinity-play/query-fixed.packed`，
+启动归档 generation 5；正在完整正式构建中重新冷启验收可玩场景，仍无可发布的游戏 FPS。
