@@ -7,7 +7,7 @@ import { createRequire as create_require } from "node:module";
 import { setTimeout as delay } from "node:timers/promises";
 import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
-import { probe_launch_activity, probe_run_scancodes, probe_keyboard_events } from "./xp_probe_launch.mjs";
+import { probe_launch_activity, probe_run_scancodes, probe_keyboard_events, probe_run_dialog_visible } from "./xp_probe_launch.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
     success, log_files = [], log_completion = {}, binary_files = [], capture_graphics = false, expected_releases = null,
     rendering = "not exercised", simulated_host_features = null, observe_batch = null, graphics_renderer = null,
@@ -142,6 +142,19 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             await send_keys([184, 157, 170, 182, 0xE0, 0xDB, 0xE0, 0xDC]);
             await send_keys([0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB]);await delay(5000);
             save_frame("probe-run-" + (attempt + 1) + ".png", frame());
+            launch.runChecks=[{method:"win-r",visible:probe_run_dialog_visible(frame())}];
+            if(!launch.runChecks[0].visible) {
+                // This is still before any command was typed. Use the Start
+                // menu accelerator if the shell missed the extended Win key.
+                await send_keys([1,129,29,1,129,157]);await delay(1500);
+                await send_keys([19,147]);await delay(4000);
+                save_frame("probe-run-fallback-"+(attempt+1)+".png",frame());
+                launch.runChecks.push({method:"ctrl-escape-r",visible:probe_run_dialog_visible(frame())});
+            }
+            if(!launch.runChecks.at(-1).visible) {
+                launch.notStarted="Run dialog unavailable; no command typed";
+                continue;
+            }
             await send_keys([29, 30, 158, 157]);
             await send_keys(command);
             await send_keys([28, 156]);

@@ -1,0 +1,126 @@
+{
+  "suite": "d3d8_device",
+  "sourceSha256": "f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2",
+  "inapplicable": [
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:923",
+      "message": "Multisampling not supported for D3DFMT_X8R8G8B8, skipping test.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines900-925, context SHA256 95f29fa08d5c644c695ebbb72436c3a1a5cb1e1dbdd4f3784a6a278a456ad246",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    if (dStateBlock != ~0u)\n        IDirect3DDevice8_DeleteStateBlock(device, dStateBlock);\n    /* This will destroy device - cannot check the refcount here */\n    if (pSwapChain)\n        CHECK_RELEASE_REFCOUNT(pSwapChain, 0);\n    CHECK_RELEASE_REFCOUNT(d3d, 0);\n    DestroyWindow(window);\n}\n\nstatic void test_checkdevicemultisampletype(void)\n{\n    IDirect3D8 *d3d;\n    HWND window;\n    HRESULT hr;\n\n    window = create_window();\n    ok(!!window, \"Failed to create a window.\\n\");\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (IDirect3D8_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_X8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES) == D3DERR_NOTAVAILABLE)\n    {\n        skip(\"Multisampling not supported for D3DFMT_X8R8G8B8, skipping test.\\n\");\n        goto cleanup;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:4503",
+      "message": "Following tests require two adapters.",
+      "reason": "The fixed virtual adapter profile exposes one Direct3D adapter. Multi-adapter-only assertions require a second independent adapter.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines4480-4505, context SHA256 45923d80ed8037a1da500a658ff6e59a665466a002fa5a6fa3100c1c0c54eca3",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    device_desc.height = d3d_height;\n    hr = reset_device(device, &device_desc);\n    ok(hr == D3D_OK, \"Failed to reset device, hr %#lx.\\n\", hr);\n    ret = EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &devmode2);\n    ok(ret, \"EnumDisplaySettingsW failed, error %#lx.\\n\", GetLastError());\n    ok(devmode2.dmPelsWidth == d3d_width && devmode2.dmPelsHeight == d3d_height,\n            \"Expected resolution %ux%u, got %lux%lu.\\n\", d3d_width, d3d_height,\n            devmode2.dmPelsWidth, devmode2.dmPelsHeight);\n\n    refcount = IDirect3DDevice8_Release(device);\n    ok(!refcount, \"Device has %lu references left.\\n\", refcount);\n\n    ret = EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &devmode2);\n    ok(ret, \"EnumDisplaySettingsW failed, error %#lx.\\n\", GetLastError());\n    ok(equal_mode_rect(&devmode2, &devmode), \"Got a different mode.\\n\");\n    ret = EnumDisplaySettingsW(NULL, ENUM_REGISTRY_SETTINGS, &devmode2);\n    ok(ret, \"EnumDisplaySettingsW failed, error %#lx.\\n\", GetLastError());\n    ok(equal_mode_rect(&devmode2, &devmode), \"Got a different mode.\\n\");\n    ret = restore_display_modes(original_modes, display_count);\n    ok(ret, \"Failed to restore display modes.\\n\");\n\n    if (IDirect3D8_GetAdapterCount(d3d8) < 2)\n    {\n        skip(\"Following tests require two adapters.\\n\");\n        goto done;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:6193",
+      "message": "No D3DFMT_NULL support, skipping test.",
+      "reason": "The frozen prerequisite queries API8 render-target SURFACE support for vendor FOURCC NULL. That optional format/resource combination is not exposed by the fixed API8 format inventory; standard render targets execute. API9 NULL support is not excluded.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines6170-6195, context SHA256 38a612781eccf5bff89d91545b6ce10da67ec4782b39e6cf4afafbc5af7134b9",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "}\n\nstatic void test_surface_format_null(void)\n{\n    static const D3DFORMAT D3DFMT_NULL = MAKEFOURCC('N','U','L','L');\n    IDirect3DTexture8 *texture;\n    IDirect3DSurface8 *surface;\n    IDirect3DSurface8 *rt, *ds;\n    D3DLOCKED_RECT locked_rect;\n    IDirect3DDevice8 *device;\n    D3DSURFACE_DESC desc;\n    IDirect3D8 *d3d;\n    ULONG refcount;\n    HWND window;\n    HRESULT hr;\n\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    hr = IDirect3D8_CheckDeviceFormat(d3d, 0, D3DDEVTYPE_HAL, D3DFMT_X8R8G8B8,\n            D3DUSAGE_RENDERTARGET, D3DRTYPE_SURFACE, D3DFMT_NULL);\n    if (hr != D3D_OK)\n    {\n        skip(\"No D3DFMT_NULL support, skipping test.\\n\");\n        IDirect3D8_Release(d3d);\n        return;"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:6578",
+      "message": "Format ATI1N not supported, skipping lockrect offset tests.",
+      "reason": "The original prerequisite requests DYNAMIC TEXTURE FOURCC ATI1. API8 does not expose that optional vendor compression format; core format allocation and offset matrices still execute.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines6555-6580, context SHA256 037faca28507d62df34d17e217322ea981bad875379f2c863139bfa150d49117",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "                        may_succeed = TRUE;\n\n                    /* Wine knows about ATI2N and happily creates a scratch resource even if GL\n                     * does not support it. Accept scratch creation of extension formats on\n                     * Windows as well if it occurs. We don't really care if e.g. a Windows 7\n                     * on an r200 GPU creates scratch ATI2N texture even though the card doesn't\n                     * support it. */\n                    ok(hr == expect_hr || ((SUCCEEDED(hr) && may_succeed)),\n                            \"Got unexpected hr %#lx for format %s, pool %s, type %s, size %ux%u.\\n\",\n                            hr, formats[i].name, create_tests[j].pool_name, create_tests[j].type_name, w, h);\n\n                    if (FAILED(hr))\n                        ok(*check_null == NULL, \"Got object ptr %p, expected NULL.\\n\", *check_null);\n                    else\n                        IUnknown_Release(*check_null);\n                }\n            }\n        }\n\n        hr = IDirect3D8_CheckDeviceFormat(d3d, 0, D3DDEVTYPE_HAL, D3DFMT_X8R8G8B8,\n                D3DUSAGE_DYNAMIC, D3DRTYPE_TEXTURE, formats[i].fmt);\n        if (FAILED(hr))\n        {\n            skip(\"Format %s not supported, skipping lockrect offset tests.\\n\", formats[i].name);\n            continue;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:6578",
+      "message": "Format ATI2N not supported, skipping lockrect offset tests.",
+      "reason": "The original prerequisite requests DYNAMIC TEXTURE FOURCC ATI2. API8 does not expose that optional vendor compression format; API9 BC5 support and core format allocation/offset matrices are not excluded.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines6555-6580, context SHA256 037faca28507d62df34d17e217322ea981bad875379f2c863139bfa150d49117",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "                        may_succeed = TRUE;\n\n                    /* Wine knows about ATI2N and happily creates a scratch resource even if GL\n                     * does not support it. Accept scratch creation of extension formats on\n                     * Windows as well if it occurs. We don't really care if e.g. a Windows 7\n                     * on an r200 GPU creates scratch ATI2N texture even though the card doesn't\n                     * support it. */\n                    ok(hr == expect_hr || ((SUCCEEDED(hr) && may_succeed)),\n                            \"Got unexpected hr %#lx for format %s, pool %s, type %s, size %ux%u.\\n\",\n                            hr, formats[i].name, create_tests[j].pool_name, create_tests[j].type_name, w, h);\n\n                    if (FAILED(hr))\n                        ok(*check_null == NULL, \"Got object ptr %p, expected NULL.\\n\", *check_null);\n                    else\n                        IUnknown_Release(*check_null);\n                }\n            }\n        }\n\n        hr = IDirect3D8_CheckDeviceFormat(d3d, 0, D3DDEVTYPE_HAL, D3DFMT_X8R8G8B8,\n                D3DUSAGE_DYNAMIC, D3DRTYPE_TEXTURE, formats[i].fmt);\n        if (FAILED(hr))\n        {\n            skip(\"Format %s not supported, skipping lockrect offset tests.\\n\", formats[i].name);\n            continue;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:9069",
+      "message": "D3DFMT_ATI1 textures not supported, skipping tests.",
+      "reason": "Original CheckDeviceFormat requests API8 sampled FOURCC ATI1. The fixed API8 inventory does not expose this optional vendor format. The original supported standard compressed/uncompressed formats remain applicable.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines9046-9071, context SHA256 f12302d3a719221293ca22eac36ff636ddcd5ad437d0c5f93f1232e54b0d8294",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n    if (!(device = create_device(d3d, window, NULL)))\n    {\n        skip(\"Failed to create a D3D device, skipping tests.\\n\");\n        goto done;\n    }\n\n    hr = IDirect3DDevice8_GetDeviceCaps(device, &caps);\n    ok(SUCCEEDED(hr), \"Failed to get caps, hr %#lx.\\n\", hr);\n\n    base_dimension = 257;\n    if (caps.TextureCaps & (D3DPTEXTURECAPS_POW2 | D3DPTEXTURECAPS_CUBEMAP_POW2))\n    {\n        skip(\"Using power of two base dimension.\\n\");\n        base_dimension = 256;\n    }\n\n    for (format_idx = 0; format_idx < ARRAY_SIZE(formats); ++format_idx)\n    {\n        if (FAILED(hr = IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, 0, D3DRTYPE_TEXTURE, formats[format_idx].format)))\n        {\n            skip(\"%s textures not supported, skipping tests.\\n\", formats[format_idx].name);\n            continue;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:9069",
+      "message": "D3DFMT_ATI2 textures not supported, skipping tests.",
+      "reason": "Original CheckDeviceFormat requests API8 sampled FOURCC ATI2. The fixed API8 inventory does not expose this optional vendor format. Supported API9 BC5 paths are not excluded.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines9046-9071, context SHA256 f12302d3a719221293ca22eac36ff636ddcd5ad437d0c5f93f1232e54b0d8294",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n    if (!(device = create_device(d3d, window, NULL)))\n    {\n        skip(\"Failed to create a D3D device, skipping tests.\\n\");\n        goto done;\n    }\n\n    hr = IDirect3DDevice8_GetDeviceCaps(device, &caps);\n    ok(SUCCEEDED(hr), \"Failed to get caps, hr %#lx.\\n\", hr);\n\n    base_dimension = 257;\n    if (caps.TextureCaps & (D3DPTEXTURECAPS_POW2 | D3DPTEXTURECAPS_CUBEMAP_POW2))\n    {\n        skip(\"Using power of two base dimension.\\n\");\n        base_dimension = 256;\n    }\n\n    for (format_idx = 0; format_idx < ARRAY_SIZE(formats); ++format_idx)\n    {\n        if (FAILED(hr = IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, 0, D3DRTYPE_TEXTURE, formats[format_idx].format)))\n        {\n            skip(\"%s textures not supported, skipping tests.\\n\", formats[format_idx].name);\n            continue;\n        }"
+    },
+    {
+      "category": "mutually-exclusive",
+      "location": "d3d8_device.c:9232",
+      "message": "P8 textures are supported, skipping some tests.",
+      "reason": "The original branch tests invalid interfaces only when CheckDeviceFormat rejects P8. The API8 profile supports P8 and executes its positive palette/texture paths; the opposite unsupported-P8 branch cannot execute simultaneously.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines9209-9234, context SHA256 a5fcdb6a61e2d2525e0cee46a92fa5ed1458aac8f5127a9105a0526a6da3bcbd",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "static void test_format_unknown(void)\n{\n    IDirect3DDevice8 *device;\n    IDirect3D8 *d3d;\n    UINT refcount;\n    HWND window;\n    void *iface;\n    HRESULT hr;\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n    if (!(device = create_device(d3d, window, NULL)))\n    {\n        skip(\"Failed to create a D3D device.\\n\");\n        IDirect3D8_Release(d3d);\n        DestroyWindow(window);\n        return;\n    }\n\n    if (SUCCEEDED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_X8R8G8B8, 0, D3DRTYPE_TEXTURE, D3DFMT_P8)))\n    {\n        skip(\"P8 textures are supported, skipping some tests.\\n\");\n    }\n    else"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:9572",
+      "message": "Multisampling not supported for D3DFMT_A8R8G8B8.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines9549-9574, context SHA256 5cb689976de1c20d57d5dcd004ece3244cee4e07f36eade2b08719dc0f023ed7",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    IDirect3D8_Release(d3d);\n    DestroyWindow(window);\n}\n\nstatic void test_swapchain_multisample_reset(void)\n{\n    D3DPRESENT_PARAMETERS present_parameters;\n    IDirect3DSurface8 *surface;\n    IDirect3DDevice8 *device;\n    D3DLOCKED_RECT lr;\n    IDirect3D8 *d3d;\n    ULONG refcount;\n    HWND window;\n    HRESULT hr;\n\n    window = create_window();\n    ok(!!window, \"Failed to create a window.\\n\");\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create D3D object.\\n\");\n\n    if (IDirect3D8_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_A8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES) == D3DERR_NOTAVAILABLE)\n    {\n        skip(\"Multisampling not supported for D3DFMT_A8R8G8B8.\\n\");\n        IDirect3D8_Release(d3d);\n        DestroyWindow(window);"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_device.c:9982",
+      "message": "ATI2N texture not supported.",
+      "reason": "This exact API/resource/mipmap combination of the optional ATI2N vendor extension is absent from the fixed adapter profile. Supported ATI2N combinations are not excluded and remain tested.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_device.c SHA256 f6be330259b03814f7710ad5b7aaffc60196688dca4c0ba89fb8e4241e8cdec2, original prerequisite/context lines9959-9984, context SHA256 ba1dab44bb822a241a3593704314bfdd2a5d072072fdfa8342cb7dbc470befbf",
+        "stage6-wine-d3d8_device-foreground-final/WINE.TXT SHA256 692a848c5e991c22d1792909b96695bcce1ee7f6bbd39747036100743e68ce36; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    for (i = 0; i < ARRAY_SIZE(surface_types); ++i)\n    {\n        for (j = 0; j < ARRAY_SIZE(tests); ++j)\n        {\n            IDirect3DCubeTexture8 *texture_cube;\n            IDirect3DBaseTexture8 *texture;\n            IDirect3DTexture8 *texture_2d;\n            IDirect3DSurface8 *surface;\n            HRESULT expected_hr;\n            D3DLOCKED_RECT lr;\n\n            if (tests[j].format == FORMAT_ATI2)\n                format = MAKEFOURCC('A','T','I','2');\n            else if (tests[j].format == FORMAT_DEPTH)\n                format = depth_format;\n            else\n                format = colour_format;\n\n            if (tests[j].format == FORMAT_ATI2 && FAILED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT,\n                    D3DDEVTYPE_HAL, D3DFMT_X8R8G8B8, 0, D3DRTYPE_TEXTURE, format)))\n            {\n                if (!skip_ati2n_once)\n                {\n                    skip(\"ATI2N texture not supported.\\n\");\n                    skip_ati2n_once = TRUE;\n                }"
+    }
+  ]
+}

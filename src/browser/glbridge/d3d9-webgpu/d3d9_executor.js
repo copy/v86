@@ -5993,6 +5993,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
         // test, so it follows the stage's own filter state: a shadow map
         // sampled with POINT should not silently acquire soft edges.
         comparisonSamplerFor(state, stage, compareFunction = "less-equal") {
+            // Fixed-function programs have null pixel reflection. Its absent
+            // comparison must use the same default as undefined reflection.
+            if (compareFunction === null) compareFunction = "less-equal";
             const get = (id, fallback) => {
                 const value = state.samplerStates.get(stage * 64 + id);
                 return value === undefined ? fallback : value;

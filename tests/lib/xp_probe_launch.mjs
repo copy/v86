@@ -35,6 +35,40 @@ export function probe_keyboard_events(codes)
     return events;
 }
 
+// The local XP image uses the classic theme. Require its visible Run title,
+// dialog background and edit field before sending a command. A desktop or a
+// late hardware wizard must never receive probe command keystrokes.
+export function probe_run_dialog_visible(picture)
+{
+    if(!picture) return false;
+    const title = [
+        "..#####.........................",
+        "..##..##........................",
+        "..##..##..##..##.#####..........",
+        "..##..##..##..##.##..##.........",
+        "..#####...##..##.##..##.........",
+        "..##.##...##..##.##..##.........",
+        "..##..##..##..##.##..##.........",
+        "..##...##..#####.##..##.........",
+    ];
+    const {width, height, raw} = picture, stride = width * 3 + 1;
+    const white = at => raw[at] > 220 && raw[at+1] > 220 && raw[at+2] > 220;
+    const blue = at => raw[at] < 100 && raw[at+1] < 180 && raw[at+2] > raw[at]+40;
+    const grey = at => Math.abs(raw[at]-212) < 5 && Math.abs(raw[at+1]-208) < 5 && Math.abs(raw[at+2]-200) < 5;
+    for(let y=0;y+160<height;y++) for(let x=0;x+330<width;x++) {
+        const at=y*stride+1+x*3;
+        if(!white(at+6) || !blue(at) || !grey(at+25*stride+12*3)
+                || !white(at+85*stride+250*3)) continue;
+        let matched=true;
+        for(let j=0;j<title.length && matched;j++) for(let i=0;i<title[j].length;i++) {
+            const pixel=at+j*stride+i*3;
+            if(!(title[j][i]==="#" ? white(pixel) : blue(pixel))) {matched=false;break;}
+        }
+        if(matched) return true;
+    }
+    return false;
+}
+
 export function probe_screen_changed(before, after)
 {
     if (!after) return false;

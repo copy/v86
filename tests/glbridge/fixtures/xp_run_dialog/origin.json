@@ -1,0 +1,44 @@
+{
+  "scope": "Actual local XP classic-theme screenshots. Crops preserve all pixels; no original Wine assertion changed. Run positive, late PnP wizard and missing-Run desktop negatives.",
+  "cases": [
+    {
+      "file": "run.png",
+      "runVisible": true,
+      "sha256": "8d28a44c7a7d86d2cb7cb3505ac016f50cbb66970e4e67adad53d36512b90b6e",
+      "source": "stage6-wine-ddraw_ddraw4-retail-atomic-console-final/probe-run-1.png",
+      "sourceSha256": "6e8d4e286822a7890c7f11647641d029bcbc2a928c71b138bfca5818e58c22e4",
+      "crop": [
+        5,
+        390,
+        344,
+        174
+      ]
+    },
+    {
+      "file": "wizard.png",
+      "runVisible": false,
+      "sha256": "28c89de7878332258f8d58702e1085c66a38fec6f5ba92fdad61668e1c5a770b",
+      "source": "stage6-wine-d3d8_visual-api-diagnostics-final/probe-progress.png",
+      "sourceSha256": "5d10f3a54c8e83c0e04e313035e1a58ec84984c4eacc4ffc8461d54ba2ed5ddf",
+      "crop": [
+        175,
+        110,
+        440,
+        210
+      ]
+    },
+    {
+      "file": "desktop.png",
+      "runVisible": false,
+      "sha256": "ceb8bf53ccdaa9aca48c3cb34aabbd1701f32e9d3364166a0de73387b6247df1",
+      "source": "stage6-wine-d3d8_visual-api-diagnostics-final/probe-run-1.png",
+      "sourceSha256": "6ad396a7c5a239cb344300ec27c214aad712b8571c870ffa04ce5c4cf18b6bf6",
+      "crop": [
+        0,
+        390,
+        360,
+        180
+      ]
+    }
+  ]
+}

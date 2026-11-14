@@ -1,0 +1,66 @@
+{
+  "suite": "ddraw_ddraw1",
+  "sourceSha256": "d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a",
+  "inapplicable": [
+    {
+      "category": "platform",
+      "location": "ddraw_ddraw1.c:4138",
+      "message": "Following tests require two monitors.",
+      "reason": "The frozen test requires two distinct monitor handles; this XP image exposes one Bochs display. Single-monitor mode/window assertions still execute.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, ddraw_ddraw1.c SHA256 d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a, original prerequisite/context lines4115-4140, context SHA256 2cd441e3588519cafb0d663fb6374d0bc632e243e60fe148c3636e9d5b1f9fef",
+        "stage6-wine-ddraw_ddraw1-retail-atomic-console-final/WINE.TXT SHA256 6f0d120b75ea0bd7a53af9bf9a3776e18d70b9b671a1f7833bb900da46a4ed54; DLL SHA256 10a4f6f6ce95ad1afb03f65f77f259361df8daa4c8ccdc26dbc38b998a3a8a82; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    hr = IDirectDraw_SetCooperativeLevel(ddraw1, window, DDSCL_EXCLUSIVE | DDSCL_FULLSCREEN);\n    ok(SUCCEEDED(hr), \"SetCooperativeLevel failed, hr %#lx.\\n\", hr);\n\n    ddraw2 = create_ddraw();\n    hr = set_display_mode(ddraw2, 640, 480);\n    ok(hr == DDERR_NOEXCLUSIVEMODE, \"Got unexpected hr %#lx.\\n\", hr);\n\n    ref = IDirectDraw_Release(ddraw1);\n    ok(!ref, \"Unexpected refcount %lu.\\n\", ref);\n    w = GetSystemMetrics(SM_CXSCREEN);\n    ok(w == registry_mode.dmPelsWidth, \"Got unexpected screen width %u.\\n\", w);\n    h = GetSystemMetrics(SM_CYSCREEN);\n    ok(h == registry_mode.dmPelsHeight, \"Got unexpected screen height %u.\\n\", h);\n\n    ref = IDirectDraw_Release(ddraw2);\n    ok(!ref, \"Unexpected refcount %lu.\\n\", ref);\n    w = GetSystemMetrics(SM_CXSCREEN);\n    ok(w == registry_mode.dmPelsWidth, \"Got unexpected screen width %u.\\n\", w);\n    h = GetSystemMetrics(SM_CYSCREEN);\n    ok(h == registry_mode.dmPelsHeight, \"Got unexpected screen height %u.\\n\", h);\n\n    if (display_count < 2)\n    {\n        skip(\"Following tests require two monitors.\\n\");\n        goto done;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "ddraw_ddraw1.c:10917",
+      "message": "Failed to create a YV12 overlay, skipping test.",
+      "reason": "The fixed adapter supports packed overlays but does not expose planar YV12 in GetFourCCCodes. This original optional planar-overlay creation prerequisite is unavailable; packed overlay tests execute.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, ddraw_ddraw1.c SHA256 d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a, original prerequisite/context lines10894-10919, context SHA256 bd8905e604f1b04aea244e4018831944c710cafdb3c18fb0ee1981d2f37c688f",
+        "stage6-wine-ddraw_ddraw1-retail-atomic-console-final/WINE.TXT SHA256 6f0d120b75ea0bd7a53af9bf9a3776e18d70b9b671a1f7833bb900da46a4ed54; DLL SHA256 10a4f6f6ce95ad1afb03f65f77f259361df8daa4c8ccdc26dbc38b998a3a8a82; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    IDirectDraw_Release(ddraw);\n    DestroyWindow(window);\n}\n\nstatic void test_yv12_overlay(void)\n{\n    IDirectDrawSurface *src_surface, *dst_surface;\n    RECT rect = {13, 17, 14, 18};\n    unsigned int offset, y;\n    unsigned char *base;\n    DDSURFACEDESC desc;\n    IDirectDraw *ddraw;\n    HWND window;\n    HRESULT hr;\n\n    window = create_window();\n    ddraw = create_ddraw();\n    ok(!!ddraw, \"Failed to create a ddraw object.\\n\");\n    hr = IDirectDraw_SetCooperativeLevel(ddraw, window, DDSCL_NORMAL);\n    ok(SUCCEEDED(hr), \"Failed to set cooperative level, hr %#lx.\\n\", hr);\n\n    if (!(src_surface = create_overlay(ddraw, 256, 256, MAKEFOURCC('Y','V','1','2'))))\n    {\n        skip(\"Failed to create a YV12 overlay, skipping test.\\n\");\n        goto done;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "ddraw_ddraw1.c:11602",
+      "message": "Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+      "reason": "The exact packed bit-mask layout requested by this GetDC table is absent from the fixed legacy DDraw pixel-format inventory; both plain and managed creation are unavailable. Supported GetDC layouts still execute; no failed GetDC assertion is exempted.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, ddraw_ddraw1.c SHA256 d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a, original prerequisite/context lines11579-11604, context SHA256 aafdeeb1b96e8f3c4a85520c8700b6d5ca48a10c71b71a53e4bfce6eb02ba98b",
+        "stage6-wine-ddraw_ddraw1-retail-atomic-console-final/WINE.TXT SHA256 6f0d120b75ea0bd7a53af9bf9a3776e18d70b9b671a1f7833bb900da46a4ed54; DLL SHA256 10a4f6f6ce95ad1afb03f65f77f259361df8daa4c8ccdc26dbc38b998a3a8a82; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    hr = IDirectDraw_SetCooperativeLevel(ddraw, window, DDSCL_NORMAL);\n    ok(SUCCEEDED(hr), \"Failed to set cooperative level, hr %#lx.\\n\", hr);\n\n    surface_desc.dwSize = sizeof(surface_desc);\n    hr = IDirectDraw_GetDisplayMode(ddraw, &surface_desc);\n    ok(SUCCEEDED(hr), \"Failed to get display mode, hr %#lx.\\n\", hr);\n    screen_bpp = surface_desc.ddpfPixelFormat.dwRGBBitCount;\n\n    for (i = 0; i < ARRAY_SIZE(test_data); ++i)\n    {\n        memset(&surface_desc, 0, sizeof(surface_desc));\n        surface_desc.dwSize = sizeof(surface_desc);\n        surface_desc.dwFlags = DDSD_CAPS | DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;\n        surface_desc.dwWidth = 64;\n        surface_desc.dwHeight = 64;\n        surface_desc.ddpfPixelFormat = test_data[i].format;\n        surface_desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;\n\n        if (FAILED(IDirectDraw_CreateSurface(ddraw, &surface_desc, &surface, NULL)))\n        {\n            surface_desc.ddsCaps.dwCaps = DDSCAPS_TEXTURE;\n            if (FAILED(hr = IDirectDraw_CreateSurface(ddraw, &surface_desc, &surface, NULL)))\n            {\n                skip(\"Failed to create surface for format %s (hr %#lx), skipping tests.\\n\", test_data[i].name, hr);\n                continue;\n            }"
+    },
+    {
+      "category": "platform",
+      "location": "ddraw_ddraw1.c:16928",
+      "message": "format YV12: Failed to create surface, hr 0x88760091.",
+      "reason": "Planar YV12/NV12 FOURCC formats are absent from the fixed adapter format inventory and creation returns the original unavailable-format status. Packed UYVY/YUY2 positive paths still execute. No advertised planar capability is disabled or waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, ddraw_ddraw1.c SHA256 d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a, original prerequisite/context lines16905-16930, context SHA256 f88aa0d95d3eea47d9e64626d9cdaa9e92f8718bc5f36fce0794c5c9ff68bd10",
+        "stage6-wine-ddraw_ddraw1-retail-atomic-console-final/WINE.TXT SHA256 6f0d120b75ea0bd7a53af9bf9a3776e18d70b9b671a1f7833bb900da46a4ed54; DLL SHA256 10a4f6f6ce95ad1afb03f65f77f259361df8daa4c8ccdc26dbc38b998a3a8a82; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "\n    surface_desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS | DDSD_PIXELFORMAT;\n    surface_desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;\n    surface_desc.dwWidth = 640;\n    surface_desc.dwHeight = 480;\n    init_format_b8g8r8x8(&surface_desc.ddpfPixelFormat);\n\n    hr = IDirectDraw_CreateSurface(ddraw, &surface_desc, &rgb_surface, NULL);\n    ok(hr == S_OK, \"Got hr %#lx.\\n\", hr);\n\n    for (unsigned int fmt = 0; fmt < ARRAY_SIZE(formats); fmt++)\n    {\n        DWORD format = formats[fmt].fourcc;\n\n        winetest_push_context(\"format %s\", formats[fmt].str);\n\n        surface_desc.dwWidth = width;\n        surface_desc.dwHeight = height;\n        surface_desc.ddpfPixelFormat.dwFlags = DDPF_FOURCC;\n        surface_desc.ddpfPixelFormat.dwFourCC = format;\n        hr = IDirectDraw_CreateSurface(ddraw, &surface_desc, &yuv_surface, NULL);\n        if (hr != S_OK)\n        {\n            skip(\"Failed to create surface, hr %#lx.\\n\", hr);\n            winetest_pop_context();\n            continue;"
+    },
+    {
+      "category": "platform",
+      "location": "ddraw_ddraw1.c:16928",
+      "message": "format NV12: Failed to create surface, hr 0x88760091.",
+      "reason": "Planar YV12/NV12 FOURCC formats are absent from the fixed adapter format inventory and creation returns the original unavailable-format status. Packed UYVY/YUY2 positive paths still execute. No advertised planar capability is disabled or waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, ddraw_ddraw1.c SHA256 d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a, original prerequisite/context lines16905-16930, context SHA256 f88aa0d95d3eea47d9e64626d9cdaa9e92f8718bc5f36fce0794c5c9ff68bd10",
+        "stage6-wine-ddraw_ddraw1-retail-atomic-console-final/WINE.TXT SHA256 6f0d120b75ea0bd7a53af9bf9a3776e18d70b9b671a1f7833bb900da46a4ed54; DLL SHA256 10a4f6f6ce95ad1afb03f65f77f259361df8daa4c8ccdc26dbc38b998a3a8a82; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "\n    surface_desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS | DDSD_PIXELFORMAT;\n    surface_desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;\n    surface_desc.dwWidth = 640;\n    surface_desc.dwHeight = 480;\n    init_format_b8g8r8x8(&surface_desc.ddpfPixelFormat);\n\n    hr = IDirectDraw_CreateSurface(ddraw, &surface_desc, &rgb_surface, NULL);\n    ok(hr == S_OK, \"Got hr %#lx.\\n\", hr);\n\n    for (unsigned int fmt = 0; fmt < ARRAY_SIZE(formats); fmt++)\n    {\n        DWORD format = formats[fmt].fourcc;\n\n        winetest_push_context(\"format %s\", formats[fmt].str);\n\n        surface_desc.dwWidth = width;\n        surface_desc.dwHeight = height;\n        surface_desc.ddpfPixelFormat.dwFlags = DDPF_FOURCC;\n        surface_desc.ddpfPixelFormat.dwFourCC = format;\n        hr = IDirectDraw_CreateSurface(ddraw, &surface_desc, &yuv_surface, NULL);\n        if (hr != S_OK)\n        {\n            skip(\"Failed to create surface, hr %#lx.\\n\", hr);\n            winetest_pop_context();\n            continue;"
+    }
+  ]
+}

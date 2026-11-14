@@ -17,6 +17,15 @@ for (const state of [a, b]) for (const stage of [0, 5]) {
 }
 assert.equal(samplers.size, 4, "mixed MAG/MIN filters need separate cache entries");
 a.samplerStates.clear(); assert.equal(executor.comparisonSamplerFor(a, 0), samplers.get("nearest/nearest"), "missing state uses SDK POINT defaults");
+assert.throws(() => executor.device.createSampler({compare: null}), TypeError,
+    "the fake must reject the null comparison enum rejected by the real browser");
+assert.equal(executor.comparisonSamplerFor(a, 0, null), samplers.get("nearest/nearest"),
+    "a fixed-function program's null pixel reflection selects the default comparison");
+for (const compare of ["never", "less", "equal", "less-equal", "greater", "not-equal", "greater-equal", "always"]) {
+    const sampler = executor.comparisonSamplerFor(a, 0, compare);
+    assert.equal(sampler.descriptor.compare, compare, "explicit comparison survives: " + compare);
+    assert.equal(executor.comparisonSamplerFor(a, 0, compare), sampler, "comparison cache: " + compare);
+}
 b.samplerStates.set(1, 3); assert.notEqual(executor.comparisonSamplerFor(b, 0), samplers.get("linear/linear"), "addressing is part of the comparison cache");
 const layout = {byteLength: 32, entries: [{name: "stage_constant0", source: 0, offset: 0}, {name: "stage_constant3", source: 3, offset: 16}]};
 const colors = [0, 0xff000000, 0x00ff0080, 0xa0102030, 0xffffffff];

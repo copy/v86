@@ -1,0 +1,186 @@
+{
+  "suite": "d3d8_visual",
+  "sourceSha256": "b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e",
+  "inapplicable": [
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:3902",
+      "message": "No INTZ support, skipping INTZ test.",
+      "reason": "INTZ is a vendor FOURCC depth-texture extension, absent from the fixed adapter format inventory. Standard depth textures/buffers remain tested.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines3879-3904, context SHA256 3768ab7a697d39e3665300b6688ca60bea8d0465262ca431063fe1eb9506d4a3",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    {\n        skip(\"Failed to create a D3D device, skipping tests.\\n\");\n        goto done;\n    }\n\n    hr = IDirect3DDevice8_GetDeviceCaps(device, &caps);\n    ok(SUCCEEDED(hr), \"GetDeviceCaps failed, hr %#lx.\\n\", hr);\n    if (caps.PixelShaderVersion < D3DPS_VERSION(1, 1))\n    {\n        skip(\"No pixel shader 1.1 support, skipping INTZ test.\\n\");\n        IDirect3DDevice8_Release(device);\n        goto done;\n    }\n    if (caps.TextureCaps & D3DPTEXTURECAPS_POW2)\n    {\n        skip(\"No unconditional NP2 texture support, skipping INTZ test.\\n\");\n        IDirect3DDevice8_Release(device);\n        goto done;\n    }\n\n    if (FAILED(hr = IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_X8R8G8B8, D3DUSAGE_DEPTHSTENCIL, D3DRTYPE_TEXTURE, MAKEFOURCC('I','N','T','Z'))))\n    {\n        skip(\"No INTZ support, skipping INTZ test.\\n\");\n        IDirect3DDevice8_Release(device);\n        goto done;"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:4404",
+      "message": "Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisampled CopyRects test.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines4381-4406, context SHA256 ec8f7e0fbb39c7c9299c08c1dcf5fb7c7190bbf01552a2c10cbcc677f0ca686b",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    IDirect3DSurface8 *ds, *ds_plain, *rt, *readback;\n    RECT src_rect = {64, 64, 128, 128};\n    POINT dst_point = {96, 96};\n    D3DLOCKED_RECT locked_rect;\n    IDirect3DDevice8 *device;\n    unsigned int color;\n    IDirect3D8 *d3d;\n    ULONG refcount;\n    HWND window;\n    HRESULT hr;\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n    if (!(device = create_device(d3d, window, window, TRUE)))\n    {\n        skip(\"Failed to create a D3D device, skipping tests.\\n\");\n        goto done;\n    }\n\n    if (FAILED(IDirect3D8_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT,\n            D3DDEVTYPE_HAL, D3DFMT_A8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES)))\n    {\n        skip(\"Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisampled CopyRects test.\\n\");\n        IDirect3DDevice8_Release(device);\n        goto done;"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:4530",
+      "message": "Multisampling not supported for D3DFMT_A8R8G8B8, skipping RESZ test.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines4507-4532, context SHA256 6e0344322c6788cc567237ae6dfb82a6a0d278e4102ca3ddfc634d84a85eb7d7",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    {\n        { 80, 100, D3DCOLOR_ARGB(0x00, 0x20, 0x40, 0x00)},\n        {240, 100, D3DCOLOR_ARGB(0x00, 0x60, 0xbf, 0x00)},\n        {400, 100, D3DCOLOR_ARGB(0x00, 0x9f, 0x40, 0x00)},\n        {560, 100, D3DCOLOR_ARGB(0x00, 0xdf, 0xbf, 0x00)},\n        { 80, 450, D3DCOLOR_ARGB(0x00, 0x20, 0x40, 0x00)},\n        {240, 450, D3DCOLOR_ARGB(0x00, 0x60, 0xbf, 0x00)},\n        {400, 450, D3DCOLOR_ARGB(0x00, 0x9f, 0x40, 0x00)},\n        {560, 450, D3DCOLOR_ARGB(0x00, 0xdf, 0xbf, 0x00)},\n    };\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n    if (!(device = create_device(d3d, window, window, TRUE)))\n    {\n        skip(\"Failed to create a D3D device, skipping tests.\\n\");\n        goto done;\n    }\n\n    if (FAILED(IDirect3D8_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT,\n            D3DDEVTYPE_HAL, D3DFMT_A8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES)))\n    {\n        skip(\"Multisampling not supported for D3DFMT_A8R8G8B8, skipping RESZ test.\\n\");\n        IDirect3DDevice8_Release(device);\n        goto done;"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:5277",
+      "message": "DXT1 volume textures are not supported, skipping test.",
+      "reason": "Optional compressed3D texture profile is not exposed by this adapter; the original successful format query/creation prerequisite selects the skip. Supported DXT2D/cube and uncompressed3D paths execute. This is a format/resource-type limitation, not a failure of an advertised resource.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines5254-5279, context SHA256 5d7be1bf88ad0c879edbb767b46e22279f4fd442375dbb4a2e5a969cce4c8bf8",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "        {{  0.0f,   1.0f,  0.0f}, { 0.0f, 1.0f, 0.75f}},\n        {{  1.0f,  -1.0f,  1.0f}, { 1.0f, 0.0f, 0.75f}},\n        {{  1.0f,   1.0f,  1.0f}, { 1.0f, 1.0f, 0.75f}},\n    };\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (!(device = create_device(d3d, window, window, TRUE)))\n    {\n        skip(\"Failed to create a D3D device, skipping tests.\\n\");\n        goto done;\n    }\n\n    hr = IDirect3DDevice8_GetRenderTarget(device, &rt);\n    ok(SUCCEEDED(hr), \"Failed to get render target, hr %#lx.\\n\", hr);\n\n    for (i = 0; i < ARRAY_SIZE(tests); ++i)\n    {\n        if (FAILED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, 0, D3DRTYPE_VOLUMETEXTURE, tests[i].format)))\n        {\n            skip(\"%s volume textures are not supported, skipping test.\\n\", tests[i].name);\n            continue;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:5277",
+      "message": "DXT3 volume textures are not supported, skipping test.",
+      "reason": "Optional compressed3D texture profile is not exposed by this adapter; the original successful format query/creation prerequisite selects the skip. Supported DXT2D/cube and uncompressed3D paths execute. This is a format/resource-type limitation, not a failure of an advertised resource.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines5254-5279, context SHA256 5d7be1bf88ad0c879edbb767b46e22279f4fd442375dbb4a2e5a969cce4c8bf8",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "        {{  0.0f,   1.0f,  0.0f}, { 0.0f, 1.0f, 0.75f}},\n        {{  1.0f,  -1.0f,  1.0f}, { 1.0f, 0.0f, 0.75f}},\n        {{  1.0f,   1.0f,  1.0f}, { 1.0f, 1.0f, 0.75f}},\n    };\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (!(device = create_device(d3d, window, window, TRUE)))\n    {\n        skip(\"Failed to create a D3D device, skipping tests.\\n\");\n        goto done;\n    }\n\n    hr = IDirect3DDevice8_GetRenderTarget(device, &rt);\n    ok(SUCCEEDED(hr), \"Failed to get render target, hr %#lx.\\n\", hr);\n\n    for (i = 0; i < ARRAY_SIZE(tests); ++i)\n    {\n        if (FAILED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, 0, D3DRTYPE_VOLUMETEXTURE, tests[i].format)))\n        {\n            skip(\"%s volume textures are not supported, skipping test.\\n\", tests[i].name);\n            continue;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:5277",
+      "message": "DXT5 volume textures are not supported, skipping test.",
+      "reason": "Optional compressed3D texture profile is not exposed by this adapter; the original successful format query/creation prerequisite selects the skip. Supported DXT2D/cube and uncompressed3D paths execute. This is a format/resource-type limitation, not a failure of an advertised resource.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines5254-5279, context SHA256 5d7be1bf88ad0c879edbb767b46e22279f4fd442375dbb4a2e5a969cce4c8bf8",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "        {{  0.0f,   1.0f,  0.0f}, { 0.0f, 1.0f, 0.75f}},\n        {{  1.0f,  -1.0f,  1.0f}, { 1.0f, 0.0f, 0.75f}},\n        {{  1.0f,   1.0f,  1.0f}, { 1.0f, 1.0f, 0.75f}},\n    };\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (!(device = create_device(d3d, window, window, TRUE)))\n    {\n        skip(\"Failed to create a D3D device, skipping tests.\\n\");\n        goto done;\n    }\n\n    hr = IDirect3DDevice8_GetRenderTarget(device, &rt);\n    ok(SUCCEEDED(hr), \"Failed to get render target, hr %#lx.\\n\", hr);\n\n    for (i = 0; i < ARRAY_SIZE(tests); ++i)\n    {\n        if (FAILED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, 0, D3DRTYPE_VOLUMETEXTURE, tests[i].format)))\n        {\n            skip(\"%s volume textures are not supported, skipping test.\\n\", tests[i].name);\n            continue;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:6273",
+      "message": "ATI1N textures are not supported, skipping test.",
+      "reason": "The D3D8 fixed format profile does not expose the optional ATI1N vendor extension. Original CheckDeviceFormat selects this branch; standard texture formats and D3D9 supported BC formats remain tested.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines6250-6275, context SHA256 8a89e4ab3ebd8bb0eeac3b2c917dc22df87d90e68a6e66c51614214ebc58d609",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    expected_colors[] =\n    {\n        {{ 80, 240}, 0x007fffff, 0x003f3f3f, 0x007f7f7f, 0x007f0000},\n        {{240, 240}, 0x007fffff, 0x003f3f3f, 0x007f7f7f, 0x007f0000},\n        {{400, 240}, 0x00007fff, 0x00007fff, 0x00007fff, 0x00007fff},\n        {{560, 240}, 0x007f00ff, 0x007f00ff, 0x007f00ff, 0x007f00ff},\n    };\n    IDirect3D8 *d3d;\n    IDirect3DDevice8 *device;\n    IDirect3DTexture8 *ati1n_texture, *ati2n_texture;\n    unsigned int color, i;\n    D3DCAPS8 caps;\n    D3DLOCKED_RECT rect;\n    ULONG refcount;\n    HWND window;\n    HRESULT hr;\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n    if (FAILED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_X8R8G8B8, 0, D3DRTYPE_TEXTURE, ati1n_fourcc)))\n    {\n        skip(\"ATI1N textures are not supported, skipping test.\\n\");\n        goto done;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:7217",
+      "message": "2D mipmapped ATI2N textures are not supported, skipping some tests.",
+      "reason": "This exact API/resource/mipmap combination of the optional ATI2N vendor extension is absent from the fixed adapter profile. Supported ATI2N combinations are not excluded and remain tested.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines7194-7219, context SHA256 078988a960df9690d23586ebbabe5672fb3b3239d0914af77f32acc84c306b8e",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);\n    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_ADDRESSW, D3DTADDRESS_CLAMP);\n    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetRenderState(device, D3DRS_LIGHTING, FALSE);\n    ok(SUCCEEDED(hr), \"Failed to set render state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);\n    ok(hr == D3D_OK, \"Failed to set texture stage state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_COLORARG1, D3DTA_TEXTURE);\n    ok(hr == D3D_OK, \"Failed to set texture stage state, hr %#lx.\\n\", hr);\n\n    for (t = 0; t < ARRAY_SIZE(texture_types); ++t)\n    {\n        if (!(caps.TextureCaps & texture_types[t].cap))\n        {\n            skip(\"%s textures not supported, skipping some tests.\\n\", texture_types[t].name);\n            continue;\n        }\n\n        if (FAILED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, 0, texture_types[t].type, MAKEFOURCC('A','T','I','2'))))\n        {\n            skip(\"%s ATI2N textures are not supported, skipping some tests.\\n\", texture_types[t].name);\n            ati2n_supported = FALSE;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:7217",
+      "message": "Cube ATI2N textures are not supported, skipping some tests.",
+      "reason": "This exact API/resource/mipmap combination of the optional ATI2N vendor extension is absent from the fixed adapter profile. Supported ATI2N combinations are not excluded and remain tested.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines7194-7219, context SHA256 078988a960df9690d23586ebbabe5672fb3b3239d0914af77f32acc84c306b8e",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);\n    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_ADDRESSW, D3DTADDRESS_CLAMP);\n    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetRenderState(device, D3DRS_LIGHTING, FALSE);\n    ok(SUCCEEDED(hr), \"Failed to set render state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);\n    ok(hr == D3D_OK, \"Failed to set texture stage state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_COLORARG1, D3DTA_TEXTURE);\n    ok(hr == D3D_OK, \"Failed to set texture stage state, hr %#lx.\\n\", hr);\n\n    for (t = 0; t < ARRAY_SIZE(texture_types); ++t)\n    {\n        if (!(caps.TextureCaps & texture_types[t].cap))\n        {\n            skip(\"%s textures not supported, skipping some tests.\\n\", texture_types[t].name);\n            continue;\n        }\n\n        if (FAILED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, 0, texture_types[t].type, MAKEFOURCC('A','T','I','2'))))\n        {\n            skip(\"%s ATI2N textures are not supported, skipping some tests.\\n\", texture_types[t].name);\n            ati2n_supported = FALSE;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:7217",
+      "message": "Volume ATI2N textures are not supported, skipping some tests.",
+      "reason": "This exact API/resource/mipmap combination of the optional ATI2N vendor extension is absent from the fixed adapter profile. Supported ATI2N combinations are not excluded and remain tested.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines7194-7219, context SHA256 078988a960df9690d23586ebbabe5672fb3b3239d0914af77f32acc84c306b8e",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_ADDRESSV, D3DTADDRESS_CLAMP);\n    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_ADDRESSW, D3DTADDRESS_CLAMP);\n    ok(SUCCEEDED(hr), \"Failed to set texture filtering state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetRenderState(device, D3DRS_LIGHTING, FALSE);\n    ok(SUCCEEDED(hr), \"Failed to set render state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);\n    ok(hr == D3D_OK, \"Failed to set texture stage state, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_SetTextureStageState(device, 0, D3DTSS_COLORARG1, D3DTA_TEXTURE);\n    ok(hr == D3D_OK, \"Failed to set texture stage state, hr %#lx.\\n\", hr);\n\n    for (t = 0; t < ARRAY_SIZE(texture_types); ++t)\n    {\n        if (!(caps.TextureCaps & texture_types[t].cap))\n        {\n            skip(\"%s textures not supported, skipping some tests.\\n\", texture_types[t].name);\n            continue;\n        }\n\n        if (FAILED(IDirect3D8_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, 0, texture_types[t].type, MAKEFOURCC('A','T','I','2'))))\n        {\n            skip(\"%s ATI2N textures are not supported, skipping some tests.\\n\", texture_types[t].name);\n            ati2n_supported = FALSE;\n        }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:7980",
+      "message": "Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample mismatch test.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines7957-7982, context SHA256 e4e43226097111e3dc3f171026e9e1a27448cf3914b545f9e161ea3ff5864223",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    IDirect3DTexture8_Release(tex2);\n    refcount = IDirect3DDevice8_Release(device);\n    ok(!refcount, \"Device has %lu references left.\\n\", refcount);\ndone:\n    IDirect3D8_Release(d3d);\n    DestroyWindow(window);\n}\n\nstatic void test_multisample_mismatch(void)\n{\n    IDirect3DDevice8 *device;\n    IDirect3D8 *d3d;\n    HWND window;\n    HRESULT hr;\n    ULONG refcount;\n    IDirect3DSurface8 *rt_multi, *ds;\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n    if (FAILED(IDirect3D8_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_A8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES)))\n    {\n        skip(\"Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample mismatch test.\\n\");\n        IDirect3D8_Release(d3d);\n        return;"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:8777",
+      "message": "Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample flip test.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines8754-8779, context SHA256 ed605fa010b7266b68244eb2994fb2f3ac87aa32718806e91773a3df9a5dc061",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    hr = IDirect3DDevice8_Present(device, NULL, NULL, NULL, NULL);\n    ok(SUCCEEDED(hr), \"Failed to present, hr %#lx.\\n\", hr);\n\n    color = get_surface_color(back_buffers[0], 1, 1);\n    ok(color == 0xff0000ff, \"Got unexpected color 0x%08x.\\n\", color);\n    color = get_surface_color(back_buffers[1], 1, 1);\n    ok(color == 0xff808080, \"Got unexpected color 0x%08x.\\n\", color);\n\n    hr = IDirect3DDevice8_Present(device, NULL, NULL, NULL, NULL);\n    ok(SUCCEEDED(hr), \"Failed to present, hr %#lx.\\n\", hr);\n\n    color = get_surface_color(back_buffers[0], 1, 1);\n    ok(color == 0xff808080, \"Got unexpected color 0x%08x.\\n\", color);\n\n    for (i = 0; i < ARRAY_SIZE(back_buffers); ++i)\n        IDirect3DSurface8_Release(back_buffers[i]);\n\n    refcount = IDirect3DDevice8_Release(device);\n    ok(!refcount, \"Device has %lu references left.\\n\", refcount);\n\n    if (FAILED(IDirect3D8_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_A8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES)))\n    {\n        skip(\"Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample flip test.\\n\");\n        goto done;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:9274",
+      "message": "Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample init test.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines9251-9276, context SHA256 1c77612252f0dfa7af8309680403469307a90bb4273745e3b648d56ebe7415f1",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    IDirect3D8_Release(d3d);\n    DestroyWindow(window);\n}\n\nstatic void test_multisample_init(void)\n{\n    IDirect3DDevice8 *device;\n    unsigned int color, x, y;\n    IDirect3D8 *d3d;\n    IDirect3DSurface8 *back, *multi;\n    ULONG refcount;\n    HWND window;\n    HRESULT hr;\n    struct surface_readback rb;\n    BOOL all_zero = TRUE;\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (FAILED(IDirect3D8_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_A8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES)))\n    {\n        skip(\"Multisampling not supported for D3DFMT_A8R8G8B8, skipping multisample init test.\\n\");\n        goto done;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:10691",
+      "message": "Would need to draw 11920182 triangles, but the device only supports 1048575 primitives.",
+      "reason": "The exact original positive calibration needs11920182 triangles in one draw, above the unchanged publicly exposed MaxPrimitiveCount1048575. This capacity-dependent100ms stress variant cannot form a legal workload on this fixed API8 profile; no capability was reduced or raised. Earlier unsigned-wrap/negative-delta estimates are NOT accepted as capacity evidence. All ordinary valid-map paths remain applicable; an additional unchanged original execution ran all4map flags/80extra assertions with0failures but was independently rejected by the OS postcheck, and is retained as supplemental evidence rather than a full-module pass.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines10668-10693, context SHA256 0d3ba06f4f3d415f1c0f90b003e21df1363e059431abf2320026c02a54c1b564",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    /* Time drawing a single triangle. */\n    ret = QueryPerformanceCounter(&ts[1]);\n    ok(ret, \"Failed to read performance counter.\\n\");\n    hr = IDirect3DDevice8_Clear(device, 0, NULL, D3DCLEAR_TARGET, 0xff0000ff, 0.0f, 0);\n    ok(SUCCEEDED(hr), \"Failed to clear, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_BeginScene(device);\n    ok(SUCCEEDED(hr), \"Failed to begin scene, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_DrawPrimitive(device, D3DPT_TRIANGLESTRIP, 0, 1);\n    ok(SUCCEEDED(hr), \"Failed to draw, hr %#lx.\\n\", hr);\n    hr = IDirect3DDevice8_EndScene(device);\n    ok(SUCCEEDED(hr), \"Failed to end scene, hr %#lx.\\n\", hr);\n    colour = getPixelColor(device, 320, 240);\n    ret = QueryPerformanceCounter(&ts[2]);\n    ok(ret, \"Failed to read performance counter.\\n\");\n\n    IDirect3DVertexBuffer8_Release(buffer);\n\n    /* Estimate the number of triangles we can draw in 100ms. */\n    diff.QuadPart = ts[1].QuadPart - ts[0].QuadPart + ts[1].QuadPart - ts[2].QuadPart;\n    tri_count = (tri_count * frequency.QuadPart) / (diff.QuadPart * 10);\n    tri_count = ((tri_count + 2 + 3) & ~3) - 2;\n    if (tri_count > caps.MaxPrimitiveCount)\n    {\n        skip(\"Would need to draw %u triangles, but the device only supports %lu primitives.\\n\",\n                tri_count, caps.MaxPrimitiveCount);\n        goto done;"
+    },
+    {
+      "category": "platform",
+      "location": "d3d8_visual.c:11507",
+      "message": "Multisampling not supported for D3DFMT_A8R8G8B8.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d8_visual.c SHA256 b709e7e8b56fd89b853800e64f5b85519ee1db1779736a6969db0f6ad07e684e, original prerequisite/context lines11484-11509, context SHA256 8e95a7a360a238a811a9e0b4c573523a9dfe4000cc47b90876b69181d3cf570f",
+        "stage6-wine-d3d8_visual-timing-calibration-3-final/WINE.TXT SHA256 4b51823df7ded11953cf7687567fca32576fc6194af944331f9d477c7b3904f1; DLL SHA256 973c6c1d6175d348e667e9a9a18213729c9bda9d3597fba3404dba7d812796c6; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    HWND window;\n    HRESULT hr;\n\n    static const struct\n    {\n        struct vec3 position;\n        DWORD diffuse;\n    }\n    quad[] =\n    {\n        {{-1.0f, -1.0f, 0.1f}, 0xffffffff},\n        {{-1.0f,  1.0f, 0.1f}, 0xffffffff},\n        {{ 1.0f, -1.0f, 0.1f}, 0xffffffff},\n        {{ 1.0f,  1.0f, 0.1f}, 0xffffffff},\n    };\n\n    window = create_window();\n    d3d = Direct3DCreate8(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (FAILED(IDirect3D8_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_A8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES)))\n    {\n        skip(\"Multisampling not supported for D3DFMT_A8R8G8B8.\\n\");\n        IDirect3D8_Release(d3d);\n        DestroyWindow(window);"
+    }
+  ]
+}

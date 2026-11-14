@@ -142,6 +142,33 @@ static PendingInstall pending_install(void)
     return NULL;
 }
 
+/* Closing a PnP dialog may give Explorer the foreground. Establish the
+ * console/child-process launch precondition before Wine starts; never change
+ * focus or intercept messages while the original test is running. */
+static BOOL prepare_console_foreground(void)
+{
+    HWND console = GetConsoleWindow(), before = GetForegroundWindow();
+    DWORD current = GetCurrentThreadId();
+    DWORD other = before ? GetWindowThreadProcessId(before, NULL) : 0;
+    BOOL attached = FALSE;
+    if (!console || !IsWindowVisible(console) || !IsWindowEnabled(console)) {
+        printf("FAIL launch console unavailable\n");return FALSE;
+    }
+    if (other && other != current) attached = AttachThreadInput(current, other, TRUE);
+    BOOL raised = SetForegroundWindow(console);
+    if (attached && !AttachThreadInput(current, other, FALSE)) {
+        printf("FAIL foreground input queue detach error=%lu\n", GetLastError());return FALSE;
+    }
+    BOOL allowed = AllowSetForegroundWindow(ASFW_ANY);
+    HWND after = GetForegroundWindow();
+    printf("LAUNCH foreground_before=%p console=%p after=%p attached=%u raised=%u allowed=%u\n",
+            before, console, after, attached, raised, allowed);
+    if (after != console || !allowed) {
+        printf("FAIL console foreground/child launch permission\n");return FALSE;
+    }
+    return TRUE;
+}
+
 int main(int argc, char **argv)
 {
     DWORD began = GetTickCount(), quiet = began, last_action = 0, last_wait = ~0u;
@@ -191,6 +218,7 @@ int main(int argc, char **argv)
                 ++actions;
             }
         } else if (state == WAIT_OBJECT_0 && now - quiet >= 10000) {
+            if (!prepare_console_foreground()) {flush_log();return 1;}
             printf("COMPLETE desktop_prepare=1 dialogs_closed=%u actions=%u quiet_ms=%lu\n",
                     closed, actions, now - quiet);
             flush_log();

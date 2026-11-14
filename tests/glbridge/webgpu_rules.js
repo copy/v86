@@ -213,5 +213,11 @@ function textureCopyProblems(source, destination, size) {
     return problems;
 }
 
+function validateSamplerDescriptor(descriptor) {
+    if (descriptor.compare !== undefined && !["never", "less", "equal", "less-equal",
+        "greater", "not-equal", "greater-equal", "always"].includes(descriptor.compare))
+        throw new TypeError("Invalid GPUCompareFunction: " + descriptor.compare);
+}
+
 module.exports = { renderPipelineProblems, attachmentProblems, passProblems, viewportProblems,
-    querySetProblems, bindGroupProblems, textureCopyProblems, entryPoint };
+    querySetProblems, bindGroupProblems, textureCopyProblems, entryPoint, validateSamplerDescriptor };

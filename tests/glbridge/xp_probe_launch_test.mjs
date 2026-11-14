@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { probe_launch_activity, probe_screen_changed, probe_run_scancodes, probe_keyboard_events } from "../lib/xp_probe_launch.mjs";
+import { probe_launch_activity, probe_screen_changed, probe_run_scancodes, probe_keyboard_events, probe_run_dialog_visible } from "../lib/xp_probe_launch.mjs";
+import { read_png } from "../lib/png_compare.mjs";
+import fs from "node:fs";
+import {createHash} from "node:crypto";
+import {fileURLToPath} from "node:url";
 const frame = (width = 800, height = 600) => ({width, height, raw: new Uint8Array(height * (width * 3 + 1))});
 const before = frame(), same = frame(), clock = frame(), consolePicture = frame();
 clock.raw.fill(255, 560 * (800 * 3 + 1));
@@ -50,3 +54,15 @@ for(const event of probe_keyboard_events(winR)) {
 assert(runOpened&&!heldWin);
 assert.deepEqual(probe_keyboard_events(probe_run_scancodes("cmd /c")).flat(),probe_run_scancodes("cmd /c"));
 console.log("PASS atomic extended keyboard events: held Win+R, prefix/make/break boundaries, modifier releases and malformed-prefix refusal");
+
+const fixtures=fileURLToPath(new URL("./fixtures/xp_run_dialog/",import.meta.url));
+for(const row of JSON.parse(fs.readFileSync(fixtures+"origin.json")).cases) {
+    assert.equal(createHash("sha256").update(fs.readFileSync(fixtures+row.file)).digest("hex"),row.sha256);
+    const p=read_png(fixtures+row.file),raw=new Uint8Array(p.height*(p.width*3+1));
+    for(let y=0;y<p.height;y++)for(let x=0;x<p.width;x++)
+        raw.set(p.rgba.subarray((y*p.width+x)*4,(y*p.width+x)*4+3),y*(p.width*3+1)+1+x*3);
+    assert.equal(probe_run_dialog_visible({width:p.width,height:p.height,raw}),row.runVisible,row.file);
+}
+assert.equal(probe_run_dialog_visible(null),false);
+assert.equal(probe_run_dialog_visible(frame()),false);
+console.log("PASS actual XP Run dialog screenshots: visible title/body/edit required; hardware wizard and missing-Run desktop rejected before command entry");

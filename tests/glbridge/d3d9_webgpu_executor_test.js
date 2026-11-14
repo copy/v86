@@ -408,6 +408,7 @@ function makeFakeWebGPU(options) {
             return texture;
         },
         createSampler(descriptor) {
+            rules.validateSamplerDescriptor(descriptor);
             const sampler = { descriptor };
             calls.push(["createSampler", descriptor, sampler]);
             return sampler;

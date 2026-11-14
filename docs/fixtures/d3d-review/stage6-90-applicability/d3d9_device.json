@@ -1,0 +1,114 @@
+{
+  "suite": "d3d9_device",
+  "sourceSha256": "5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020",
+  "inapplicable": [
+    {
+      "category": "platform",
+      "location": "d3d9_device.c:1132",
+      "message": "Multisampling not supported for D3DFMT_X8R8G8B8, skipping test.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines1109-1134, context SHA256 e528adc0286fce078d81d27df2fab3a8290afb5378cbe14d50d9419dca8a7a1c",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "\n    refcount = IDirect3DDevice9_Release(device);\n    ok(!refcount, \"Device has %lu references left.\\n\", refcount);\ncleanup:\n    IDirect3D9_Release(d3d);\n    DestroyWindow(window);\n}\n\nstatic void test_checkdevicemultisampletype(void)\n{\n    DWORD quality_levels;\n    IDirect3D9 *d3d;\n    HWND window;\n    HRESULT hr;\n\n    window = create_window();\n    ok(!!window, \"Failed to create a window.\\n\");\n    d3d = Direct3DCreate9(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (IDirect3D9_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_X8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES, NULL) == D3DERR_NOTAVAILABLE)\n    {\n        skip(\"Multisampling not supported for D3DFMT_X8R8G8B8, skipping test.\\n\");\n        goto cleanup;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d9_device.c:5676",
+      "message": "Following tests require two adapters.",
+      "reason": "The fixed virtual adapter profile exposes one Direct3D adapter. Multi-adapter-only assertions require a second independent adapter.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines5653-5678, context SHA256 54f1c700bf9aef605c20813764f8bd7aa9ccb5c8179a798ba671ae37ae46f69a",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    device_desc.height = d3d_height;\n    hr = reset_device(device, &device_desc);\n    ok(hr == D3D_OK, \"Failed to reset device, hr %#lx.\\n\", hr);\n    ret = EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &devmode2);\n    ok(ret, \"EnumDisplaySettingsW failed, error %#lx.\\n\", GetLastError());\n    ok(devmode2.dmPelsWidth == d3d_width && devmode2.dmPelsHeight == d3d_height,\n            \"Expected resolution %ux%u, got %lux%lu.\\n\", d3d_width, d3d_height,\n            devmode2.dmPelsWidth, devmode2.dmPelsHeight);\n\n    refcount = IDirect3DDevice9_Release(device);\n    ok(!refcount, \"Device has %lu references left.\\n\", refcount);\n\n    ret = EnumDisplaySettingsW(NULL, ENUM_CURRENT_SETTINGS, &devmode2);\n    ok(ret, \"EnumDisplaySettingsW failed, error %#lx.\\n\", GetLastError());\n    ok(equal_mode_rect(&devmode2, &devmode), \"Got a different mode.\\n\");\n    ret = EnumDisplaySettingsW(NULL, ENUM_REGISTRY_SETTINGS, &devmode2);\n    ok(ret, \"EnumDisplaySettingsW failed, error %#lx.\\n\", GetLastError());\n    ok(equal_mode_rect(&devmode2, &devmode), \"Got a different mode.\\n\");\n    ret = restore_display_modes(original_modes, display_count);\n    ok(ret, \"Failed to restore display modes.\\n\");\n\n    if (IDirect3D9_GetAdapterCount(d3d9) < 2)\n    {\n        skip(\"Following tests require two adapters.\\n\");\n        goto done;\n    }"
+    },
+    {
+      "category": "mutually-exclusive",
+      "location": "d3d9_device.c:7561",
+      "message": "This GPU supports SM3, skipping unsupported shader test.",
+      "reason": "The virtual D3D9 device exposes shader model3. This original branch tests rejection on pre-SM3 devices; supported SM3 shader validation remains applicable.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines7538-7563, context SHA256 8b7d867c823575128e933a311c9ef548458901536fc457595e16bb427628e816",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    hr = IDirect3DDevice9_CreatePixelShader(device, ps_4_0, &ps);\n    ok(hr == D3DERR_INVALIDCALL, \"Got unexpected hr %#lx.\\n\", hr);\n\n    hr = IDirect3DDevice9_GetDeviceCaps(device, &caps);\n    ok(SUCCEEDED(hr), \"Failed to get device caps, hr %#lx.\\n\", hr);\n    if (caps.VertexShaderVersion < D3DVS_VERSION(3, 0))\n    {\n        hr = IDirect3DDevice9_CreateVertexShader(device, vs_3_0, &vs);\n        ok(hr == D3DERR_INVALIDCALL, \"Got unexpected hr %#lx.\\n\", hr);\n        if (caps.VertexShaderVersion <= D3DVS_VERSION(1, 1) && caps.MaxVertexShaderConst < 256)\n        {\n            hr = IDirect3DDevice9_CreateVertexShader(device, vs_1_255, &vs);\n            ok(hr == D3DERR_INVALIDCALL, \"Got unexpected hr %#lx.\\n\", hr);\n        }\n        else\n        {\n            skip(\"GPU supports SM2+, skipping SM1 test.\\n\");\n        }\n\n        skip(\"This GPU doesn't support SM3, skipping test with shader using unsupported constants.\\n\");\n    }\n    else\n    {\n        skip(\"This GPU supports SM3, skipping unsupported shader test.\\n\");\n\n        hr = IDirect3DDevice9_CreateVertexShader(device, vs_1_255, &vs);"
+    },
+    {
+      "category": "platform",
+      "location": "d3d9_device.c:8070",
+      "message": "Mipmapping not supported for D3DFMT_D16, skipping test.",
+      "reason": "The adapter exposes D16 depth without depth mipmaps; this exact query requests a mipmapped depth texture. Existing supported depth texture/buffer tests still execute.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines8047-8072, context SHA256 e0169b075ea9ba141f2a7a112193d04c301593a6fa04a2ae509757fa4ce23385",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    {\n        hr = IDirect3DDevice9_CreateTexture(device, 64, 64, 0, 0,\n                D3DFMT_D16, D3DPOOL_DEFAULT, &texture, 0);\n        ok(hr == D3D_OK, \"Unexpected hr %#lx.\\n\", hr);\n        count = IDirect3DTexture9_GetLevelCount(texture);\n        ok(count == 7, \"Unexpected level count %u.\\n\", count);\n        IDirect3DTexture9_Release(texture);\n\n        hr = IDirect3D9_CheckDeviceFormat(d3d, 0, D3DDEVTYPE_HAL,\n                D3DFMT_X8R8G8B8, D3DUSAGE_AUTOGENMIPMAP, D3DRTYPE_TEXTURE, D3DFMT_D16);\n        ok(hr == D3DOK_NOAUTOGEN, \"Unexpected hr %#lx.\\n\", hr);\n        hr = IDirect3DDevice9_CreateTexture(device, 64, 64, 0, D3DUSAGE_AUTOGENMIPMAP,\n                D3DFMT_D16, D3DPOOL_DEFAULT, &texture, 0);\n        ok(hr == D3D_OK, \"Unexpected hr %#lx.\\n\", hr);\n        count = IDirect3DTexture9_GetLevelCount(texture);\n        ok(count == 1, \"Unexpected level count %u.\\n\", count);\n        hr = IDirect3DTexture9_GetLevelDesc(texture, 0, &desc);\n        ok(hr == D3D_OK, \"Got unexpected hr %#lx.\\n\", hr);\n        ok(desc.Usage == D3DUSAGE_AUTOGENMIPMAP, \"Got unexpected usage %#lx.\\n\", desc.Usage);\n        IDirect3DTexture9_Release(texture);\n    }\n    else\n    {\n        skip(\"Mipmapping not supported for D3DFMT_D16, skipping test.\\n\");\n    }\n"
+    },
+    {
+      "category": "mutually-exclusive",
+      "location": "d3d9_device.c:8133",
+      "message": "D3DFMT_A32B32G32R32F supports filtering, skipping tests.",
+      "reason": "The adapter exposes float32 filtering. This branch checks validation for a non-filterable float format, the opposite reported capability.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines8110-8135, context SHA256 56d068743c1e12cf835028fb7da426422c1ac69be7b6569173b3e33f4f46f2b2",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    IDirect3DTexture9 *texture;\n    IDirect3DDevice9 *device;\n    IDirect3D9 *d3d;\n    unsigned int i;\n    ULONG refcount;\n    DWORD passes;\n    HWND window;\n    HRESULT hr;\n\n    d3d = Direct3DCreate9(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (FAILED(IDirect3D9_CheckDeviceFormat(d3d, 0, D3DDEVTYPE_HAL, D3DFMT_X8R8G8B8,\n            0, D3DRTYPE_TEXTURE, D3DFMT_A32B32G32R32F)))\n    {\n        skip(\"D3DFMT_A32B32G32R32F not supported, skipping tests.\\n\");\n        IDirect3D9_Release(d3d);\n        return;\n    }\n\n    if (SUCCEEDED(hr = IDirect3D9_CheckDeviceFormat(d3d, 0, D3DDEVTYPE_HAL, D3DFMT_X8R8G8B8,\n            D3DUSAGE_QUERY_FILTER, D3DRTYPE_TEXTURE, D3DFMT_A32B32G32R32F)))\n    {\n        skip(\"D3DFMT_A32B32G32R32F supports filtering, skipping tests.\\n\");\n        IDirect3D9_Release(d3d);\n        return;"
+    },
+    {
+      "category": "platform",
+      "location": "d3d9_device.c:13252",
+      "message": "Multisampling not supported for D3DFMT_A8R8G8B8.",
+      "reason": "The exact original prerequisite requests2 samples. This fixed virtual adapter exposes NONE and4, and does not advertise2. Supported4-sample create/resolve/depth paths remain applicable; no advertised sample-count capability is waived.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines13229-13254, context SHA256 f9279b2b29c7f7e2da27c9d7cbcda9e6f571d364ede5e60d62eb368f58d24d3d",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    IDirect3D9_Release(d3d);\n    DestroyWindow(window);\n}\n\nstatic void test_swapchain_multisample_reset(void)\n{\n    IDirect3DSwapChain9 *swapchain;\n    D3DPRESENT_PARAMETERS d3dpp;\n    IDirect3DDevice9 *device;\n    DWORD quality_levels;\n    IDirect3D9 *d3d;\n    ULONG refcount;\n    HWND window;\n    HRESULT hr;\n\n    window = create_window();\n    ok(!!window, \"Failed to create a window.\\n\");\n    d3d = Direct3DCreate9(D3D_SDK_VERSION);\n    ok(!!d3d, \"Failed to create a D3D object.\\n\");\n\n    if (IDirect3D9_CheckDeviceMultiSampleType(d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL,\n            D3DFMT_A8R8G8B8, TRUE, D3DMULTISAMPLE_2_SAMPLES, &quality_levels) == D3DERR_NOTAVAILABLE)\n    {\n        skip(\"Multisampling not supported for D3DFMT_A8R8G8B8.\\n\");\n        IDirect3D9_Release(d3d);\n        DestroyWindow(window);"
+    },
+    {
+      "category": "platform",
+      "location": "d3d9_device.c:14007",
+      "message": "ATI2N volume texture not supported.",
+      "reason": "This exact API/resource/mipmap combination of the optional ATI2N vendor extension is absent from the fixed adapter profile. Supported ATI2N combinations are not excluded and remain tested.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines13984-14009, context SHA256 bb5654ca2341430d88e06140524d4c3163a54ac4890f647422aec7a2a3b3d0f7",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    }\n\n    for (i = 0; i < ARRAY_SIZE(tests); ++i)\n    {\n        IDirect3DVolumeTexture9 *texture;\n        D3DVOLUME_DESC volume_desc;\n        IDirect3DVolume9 *volume;\n        HRESULT expected_hr;\n        D3DLOCKED_BOX lb;\n\n        if (tests[i].format == FORMAT_DEPTH)\n            continue;\n\n        if (tests[i].format == FORMAT_ATI2)\n            format = MAKEFOURCC('A','T','I','2');\n        else\n            format = colour_format;\n\n        if (tests[i].format == FORMAT_ATI2 && FAILED(IDirect3D9_CheckDeviceFormat(d3d, D3DADAPTER_DEFAULT,\n                D3DDEVTYPE_HAL, D3DFMT_X8R8G8B8, 0, D3DRTYPE_VOLUMETEXTURE, format)))\n        {\n            if (!skip_ati2n_once)\n            {\n                skip(\"ATI2N volume texture not supported.\\n\");\n                skip_ati2n_once = TRUE;\n            }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d9_device.c:15133",
+      "message": "Could not load dxgi.dll",
+      "reason": "The guest is Windows XP with the legacy D3D9 runtime, without DXGI/D3D12/D3D9On12. This branch targets a different Windows graphics platform.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines15110-15135, context SHA256 a98dfd76b9a20e869b4dde598161539a336f3e4fe4809f714d8f6abdb123d776",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "        ok(ret, \"Adapter %u: GetWindowRect failed, error %#lx.\\n\", adapter_idx, GetLastError());\n        ok(EqualRect(&window_rect, &monitor_info.rcMonitor),\n                \"Adapter %u: Expect window rect %s, got %s.\\n\", adapter_idx,\n                wine_dbgstr_rect(&monitor_info.rcMonitor), wine_dbgstr_rect(&window_rect));\n\n        IDirect3DDevice9_Release(device);\n        DestroyWindow(window);\n    }\n\n    IDirect3D9_Release(d3d);\n}\n\nstatic BOOL init_d3d9on12_modules(void)\n{\n    d3d9_handle = LoadLibraryA(\"d3d9.dll\");\n    if (!d3d9_handle)\n    {\n        skip(\"Could not load d3d9.dll\\n\");\n        return FALSE;\n    }\n    dxgi_handle = LoadLibraryA(\"dxgi.dll\");\n    if (!dxgi_handle)\n    {\n        skip(\"Could not load dxgi.dll\\n\");\n        return FALSE;\n    }"
+    },
+    {
+      "category": "platform",
+      "location": "d3d9_device.c:15218",
+      "message": "Failed to load d3d9on12 modules, skipping d3d9on12 tests.",
+      "reason": "The guest is Windows XP with the legacy D3D9 runtime, without DXGI/D3D12/D3D9On12. This branch targets a different Windows graphics platform.",
+      "count": 1,
+      "evidence": [
+        "Frozen original Wine 415a275e3844c252ad385b46023095e9401ca234, d3d9_device.c SHA256 5bef4aa7bb287fa6045d8dbc3c1be2cb4c1180f8beed1c2ce12ca2da36fdd020, original prerequisite/context lines15195-15220, context SHA256 59be0e537183c4ee143bd8b399b7d84d095d165a32ebec108d17b84eb9ab249d",
+        "stage6-wine-d3d9_device-timing-calibration-1-final/WINE.TXT SHA256 df99959d86fdb246b8a30ba462b3f0cb8b14b1879806627b2aae43993cf33250; DLL SHA256 8c40a72e08249841c1979f8f9c28a94419fd527053fc4647cc427ea8481edf7d; exact observed branch identity; original code/assertions unchanged"
+      ],
+      "reviewContext": "    *out_d3d9 = d3d9;\n    *out_device = device;\n\n    return hr;\n}\n\nstatic void test_d3d9on12(void)\n{\n    IDirect3DDevice9On12 *d3d9on12_2 = (void *)0xdeadbeef;\n    IDirect3DDevice9On12 *d3d9on12 = (void *)0xdeadbeef;\n    IDirect3DDevice9 *device = (void *)0xdeadbeef;\n    IDirect3D9 *d3d9 = (void *)0xdeadbeef;\n    IDXGIAdapter *adapter = (void *)0xdeadbeef;\n    IDXGIFactory4 *factory = (void *)0xdeadbeef;\n    ID3D12Device *d3d12device = (void *)0xdeadbeef;\n    ID3D12Device *d3d12device_2 = (void *)0xdeadbeef;\n    D3D9ON12_ARGS d3d9on12_args;\n    ULONG ref;\n    HRESULT hr;\n    HWND window = create_window();\n\n    if (!init_d3d9on12_modules())\n    {\n        win_skip(\"Failed to load d3d9on12 modules, skipping d3d9on12 tests.\\n\");\n        DestroyWindow(window);\n        return;"
+    }
+  ]
+}
