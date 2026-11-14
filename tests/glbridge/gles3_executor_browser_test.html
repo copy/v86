@@ -914,6 +914,20 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
             gl("glDrawArrays", 5, 0, 4);
             check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), expected), "GLES 2.0 through glslang: " + what);
         }
+        for(const format of [0x8C00, 0x8C01, 0x8C02, 0x8C03]) {
+            gl("glBindTexture", 0x0DE1, 80 + format - 0x8C00);
+            const data = new Uint32Array(8);
+            for(let i = 1; i < 8; i += 2) data[i] = 0xFC00FC00;
+            gl("glCompressedTexImage2D", 0x0DE1, 0, format, 4, 4, 0, 32, new Uint8Array(data.buffer));
+            gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);
+            gl("glTexParameterf", 0x0DE1, 0x84FE, 2);
+            gl("glDrawArrays", 5, 0, 4);
+            check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [255, 0, 0, 255]), "GLES 2.0 through glslang: PVRTC " + format + " red upload");
+            for(let i = 1; i < 8; i += 2) data[i] = 0x83E083E0;
+            gl("glCompressedTexSubImage2D", 0x0DE1, 0, 0, 0, 4, 4, format, 32, new Uint8Array(data.buffer));
+            gl("glDrawArrays", 5, 0, 4);
+            check(near(pixel(await read_pixels(0, 0, W, W), W, 3, 3), [0, 255, 0, 255]), "GLES 2.0 through glslang: PVRTC " + format + " replacement");
+        }
         gl("glBindTexture", 0x0DE1, 50);
         gl("glCompressedTexImage2D", 0x0DE1, 0, 0x8D64, 4, 4, 0, 8, new Uint8Array([0xF8, 0, 0, 0x02, 0, 0, 0, 0]));
         gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);

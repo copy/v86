@@ -1,3 +1,4 @@
+import { decode_pvrtc } from "../pvrtc.js";
 // GLES 3.x's draws on the page (docs/gles3-plan.md L3): what a context of
 // api 3 does on the GPU, as methods of the GLES executor (gles_executor.js
 // installs them). Its programs are glslang's (the CPU side links them and
@@ -919,6 +920,12 @@ export const GLES3 = {
         {
             const blocks = Math.ceil(width / gpu.decode.block_width) * Math.ceil(height / gpu.decode.block_height) * gpu.decode.block_bytes;
             for(let k = 0; k < depth; k++) this.decode_compressed3(gpu, level, [x, y, layer + k], [width, height], data.subarray(k * blocks, (k + 1) * blocks));
+            return;
+        }
+        if(c.api === 2 && !three && internal >= 0x8C00 && internal <= 0x8C03)
+        {
+            this.upload3(gpu, level, [x, y, layer], [width, height, 1],
+                decode_pvrtc(width, height, data, !!(internal & 1), !!(internal & 2)));
             return;
         }
         // (without WebGPU's ETC2: ETC1's blocks decoded; the others' not yet, nor ASTC without its feature)
