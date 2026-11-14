@@ -1,0 +1,55 @@
+{
+  "date": "2026-11-14",
+  "status": "native ten-bit Curie constant addresses decoded and GPU-verified",
+  "source": "https://envytools.readthedocs.io/en/latest/hw/graph/xf/isa.html",
+  "field": "XFCTX_ADDR bits 76-85, DWORD1 bits 12-21",
+  "nativeEvidence": {
+    "run": "build/nv40-xp-mark06-gt1-corner",
+    "faultCapture": "draw-faults.json first draw",
+    "vertexPC": 101,
+    "constantSource": 408,
+    "actualC408": [
+      3,
+      0,
+      0,
+      0
+    ],
+    "oldAliasedC152": [
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "fix": "Retain all ten constant-address bits when decoding native vector/scalar sources. Shader lowering continues to check the 544-vector file bounds.",
+  "tests": {
+    "decode": [
+      255,
+      256,
+      408,
+      511,
+      512,
+      543,
+      1023
+    ],
+    "nativeEncodedGPU": "MOV vertex color directly from c408; actual BGRA [153,102,51,255]",
+    "fullRealGPU": "pass",
+    "WGSLModules": 170,
+    "Closure": "0 errors, 0 warnings"
+  },
+  "logs": {
+    "build/nv40-vp-high-constant-unit.log": {
+      "sha256": "62be468a826d5d0a56137f17dd6ef02e921edce9d1b7f4a87039701897c9e0ee",
+      "bytes": 203
+    },
+    "build/nv40-vp-high-constant-gpu.log": {
+      "sha256": "603b11b1f4ef073e5950368c666b8aea4bc8200b299dd38f99a1aa1564d40d23",
+      "bytes": 4164
+    },
+    "build/nv40-vp-high-constant-closure.log": {
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7",
+      "bytes": 3020
+    }
+  },
+  "acceptance": "06 full rerun and fixed reference-frame comparison remain pending"
+}

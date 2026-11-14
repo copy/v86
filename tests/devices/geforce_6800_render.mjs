@@ -165,6 +165,16 @@ try
         method(0x1808,5);method(0x1824,2<<24|1);method(0x1808,0);await engine.backend.wait();
         assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0x99,0x66,0x33,0xFF],"DMA indexed triangle renders actual pixels");
+        const savedHighConstantVP=engine.vertex_program(graph.object(0,0x2000),0,2),savedHighConstantFP=vram.slice(0x9000,0x9020);
+        method(0x1E9C,0);
+        [0x401F9C6C,0x0040000D,0x81000000,0x0001EF80,
+            0x401F9C6C,0x0059800D,0x81800000,0x0001EF85].forEach((word,i)=>method(0xB80+i*4,word));
+        method(0x1EFC,408);[...new Uint32Array(Float32Array.of(.2,.4,.6,1).buffer)].forEach((word,i)=>method(0x1F00+i*4,word));
+        [0x01003E81,0x001DC801,0,0].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        method(0x1808,5);method(0x1814,2<<24);method(0x1808,0);await engine.backend.wait();
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[153,102,51,255],"native VP directly reads c408 rather than aliasing c152");
+        method(0x1E9C,0);savedHighConstantVP.forEach((word,i)=>method(0xB80+i*4,word));vram.set(savedHighConstantFP,0x9000);
+        console.log("PASS: real WebGPU native ten-bit vertex constant addresses above c255");
         // Alpha comparison and independent RGB/alpha blending on the same VRAM.
         new Float32Array(vram.buffer,0x9010,4).set([1,0,0,.5]);
         for(const [at,value]of [[0x310,1],[0x314,0x10021005],[0x318,0x10011006],[0x320,0x00010001]])method(at,value);

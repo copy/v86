@@ -1705,3 +1705,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   CORNER 的 nearest/bilinear、受限源 DMA、既有 2D/PGRAPH/状态/
   纹理回归与 Closure 通过，见 `g3-win98-sifm-corner-origin.json`。
   原版 IQ 已用修复构建重跑，最终九图比较仍待导出。
+
+- G4 顶点常量地址续修：Curie 的 XFCTX_ADDR 是 bits 76–85 的
+  十位字段，旧解码误沿用了 Mesa 旧头的八位掩码。06 GT1 原生
+  PC101 的缩放应读取 `c408=(3,0,0,0)`，却误读零值 c152。
+  已保留全部十位，降低时仍检查 544-vector 文件界限；解码覆盖
+  c255/256/408/511/512/543/1023，真实编码直接读 c408 的 GPU
+  像素、完整 GPU 回归、170 个 WGSL 模块和 Closure 通过，见
+  `g4-vp-ten-bit-constant-address.json`。06 仍需补齐新捕获的
+  DirectX 0xDD 顶点格式与 NRM 并重新验证整个 GT1。

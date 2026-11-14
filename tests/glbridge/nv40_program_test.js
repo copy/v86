@@ -19,6 +19,12 @@ const dual=decode_vertex_instruction(Uint32Array.of(0x06E11C6C,0x0880730D,0x8106
 assert.equal(dual.vector.name,"MUL");assert.equal(dual.scalar.name,"MOV");assert.equal(dual.sources[1].type,"constant");
 assert.equal(dual.sources[1].index,7);assert.equal(dual.sources[0].index,3);assert.equal(dual.sources[2].negate,true);
 assert.equal(dual.saturate,true);assert.equal(dual.predicate.register,1);assert.equal(dual.sources[0].absolute,true);
+for(const index of [255,256,408,511,512,543,1023])
+{
+    const words=Uint32Array.of(0x06E11C6C,0x0880730D,0x8106C0E3,0x60AB427D);
+    words[1]=(words[1]&~0x3FF000)|index<<12;
+    assert.equal(decode_vertex_instruction(words).sources[1].index,index,"Curie XFCTX_ADDR retains all ten bits");
+}
 assert.throws(()=>decode_vertex_program(Uint32Array.of(0,0,0,0)),/no end/);
 assert.throws(()=>decode_vertex_program(Uint32Array.of(0,0,0)),/size/);
 const jump=Uint32Array.of(7<<10,9<<27,0,2<<29);

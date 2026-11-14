@@ -9,7 +9,7 @@ const reverse_mask = mask => (mask & 8) >>> 3 | (mask & 4) >>> 1 | (mask & 2) <<
 export function decode_vertex_instruction(words, pc = 0)
 {
     if(words.length !== 4) throw new RangeError("NV40 vertex instruction needs four DWORDs");
-    const [a,b,c,d] = words, input = b >>> 8 & 15, constant = b >>> 12 & 255;
+    const [a,b,c,d] = words, input = b >>> 8 & 15, constant = b >>> 12 & 1023;
     const selectors = [(b & 255) << 9 | c >>> 23, c >>> 6 & 0x1FFFF, (c & 63) << 11 | d >>> 21];
     const sources = selectors.map((bits,i) => ({type: ["invalid","temp","input","constant"][bits & 3],
         index: (bits & 3) === 1 ? bits >>> 2 & 31 : (bits & 3) === 2 ? input : constant,
