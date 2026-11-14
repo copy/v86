@@ -184,3 +184,27 @@ AAC fixture 是自行生成的 44.1 kHz 双声道正弦音（左 1000 Hz、右 1
 
 本地证据保存在 `build/ios/infinity-amc/` 的 `native-audio-success.json` 和
 `acceptance/amc-running.png`、`after-push.png`，不提交游戏资源或持久盘。
+
+### 图形兼容和资源加载续作
+
+- `b7322707`：实现 GLES 1/2 各向异性过滤的参数、查询和 WebGPU sampler；
+  参数下界、最大值、逐纹理状态和 cache key 均已回归。
+- `48e7f9b3`、`778634c1`：PVRTC1 压缩纹理直接通过协议送宿主，避免原先在 ARM
+  客户机中逐像素解压再传 RGBA。宿主缓存每个压缩字的端点和解交错地址；
+  生成数据的 2/4 bpp、矩形和小 mip 哈希与参考一致，真实 GPU 的四种格式上传/整级
+  替换通过。完整 GLES executor 浏览器回归 91 项通过，无 WebGPU validation error。
+
+旧路径原生加载线程的 PC 落在自有适配器 `upload_pvrtc` 中，加载期间上传接近千个
+纹理 mip。Node 宿主微基准中，512²/1024² 随机 PVRTC 解压并哈希分别约 117/323 ms；
+这是纹理加载测试，不能当作游戏 FPS。
+
+测试专用 NAND 已通过原生文件系统的 atomic-file/fsync 路径写入新版自有适配器，
+同时向下一代启动归档加入其代码摘要，保留已安装游戏。该阶段用了隔离机器里的
+一次性诊断入口来暂存组件，随后重新冷启，正式运行不包含该内存覆盖。归档 generation 4
+回读通过，游戏身份仍为 `com.chairentertainment.birthright` 1.4.3。
+更新后的独立盘另存 `build/ios/infinity-amc/adapter-updated.packed`（4,002,422,272 bytes，
+SHA-256 `e45d263fdde3f1d9e11eccf626e6768cba21266bc65d50f81fb08468c93930c3`）。
+这不是对已有用户虚拟机的组件自动升级功能。
+
+旧运行还观察到 depth/stencil renderbuffer 未分配，导致游戏 draw 被拒绝；正在新一轮
+冷启中采集原始调用参数继续解决，仍未验收可玩场景或 60 fps。
