@@ -1,0 +1,140 @@
+{
+  "date": "2026-11-14",
+  "status": "native Win98 8bpp DirectDraw game spot-check passed; G5 remains open",
+  "driver": "NVIDIA 81.98",
+  "game": "StarCraft Campaign Edition v1.08, original game image",
+  "setup": [
+    "Renamed the game-local cnc-ddraw DDRAW.DLL to NVDDRAW.OLD using native DOS REN in the RAM overlay; native DIR confirmed no DDRAW.DLL remained.",
+    "Ran the existing game SETUP.EXE to register normal game/data paths.",
+    "Entered Original / Terran tutorial, dismissed the tips with O, observed animated units and palette-correct terrain/HUD, then used Alt-F4 and native Exit Program to return to the desktop."
+  ],
+  "mode": {
+    "width": 640,
+    "height": 480,
+    "pitch": 768,
+    "bytes": 1
+  },
+  "restoredDesktop": {
+    "width": 1024,
+    "height": 768,
+    "pitch": 4096,
+    "bytes": 4
+  },
+  "renderer": "Chrome WebGPU attached for native driver auxiliary BEGIN/END batches; gameplay draws use CPU 2D/8bpp palette scanout. Empty auxiliary batches emitted zero 3D draws.",
+  "runs": {
+    "nv40-win98-starcraft-native4": {
+      "seconds": 904,
+      "build": {
+        "javascript": "release",
+        "wasm": "/Users/renruisi/Desktop/Code/v86/build/v86.wasm"
+      },
+      "imageUnchanged": true,
+      "game": {
+        "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/starcraft.img",
+        "slot": "secondary-slave",
+        "imageUnchanged": true
+      },
+      "gpu": {
+        "batches": 0,
+        "draws": 0,
+        "bytes": 0,
+        "readbacks": 0,
+        "failures": 0,
+        "uploads": 0,
+        "uploadBytes": 0
+      },
+      "graphFaults": [],
+      "finalMode": {
+        "width": 640,
+        "height": 480,
+        "pitch": 768,
+        "bytes": 1,
+        "rgb565": false
+      }
+    },
+    "nv40-win98-starcraft-native5": {
+      "seconds": 231,
+      "build": {
+        "javascript": "release",
+        "wasm": "/Users/renruisi/Desktop/Code/v86/build/v86.wasm"
+      },
+      "imageUnchanged": true,
+      "game": {
+        "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/starcraft.img",
+        "slot": "secondary-slave",
+        "imageUnchanged": true
+      },
+      "gpu": {
+        "batches": 0,
+        "draws": 0,
+        "bytes": 0,
+        "readbacks": 0,
+        "failures": 0,
+        "uploads": 0,
+        "uploadBytes": 0
+      },
+      "graphFaults": [],
+      "finalMode": {
+        "width": 1024,
+        "height": 768,
+        "pitch": 4096,
+        "bytes": 4,
+        "rgb565": false
+      }
+    },
+    "nv40-win98-starcraft-native6": {
+      "seconds": 147,
+      "build": {
+        "javascript": "release",
+        "wasm": "/Users/renruisi/Desktop/Code/v86/build/v86.wasm"
+      },
+      "imageUnchanged": true,
+      "game": {
+        "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/starcraft.img",
+        "slot": "secondary-slave",
+        "imageUnchanged": true
+      },
+      "gpu": {
+        "batches": 0,
+        "draws": 0,
+        "bytes": 0,
+        "readbacks": 0,
+        "failures": 0,
+        "uploads": 0,
+        "uploadBytes": 0
+      },
+      "graphFaults": [],
+      "finalMode": {
+        "width": 640,
+        "height": 480,
+        "pitch": 768,
+        "bytes": 1,
+        "rgb565": false
+      }
+    }
+  },
+  "screenshots": {
+    "build/nv40-win98-starcraft-native4/capture-0165.png": {
+      "sha256": "a0487843987421fb35130d0f3733af598eff9b0300ed91e213e5ad9b07b0828d",
+      "bytes": 124526
+    },
+    "build/nv40-win98-starcraft-native5/capture-0008.png": {
+      "sha256": "d9cc1083816d4842581f779f2e0c22de3067594aede0dd10e78a33243c04e652",
+      "bytes": 132407
+    },
+    "build/nv40-win98-starcraft-native5/capture-0032.png": {
+      "sha256": "0b5d9c985428cfbd3bf75e246635a3b8f58018d5b93e4aa28643b00392b96f18",
+      "bytes": 22018
+    },
+    "build/nv40-win98-starcraft-native6/capture-0035.png": {
+      "sha256": "03b43c7f4e3dd55de1fd020754e2329c164a627e1d20777a46dec8c7b6d8cd2c",
+      "bytes": 130317
+    }
+  },
+  "limits": [
+    "Visual spot-check, not pixel-exact comparison against physical hardware.",
+    "Arrow and edge-scroll attempts did not establish camera movement; map panning is not claimed.",
+    "The earlier runs without a renderer had PGRAPH faults and are excluded.",
+    "16bpp game and remaining Win98 benchmark gates are pending."
+  ]
+}
