@@ -172,6 +172,24 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         window = await read_pixels(0, 0, W, W);
         check(near(pixel(window, W, 3, 3), [138, 138, 138, 255]), "an ETC1 block decoded");
 
+        // PVRTC1 stays compressed across the guest transport; host expansion
+        // must upload and replace the real GPU image, including tiny mips.
+        for(const format of [0x8C00, 0x8C01, 0x8C02, 0x8C03])
+        {
+            const data = new Uint32Array(8);
+            for(let i = 1; i < 8; i += 2) data[i] = 0xFC00FC00;
+            gl("glCompressedTexImage2D", 0x0DE1, 0, format, 4, 4, 0, data.byteLength, new Uint8Array(data.buffer));
+            gl("glTexParameterf", 0x0DE1, 0x84FE, 2);
+            gl("glDrawArrays", 0x0006, 0, 4);
+            window = await read_pixels(0, 0, W, W);
+            check(near(pixel(window, W, 3, 3), [255, 0, 0, 255]), "PVRTC " + format + " real GPU red upload");
+            for(let i = 1; i < 8; i += 2) data[i] = 0x83E083E0;
+            gl("glCompressedTexSubImage2D", 0x0DE1, 0, 0, 0, 4, 4, format, data.byteLength, new Uint8Array(data.buffer));
+            gl("glDrawArrays", 0x0006, 0, 4);
+            window = await read_pixels(0, 0, W, W);
+            check(near(pixel(window, W, 3, 3), [0, 255, 0, 255]), "PVRTC " + format + " real GPU full replacement");
+        }
+
         // ---- render to a texture; read it; sample it
         gl("glBindTexture", 0x0DE1, 21);
         gl("glTexParameteri", 0x0DE1, 0x2801, 0x2600);

@@ -6,6 +6,12 @@ static unsigned state_count(struct context *ctx, unsigned pname)
     {
         case 0x0ba2: case 0x0c10: case 0x0c22: case 0x0c23: case 0x8005: return 4;
         case 0x0b70: case 0x0d3a: case 0x846d: case 0x846e: return 2;
+        case 0x86a3:
+        {
+            int count = 0;
+            if(!integer_value(ctx, 0x86a2, &count) || count < 0 || count > 16384) { ctx->driver.ok = 0; return 0; }
+            return count;
+        }
         case 0x8df8:
         {
             int count = 0;
@@ -23,28 +29,6 @@ static unsigned state_count(struct context *ctx, unsigned pname)
 
 static void state_query(struct context *ctx, unsigned pname, void *out, unsigned opcode, unsigned width)
 {
-    if(pname == 0x86a2 || pname == 0x86a3) // compressed texture formats include guest-side PVRTC
-    {
-        if(!out) { draw_error(ctx, 0x501); return; }
-        int count = 0;
-        if(!integer_value(ctx, 0x86a2, &count)) { ctx->driver.ok = 0; return; }
-        if(count < 0 || count > 16380) { draw_error(ctx, 0x505); return; }
-        if(pname == 0x86a3 && (!SEND(ctx->driver.connection, opcode, pname, count * width) ||
-            !gles_read(ctx->driver.connection, out, count * width)))
-        {
-            ctx->driver.ok = 0;
-            return;
-        }
-        const unsigned first = pname == 0x86a2 ? 0 : count, n = pname == 0x86a2 ? 1 : 4;
-        for(unsigned i = 0; i < n; i++)
-        {
-            const unsigned value = pname == 0x86a2 ? count + 4 : 0x8c00 + i;
-            if(opcode == gles2_glGetIntegerv) ((int *)out)[first + i] = value;
-            else if(opcode == gles2_glGetFloatv) ((float *)out)[first + i] = value;
-            else ((unsigned char *)out)[first + i] = !!value;
-        }
-        return;
-    }
     unsigned bytes = state_count(ctx, pname) * width;
     if(!out && bytes) { draw_error(ctx, 0x501); return; }
     if(!SEND(ctx->driver.connection, opcode, pname, bytes) ||

@@ -111,8 +111,7 @@ static const char *get_string(struct context *ctx, unsigned name)
     unsigned conn = ctx->driver.connection;
     if(!SEND(conn, rc_rcGetGLString, name, 0, 0) || !gles_read(conn, &size, 4) || size >= 0 || size < -65536) return 0;
     size = -size;
-    static const char pvrtc_extension[] = " GL_IMG_texture_compression_pvrtc";
-    char *text = malloc(size + (i == 3 ? sizeof(pvrtc_extension) - 1 : 0));
+    char *text = malloc(size);
     if(!text) { if(!ctx->error) ctx->error = 0x505; return 0; }
     if(!SEND(conn, rc_rcGetGLString, name, size, size) || !gles_read(conn, text, size) ||
         !gles_read(conn, &count, 4) || count != size || text[size - 1])
@@ -120,7 +119,6 @@ static const char *get_string(struct context *ctx, unsigned name)
         free(text);
         return 0;
     }
-    if(i == 3) memcpy(text + size - 1, pvrtc_extension, sizeof(pvrtc_extension));
     return ctx->strings[i] = text;
 }
 

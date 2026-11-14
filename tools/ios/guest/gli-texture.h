@@ -1,6 +1,5 @@
-// Copy native texture pointers into the transport. PVRTC1 is expanded to
-// RGBA8 before upload since WebGPU has no corresponding texture format.
-#include "pvrtc.h"
+// Copy native texture pointers into the transport. The host expands PVRTC1
+// outside ARM emulation, then uploads the resulting RGBA8 texture.
 
 static unsigned texel_size(unsigned format, unsigned type)
 {
@@ -70,36 +69,10 @@ static void tex_sub_image(struct context *ctx, unsigned target, int level, int x
     upload_texture(ctx, gles2_glTexSubImage2D, fields, w, h, format, type, data);
 }
 
-static int pvrtc_format(unsigned format) { return format >= 0x8c00 && format <= 0x8c03; }
-
-static void upload_pvrtc(struct context *ctx, unsigned target, int level, unsigned format, int w, int h,
-    int size, const void *data, int sub)
-{
-    const unsigned two = format & 1, expected = pvrtc_size(w, h, two);
-    if(!expected || expected != (unsigned)size || (sub && !data)) { draw_error(ctx, 0x501); return; }
-    const unsigned row = 4 * w, stride = texture_stride(ctx, row);
-    if(!stride) return;
-    const unsigned length = data ? (h - 1) * stride + row : 0;
-    unsigned *p = draw_packet(ctx, sub ? gles2_glTexSubImage2D : gles2_glTexImage2D, 44 + length);
-    if(!p) return;
-    const unsigned fields[] = { target, level, sub ? 0 : 0x1908, sub ? 0 : w,
-        sub ? w : h, sub ? h : 0, 0x1908, 0x1401, length };
-    memcpy(p + 2, fields, sizeof(fields));
-    if(length)
-    {
-        unsigned char *pixels = (unsigned char *)(p + 11);
-        if(stride != row)
-            for(int y = 0; y < h - 1; y++) memset(pixels + y * stride + row, 0, stride - row);
-        pvrtc_decode(data, pixels, stride, w, h, two, format & 2);
-    }
-    send_draw_packet(ctx, p, 44 + length);
-}
-
 static void compressed_image(struct context *ctx, unsigned target, int level, unsigned format, int w, int h,
     int border, int size, const void *data)
 {
     if(border || size < 0) { draw_error(ctx, 0x501); return; }
-    if(pvrtc_format(format)) { upload_pvrtc(ctx, target, level, format, w, h, size, data, 0); return; }
     const unsigned fields[] = { target, level, format, w, h, border, size };
     texture_packet(ctx, gles2_glCompressedTexImage2D, fields, 7, data, data ? size : 0);
 }
@@ -108,12 +81,6 @@ static void compressed_sub_image(struct context *ctx, unsigned target, int level
     unsigned format, int size, const void *data)
 {
     if(size < 0) { draw_error(ctx, 0x501); return; }
-    if(pvrtc_format(format))
-    {
-        if(x || y) { draw_error(ctx, 0x502); return; }
-        upload_pvrtc(ctx, target, level, format, w, h, size, data, 1);
-        return;
-    }
     const unsigned fields[] = { target, level, x, y, w, h, format, size };
     texture_packet(ctx, gles2_glCompressedTexSubImage2D, fields, 8, data, data ? size : 0);
 }

@@ -1,3 +1,4 @@
+import { decode_pvrtc } from "../pvrtc.js";
 // The GLES executor (docs/gles-proxy-plan.md "执行器", E3): GLES batches
 // (src/gles/gles_batch.js) on WebGPU, on the page. It runs the same state
 // machine as the CPU side (src/gles/gles_shadow.js) over the commands it
@@ -348,6 +349,7 @@ GLESExecutor.prototype.command = function(record)
         case "glTexImage2D": return this.tex_image(c, args, false);
         case "glTexSubImage2D": return this.tex_image(c, args, true);
         case "glCompressedTexImage2D": return this.compressed_tex_image(c, args);
+        case "glCompressedTexSubImage2D": return this.compressed_tex_image(c, args, true);
         case "glCopyTexImage2D": return this.copy_tex_image(c, args, false);
         case "glCopyTexSubImage2D": return this.copy_tex_image(c, args, true);
         case "glGenerateMipmap": return this.generate_mipmap(c, args[0]);
@@ -454,13 +456,18 @@ GLESExecutor.prototype.tex_image = function(c, args, sub)
     this.upload(target_texture.texture, level, face, x, y, width, height, rgba);
 };
 
-GLESExecutor.prototype.compressed_tex_image = function(c, args)
+GLESExecutor.prototype.compressed_tex_image = function(c, args, sub = false)
 {
-    const [target, level, , width, height, , , data] = args;
+    const [target, level] = args;
+    let format, width, height, data;
+    if(sub) [, , , , width, height, format, , data] = args;
+    else [, , format, width, height, , , data] = args;
     const { texture, face } = bound(c, target);
     const t = texture && this.write_target(texture, level);
     if(!t || level >= t.levels) return;
-    this.upload(t.texture, level, face, 0, 0, width, height, decode_etc1(width, height, data));
+    const rgba = format === GL.ETC1_RGB8_OES ? decode_etc1(width, height, data) :
+        decode_pvrtc(width, height, data, !!(format & 1), !!(format & 2));
+    this.upload(t.texture, level, face, 0, 0, width, height, rgba);
 };
 
 /** glCopyTex(Sub)Image2D: from what is read (the read framebuffer's color) into a level */

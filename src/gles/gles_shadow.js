@@ -1,3 +1,4 @@
+import { pvrtc_bytes } from "./pvrtc.js";
 // The shadow state (docs/gles-proxy-plan.md "影子状态", E2): OpenGL ES 2.0's
 // state machine, written from the GLES 2.0 specification, on the CPU side,
 // so that the guest's queries are answered without waiting for the page:
@@ -1071,16 +1072,23 @@ const HANDLERS = {
     {
         const t = image_target(c, target);
         if(!t) return REFUSED;
-        if(internalformat !== GL.ETC1_RGB8_OES) return fail(c, GL.INVALID_ENUM);
+        const pvrtc = internalformat >= 0x8C00 && internalformat <= 0x8C03;
+        if(!pvrtc && internalformat !== GL.ETC1_RGB8_OES) return fail(c, GL.INVALID_ENUM);
         if(!image_size_ok(c, target, level, width, height, border)) return REFUSED;
-        if(size !== etc1_bytes(width, height) || (data ? data.length : 0) < size) return fail(c, GL.INVALID_VALUE);
+        const expected = pvrtc ? pvrtc_bytes(width, height, !!(internalformat & 1)) : etc1_bytes(width, height);
+        if(!expected || size !== expected || (data ? data.length < size : !pvrtc)) return fail(c, GL.INVALID_VALUE);
         t.texture.images.set(t.face * 32 + level, { width, height, format: internalformat, type: GL.UNSIGNED_BYTE, compressed: true });
     },
     // (ETC1 has no partial updates: OES_compressed_ETC1_RGB8_texture)
-    "glCompressedTexSubImage2D": (shadow, c, [target]) =>
+    "glCompressedTexSubImage2D": (shadow, c, [target, level, x, y, width, height, format, size, data]) =>
     {
-        if(!image_target(c, target)) return REFUSED;
-        return fail(c, GL.INVALID_OPERATION);
+        const t = image_target(c, target);
+        if(!t) return REFUSED;
+        const image = t.texture.images.get(t.face * 32 + level);
+        if(!image || !image.compressed || format !== image.format || format < 0x8C00 || format > 0x8C03)
+            return fail(c, GL.INVALID_OPERATION);
+        if(x || y || width !== image.width || height !== image.height) return fail(c, GL.INVALID_OPERATION);
+        if(size !== pvrtc_bytes(width, height, !!(format & 1)) || !data || data.length < size) return fail(c, GL.INVALID_VALUE);
     },
     "glCopyTexImage2D": (shadow, c, [target, level, internalformat, x, y, width, height, border]) =>
     {
