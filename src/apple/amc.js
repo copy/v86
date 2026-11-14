@@ -50,7 +50,7 @@ export class AppleAMC
             if(relative === 0xa98 || relative === 0xa9c) return this.pending[c];
         }
         // One physical window covers the local input bounce buffers.
-        if(offset === 0x8f4) return AMC_RAM_SIZE;
+        if(offset === 0xa44) return AMC_RAM_SIZE;
         return this.regs[offset >>> 2] || 0;
     }
 

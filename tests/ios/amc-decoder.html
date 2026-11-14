@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><title>AMC real audio decoder</title>
+<pre id="result">Running…</pre>
+<script type="module">
+import { AMCAudioDecoder } from "/src/apple/audio_decode.js";
+const assert = (value, message) => { if(!value) throw Error(message); };
+const decoder = new AMCAudioDecoder();
+try {
+    const fixture = await (await fetch("/tests/ios/fixtures/amc-aac.json")).json();
+    const blocks = [];
+    for(const encoded of fixture.packets) {
+        const input = Uint8Array.from(atob(encoded), c => c.charCodeAt(0));
+        blocks.push(await decoder.decode(input, 44100, 2));
+    }
+    const samples = blocks.slice(2).flatMap(block => Array.from(block));
+    let energy = 0, right_energy = 0, peak = 0, nonzero = 0, crossings = 0, right_crossings = 0;
+    for(let i = 0; i < samples.length; i += 2) {
+        const value = samples[i] / 32768;
+        energy += value * value;peak = Math.max(peak, Math.abs(value));
+        nonzero += +(Math.abs(value) > 0.001);
+        if(i && samples[i - 2] <= 0 && samples[i] > 0) crossings++;
+        right_energy += (samples[i + 1] / 32768) ** 2;
+        if(i && samples[i - 1] <= 0 && samples[i + 1] > 0) right_crossings++;
+    }
+    const frames = samples.length / 2, rms = Math.sqrt(energy / frames), hz = crossings * 44100 / frames;
+    assert(blocks.every(b => b.length === 2048), "AAC-LC produces 1024 stereo frames per input packet");
+    assert(rms > 0.04 && rms < 0.15 && peak > 0.08 && peak < 0.3, "decoded tone has real bounded energy");
+    const right_rms = Math.sqrt(right_energy / frames), right_hz = right_crossings * 44100 / frames;
+    assert(nonzero > frames * 0.85 && right_rms > 0.04 && right_rms < 0.15,
+        "PCM has nonzero energy in both channels " + JSON.stringify({nonzero,frames,rms,right_rms,hz,right_hz}));
+    assert(hz > 950 && hz < 1050, "decoded tone retains its generated frequency");
+    assert(right_hz > 1425 && right_hz < 1575, "independent right-channel tone retains its frequency " + JSON.stringify({hz,right_hz,nonzero,frames}));
+    let rejected = false;
+    try { await decoder.decode(new Uint8Array(), 44100, 2); } catch { rejected = true; }
+    assert(rejected, "empty input is rejected");
+    document.getElementById("result").textContent = "PASS: real AAC packets decoded to stereo PCM " + JSON.stringify({blocks:blocks.length, rms, peak, hz, right_rms, right_hz});
+} catch(error) { document.getElementById("result").textContent = "FAIL: " + error.stack; }
+finally { decoder.close(); }
+</script>

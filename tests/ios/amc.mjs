@@ -15,7 +15,7 @@ const regs = ports.get(0x84100000);
 assert.equal(regs.size, 0x3000);
 regs.write(0x8f0, 4, 3); // original panic access: configuration persists
 assert.equal(regs.read(0x8f0), 3);
-assert.equal(regs.read(0x8f4), AMC_RAM_SIZE);
+assert.equal(regs.read(0xa44), AMC_RAM_SIZE);
 for(const bank of [0, 0x20, 0x100, 0x180, 0x240, 0x280, 0x2c0])
 {
     regs.write(bank + 0x10, 4, 4);
