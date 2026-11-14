@@ -29,6 +29,8 @@ try
     const colorless=structuredClone(fragment);colorless.instructions[0].destination.disabled=true;
     assert.throws(()=>translate_fragment_program(colorless),/color output/);
     assert.deepEqual(validate("NV-colorless",translate_fragment_program(colorless,{targets:0})).reflection.colorOutputs,[]);
+    const unknown=structuredClone(fragment);Object.assign(unknown.instructions[0],{name:null,opcode:63,pc:0,words:[0x3F001E81,0x1DC802,0,0]});
+    assert.throws(()=>translate_fragment_program(unknown),/opcode 0x3f at 0 words \[1056972417,1951746,0,0\]/);
     const windowed=translate_vertex_program(vertex,{viewport:{width:32,height:16,bypass:true}});
     validate("NV-window-position",windowed);assert.equal(windowed.viewport_constants.length,2);
     const resized=translate_vertex_program(vertex,{viewport:{width:64,height:32,bypass:true}});

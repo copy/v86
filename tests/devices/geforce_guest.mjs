@@ -269,8 +269,10 @@ export async function run_geforce_guest(win98)
                     const reason=String(error.message || error),key=JSON.stringify([reason,object.methods.get(0x220),object.methods.get(0x208)]);
                     if(!seen.has(key) && faults.length<16)
                     {
+                        let program;
+                        try {program=nv.graph.engine3d.program(object);}catch(captureError){program={error:String(captureError)};}
                         seen.add(key);faults.push({elapsed:elapsed(),reason,channel:object.channel,instance:object.instance,
-                            mode,subc,words:words?.length||0,indices:indices?.length||0,methods:Array.from(object.methods)});
+                            mode,subc,words:words?.length||0,indices:indices?.length||0,methods:Array.from(object.methods),program});
                         fs.writeFileSync(path.join(out,"draw-faults.json"),JSON.stringify(faults,null,2));
                     }
                     throw error;

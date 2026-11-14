@@ -636,7 +636,8 @@ export function translate_fragment_program(program,options={})
             shader.emit(OP.ADD,dst(0,budget),src(0,budget),shader.literal(1));
         }
         const count=arity(i.name),texture=["TEX","TXP","TXB","TXL","TXD"].includes(i.name);
-        if(!count && !texture && i.name!=="KIL" && !nullary(i.name)) throw new RangeError("NV40 unsupported fragment opcode "+i.name);
+        if(!count && !texture && i.name!=="KIL" && !nullary(i.name))
+            throw new RangeError("NV40 unsupported fragment opcode "+(i.name || "0x"+i.opcode.toString(16))+" at "+i.pc+" words "+JSON.stringify(i.words));
         const sources=i.sources.slice(0,texture?i.name==="TXD"?3:1:i.name==="KIL"?0:count)
             .map(source=>{
                 if(!i.input_relative || source.type!=="input")return shader.source(source,i.constant);
