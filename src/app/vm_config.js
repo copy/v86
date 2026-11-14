@@ -893,7 +893,9 @@ export function config_to_options(config, env)
         return {
             machine_type: "s5l8930", apple_model: ios.model, cpu_type: "arm32", cpu_profile: "cortex-a8",
             cpu_cores: 1, memory_size: 512 * MB, cpu_worker: true,
-            "jit_switches": { "a64_page": cpu.jit ? 1 : 0 },
+            // Native iOS frameworks exceed 160 MiB of compiled pages during
+            // startup. Keep the kernel resident while UIKit is being loaded.
+            "jit_switches": { "a64_page": cpu.jit ? 1 : 0, "a64_page_code_mb": 256 },
             cpu_worker_url: "build/cpu-worker.js" + env.query_append,
             wasm_path: "build/" + (env.debug ? "v86-arm64-debug.wasm" : "v86-arm64.wasm") + env.query_append,
             screen: { container: env.screen_container }, graphics_adapter: "none", net_device: { type: "none" },
