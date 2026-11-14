@@ -132,6 +132,12 @@ try {call(scale,0x40C,0);}finally {device.dma.read=dmaRead;}
 assert.deepEqual(sourceReads,sparseOffsets.map(at=>[at,4]),"point sampling skips unused columns and rows inside its footprint");
 scale.methods.set(0x318,-(4<<20));call(scale,0x40C,64);
 for(let y=0;y<2;y++)for(let x=0;x<2;x++)assert.equal(view.getUint32(256+y*32+x*4,true),footprintColors[y*2+1-x],"negative source steps preserve reflected sampling");
+scale.methods.set(0x400,0xFFFFFFFF);scale.methods.set(0x404,2<<16);
+scale.methods.set(0x318,2047<<20);scale.methods.set(0x31C,2047<<20);word(0x1004,0x2FFF);
+view.setUint32(0x2FFC,footprintColors[1],true);sourceReads.length=0;
+device.dma.read=(dma,at,length)=>{if(at>=0x1000)sourceReads.push([at,length]);return dmaRead(dma,at,length);};
+try {call(scale,0x40C,0);}finally {device.dma.read=dmaRead;}
+assert.deepEqual(sourceReads,[[0x1000,4],[0x2FFC,4]],"maximum clamp and sparse zero-pitch rows retain only two used texels");
 word(0x1004,0x1FFF);
 const swz = object(0x5800, 0x309E, [[0x184, 0x100], [0x300, 1 << 24 | 2 << 16 | 1], [0x304, 512]]);
 const upload = object(0x5900, 0x308A, [[0x19C, 0x580], [0x2FC, 3]]);

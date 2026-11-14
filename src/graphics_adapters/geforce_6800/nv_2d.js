@@ -401,6 +401,7 @@ export class NV2D
         const dst = this.surface(o, 0x198), [u0, v0] = xy(m(o, 0x40C));
         const du = (m(o, 0x318) | 0) / 1048576, dv = (m(o, 0x31C) | 0) / 1048576;
         if(!rect[2] || !rect[3])return;
+        if(rect[2]*rect[3]*dst.bpp>this.device.vram_size)throw new RangeError("NV 2D rectangle too large");
         const center=(fmt>>>16&255)===1,linear=!!(fmt>>>24&1);
         const coordinate=(point,start,origin,step)=>origin/16+(point-start+(center?0.5:0))*step-(center?0.5:0);
         const taps=(first,count,start,origin,step,limit,pairs=false)=>{
@@ -416,33 +417,41 @@ export class NV2D
             return [...indices].sort((a,b)=>a-b);
         };
         const xs=taps(rect[0],rect[2],x,u0,du,width,format===5 || format===6),ys=taps(rect[1],rect[3],y,v0,dv,height);
-        const sx=xs[0],ex=xs[xs.length-1],sy=ys[0],ey=ys[ys.length-1],runs=[];
+        const runs=[];
         for(const col of xs)
         {
             const last=runs[runs.length-1];
             if(last && last[1]+1===col)last[1]=col;else runs.push([col,col]);
         }
-        const sampledWidth=ex-sx+1,sampledHeight=ey-sy+1,sampledPitch=sampledWidth*bpp;
-        const bytes=new Uint8Array(sampledPitch*sampledHeight),dma=this.dma(o,0x184),offset=m(o,0x408);
+        const rows=new Map(),cache=new Map(),dma=this.dma(o,0x184),offset=m(o,0x408);
         // SIZE clamps sampling; it is not an instruction to read every texel.
         // Preload every used row before any destination write, preserving
         // overlap and atomic faults without touching unmapped unused pages.
-        for(const row of ys)for(const [first,last]of runs)
-            bytes.set(this.device.dma.read(dma,offset+row*pitch+first*bpp,(last-first+1)*bpp),(row-sy)*sampledPitch+(first-sx)*bpp);
+        for(const row of ys)rows.set(row,runs.map(([first,last])=>{
+            const at=offset+row*pitch+first*bpp,length=(last-first+1)*bpp,key=at+":"+length;
+            if(!cache.has(key))cache.set(key,this.device.dma.read(dma,at,length));
+            return cache.get(key);
+        }));
+        const sample=(px,py)=>{
+            px=Math.max(0,Math.min(width-1,px));py=Math.max(0,Math.min(height-1,py));
+            let low=0,high=runs.length-1;
+            while(low<high){const mid=low+high>>>1;if(runs[mid][1]<px)low=mid+1;else high=mid;}
+            const [first,last]=runs[low],length=last-first+1;
+            return this.sample(rows.get(py)[low],length,1,length*bpp,format,px-first,0);
+        };
         const operation = m(o, 0x2FC); o.methods.set(0x2FC, m(o, 0x304));
         try
         {
             this.render(o, dst, rect, (px, py) => {
-                const u = coordinate(px,x,u0,du)-sx,v=coordinate(py,y,v0,dv)-sy;
+                const u = coordinate(px,x,u0,du),v=coordinate(py,y,v0,dv);
                 let rgba;
                 if(fmt >>> 24 & 1)
                 {
                     const ix = Math.floor(u), iy = Math.floor(v), fx = u - ix, fy = v - iy;
-                    const a = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, ix, iy), b = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, ix + 1, iy);
-                    const c = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, ix, iy + 1), d = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, ix + 1, iy + 1);
+                    const a=sample(ix,iy),b=sample(ix+1,iy),c=sample(ix,iy+1),d=sample(ix+1,iy+1);
                     rgba = a.map((v, i) => Math.round((v * (1 - fx) + b[i] * fx) * (1 - fy) + (c[i] * (1 - fx) + d[i] * fx) * fy));
                 }
-                else rgba = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, Math.floor(u + 0.5), Math.floor(v + 0.5));
+                else rgba=sample(Math.floor(u+0.5),Math.floor(v+0.5));
                 return rgba;
             }, [0x188, 0x18C, 0x190, 0x194]);
         }
