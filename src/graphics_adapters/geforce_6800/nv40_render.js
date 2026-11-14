@@ -10,6 +10,10 @@ const float_value=word=>new Float32Array(Uint32Array.of(word).buffer)[0];
 const float_word=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
 const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength);
 const changed_bytes=(a,b)=>{
+    // Decoded texture-cache hits reuse the same host byte image. Comparing
+    // a view with itself cannot discover a change; guest memory reads still
+    // produce fresh images and retain their exact-byte comparison below.
+    if(a===b)return null;
     if(!a || a.length!==b.length)return [0,b.length];
     const count=a.length>>>2,aw=new Uint32Array(a.buffer,a.byteOffset,count),bw=new Uint32Array(b.buffer,b.byteOffset,count);
     let first=0;while(first<count && aw[first]===bw[first])first++;

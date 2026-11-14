@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-14",
+  "change": "Skip comparing an image view with itself in the renderer upload-difference check.",
+  "profileEvidence": {
+    "fixture": "g6-xp-9371-06-isolated-window.json",
+    "hotCallbackSelfMs": 44037.795,
+    "hotCallbackPercent": 14.424539508484362,
+    "scope": "Per-image target callback includes byte comparison and upload command creation; not all of this cost is attributed to self-comparison."
+  },
+  "reason": "Decoded texture-cache hits return the same host byte image. A bytewise comparison of a view with itself always finds equality. Fresh guest-memory reads and changed cached textures still produce separate images and use the existing exact-byte comparison.",
+  "microbenchmark": {
+    "scope": "Exact same decoded image object repeated; CPU microbenchmark, not guest FPS. Distinct image copies still compare bytes.",
+    "bytes": 2097152,
+    "iterations": 500,
+    "beforeMs": [
+      206.83854099999996,
+      213.64945799999998,
+      194.64241700000002,
+      218.15587500000004,
+      261.43337499999984
+    ],
+    "afterMs": [
+      0.027582999999935964,
+      0.020999999999958163,
+      0.02037499999994452,
+      0.040124999999989086,
+      0.017875000000003638
+    ],
+    "beforeMedianMs": 213.64945799999998,
+    "afterMedianMs": 0.020999999999958163,
+    "distinctImageMs": 257.97575000000006,
+    "boundaryEquivalence": true
+  },
+  "validation": [
+    "Complete actual Chrome WebGPU regression passed, including unchanged upload reuse, CPU texture/attachment modifications and changed mip/face/row uploads.",
+    "Small and non-DWORD-aligned byte lengths: old/new changed boundaries agree for front/middle/tail changes.",
+    "make build/v86-geforce-6800.js: Closure 0 errors/warnings."
+  ],
+  "limits": [
+    "No DMA/source-byte validation removed from the decoded texture cache.",
+    "No page dirtiness assumptions or guest clock/timeout changes.",
+    "Microbenchmark removes only an exact self-scan; no native FPS or driver-timeout claim."
+  ]
+}
