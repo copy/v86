@@ -7,90 +7,107 @@
   "redecodedNativeFragments": [
     {
       "elapsed": 5.863124707999999,
-      "error": "RangeError: NV40 fragment color output is not written"
+      "nativeWords": 4,
+      "NRM": 0,
+      "targets": 0,
+      "loweredWords": 2
     },
     {
       "elapsed": 18.112188875,
       "nativeWords": 104,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 306
     },
     {
       "elapsed": 19.25146575,
       "nativeWords": 36,
       "NRM": 0,
-      "loweredWords": 100
+      "targets": 0,
+      "loweredWords": 94
     },
     {
       "elapsed": 28.752508875,
       "nativeWords": 140,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 405
     },
     {
       "elapsed": 29.023429665999995,
       "nativeWords": 140,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 465
     },
     {
       "elapsed": 33.542156999999996,
       "nativeWords": 116,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 330
     },
     {
       "elapsed": 33.99574875,
       "nativeWords": 140,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 367
     },
     {
       "elapsed": 35.553726208,
       "nativeWords": 160,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 705
     },
     {
       "elapsed": 37.246381833,
       "nativeWords": 136,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 598
     },
     {
       "elapsed": 44.781808790999996,
       "nativeWords": 84,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 321
     },
     {
       "elapsed": 44.903952874999995,
       "nativeWords": 104,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 326
     },
     {
       "elapsed": 46.128445625,
       "nativeWords": 104,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 529
     },
     {
       "elapsed": 48.976984832999996,
       "nativeWords": 116,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 539
     },
     {
       "elapsed": 52.119152833,
       "nativeWords": 12,
       "NRM": 0,
+      "targets": 1,
       "loweredWords": 31
     },
     {
       "elapsed": 154.742181291,
       "nativeWords": 156,
       "NRM": 3,
+      "targets": 1,
       "loweredWords": 490
     }
   ],
@@ -113,8 +130,8 @@
       "bytes": 3020
     },
     "build/nv40-nrm-native-redecode.json": {
-      "sha256": "116603b952491a56ae4e0a3eaa9d5a2a01260b26e2b05ff148b5950975d3e033",
-      "bytes": 1539
+      "sha256": "26608a6223cb2f2b10d9aeb3ffc17d64002d987731add775b9027b609058bc45",
+      "bytes": 1797
     }
   }
 }

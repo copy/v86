@@ -1722,3 +1722,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   及目标 alpha 保留；完整 GPU、171 个 WGSL 模块、Closure 通过，
   原生捕获 FP 已重新解码/降低，见 `g4-native-fragment-nrm.json`。
   06 全程与参考图仍须在后续原生复跑中验证。
+
+- G4 DirectX UBYTE4：06 GT1 的 `0x118DD` 属于 24-byte
+  FLOAT3 / 4-byte 骨骼索引 / FLOAT2 权重记录。真实字节为
+  `(11,0,0,0)`，程序乘 c408.x=3 后 ARR 读取骨骼矩阵，确认
+  需要未归一化的 UBYTE4；现在 `0xDD` 复用既有 U8_USCALED，
+  保留字节顺序与 0–255 数值。inline/indexed 记录、既有状态回归
+  和 Closure 通过，见 `g4-native-dx-ubyte4.json`。同时按实际
+  颜色目标/FP32 模式重新降低 NRM 的全部 15 份有效原生 FP，
+  包含无颜色输出程序，均成功；06 将从注册后的测试前状态复跑。

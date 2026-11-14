@@ -11,7 +11,7 @@ const f32bits=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
 // replicated low nibble is a type code, not TYPE/SIZE. Native 93.71 uses
 // 0x114BB for FLOAT4 and 0x114CC for D3DCOLOR with a 20-byte stride.
 const DX_VERTEX=new Map([[0x44,[4,4]],[0x88,[2,1]],[0x99,[2,2]],[0xAA,[2,3]],
-    [0xBB,[2,4]],[0xCC,[0,4]],[0xEE,[5,2]]]);
+    [0xBB,[2,4]],[0xCC,[0,4]],[0xDD,[7,4]],[0xEE,[5,2]]]);
 const half=value=>{
     const sign=value&0x8000?-1:1,exponent=value>>>10&31,mantissa=value&1023;
     return sign*(exponent===31?mantissa?NaN:Infinity:exponent?2**(exponent-15)*(1+mantissa/1024):2**-14*mantissa/1024);
@@ -193,7 +193,7 @@ export class NV40State
         if(format&0x10000)
         {
             const dx=DX_VERTEX.get(format&255);
-            if(!dx) throw new RangeError("NV40 unsupported DirectX vertex format");
+            if(!dx) throw new RangeError("NV40 unsupported DirectX vertex format 0x"+(format&255).toString(16));
             [type,size]=dx;
         }
         if(size>4 || size && ![0,1,2,3,4,5,7].includes(type) || size && type===0 && size<3)

@@ -73,8 +73,16 @@ o.methods.set(0x1740,0x114BB);o.methods.set(0x174C,0x114CC);
 const packed=state.inline_vertices(o,[f(1),f(2),f(3),f(1),0xFF336699],inputs);
 assert.deepEqual(floats(packed.bytes),[1,2,3,1,Math.fround(.2),Math.fround(.4),Math.fround(.6),1],"native alternate FLOAT4/D3DCOLOR formats consume five DWORDs");
 assert.deepEqual(state.vertex_layout(0x114EE),{type:5,size:2,bytes:4});
+assert.deepEqual(state.vertex_layout(0x118DD),{type:7,size:4,bytes:4});
+const skinWords=[f(1),f(2),f(3),0xFF80200B,f(.25),f(.75)],skinInputs=[[0,[1,0]],[1,[1,1]],[2,[1,2]]];
+for(const [at,value]of [[0x1740,0x118AA],[0x1744,0x118DD],[0x1748,0x11899],
+    [0x174C,2],[0x1680,0x3000],[0x1684,0x300C],[0x1688,0x3010]])o.methods.set(at,value);
+const skinValues=[1,2,3,1,11,32,128,255,.25,.75,0,1];
+assert.deepEqual(floats(state.inline_vertices(o,skinWords,skinInputs).bytes),skinValues,"DirectX UBYTE4 keeps unscaled bone indices and its four-byte stride");
+skinWords.forEach((word,i)=>new DataView(vram.buffer).setUint32(0x3000+i*4,word,true));
+assert.deepEqual(floats(state.array_vertices(o,[0],skinInputs).bytes),skinValues,"indexed UBYTE4 uses the same unsigned byte order and conversion");
 assert.throws(()=>state.vertex_layout(0x114BC),/DirectX/);
-o.methods.set(0x1740,0x23);o.methods.set(0x174C,2);
+o.methods.set(0x1740,0x23);o.methods.set(0x1744,2);o.methods.set(0x1748,2);o.methods.set(0x174C,2);
 assert.deepEqual(floats(state.inline_vertices(o,[0x40003C00],[[0,[1,0]]]).bytes),[1,2,0,1],"packed FP16 inline attributes consume one DWORD");
 const clear={methods:new Map([[0x194,0x10],[0x198,0x10],[0x200,2<<16],[0x204,2<<16],[0x208,0x148],
     [0x20C,12],[0x210,0x5000],[0x22C,12],[0x214,0x6000],[0x8C0,1<<16|1],[0x8C4,1<<16|1],

@@ -1,0 +1,45 @@
+{
+  "date": "2026-11-14",
+  "status": "native alternate UBYTE4 fetch supported; corrected 06 rerun pending",
+  "driver": "NVIDIA XP 93.71",
+  "nativeEvidence": {
+    "file": "build/nv40-dx-ubyte4-native.log",
+    "format": "0x118DD",
+    "stride": 24,
+    "layout": "FLOAT3 at byte 0, UBYTE4 bone indices at byte 12, FLOAT2 weights at byte 16",
+    "sampleBoneIndices": [
+      11,
+      0,
+      0,
+      0
+    ],
+    "sampleWeights": [
+      1,
+      0
+    ],
+    "program": "MUL v1.xy by c408.x=3 then ARR for indexed skinning matrices"
+  },
+  "inference": "0xDD is the native DirectX alternate encoding for unscaled UBYTE4. Supported by the raw bone-index bytes, vertex program use and the adjacent established FLOAT/D3DCOLOR/SHORT2 encodings.",
+  "APIReference": "https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3ddecltype",
+  "behavior": "Consume four bytes in order, convert to float values 0..255; do not normalize or swap red/blue. Reuse the existing U8_USCALED conversion.",
+  "tests": [
+    "0x118DD layout is four bytes",
+    "FLOAT3/UBYTE4/FLOAT2 inline record matches all 12 canonical floats",
+    "indexed record preserves 11/32/128/255 and the 24-byte input stride",
+    "Closure 0 errors, 0 warnings"
+  ],
+  "logs": {
+    "build/nv40-dx-ubyte4-unit.log": {
+      "sha256": "3b46c030f7cbdd9d353ab75ba47c23365445405c52fa541ce758ffc113f38667",
+      "bytes": 95
+    },
+    "build/nv40-dx-ubyte4-closure.log": {
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7",
+      "bytes": 3020
+    },
+    "build/nv40-dx-ubyte4-native.log": {
+      "sha256": "cb51416666876ff27c83784bd5a911d3935a2089b02dc030e8a30a6112891e0a",
+      "bytes": 1137
+    }
+  }
+}
