@@ -598,5 +598,164 @@
     "error": null,
     "original_image_unchanged": true,
     "game_image_unchanged": true
+  },
+  "native_texture_filtering_clock_probe": {
+    "directory": "build/nv40-win98-filter-clock",
+    "scope": "Normal UI selected only Texture Filtering Speed; background windowless clock runs from D: after native copy from the read-only RAM floppy. This measures the actual slow filtering workload, separately from Emboss.",
+    "source": "tests/devices/geforce_clock.c",
+    "complete_sample_count": 12,
+    "raw_log": "NATIVE_CLOCK_DIAGNOSTIC\r\nWAIT_FOR_800x600\r\nFULLSCREEN_STARTED\r\nQPF_OK=00000001\r\nQPF_LO=001234dc\r\nQPF_HI=00000000\r\nSAMPLE=00000000\r\nTICK_MS=0000138c\r\nQPC_DELTA_LO=005b09fd\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=ae57ca6e\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000001\r\nTICK_MS=00001388\r\nQPC_DELTA_LO=005aeefe\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=308ba26e\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000002\r\nTICK_MS=0000138a\r\nQPC_DELTA_LO=005af8be\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=1b7b66f4\r\nTSC_DELTA_HI=00000002\r\nSAMPLE=00000003\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005afc6e\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=46c2bbe4\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000004\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005af18b\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=98e030bb\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000005\r\nTICK_MS=0000138b\r\nQPC_DELTA_LO=005b099e\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=69c8ca99\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000006\r\nTICK_MS=0000138a\r\nQPC_DELTA_LO=005afead\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=55b350fe\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000007\r\nTICK_MS=0000138a\r\nQPC_DELTA_LO=005b0b4d\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=422ceeba\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000008\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b01a0\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=6f10d3dc\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000009\r\nTICK_MS=0000138c\r\nQPC_DELTA_LO=005b17b8\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=43431904\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000000a\r\nTICK_MS=00001388\r\nQPC_DELTA_LO=005afa7e\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=605f9a7c\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=0000000b\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005b01ab\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=3b80b31c\r\nTSC_DELTA_HI=00000001\r\n",
+    "samples": [
+      {
+        "sample": 0,
+        "tick_ms": 5004,
+        "qpc_delta_lo": 5966333,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2924989038,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.0003628957910795,
+        "tsc_seconds_at_1GHz": 7.219956334
+      },
+      {
+        "sample": 1,
+        "tick_ms": 5000,
+        "qpc_delta_lo": 5959422,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 814457454,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.994570810774569,
+        "tsc_seconds_at_1GHz": 5.10942475
+      },
+      {
+        "sample": 2,
+        "tick_ms": 5002,
+        "qpc_delta_lo": 5961918,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 461072116,
+        "tsc_delta_hi": 2,
+        "qpc_seconds": 4.996662699676495,
+        "tsc_seconds_at_1GHz": 9.051006708
+      },
+      {
+        "sample": 3,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5962862,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1187167204,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.997453862786839,
+        "tsc_seconds_at_1GHz": 5.4821345
+      },
+      {
+        "sample": 4,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5960075,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2564829371,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.995118087798991,
+        "tsc_seconds_at_1GHz": 6.859796667
+      },
+      {
+        "sample": 5,
+        "tick_ms": 5003,
+        "qpc_delta_lo": 5966238,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1774766745,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.0002832766221355,
+        "tsc_seconds_at_1GHz": 6.069734041
+      },
+      {
+        "sample": 6,
+        "tick_ms": 5002,
+        "qpc_delta_lo": 5963437,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1437815038,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.997935768283075,
+        "tsc_seconds_at_1GHz": 5.732782334
+      },
+      {
+        "sample": 7,
+        "tick_ms": 5002,
+        "qpc_delta_lo": 5966669,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1110240954,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.000644496220184,
+        "tsc_seconds_at_1GHz": 5.40520825
+      },
+      {
+        "sample": 8,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5964192,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1863373788,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.998568531152047,
+        "tsc_seconds_at_1GHz": 6.158341084
+      },
+      {
+        "sample": 9,
+        "tick_ms": 5004,
+        "qpc_delta_lo": 5969848,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1128470788,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.003308805041988,
+        "tsc_seconds_at_1GHz": 5.423438084
+      },
+      {
+        "sample": 10,
+        "tick_ms": 5000,
+        "qpc_delta_lo": 5962366,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1616878204,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.997038166915302,
+        "tsc_seconds_at_1GHz": 5.9118455
+      },
+      {
+        "sample": 11,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5964203,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 998290204,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.998577750213714,
+        "tsc_seconds_at_1GHz": 5.2932575
+      }
+    ],
+    "gpu": {
+      "batches": 17,
+      "draws": 22,
+      "bytes": 12435952,
+      "readbacks": 32,
+      "failures": 0,
+      "uploads": 29,
+      "uploadBytes": 11900576
+    },
+    "graph_faults": [],
+    "clock": {
+      "mode": "normal",
+      "elapsedMs": 595037.2075411375,
+      "hostElapsedMs": 604076.210292,
+      "host_pause_count": 1,
+      "discarded_host_ms": 13.6673750000773,
+      "host_backwards_count": 0,
+      "committed_instructions": 0,
+      "idle_ms": 0
+    },
+    "original_image_unchanged": true,
+    "game_image_unchanged": true,
+    "error": null,
+    "status_note": "Harness BLOCKED is expected: clock output intentionally replaced the initialization-only NV.TXT report. Existing initialized native 81.98 state is unchanged. This is not benchmark completion.",
+    "finding": "Twelve Sleep(5000) intervals advance native ticks by 5000\u20135004 ms and QPC by 4.994571\u20135.003309 s. Large global API-clock stalls are not observed in these intervals. The frame-submission gap remains unexplained.",
+    "ui_tool_workaround": {
+      "observation": "Direct execution from A: faulted; normal native copy to D: produced byte-identical NVUI.EXE and that executable selected only the intended filtering checkbox. Cause of the direct-floppy execution fault is unknown; do not attribute it to NV40.",
+      "executable_sha256": "6da6a85b7125b8eaeb93d3564672cf327dcbd1f0af32734901132fa2d957091b",
+      "native_copy_sha256": "6da6a85b7125b8eaeb93d3564672cf327dcbd1f0af32734901132fa2d957091b"
+    }
   }
 }

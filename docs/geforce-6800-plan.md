@@ -1579,3 +1579,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   make/break 与 Shift 扫描码，发送前验证 US ASCII。真实 Win98 的完整
   rename、DIR 与另一次 A:→D: copy 已验证，见 `g6-native-run-input.json`。
   游戏包装 DLL 只在 overlay 中改名，游戏/基准验收继续进行。
+
+- G6 纹理过滤原生时钟复验：正常 UI 只选 Texture Filtering Speed，
+  后台探针在实际过滤负载中得到 12 组完整样本：tick 5000–5004 ms、
+  QPC 4.994571–5.003309 s；无 GPU/PGRAPH 故障，原盘及游戏盘未变。
+  这些区间未显示全局 API 时钟大幅停走，帧提交间隔的根因仍未定位。
+  原始日志、计量与工具盘运行说明见 timing fixture，不以此冒充性能修复。
