@@ -5,9 +5,23 @@ const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const CROSSBAR_SHIFT=[2,4,6,0];
 const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[16,4],[18,2],[26,8],[27,16],[28,4]]);
 const BLOCK_BYTES=new Map([[6,8],[7,16],[8,16]]);
+const same_bytes=(a,b)=>{
+    if(a.length!==b.length)return false;
+    const words=a.length>>>2;
+    if(!(a.byteOffset&3) && !(b.byteOffset&3))
+    {
+        const x=new Uint32Array(a.buffer,a.byteOffset,words),y=new Uint32Array(b.buffer,b.byteOffset,words);
+        for(let i=0;i<words;i++)if(x[i]!==y[i])return false;
+        for(let i=words*4;i<a.length;i++)if(a[i]!==b[i])return false;
+    }
+    else for(let i=0;i<a.length;i++)if(a[i]!==b[i])return false;
+    return true;
+};
 export class NV40Texture
 {
-    constructor(state) {this.state=state;}
+    constructor(state) {this.state=state;this.cache=new Map();this.cache_limit=64<<20;this.cache_entries=256;
+        this.cache_bytes=0;this.stats={hits:0,misses:0,evictions:0,bytes:0};}
+    clear() {this.cache.clear();this.cache_bytes=0;this.stats={hits:0,misses:0,evictions:0,bytes:0};}
     vertex(o,unit)
     {
         if(!Number.isInteger(unit) || unit<0 || unit>=4)throw new RangeError("NV40 invalid vertex texture unit");
@@ -102,14 +116,29 @@ export class NV40Texture
         }
         return images;
     }
-    storage(texture)
+    encoded(texture)
     {
-        if(!texture.volume)return this.state.read(texture);
+        if(texture.block)
+        {
+            const width=Math.ceil(texture.width/4),height=Math.ceil(texture.height/4),pitch=texture.swizzle?width*texture.block:texture.pitch;
+            return this.state.read({...texture,width,height,pitch,bpp:texture.block,swizzle:false});
+        }
+        if(!texture.volume)
+            return this.state.packed(texture)?this.state.device.dma.read(texture.dma,texture.offset,texture.width*texture.height*texture.bpp):this.state.read(texture);
+        const length=texture.swizzle?2**(texture.u+texture.v+texture.w)*texture.bpp:
+            (texture.depth*texture.height-1)*texture.pitch+texture.width*texture.bpp;
+        if(length>this.state.device.vram_size || texture.width*texture.height*texture.depth*texture.upload_bpp>this.state.device.vram_size)
+            throw new RangeError("NV40 volume texture exceeds upload budget");
+        return this.state.device.dma.read(texture.dma,texture.offset,length);
+    }
+    storage(texture,encoded=null)
+    {
+        if(!texture.volume)return encoded?(texture.swizzle && this.state.packed(texture)?this.state.reorder(texture,encoded,false):encoded):this.state.read(texture);
         const {width,height,depth,bpp,pitch,swizzle,u,v,w}=texture,device=this.state.device;
         const length=swizzle?2**(u+v+w)*bpp:(depth*height-1)*pitch+width*bpp;
         if(length>device.vram_size || width*height*depth*texture.upload_bpp>device.vram_size)
             throw new RangeError("NV40 volume texture exceeds upload budget");
-        const source=device.dma.read(texture.dma,texture.offset,length),result=new Uint8Array(width*height*depth*bpp);
+        const source=encoded || device.dma.read(texture.dma,texture.offset,length),result=new Uint8Array(width*height*depth*bpp);
         for(let z=0;z<depth;z++)for(let y=0;y<height;y++)for(let x=0;x<width;x++)
         {
             let at=(z*height+y)*pitch+x*bpp;
@@ -130,12 +159,37 @@ export class NV40Texture
     }
     read(texture)
     {
-        if(texture.vertex || texture.depth_compare)return this.storage(texture);
+        // Revalidate and fetch actual guest bytes on every use. Only the
+        // Morton/BC/component conversion is cached, with exact comparisons.
+        const source=this.encoded(texture),key=JSON.stringify([texture.dma,texture.offset,texture.width,texture.height,texture.depth,
+            texture.bpp,texture.pitch,texture.swizzle,texture.u,texture.v,texture.w,texture.code,texture.block,
+            texture.crossbar,texture.vertex,texture.depth_compare,texture.volume]),entry=this.cache.get(key);
+        if(entry && same_bytes(entry.source,source))
+        {
+            this.stats.hits++;this.cache.delete(key);this.cache.set(key,entry);return entry.result;
+        }
+        this.stats.misses++;
+        if(entry){this.cache.delete(key);this.cache_bytes-=entry.bytes;}
+        const result=this.decode(texture,source),bytes=source.length+result.length;
+        if(bytes<=this.cache_limit)
+        {
+            while(this.cache.size && (this.cache.size>=this.cache_entries || this.cache_bytes+bytes>this.cache_limit))
+            {
+                const [old,item]=this.cache.entries().next().value;
+                this.cache.delete(old);this.cache_bytes-=item.bytes;this.stats.evictions++;
+            }
+            this.cache.set(key,{source,result,bytes});this.cache_bytes+=bytes;
+        }
+        this.stats.bytes=this.cache_bytes;return result;
+    }
+    decode(texture,encoded)
+    {
+        if(texture.vertex || texture.depth_compare)return this.storage(texture,encoded);
         if(texture.code===27 || texture.code===28)
         {
             const pixels=texture.width*texture.height*(texture.depth||1);
             if(pixels*16>this.state.device.vram_size)throw new RangeError("NV40 FP32 texture exceeds upload budget");
-            const bytes=this.storage(texture),source=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),
+            const bytes=this.storage(texture,encoded),source=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),
                 result=new Uint8Array(pixels*16),output=new DataView(result.buffer);
             for(let pixel=0;pixel<pixels;pixel++)for(let channel=0;channel<4;channel++)
             {
@@ -151,7 +205,7 @@ export class NV40Texture
         }
         if(texture.code===26)
         {
-            const bytes=this.storage(texture),result=new Uint8Array(bytes.length),
+            const bytes=this.storage(texture,encoded),result=new Uint8Array(bytes.length),
                 source=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),output=new DataView(result.buffer);
             for(let pixel=0;pixel<texture.width*texture.height*(texture.depth||1);pixel++)for(let channel=0;channel<4;channel++)
             {
@@ -161,7 +215,7 @@ export class NV40Texture
             }
             return result;
         }
-        const source=texture.block?this.blocks(texture):this.storage(texture),result=new Uint8Array(texture.width*texture.height*(texture.depth||1)*4),view=new DataView(source.buffer);
+        const source=texture.block?this.blocks(texture,encoded):this.storage(texture,encoded),result=new Uint8Array(texture.width*texture.height*(texture.depth||1)*4),view=new DataView(source.buffer);
         const unit5=value=>Math.round(value*255/31),unit6=value=>Math.round(value*255/63);
         for(let pixel=0;pixel<texture.width*texture.height*(texture.depth||1);pixel++)
         {
@@ -183,11 +237,11 @@ export class NV40Texture
         }
         return result;
     }
-    blocks(t)
+    blocks(t,encoded=null)
     {
         const width=Math.ceil(t.width/4),height=Math.ceil(t.height/4),pitch=t.swizzle?width*t.block:t.pitch;
         const result=new Uint8Array(t.width*t.height*4);
-        const bytes=this.state.read({...t,width,height,pitch,bpp:t.block,swizzle:false}),v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+        const bytes=encoded || this.state.read({...t,width,height,pitch,bpp:t.block,swizzle:false}),v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
         const color=value=>{const b=value&31,g=value>>>5&63,r=value>>>11;return [b<<3|b>>>2,g<<2|g>>>4,r<<3|r>>>2,255];};
         for(let y=0;y<height;y++)for(let x=0;x<width;x++)
         {

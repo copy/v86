@@ -137,6 +137,7 @@ export class NV40Render
     {
         if(this.pending) this.pending.resolve();
         this.batch=null;this.pending=null;this.writer=new D9WGWriter(0x3034564E);this.created=false;this.resources.clear();this.shaders.clear();this.declarations.clear();
+        this.textures.clear();
         this.query=0;this.next=2;this.renderer["post"]({"type":"reset"});
     }
     wait() {this.flush();return this.pending?this.pending.promise.then(()=>this.wait()):Promise.resolve();}

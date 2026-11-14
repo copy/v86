@@ -178,3 +178,23 @@ assert.deepEqual(Array.from({length:16},(_,i)=>volumeLinear[0][i*4]),Array.from(
 o.methods.set(0x1840,0);assert.throws(()=>texture.describe(o,0),/volume.*dimensions/);
 assert.throws(()=>texture.storage({...volume,width:128,height:128,depth:128,u:7,v:7,w:7,bpp:1}),/upload budget/,"expanded payload is bounded before allocating volume storage");
 console.log("PASS: NV40 linear/Morton texture DMA, storage swizzles, RGB565/L8/A8L8 and unsupported-state faults");
+const decodedCache=new NV40Texture(state),cacheSurface={dma:state.dma(o,0x184),offset:0x1000,width:2,height:2,
+    depth:1,pitch:8,bpp:4,swizzle:true,u:1,v:1,w:0,code:5,block:0,crossbar:0xAAE4};
+const cachePixels=Uint8Array.from({length:16},(_,i)=>i+1);state.write(cacheSurface,cachePixels);
+const firstDecoded=decodedCache.read(cacheSurface),firstCopy=firstDecoded.slice();
+assert.equal(decodedCache.read(cacheSurface),firstDecoded);assert.equal(decodedCache.stats.hits,1);
+vram[0x1000]=123;const editedDecoded=decodedCache.read(cacheSurface);
+assert.notDeepEqual(editedDecoded,firstDecoded);assert.deepEqual(firstDecoded,firstCopy,"CPU edits cannot mutate an earlier upload image");
+assert.equal(editedDecoded[2],123,"exact guest-byte comparison invalidates a Morton decode");
+assert.throws(()=>decodedCache.read({...cacheSurface,dma:{...cacheSurface.dma,class_id:3}}),/access denied/);
+const paged={...cacheSurface,dma:{...cacheSurface.dma,linear:false,flags:0x103D}};
+ramin.setUint32(0x10C,0x1003,true);decodedCache.read(paged);
+ramin.setUint32(0x10C,0x1000,true);const pageHits=decodedCache.stats.hits;
+assert.throws(()=>decodedCache.read(paged),/page access/);assert.equal(decodedCache.stats.hits,pageHits,"cache hits never bypass PTE validation");
+decodedCache.clear();decodedCache.cache_limit=64;decodedCache.cache_entries=2;
+decodedCache.read(cacheSurface);decodedCache.read({...cacheSurface,offset:0x1100});decodedCache.read(cacheSurface);
+decodedCache.read({...cacheSurface,offset:0x1200});
+assert.equal(decodedCache.cache.size,2);assert.equal(decodedCache.stats.bytes,64);assert.equal(decodedCache.stats.evictions,1);
+const lruHits=decodedCache.stats.hits;decodedCache.read(cacheSurface);assert.equal(decodedCache.stats.hits,lruHits+1);
+decodedCache.clear();assert.equal(decodedCache.cache.size,0);assert.equal(decodedCache.stats.bytes,0);
+console.log("PASS: bounded exact-byte texture decode cache, CPU edits, checked PTEs and LRU eviction");
