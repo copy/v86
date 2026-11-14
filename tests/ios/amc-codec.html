@@ -1,0 +1,57 @@
+<!doctype html><meta charset="utf-8"><title>AMC AAC DMA completion</title>
+<pre id="result">Running…</pre>
+<script type="module">
+import { AppleAMC } from "/src/apple/amc.js";
+import { AppleCDMA } from "/src/apple/cdma.js";
+const assert = (value, message) => { if(!value) throw Error(message); };
+const ram = new Uint8Array(0x10000), ports = new Map(), interrupts = [];
+const cpu = {
+    mem8:ram,
+    wasm_memory:{buffer:new ArrayBuffer(1<<20)},device_regions:[],
+    mmio_ram_allocate(size){const n=this.device_regions.length;this.device_regions.push({size,backing:n*0x40000});return n;},
+    mmio_ram_backing(n){return this.device_regions[n].backing;},
+    io:{register_mmio:(base,size,port)=>ports.set(base,port)},
+    wm:{exports:{a64_bus_map_device:()=>true}},
+    ram_offset(at,n){return at>=0x40000000&&at+n<=0x40010000?at-0x40000000:-1;},
+    read_blob_physical(at,n){const p=this.ram_offset(at,n);assert(p>=0,'DRAM read bounds');return ram.slice(p,p+n);},
+    write_blob_physical(bytes,at){const p=this.ram_offset(at,bytes.length);assert(p>=0,'DRAM write bounds');ram.set(bytes,p);},
+};
+const dma = new AppleCDMA(cpu,(n,level)=>interrupts.push([n,level]));
+const amc = new AppleAMC(cpu,()=>{},dma);
+try {
+    const fixture=await(await fetch('/tests/ios/fixtures/amc-aac.json')).json();
+    const packet=Uint8Array.from(atob(fixture.packets[1]),c=>c.charCodeAt(0));
+    const m=amc.memory(),v=new DataView(m.buffer,m.byteOffset,m.length),d=new DataView(ram.buffer);
+    amc.write(0x99c,3);amc.write(0x940,0x83007020);amc.write(0x984,0);
+    assert(v.getUint16(0x18002,true)===2&&v.getUint16(0x18004,true)===2048,'native AAC buffer negotiation');
+    amc.write(0xc48,4);
+    v.setUint16(0x1ff00,0x1f,true);v.setUint16(0x1ff06,44100,true);
+    m.set(packet,0x20400);
+    [0,packet.length<<16,0x20400].forEach((w,i)=>v.setUint32(0x20000+4*i,w,true));
+    // Native engine 0: a transfer job, its commit, then ordered DE ack.
+    [0x30010,20<<16,0x30100,0x303060,0x30020,4<<16,0x30114,0x303060,
+        0,(4<<16)|8,0x30118,0xc48].forEach((w,i)=>v.setUint32(0x30000+4*i,w,true));
+    [0,8192,0x18100,0,0x38000,1,4].forEach((w,i)=>v.setUint32(0x30100+4*i,w,true));
+    [0,0x103,0x40001000,8192].forEach((w,i)=>d.setUint32(0x100+4*i,w,true));
+    const base=23*0x1000;
+    dma.write(base+8,0x8480002c);dma.write(base+12,8192);dma.write(base+20,0x40000100);dma.write(base,0x19);
+    amc.write(0,0x30002);amc.write(0x100,0x20002);
+    assert(!(amc.pending[0]&(1<<20)),'input cannot finish before real decode and PCM handoff');
+    const end=performance.now()+10000;
+    while(amc.codec.stats.pcm_bytes!==8192&&performance.now()<end){amc.poll();await new Promise(r=>setTimeout(r,5));}
+    assert(amc.codec.stats.failures===0,JSON.stringify(amc.codec.stats));
+    assert(amc.codec.stats.decoded_samples===2048&&amc.codec.stats.pcm_bytes===8192,'real AAC frame crosses engine 0 and CDMA');
+    let peak=0,nonzero=0;
+    for(let i=0;i<2048;i++){const sample=d.getInt32(0x1000+4*i,true);assert(sample%256===0,'native 24-bit-in-32 sample packing');peak=Math.max(peak,Math.abs(sample));nonzero+=+(sample!==0);}
+    assert(peak>100000&&peak<8388608&&nonzero>1000,'destination contains actual bounded decoded PCM '+JSON.stringify({peak,nonzero}));
+    assert(dma.channel[23*8]&0x80000,'CDMA completes after copying its descriptor');
+    assert(amc.pending[0]&(1<<20),'compressed input retires after its PCM was delivered');
+    assert(interrupts.some(([n,level])=>n===23&&level),'native PCM consumer gets its completion');
+    // Malformed linked input is a codec error, never a successful silent frame.
+    amc.codec.reset();v.setUint32(0x20000,0x20002,true);amc.codec.initialized=true;amc.codec.input=0x20002;
+    amc.poll();await new Promise(r=>setTimeout(r,0));amc.poll();
+    assert(amc.codec.stats.failures===1&&v.getUint16(0x1ff28,true)===1,'cyclic input reports the native error contract');
+    document.getElementById('result').textContent='PASS: actual AAC to native S24 PCM, ordered engine-0/CDMA completion, cyclic-input rejection';
+}catch(error){document.getElementById('result').textContent='FAIL: '+error.stack;}
+finally{amc.codec.reset();}
+</script>

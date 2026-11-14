@@ -1,3 +1,5 @@
+import { AMCCodec } from "./amc_codec.js";
+
 // S5L8930 AMC 2.1 control and local memory. Register offsets verified with
 // AppleAMC-176 on 10B329; the three ranges come from its original DeviceTree.
 // A reset/idle handshake is distinct from completion of a codec/DMA job.
@@ -7,7 +9,7 @@ export const AMC_RAM_SIZE = 0x40000;
 
 export class AppleAMC
 {
-    constructor(cpu, signal = () => {})
+    constructor(cpu, signal = () => {}, dma = null)
     {
         this.cpu = cpu;
         this.signal = signal;
@@ -27,6 +29,7 @@ export class AppleAMC
         });
         this.on_job = (offset, value) => {};
         this.reset();
+        this.codec = dma ? new AMCCodec(this, dma) : null;
     }
 
     memory(bank = 0)
@@ -76,7 +79,7 @@ export class AppleAMC
             // that state; none of these operations consumed audio input.
             this.regs[(engine + 0x14) >>> 2] = value === 4 ? 7 : 0;
         }
-        if(offset === 0x984 || offset === 0x988 || offset === 0x99c) this.on_job(offset, value);
+        if([0, 0x100, 0x110, 0x984, 0x988, 0x99c].includes(offset)) this.on_job(offset, value);
         this.update_irq();
     }
 
@@ -94,6 +97,7 @@ export class AppleAMC
 
     reset()
     {
+        this.codec?.reset();
         this.regs.fill(0);
         this.mask.fill(0);
         this.pending.fill(0);
@@ -103,6 +107,7 @@ export class AppleAMC
 
     get_state()
     {
+        if(this.codec?.decoder || this.codec?.busy) throw new Error("Stop the AMC audio stream before saving a snapshot");
         return [this.regs.slice(), this.mask.slice(), this.pending.slice(), this.memory().slice(), this.memory(1).slice()];
     }
 
@@ -114,4 +119,6 @@ export class AppleAMC
         this.memory().set(state[3]); this.memory(1).set(state[4]);
         this.update_irq();
     }
+
+    poll() { this.codec?.poll(); }
 }

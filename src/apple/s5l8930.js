@@ -72,7 +72,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     };
     auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
     audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i); });
-    devices.apple_amc = new AppleAMC(cpu, (n, level) => vic.set_line(0x56 + n, level));
+    devices.apple_amc = new AppleAMC(cpu, (n, level) => vic.set_line(0x56 + n, level), dma);
     spi_controllers.forEach((name, i) => { devices[name] = new AppleSPI(cpu, i, level => vic.set_line(29 + i, level), undefined, dma); });
     clcd.translate = address => devices.apple_dart2.translate(address, 0);
     const touch = devices.apple_multitouch = new AppleMultitouch(() => gpio.pulse(21), ready => {
