@@ -1157,6 +1157,11 @@ impl Emitter<'_> {
     /// As `host`, an unaligned read copied to bounce slot `slot` (0 or 1:
     /// a pair's second element, whose copy must not replace the first's)
     fn host_in(&mut self, size: u32, write: bool, offset: u16, slot: u32) {
+        self.host_in_extra(size, write, offset, slot, 0);
+    }
+    /// A single scalar word read, eligible for uncached device read values.
+    fn host_read32(&mut self, offset: u16) { self.host_in_extra(4, false, offset, 0, 0x1000); }
+    fn host_in_extra(&mut self, size: u32, write: bool, offset: u16, slot: u32, extra: u32) {
         if self.env.aligned_data && size > 1 {
             self.g(ADDR);
             self.b.wrap_i64_to_i32();
@@ -1164,13 +1169,14 @@ impl Emitter<'_> {
             self.b.and_i32();
             self.retry_if(offset);
         }
-        let (l, abi) = (self.lookup_locals(), Self::access_abi());
+        let (l, mut abi) = (self.lookup_locals(), Self::access_abi());
+        if extra != 0 { abi.slow = "a64_page_access_scalar"; }
         let retry = self.f().retry;
         self.inline_lookup(
             &l,
             &abi,
             (size, false),
-            (write as u32) << 8 | slot << 10,
+            (write as u32) << 8 | slot << 10 | extra,
             offset as u64,
             retry,
         );

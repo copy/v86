@@ -2832,7 +2832,8 @@ impl Emitter<'_> {
         self.b.extend_unsigned_i32_to_i64();
         self.s(super::ADDR);
         // (a miss, a fault, an access across the page: the interpreter's)
-        self.host(1 << size, !load, offset);
+        if load && size == 2 { self.host_read32(offset); }
+        else { self.host(1 << size, !load, offset); }
         if load {
             self.load_value(size as u32, signed, true);
             self.s(super::T1);

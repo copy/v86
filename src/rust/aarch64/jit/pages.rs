@@ -1152,6 +1152,11 @@ pub fn register() {
 /// refused (a fault, a device, a page with code for a write, a page
 /// crossing): the function leaves for the interpreter to do it
 #[no_mangle]
+pub fn a64_page_access_scalar(address: u64, kind: u32) -> u32 {
+    a64_page_access(address, kind | 0x1000)
+}
+
+#[no_mangle]
 pub fn a64_page_access(address: u64, kind: u32) -> u32 {
     let size = kind & 255;
     let write = kind & 0x100 != 0;
@@ -1192,6 +1197,18 @@ pub fn a64_page_access(address: u64, kind: u32) -> u32 {
         return 0;
     };
     let host = match bus::bus().lookup(pa) {
+        // The ARM7 scheduler reads the PMGR clock extremely often. Supply
+        // one scalar read from the same machine clock without leaving the
+        // compiled function. Never cache a changing device register, and
+        // never use this for LDM/LDRD whose host pointer spans more words.
+        Lookup::Mmio { .. } if bus::iop_active() && !write && size == 4
+            && kind & 0x1000 != 0 && matches!(pa, 0xBF10_2000 | 0xBF10_2004) => {
+            let ticks = (unsafe { crate::isa::microtick() } * 24_000.0) as u64;
+            let value = if pa & 4 == 0 { ticks as u32 } else { (ticks >> 32) as u32 };
+            let target = bounce_address() + (kind >> 10 & 1) * 32;
+            unsafe { core::ptr::write_unaligned(target as *mut u32, value) };
+            return target;
+        },
         Lookup::Ram {
             backing, writable, ..
         } => {
