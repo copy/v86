@@ -58,6 +58,25 @@ test("IPA: valid ARMv7 metadata, resource integrity and original identity", asyn
     assert.equal(p.report.original_sha256, createHash("sha256").update(b).digest("hex"));
     assert.equal(p.main.parsed.filetype, 2);
 });
+test("IPA: accepts an explicit empty Payload directory, rejecting data and file masquerades", async () => {
+    const directory = () => archive({ extra: [{ name: "Payload/", data: new Uint8Array(), store: true },
+        { name: "Payload/Fixture.app/", data: new Uint8Array(), store: true }] });
+    await inspect(directory());
+    const mode = (b, value) => {
+        const v = new DataView(b.buffer, b.byteOffset, b.byteLength); let at = v.getUint32(b.length - 6, true);
+        while(v.getUint32(at, true) === 0x02014B50) {
+            const n = v.getUint16(at + 28, true);
+            if(new TextDecoder().decode(b.subarray(at + 46, at + 46 + n)) === "Payload/") {
+                v.setUint16(at + 4, 3 << 8 | 20, true); v.setUint32(at + 38, value << 16, true); return b;
+            }
+            at += 46 + n + v.getUint16(at + 30, true) + v.getUint16(at + 32, true);
+        }
+        throw Error("Missing directory fixture");
+    };
+    await inspect(mode(directory(), 0o040755));
+    await assert.rejects(inspect(mode(directory(), 0o100644)), /unexpected entry/);
+    await assert.rejects(inspect(archive({ extra: [{ name: "Payload/", data: enc("data"), store: true }] })), /unexpected entry/);
+});
 test("IPA: rejects encrypted code, ARMv7s and newer OS versions", async () => {
     await assert.rejects(inspect(archive({ main: executable({ encrypted: true }) })), /encrypted/);
     await assert.rejects(inspect(archive({ main: executable({ subtype: 11 }) })), /ARMv7/);

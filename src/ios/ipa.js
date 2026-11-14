@@ -61,7 +61,9 @@ export async function inspect_ipa(read, size, progress = () => {})
     const root = "Payload/" + [...roots][0], prefix = root + "/";
     if(entries.some(e => (e.unix_mode & 0o170000) === 0o120000 && (!e.name.startsWith(prefix) || e.name.endsWith("/"))))
         fail("symbolic link outside the application or with a directory entry name");
-    if(entries.some(e => e.name.startsWith("Payload/") && e.name !== root && !e.name.startsWith(prefix)))
+    const payloadDirectory = e => e.name === "Payload/" && e.size === 0 &&
+        [0, 0o040000].includes(e.unix_mode & 0o170000);
+    if(entries.some(e => e.name.startsWith("Payload/") && !payloadDirectory(e) && e.name !== root && !e.name.startsWith(prefix)))
         fail("unexpected entry beside the main application");
     const plistEntry = names.get(prefix + "Info.plist");
     if(!plistEntry || plistEntry.size > IPA_LIMITS.plist) fail("missing or oversized Info.plist");
