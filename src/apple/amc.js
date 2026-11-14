@@ -25,7 +25,7 @@ export class AppleAMC
             read: offset => this.read(offset),
             write: (offset, width, value) => this.write(offset, Number(value)),
         });
-        this.on_job = () => {};
+        this.on_job = (offset, value) => {};
         this.reset();
     }
 
