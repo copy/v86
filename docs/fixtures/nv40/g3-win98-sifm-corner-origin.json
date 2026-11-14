@@ -1,0 +1,96 @@
+{
+  "date": "2026-11-14",
+  "status": "native IQ06 corrupted upload reproduced and fixed byte-for-byte; original IQ rerun active",
+  "driver": "NVIDIA 81.98 / Windows 98",
+  "sourceState": "build/nv40-win98-99-iq6-writes.state",
+  "nativeUpload": {
+    "class": "0x3089",
+    "instance": 977952,
+    "inputFormat": 3,
+    "inputOrigin": "CORNER (2)",
+    "point": "0x00080008",
+    "pointTexels": [
+      0.5,
+      0.5
+    ],
+    "inputClamp": [
+      32,
+      2047
+    ],
+    "pitch": 128,
+    "outputSize": [
+      32,
+      32
+    ],
+    "destination": {
+      "offset": 126252032,
+      "swizzle": true,
+      "u": 5,
+      "v": 5,
+      "bpp": 4
+    }
+  },
+  "cause": "CORNER used an already texel-centered half coordinate as a center-indexed coordinate and rounded it again. Both source axes advanced by one texel. Red/blue edge texels disappeared and the final row came from unrelated source bytes beyond the actual 32x32 image.",
+  "fix": "Convert source corner coordinates to center indices by subtracting 0.5 for both origins; CENTER additionally applies its destination half pixel before the step, preserving its previous semantics.",
+  "nativeReplay": {
+    "oldFirstThreePixelsBGRA": [
+      0,
+      0,
+      0,
+      255,
+      0,
+      255,
+      0,
+      255,
+      0,
+      0,
+      0,
+      255
+    ],
+    "newFirstThreePixelsBGRA": [
+      0,
+      0,
+      255,
+      255,
+      0,
+      0,
+      0,
+      255,
+      255,
+      0,
+      0,
+      255
+    ],
+    "comparedBytes": 4096,
+    "differentBytesFromSource": 0
+  },
+  "validation": {
+    "newCPURegression": "CORNER POINT=(8,8), nearest with a large unused clamp and tightly checked source, plus bilinear exact-center copy",
+    "deviceSuites": [
+      "2D",
+      "PGRAPH",
+      "state",
+      "texture"
+    ],
+    "Closure": "0 errors, 0 warnings"
+  },
+  "evidence": {
+    "build/nv40-sifm-corner-unit.log": {
+      "bytes": 547,
+      "sha256": "8b2e02a9384ebc736572a499539835c50bd18cb208f78d62104692438286f346"
+    },
+    "build/nv40-sifm-corner-native-replay.log": {
+      "bytes": 2828,
+      "sha256": "29805e89cfce50c7e1ebda27d7485e341fbdf96befadb58acd2f23d23e2bedbc"
+    },
+    "build/nv40-sifm-corner-closure.log": {
+      "bytes": 3020,
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7"
+    },
+    "build/nv40-win98-99-iq6-writes/draw-captures.jsonl": {
+      "bytes": 29456,
+      "sha256": "094b2e1d8e617d1b80cf373f5158c04a5dd4efdd6b6576239c544065853d9367"
+    }
+  },
+  "rerun": "build/nv40-win98-99-iq-corner-fixed"
+}

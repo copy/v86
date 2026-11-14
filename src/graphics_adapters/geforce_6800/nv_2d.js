@@ -427,7 +427,11 @@ export class NV2D
         if(!rect[2] || !rect[3])return;
         if(rect[2]*rect[3]*dst.bpp>this.device.vram_size)throw new RangeError("NV 2D rectangle too large");
         const center=(fmt>>>16&255)===1,linear=!!(fmt>>>24&1);
-        const coordinate=(point,start,origin,step)=>origin/16+(point-start+(center?0.5:0))*step-(center?0.5:0);
+        // Source coordinates address texel corners. Convert to center-indexed
+        // interpolation for both origins; CENTER additionally locates the
+        // destination sample at its pixel center before applying the step.
+        // In CORNER mode a native POINT=(8,8) is the first texel's center.
+        const coordinate=(point,start,origin,step)=>origin/16+(point-start+(center?0.5:0))*step-0.5;
         const taps=(first,count,start,origin,step,limit,pairs=false)=>{
             const indices=new Set(),add=value=>{
                 value=Math.max(0,Math.min(limit-1,value));

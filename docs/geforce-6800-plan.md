@@ -1695,3 +1695,13 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   NaN/Infinity、完整回归、170 个 WGSL 模块和 Closure 通过，见
   `g4-native-fragment-dp2.json`。无故障 IQ 与图像比较继续复跑；
   92 分仍来自并行环境，不能替代 G6 独立性能计量。
+
+- G2/G3 Win98 IQ06 根因：81.98 以 SIFM CORNER、POINT=(8,8)
+  上传 32×32 ARGB 图像。旧坐标转换又取整了已居中的半像素，两轴
+  各前移一个 texel，丢失红/蓝点并把末行无关源字节拷入纹理。现在
+  两种 ORIGIN 都把源 corner 坐标减去半像素后插值；CENTER 原有
+  的目标中心变换保留。对同一原生快照重放，旧首行黑/绿/黑变为
+  源中的红/黑/蓝，完整 4096 bytes 与 32×32 源图精确一致。
+  CORNER 的 nearest/bilinear、受限源 DMA、既有 2D/PGRAPH/状态/
+  纹理回归与 Closure 通过，见 `g3-win98-sifm-corner-origin.json`。
+  原版 IQ 已用修复构建重跑，最终九图比较仍待导出。

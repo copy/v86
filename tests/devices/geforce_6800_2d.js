@@ -121,6 +121,17 @@ const footprintColors=[0xFF102030,0xFF405060,0xFF708090,0xFFA0B0C0];
 footprintColors.forEach((value,index)=>view.setUint32(0x1000+index*4,value,true));
 word(0x1004,0x100F);call(scale,0x40C,0);
 for(let y=0;y<2;y++)for(let x=0;x<2;x++)assert.equal(view.getUint32(256+y*32+x*4,true),footprintColors[y*2+x]);
+// Native Win98 uploads use CORNER with POINT=(0.5,0.5). Rounding that
+// already centered coordinate again shifted both axes and read the next row.
+for(const filter of [0,1])
+{
+    if(filter)scale.methods.set(0x400,2<<16|2);
+    scale.methods.set(0x404,filter<<24|2<<16|8);call(scale,0x40C,0x80008);
+    for(let y=0;y<2;y++)for(let x=0;x<2;x++)assert.equal(view.getUint32(256+y*32+x*4,true),footprintColors[y*2+x],
+        "CORNER half-texel upload preserves each source pixel and its checked footprint");
+}
+scale.methods.set(0x400,1023<<16|1024);
+scale.methods.set(0x404,1<<16|8);
 const footprintBefore=vram.slice(256,384);word(0x1004,0x100B);
 assert.throws(()=>call(scale,0x40C,0),/limit/);assert.deepEqual(vram.subarray(256,384),footprintBefore,"late sampled-row fault leaves earlier destination rows unchanged");
 word(0x1004,0x1113);scale.methods.set(0x404,2<<16|64);
