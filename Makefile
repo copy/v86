@@ -815,6 +815,7 @@ devices-test: build/v86-debug.wasm
 	node tests/devices/geforce_6800_graph.js
 	node tests/devices/geforce_6800_state.js
 	node tests/devices/geforce_6800_texture.js
+	node tests/x64/gpu_remote_frame_reader_test.mjs
 	node tests/devices/geforce_6800_render.mjs
 	node tests/devices/pam_shadow.js
 	node tests/devices/geforce_6800_2d.js

@@ -1990,3 +1990,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   213.65→0.021 ms，不代表 FPS；完整真实 GPU 的 CPU 修改、部分行/
   mip/face 与同步回归、Closure 通过，见
   `g6-identical-decoded-image-reuse.json`。
+
+- G6 原生 UI 工具：可在保留的 NVPROBE 槽中运行测试用 Win32 控件
+  检查器；只操作已观察、可见、启用且属于 3DMark 的 Button/Edit，
+  不改图形 API 或结果。XP 2000 已通过真实 Clear/IQ/OK 处理器选成
+  2 of 22，执行 IQ 后以原生 Edit/Save 保存 NVCIQ。长 modal handler
+  可令消息超时，工具明确要求先检查界面，不能据此重发点击。
+  `NV_TOOLS_LIVE_ARTIFACTS` 有界导出变化的根文件，严格 C 构建和
+  原生控件/文件名确认通过，见 `g6-native-benchmark-ui-controls.json`。
+  同时将 GPU 传输回归纳入 devices-test。

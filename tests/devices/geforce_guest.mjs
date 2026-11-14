@@ -223,6 +223,8 @@ export async function run_geforce_guest(win98)
     const capture_interval=Number(process.env.NV_CAPTURE_SECONDS || 0),capture_limit=Number(process.env.NV_CAPTURE_LIMIT || 180);
     assert(Number.isFinite(capture_interval) && capture_interval>=0 && capture_limit>0 && capture_limit<=2000);
     const control_file = process.env.NV_CONTROL || path.join(out, "control.json");
+    const live_artifacts=(process.env.NV_TOOLS_LIVE_ARTIFACTS||"").split(";").filter(Boolean),live_bytes=new Map();
+    assert(live_artifacts.length<=32 && live_artifacts.every(name=>/^[a-zA-Z0-9_.-]+$/.test(name)),"live tool artifacts must be root filenames");
     // Called only with the CPU stopped. RAM, disk sectors and the embedded
     // tools disk must describe one point in time, not a later run's pagefile.
     const save_bundle = async (state_file,os_file=state_file+".hda-overlay.bin",game_file=state_file+".game-overlay.bin") => {
@@ -610,6 +612,14 @@ export async function run_geforce_guest(win98)
         {
             await delay(capture_interval?Math.min(1000,Math.max(100,capture_interval*1000)):1000);
             cpu.devices.display.request_frame(true);
+            for(const name of live_artifacts)
+            {
+                const bytes=read_fat16(tools.bytes,name);
+                if(bytes && bytes.length<=1<<20 && !Buffer.from(bytes).equals(live_bytes.get(name)||Buffer.alloc(0)))
+                {
+                    const copy=Buffer.from(bytes);live_bytes.set(name,copy);fs.writeFileSync(path.join(out,name),copy);
+                }
+            }
             if(stall)
             {
                 const reg=at=>nv.registers.get(at)||0,backend=nv.graph.engine3d.backend;

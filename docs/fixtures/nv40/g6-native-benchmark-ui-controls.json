@@ -1,0 +1,63 @@
+{
+  "date": "2026-11-14",
+  "scope": "Test-only native benchmark controls, replacing the reserved NVPROBE.EXE slot in a matched diagnostic snapshot.",
+  "helper": "tests/devices/geforce_ui.c",
+  "liveExport": "NV_TOOLS_LIVE_ARTIFACTS=NVUI.TXT; bounded root filenames, at most 32 files, each at most 1 MiB; copies only changed contents.",
+  "actions": [
+    "/list enumerates actual visible benchmark HWNDs and child control IDs/classes/style/check/text.",
+    "/click requires an existing visible enabled Button owned through its parent/owner chain by a 3DMark window. Manual checkboxes use the normal parent BN_CLICKED handler.",
+    "/text requires an existing visible enabled Edit in that benchmark and uses WM_SETTEXT."
+  ],
+  "nativeValidation": {
+    "driver": "NVIDIA 93.71",
+    "benchmark": "Original 3DMark2000 Pro",
+    "selected": "Clear -> Image Quality -> original dialog count 2 of 22; main summary has only IQ Yes (2 of 2).",
+    "result": "Original IQ-only completion N/A, expected without game tests.",
+    "savedProject": "NVCIQ; Save IQ checkbox already checked; native Edit text and Save action verified by resulting project title.",
+    "longHandler": "Original Benchmark and Save Project modal handlers can outlive SendMessageTimeout. A timeout does not imply that the click was rejected; inspect visible state before retrying. Current source prints this explicitly.",
+    "binaryCompile": "i686-w64-mingw32-gcc -Os -nostdlib -fno-builtin -fno-stack-protector -mno-stack-arg-probe -Wall -Wextra -Werror -Wl,--entry,_entry@0 -Wl,--subsystem,windows tests/devices/geforce_ui.c -lkernel32 -luser32 -o build/NVUI.EXE"
+  },
+  "evidence": {
+    "ui-iq-only-0.txt": {
+      "bytes": 198,
+      "sha256": "834d405365d19ef0334a083b30bf65ccb3c38b1c303337ca699cf3e493d8a08f"
+    },
+    "ui-iq-only-1.txt": {
+      "bytes": 206,
+      "sha256": "d49232547429a3aece68d53e6685709830d13ed92068220125b1186f666ef1fc"
+    },
+    "ui-iq-only-2.txt": {
+      "bytes": 15611,
+      "sha256": "779317c1136ee4d95edfbc6a009e0f20eadde48d502bc534921942205a64f0c2"
+    },
+    "ui-iq-applied-0.txt": {
+      "bytes": 194,
+      "sha256": "52a0f71cc24fa4492ac1c2324d0b7f7987b4355dd275b7c0486c4c154552533b"
+    },
+    "ui-iq-applied-1.txt": {
+      "bytes": 10877,
+      "sha256": "cb438964e8ce349b61b6a4e4c688bbefd3c600cefc0651d18a903efe5b4fce88"
+    },
+    "ui-save-inspect-0.txt": {
+      "bytes": 17588,
+      "sha256": "edec13cf02947724f83da787d4dbb1e6c81b0ca6554eef1dece7a1cc0d42750f"
+    },
+    "ui-save-file-0.txt": {
+      "bytes": 190,
+      "sha256": "6d7a260c097d74865f77e251a133ecbcd4770ec2bfbe05153f28b71cb9eac456"
+    },
+    "ui-save-file-1.txt": {
+      "bytes": 17588,
+      "sha256": "edec13cf02947724f83da787d4dbb1e6c81b0ca6554eef1dece7a1cc0d42750f"
+    },
+    "ui-save-file-2.txt": {
+      "bytes": 197,
+      "sha256": "611b12710e4bacefcfaab3b3defc542d1c55029226b708a38c139549c6e0fb4f"
+    }
+  },
+  "limits": [
+    "HWND values are observations from one guest lifetime; inspect again after reload or window recreation.",
+    "No graphics API, driver, benchmark EXE/DLL or saved results are patched.",
+    "These controls automate native UI; they do not establish image correctness or benchmark performance."
+  ]
+}
