@@ -96,6 +96,9 @@ pub enum Kind {
         sub: bool,
         cond: u8,
     },
+    /// UMULL, UMLAL, SMULL, SMLAL and UMAAL. Read all operands before
+    /// either destination is written (sources may overlap destinations).
+    MultiplyLong { op: u8, s: bool, lo: u8, hi: u8, rn: u8, rm: u8, cond: u8 },
     /// SXTB, SXTH, UXTB, UXTH (Rm rotated right by `rotation`)
     Extend {
         rd: u8,
@@ -230,6 +233,7 @@ pub fn kind_name(kind: &Kind) -> String {
         Kind::Mem { cond, .. } => format!("mem/{}", cond),
         Kind::Multiple { .. } => "multiple".into(),
         Kind::Multiply { cond, .. } => format!("mul/{}", cond),
+        Kind::MultiplyLong { cond, .. } => format!("mull/{}", cond),
         Kind::Extend { cond, .. } => format!("extend/{}", cond),
         Kind::Dual { .. } => "dual".into(),
         Kind::Bits { cond, .. } => format!("bits/{}", cond),
@@ -1203,6 +1207,15 @@ fn a32_native(word: u32) -> Option<Kind> {
             let immediate = word & 1 << 25 != 0;
             if !immediate && word & 0x90 == 0x90 {
                 if word >> 4 & 15 == 9 && word >> 24 & 15 == 0 {
+                    let op = (word >> 21 & 7) as u8;
+                    let rs = (word >> 8 & 15) as u8;
+                    if (op >= 4 || op == 2 && !l) && rn != 15 && rd != 15
+                        && rm != 15 && rs != 15 && rn != rd
+                    {
+                        return Some(Kind::MultiplyLong {
+                            op, s: l, lo: rd, hi: rn, rn: rm, rm: rs, cond,
+                        });
+                    }
                     // MUL, MLA, MLS (no S)
                     let op = word >> 21 & 7;
                     if word & 1 << 20 != 0 || !(op == 0 || op == 1 || op == 3) {
@@ -1882,6 +1895,17 @@ fn t32_native32(hw1: u32, hw2: u32, rn: u8, rd: u8, rt: u8, rm: u8, s: bool) -> 
             cond: 14,
         });
     }
+    if hw1 >> 7 == 0b111110111 {
+        let op = match (hw1 >> 4 & 7, hw2 >> 4 & 15) {
+            (0, 0) => 6, (2, 0) => 4, (4, 0) => 7, (6, 0) => 5, (6, 6) => 2,
+            _ => return None,
+        };
+        let lo = rt;
+        if [lo, rd, rn, rm].iter().any(|&r| r == 13 || r == 15) || lo == rd {
+            return None;
+        }
+        return Some(Kind::MultiplyLong { op, s: false, lo, hi: rd, rn, rm, cond: 14 });
+    }
     if hw1 >> 7 == 0b111110100 && hw2 >> 12 == 15 && hw2 & 0xF0 == 0 {
         // LSL, LSR, ASR, ROR of a register (Rm the amount)
         if rd >= 13 || rn >= 13 || rm >= 13 {
@@ -2118,6 +2142,7 @@ fn t32_native_it(word: u32, length: u8, cond: u8) -> Option<Kind> {
         },
         Kind::Wide { cond: c, .. }
         | Kind::Multiply { cond: c, .. }
+        | Kind::MultiplyLong { cond: c, .. }
         | Kind::Extend { cond: c, .. }
         | Kind::Bits { cond: c, .. } => *c = cond,
         _ => return None,
@@ -2204,7 +2229,7 @@ pub(super) fn discover(
                     Kind::Wide { .. } => 64,
                     Kind::Mem { .. } => 128,
                     Kind::Multiple { .. } => 256,
-                    Kind::Multiply { .. } => 512,
+                    Kind::Multiply { .. } | Kind::MultiplyLong { .. } => 512,
                     Kind::FpMemory { .. }
                     | Kind::Vld1 { .. }
                     | Kind::FpArith { .. }
@@ -3579,6 +3604,63 @@ impl Emitter<'_> {
         self.set_r32(rd, A2);
     }
 
+    fn multiply_long(&mut self, op: u8, s: bool, lo: u8, hi: u8, rn: u8, rm: u8) {
+        for r in [rn, rm] {
+            self.r32(r);
+            if op >= 6 { self.b.extend_signed_i32_to_i64(); }
+            else { self.b.extend_unsigned_i32_to_i64(); }
+        }
+        self.b.mul_i64();
+        if op == 2 {
+            for r in [lo, hi] {
+                self.r32(r);
+                self.b.extend_unsigned_i32_to_i64();
+                self.b.add_i64();
+            }
+        }
+        else if op & 1 != 0 {
+            self.r32(hi);
+            self.b.extend_unsigned_i32_to_i64();
+            self.c64(32);
+            self.b.shl_i64();
+            self.r32(lo);
+            self.b.extend_unsigned_i32_to_i64();
+            self.b.or_i64();
+            self.b.add_i64();
+        }
+        self.s(super::T0);
+        if s {
+            self.g(super::T0);
+            self.c64(32);
+            self.b.shr_u_i64();
+            self.b.wrap_i64_to_i32();
+            self.c32(0x8000_0000u32 as i32);
+            self.b.and_i32();
+            self.g(super::T0);
+            self.c64(0);
+            self.b.eq_i64();
+            self.c32(30);
+            self.b.shl_i32();
+            self.b.or_i32();
+            self.nzcv();
+            self.c32(0x3000_0000);
+            self.b.and_i32();
+            self.b.or_i32();
+            self.si(NZCV);
+            self.store_nzcv();
+        }
+        self.g(super::T0);
+        self.b.wrap_i64_to_i32();
+        self.si(A2);
+        self.set_r32(lo, A2);
+        self.g(super::T0);
+        self.c64(32);
+        self.b.shr_u_i64();
+        self.b.wrap_i64_to_i32();
+        self.si(A2);
+        self.set_r32(hi, A2);
+    }
+
     fn extend(&mut self, rd: u8, rm: u8, signed: bool, half: bool, rotation: u8) {
         self.r32(rm);
         if rotation != 0 {
@@ -3644,6 +3726,8 @@ impl Emitter<'_> {
                 sub,
                 cond,
             } => self.when(cond, |e| e.multiply(rd, rn, rm, ra, sub)),
+            Kind::MultiplyLong { op, s, lo, hi, rn, rm, cond } =>
+                self.when(cond, |e| e.multiply_long(op, s, lo, hi, rn, rm)),
             Kind::Extend {
                 rd,
                 rm,

@@ -53,3 +53,13 @@ BROWSER_FOCUS=1 TEST_ARTIFACT_DIR=build/ios/boot-baseline/profile \
 A4 热点中 `0xe0a45396`、`0xe0a54396` 两种 UMLAL 已分别调用解释器约 7900 万次。
 后续首先消除这些热点回退，再测 IOP 的执行和主核等待、重复扫描。
 每次使用相同起始 NAND，记录代码提交、里程碑和实际桌面证据。
+
+## Step 2：长乘法直接生成 Wasm
+
+A32 和 T32 的 UMULL/UMLAL/SMULL/SMLAL/UMAAL 使用 i64 乘法与加法。
+先读取全部源寄存器，再写入两个目标，保留重叠寄存器语义；设置标志时只更新 N/Z，
+保留 C/V。非法 PC/SP 组合继续走原有解释器检查。
+
+验证：新增 `qmul` 的 14 个 A32/T32 场景，与解释器及 QEMU 输出一致；
+现有 q1/q3/q4 页面测试通过；种子 1 的 40 个随机程序无差异；N90 设备测试通过。
+同起点 NAND 的 `boot-mul` 冷启动对比正在采集，尚不宣称整机加速比。
