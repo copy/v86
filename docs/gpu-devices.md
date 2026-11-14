@@ -272,9 +272,11 @@ restore. Driver installation fixtures use overlays and cold reboots;
 long-lived investigation snapshots are not substitutes for a clean guest
 acceptance run.
 
-Full benchmark acceptance remains open. XP 3DMark99 completed its 26-test
-run, but fixed IQ images still differ from the proxy reference. Win98's
-3DMark99 run, the 3DMark2000 fence selector, later 3DMark versions and the
+Full benchmark acceptance remains open. The corrected XP 3DMark99 run completed
+all 26 tests without GPU/PGRAPH faults and exported its project and eighteen
+original IQ BMPs. The [full-run fixture](fixtures/nv40/g3-xp-9371-99-full-corrected.json)
+records the remaining pixel differences from the proxy reference. Win98's
+3DMark99 run, completion of 3DMark2000 and later versions, and the
 3DMark06 performance report remain under investigation. The unmodified
 NVIDIA driver advertises SM3.0 capabilities beyond the validated subset;
 known unsupported draw states and instructions produce bounded faults;
