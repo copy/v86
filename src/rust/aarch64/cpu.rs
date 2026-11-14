@@ -370,6 +370,9 @@ impl Exception {
         // alignment, illegal state, the debug exceptions)
         let il = if a32
             && crate::aarch64::a32::instruction_length() == 2
+            // A Data Abort with ISV clear reports IL=1 even for a
+            // 16-bit Thumb instruction (as syn_data_abort_no_iss in QEMU).
+            && !(matches!(self, Exception::DataAbort { .. }) && iss & (1 << 24) == 0)
             && !matches!(
                 self,
                 Exception::Undefined

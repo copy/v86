@@ -27,6 +27,8 @@ pub struct Inst32 {
     pub word: u32,
     /// 4, or T32's 2
     pub length: u8,
+    /// Native IT memory operations materialize this before a possible fault.
+    pub itstate: u8,
     pub kind: Kind,
 }
 
@@ -2145,6 +2147,7 @@ fn t32_native_it(word: u32, length: u8, cond: u8) -> Option<Kind> {
         | Kind::MultiplyLong { cond: c, .. }
         | Kind::Extend { cond: c, .. }
         | Kind::Bits { cond: c, .. } => *c = cond,
+        Kind::Mem { rt, cond: c, .. } if *rt != 15 => *c = cond,
         _ => return None,
     }
     Some(kind)
@@ -2195,9 +2198,9 @@ pub(super) fn discover(
             kind = None;
         }
         // (an instruction of an IT block whose instructions are all native)
-        if let Some(&cond) = native_it.borrow().get(&o) {
+        if let Some(&itstate) = native_it.borrow().get(&o) {
             return (
-                t32_native_it(word, length, cond).map(|kind| Inst32 { word, length, kind }),
+                t32_native_it(word, length, itstate >> 4).map(|kind| Inst32 { word, length, kind, itstate }),
                 length as u16,
             );
         }
@@ -2263,7 +2266,7 @@ pub(super) fn discover(
                 }
                 covered.insert(at);
                 let instruction = fetch(at);
-                block.push((at, instruction, (it >> 4) as u8));
+                block.push((at, instruction, it as u8));
                 it = if it & 7 == 0 { 0 } else { it & 0xE0 | it << 1 & 0x1F };
                 at += instruction.map_or(2, |(_, l)| l as u16);
             }
@@ -2271,8 +2274,8 @@ pub(super) fn discover(
             // conditions and no ITSTATE)
             let native = block.len() as u32 == it_count(word)
                 && unsafe { crate::aarch64::jit::pages::AARCH32_DEBUG } < 2
-                && block.iter().all(|&(_, instruction, cond)| {
-                    instruction.is_some_and(|(w, l)| t32_native_it(w, l, cond).is_some())
+                && block.iter().all(|&(_, instruction, it)| {
+                    instruction.is_some_and(|(w, l)| t32_native_it(w, l, it >> 4).is_some())
                 });
             if native && matches!(kind, Some(Kind::Helper)) {
                 for &(at, _, cond) in &block {
@@ -2282,7 +2285,7 @@ pub(super) fn discover(
             }
         }
         (
-            kind.map(|kind| Inst32 { word, length, kind }),
+            kind.map(|kind| Inst32 { word, length, kind, itstate: 0 }),
             length as u16,
         )
     };
@@ -2367,6 +2370,15 @@ pub(super) fn discover(
 }
 
 impl Emitter<'_> {
+    fn it_memory_state(&mut self, it: u8) {
+        self.c32(state::pstate as i32);
+        self.load32(state::pstate as u32);
+        self.c32(!crate::aarch64::cpu::PSTATE_IT as i32);
+        self.b.and_i32();
+        self.c32(((it as u32 & 3) << 25 | (it as u32 & 0xFC) << 8) as i32);
+        self.b.or_i32();
+        self.b.store_aligned_i32(0);
+    }
     /// Push X[n]'s low half, an i32 (R0-R14 in memory)
     fn r32(&mut self, n: u8) {
         if self.env.aligned_data {
@@ -3721,7 +3733,11 @@ impl Emitter<'_> {
                 writeback,
                 cond,
             } => self.when(cond, |e| {
-                e.memory(load, size, signed, rt, rn, o, add, ix, writeback, offset)
+                if i.itstate != 0 { e.it_memory_state(i.itstate); }
+                e.memory(load, size, signed, rt, rn, o, add, ix, writeback, offset);
+                // A retry exits before this clear: the interpreter sees
+                // the exact current IT mask, including at a data abort.
+                if i.itstate != 0 { e.it_memory_state(0); }
             }),
             Kind::Multiple {
                 load,

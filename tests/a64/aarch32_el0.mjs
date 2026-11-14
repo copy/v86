@@ -12,7 +12,7 @@ const cases = process.env.A64_AARCH32_CASES || "q1";
 // (A64_AARCH32_DRIVER=debug: tests/a64/aarch32/debug.c, the cases with the debug registers)
 const driver = process.env.A64_AARCH32_DRIVER || "el0";
 const directory = build("aarch32-" + cases, [root + `tests/a64/aarch32/${driver}.c`, root + "tests/a64/aarch32/el0_run.S",
-    root + `tests/a64/aarch32/${cases}.a32.S`], { cflags: [`-DCASES=${cases}_a32`] });
+    root + `tests/a64/aarch32/${cases}.a32.S`], { cflags: [`-DCASES=${cases}_a32`, ...(+process.env.A64_MMU ? ["-DA64_MMU"] : [])] });
 const expected = await reference(directory);
 assert.equal(expected.status, "ok", "QEMU: " + expected.status + "\n" + expected.text);
 if(+process.env.A64_AARCH32_REFERENCE_ONLY)
