@@ -1851,3 +1851,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   GPU 源读取取得已完成的 RGBA128，目标/notifier/深度别名均阻挡。
   CPU 2D、完整 GPU 与 Closure 通过，见 `g6-disjoint-m2mf-batching.json`；
   原生 06 超时与独立性能验收仍继续。
+
+- G4 Direct3D 三角扇：原版 93.71 在 03 GT4 后使用 BEGIN
+  `0x1015`，与 Bochs NV40 fan 编码交叉核对，映射至既有 topology 7。
+  不按低位任意截断其他值，嵌套和非法 BEGIN 仍拒绝。索引/快照
+  与四顶点双三角的真实 GPU 全像素覆盖、完整 GPU/Closure 通过，
+  见 `g4-native-d3d-triangle-fan.json`；成套故障前状态的原生复跑继续。

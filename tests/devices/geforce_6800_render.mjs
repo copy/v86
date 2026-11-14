@@ -127,9 +127,19 @@ try
     method(0x1808,5);method(0x1810,0);
     assert.throws(()=>engine.method(graph.objects.values().next().value,0x1818,0),/mixed/);
     method(0x1808,0);assert.deepEqual(captured[3],[0],"rejected mixed data leaves the index stream intact");
+    method(0x1808,0x1015);method(0x1814,3<<24);const fanSaved=graph.get_state();graph.set_state(fanSaved);
+    assert.throws(()=>engine.method(graph.objects.values().next().value,0x1808,0x1015),/nested/);
+    method(0x1808,0);assert.equal(captured[1],7);assert.deepEqual(captured[3],[0,1,2,3]);
+    assert.throws(()=>engine.method(graph.objects.values().next().value,0x1808,0x1016),/invalid/);
     engine.backend.draw=draw;
     if(remote)
     {
+        vram.fill(0,0x10000,0x10100);
+        method(0x1808,0x1015);
+        for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,16,16,0).buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();
+        for(let at=0x10000;at<0x10100;at+=4)assert.deepEqual([...vram.subarray(at,at+4)],[0x99,0x66,0x33,255],"native Direct3D triangle fan covers both triangles");
+        console.log("PASS: native 0x1015 triangle fan, snapshot/index stream and real WebGPU coverage");
         const scanout=[];device.display={release_semaphore:value=>scanout.push({value,pixel:view.getUint32(0x10000,true)})};
         method(0x1D6C,0x01000000);method(0x1808,6);
         for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);

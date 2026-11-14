@@ -92,8 +92,11 @@ export class NV40_3D
         {
             if(value)
             {
-                if(value>10 || get(o,PRIMITIVE)) throw new RangeError("NV40 nested/invalid BEGIN");
-                o.methods.set(PRIMITIVE,value);o.methods.delete(VERTEX_MODE);o.stream=[];
+                // Native Direct3D 93.71 emits this triangle-fan encoding in
+                // 03's CPU test. Keep the GL encodings and reject other values.
+                const primitive=value===0x1015?7:value;
+                if(primitive>10 || get(o,PRIMITIVE)) throw new RangeError("NV40 nested/invalid BEGIN");
+                o.methods.set(PRIMITIVE,primitive);o.methods.delete(VERTEX_MODE);o.stream=[];
             }
             else
             {

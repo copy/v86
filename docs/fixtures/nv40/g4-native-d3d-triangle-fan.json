@@ -1,0 +1,40 @@
+{
+  "date": "2026-11-14",
+  "trigger": "Original XP 93.71 03 continuation first traps BEGIN 0x1015 when leaving GT4 for the CPU tests; later invalid vertex and M2MF errors follow.",
+  "behavior": "Map the observed Direct3D triangle-fan encoding 0x1015 to the existing canonical fan topology 7 at BEGIN. Do not mask arbitrary reserved bits. Preserve nesting checks and reject adjacent unsupported encodings.",
+  "evidence": [
+    {
+      "source": "Original native first PGRAPH capture",
+      "file": "build/nv40-xp-mark03-first-context-fault/graph-fault-captures.json",
+      "elapsed": 545.524245834,
+      "class": "0x4097",
+      "method": "0x1808",
+      "value": "0x1015"
+    },
+    {
+      "source": "Bochs upstream NV40 implementation, independent corroboration of the encoding",
+      "url": "https://github.com/bochs-emu/Bochs/blob/master/bochs/iodev/display/geforce.cc",
+      "scope": "d3d_process_vertex groups 0x1015 with the fan topology. Encoding fact used; no implementation copied."
+    }
+  ],
+  "tests": {
+    "stream": "Indexed fan and canonical topology survive a partial-draw snapshot; nested BEGIN and unsupported 0x1016 remain rejected.",
+    "realWebGPU": "Four inline vertices cover both fan triangles over every pixel of an 8x8 target. Full GPU suite passed.",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "nativeRerun": "pending from a new matching pre-fault checkpoint bundle",
+  "logs": {
+    "build/nv40-native-fan-unit.log": {
+      "bytes": 95,
+      "sha256": "22897543f5914fffc623ba01f5b67f6b1e7fa050e7b8d13b7346ade243901c63"
+    },
+    "build/nv40-native-fan-gpu.log": {
+      "bytes": 4885,
+      "sha256": "2f2bbb4b3564f8ac450c4736f00badfbf07f84b538604f81198e247814f388eb"
+    },
+    "build/nv40-native-fan-closure.log": {
+      "bytes": 3020,
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7"
+    }
+  }
+}
