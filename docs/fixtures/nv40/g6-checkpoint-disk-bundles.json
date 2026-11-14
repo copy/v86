@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-14",
+  "problem": "Named checkpoints saved RAM only, while the external OS/game overlay paths were saved at the end of a later continued run. Pairing those points can restore a later pagefile beneath earlier RAM. Timed checkpoints also had their overlays overwritten at run end.",
+  "behavior": "With CPU stopped, save RAM plus OS/game overlays; write a complete manifest with file sizes and SHA-256 last. Named checkpoint companions are STATE.hda-overlay.bin and STATE.game-overlay.bin. Timed/draw-count saves honor explicit overlay output paths and retain those sectors through the later run end. Normal final saves also produce a matching bundle.",
+  "nativeVerification": {
+    "status": "pass",
+    "manifest": "build/nv40-win98-blt-matrix/checkpoint-native-blt-matrix.state.bundle.json",
+    "components": [
+      {
+        "kind": "state",
+        "bytes": 573211432,
+        "sha256": "49b1e8ea64c427903c16715f22ee128e42409bee606331b58e0400afe0cc2953"
+      },
+      {
+        "kind": "osOverlay",
+        "bytes": 198794712,
+        "sha256": "0911d85bc8b01c035415465a2b0747a0988df2b187a5b2c0c14542f924afd158"
+      },
+      {
+        "kind": "gameOverlay",
+        "bytes": 3128,
+        "sha256": "1268c2bf315cf901e6b346ae5bc02936031cf11ae56c0cc83298f5c2fafb3914"
+      }
+    ]
+  },
+  "originalImagesUnchanged": true,
+  "tests": [
+    "node --check tests/devices/geforce_guest.mjs",
+    "Real Win98 control checkpoint wrote all three matching components and a complete manifest; all component sizes and streamed SHA-256 verified."
+  ],
+  "limitation": "Earlier standalone checkpoint/overlay combinations are not retroactively validated. Existing native failures are not attributed to this mismatch without reproduction."
+}

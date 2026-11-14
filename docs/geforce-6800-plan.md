@@ -1793,3 +1793,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   selector 每图预取。120 个随机/边缘尺寸/零一常量组合与旧实现
   字节完全相同，纹理、完整 GPU 与 Closure 通过，见
   `g6-bc-crossbar-allocation.json`；合成耗时不作为原生 FPS。
+
+- G1/G6 检查点磁盘一致性：命名检查点以前仅保存 RAM，外部
+  overlay 到续跑结束才保存，可能将不同时刻的 pagefile 与 RAM
+  配对。现于同一 CPU 暂停点保存 RAM、OS/game overlay，并最后
+  写入含 SHA-256/尺寸的 `.bundle.json`。定时/绘制计数检查点的
+  overlay 不再被运行结束状态覆盖。真实 Win98 成套输出已逐项
+  校验，见 `g6-checkpoint-disk-bundles.json`；旧单独检查点不追溯
+  认定一致，之前原生错误也不据此一概归因。

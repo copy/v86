@@ -3,6 +3,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import { serialize, deserialize } from "node:v8";
@@ -217,6 +218,19 @@ export async function run_geforce_guest(win98)
     const capture_interval=Number(process.env.NV_CAPTURE_SECONDS || 0),capture_limit=Number(process.env.NV_CAPTURE_LIMIT || 180);
     assert(Number.isFinite(capture_interval) && capture_interval>=0 && capture_limit>0 && capture_limit<=2000);
     const control_file = process.env.NV_CONTROL || path.join(out, "control.json");
+    // Called only with the CPU stopped. RAM, disk sectors and the embedded
+    // tools disk must describe one point in time, not a later run's pagefile.
+    const save_bundle = async (state_file,os_file=state_file+".hda-overlay.bin",game_file=state_file+".game-overlay.bin") => {
+        const write=(file,bytes)=>{
+            fs.writeFileSync(file,bytes);
+            return {file:path.resolve(file),bytes:bytes.byteLength,sha256:createHash("sha256").update(bytes).digest("hex")};
+        };
+        const bundle={status:"complete",guest:win98?"win98":"xp",vramMiB:vram_mb,osImage:path.resolve(image),gameImage:game_path,
+            state:write(state_file,new Uint8Array(await vm.save_state())),
+            osOverlay:write(os_file,serialize(disk.get_state())),
+            gameOverlay:game?write(game_file,serialize(game.get_state())):null};
+        fs.writeFileSync(state_file+".bundle.json",JSON.stringify(bundle,null,2)+"\n");
+    };
     const result_text = () => Buffer.from(read_fat16(tools.bytes, "NV.TXT") || []).toString("ascii");
     const trace_report = () => ({ ...nv.trace.report(),
         clock: {mode:vm.v86.cpu.clock.mode, elapsedMs:vm.v86.cpu.clock.now()-clock_start,
@@ -417,7 +431,7 @@ export async function run_geforce_guest(win98)
                     {
                         const tag=String(command.checkpoint);assert(/^[a-zA-Z0-9_-]{1,64}$/.test(tag),"invalid checkpoint label");
                         await vm.stop();
-                        try {fs.writeFileSync(path.join(out,"checkpoint-"+tag+".state"),new Uint8Array(await vm.save_state()));}
+                        try {await save_bundle(path.join(out,"checkpoint-"+tag+".state"));}
                         finally {await vm.run();}
                         console.log("NV40 checkpoint",tag,"at",Math.round(elapsed()),"seconds");
                     }
@@ -451,7 +465,7 @@ export async function run_geforce_guest(win98)
                     nv.graph.engine3d.backend.stats.draws >= Number(process.env.NV_STATE_SAVE_DRAWS)))
             {
                 await vm.stop();
-                fs.writeFileSync(process.env.NV_STATE_SAVE, new Uint8Array(await vm.save_state()));
+                await save_bundle(process.env.NV_STATE_SAVE,process.env.NV_OVERLAY_SAVE,process.env.NV_GAME_OVERLAY_SAVE);
                 checkpoint = true;
                 await vm.run();
             }
@@ -496,7 +510,7 @@ export async function run_geforce_guest(win98)
         await vm.stop();
         if(process.env.NV_FDA)fs.writeFileSync(path.join(out,"fda-final.img"),vm.get_disk_fda());
         if(process.env.NV_STATE_SAVE && !checkpoint)
-            fs.writeFileSync(process.env.NV_STATE_SAVE, new Uint8Array(await vm.save_state()));
+            await save_bundle(process.env.NV_STATE_SAVE,process.env.NV_OVERLAY_SAVE,process.env.NV_GAME_OVERLAY_SAVE);
         if(nv)
         {
             fs.writeFileSync(path.join(out, "trace.json"), JSON.stringify(trace_report(), null, 2) + "\n");
@@ -512,10 +526,12 @@ export async function run_geforce_guest(win98)
             const bytes = read_fat16(tools.bytes, name);
             if(bytes) fs.writeFileSync(path.join(out, name), bytes);
         }
-        if(process.env.NV_OVERLAY_SAVE) fs.writeFileSync(process.env.NV_OVERLAY_SAVE, serialize(disk.get_state()));
+        // A timed/draw-count checkpoint already saved its matching overlays.
+        // Do not replace them with sectors from the end of the continued run.
+        if(process.env.NV_OVERLAY_SAVE && !process.env.NV_STATE_SAVE) fs.writeFileSync(process.env.NV_OVERLAY_SAVE, serialize(disk.get_state()));
         if(game)
         {
-            if(process.env.NV_GAME_OVERLAY_SAVE)fs.writeFileSync(process.env.NV_GAME_OVERLAY_SAVE,serialize(game.get_state()));
+            if(process.env.NV_GAME_OVERLAY_SAVE && !process.env.NV_STATE_SAVE)fs.writeFileSync(process.env.NV_GAME_OVERLAY_SAVE,serialize(game.get_state()));
             for(const name of (process.env.NV_GAME_ARTIFACTS || "").split(";").filter(Boolean))
             {
                 const bytes=await read_fat32_file(game,name);
