@@ -1936,3 +1936,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   增加可复现访问回放工具与仅供 harness 的 A/B 容量选项；这不等同于
   原生 FPS 提升，也未据此宣布 06 超时已修复。见
   `g6-native-texture-working-set.json`。
+
+- G3 Win98 2000 冷启动 CPU 复核：1024×768×16 桌面、仅选 CPU 的原生运行
+  完成 Helicopter/Adventure，80,715 次绘制、GPU/PGRAPH 和非软件 FIFO 故障
+  均为零；总分 N/A 符合未选游戏测试的设置。已保存并导出 NVCP16.3DP，
+  通过原生关机对话框退出后客体在 BIOS 停机，RAM/OS/game 成套保留。
+  本次未观察到 Blt 拒绝或暖切换条纹；不能据此声称通用修复。全 22 项
+  和图像门禁继续，见 `g3-win98-8198-2000-cpu16-cold.json`。
