@@ -124,3 +124,48 @@ GLES 累计 draw 数停在 127，命令拒绝和着色器编译错误均为 0；
 原有 10 组 A32/T32 回归通过，40 个随机程序、每个 100 个构造运行 32 轮，差异为 0。
 主核心与 fallback 均已构建。当前测试 VM 的核心在改动前已载入，因此上述首次运行结果
 仍来自旧核心；本轮没有对新核心做游戏帧率 A/B，不声称它已提高游戏 FPS。
+
+## AMC 兼容性续作（2026-11-14）
+
+以下改变已经分别验证并提交；上面的失败记录保留为首次测试基线。
+
+| 步骤 | 提交 | 实际改变 / 验证 |
+| --- | --- | --- |
+| DMA 停止握手 | `dc23b2b0` | 返回停止确认，保留未传输数据；不伪造成功完成 |
+| AMC 控制和 SRAM | `e432c6f8`, `5ed4b804` | 映射三个 DT 窗口，引擎复位状态、屏蔽/应答、旧快照默认状态，正式 Worker 构建通过 |
+| DMA 复位游标 | `d1dc5265` | 复位后保留 MAR/描述符，避免原生 abort 路径解引用零游标 |
+| 真实 AAC 后端 | `d394ef5c` | 用 WebCodecs 解压自生成双声道测试音；检查非零能量、幅值、声道频率和输出帧数 |
+| AMC 输入/输出队列 | `880aa904` | 有界链表遍历、AAC 原生参数、逐帧输出、S24-in-S32 打包、engine-0/CDMA 有序交付；循环链表走错误路径 |
+| I2S PCM 传输 | `0b563f54` | 按 PMGR bit clock / 64 和客户机单调时间搬运原生 PCM，更新 DMA 游标，音频中断送 AP；正式控制台启用扬声器 |
+| AMC 汇总中断 | `7bb39907` | 内部完成位通过控制器汇总输出，避免把内部 bit 编号误当 VIC 引脚 |
+
+已通过的针对性验证：
+
+```sh
+node tests/ios/amc.mjs
+node tests/ios/cdma-pause.mjs
+node tests/ios/i2s-pcm.mjs
+node tests/ios/devices.mjs
+node tests/app/vm_config.mjs
+node tests/app/browser_runner.mjs tests/ios/amc-decoder.html
+node tests/app/browser_runner.mjs tests/ios/amc-codec.html
+make app
+```
+
+AAC fixture 是自行生成的 44.1 kHz 双声道正弦音（左 1000 Hz、右 1500 Hz），
+没有游戏或固件资源。集成测试使用真实浏览器解码，验证一个 1024 帧 AAC 输出经 AMC
+本地缓冲、engine-0 列表及 CDMA 写入 DRAM 的 8192 bytes S24-in-S32；完成通知晚于真实
+数据交付。I2S 测试在 10 ms 客户机时间内仅消费 441 个立体声帧，5 ms 时不提前报告完成。
+
+开发阶段的原生输入已实际解出 22 个 AAC 帧（45,056 个声道样本），确认单个压缩输入 DMA
+会包含多个音频帧，输出环需要逐帧推进。该次含临时诊断的运行不作为正式验收；
+新的完整正式构建正在从持久安装盘冷启复测。**目前仍未验收可游玩场景或 60 fps。**
+
+实现是已观测到的 10B329 AAC 程序的 HLE，不是通用 DSP 指令仿真；未知程序不制造静音
+成功结果。带有未释放解码器的 AMC 状态暂不保存 RAM 快照，避免丢失解码历史后恢复错误
+音频；NAND 持久数据与此不同。原生 PCM 交付、可听播放和游戏场景需要分别验证。
+
+寄存器、链表和输出打包的参考为公开的
+[AMC 模型](https://github.com/samhenrigold/qemu-ios/blob/main/hw/arm/ipod_touch_amc.c) 与
+[A4 CDMA 模型](https://github.com/samhenrigold/qemu-ios/blob/main/hw/arm/s5l8930_cdma.c)，
+并用机主提供的 10B329 驱动实际访问复核；新实现及生成音频测试位于本仓库。
