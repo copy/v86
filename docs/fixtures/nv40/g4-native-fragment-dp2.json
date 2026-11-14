@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-14",
+  "status": "native FP opcode 0x38 identified as DP2 and implemented; IQ rerun remains pending",
+  "sources": {
+    "encoding": "https://chromium.googlesource.com/external/gitlab.freedesktop.org/mesa/mesa.git/+/28806e5e8245/src/gallium/drivers/nouveau/nv30/nvfx_shader.h",
+    "semantics": "https://developer.download.nvidia.com/opengl/specs/nv40specs.pdf section 3.11.5.49"
+  },
+  "nativeFailure": {
+    "run": "build/nv40-xp-2000-fresh-cache",
+    "elapsedSeconds": 1687.8144555,
+    "stage": "Image Quality - Theoretical, 20 of 22",
+    "stageScreenshot": "build/nv40-xp-2000-fresh-cache/capture-0319.png",
+    "opcode": "0x38",
+    "pc": 4,
+    "words": [
+      939525120,
+      480102656,
+      89090,
+      116736
+    ],
+    "vertexCount": 1536,
+    "nativeFragmentInstructions": 8,
+    "nativeFragmentWords": 44,
+    "DP2Instructions": 2
+  },
+  "correction": "This reproduces during benchmark IQ; the earlier possible screensaver explanation is excluded by the timestamped fresh run. A score window alone did not prove fault-free IQ.",
+  "implementation": "Compute source0.xy dot source1.xy, replicate all lanes, use existing masks/predicates/scales/half-register path; lower through DP2A with scalar zero. Do not read Z/W.",
+  "validation": {
+    "nativeCaptureRedecode": "8 instructions, two DP2; successfully lowered to 128 SM3 words",
+    "shaderModules": 170,
+    "realGPUPixels": "identity/reverse source swizzles; unused Z/W NaN/Infinity do not contaminate result",
+    "fullGPU": "pass",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "logs": {
+    "build/nv40-dp2-unit.log": {
+      "sha256": "62be468a826d5d0a56137f17dd6ef02e921edce9d1b7f4a87039701897c9e0ee",
+      "bytes": 203
+    },
+    "build/nv40-dp2-gpu.log": {
+      "sha256": "3ba5c639bd58c37a98ccdbc100689520aa71cf1b42c3d8eeaf25347079aad7f4",
+      "bytes": 4094
+    },
+    "build/nv40-dp2-closure.log": {
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7",
+      "bytes": 3020
+    },
+    "build/nv40-dp2-native-redecode.json": {
+      "sha256": "75c1beb455cd5946edcb1cbf9d070086bf45a47ab4d68ed324730da53b96ba18",
+      "bytes": 6915
+    }
+  }
+}

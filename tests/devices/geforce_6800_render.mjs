@@ -479,7 +479,8 @@ try
         const operand=swizzle=>2|swizzle.reduce((bits,value,i)=>bits|value<<(9+i*2),0),identity=[0,1,2,3],reverse=[3,2,1,0];
         for(const [opcode,swizzle,expected]of [[12,reverse,[0,255,255,0]],[13,reverse,[255,0,0,255]],
             [15,identity,[255,255,255,255]],[15,reverse,[0,0,0,0]],[14,identity,[0,0,0,0]],[14,reverse,[255,255,255,255]],
-            [32,identity,[255,255,255,255]],[33,identity,[0,0,0,0]],[58,[1,1,1,1],[255,255,128,255]],[46,reverse,[153,153,153,153]]])
+            [32,identity,[255,255,255,255]],[33,identity,[0,0,0,0]],[58,[1,1,1,1],[255,255,128,255]],[46,reverse,[153,153,153,153]],
+            [56,identity,[51,51,51,51]],[56,reverse,[102,102,102,102]]])
         {
             const words=[opcode<<24|0x1E81,7<<18|operand(identity),operand(swizzle),operand(identity),
                 ...new Uint32Array(Float32Array.of(.2,.4,.6,.8).buffer)];
@@ -489,7 +490,7 @@ try
             const pixel=[...vram.subarray(0x10000,0x10004)];
             expected.forEach((value,i)=>assert(Math.abs(pixel[i]-value)<=1,"native ALU opcode "+opcode+" component "+i+": "+pixel));
         }
-        console.log("PASS: real WebGPU native SLE/SGT/SEQ/SNE/STR/SFL/DIV/DP2A instruction pixels");
+        console.log("PASS: real WebGPU native SLE/SGT/SEQ/SNE/STR/SFL/DIV/DP2/DP2A instruction pixels");
         for(const [at,value]of [[0x18C,0x100],[0x1B4,0x100],[0x1B8,0x100],[0x218,0x30000],[0x288,0x31000],
             [0x28C,0x60000],[0x21C,32],[0x280,32],[0x284,32],[0x220,0x1F],[0x370,0xFFF0]])method(at,value);
         const mrtColors=[[1,0,0,1],[0,1,0,1],[0,0,1,1],[1,1,0,.5]],mrtOffsets=[0x10000,0x30000,0x31000,0x60000];
@@ -710,6 +711,11 @@ try
         const fpDivide=(denominator,{disabled=false,update=false,end=false}={})=>[
             (0x3A<<24|128|15<<9|+disabled<<30|+update<<8|+end)>>>0,7<<18|0x1C808,0x1C802,0,
             ...new Uint32Array(Float32Array.from(denominator).buffer)];
+        const dp2XY=[0x38<<24|128|15<<9|1,7<<18|0x1C808,0x1C802,0,
+            ...new Uint32Array(Float32Array.of(.25,.5,NaN,Infinity).buffer)];
+        assert.deepEqual(await conditionalDraw([
+            ...fpLiteral(2,false,[.5,.25,Infinity,NaN]),...dp2XY]),Array(4).fill(64),
+            "native DP2 ignores Z/W even when they contain NaN and infinity");
         assert.deepEqual(await conditionalDraw([
             ...fpLiteral(2,false,[1,.5,0,1]),...fpDivide([2,4,8,16],{end:true})]),[0,64,128,128],
             "native DIV divides all lanes by source-one X");

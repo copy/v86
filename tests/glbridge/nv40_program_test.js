@@ -37,6 +37,8 @@ assert.equal(fragment.instructions[0].destination.mask,15);assert.equal(fragment
 assert.deepEqual(fragment.constants[0],[0x3F800000,0x3F000000,0,0x3F800000]);
 const changed=fp.slice();changed[4]=0x40000000;
 assert.deepEqual(decode_fragment_program(changed).normalized,fragment.normalized);
+const dp2=fp.slice();dp2[0]=(dp2[0]&0xFFFFFF)|0x38000000;
+assert.equal(decode_fragment_program(dp2).instructions[0].name,"DP2");
 assert.throws(()=>decode_fragment_program(fp.subarray(0,6)),/truncated/);
 // A branch's offsets may have low bits 2. They are control data, not a literal.
 const branch=decode_fragment_program(Uint32Array.of(0x02000001,0,0x80000002,6));
