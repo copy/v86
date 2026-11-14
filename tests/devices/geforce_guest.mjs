@@ -69,6 +69,28 @@ function replace_probe(bytes, replacement)
     }
 }
 
+// Legacy Win9x can lose the immediate make/break pairs from simulate_char
+// while opening Run under load. Hold each scan code through a normal delay,
+// like the manual keyboard controls, including separate Shift transitions.
+function run_scancodes(text)
+{
+    const keys=new Map();
+    for(const [row,start]of [["1234567890-=",2],["qwertyuiop[]",16],["asdfghjkl;'",30],
+        ["`",41],["\\",43],["zxcvbnm,./",44],[" ",57]])
+        Array.from(row).forEach((character,index)=>keys.set(character,start+index));
+    const shifted="!@#$%^&*()_+{}:\"~|<>?",plain="1234567890-=[];'`\\,./",result=[];
+    for(const character of text)
+    {
+        const index=shifted.indexOf(character),base=index<0?character.toLowerCase():plain[index];
+        const shift=index>=0 || character!==base,key=keys.get(base);
+        assert(key!==undefined,"Run commands require US keyboard ASCII: "+character);
+        if(shift)result.push(42);
+        result.push(key,key|128);
+        if(shift)result.push(170);
+    }
+    return result;
+}
+
 export async function run_geforce_guest(win98)
 {
     const root = new URL("../../", import.meta.url).pathname;
@@ -323,10 +345,12 @@ export async function run_geforce_guest(win98)
                     if(command.keys) await vm.keyboard_send_scancodes(command.keys, 30);
                     if(command.run)
                     {
+                        const codes=run_scancodes(command.run);
                         await vm.keyboard_send_scancodes([184,157,170,182,0xE0,0xDB,0xE0,0xDC],30);
                         await vm.keyboard_send_scancodes([0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB], 30);
-                        await delay(1500);
-                        await vm.keyboard_send_text(command.run, 30);
+                        await delay(5000);
+                        await vm.keyboard_send_scancodes([29,30,158,157],30);
+                        await vm.keyboard_send_scancodes(codes,30);
                         await vm.keyboard_send_scancodes([28, 156], 30);
                     }
                 }

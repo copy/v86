@@ -1,0 +1,24 @@
+{
+  "stage": "Native Win98 Run command input",
+  "scope": "Harness input reliability; not game or benchmark acceptance.",
+  "before": "The old immediate text key pairs began before the Run dialog was ready under concurrent native load. The failed filename r~2\\ddraw.dll in the dialog demonstrates a truncated command.",
+  "change": "Wait five seconds for Run, select its field explicitly, and send separate make/break and Shift scan codes with the same delay as manual controls. Validate all characters before sending input.",
+  "after": [
+    "The intended full command ren e:\\starcr~2\\ddraw.dll nvddraw.old completed; native DIR lists NVDDRAW.OLD and no DDRAW.DLL. This disables only the game-local cnc-ddraw in the disposable overlay.",
+    "An independent native command.com copy from A: to D: reports 1 file copied."
+  ],
+  "evidence": [
+    {
+      "file": "build/nv40-win98-starcraft-native2/capture-0025.png",
+      "sha256": "79a58519c36b7ba70a8379563934ca3e93f19569bc967002f96765f5de0cdb4a"
+    },
+    {
+      "file": "build/nv40-win98-starcraft-native3/capture-0027.png",
+      "sha256": "a5f0feb54e2057b138788206b50a60487d4a29737cbfee8c2e2432fff4eaff5b"
+    },
+    {
+      "file": "build/nv40-win98-filter-clock/capture-0048.png",
+      "sha256": "c362d7db5fadc16e17bc4c22d9ee2d206f87f0b095f5b8b3779d878cc9cdbf78"
+    }
+  ]
+}
