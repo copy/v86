@@ -107,7 +107,8 @@
     "Disabling method/shader tracing produced 8 draws in each of the later paired runs under concurrent load. Do not compare their raw frame rates against the earlier pair.",
     "The later runs advanced machine time by approximately 87 s over approximately 91 s of host time. This does not explain the long per-frame waits.",
     "No GPU, PGRAPH or DMA failures occurred; continue investigating driver/synchronization waits.",
-    "A separate native desktop probe reports QPF=1193180 Hz; three Sleep(5000) intervals advance GetTickCount by exactly 5000 ms and QPC by approximately 4.999 s. This does not establish timing under the running benchmark. TSC wall-time deltas vary, especially the first sample, and are preserved rather than normalized."
+    "A separate native desktop probe reports QPF=1193180 Hz; three Sleep(5000) intervals advance GetTickCount by exactly 5000 ms and QPC by approximately 4.999 s. This does not establish timing under the running benchmark. TSC wall-time deltas vary, especially the first sample, and are preserved rather than normalized.",
+    "The foreground benchmark and a separate windowless native process can run together: early fullscreen samples advance GetTickCount by 5001/5001/5097 ms and QPC by approximately 5 s. This rules out large global OS-clock stalls for those intervals, not for the later bump checkpoint. GPU batches in the independent long bump run normally complete in about 30 ms despite seconds between submissions. PTIMER/driver waits remain under investigation."
   ],
   "native_api_clock_probe": {
     "directory": "build/nv40-win98-native-clock",
@@ -150,5 +151,59 @@
     "original_image_unchanged": true,
     "error": null,
     "status_note": "Harness BLOCKED is expected: the clock-only probe intentionally does not print device-initialization evidence."
+  },
+  "native_fullscreen_clock_probe": {
+    "directory": "build/nv40-win98-clock-start-before-benchmark",
+    "context": "Windowless helper started from the all-26-selected desktop checkpoint before Benchmark. Waits for the native 800x600 mode and then ten seconds before sampling. The run reached Game 2 loading (1 of 26); does not measure the later bump checkpoint.",
+    "source": "tests/devices/geforce_clock.c",
+    "executed_probe_sha256": "b69f67b73c60d2e8f2f100e291225c0dc0865f3d064846831dccba644b93f0ba",
+    "log_sha256": "c3c0fa285701a4f35631bcfd69b582b816a810dc0b73421fb76bd2832cd166a8",
+    "raw_log": "NATIVE_CLOCK_DIAGNOSTIC\r\nWAIT_FOR_800x600\r\nFULLSCREEN_STARTED\r\nQPF_OK=00000001\r\nQPF_LO=001234dc\r\nQPF_HI=00000000\r\nSAMPLE=00000000\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005affef\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=4cc50552\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000001\r\nTICK_MS=00001389\r\nQPC_DELTA_LO=005af217\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=2f182bdd\r\nTSC_DELTA_HI=00000001\r\nSAMPLE=00000002\r\nTICK_MS=000013e9\r\nQPC_DELTA_LO=005cafaf\r\nQPC_DELTA_HI=00000000\r\nTSC_DELTA_LO=840fbd66\r\nTSC_DELTA_HI=00000001\r\nEND\r\n",
+    "frequency_hz": 1193180,
+    "samples": [
+      {
+        "sample": 0,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5963759,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 1287980370,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.998205635360968,
+        "tsc_seconds_at_1GHz": 5.582947666
+      },
+      {
+        "sample": 1,
+        "tick_ms": 5001,
+        "qpc_delta_lo": 5960215,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 790113245,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 4.9952354213111185,
+        "tsc_seconds_at_1GHz": 5.085080541
+      },
+      {
+        "sample": 2,
+        "tick_ms": 5097,
+        "qpc_delta_lo": 6074287,
+        "qpc_delta_hi": 0,
+        "tsc_delta_lo": 2215624038,
+        "tsc_delta_hi": 1,
+        "qpc_seconds": 5.090838766992407,
+        "tsc_seconds_at_1GHz": 6.510591334
+      }
+    ],
+    "gpu": {
+      "batches": 400,
+      "draws": 3043,
+      "bytes": 109469144,
+      "readbacks": 796,
+      "failures": 0,
+      "uploads": 1868,
+      "uploadBytes": 59384360
+    },
+    "graph_faults": 0,
+    "original_image_unchanged": true,
+    "game_image_unchanged": true,
+    "error": null
   }
 }

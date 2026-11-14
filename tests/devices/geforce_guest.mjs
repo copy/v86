@@ -227,6 +227,7 @@ export async function run_geforce_guest(win98)
             await vm.run();
         }
         else if(game)await vm.run();
+        if(process.env.NV_FDA)await vm.set_fda({url:path.resolve(process.env.NV_FDA),disk_option:"read_only"});
         const cpu = vm.v86.cpu;
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = process.env.NV_TRACE !== "0";
@@ -375,6 +376,7 @@ export async function run_geforce_guest(win98)
             finally {profiler.session.disconnect();}
         }
         await vm.stop();
+        if(process.env.NV_FDA)fs.writeFileSync(path.join(out,"fda-final.img"),vm.get_disk_fda());
         if(process.env.NV_STATE_SAVE && !checkpoint)
             fs.writeFileSync(process.env.NV_STATE_SAVE, new Uint8Array(await vm.save_state()));
         if(nv)

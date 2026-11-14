@@ -1541,3 +1541,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   缓存键。完整真实 GPU 回归逐像素检查全部 16 种组合及退回普通状态，
   包括 RT0 关闭而 RT1/3 开启；FP32 任一活动目标请求混合仍原子拒绝。
   协议布局、执行器、pipeline 缓存、CPU 状态及 Closure 构建通过。
+
+- G6 原生时钟复验：增加无窗口的 `geforce_clock.c`，在正常进入 800×600
+  后延迟十秒，连续测量三次 Sleep/QPC/GetTickCount/TSC；harness 支持
+  `NV_FDA` 正常插入只读源软盘，写入留在内存并导出最终镜像。Win98
+  早期全屏阶段三次 tick 为 5001/5001/5097 ms，QPC 同步推进约五秒，
+  benchmark 已进入第 2 项加载；没有修改图形 API、GPU/驱动状态或原盘。
+  这还不能证明后续 bump 阶段的时钟正常，细节保留在 timing fixture。
