@@ -63,6 +63,8 @@ pub enum Kind {
         top: bool,
         cond: u8,
     },
+    /// MRS of CPSR/APSR, excluding the execution-state T/IT bits.
+    Status { rd: u8, cond: u8 },
     /// LDR, STR and their byte, halfword and signed forms: a size of
     /// 1 << `size` bytes; `index`: the offset address accessed, `writeback`
     /// to Rn; Rn 15: a literal (no writeback); never of the PC
@@ -232,6 +234,7 @@ pub fn kind_name(kind: &Kind) -> String {
         Kind::Exchange { cond, .. } => format!("bx/{}", cond),
         Kind::Data { cond, s, .. } => format!("data{}/{}", if *s { "s" } else { "" }, cond),
         Kind::Wide { cond, .. } => format!("wide/{}", cond),
+        Kind::Status { cond, .. } => format!("status/{}", cond),
         Kind::Mem { cond, .. } => format!("mem/{}", cond),
         Kind::Multiple { .. } => "multiple".into(),
         Kind::Multiply { cond, .. } => format!("mul/{}", cond),
@@ -1200,6 +1203,9 @@ fn a32_native(word: u32) -> Option<Kind> {
         return None;
     }
     let rd = (word >> 12 & 15) as u8;
+    if word & 0x0FFF_0FFF == 0x010F_0000 && rd != 15 {
+        return Some(Kind::Status { rd, cond });
+    }
     let rn = (word >> 16 & 15) as u8;
     let rm = (word & 15) as u8;
     let p = word & 1 << 24 != 0;
@@ -1745,6 +1751,9 @@ fn t32_native(word: u32, length: u8) -> Option<Kind> {
 }
 
 fn t32_native32(hw1: u32, hw2: u32, rn: u8, rd: u8, rt: u8, rm: u8, s: bool) -> Option<Kind> {
+    if hw1 == 0xF3EF && hw2 & 0xF0FF == 0x8000 && rd != 13 && rd != 15 {
+        return Some(Kind::Status { rd, cond: 14 });
+    }
     if hw1 >> 11 == 0b11110 && hw2 & 0x8000 == 0 {
         if hw1 & 1 << 9 == 0 {
             let (value, carry) =
@@ -2148,6 +2157,7 @@ fn t32_native_it(word: u32, length: u8, cond: u8) -> Option<Kind> {
             *c = cond;
         },
         Kind::Wide { cond: c, .. }
+        | Kind::Status { cond: c, .. }
         | Kind::Multiply { cond: c, .. }
         | Kind::MultiplyLong { cond: c, .. }
         | Kind::Extend { cond: c, .. }
@@ -3733,6 +3743,16 @@ impl Emitter<'_> {
                 cond,
             } => self.when(cond, |e| e.data(op, s, rd, rn, op2, offset)),
             Kind::Wide { rd, imm, top, cond } => self.when(cond, |e| e.wide(rd, imm, top)),
+            Kind::Status { rd, cond } => self.when(cond, |e| {
+                use crate::aarch64::cpu::{PSTATE_Q, PSTATE_GE, PSTATE_E, PSTATE_A, PSTATE_I, PSTATE_F};
+                e.load32(state::pstate as u32);
+                e.c32((PSTATE_Q | PSTATE_GE | PSTATE_E | PSTATE_A | PSTATE_I | PSTATE_F | 0x1F) as i32);
+                e.b.and_i32();
+                e.nzcv();
+                e.b.or_i32();
+                e.si(A2);
+                e.set_r32(rd, A2);
+            }),
             Kind::Mem {
                 load,
                 size,
