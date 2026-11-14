@@ -8,7 +8,7 @@ const vram=new Uint8Array(2<<20),ramin=new DataView(vram.buffer,1<<20);
 const device={vram_size:vram.length,vram:()=>vram,vga:{lfb_region:1},machine:{mmio_ram_mark_dirty(){},is_bus_master:()=>true}};
 device.dma=new NVDMA(device);device.graph={device};device.graph.engine2d=new NV2D(device.graph);
 const state=new NV40State(device),texture=new NV40Texture(state),o={methods:new Map([[0x184,0x10],[0x1A00,0x1000],
-    [0x1A04,0x12529],[0x1A08,0x30303],[0x1A0C,0x80000000],[0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,12]])};
+    [0x1A04,0x12529],[0x1A08,0x30303],[0x1A0C,0x80000000],[0x1A10,0xAAE4],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,12]])};
 ramin.setUint32(0x100,0x303D,true);ramin.setUint32(0x104,0xFFFF,true);ramin.setUint32(0x108,3,true);
 const vertexObject={methods:new Map([[0x184,0x10]])};
 for(let unit=0;unit<4;unit++)
@@ -30,7 +30,7 @@ console.log("PASS: four linear FP32 vertex texture units, 1D height, padded mip 
 for(const [code,bpp,format]of [[16,4,75],[18,2,80]])
 {
     const depth={methods:new Map([[0x184,0x10],[0x1A00,0x9000],[0x1A04,0x12021|code<<8],[0x1A08,0x60000303],
-        [0x1A0C,0x80000000],[0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,2*bpp]])};
+        [0x1A0C,0x80000000],[0x1A10,0xAAE4],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,2*bpp]])};
     const surface=texture.describe(depth,0);assert.equal(surface.d3d,format);assert.equal(surface.upload_bpp,bpp);
     vram.set(Array.from({length:4*bpp},(_,i)=>i+17),0x9000);
     assert.deepEqual([...texture.read(surface)],Array.from({length:4*bpp},(_,i)=>i+17),"depth/stencil bits remain intact before comparison");
@@ -38,6 +38,11 @@ for(const [code,bpp,format]of [[16,4,75],[18,2,80]])
 }
 vram.set([0,0,255,255,0,255,0,255,99,98,97,96,255,0,0,255,255,255,255,255],0x1000);
 let t=texture.describe(o,0);assert.deepEqual([...texture.read(t)],[255,0,0,255,0,255,0,255,0,0,255,255,255,255,255,255]);
+vram.set([0x99,0x66,0x33,0xFF],0x1000);
+assert.deepEqual([...texture.read(t).subarray(0,4)],[0x33,0x66,0x99,0xFF],"native AAE4 maps packed BGRA storage to RGBA");
+o.methods.set(0x1A10,0xAAE4&~0xC00|0x400);
+assert.deepEqual([...texture.read(texture.describe(o,0)).subarray(0,4)],[255,0x66,0x99,255],"S0_R at bits 10:11 changes only red");
+o.methods.set(0x1A10,0xAAE4);vram.set([0,0,255,255],0x1000);
 o.methods.set(0x1A08,0x730303);assert.equal(texture.describe(o,0).srgb,true);
 o.methods.set(0x1A08,0x130303);assert.throws(()=>texture.describe(o,0),/per-component/);
 o.methods.set(0x1A08,0x30303);assert.equal(texture.describe(o,0).srgb,false);
@@ -47,11 +52,11 @@ assert.equal(texture.read(texture.describe(o,0)).length,8);
 o.methods.set(0x1A04,0x12529);o.methods.set(0x1A18,2<<16|2);
 assert.equal(t.normalized,true);o.methods.set(0x1A04,0x16529);assert.equal(texture.describe(o,0).normalized,false);
 assert.deepEqual(texture.read(texture.describe(o,0)),texture.read(t),"coordinate units do not change texture storage");o.methods.set(0x1A04,0x12529);
-o.methods.set(0x1A10,0xAAE4);assert.deepEqual([...texture.read(texture.describe(o,0)).subarray(0,4)],[0,0,255,255],"crossbar selects storage components, not format names");
+o.methods.set(0x1A10,0xAA6C);assert.deepEqual([...texture.read(texture.describe(o,0)).subarray(0,4)],[0,0,255,255],"crossbar selects storage components, not format names");
 o.methods.set(0x1A18,4<<16|2);o.methods.set(0x1A04,0x10529);o.methods.set(0x1A00,0x2000);
 [1,2,5,6,3,4,7,8].forEach((red,i)=>vram.set([red,0,0,255],0x2000+i*4));
 const morton=texture.read(texture.describe(o,0));assert.deepEqual(Array.from({length:8},(_,i)=>morton[i*4]),[1,2,3,4,5,6,7,8]);
-o.methods.set(0x1A04,0x12429);o.methods.set(0x1A18,1<<16|1);o.methods.set(0x1A10,0xAA6C);o.methods.set(0x1840,2);
+o.methods.set(0x1A04,0x12429);o.methods.set(0x1A18,1<<16|1);o.methods.set(0x1A10,0xAAE4);o.methods.set(0x1840,2);
 vram.set([0,0xF8],0x2000);assert.deepEqual([...texture.read(texture.describe(o,0))],[255,0,0,255],"RGB565 storage components expand before swizzling");
 o.methods.set(0x1A04,0x12129);o.methods.set(0x1A10,0xA9FC);o.methods.set(0x1840,1);vram[0x2000]=128;
 assert.deepEqual([...texture.read(texture.describe(o,0))],[128,128,128,255],"luminance and constant-one component selection");
@@ -61,7 +66,7 @@ o.methods.set(0x1A0C,0);assert.throws(()=>texture.describe(o,0),/disabled/);o.me
 o.methods.set(0x1A04,0x22B29);assert.throws(()=>texture.describe(o,0),/mip count/);
 o.methods.set(0x1A04,0x12B29);o.methods.set(0x1A14,0x11010000);assert.throws(()=>texture.describe(o,0),/signed/);
 const invalid={...t,dma:{...t.dma,limit:0x100F}};assert.throws(()=>texture.read(invalid),/limit/);
-o.methods.set(0x1A04,0x30529);o.methods.set(0x1A18,4<<16|2);o.methods.set(0x1A10,0xAAE4);
+o.methods.set(0x1A04,0x30529);o.methods.set(0x1A18,4<<16|2);o.methods.set(0x1A10,0xAA6C);
 o.methods.set(0x1A0C,0x80010000);o.methods.set(0x1A14,0x01050080);
 for(let i=0;i<8;i++)vram.set([i+1,0,0,255],0x2000+i*4);
 vram.set([21,0,0,255,22,0,0,255,31,0,0,255],0x2020);
@@ -81,7 +86,7 @@ assert.equal(texture.describe(o,0).lod_max,1.25,"minimum wins when it exceeds th
 // BC1 four-color indices and transparent mode; BC2 explicit alpha and BC3
 // both alpha endpoint orderings, including selectors straddling byte borders.
 o.methods.set(0x1A0C,0x80000000);o.methods.set(0x1A14,0x01010000);o.methods.set(0x1A18,4<<16|4);
-o.methods.set(0x1A04,0x10629);o.methods.set(0x1A10,0xAA6C);
+o.methods.set(0x1A04,0x10629);o.methods.set(0x1A10,0xAAE4);
 vram.set([0,0xF8,0x1F,0,0xE4,0xE4,0xE4,0xE4],0x2000);
 let bc=texture.read(texture.describe(o,0));assert.deepEqual([...bc.subarray(0,16)],[255,0,0,255,0,0,255,255,170,0,85,255,85,0,170,255]);
 vram.set([0,0,255,255,255,255,255,255],0x2000);
@@ -103,20 +108,20 @@ for(let i=0;i<3;i++)vram.set([0,0xF8,0,0,0,0,0,0],0x2000+i*8);
 const bcChain=texture.images(texture.describe(o,0));assert.deepEqual(bcChain.map(x=>x.length),[64,16,4]);assert.equal(bcChain[2][0],255);
 o.methods.set(0x1A04,0x10629);o.methods.set(0x1A18,3<<16|2);assert.equal(texture.read(texture.describe(o,0)).length,24);
 assert.throws(()=>texture.read({...texture.describe(o,0),dma:{...t.dma,limit:0x2006}}),/limit/);
-o.methods.set(0x1A04,0x13A29);o.methods.set(0x1A18,1<<16|1);o.methods.set(0x1840,8);o.methods.set(0x1A10,0xAAE4);
+o.methods.set(0x1A04,0x13A29);o.methods.set(0x1A18,1<<16|1);o.methods.set(0x1840,8);o.methods.set(0x1A10,0xAA6C);
 new Uint16Array(vram.buffer,0x2000,4).set([0x4000,0xBC00,0x3800,0x3400]);
 const fp16=texture.describe(o,0);assert.equal(fp16.d3d,113);assert.equal(fp16.upload_bpp,8);
 assert.deepEqual([...new Uint16Array(texture.read(fp16).buffer)],[0x4000,0xBC00,0x3800,0x3400],"FP16 preserves HDR, negative channels and exact half bits");
-o.methods.set(0x1A10,0xAA6C);assert.deepEqual([...new Uint16Array(texture.read(texture.describe(o,0)).buffer)],
+o.methods.set(0x1A10,0xAAE4);assert.deepEqual([...new Uint16Array(texture.read(texture.describe(o,0)).buffer)],
     [0x3800,0xBC00,0x4000,0x3400],"FP16 component crossbar");
 for(const [code,bpp,expected]of [[27,16,[0x7FFF3800,0x80000000,0x40400000,0x3F000000]],
     [28,4,[0x7FFF3800,0,0,0x3F800000]]])
 {
-    o.methods.set(0x1A04,0x12029|code<<8);o.methods.set(0x1840,bpp);o.methods.set(0x1A10,0xAAE4);
+    o.methods.set(0x1A04,0x12029|code<<8);o.methods.set(0x1840,bpp);o.methods.set(0x1A10,0xAA6C);
     new Uint32Array(vram.buffer,0x2000,4).set([0x7FFF3800,0x80000000,0x40400000,0x3F000000]);
     const surface=texture.describe(o,0);assert.equal(surface.d3d,116);assert.equal(surface.upload_bpp,16);
     assert.deepEqual([...new Uint32Array(texture.read(surface).buffer)],expected,"FP32 storage bits and scalar expansion "+code);
-    o.methods.set(0x1A10,0xAA6C);
+    o.methods.set(0x1A10,0xAAE4);
     assert.deepEqual([...new Uint32Array(texture.read(texture.describe(o,0)).buffer)],
         [expected[2],expected[1],expected[0],expected[3]],"FP32 crossbar "+code);
     assert.throws(()=>texture.read({...surface,dma:{...surface.dma,limit:0x2000+bpp-2}}),/limit/);
@@ -126,7 +131,7 @@ for(const [code,bpp,expected]of [[27,16,[0x7FFF3800,0x80000000,0x40400000,0x3F00
 console.log("PASS: FP32 fragment textures preserve raw bits, expand R32F and apply the component crossbar");
 // Each packed cube face carries its complete mip chain and starts on a
 // 128-byte boundary. A clamped upload must not move the following faces.
-o.methods.set(0x1A04,0x3052D);o.methods.set(0x1A18,4<<16|4);o.methods.set(0x1A10,0xAAE4);o.methods.set(0x1A0C,0x80010000);
+o.methods.set(0x1A04,0x3052D);o.methods.set(0x1A18,4<<16|4);o.methods.set(0x1A10,0xAA6C);o.methods.set(0x1A0C,0x80010000);
 for(let face=0;face<6;face++)
 {
     for(const [offset,count,red]of [[0,16,10+face],[64,4,30+face],[80,1,50+face]])

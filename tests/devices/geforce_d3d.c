@@ -48,6 +48,45 @@ done:
     if(readback)IDirect3DSurface9_Release(readback);if(target)IDirect3DSurface9_Release(target);
     report(mark,"D3D9_RGB565_FAILURES",failure);return failure;
 }
+static DWORD texture_pixel_probe(IDirect3DDevice9 *device,IDirect3DSurface9 *target,IDirect3DSurface9 *readback,void (*mark)(const char*))
+{
+    const D3DFORMAT formats[]={D3DFMT_A8R8G8B8,D3DFMT_R5G6B5,D3DFMT_A1R5G5B5,D3DFMT_A4R4G4B4};
+    const DWORD source[]={0xFF336699,0x3333,0x9993,0xF369},expected[]={0x336699,0x31659C,0x31639C,0x336699};
+    struct vertex {float x,y,z,w,u,v;} vertices[3]={{0,0,0,1,.25f,.25f},{0,128,0,1,.25f,.25f},{128,0,0,1,.25f,.25f}};
+    DWORD failures=0;
+    IDirect3DDevice9_SetFVF(device,D3DFVF_XYZRHW|D3DFVF_TEX1);
+    IDirect3DDevice9_SetTextureStageState(device,0,D3DTSS_COLOROP,D3DTOP_SELECTARG1);
+    IDirect3DDevice9_SetTextureStageState(device,0,D3DTSS_COLORARG1,D3DTA_TEXTURE);
+    IDirect3DDevice9_SetTextureStageState(device,0,D3DTSS_ALPHAOP,D3DTOP_SELECTARG1);
+    IDirect3DDevice9_SetTextureStageState(device,0,D3DTSS_ALPHAARG1,D3DTA_TEXTURE);
+    IDirect3DDevice9_SetSamplerState(device,0,D3DSAMP_MINFILTER,D3DTEXF_POINT);
+    IDirect3DDevice9_SetSamplerState(device,0,D3DSAMP_MAGFILTER,D3DTEXF_POINT);
+    IDirect3DDevice9_SetSamplerState(device,0,D3DSAMP_MIPFILTER,D3DTEXF_NONE);
+    for(unsigned int test=0;test<4;test++)
+    {
+        IDirect3DTexture9 *texture=0;D3DLOCKED_RECT locked;DWORD pixel=0xFFFFFFFF;
+        HRESULT hr=IDirect3DDevice9_CreateTexture(device,2,2,1,0,formats[test],D3DPOOL_MANAGED,&texture,0);
+        char label[]="D3D9_TEX_0_RESULT";label[9]=(char)('0'+test);
+        if(FAILED(hr))goto next;
+        hr=IDirect3DTexture9_LockRect(texture,0,&locked,0,0);if(FAILED(hr))goto next;
+        for(int y=0;y<2;y++)for(int x=0;x<2;x++)
+            if(test)*(WORD*)((BYTE*)locked.pBits+y*locked.Pitch+x*2)=(WORD)source[test];
+            else *(DWORD*)((BYTE*)locked.pBits+y*locked.Pitch+x*4)=source[test];
+        IDirect3DTexture9_UnlockRect(texture,0);IDirect3DDevice9_SetTexture(device,0,(IDirect3DBaseTexture9*)texture);
+        hr=IDirect3DDevice9_BeginScene(device);
+        if(SUCCEEDED(hr)){hr=IDirect3DDevice9_DrawPrimitiveUP(device,D3DPT_TRIANGLELIST,1,vertices,sizeof(vertices[0]));IDirect3DDevice9_EndScene(device);}
+        if(FAILED(hr))goto next;
+        hr=IDirect3DDevice9_GetRenderTargetData(device,target,readback);if(FAILED(hr))goto next;
+        hr=IDirect3DSurface9_LockRect(readback,&locked,0,D3DLOCK_READONLY);if(FAILED(hr))goto next;
+        pixel=*(DWORD*)((BYTE*)locked.pBits+16*locked.Pitch+16*4)&0xFFFFFF;
+        IDirect3DSurface9_UnlockRect(readback);
+next:
+        report(mark,label,hr);char pixelLabel[]="D3D9_TEX_0_PIXEL";pixelLabel[9]=(char)('0'+test);
+        report(mark,pixelLabel,pixel);if(FAILED(hr) || pixel!=expected[test])failures|=2048;
+        IDirect3DDevice9_SetTexture(device,0,0);if(texture)IDirect3DTexture9_Release(texture);
+    }
+    return failures;
+}
 DWORD nv_d3d_probe(void (*mark)(const char*))
 {
     DWORD failure=1,texture_failures=0;HRESULT hr=E_FAIL;
@@ -129,6 +168,7 @@ DWORD nv_d3d_probe(void (*mark)(const char*))
     report(mark,"D3D9_PIXEL",pixel);failure=(pixel&0xFFFFFF)==0x336699?0:128;
     IDirect3DSurface9_UnlockRect(readback);
     failure|=rgb565_probe(device,mark);
+    failure|=texture_pixel_probe(device,target,readback,mark);
 done:
     if(readback)IDirect3DSurface9_Release(readback);if(target)IDirect3DSurface9_Release(target);
     if(device)IDirect3DDevice9_Release(device);if(d3d)IDirect3D9_Release(d3d);

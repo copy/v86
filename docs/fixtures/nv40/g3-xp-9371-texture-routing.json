@@ -1,0 +1,85 @@
+{
+  "stage": "G3 native texture component routing",
+  "driver": "XP 93.71",
+  "finding": "TEX_SWIZZLE packs A,R,G,B at shifts 0,2,4,6. The implementation used R,G,B,A at 6,4,2,0 and exchanged R/B for every sampled texture. Native AAE4 is identity for packed BGRA storage; AA6C is identity for RGBA float storage.",
+  "source_reference": "Mesa nv30_texture.c sampler-view swizzle construction, with A unshifted, R <<2, G <<4, B <<6",
+  "source_url": "https://gitlab.freedesktop.org/mesa/mesa/-/blob/mesa-26.2.5/src/gallium/drivers/nouveau/nv30/nv30_texture.c",
+  "formats": [
+    "A8R8G8B8",
+    "R5G6B5",
+    "A1R5G5B5",
+    "A4R4G4B4"
+  ],
+  "expected_rgb": [
+    "336699",
+    "31659c",
+    "31639c",
+    "336699"
+  ],
+  "runs": {
+    "before": {
+      "artifact_directory": "build/nv40-xp-native-texture-pixels",
+      "seconds": 160,
+      "probe_lines": [
+        "PROBE_ID 574",
+        "D3D9_TEX_0_RESULT=00000000",
+        "D3D9_TEX_0_PIXEL=00996633",
+        "D3D9_TEX_1_RESULT=00000000",
+        "D3D9_TEX_1_PIXEL=009c6531",
+        "D3D9_TEX_2_RESULT=00000000",
+        "D3D9_TEX_2_PIXEL=009c6331",
+        "D3D9_TEX_3_RESULT=00000000",
+        "D3D9_TEX_3_PIXEL=00996633",
+        "D3D9_TEST failures=2048"
+      ],
+      "gpu": {
+        "batches": 7,
+        "draws": 7,
+        "bytes": 8492696,
+        "readbacks": 8,
+        "failures": 0,
+        "uploads": 8,
+        "uploadBytes": 8413248
+      },
+      "graph_faults": [],
+      "original_image_unchanged": true,
+      "probe_sha256": "355801f59fe9c639a2d7eb13b4575a42d0bcd0fbcbbeaa6bda91c26443992b51"
+    },
+    "after": {
+      "artifact_directory": "build/nv40-xp-native-texture-correct",
+      "seconds": 159,
+      "probe_lines": [
+        "PROBE_ID 575",
+        "D3D9_TEX_0_RESULT=00000000",
+        "D3D9_TEX_0_PIXEL=00336699",
+        "D3D9_TEX_1_RESULT=00000000",
+        "D3D9_TEX_1_PIXEL=0031659c",
+        "D3D9_TEX_2_RESULT=00000000",
+        "D3D9_TEX_2_PIXEL=0031639c",
+        "D3D9_TEX_3_RESULT=00000000",
+        "D3D9_TEX_3_PIXEL=00336699",
+        "D3D9_TEST failures=0"
+      ],
+      "gpu": {
+        "batches": 7,
+        "draws": 7,
+        "bytes": 8492696,
+        "readbacks": 8,
+        "failures": 0,
+        "uploads": 8,
+        "uploadBytes": 8413248
+      },
+      "graph_faults": [],
+      "original_image_unchanged": true,
+      "probe_sha256": "a3111eeaaedb654c65118afbc60e668b915a8b5e13d570eaaeed128a610d4366"
+    }
+  },
+  "validation": [
+    "native unmodified D3D9 HAL and GetRenderTargetData, all four formats pass after correction",
+    "CPU constant-one R selector at bits 10:11 affects only red",
+    "complete real WebGPU regression, including float/cube/volume/BC textures and PCF",
+    "168 Naga modules",
+    "Closure plugin: zero errors/warnings"
+  ],
+  "limit": "3DMark99 fixed IQ images still require a fresh native run; do not treat old saved images as post-fix evidence."
+}

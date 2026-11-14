@@ -726,7 +726,7 @@ export function translate_fragment_program(program,options={})
                 sampled,sources[0],sampler);
             if(depth)for(let lane=0;lane<4;lane++)if(i.destination.mask&1<<lane)
             {
-                const crossbarShift=(3-lane)*2,select=depth.crossbar>>>(crossbarShift+8)&3,component=3-(depth.crossbar>>>crossbarShift&3);
+                const crossbarShift=[2,4,6,0][lane],select=depth.crossbar>>>(crossbarShift+8)&3,component=3-(depth.crossbar>>>crossbarShift&3);
                 if(select===3)throw new RangeError("NV40 invalid depth texture component selection");
                 shader.emit(OP.MOV,dst(0,30,1<<lane,false,shift),
                     select===2?src(0,sample,Array(4).fill(component)):shader.literal(select));

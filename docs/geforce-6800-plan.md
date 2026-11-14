@@ -1467,3 +1467,13 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   数秒一帧的等待。两组负载不同，不比较跨组帧率；均无 GPU/PGRAPH/DMA
   故障，原盘及游戏盘未变。见 `g6-win98-99-timing-investigation.json`；同步等待
   根因和最终 3DMark06 性能报告仍未完成。
+
+- G3 纹理红蓝通道续修：原生 D3D9 用四种已知颜色纹理，均复现了 R/B
+  交换。Mesa 的 sampler-view 编码表明 TEX_SWIZZLE 从低位到高位是
+  A/R/G/B，R 的输出选择位在 2–3、常量选择位在 10–11；此前错误地按
+  R/G/B/A 读取。修正普通/BC/浮点纹理及深度比较后 crossbar，并把手写
+  GPU 回归的寄存器值改为对应的真实编码，像素期望保持不变。XP 93.71
+  冷启动的 ARGB8888、RGB565、ARGB1555、ARGB4444 原生取样全部精确通过，
+  无 GPU/PGRAPH 故障，原盘未变，见 `g3-xp-9371-texture-routing.json`。
+  CPU 纹理、168 个 Naga 模块、完整真实 GPU 回归与 Closure 构建通过。
+  旧 99 IQ 文件仍是修复前证据，固定帧的完整复验继续进行。

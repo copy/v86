@@ -1,6 +1,8 @@
 // NV40 2D/cube/volume texture fetch/upload. The component crossbar operates
 // on the format's storage components, before the fragment program sees RGBA.
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
+// TEX_SWIZZLE fields are A/R/G/B from low to high (Mesa nv30_texture).
+const CROSSBAR_SHIFT=[2,4,6,0];
 const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[16,4],[18,2],[26,8],[27,16],[28,4]]);
 const BLOCK_BYTES=new Map([[6,8],[7,16],[8,16]]);
 export class NV40Texture
@@ -135,7 +137,7 @@ export class NV40Texture
                 result=new Uint8Array(pixels*16),output=new DataView(result.buffer);
             for(let pixel=0;pixel<pixels;pixel++)for(let channel=0;channel<4;channel++)
             {
-                const shift=(3-channel)*2,select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
+                const shift=CROSSBAR_SHIFT[channel],select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
                 if(select===3)throw new RangeError("NV40 invalid texture component selection");
                 // The scalar format expands to (R,0,0,1) before the crossbar.
                 // Copy integer bits so payloads and signed zero survive upload.
@@ -151,7 +153,7 @@ export class NV40Texture
                 source=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),output=new DataView(result.buffer);
             for(let pixel=0;pixel<texture.width*texture.height*(texture.depth||1);pixel++)for(let channel=0;channel<4;channel++)
             {
-                const shift=(3-channel)*2,select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
+                const shift=CROSSBAR_SHIFT[channel],select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
                 if(select===3)throw new RangeError("NV40 invalid texture component selection");
                 output.setUint16(pixel*8+channel*2,select===0?0:select===1?0x3C00:source.getUint16(pixel*8+component*2,true),true);
             }
@@ -172,7 +174,7 @@ export class NV40Texture
             else components=[word&255,0,0,word>>>8];
             for(let channel=0;channel<4;channel++)
             {
-                const shift=(3-channel)*2,select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
+                const shift=CROSSBAR_SHIFT[channel],select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);
                 if(select===3)throw new RangeError("NV40 invalid texture component selection");
                 result[pixel*4+channel]=select===0?0:select===1?255:components[component];
             }

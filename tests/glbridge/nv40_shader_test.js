@@ -118,7 +118,7 @@ try
     for(let compare=0;compare<8;compare++)
     {
         const p=structuredClone(fragment);p.instructions[0].name="TEX";
-        const t=translate_fragment_program(p,{depth_samplers:[{compare,crossbar:0xAA6C}]});
+        const t=translate_fragment_program(p,{depth_samplers:[{compare,crossbar:0xAAE4}]});
         const module=validate("depth-compare-"+compare,t);
         assert.equal(module.reflection.samplers[0].compareFunction,["never","greater","equal","greater-equal","less","not-equal","less-equal","always"][compare]);
         const linked=pipeline.compileShader(t.bytecode,{depthSamplers:[0]});assert(linked.ok,linked.error);

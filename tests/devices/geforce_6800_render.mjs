@@ -278,7 +278,7 @@ try
         [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
         for(const [at,value]of [[0x1FC8,5],[0x1FF4,1<<14],[0x1740,0x1022],[0x1760,0x1022],
             [0x1A00,0x20000],[0x1A04,0x12529],[0x1A08,0x30303],[0x1A0C,0x80000000],
-            [0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,8]])method(at,value);
+            [0x1A10,0xAAE4],[0x1A14,0x01010000],[0x1A18,2<<16|2],[0x1840,8]])method(at,value);
         vram.set([0,0,255,255,0,255,0,255,255,0,0,255,255,255,255,255],0x20000);
         method(0x1808,6);
         const floats=Float32Array.of(0,0,0,0,0,16,0,2,16,0,2,0);
@@ -454,7 +454,7 @@ try
         await fp16Draw([.5,.25,-1,.5]);
         assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0,0x3800,0x3C00,0x3C00],"FP16 additive blending uses the previously downloaded target");
         method(0x310,0);
-        for(const [at,value]of [[0x1A04,0x13A29],[0x1A18,2<<16|1],[0x1A10,0xAAE4],[0x1A14,0x02020000],[0x1840,16]])method(at,value);
+        for(const [at,value]of [[0x1A04,0x13A29],[0x1A18,2<<16|1],[0x1A10,0xAA6C],[0x1A14,0x02020000],[0x1840,16]])method(at,value);
         new Uint16Array(vram.buffer,0x20000,8).set([0x4000,0xBC00,0x3800,0x3400,0x4400,0x3C00,0x3C00,0x3A00]);
         [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
         method(0x1808,6);
@@ -465,7 +465,7 @@ try
         for(const [code,values,expected]of [[27,[2,-1,.5,.25],[0x4000,0xBC00,0x3800,0x3400]],
             [28,[.5],[0x3800,0,0,0x3C00]]])
         {
-            method(0x1A04,0x12029|code<<8);method(0x1A10,0xAAE4);method(0x1A14,0x01010000);
+            method(0x1A04,0x12029|code<<8);method(0x1A10,0xAA6C);method(0x1A14,0x01010000);
             method(0x1A18,1<<16|1);method(0x1840,values.length*4);
             vram.set(new Uint8Array(Float32Array.from(values).buffer),0x20000);
             method(0x1808,6);
@@ -718,7 +718,7 @@ try
         console.log("PASS: real WebGPU fragment calls, conditional/empty returns, callee END and bounded recursion");
 
         method(0x1FF4,1<<14);method(0xA74,1);method(0xA70,0);method(0xA6C,8);
-        for(const [at,value]of [[0x1A04,0x12529],[0x1A18,1<<16|1],[0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1840,4]])method(at,value);
+        for(const [at,value]of [[0x1A04,0x12529],[0x1A18,1<<16|1],[0x1A10,0xAAE4],[0x1A14,0x01010000],[0x1840,4]])method(at,value);
         [23<<24|4<<13|15<<9|128|1,7<<18|0x1C801,0x1C800,0x1C800].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
         for(let frame=0;frame<70;frame++)
         {
@@ -783,7 +783,7 @@ try
         console.log("PASS: real WebGPU exact-byte upload reuse, changed-mip uploads and CPU-authoritative attachment edits");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
         const compareTests=[()=>false,(r,d)=>r>d,(r,d)=>r===d,(r,d)=>r>=d,(r,d)=>r<d,(r,d)=>r!==d,(r,d)=>r<=d,()=>true];
-        const shadowDraw=async(reference,{project=false,crossbar=0xAA6C,coordinate=.5}={})=>{
+        const shadowDraw=async(reference,{project=false,crossbar=0xAAE4,coordinate=.5}={})=>{
             method(0x1A10,crossbar);
             [((project?24:23)<<24|128|15<<9|1)>>>0,7<<18|0x1C802,0,0,
                 ...new Uint32Array(Float32Array.of(coordinate,coordinate,reference*(project?2:1),project?2:1).buffer)]
@@ -807,7 +807,7 @@ try
             }
             method(0x1A08,6<<28|0x303);
             assert.deepEqual(await shadowDraw(.25,{project:true,coordinate:1}),Array(4).fill(255),"projected shadow reference divides by W");
-            assert.deepEqual(await shadowDraw(.75,{crossbar:0xAA6C&~0xC000|0x4000}),[0,0,255,0],
+            assert.deepEqual(await shadowDraw(.75,{crossbar:0xAAE4&~0xC00|0x400}),[0,0,255,0],
                 "depth-result component crossbar can select constant one");
         }
         // Four PCF taps must compare individually before their linear blend.
@@ -1084,7 +1084,7 @@ try
         [23<<24|1<<13|15<<9|128|1,7<<18|0x1C801,0,0].forEach((word,i)=>view.setUint32(0x9100+i*4,word,true));
         queued.length=0;queuedDraw();
         for(const [at,value]of [[0x8E4,0x9101],[0x1A00,0x10000],[0x1A04,0x12529],[0x1A08,0x303],[0x1A0C,0x80000000],
-            [0x1A10,0xAA6C],[0x1A14,0x01010000],[0x1A18,8<<16|8],[0x1840,32]])queue(at,value);
+            [0x1A10,0xAAE4],[0x1A14,0x01010000],[0x1A18,8<<16|8],[0x1840,32]])queue(at,value);
         queuedDraw();queue(0x50,0x11223344);
         const feedbackStart=device.registers.get(0x3270),beforeFeedback={...engine.backend.stats};
         queued.forEach(([at,value],i)=>{const slot=(feedbackStart+i*4)&0xFFC,offset=0x90000+(slot&0x7FC)*2;device.registers.set(offset,at);device.registers.set(offset+4,value);});
