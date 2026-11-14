@@ -4,6 +4,48 @@
 SpringBoard 桌面可见且能响应触摸，不超过 120 秒。禁止用内存快照、恢复运行、
 修改客户机时钟或伪造启动完成标志替代冷启动。磁盘导入复制单独计时。
 
+## 最终验收：2026-11-14
+
+本机 Apple M1 Pro / Chrome 的正式控制台连续两轮通过 120 秒门槛：
+
+| 从本轮创建机器开始计时 | 第一次冷启动 | 原生关机后再次冷启动 |
+| --- | ---: | ---: |
+| 核心和设备加载完成 | 0.616 s | 0.464 s |
+| 文件系统 QUICKCHECK CLEAN | 12.576 s | 11.587 s |
+| FIPS 用户态自检完成 | 20.690 s | 19.695 s |
+| 首个原生可见画面 | 89.004 s | 96.053 s |
+| **原生桌面匹配、可交互** | **104.264 s** | **111.354 s** |
+
+两轮均新建 Worker、CPU、设备和内存，从同一持久 NAND 重新加载内核；没有恢复内存快照。
+测试不周期按 Home。计时包括原生滑动解锁；第一轮发生真实休眠时按控制台 Lock 唤醒，
+该操作也包含在上述时间内。第二轮还通过原生触摸打开 Safari，随后两次原生关机均到达
+PMU 断电、关闭 NAND，串口没有 panic。脚本最终报告：
+`PASS: native cold desktops in 104264, 111354ms`。
+
+输入是已完成首次初始化、正常关机后的机主持久 NAND，客户机时钟 rate=1。
+首次初始化及强制断电后的 YAFTL/HFS 恢复没有跳过，也不承诺同样耗时。
+使用 **Power → Shut down iPhone…** 并滑动原生关机滑块，保留干净的文件系统；
+屏幕休眠提示出现时按 Home 或 Lock，然后滑动解锁。
+
+本地产物位于 `build/ios/boot-fz/`：`acceptance.json`、`driver.log`、`run.log`，
+以及 `profile/desktop-0.png`、`desktop-1.png`、`interactive-safari-final.png`、
+`profile.json`、`native-shutdown.txt`。固件、NAND 和原生截图不提交到仓库。
+
+最终正式验收命令（不带 profile/deep/keepawake）：
+
+```sh
+BROWSER_FOCUS=1 TEST_ARTIFACT_DIR=build/ios/boot-fz/profile \
+  BROWSER_DEBUG_PORT=9489 TIMEOUT_MS=500000 \
+  node tests/app/browser_runner.mjs tests/ios/cold-boot.html \
+  isolated=1 webgpu=1 probe=build/ios/boot-fz console=1 \
+  auto_wake=1 auto_unlock=1 sample_ms=1000 \
+  reference=build/ios/boot-mul/profile/woken.png max_desktop_ms=120000 seconds=450
+```
+
+在每轮桌面匹配后依次发送 `shutdown`，等待控制台实际显示 Powered off，
+再发送 `cold`；第二轮结束发送 `shutdown` 和 `finish`。每个命令使用新 id。
+最终检查每轮的 desktop_ms，而不是只检查最后一轮。
+
 ## 可复现的测量
 
 使用机主提供的 iPhone3,1 / 10B329 文件，在独立目录生成测试 NAND。
@@ -320,3 +362,10 @@ qextend 十四个 A32/T32、0/8/16/24 位旋转、重叠、条件和 IT 场景�
 
 qfz 的 22 个 A32/T32、f32/f64、FZ 开关、舍入、有符号零、NaN、溢出和下溢场景，
 解释器、编译器、QEMU 一致；所有原有页面场景和 40 个随机程序通过。
+
+## Step 24：正式控制台端到端复测
+
+使用 Step 23 的正式主/备用 Wasm、正式 CPU Worker 和控制台，得到上方两轮
+104.264/111.354 秒的结果。验收覆盖原生解锁、四组桌面图标连续两帧匹配、
+Safari 触摸启动、原生关机与持久 NAND 再启动。没有使用计时 Worker 或深度指令采样。
+保留早期未达标和回退的实验记录，最终使用 160 MiB 默认代码预算。
