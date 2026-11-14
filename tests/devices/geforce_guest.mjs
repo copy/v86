@@ -258,6 +258,24 @@ export async function run_geforce_guest(win98)
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = process.env.NV_TRACE !== "0";
         clock_start = cpu.clock.now();
+        if(process.env.NV_DRAW_FAULTS && nv.graph.engine3d.backend)
+        {
+            const backend=nv.graph.engine3d.backend,draw=backend.draw.bind(backend),faults=[],seen=new Set();
+            backend.draw=(object,mode,words,indices,subc)=>{
+                try {return draw(object,mode,words,indices,subc);}
+                catch(error)
+                {
+                    const reason=String(error.message || error),key=JSON.stringify([reason,object.methods.get(0x220),object.methods.get(0x208)]);
+                    if(!seen.has(key) && faults.length<16)
+                    {
+                        seen.add(key);faults.push({elapsed:elapsed(),reason,channel:object.channel,instance:object.instance,
+                            mode,subc,words:words?.length||0,indices:indices?.length||0,methods:Array.from(object.methods)});
+                        fs.writeFileSync(path.join(out,"draw-faults.json"),JSON.stringify(faults,null,2));
+                    }
+                    throw error;
+                }
+            };
+        }
         if(process.env.NV_CPU_PROFILE)
         {
             const {Session}=await import("node:inspector"),session=new Session();session.connect();
