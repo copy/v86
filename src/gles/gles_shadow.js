@@ -99,7 +99,7 @@ function new_texture(target)
     return {
         target, images: new Map(), min_filter: external ? GL.LINEAR : GL.NEAREST_MIPMAP_LINEAR, mag_filter: GL.LINEAR,
         wrap_s: external ? GL.CLAMP_TO_EDGE : GL.REPEAT, wrap_t: external ? GL.CLAMP_TO_EDGE : GL.REPEAT,
-        generate_mipmap: 0, crop: [0, 0, 0, 0],
+        anisotropy: 1, generate_mipmap: 0, crop: [0, 0, 0, 0],
     };
 }
 
@@ -1688,6 +1688,11 @@ function tex_parameter(c, target, pname, params)
     const external = target === GL.TEXTURE_EXTERNAL_OES;
     switch(pname)
     {
+        case GL.TEXTURE_MAX_ANISOTROPY_EXT:
+            if(external) return fail(c, GL.INVALID_ENUM);
+            if(!Number.isFinite(value) || value < 1) return fail(c, GL.INVALID_VALUE);
+            texture.anisotropy = Math.min(16, value);
+            return undefined;
         case GL.TEXTURE_MIN_FILTER:
             if(!MIN_FILTERS.has(value) || external && value !== GL.NEAREST && value !== GL.LINEAR) return fail(c, GL.INVALID_ENUM);
             texture.min_filter = value;
@@ -1721,6 +1726,7 @@ function get_tex_parameter(shadow, c, target, pname, params, as)
     const values = {
         [GL.TEXTURE_MIN_FILTER]: [texture.min_filter], [GL.TEXTURE_MAG_FILTER]: [texture.mag_filter],
         [GL.TEXTURE_WRAP_S]: [texture.wrap_s], [GL.TEXTURE_WRAP_T]: [texture.wrap_t],
+        ...(target === GL.TEXTURE_EXTERNAL_OES ? {} : { [GL.TEXTURE_MAX_ANISOTROPY_EXT]: [texture.anisotropy || 1] }),
     };
     if(c.api === 1)
     {
@@ -1728,7 +1734,7 @@ function get_tex_parameter(shadow, c, target, pname, params, as)
         values[GL.TEXTURE_CROP_RECT_OES] = texture.crop;
     }
     if(!(pname in values)) { fail(c, GL.INVALID_ENUM); return; }
-    put(params, values[pname], as, "i");
+    put(params, values[pname], as, pname === GL.TEXTURE_MAX_ANISOTROPY_EXT ? "f" : "i");
 }
 
 function get_vertex_attrib(shadow, c, index, pname, params, as)

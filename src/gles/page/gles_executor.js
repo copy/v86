@@ -1339,7 +1339,8 @@ GLESExecutor.prototype.texture_view = function(texture, cube, drawn_to)
 GLESExecutor.prototype.sampler = function(texture)
 {
     const t = texture || { min_filter: GL.NEAREST, mag_filter: GL.NEAREST, wrap_s: GL.CLAMP_TO_EDGE, wrap_t: GL.CLAMP_TO_EDGE };
-    const key = [t.min_filter, t.mag_filter, t.wrap_s, t.wrap_t].join("|");
+    const anisotropy = Math.min(16, Math.max(1, Math.ceil(t.anisotropy || 1)));
+    const key = [t.min_filter, t.mag_filter, t.wrap_s, t.wrap_t, anisotropy].join("|");
     let sampler = this.samplers.get(key);
     if(!sampler)
     {
@@ -1348,8 +1349,9 @@ GLESExecutor.prototype.sampler = function(texture)
         const mipmapped = t.min_filter !== GL.NEAREST && t.min_filter !== GL.LINEAR;
         sampler = this.device.createSampler({
             addressModeU: WRAPS[t.wrap_s] || "repeat", addressModeV: WRAPS[t.wrap_t] || "repeat",
-            magFilter: t.mag_filter === GL.LINEAR ? "linear" : "nearest", minFilter: min_linear ? "linear" : "nearest",
-            mipmapFilter: mip_linear ? "linear" : "nearest", lodMaxClamp: mipmapped ? 32 : 0,
+            magFilter: anisotropy > 1 || t.mag_filter === GL.LINEAR ? "linear" : "nearest", minFilter: anisotropy > 1 || min_linear ? "linear" : "nearest",
+            mipmapFilter: anisotropy > 1 || mip_linear ? "linear" : "nearest", lodMaxClamp: mipmapped ? 32 : 0,
+            maxAnisotropy: anisotropy,
         });
         this.samplers.set(key, sampler);
     }

@@ -171,10 +171,10 @@ const EXTENSIONS = {
     1: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_compressed_ETC1_RGB8_texture", "GL_OES_element_index_uint",
         "GL_OES_framebuffer_object", "GL_OES_depth24", "GL_OES_packed_depth_stencil", "GL_OES_rgb8_rgba8", "GL_OES_texture_npot",
         "GL_OES_blend_func_separate", "GL_OES_blend_equation_separate", "GL_OES_blend_subtract",
-        "GL_OES_draw_texture", "GL_OES_point_sprite", "GL_OES_point_size_array", "GL_EXT_texture_format_BGRA8888"],
+        "GL_OES_draw_texture", "GL_OES_point_sprite", "GL_OES_point_size_array", "GL_EXT_texture_format_BGRA8888", "GL_EXT_texture_filter_anisotropic"],
     2: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_compressed_ETC1_RGB8_texture", "GL_OES_element_index_uint",
         "GL_OES_depth24", "GL_OES_packed_depth_stencil", "GL_OES_rgb8_rgba8", "GL_OES_texture_npot", "GL_OES_standard_derivatives",
-        "GL_EXT_texture_format_BGRA8888"],
+        "GL_EXT_texture_format_BGRA8888", "GL_EXT_texture_filter_anisotropic"],
     // (GLES 3.x: GLES 2.0's, those 3.0 has in its core too: the guest's EGL makes a GLES 2.0 context one of the
     // highest version announced, and GLES 2.0 programs, dEQP-GLES2 among them, look for them; docs/gles3-plan.md)
     3: ["GL_OES_EGL_image", "GL_OES_EGL_image_external", "GL_OES_EGL_image_external_essl3", "GL_OES_compressed_ETC1_RGB8_texture",
@@ -225,6 +225,7 @@ export const COMPRESSED_TEXTURE_FORMATS = [0x8D64];
  * @type {!Map<number, !Array<number>>}
  */
 export const GL_STATE = new Map([
+    [0x84FF, [16]], // GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT (WebGPU maximum)
     // limits (GLES 2.0 table 6.18-6.20; WebGPU's defaults bound them)
     [0x0D33, [MAX_SIZE]], // GL_MAX_TEXTURE_SIZE
     [0x851C, [MAX_SIZE]], // GL_MAX_CUBE_MAP_TEXTURE_SIZE

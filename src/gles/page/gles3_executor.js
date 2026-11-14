@@ -3433,15 +3433,17 @@ export const GLES3 = {
         const lod_min = Math.min(32, Math.max(0, state.min_lod === undefined ? -1000 : state.min_lod));
         const lod_max = Math.min(32, Math.max(lod_min, state.max_lod === undefined ? 1000 : state.max_lod));
         const compare = comparison ? COMPARE[state.compare_func || 0x0203] : undefined;
-        const key = [min, mag, state.wrap_s, state.wrap_t, state.wrap_r, lod_min, lod_max, filtering, compare].join("|");
+        const anisotropy = filtering ? Math.min(16, Math.max(1, Math.ceil(state.anisotropy || 1))) : 1;
+        const key = [min, mag, state.wrap_s, state.wrap_t, state.wrap_r, lod_min, lod_max, filtering, compare, anisotropy].join("|");
         let sampler = this.samplers.get(key);
         if(!sampler)
         {
             const linear = f => filtering && (f === LINEAR || f === 0x2701 || f === 0x2703);
             sampler = this.device.createSampler(Object.assign({
                 addressModeU: WRAPS[state.wrap_s] || "repeat", addressModeV: WRAPS[state.wrap_t] || "repeat", addressModeW: WRAPS[state.wrap_r] || "repeat",
-                magFilter: filtering && mag === LINEAR ? "linear" : "nearest", minFilter: linear(min) ? "linear" : "nearest",
-                mipmapFilter: filtering && (min === 0x2702 || min === 0x2703) ? "linear" : "nearest", lodMinClamp: lod_min, lodMaxClamp: lod_max,
+                magFilter: anisotropy > 1 || filtering && mag === LINEAR ? "linear" : "nearest", minFilter: anisotropy > 1 || linear(min) ? "linear" : "nearest",
+                mipmapFilter: anisotropy > 1 || filtering && (min === 0x2702 || min === 0x2703) ? "linear" : "nearest", lodMinClamp: lod_min, lodMaxClamp: lod_max,
+                maxAnisotropy: anisotropy,
             }, compare ? { compare } : {}));
             this.samplers.set(key, sampler);
         }
