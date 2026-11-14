@@ -17,6 +17,22 @@ assert.throws(()=>state.write(short,data),/limit/);assert.deepEqual(vram.subarra
 o.methods.set(0x208,2<<24|2<<16|0x208);o.methods.set(0x200,4<<16);o.methods.set(0x210,0x2000);
 const swizzled=state.target(o),pixels=Uint8Array.from({length:32},(_,i)=>i);state.write(swizzled,pixels);
 assert.deepEqual(state.read(swizzled),pixels);assert.deepEqual([...vram.subarray(0x2008,0x2010)],[16,17,18,19,20,21,22,23],"rectangular Morton rows interleave correctly");
+for(const [u,v,bpp]of [[0,3,1],[3,0,2],[1,3,4],[3,1,8],[2,2,16]])
+{
+    const full={...swizzled,width:2**u,height:2**v,u,v,bpp,offset:0x2100};
+    const image=Uint8Array.from({length:full.width*full.height*bpp},(_,i)=>i*37&255);
+    const ranges=device.dma.ranges.bind(device.dma);let calls=0;
+    device.dma.ranges=(...args)=>{calls++;return ranges(...args);};
+    try{state.write(full,image);assert.deepEqual(state.read(full),image);}finally{device.dma.ranges=ranges;}
+    assert.equal(calls,2,"complete Morton images validate one contiguous DMA span for each read/write");
+    for(let y=0;y<full.height;y++)for(let x=0;x<full.width;x++)
+    {
+        const at=device.graph.engine2d.address(full,x,y),linear=(y*full.width+x)*bpp;
+        assert.deepEqual(vram.slice(at,at+bpp),image.slice(linear,linear+bpp),"bulk Morton transfers match the checked pixel address");
+    }
+    const bad={...full,dma:{...full.dma,limit:full.offset+image.length-2}},before=vram.slice(full.offset,full.offset+image.length);
+    assert.throws(()=>state.write(bad,image),/limit/);assert.deepEqual(vram.slice(full.offset,full.offset+image.length),before);
+}
 o.methods.set(0x208,0x144);assert.equal(state.target(o).d3d,22,"native DirectDraw X8R8G8B8 RT encoding");
 o.methods.set(0x20C,4);assert.throws(()=>state.target(o),/pitch/);
 const f=v=>new Uint32Array(Float32Array.of(v).buffer)[0],inputs=[[0,[1,0]],[3,[1,1]]];

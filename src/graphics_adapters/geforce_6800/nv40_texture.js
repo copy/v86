@@ -187,27 +187,27 @@ export class NV40Texture
     {
         const width=Math.ceil(t.width/4),height=Math.ceil(t.height/4),pitch=t.swizzle?width*t.block:t.pitch;
         const result=new Uint8Array(t.width*t.height*4);
+        const bytes=this.state.read({...t,width,height,pitch,bpp:t.block,swizzle:false}),v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
         const color=value=>{const b=value&31,g=value>>>5&63,r=value>>>11;return [b<<3|b>>>2,g<<2|g>>>4,r<<3|r>>>2,255];};
         for(let y=0;y<height;y++)for(let x=0;x<width;x++)
         {
-            const bytes=this.state.device.dma.read(t.dma,t.offset+y*pitch+x*t.block,t.block),v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
-            const c=t.code===6?0:8,a=v.getUint16(c,true),b=v.getUint16(c+2,true),colors=[color(a),color(b)];
+            const base=(y*width+x)*t.block,c=t.code===6?0:8,a=v.getUint16(base+c,true),b=v.getUint16(base+c+2,true),colors=[color(a),color(b)];
             if(a>b || t.code!==6)
                 colors.push(colors[0].map((value,i)=>i===3?255:Math.round((2*value+colors[1][i])/3)),
                     colors[0].map((value,i)=>i===3?255:Math.round((value+2*colors[1][i])/3)));
             else colors.push(colors[0].map((value,i)=>i===3?255:Math.floor((value+colors[1][i])/2)),[0,0,0,0]);
-            const alpha=[bytes[0],bytes[1]],denominator=alpha[0]>alpha[1]?7:5;
+            const alpha=[bytes[base],bytes[base+1]],denominator=alpha[0]>alpha[1]?7:5;
             for(let i=1;i<denominator;i++)alpha.push(Math.round(((denominator-i)*alpha[0]+i*alpha[1])/denominator));
             if(denominator===5)alpha.push(0,255);
-            const selectors=v.getUint32(c+4,true);
+            const selectors=v.getUint32(base+c+4,true);
             for(let dy=0;dy<4 && y*4+dy<t.height;dy++)for(let dx=0;dx<4 && x*4+dx<t.width;dx++)
             {
                 const pixel=dy*4+dx,at=((y*4+dy)*t.width+x*4+dx)*4;
                 result.set(colors[selectors>>>(pixel*2)&3],at);
-                if(t.code===7)result[at+3]=(bytes[pixel>>>1]>>>((pixel&1)*4)&15)*17;
+                if(t.code===7)result[at+3]=(bytes[base+(pixel>>>1)]>>>((pixel&1)*4)&15)*17;
                 else if(t.code===8)
                 {
-                    const bit=pixel*3,index=2+(bit>>>3),bits=bytes[index]|(index<7?bytes[index+1]<<8:0);
+                    const bit=pixel*3,index=2+(bit>>>3),bits=bytes[base+index]|(index<7?bytes[base+index+1]<<8:0);
                     result[at+3]=alpha[bits>>>(bit&7)&7];
                 }
             }

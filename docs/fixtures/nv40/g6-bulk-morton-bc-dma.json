@@ -1,0 +1,74 @@
+{
+  "date": "2026-11-14T03:49:22.892Z",
+  "scope": "host synthetic decode; concurrent guest load; not guest FPS",
+  "trials": [
+    {
+      "name": "before",
+      "kind": "Morton RGBA",
+      "readsPerIteration": 65536,
+      "rangesPerIteration": 196608,
+      "ms": [
+        25.743459000000016,
+        32.573458999999986,
+        13.083791999999988,
+        13.923082999999991,
+        13.121499999999997
+      ],
+      "sha256": "d2fd3924a82a803e766599bf9d8c2d5918313266a6de9c99ce7258c8d35f6e2e"
+    },
+    {
+      "name": "before",
+      "kind": "BC1",
+      "readsPerIteration": 4096,
+      "rangesPerIteration": 4096,
+      "ms": [
+        7.40270799999999,
+        11.76649999999998,
+        7.248540999999989,
+        4.694333,
+        3.80920900000001
+      ],
+      "sha256": "a5cfa12522c0f6ceaf5f9545b756a6c3b2e5232b4fdaae43f1103f584a006449"
+    },
+    {
+      "name": "after",
+      "kind": "Morton RGBA",
+      "readsPerIteration": 1,
+      "rangesPerIteration": 1,
+      "ms": [
+        3.9520000000000266,
+        0.9882920000000013,
+        0.6779170000000079,
+        0.5787500000000136,
+        0.5694579999999974
+      ],
+      "sha256": "d2fd3924a82a803e766599bf9d8c2d5918313266a6de9c99ce7258c8d35f6e2e"
+    },
+    {
+      "name": "after",
+      "kind": "BC1",
+      "readsPerIteration": 1,
+      "rangesPerIteration": 1,
+      "ms": [
+        13.420957999999985,
+        7.762958000000026,
+        2.678957999999966,
+        2.3331249999999955,
+        2.3058750000000146
+      ],
+      "sha256": "a5cfa12522c0f6ceaf5f9545b756a6c3b2e5232b4fdaae43f1103f584a006449"
+    }
+  ],
+  "source": "same host, 256x256 full Morton RGBA and BC1; original data bytes identical",
+  "nativeProfile": {
+    "stack": "build/nv40-xp03-live-stack.json",
+    "profile": "build/nv40-xp03-live-profile.cpuprofile",
+    "finding": "The paused stack was in texture storage/readrow/read inside FIFO completion; the 5-second profile is dominated by blocks, Morton address/read and DMA ranges, rather than guest CPU execution."
+  },
+  "validation": [
+    "node tests/devices/geforce_6800_state.js",
+    "node tests/devices/geforce_6800_texture.js",
+    "NV_GPU_RENDERER=chrome node tests/devices/geforce_6800_render.mjs",
+    "Closure plugin build: 0 errors/warnings"
+  ]
+}

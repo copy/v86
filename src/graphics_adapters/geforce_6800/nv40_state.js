@@ -18,7 +18,39 @@ const half=value=>{
 };
 export class NV40State
 {
-    constructor(device) {this.device=device;}
+    constructor(device) {this.device=device;this.morton_axes=new Map();}
+    packed(surface)
+    {
+        return surface.swizzle?surface.width===2**surface.u && surface.height===2**surface.v:surface.pitch===surface.width*surface.bpp;
+    }
+    axes(surface)
+    {
+        const key=surface.u+":"+surface.v;
+        if(!this.morton_axes.has(key))
+        {
+            const axes=[new Uint32Array(surface.width),new Uint32Array(surface.height)],sizes=[surface.u,surface.v],bits=Math.max(...sizes);
+            for(let axis=0;axis<2;axis++)for(let value=0;value<axes[axis].length;value++)
+            {
+                let index=0,bit=0;
+                for(let i=0;i<bits;i++)for(let a=0;a<2;a++)if(i<sizes[a])
+                {if(a===axis)index|=(value>>>i&1)<<bit;bit++;}
+                axes[axis][value]=index;
+            }
+            this.morton_axes.set(key,axes);
+        }
+        return this.morton_axes.get(key);
+    }
+    reorder(surface,source,to_morton)
+    {
+        const result=new Uint8Array(source.length),[xs,ys]=this.axes(surface),bpp=surface.bpp;
+        for(let y=0;y<surface.height;y++)for(let x=0;x<surface.width;x++)
+        {
+            const linear=(y*surface.width+x)*bpp,morton=(xs[x]|ys[y])*bpp;
+            const from=to_morton?linear:morton,to=to_morton?morton:linear;
+            for(let byte=0;byte<bpp;byte++)result[to+byte]=source[from+byte];
+        }
+        return result;
+    }
     dma(o,at)
     {
         if(!o.methods.has(at)) throw new RangeError("NV40 DMA unbound");
@@ -49,10 +81,16 @@ export class NV40State
     }
     validate(surface,write)
     {
+        if(this.packed(surface)){this.device.dma.ranges(surface.dma,surface.offset,surface.width*surface.height*surface.bpp,write);return;}
         for(let row=0;row<surface.height;row++) this.device.graph.engine2d.row(surface,0,row,surface.width,write);
     }
     read(surface)
     {
+        if(this.packed(surface))
+        {
+            const bytes=this.device.dma.read(surface.dma,surface.offset,surface.width*surface.height*surface.bpp);
+            return surface.swizzle?this.reorder(surface,bytes,false):bytes;
+        }
         this.validate(surface,false);
         const pitch=surface.width*surface.bpp,bytes=new Uint8Array(pitch*surface.height);
         for(let row=0;row<surface.height;row++) bytes.set(this.device.graph.engine2d.readrow(surface,0,row,surface.width),row*pitch);
@@ -62,6 +100,10 @@ export class NV40State
     {
         const pitch=surface.width*surface.bpp;
         if(bytes.length!==pitch*surface.height) throw new RangeError("NV40 render target readback size");
+        if(this.packed(surface))
+        {
+            this.device.dma.write(surface.dma,surface.offset,surface.swizzle?this.reorder(surface,bytes,true):bytes);return;
+        }
         this.validate(surface,true);
         for(let row=0;row<surface.height;row++) this.device.graph.engine2d.writerow(surface,0,row,bytes.subarray(row*pitch,(row+1)*pitch));
     }
