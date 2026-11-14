@@ -22,8 +22,9 @@ import { sign_macho, macho_entitlements } from "../../src/ios/codesign.js";
 const [source, kernel, guest, library, output, ...extra] = process.argv.slice(2);
 const serve = extra.includes("--serve"), policyEnabled = extra.includes("--policy"), at = extra.indexOf("--ipa"), ipaPath = at < 0 ? null : extra[at + 1];
 const misProbe = extra.includes("--mis-test");
+const diagnostics = !extra.includes("--no-diagnostics");
 if(at >= 0) extra.splice(at, 2);
-if(!output || at >= 0 && !ipaPath || misProbe && serve || extra.some(x => !["--policy", "--serve", "--mis-test"].includes(x)))
+if(!output || at >= 0 && !ipaPath || misProbe && serve || extra.some(x => !["--policy", "--serve", "--mis-test", "--no-diagnostics"].includes(x)))
     throw new Error("usage: prepare-install-probe.mjs prepared-system.hfs stock-kernel guest-build libv86gles.dylib new-directory [--policy] [--ipa app.ipa]");
 fs.mkdirSync(output); // Refuse to overwrite any previous run.
 const systemPath = path.join(output, "system.hfs"), dataPath = path.join(output, "data.hfs");
@@ -113,7 +114,7 @@ try
     await write_hfsx_data(volume, capacity, (at, b) => fs.writeSync(dataFD, b, 0, b.length, at), [
         { path: "/keybags/systembag.kb", bytes: systembag(), dir_mode: 0o700, mode: 0o600 },
         ...serve ? [{ path: "/v86/install-token", bytes: Buffer.from(install.token, "hex"), dir_mode: 0o755, mode: 0o600 },
-            { path: "/v86/install-diagnostics", bytes: new Uint8Array(1), dir_mode: 0o755, mode: 0o600 }] :
+            ...diagnostics ? [{ path: "/v86/install-diagnostics", bytes: new Uint8Array(1), dir_mode: 0o755, mode: 0o600 }] : []] :
             [{ path: "/v86/install-probe", bytes: new Uint8Array(1), dir_mode: 0o755, mode: 0o600 }],
         { path: "/v86/libv86gles.dylib", bytes: lib, dir_mode: 0o755, mode: 0o755 },
         { path: "/mobile/Media/v86-input/test.ipa", bytes: ipa, dir_mode: 0o700, mode: 0o600, uid: 501, gid: 501 },

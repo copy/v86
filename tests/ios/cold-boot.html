@@ -1,0 +1,102 @@
+<!doctype html><meta charset="utf-8"><title>iPhone true cold boot timing</title>
+<style>#screen{width:640px;height:960px}#screen canvas{width:640px;height:960px}#log{max-height:140px;overflow:auto}</style>
+<pre id="result">Running…</pre><pre id="log"></pre>
+<button id="home">Home</button><button id="unlock">Slide to unlock</button>
+<div id="screen"><div></div><canvas></canvas></div>
+<script src="/build/glbridge/libv86-webgpu.js"></script>
+<script type="module">
+import { V86 } from "/build/libv86.mjs";
+import { reserve_disk, finish_disk } from "../../src/app/browser_disks.js";
+import { new_ios_config, config_to_options } from "../../src/app/vm_config.js";
+import { NAND_BYTES } from "../../src/apple/nand_geometry.js";
+const query = new URLSearchParams(location.search), probe = query.get("probe");
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const log = s => document.getElementById("log").textContent += s + "\n";
+const artifact = async (name, body) => {
+    const response = await fetch("/__artifact?name=" + name, { method: "POST", body });
+    if(!response.ok) throw Error("Cannot save " + name);
+};
+let emulator, serial = "", line = "", power_on, samples = [], milestones = [];
+window.boot_test = { get emulator() { return emulator; }, samples, milestones };
+const elapsed = () => performance.now() - power_on;
+async function capture(name)
+{
+    const image = emulator.screen_make_screenshot();
+    if(image?.src) await artifact(name + ".png", await (await fetch(image.src)).blob());
+}
+async function sample()
+{
+    const diagnostics = await emulator.get_diagnostics();
+    const value = { ms: elapsed(), ...diagnostics };
+    samples.push(value);
+    await artifact("profile.json", JSON.stringify({ power_on: new Date(performance.timeOrigin + power_on).toISOString(), milestones, samples }, null, 2));
+    await artifact("serial.txt", serial);
+    await capture("current");
+    log(Math.round(elapsed() / 1000) + "s retired=" + diagnostics.retired + " NAND=" + diagnostics.nand?.bytes_read);
+}
+const touch = points => emulator.bus.send("touch", { width: 640, height: 960, touches: points });
+document.getElementById("home").onclick = async () => {
+    emulator.ios_send_button("home", true); await sleep(100); emulator.ios_send_button("home", false);
+};
+document.getElementById("unlock").onclick = async () => {
+    for(let i=0;i<=20;i++) { touch([[1,100+450*i/20,860]]); await sleep(40); } touch([]);
+    milestones.push({ ms: elapsed(), event: "user-unlock" });
+};
+try
+{
+    if(!probe || !/^build\/ios\/[a-zA-Z0-9_-]+$/.test(probe)) throw Error("Use a disposable local NAND probe");
+    const imported = performance.now(), disk = await reserve_disk(4 * 1024 ** 3);
+    let dir = await navigator.storage.getDirectory();
+    for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name, { create: true });
+    const file = await dir.getFileHandle(disk.id + ".img", { create: true });
+    const response = await fetch("/" + probe + "/flash.packed");
+    if(!response.ok) throw Error("Missing disposable NAND");
+    await response.body.pipeTo(await file.createWritable());
+    await finish_disk(disk.id, "Cold boot timing", { size: NAND_BYTES, ios: { model: "iPhone3,1", build: "10B329" } });
+    log("NAND copy (excluded from power-on): " + Math.round(performance.now() - imported) + "ms");
+    const config = new_ios_config("Cold boot timing", { kind: "browser", id: disk.id, path: disk.path, size: NAND_BYTES, disk_option: "read_write" }, true);
+    const options = config_to_options(config, { debug: false, query_append: "", screen_container: document.getElementById("screen") });
+    options.wasm_path = "/build/v86-arm64.wasm";
+    options.cpu_worker_url = query.has("profile") ? "/build/ios-boot-profile-worker.js" : "/build/cpu-worker.js";
+    options.autostart = false;
+    power_on = performance.now();
+    emulator = new V86(options);
+    emulator.add_listener("serial0-output-byte", byte => {
+        const ch = String.fromCharCode(byte); serial += ch;
+        if(ch !== "\n") { line += ch; return; }
+        if(/Darwin Kernel|BSD root:|mounted|QUICKCHECK|FIPS USER|install helper started|AppleMultitouch.*downloaded|syncdefaultsd|SpringBoard|DataMigrator/.test(line))
+        { const m = { ms: elapsed(), event: line.trim() }; milestones.push(m); log(Math.round(m.ms / 1000) + "s " + m.event); }
+        line = "";
+    });
+    await new Promise((resolve, reject) => {
+        emulator.add_listener("emulator-loaded", resolve);
+        emulator.add_listener("emulator-error", reject);
+    });
+    milestones.push({ ms: elapsed(), event: "emulator-loaded (no snapshot)" });
+    emulator.run();
+    for(let n=0;n<Number(query.get("seconds") || 1200)/10;n++)
+    {
+        await sleep(10000); await sample();
+        const commands = await fetch("/" + probe + "/boot-command.json", { cache: "no-store" });
+        if(commands.ok)
+        {
+            const command = await commands.json();
+            if(command.id !== window.boot_test.last_command)
+            {
+                window.boot_test.last_command = command.id;
+                if(command.op === "home" || command.op === "unlock") document.getElementById(command.op).click();
+                else if(command.op === "capture") await capture(command.name);
+                else if(command.op === "finish") break;
+            }
+        }
+    }
+    await sample();
+    await emulator.stop();
+    document.getElementById("result").textContent = "PASS: measured cold boot; inspect screenshots to establish desktop readiness";
+}
+catch(error)
+{
+    log(error.stack); await artifact("serial.txt", serial).catch(()=>{});
+    document.getElementById("result").textContent = "FAIL: " + error.stack;
+}
+</script>
