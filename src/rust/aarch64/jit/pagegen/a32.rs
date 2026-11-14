@@ -106,9 +106,10 @@ pub enum Kind {
     /// UMULL, UMLAL, SMULL, SMLAL and UMAAL. Read all operands before
     /// either destination is written (sources may overlap destinations).
     MultiplyLong { op: u8, s: bool, lo: u8, hi: u8, rn: u8, rm: u8, cond: u8 },
-    /// SXTB, SXTH, UXTB, UXTH (Rm rotated right by `rotation`)
+    /// Byte/halfword extension, optionally added to Rn (NONE: no addend).
     Extend {
         rd: u8,
+        rn: u8,
         rm: u8,
         signed: bool,
         half: bool,
@@ -1386,8 +1387,8 @@ fn a32_native(word: u32) -> Option<Kind> {
                 if let Some(op) = bits {
                     return (rd != 15 && rm != 15).then_some(Kind::Bits { op, rd, rm, cond });
                 }
-                // SXTB, SXTH, UXTB, UXTH (not their adding forms)
-                if word >> 23 & 3 == 0b01 && word >> 4 & 15 == 7 && rn == 15 && rd != 15 && rm != 15
+                // Byte/halfword extensions and their accumulating forms.
+                if word >> 23 & 3 == 0b01 && word >> 4 & 15 == 7 && rd != 15 && rm != 15
                 {
                     let op = word >> 20 & 7;
                     let (signed, half) = match op {
@@ -1399,6 +1400,7 @@ fn a32_native(word: u32) -> Option<Kind> {
                     };
                     return Some(Kind::Extend {
                         rd,
+                        rn: if rn == 15 { NONE } else { rn },
                         rm,
                         signed,
                         half,
@@ -1722,6 +1724,7 @@ fn t32_native(word: u32, length: u8) -> Option<Kind> {
                 }),
                 0b0010 => Some(Kind::Extend {
                     rd: r(0),
+                    rn: NONE,
                     rm: r(3),
                     signed: hw & 0x80 == 0,
                     half: hw & 0x40 == 0,
@@ -2018,7 +2021,7 @@ fn t32_native32(hw1: u32, hw2: u32, rn: u8, rd: u8, rt: u8, rm: u8, s: bool) -> 
             cond: 14,
         });
     }
-    if hw1 >> 7 == 0b111110100 && rn == 15 && hw2 >> 12 == 15 && hw2 & 0x80 != 0 && hw2 & 0x40 == 0
+    if hw1 >> 7 == 0b111110100 && rn != 13 && hw2 >> 12 == 15 && hw2 & 0x80 != 0 && hw2 & 0x40 == 0
     {
         // SXTH, UXTH, SXTB, UXTB
         let (signed, half) = match hw1 >> 4 & 7 {
@@ -2033,6 +2036,7 @@ fn t32_native32(hw1: u32, hw2: u32, rn: u8, rd: u8, rt: u8, rm: u8, s: bool) -> 
         }
         return Some(Kind::Extend {
             rd,
+            rn: if rn == 15 { NONE } else { rn },
             rm,
             signed,
             half,
@@ -3744,7 +3748,7 @@ impl Emitter<'_> {
         self.set_r32(hi, A2);
     }
 
-    fn extend(&mut self, rd: u8, rm: u8, signed: bool, half: bool, rotation: u8) {
+    fn extend(&mut self, rd: u8, rn: u8, rm: u8, signed: bool, half: bool, rotation: u8) {
         self.r32(rm);
         if rotation != 0 {
             self.c32(rotation as i32);
@@ -3761,6 +3765,7 @@ impl Emitter<'_> {
             self.c32(if half { 0xFFFF } else { 0xFF });
             self.b.and_i32();
         }
+        if rn != NONE { self.r32(rn); self.b.add_i32(); }
         self.si(A2);
         self.set_r32(rd, A2);
     }
@@ -3842,12 +3847,13 @@ impl Emitter<'_> {
                 self.when(cond, |e| e.multiply_long(op, s, lo, hi, rn, rm)),
             Kind::Extend {
                 rd,
+                rn,
                 rm,
                 signed,
                 half,
                 rotation,
                 cond,
-            } => self.when(cond, |e| e.extend(rd, rm, signed, half, rotation)),
+            } => self.when(cond, |e| e.extend(rd, rn, rm, signed, half, rotation)),
             Kind::Dual {
                 load,
                 rt,
