@@ -3771,3 +3771,11 @@ SetSurfaceDesc 允许非托管系统内存纹理的隐式节点；普通指针�
 D3D3 的 RGB 枚举补全 LINECAPS 并去除旧排序要求，D3D1／2 保持既有 profile。Device7 Load 清除源中缺失的目标颜色键，旧 Texture1／2 Load 仍保留缺失键且只复制源 blit 键。写入系统内存的 X1R5G5B5→A1R5G5B5 使用实际软件内存 blit 保留高位，显存目标维持 GPU 不透明转换；脏源仍实际读回，其他格式／flags 路径保持。
 
 116 个前端、24 个核心脚本、站点2/2和8个真实GPU页面通过；512组真实颜色键 setter/getter 矩阵，颜色键20、caps17、内存blit17项故障对照通过，旧断言保留。当前同一DLL的57项元数据及42组纹理图像素重放通过，新增4种内存池组合检查32个packed word，再经实际GPU转换读回32个ARGB像素，误差零。系统DLL四版原始窗口组及额外空索引状态观察单独保存，不自动豁免proxy失败。76项原生、18项宿主及已接受的CPU隔离基线保持，四套原版Wine：DDraw1 23597项/0失败/0flaky/5未审查skip；DDraw2 25780项/0失败/0flaky/6未审查skip；DDraw4 28900项/0失败/3flaky/6未审查skip；DDraw7 35191项/1失败/5flaky/6未审查skip。比86少9项硬失败，Load颜色键、alpha和D3D3枚举两条原始断言清零，无新增原始行／上下文，GPU／宿主错误及退出残留零。全部flaky与23个未审查skip保留，**整体Wine仍未通过，3DMark对比继续暂停。**证据见 `fixtures/d3d-review/stage6-87-validation.json`。
+
+### 阶段6-88：空索引输入状态与动态缓冲同步（2026-11-14）
+
+按真实输入声明的种类与FVF记录空绘制状态，复现独立NVIDIA原生TNL中“空索引strided→空VB”首次E_FAIL、后续S_OK；冷启动、RGB/HAL、旧接口及无效调用的原有边界保持，不用调用次数特判。原生25种观察全部保留，本次只引用其中6组冷／前缀返回事实，未声称覆盖其余全部原生变体。宿主NOOVERWRITE上传移至待绘制队列之前，并保留最近重叠上传、对齐边界及扩展索引镜像的先后关系。D3D3创建的VB忽略DD7才引入的NOOVERWRITE／DISCARD标志，修复原始Wine4两个同步映射失败。
+
+448个图形前端脚本、26个核心脚本、站点2/2及10个真实GPU页面通过；新增页面错误观察器保留原始console输出，4种真实Chrome启动／运行中错误均被准确拒绝，正向D3D8远程回放28幅／1408像素通过。同一最终DDraw DLL的四套原版Wine适用断言全部通过：DDraw1 23597项；DDraw2 25780项；DDraw4 28900项；DDraw7 35190项，均0失败／0flaky／0todo。23个skip逐项绑定原始源码位置、能力前提、原因和实际日志哈希，保留原断言与容差。原始Wine8 device也已完成53,530项、0失败／0flaky／0todo，10个skip逐项审核；其余D3D8／9完整套件继续，本批仅发布DDraw，尚未宣称整体Wine完成。这四套Wine单独采集的console.error、页面异常、未处理Promise、GPU／宿主错误，以及失败命令、丢弃绘制、读回失败和退出残留均为零。
+
+验收使用当前隔离的x86 JS／Wasm／BIOS与568项运行／测试输入哈希，不以旧CPU基线代替当前运行；并行中的ARM／iOS／其他NV源码不在证明范围。一次硬件向导抢走启动输入、误开IE的空启动截图与空日志保留，未计为执行结果；之后保持E0前缀／键码连续发送，物理事件间80ms按下／释放，并保存输入前Run截图及原有严格安装空闲／结束检查。**完整Wine剩余套件继续，3DMark性能对比仍暂停。**证据见 `fixtures/d3d-review/stage6-88-validation.json`。

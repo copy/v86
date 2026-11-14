@@ -19,6 +19,22 @@ export function probe_run_scancodes(text)
     return result;
 }
 
+// E0 and its scan code are one physical keyboard event. Delaying between
+// those bytes can make the guest lose an extended modifier such as Win.
+export function probe_keyboard_events(codes)
+{
+    const events=[];
+    for(let i=0;i<codes.length;i++) {
+        const code=codes[i];
+        if(code===0xe0) {
+            if(i+1===codes.length || codes[i+1]===0xe0)
+                throw new Error("Incomplete extended scan code");
+            events.push([code,codes[++i]]);
+        } else events.push([code]);
+    }
+    return events;
+}
+
 export function probe_screen_changed(before, after)
 {
     if (!after) return false;

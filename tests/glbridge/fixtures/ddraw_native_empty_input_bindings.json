@@ -1,0 +1,315 @@
+{
+  "description": "Independent XP system-DDraw/D3DIM700 with native NVIDIA HAL: observed empty input-binding return values. No original Wine source/assertions modified.",
+  "source": "glbridge/sample/ddraw_native_hal_input_reference.c",
+  "sourceSha256": "d48c0c683293e0d5983a56d9fff398070329034bb2970d91a3409864ccd90b44",
+  "executableSha256": "cadc3f8726dd81767e3b5bd82533688f732689d3db7fc48a618a523693848aa5",
+  "evidenceDirectory": "build/d3d-review/stage6-88-native-hal-index",
+  "nativeAdapter": "NATIVE_HAL_ADAPTER hr=00000000 vendor=000010DE device=00000045 version=00000000:00000000 driver=nv4_disp.dll description=NVIDIA GeForce 6800 GT",
+  "entryRva": "0x1a2f0",
+  "bindingCases": {
+    "RGB:cold": {
+      "first": 0,
+      "second": 0
+    },
+    "RGB:empty-indexed-prefix": {
+      "first": 0,
+      "second": 0
+    },
+    "HAL:cold": {
+      "first": 0,
+      "second": 0
+    },
+    "HAL:empty-indexed-prefix": {
+      "first": 0,
+      "second": 0
+    },
+    "TNL:cold": {
+      "first": 0,
+      "second": 0
+    },
+    "TNL:empty-indexed-prefix": {
+      "first": 2147500037,
+      "second": 0
+    }
+  },
+  "allRawObservations": [
+    {
+      "class": "HAL",
+      "variant": 0,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 0,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 2147500037
+    },
+    {
+      "class": "RGB",
+      "variant": 0,
+      "available": 1,
+      "caps": 1361,
+      "vbcaps": 0,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "HAL",
+      "variant": 1,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 1,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 2147500037
+    },
+    {
+      "class": "RGB",
+      "variant": 1,
+      "available": 1,
+      "caps": 1361,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "HAL",
+      "variant": 2,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 2,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 2147942487,
+      "second": 0,
+      "fresh": 2147942487
+    },
+    {
+      "class": "RGB",
+      "variant": 2,
+      "available": 1,
+      "caps": 1361,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "HAL",
+      "variant": 3,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 3,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 2147500037
+    },
+    {
+      "class": "RGB",
+      "variant": 3,
+      "available": 1,
+      "caps": 1361,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "HAL",
+      "variant": 4,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 4,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 2147942487
+    },
+    {
+      "class": "RGB",
+      "variant": 4,
+      "available": 1,
+      "caps": 1361,
+      "vbcaps": 0,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "HAL",
+      "variant": 5,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 5,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 2147500037
+    },
+    {
+      "class": "RGB",
+      "variant": 5,
+      "available": 1,
+      "caps": 1361,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "HAL",
+      "variant": 6,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 6,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 2147500037,
+      "second": 0,
+      "fresh": 2147942487
+    },
+    {
+      "class": "RGB",
+      "variant": 6,
+      "available": 1,
+      "caps": 1361,
+      "vbcaps": 0,
+      "prime": 0,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "HAL",
+      "variant": 7,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 2048,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 7,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 2048,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 2147500037
+    },
+    {
+      "class": "HAL",
+      "variant": 8,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 65536,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 0
+    },
+    {
+      "class": "TNL",
+      "variant": 8,
+      "available": 1,
+      "caps": 35372785,
+      "vbcaps": 65536,
+      "prime": 1,
+      "first": 0,
+      "second": 0,
+      "fresh": 2147500037
+    }
+  ],
+  "inputsSha256": "b81e53a464646a5df6a76020a663cc2a4e7174d9ff0be8482a84743fbe4fff5f",
+  "rawSha256": "8945552574c13cc34828088c0710f588d08fb195e6e191690db6b9d3f0425c6e",
+  "scope": "Binding cases certify only the observed cold/original-empty-indexed-prefix first/second results across RGB/HAL/TnL. Other fresh-buffer/empty-UP variations remain recorded, not claimed to be reproduced. Existing stock NV harness BLOCKED status expects its absent install-probe DEVICE line; actual25 rows completed with native HAL available, zero backend failures and no host exception. No benchmark ran or was scored."
+}

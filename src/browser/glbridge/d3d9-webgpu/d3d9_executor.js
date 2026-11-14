@@ -1813,9 +1813,11 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             return frame;
         }
 
-        stageBufferUpload(buffer, offset, source) {
+        stageBufferUpload(buffer, offset, source, noOverwrite = false) {
             const frame = this.uploadFrame(source.byteLength);
-            frame.record(this.uploads.buffer(buffer, offset, source));
+            const op = this.uploads.buffer(buffer, offset, source);
+            if (noOverwrite) frame.recordNoOverwriteUpload(op);
+            else frame.record(op);
         }
 
         // Present-time utilities may discover a palette after the recorded

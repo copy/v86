@@ -1,4 +1,24 @@
 <!doctype html><meta charset="utf-8"><title>D9WG live XP renderer</title><canvas id="screen" width="64" height="64"></canvas><pre id="result">STARTING</pre>
+<script id="d3d-browser-errors">
+// Observe errors without suppressing the original console or browser reports.
+globalThis.d3dBrowserErrors = {consoleErrors:[],pageErrors:[],unhandledRejections:[]};
+{
+    const describe = value => String(value?.stack || value);
+    const report = console.error;
+    console.error = function(...args) {
+        globalThis.d3dBrowserErrors.consoleErrors.push(args.map(describe).join(" "));
+        return report.apply(this,args);
+    };
+    addEventListener("error",event => {
+        const target=event.target;
+        globalThis.d3dBrowserErrors.pageErrors.push(event.error ? describe(event.error)
+            : event.message || "Resource load failed: " + String(target?.src || target?.href || target?.tagName));
+    },true);
+    addEventListener("unhandledrejection",event => {
+        globalThis.d3dBrowserErrors.unhandledRejections.push(describe(event.reason));
+    });
+}
+</script>
 <script src="../../src/browser/glbridge/webgpu_host.js"></script>
 <script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
 <script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
@@ -30,7 +50,10 @@
     let queue=Promise.resolve(),failed=false;
     try {
         const gpu=new D3D9WebGPUExecutor(document.querySelector("canvas"),{strict:true,useShaderWorker:false,createSwapChainCanvas:()=>document.createElement("canvas")});
-        const cleanup=[],sessionCleanup=[];const end=gpu.onSessionEnd;
+        const cleanup=[],sessionCleanup=[];
+        const browserErrors=globalThis.d3dBrowserErrors;
+        const checkBrowserErrors=()=>{if(Object.values(browserErrors).some(rows=>rows.length))
+            throw new Error("Browser page errors: "+JSON.stringify(browserErrors));};const end=gpu.onSessionEnd;
         const release=gpu.releaseActiveSession;
         gpu.releaseActiveSession=function(reason){const record={reason,devices:this.devices.size,resources:this.resources.size,
             remainingResources:Array.from(this.resources,([handle,resource])=>({handle,kind:resource.kind,
@@ -56,12 +79,12 @@
                 }
                 await gpu.checkpointIdle();await gpu.device.queue.onSubmittedWorkDone();
                 const hostErrors=gpu.hostErrors.map(error=>({name:error.name,message:error.message,stack:error.stack}));
-                text(8,JSON.stringify({stats:gpu.stats,cleanup,sessionCleanup,devices:gpu.devices.size,resources:gpu.resources.size,sessions:gpu.sessionStates.size,gpuErrors:gpu.gpuErrors.errors,hostErrors,guestReports:gpu.guestReports||[]}));
+                text(8,JSON.stringify({stats:gpu.stats,cleanup,sessionCleanup,devices:gpu.devices.size,resources:gpu.resources.size,sessions:gpu.sessionStates.size,gpuErrors:gpu.gpuErrors.errors,hostErrors,guestReports:gpu.guestReports||[],browserErrors}));
                 if(gpu.gpuErrors.errors.length||gpu.hostErrors.length||gpu.stats.commandsFailed||gpu.stats.batchesFailed)throw new Error("GPU validation failed: "+JSON.stringify({gpu:gpu.gpuErrors.errors,host:hostErrors}));
-                send(4,seq);
+                checkBrowserErrors();send(4,seq);
             }).catch(error=>{failed=true;text(5,String(error.stack));document.querySelector("#result").textContent=String(error.stack);});
         };
-        socket.send(new Uint8Array([6]));document.querySelector("#result").textContent="READY";
+        checkBrowserErrors();socket.send(new Uint8Array([6]));document.querySelector("#result").textContent="READY";
     } catch(error) {text(5,String(error.stack));document.querySelector("#result").textContent=String(error.stack);}
 })();
 </script>

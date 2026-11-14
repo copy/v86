@@ -190,7 +190,7 @@
 
             applyBufferUpdate(resource, destinationOffset, bytes, sourceOffset,
                     byteCount, lockFlags) {
-                void lockFlags; // allocation hints do not change the order of destination copies
+                const noOverwrite = (lockFlags & 0x1000) !== 0; // DDLOCK/D3DLOCK_NOOVERWRITE
                 const shadow = resource.shadow;
                 if (destinationOffset >= shadow.length) return;
                 if (destinationOffset + byteCount > shadow.length)
@@ -200,20 +200,21 @@
                 shadow.set(source, destinationOffset);
 
                 // A cached uint32 strip mirror preserves D3D's valid 0xffff
-                // index. Apply only changed indices, in command order, so
-                // earlier draws in this frame keep the previous contents.
+                // index. Apply only changed indices; ordinary/discard updates
+                // preserve draw order, NOOVERWRITE carries the same unsynchronised
+                // hint as the native uint16 buffer.
                 if (resource.stripIndexBuffer) {
                     const first = destinationOffset >> 1;
                     const end = Math.min(resource.byteCount >> 1, Math.ceil((destinationOffset + byteCount) / 2));
                     const indices = new Uint16Array(shadow.buffer, shadow.byteOffset, resource.byteCount >> 1);
                     const widened = new Uint32Array(indices.subarray(first, end));
-                    this.stageBufferUpload(resource.stripIndexBuffer, first * 4, new Uint8Array(widened.buffer));
+                    this.stageBufferUpload(resource.stripIndexBuffer, first * 4, new Uint8Array(widened.buffer), noOverwrite);
                 }
 
                 const alignedStart = destinationOffset & ~3;
                 const alignedEnd = Math.min(shadow.length, alignUp(destinationOffset + byteCount, 4));
                 if (alignedEnd > alignedStart)
-                    this.stageBufferUpload(resource.gpuBuffer, alignedStart, shadow.subarray(alignedStart, alignedEnd));
+                    this.stageBufferUpload(resource.gpuBuffer, alignedStart, shadow.subarray(alignedStart, alignedEnd), noOverwrite);
             },
 
             stripIndexBufferFor(resource) {

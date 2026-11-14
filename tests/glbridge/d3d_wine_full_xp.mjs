@@ -12,7 +12,8 @@ import {run_xp_ram_probe} from "../lib/xp_ram_probe.mjs";
 import {create_d3d_live_renderer} from "../lib/d3d_live_renderer.mjs";
 
 const root=fileURLToPath(new URL("../../",import.meta.url)),site=site_directory(root);
-const suites={d3d8_visual:"d3d8",d3d9_device:"d3d9",d3d9_visual:"d3d9",
+const suites={d3d8_device:"d3d8",d3d8_stateblock:"d3d8",d3d9_stateblock:"d3d9",
+    d3d8_visual:"d3d8",d3d9_device:"d3d9",d3d9_visual:"d3d9",
     ddraw_ddraw1:"ddraw",ddraw_ddraw2:"ddraw",ddraw_ddraw4:"ddraw",ddraw_ddraw7:"ddraw"};
 const suite=process.env.D3D_WINE_SUITE||"d3d8_visual",api=suites[suite];
 assert(api,"Unknown complete Wine suite");
@@ -104,6 +105,7 @@ try {
                 attempts:[1,2].filter(n=>result.logs["WINE"+n+".TXT"]).map(n=>({attempt:n,
                     selected:n===selected,preparation:result.logs["PREP"+n+".TXT"],postcheck:result.logs["AFTER"+n+".TXT"]})),
                 scope:"Identical original EXE/DLL. Only a completed execution rejected by the OS environment postcheck can trigger another; all raw Wine assertions and both execution logs are retained."},null,2)+"\n");
+            assert.deepEqual(live.stats.snapshot?.browserErrors,{consoleErrors:[],pageErrors:[],unhandledRejections:[]},"Browser page/console errors during Wine");
             result.wineSummary=parse_wine_result(result.logs["WINE.TXT"],suite,{inapplicable:applicability?.inapplicable||[]});
             assert.deepEqual([...result.releases].sort(),[...result.owners].sort(),"Unreleased transport owner");
             assert_wine_graphics_cleanup(live.stats.snapshot);

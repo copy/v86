@@ -13,6 +13,22 @@
                 this.hasColorClear = false;
                 this.hasOcclusion = false;
             }
+            // NOOVERWRITE promises that pending draws do not read the changed
+            // bytes. Upload them before those draws to avoid synchronisation,
+            // but keep every earlier overlapping write before this write.
+            recordNoOverwriteUpload(op) {
+                let position = 0;
+                const end = op.destinationOffset + op.size;
+                for (let i = 0; i < this.ops.length; ++i) {
+                    const previous = this.ops[i];
+                    if (previous.kind === "buffer-upload" &&
+                            previous.destination === op.destination &&
+                            previous.destinationOffset < end &&
+                            op.destinationOffset < previous.destinationOffset + previous.size)
+                        position = i + 1;
+                }
+                this.ops.splice(position, 0, op);
+            }
             record(op) {
                 this.ops.push(op);
                 this.hasColorClear ||= op.kind === "clear" && op.clearsColor;

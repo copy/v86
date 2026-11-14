@@ -77,6 +77,7 @@ export async function create_remote_renderer(options = {})
     const stats = { batches: 0, bytes: 0, writes: 0 };
 
     const server = http.createServer((req, res) => {
+        if(new URL(req.url,"http://localhost").pathname==="/favicon.ico") {res.writeHead(204).end();return;}
         const file = path.resolve(root, "." + new URL(req.url, "http://localhost").pathname);
         if(!file.startsWith(root + path.sep)) { res.writeHead(403).end(); return; }
         fs.readFile(file, (error, data) => {
