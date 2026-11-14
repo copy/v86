@@ -46,11 +46,19 @@ export class AppleCDMA
                 const previous = this.channel[n * 8];
                 const pause = !!(value & 4), resume = !!(previous & 0x200000) && !pause;
                 if(value === 2 || (value & 1) && !pause && !resume) this.progress.delete(n);
-                if(value === 2) this.channel.fill(0, n * 8, n * 8 + 8);
+                if(value === 2)
+                {
+                    // The native abort path resets configuration, then reads
+                    // MAR/descriptor to retire the stopped ring entry.
+                    const address = this.channel[n * 8 + 4], descriptor = this.channel[n * 8 + 5];
+                    this.channel.fill(0, n * 8, n * 8 + 8);
+                    this.channel[n * 8 + 4] = address;
+                    this.channel[n * 8 + 5] = descriptor;
+                }
                 else
                 {
                     const status = value & 1 ? 0 : this.channel[n * 8] & 0x1C0000 & ~value;
-                    if(value & 0xFFFF || !(value & 0x1C0000)) this.channel[n * 8] = status | (value & 0xFFFF) | (pause ? 0x200000 : 0);
+                    if(value & 0xFFFF || !(value & 0x1C0000)) this.channel[n * 8] = status | (value & (pause ? 0xFFFE : 0xFFFF)) | (pause ? 0x200000 : 0);
                     else this.channel[n * 8] &= ~(value & 0x1C0000);
                 }
                 this.signal(n, false);
