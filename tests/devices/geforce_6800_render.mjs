@@ -128,6 +128,17 @@ try
         method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
         method(0x1808,0);await engine.backend.wait();
         assert.equal(view.getUint16(0x10000,true),6<<11|25<<5|19,"RGB565 target stores red in the high bits, including host conversion/readback");
+        view.setUint32(0x9000,0x01001E01,true);method(0x1D60,64);
+        new Float32Array(vram.buffer,0x9010,4).set([-2,.25,8,1]);
+        for(const [format,pitch,expected]of [[0x14C,128,[-2,.25,8,1]],[0x14D,32,[-2]]])
+        {
+            method(0x208,format);method(0x20C,pitch);
+            method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();
+            assert.deepEqual([...new Float32Array(vram.buffer,0x10000,expected.length)],expected,"FP32 target preserves HDR and negative outputs "+format.toString(16));
+        }
+        view.setUint32(0x9000,0x01001E81,true);method(0x1D60,0);
+        new Float32Array(vram.buffer,0x9010,4).set([.2,.4,.6,1]);
         method(0x208,0x148);method(0x20C,32);
         method(0x1680,0x4000);new Float32Array(vram.buffer,0x4000,6).set([0,0,0,16,16,0]);
         method(0x1808,5);method(0x1824,2<<24|1);method(0x1808,0);await engine.backend.wait();
@@ -400,6 +411,22 @@ try
         await mrtDraw(true);
         for(const [index,expected]of [[0,[0,0,255,255]],[1,[0,255,0,255]],[2,[255,0,0,255]],[3,[0,255,255,128]]])
             assert.deepEqual([...vram.subarray(mrtOffsets[index],mrtOffsets[index]+4)],expected,"FP32 MRT color "+index);
+        const rejectFloatTarget=reason=>{
+            const draws=engine.backend.stats.draws;
+            method(0x1808,6);for(const word of new Uint32Array(floats.buffer))method(0x1818,word);
+            graph.method(0,0,0x2000,0x1808,0);assert.match(graph.faults.pop().reason,reason);
+            assert.equal(engine.backend.stats.draws,draws,"unsupported FP32 state submits no partial draw");
+        };
+        method(0x208,0x14C);for(const at of [0x20C,0x21C,0x280,0x284])method(at,128);
+        rejectFloatTarget(/attachment byte budget/);
+        method(0x220,1);method(0x310,1);rejectFloatTarget(/FP32 target blending/);method(0x310,0);
+        method(0x220,0x13);mrtColors[0]=[-2,0,3,1];mrtColors[1]=[0,4,0,.5];await mrtDraw(true);
+        for(let index=0;index<2;index++)assert.deepEqual([...new Float32Array(vram.buffer,mrtOffsets[index],4)],mrtColors[index],"two RGBA32F MRTs preserve full precision");
+        method(0x208,0x14D);method(0x220,0x1F);for(const at of [0x20C,0x21C,0x280,0x284])method(at,32);
+        for(let index=0;index<4;index++)mrtColors[index]=[[-2,4,8,16][index],0,0,1];await mrtDraw(true);
+        for(let index=0;index<4;index++)assert.equal(view.getFloat32(mrtOffsets[index],true),mrtColors[index][0],"four R32F MRTs preserve scalar outputs");
+        console.log("PASS: real WebGPU two RGBA32F/four R32F attachments, HDR outputs and rejected FP32 blend/budget states");
+        method(0x208,0x148);mrtColors.splice(0,4,[1,0,0,1],[0,1,0,1],[0,0,1,1],[1,1,0,.5]);await mrtDraw(true);
         method(0x370,0x1020);method(0x324,0);mrtColors[1]=[1,0,0,.25];mrtColors[3]=[0,0,0,.25];
         await mrtDraw();
         assert.deepEqual([...vram.subarray(0x30000,0x30004)],[0,255,255,255],"MRT1 independent red write mask");

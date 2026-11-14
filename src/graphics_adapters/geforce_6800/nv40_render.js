@@ -252,7 +252,10 @@ export class NV40Render
         const blend=nv40_blend_state(o);
         const cull=nv40_cull_state(o);
         const target=this.engine.state.target(o);
-        if(![21,22,23,113].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
+        if(![21,22,23,113,114,116].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
+        if([114,116].includes(target.d3d) && get(o,0x310))throw new RangeError("NV40 FP32 target blending is not connected");
+        if(target.d3d===116 && [0,1,2,3].filter(index=>active&1<<index).length>2)
+            throw new RangeError("NV40 FP32 MRT exceeds the guaranteed host attachment byte budget");
         const colors=Array.from({length:4},(_,index)=>active&1<<index?this.engine.state.target(o,index):null);
         const viewport=this.engine.state.viewport(o,target);
         const x=get(o,0x8C0),y=get(o,0x8C4),clip=viewport.clip;

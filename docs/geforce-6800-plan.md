@@ -1449,3 +1449,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   补充 Win98 PCI 总线/资源冲突与 XP 原生驱动安装路径、专属 ROM 部署说明及
   NV40 偏差清单。初稿配置项按实际实现复核，阶段状态仍为实施中；完整
   3DMark 参考图、Win98 游戏抽查及 3DMark06 性能门禁通过后才可完成 G7。
+
+- G4 FP32 渲染目标第一部分：接通 R32F/RGBA32F 的绘制与原始浮点读回，
+  保留负值和 HDR；通过 FP_CONTROL 的 FP32 输出路由避免半精度舍入。允许
+  四个 R32F 或两个 RGBA32F 目标，按 WebGPU 默认保证的 32-byte attachment
+  预算限制 RGBA32F MRT。FP32 blending 与浮点 clear 仍明确拒绝，未假设其
+  硬件清除编码。完整真实 GPU 回归验证单目标、两种 MRT、预算/混合故障不
+  提交部分绘制及切回普通目标；CPU 状态测试与 Closure 构建通过。宿主约束
+  核对 [WebGPU 规范](https://www.w3.org/TR/webgpu/#limits)；原生 HDR benchmark
+  的完整验收继续后续实施。
