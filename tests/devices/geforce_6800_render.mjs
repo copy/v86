@@ -1340,6 +1340,25 @@ try
         vram.set(savedUploadProgram,0x9000);
         assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         console.log("PASS: disjoint IFC shader uploads preserve batching; overlapping CPU writes wait for authoritative pixels");
+        const alternateProgram=vram.slice(0x49000,0x49040);
+        ram.setUint32(0x1400,0x303D,true);ram.setUint32(0x1404,0xFFFFF,true);ram.setUint32(0x1408,0x40003,true);
+        for(const selector of [1,2])
+        {
+            const binding=selector===1?0x184:0x188;
+            method(binding,0x100);method(0x8E4,0x9000|selector);
+            [0x01001E81,0x001DC802,0,0,...Array(4).fill(floatWord(.25))].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            vram.set(vram.subarray(0x9000,0x9040),0x49000);
+            for(let i=0;i<4;i++)view.setUint32(0x49010+i*4,floatWord(.5),true);
+            vram.fill(0,0x10000,0x10100);device.fifo.running=true;
+            const beforeInputDMA={...engine.backend.stats};drawInline();method(binding,0x140);drawInline();
+            await engine.backend.wait();device.fifo.running=false;
+            assert.equal(engine.backend.stats.batches-beforeInputDMA.batches,1,"input DMA rebind keeps the preceding draw queued");
+            assert.equal(engine.backend.stats.readbacks-beforeInputDMA.readbacks,1);
+            assert.deepEqual([...vram.subarray(0x10000,0x10004)],[191,191,191,191],"each draw uses the fragment bytes fetched from its own DMA binding");
+            method(binding,0x100);
+        }
+        vram.set(savedUploadProgram,0x9000);vram.set(alternateProgram,0x49000);
+        console.log("PASS: both fragment-input DMA rebindings preserve their own constants in one GPU batch/download");
         method(0x310,0);method(0x8E4,0x9001);vram.fill(0,0x10000,0x10100);
         [23<<24|1<<13|15<<9|128|1,7<<18|0x1C801,0,0].forEach((word,i)=>view.setUint32(0x9100+i*4,word,true));
         queued.length=0;queuedDraw();

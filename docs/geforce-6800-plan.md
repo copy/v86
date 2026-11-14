@@ -1823,3 +1823,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   mixed 两种模式与独立 IEEE half 参考一致，跨零 GPU 双线性及
   完整 GPU/纹理/Closure 通过，见 `g4-native-signed-byte-textures.json`。
   非 byte signed/gamma 组合仍明确拒绝，受影响全跑须重新开始。
+
+- G6 输入 DMA 换绑：纹理/片段程序 DMA0/1 与顶点输入 DMA0/1
+  的数据在入队时已经复制到绘制命令，换绑不再触发附件下载。
+  两个片段 DMA selector 的真实 GPU 用例各自读取不同映射中的
+  0.25/0.5 常量，两次加法绘制共用一个批次与一次颜色回读，RGBA
+  为 191；完整 GPU/Closure 通过，见 `g6-input-dma-batching.json`。
+  附件 DMA 与同步屏障保留，不据此宣称原生超时或帧率已解决。

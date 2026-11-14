@@ -282,6 +282,10 @@ export class NV40Render
             catch(error) {if(!(error instanceof RangeError))throw error;}
         }
         if(o.class_id!==0x4097 || method===0x100 && value || [0x104,0x108,0x110,0x17C8,0x17CC,0x1800,0x1D70,0x1D74,0x1D94].includes(method) || method>=0x120 && method<=0x130)return true;
+        // Fragment programs/textures and vertex arrays are fetched into this
+        // draw's immutable command bytes. Rebinding their DMA descriptors does
+        // not change queued attachment writes or require downloading them.
+        if([0x184,0x188,0x19C,0x1A0].includes(method))return false;
         if(get(o,method)!==value && (method>=0x180 && method<=0x1B8 || method>=0x200 && method<=0x22C || method>=0x280 && method<=0x28C))return true;
         return false;
     }

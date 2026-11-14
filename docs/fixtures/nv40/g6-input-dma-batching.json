@@ -1,0 +1,19 @@
+{
+  "date": "2026-11-14",
+  "behavior": "Fragment texture/program input DMA0/1 and vertex input DMA0/1 are copied into immutable draw command bytes before queueing. Rebinding these inputs no longer downloads pending attachments. Attachment DMA changes and synchronization methods retain their barriers.",
+  "tests": {
+    "realWebGPU": "Both fragment program DMA selectors independently fetch distinct 0.25 and 0.5 constant programs from rebased DMA mappings; additive draws retain one batch and one color readback, producing RGBA 191. Full GPU regression passed.",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "limitation": "No native FPS or driver timeout claim is made from this batching regression.",
+  "logs": {
+    "build/nv40-input-dma-batch-gpu.log": {
+      "bytes": 4699,
+      "sha256": "8cad4112ae8d2ce198b5e772d124f8ea4448b8e707a4e8bc5d800099048c3354"
+    },
+    "build/nv40-input-dma-batch-closure.log": {
+      "bytes": 3020,
+      "sha256": "4e71c7bd7e46947fd2fca3badcb191779db51a5ab1a42b3f9b9f963ce8c05b81"
+    }
+  }
+}
