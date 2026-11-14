@@ -143,6 +143,14 @@ try
             method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
             method(0x1808,0);await engine.backend.wait();
             assert.deepEqual([...new Float32Array(vram.buffer,0x10000,expected.length)],expected,"FP32 target preserves HDR and negative outputs "+format.toString(16));
+            const changedAt=0x10000+7*pitch+7*expected.length*4,marker=expected.map((_,i)=>9+i);
+            new Float32Array(vram.buffer,changedAt,expected.length).set(marker);
+            method(0x8C0,1<<16);method(0x8C4,1<<16);const beforePartialFloat=engine.backend.stats.uploadBytes;
+            method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();
+            assert.deepEqual([...new Float32Array(vram.buffer,changedAt,expected.length)],marker,"partial FP32 upload retains an untouched HDR pixel");
+            assert.equal(engine.backend.stats.uploadBytes-beforePartialFloat,pitch,"one changed FP32 row is uploaded");
+            method(0x8C0,8<<16);method(0x8C4,8<<16);
         }
         view.setUint32(0x9000,0x01001E81,true);method(0x1D60,0);
         new Float32Array(vram.buffer,0x9010,4).set([.2,.4,.6,1]);
@@ -258,6 +266,11 @@ try
         vram.fill(255,0x25000,0x25080);await depthDraw(.25,[0,1,0,1]);
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,255,0,255],"D16 has no stencil bits: enabled NEVER stencil does not reject the draw");
         assert(Math.abs(view.getUint16(0x25000,true)-Math.round(.25*65535))<=1);
+        method(0xA70,0);method(0xA6C,8);view.setUint16(0x2507E,0xBEEF,true);
+        const beforePartialDepth=engine.backend.stats.uploadBytes;await depthDraw(.25,[0,1,0,1]);
+        assert.equal(view.getUint16(0x2507E,true),0xBEEF,"partial depth upload preserves the CPU's raw depth bits");
+        assert.equal(engine.backend.stats.uploadBytes-beforePartialDepth,16,"one changed D16 row is uploaded");
+        method(0xA70,1);
         method(0xA6C,8);const d16Unbiased=view.getUint16(0x25000,true);
         method(0xA7C,floatWord(256));method(0xA68,1);await depthDraw(.25,[0,1,0,1]);
         assert(Math.abs(view.getUint16(0x25000,true)-d16Unbiased-128)<=1,"D16 polygon units use the attachment's own depth step");
@@ -783,6 +796,12 @@ try
         method(0x1A14,0x01030000);
         for(const [face,direction]of directions.entries())
             assert.deepEqual(await cubeDraw(direction),cubeColors[5-face],"explicit cube mip retains guest face alignment "+face);
+        method(0x1A14,0x01010000);vram.set(cubeColors[4],0x50008);const beforePartialCube=engine.backend.stats.uploadBytes;
+        assert.deepEqual(await cubeDraw([1,-.5,.5]),cubeColors[4],"partial cube upload changes the selected face row");
+        assert.equal(engine.backend.stats.uploadBytes-beforePartialCube,8,"only one changed cube face/mip row is uploaded");
+        assert.deepEqual(await cubeDraw([-1,-.5,.5]),cubeColors[3],"the neighboring cube face remains intact");
+        method(0x1A14,0x01030000);assert.deepEqual(await cubeDraw([1,0,0]),cubeColors[5],"the neighboring cube mip remains intact");
+        vram.set(cubeColors[2],0x50008);method(0x1A14,0x01030000);
         console.log("PASS: real WebGPU NV cubemap face directions, coordinate orientation and per-face mip chains");
 
         for(const [at,value]of [[0x1A00,0x60000],[0x1A04,0x20539],[0x1840,2<<20],[0x1A08,0x30303],[0x1A14,0x01010000]])method(at,value);
@@ -801,9 +820,11 @@ try
         assert.equal(engine.backend.stats.uploads,beforeReuse,"unchanged texture and read-back attachments stay on the GPU");
         vram.set(cubeColors[2],0x60020);assert.deepEqual(await cubeDraw([.5,.5,.5]),cubeColors[2]);
         assert.equal(engine.backend.stats.uploads,beforeReuse+1,"a guest texture write uploads only the changed mip");
+        const beforePartialColor=engine.backend.stats.uploadBytes;
         const untouched=0x10000+7*4;vram.set([9,8,7,6],untouched);method(0x8C0,4<<16);
         await cubeDraw([.5,.5,.5]);assert.deepEqual([...vram.subarray(untouched,untouched+4)],[9,8,7,6],"guest target writes survive outside the new scissor");
         assert.equal(engine.backend.stats.uploads,beforeReuse+2,"a guest color attachment change forces one upload");
+        assert.equal(engine.backend.stats.uploadBytes-beforePartialColor,32,"only the changed RGBA row crosses the renderer boundary");
         console.log("PASS: real WebGPU exact-byte upload reuse, changed-mip uploads and CPU-authoritative attachment edits");
         console.log("PASS: real WebGPU nearest/bilinear texture sampling and TBUF5 to TEX0 routing");
         const compareTests=[()=>false,(r,d)=>r>d,(r,d)=>r===d,(r,d)=>r>=d,(r,d)=>r<d,(r,d)=>r!==d,(r,d)=>r<=d,()=>true];

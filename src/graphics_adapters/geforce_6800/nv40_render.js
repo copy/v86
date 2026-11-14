@@ -9,12 +9,14 @@ const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const float_value=word=>new Float32Array(Uint32Array.of(word).buffer)[0];
 const float_word=value=>new Uint32Array(Float32Array.of(value).buffer)[0];
 const data=typed=>new Uint8Array(typed.buffer,typed.byteOffset,typed.byteLength);
-const equal_bytes=(a,b)=>{
-    if(!a || a.length!==b.length)return false;
+const changed_bytes=(a,b)=>{
+    if(!a || a.length!==b.length)return [0,b.length];
     const count=a.length>>>2,aw=new Uint32Array(a.buffer,a.byteOffset,count),bw=new Uint32Array(b.buffer,b.byteOffset,count);
-    for(let i=0;i<count;i++)if(aw[i]!==bw[i])return false;
-    for(let i=count*4;i<a.length;i++)if(a[i]!==b[i])return false;
-    return true;
+    let first=0;while(first<count && aw[first]===bw[first])first++;
+    first*=4;while(first<b.length && a[first]===b[first])first++;
+    if(first===b.length)return null;
+    let last=b.length;while(last>first && a[last-1]===b[last-1])last--;
+    return [first,last];
 };
 const BLEND=new Map([[0,1],[1,2],[0x300,3],[0x301,4],[0x302,5],[0x303,6],[0x304,7],[0x305,8],
     [0x306,9],[0x307,10],[0x308,11],[0x8001,14],[0x8002,15],[0x8003,14],[0x8004,15],
@@ -168,12 +170,19 @@ export class NV40Render
         this.resources.delete(key);this.resources.set(key,resource);
         const handle=resource.handle;
         images.forEach((bytes,index)=>{
-            if(resource.images && equal_bytes(resource.images[index],bytes))return;
+            const previous=resource.images && resource.images[index],changed=changed_bytes(previous,bytes);
+            if(!changed)return;
             const level=index%levels,face=surface.cube?Math.floor(index/levels):0;
-            const width=Math.max(1,surface.width>>>level),height=Math.max(1,surface.height>>>level);
-            const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"level":level,"z":face,"width":width,"height":height,
-                "depth":surface.volume?Math.max(1,surface.depth>>>level):1,"row_pitch":width*surface.bpp,"data_bytes":bytes.length});
-            w.patch_field("data_offset",w.data(bytes));this.stats.uploads++;this.stats.uploadBytes+=bytes.length;
+            const width=Math.max(1,surface.width>>>level),height=Math.max(1,surface.height>>>level),pitch=width*surface.bpp;
+            // Keep whole rows so every native pixel format, including depth,
+            // retains its exact byte layout. Cubes update only this face/mip;
+            // volume textures retain full-volume uploads and slice semantics.
+            const partial=previous && !surface.volume && previous.length===bytes.length;
+            const first=partial?Math.floor(changed[0]/pitch):0,last=partial?Math.ceil(changed[1]/pitch):height;
+            const payload=partial?bytes.subarray(first*pitch,last*pitch):bytes;
+            const w=this.writer.command(OP.UPDATE_TEXTURE,{"resource_handle":handle,"level":level,"y":first,"z":face,"width":width,"height":last-first,
+                "depth":surface.volume?Math.max(1,surface.depth>>>level):1,"row_pitch":pitch,"data_bytes":payload.length});
+            w.patch_field("data_offset",w.data(payload));this.stats.uploads++;this.stats.uploadBytes+=payload.length;
         });
         resource.images=images;
         return handle;
