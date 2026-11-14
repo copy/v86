@@ -1,0 +1,64 @@
+{
+  "date": "2026-11-14",
+  "status": "CPU 2D context hoisting verified byte-for-byte; native 06 startup continuation active",
+  "nativeEvidence": {
+    "run": "build/nv40-xp-mark06-startup-profile",
+    "seconds": 124,
+    "draws3D": 0,
+    "failuresGPU": 0,
+    "faultsPGRAPH": 0,
+    "profile": "build/nv40-xp-mark06-startup-profile/cpu-profile.cpuprofile",
+    "selfTimePercent": {
+      "PGRAPHObjectLookup": 17.0,
+      "VRAMView": 13.5,
+      "pattern": 8.8
+    },
+    "limitation": "Concurrent guest load; a diagnostic startup sample, not the final 06 performance measurement"
+  },
+  "change": "Resolve immutable pattern, beta and beta4 contexts once per synchronous 2D primitive, lazily on its first nontransparent sample. Predecode all 64 pattern entries or monochrome bits once; each subsequent primitive obtains fresh context state. Checked destination DMA and byte layout are unchanged.",
+  "comparison": {
+    "cases": 144,
+    "allExact": true,
+    "times": [
+      {
+        "name": "before",
+        "milliseconds": 284.878125,
+        "contextLookups": 2359299,
+        "sha256": "dbd7ffcd6e467b099b855fb8c50a804607bc3083dfc0c776d77cba8e9c0c6f8d"
+      },
+      {
+        "name": "after",
+        "milliseconds": 158.28554100000008,
+        "contextLookups": 12,
+        "sha256": "dbd7ffcd6e467b099b855fb8c50a804607bc3083dfc0c776d77cba8e9c0c6f8d"
+      }
+    ]
+  },
+  "comparisonCoverage": [
+    "8/16/32-bit destinations",
+    "8x8, 64x1 and 1x64 pattern shapes",
+    "monochrome and full-color patterns",
+    "both bitmap bit orders",
+    "ROP, beta blending and premultiplied blend operations",
+    "transparent source samples",
+    "context mutation between consecutive primitives"
+  ],
+  "tests": {
+    "CPU2D": "pass",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "logs": {
+    "build/nv40-2d-context-hoist-unit.log": {
+      "bytes": 547,
+      "sha256": "8b2e02a9384ebc736572a499539835c50bd18cb208f78d62104692438286f346"
+    },
+    "build/nv40-2d-context-hoist-closure.log": {
+      "bytes": 3020,
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7"
+    },
+    "build/nv40-2d-context-hoist-comparison.json": {
+      "bytes": 431,
+      "sha256": "9ddb735ede32c0f13b12e9049852b5211d804e043a8cf6ede0e8184080874315"
+    }
+  }
+}

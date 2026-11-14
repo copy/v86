@@ -121,19 +121,27 @@ export class NV2D
     }
     pattern(o, at, x, y, format)
     {
-        if(!o.methods.has(at)) return 0xFFFFFFFF;
+        return this.pattern_sampler(o,at,format)(x,y);
+    }
+    pattern_sampler(o, at, format)
+    {
+        if(!o.methods.has(at)) return () => 0xFFFFFFFF;
         const p = this.ref(o, at);
-        if(!p) return 0xFFFFFFFF;
+        if(!p) return () => 0xFFFFFFFF;
         const shape = m(p, 0x308), select = m(p, 0x30C, 1);
-        const index = shape === 1 ? x & 63 : shape === 2 ? y & 63 : (y & 7) * 8 + (x & 7);
+        const index = (x,y) => shape === 1 ? x & 63 : shape === 2 ? y & 63 : (y & 7) * 8 + (x & 7);
         if(select === 2)
         {
             const bpp = format === 1 ? 1 : format < 6 ? 2 : 4;
             const base = bpp === 1 ? 0x400 : bpp === 4 ? 0x700 : format === 4 ? 0x500 : 0x600;
-            return m(p, base + Math.floor(index * bpp / 4) * 4) >>> (index * bpp % 4 * 8);
+            const colors=Array.from({length:64},(_,i)=>m(p,base+Math.floor(i*bpp/4)*4) >>> (i*bpp%4*8));
+            return (x,y) => colors[index(x,y)];
         }
-        const bit = m(p, 0x318 + (index >>> 5) * 4) >>> (this.bitmap_format(p) === 1 ? (index & ~7) % 32 + 7 - (index & 7) : index & 31) & 1;
-        return m(p, 0x310 + bit * 4);
+        const words=[m(p,0x318),m(p,0x31C)],colors=[m(p,0x310),m(p,0x314)],formatBits=this.bitmap_format(p);
+        return (x,y) => {
+            const i=index(x,y),shift=formatBits===1?(i&~7)%32+7-(i&7):i&31;
+            return colors[words[i>>>5]>>>shift&1];
+        };
     }
     bounds(x, y, width, height, clip)
     {
@@ -158,6 +166,10 @@ export class NV2D
         for(let row = 0; row < h; row++) this.row(dst, x, y + row, w, true);
         const operation = m(o, 0x2FC, 3), rop = o.methods.has(refs[1]) ? this.ref(o, refs[1]) : null;
         if(operation > 5) throw new RangeError("NV 2D invalid operation");
+        // A synchronous primitive cannot observe context changes between its
+        // pixels. Resolve only on the first live sample, retaining the original
+        // fault behavior for completely transparent source primitives.
+        let pattern=null,modulation=null,betaAlpha=1;
         for(let row = 0; row < h; row++)
         {
             const bytes = this.readrow(dst, x, y + row, w);
@@ -167,14 +179,19 @@ export class NV2D
                 if(sample === null) continue;
                 const rgba = Array.isArray(sample) ? sample : this.unpack(sample, dst.format);
                 const s = Array.isArray(sample) ? this.pack(rgba, dst.format) : sample;
-                const p = this.pattern(o, refs[0], x + col, y + row, dst.format);
+                if(!pattern)pattern=this.pattern_sampler(o,refs[0],dst.format);
+                const p = pattern(x + col, y + row);
                 let result = operation === 1 ? this.rop(rop ? m(rop, 0x300) & 255 : 0xCC, s, d, p) : s;
                 if(operation === 2 || operation >= 4)
                 {
-                    const beta = refs.length > 2 && o.methods.has(refs[2]) ? this.ref(o, refs[2]) : null;
-                    const beta4 = refs.length > 3 && o.methods.has(refs[3]) ? this.ref(o, refs[3]) : null;
-                    const modulation = beta4 ? this.unpack(m(beta4, 0x300), 10) : [255, 255, 255, 255];
-                    const alpha = operation === 2 ? beta ? Math.max(0, m(beta, 0x300) | 0) / 2147483647 : 1 : rgba[3] * modulation[3] / 65025;
+                    if(!modulation)
+                    {
+                        const beta = refs.length > 2 && o.methods.has(refs[2]) ? this.ref(o, refs[2]) : null;
+                        const beta4 = refs.length > 3 && o.methods.has(refs[3]) ? this.ref(o, refs[3]) : null;
+                        modulation = beta4 ? this.unpack(m(beta4, 0x300), 10) : [255, 255, 255, 255];
+                        betaAlpha = beta ? Math.max(0, m(beta, 0x300) | 0) / 2147483647 : 1;
+                    }
+                    const alpha = operation === 2 ? betaAlpha : rgba[3] * modulation[3] / 65025;
                     const dest = this.unpack(d, dst.format);
                     const blended = rgba.map((v, i) => Math.min(255, Math.round(operation === 2 ? v * alpha + dest[i] * (1 - alpha) :
                         v * modulation[i] / 255 + (operation === 5 ? dest[i] * (1 - alpha) : 0))));
