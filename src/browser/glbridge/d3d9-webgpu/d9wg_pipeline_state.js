@@ -19,7 +19,7 @@
             D3DSAMP_ADDRESSV, D3DSAMP_ADDRESSW, D3DSAMP_MIPFILTER, D3DSAMP_MAGFILTER,
             D3DSAMP_MINFILTER, D3DSAMP_MAXANISOTROPY, D3DSAMP_MAXMIPLEVEL, ADDRESS_MODES,
             FILTER_MODES, SHADER_STAGE_VERTEX, SHADER_STAGE_FRAGMENT, isBlendableGPUFormat,
-            DEPTH_FORMAT
+            DEPTH_FORMAT, D9WG
         } = dependencies;
         // All entries are normalized enums, booleans, finite numbers or GPU
         // format names. Explicit slots avoid cloning/stringifying the full
@@ -27,7 +27,7 @@
         function staticStateKey(state) {
             const front = state.stencilFront, back = state.stencilBack;
             return [state.depthEnabled, state.depthWrite, state.depthCompare,
-                state.depthBias, state.depthBiasSlopeScale, state.blendEnabled,
+                state.depthBias, state.depthBiasSlopeScale, state.blendEnabled, state.colorBlendMask ?? 15,
                 state.srcFactor, state.dstFactor, state.blendOp, state.alphaSrcFactor,
                 state.alphaDstFactor, state.alphaBlendOp, state.cullMode, state.writeMask,
                 state.hasDepth, state.stencilEnabled,
@@ -67,6 +67,8 @@
 
                 const blendEnabled = !forceSolid &&
                     get(D3DRS_ALPHABLENDENABLE, 0) !== 0;
+                const colorBlendMask = blendEnabled
+                    ? get(D9WG.C.D9WG_NV_RS_COLOR_BLEND_MASK, 15) & 15 : 0;
                 const resolveBlend = (rawSrc, rawDst) => {
                     // The legacy BOTH* source values override both halves of the
                     // pair. D3D9 exposes them as one enum; WebGPU exposes the two
@@ -188,7 +190,7 @@
                 const sampleCount = (targets && targets.sampleCount) || 1;
                 return { depthEnabled, depthWrite, depthCompare, depthBias,
                     depthBiasValue: Number.isFinite(rawDepthBias) ? rawDepthBias : 0,
-                    depthBiasSlopeScale, blendEnabled, srcFactor, dstFactor,
+                    depthBiasSlopeScale, blendEnabled, colorBlendMask, srcFactor, dstFactor,
                     blendOp, alphaSrcFactor, alphaDstFactor, alphaBlendOp,
                     blendConstant, cullMode, writeMask, alphaTest, hasDepth,
                     stencilEnabled, stencilFront, stencilBack,
@@ -415,7 +417,7 @@
                         const target = { format, writeMask: index >= outputs ? 0
                             : index === 0 ? pipelineState.writeMask
                                 : pipelineState.extraWriteMasks[index - 1] };
-                        if (pipelineState.blendEnabled &&
+                        if (pipelineState.blendEnabled && ((pipelineState.colorBlendMask ?? 15) & (1 << index)) &&
                                 isBlendableGPUFormat(format, this.deviceFeatures)) {
                             // A8 and X8 can share a physical RGBA texture format.
                             // Read destination-alpha factors from the logical D3D
@@ -434,7 +436,7 @@
                                          dstFactor: factor(pipelineState.alphaDstFactor, true),
                                          operation: pipelineState.alphaBlendOp },
                             };
-                        } else if (pipelineState.blendEnabled &&
+                        } else if (pipelineState.blendEnabled && ((pipelineState.colorBlendMask ?? 15) & (1 << index)) &&
                                 !isBlendableGPUFormat(format, this.deviceFeatures)) {
                             this.warnOnce("float32-blend-disabled-" + format,
                                 "D3D blending was requested for a 32-bit float " +

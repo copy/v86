@@ -37,6 +37,14 @@ function compile(source) {
     throw new Error("no C compiler (clang, i686-w64-mingw32-gcc or gcc) to check the generated header with");
 }
 
+test("native MRT blend masks share a generated state ID without changing SetRenderState layout", async () => {
+    const {NV_RS}=await import("../../src/graphics_adapters/vmware_svga/d9wg_constants.js");
+    assert.equal(P.C.D9WG_NV_RS_COLOR_BLEND_MASK,0x1000);assert.equal(NV_RS.COLOR_BLEND_MASK,P.C.D9WG_NV_RS_COLOR_BLEND_MASK);
+    assert(P.VERSION_MINOR>=12);assert.equal(P.STRUCTS.SetRenderState.size,16);
+    const payload=P.encode("SetRenderState",{device_handle:1,state:NV_RS.COLOR_BLEND_MASK,value:10});
+    assert.equal(new DataView(payload.buffer).getUint32(P.F.SetRenderState.value,true),10);
+});
+
 test("the generated header compiles, and its asserts do fail on a wrong layout", () => {
     const text = header();
     const good = compile(text + "\nint d9wg_header_check;\n");

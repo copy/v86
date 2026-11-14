@@ -96,6 +96,9 @@ function svga_module() {
     for(const [name, value] of Object.entries(P.C)) {
         if(name.startsWith("D9WG_RESOURCE_")) out.push("    " + name.slice("D9WG_RESOURCE_".length) + ": " + value + ",");
     }
+    out.push("};", "", "/** Native NV render-state extensions (SetRenderState). */", "export const NV_RS = {");
+    for(const [name,value] of Object.entries(P.C))
+        if(name.startsWith("D9WG_NV_RS_")) out.push("    " + name.slice("D9WG_NV_RS_".length) + ": " + hex(value) + ",");
     out.push("};", "", "/** Each opcode's payload struct, in bytes: a command's payload is at least this long */",
         "export const PAYLOAD_BYTES = {");
     for(const name of Object.keys(P.COMMANDS)) {

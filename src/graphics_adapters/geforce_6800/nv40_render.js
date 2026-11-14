@@ -1,7 +1,7 @@
 // Hardware method draws -> the shared D9WG/WebGPU executor. VRAM remains the
 // snapshot authority: every submitted target is downloaded before FIFO resumes.
 import {D9WGWriter} from "../vmware_svga/svga3d_d9wg.js";
-import {OP} from "../vmware_svga/d9wg_constants.js";
+import {OP,NV_RS} from "../vmware_svga/d9wg_constants.js";
 import {NV40Texture} from "./nv40_texture.js";
 import {QUERY_REGION_BYTES,READBACK_MAX_BYTES,RESPONSE_OK} from "../renderer_protocol.js";
 const QUERY_COUNT=0x50008;
@@ -77,10 +77,11 @@ export function nv40_depth_state(o,stencilAvailable=true,mode=5)
     }
     return {enabled:depth||stencil,stencil,states:result};
 }
-export function nv40_blend_state(o)
+export function nv40_blend_state(o,active=15)
 {
-    const alpha=!!get(o,0x304),blend=!!get(o,0x310),compare=get(o,0x308,0x207);
-    const result=[[15,+alpha],[25,alpha?comparison(compare):8],[24,get(o,0x30C)&255],[27,+blend]];
+    const mask=((get(o,0x310)?1:0)|(get(o,0x36C)&14))&active;
+    const alpha=!!get(o,0x304),blend=!!mask,compare=get(o,0x308,0x207);
+    const result=[[15,+alpha],[25,alpha?comparison(compare):8],[24,get(o,0x30C)&255],[27,+blend],[NV_RS.COLOR_BLEND_MASK,mask]];
     if(!blend)return result;
     const source=get(o,0x314,0x00010001),destination=get(o,0x318),equation=get(o,0x320,0x80068006);
     const convert=(table,value)=>{if(!table.has(value))throw new RangeError("NV40 unsupported blend enum");return table.get(value);};
@@ -252,17 +253,15 @@ export class NV40Render
         if(this.pending) throw new RangeError("NV40 renderer already busy");
         const enable=get(o,0x220,1),active=enable&15;
         if(enable&~31 || !(active&1) || active!==1 && !(enable&16))throw new RangeError("NV40 unsupported render target enable mask");
-        for(let i=1;i<4;i++)if(active&1<<i && !!(get(o,0x36C)&1<<i)!==!!get(o,0x310))
-            throw new RangeError("NV40 independent MRT blending is not connected");
         const zsa=nv40_depth_state(o,(get(o,0x208)>>>5&7)===2,mode);
         if(get(o,0x142C) || get(o,0x374) || get(o,0x1478) ||
             get(o,0x1828,0x1B02)!==0x1B02 || get(o,0x182C,0x1B02)!==0x1B02)
             throw new RangeError("NV40 raster state is not connected");
-        const blend=nv40_blend_state(o);
+        const blend=nv40_blend_state(o,active);
         const cull=nv40_cull_state(o);
         const target=this.engine.state.target(o);
         if(![21,22,23,113,114,116].includes(target.d3d)) throw new RangeError("NV40 target format is not connected to renderer");
-        if([114,116].includes(target.d3d) && get(o,0x310))throw new RangeError("NV40 FP32 target blending is not connected");
+        if([114,116].includes(target.d3d) && (((get(o,0x310)?1:0)|(get(o,0x36C)&14))&active))throw new RangeError("NV40 FP32 target blending is not connected");
         if(target.d3d===116 && [0,1,2,3].filter(index=>active&1<<index).length>2)
             throw new RangeError("NV40 FP32 MRT exceeds the guaranteed host attachment byte budget");
         const colors=Array.from({length:4},(_,index)=>active&1<<index?this.engine.state.target(o,index):null);

@@ -29,6 +29,14 @@ const { countingWebGPU, frameCommands, batch } = require("./d3d9_webgpu_perf_tes
     assert.deepEqual(second.descriptor.fragment.targets.map(t=>[t.blend.color.srcFactor,t.blend.color.dstFactor]),
         [["dst-alpha","one-minus-dst-alpha"],["one","zero"]]);
     assert.equal(executor.pipelineFor(program,executor.pipelineStateFor(state,mixed),"triangle-list"),first);
+    for(let mask=0;mask<4;mask++){
+        state.renderStates.set(P.C.D9WG_NV_RS_COLOR_BLEND_MASK,mask);
+        const selected=executor.pipelineFor(program,executor.pipelineStateFor(state,mixed),"triangle-list");
+        assert.deepEqual(selected.descriptor.fragment.targets.map(t=>!!t.blend),[!!(mask&1),!!(mask&2)],"native per-target blend mask "+mask);
+        assert.equal(executor.pipelineFor(program,executor.pipelineStateFor(state,mixed),"triangle-list"),selected,"mask participates in the cache key");
+    }
+    state.renderStates.delete(P.C.D9WG_NV_RS_COLOR_BLEND_MASK);
+    assert.equal(executor.pipelineFor(program,executor.pipelineStateFor(state,mixed),"triangle-list"),first,"ordinary D3D restores all-target blending");
     await executor.submit(batch([{opcode:P.OP.RESET,payload:P.encode("ResetDevice",{old_device_handle:0x100002,
         new_device_handle:0x100002,width:800,height:600,backbuffer_format:22})}],false));
     const reset=executor.devices.get(0x100002);

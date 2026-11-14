@@ -4,7 +4,7 @@
 
 export const D9WG_MAGIC = 0x47573944;
 export const D9WG_VERSION_MAJOR = 1;
-export const D9WG_VERSION_MINOR = 11;
+export const D9WG_VERSION_MINOR = 12;
 
 /** The batch flag that makes the executor submit the frame's GPU work */
 export const D9WG_BATCH_FLAG_PRESENT = 1;
@@ -101,6 +101,11 @@ export const KIND = {
     PIXEL_SHADER: 8,
     QUERY: 9,
     STATE_BLOCK: 10,
+};
+
+/** Native NV render-state extensions (SetRenderState). */
+export const NV_RS = {
+    COLOR_BLEND_MASK: 0x1000,
 };
 
 /** Each opcode's payload struct, in bytes: a command's payload is at least this long */

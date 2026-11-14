@@ -7,7 +7,7 @@ import {NVFIFO} from "../../src/graphics_adapters/geforce_6800/nv_fifo.js";
 import {NVDMA} from "../../src/graphics_adapters/geforce_6800/nv_dma.js";
 import {NVTrace} from "../../src/graphics_adapters/geforce_6800/nv_trace.js";
 import {d9wg_commands} from "../../src/graphics_adapters/vmware_svga/svga3d_d9wg.js";
-import {OP,FIELD_LAYOUT} from "../../src/graphics_adapters/vmware_svga/d9wg_constants.js";
+import {OP,FIELD_LAYOUT,NV_RS} from "../../src/graphics_adapters/vmware_svga/d9wg_constants.js";
 import {expand_primitives,nv40_blend_state,nv40_depth_state,nv40_cull_state} from "../../src/graphics_adapters/geforce_6800/nv40_render.js";
 const offset=(name,field)=>FIELD_LAYOUT[name].fields.find(item=>item[0]===field)[1];
 const input={bytes:Uint8Array.of(0,1,2,3,4),count:5,stride:1};
@@ -22,6 +22,10 @@ blendState.methods.set(0x314,0x18003);blendState.methods.set(0x31C,0x40204060);
 assert.equal(new Map(nv40_blend_state(blendState)).get(193),0x40404040,"constant alpha is replicated without changing alpha factors");
 blendState.methods.set(0x318,0x8001);assert.throws(()=>nv40_blend_state(blendState),/mixed constant-color\/constant-alpha/);
 blendState.methods.set(0x31C,0x40404040);assert.equal(new Map(nv40_blend_state(blendState)).get(193),0x40404040);
+const independentBlend={methods:new Map([[0x36C,10]])};
+assert.equal(new Map(nv40_blend_state(independentBlend)).get(27),1,"RT1/RT3 blending does not require RT0 blending");
+assert.equal(new Map(nv40_blend_state(independentBlend)).get(NV_RS.COLOR_BLEND_MASK),10);
+assert.equal(new Map(nv40_blend_state(independentBlend,5)).get(27),0,"inactive targets do not enable blending");
 const depthState={methods:new Map([[0xA74,1],[0xA70,1],[0xA6C,0x203],[0x328,1],[0x344,0x8507]])};
 const depthRegisters=new Map(nv40_depth_state(depthState).states);
 assert.equal(depthRegisters.get(23),4);assert.equal(depthRegisters.get(55),7);
@@ -475,13 +479,29 @@ try
         method(0x208,0x14C);for(const at of [0x20C,0x21C,0x280,0x284])method(at,128);
         rejectFloatTarget(/attachment byte budget/);
         method(0x220,1);method(0x310,1);rejectFloatTarget(/FP32 target blending/);method(0x310,0);
+        method(0x220,0x13);method(0x36C,2);rejectFloatTarget(/FP32 target blending/);method(0x36C,0);
         method(0x220,0x13);mrtColors[0]=[-2,0,3,1];mrtColors[1]=[0,4,0,.5];await mrtDraw(true);
         for(let index=0;index<2;index++)assert.deepEqual([...new Float32Array(vram.buffer,mrtOffsets[index],4)],mrtColors[index],"two RGBA32F MRTs preserve full precision");
         method(0x208,0x14D);method(0x220,0x1F);for(const at of [0x20C,0x21C,0x280,0x284])method(at,32);
         for(let index=0;index<4;index++)mrtColors[index]=[[-2,4,8,16][index],0,0,1];await mrtDraw(true);
         for(let index=0;index<4;index++)assert.equal(view.getFloat32(mrtOffsets[index],true),mrtColors[index][0],"four R32F MRTs preserve scalar outputs");
         console.log("PASS: real WebGPU two RGBA32F/four R32F attachments, HDR outputs and rejected FP32 blend/budget states");
-        method(0x208,0x148);mrtColors.splice(0,4,[1,0,0,1],[0,1,0,1],[0,0,1,1],[1,1,0,.5]);await mrtDraw(true);
+        method(0x208,0x148);mrtColors.splice(0,4,[1,0,0,1],[0,1,0,1],[0,0,1,1],[1,1,0,0]);
+        method(0x314,0x00010001);method(0x318,0x00010001);method(0x320,0x80068006);
+        for(let mask=0;mask<16;mask++)
+        {
+            for(const at of mrtOffsets)vram.fill(64,at,at+256);
+            method(0x310,mask&1);method(0x36C,mask&14);await mrtDraw();
+            for(let index=0;index<4;index++)
+            {
+                const color=mrtColors[index],source=[color[2],color[1],color[0],color[3]].map(x=>Math.round(x*255));
+                const expected=source.map(x=>mask&1<<index?Math.min(255,x+64):x);
+                assert.deepEqual([...vram.subarray(mrtOffsets[index],mrtOffsets[index]+4)],expected,
+                    "independent MRT blend mask "+mask+" target "+index);
+            }
+        }
+        method(0x310,0);method(0x36C,0);mrtColors[3][3]=.5;await mrtDraw(true);
+        console.log("PASS: real WebGPU all sixteen independent MRT blend masks, including RT0 disabled");
         method(0x370,0x1020);method(0x324,0);mrtColors[1]=[1,0,0,.25];mrtColors[3]=[0,0,0,.25];
         await mrtDraw();
         assert.deepEqual([...vram.subarray(0x30000,0x30004)],[0,255,255,255],"MRT1 independent red write mask");

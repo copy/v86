@@ -46,7 +46,10 @@
     ] },
     { define: "D9WG_MAGIC", c: "0x47573944u", text: ["#define D9WG_MAGIC 0x47573944u /* \"D9WG\" */"] },
     { define: "D9WG_VERSION_MAJOR", c: "1u", text: ["#define D9WG_VERSION_MAJOR 1u"] },
-    { define: "D9WG_VERSION_MINOR", c: "11u", text: ["#define D9WG_VERSION_MINOR 11u"] },
+    { comment: ["/* Native NV render-state extension, sent through SetRenderState. A missing",
+        " * mask retains ordinary D3D all-target blending; bits 0..3 select targets. */"] },
+    { define: "D9WG_NV_RS_COLOR_BLEND_MASK", c: "0x1000u", text: ["#define D9WG_NV_RS_COLOR_BLEND_MASK 0x1000u"] },
+    { define: "D9WG_VERSION_MINOR", c: "12u", text: ["#define D9WG_VERSION_MINOR 12u"] },
     { raw: [
         "",
     ] },
