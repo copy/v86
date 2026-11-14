@@ -1,0 +1,167 @@
+{
+  "date": "2026-11-14",
+  "scope": "Original saved native 3DMark99 IQ BMPs; metadata band excluded consistently with proxy comparisons. No image was modified.",
+  "drivers": {
+    "xp": "93.71",
+    "win98": "81.98"
+  },
+  "result": "IQ01-07 and IQ09 are pixel exact across both native driver versions. IQ08 differs at one pixel, three channel bytes; maximum channel difference 40.",
+  "visualReview": "Side-by-side native/proxy IQ08 and IQ09 retain matching scene geometry, textures and HUD. Amplified differences concentrate in texture detail and geometry edges.",
+  "referenceResiduals": "Keep the per-pixel proxy residuals in each original fixture; this cross-driver agreement is not a proof that a shared front-end precision difference is correct.",
+  "remaining": "Fresh corrected Win98 all-26 run and the other benchmark gates remain open.",
+  "images": [
+    {
+      "case": 1,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "mean_absolute_channel_error": 0.0,
+      "max_channel_error": 0,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ01I_NV98CF.bmp",
+        "sha256": "c305d327f852c41d7fe5561f6efb44167a9f289887f50a7da90eb5dfb1f36476"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ01I_NVFULL.bmp",
+        "sha256": "c305d327f852c41d7fe5561f6efb44167a9f289887f50a7da90eb5dfb1f36476"
+      }
+    },
+    {
+      "case": 2,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "mean_absolute_channel_error": 0.0,
+      "max_channel_error": 0,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ02I_NV98CF.bmp",
+        "sha256": "4820e0ad4e1fa9f30e3945485cfa3ad4e6b4dab9789654e0514c972c59a97c7d"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ02I_NVFULL.bmp",
+        "sha256": "4820e0ad4e1fa9f30e3945485cfa3ad4e6b4dab9789654e0514c972c59a97c7d"
+      }
+    },
+    {
+      "case": 3,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "mean_absolute_channel_error": 0.0,
+      "max_channel_error": 0,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ03I_NV98CF.bmp",
+        "sha256": "a994fec9da1403fca97d4013a53fe591b71e2e92cda997af13dc8700bf837593"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ03I_NVFULL.bmp",
+        "sha256": "a994fec9da1403fca97d4013a53fe591b71e2e92cda997af13dc8700bf837593"
+      }
+    },
+    {
+      "case": 4,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "mean_absolute_channel_error": 0.0,
+      "max_channel_error": 0,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ04I_NV98CF.bmp",
+        "sha256": "9ba35cd803e64874e97e18b80ab1a9f6000fa2568fdf7bd1cad8a9939854fd22"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ04I_NVFULL.bmp",
+        "sha256": "9ba35cd803e64874e97e18b80ab1a9f6000fa2568fdf7bd1cad8a9939854fd22"
+      }
+    },
+    {
+      "case": 5,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "mean_absolute_channel_error": 0.0,
+      "max_channel_error": 0,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ05I_NV98CF.bmp",
+        "sha256": "cb5f831176675df21eb15dd372188aa66b639899354cb6323a5bc500ebc1f15c"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ05I_NVFULL.bmp",
+        "sha256": "cb5f831176675df21eb15dd372188aa66b639899354cb6323a5bc500ebc1f15c"
+      }
+    },
+    {
+      "case": 6,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "mean_absolute_channel_error": 0.0,
+      "max_channel_error": 0,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ06I_NV98CF.bmp",
+        "sha256": "3bbf7e6ba995eae48b4422ae8075e479fcbdadbebd330fdd6a81f06254fed116"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ06I_NVFULL.bmp",
+        "sha256": "3bbf7e6ba995eae48b4422ae8075e479fcbdadbebd330fdd6a81f06254fed116"
+      }
+    },
+    {
+      "case": 7,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "mean_absolute_channel_error": 0.0,
+      "max_channel_error": 0,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ07I_NV98CF.bmp",
+        "sha256": "a72354061e2ff957478ff4393766b629fdf78ee0d914040708e5b183a8ebd8d3"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ07I_NVFULL.bmp",
+        "sha256": "a72354061e2ff957478ff4393766b629fdf78ee0d914040708e5b183a8ebd8d3"
+      }
+    },
+    {
+      "case": 8,
+      "width": 800,
+      "height": 664,
+      "roi_y": 64,
+      "different_pixels": 1,
+      "mean_absolute_channel_error": 7.222222222222222e-05,
+      "max_channel_error": 40,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ08I_NV98CF.bmp",
+        "sha256": "e0d0211272cda0c555c3281e2e96b36b6f410bbf1ce4151e86ff22ebf230fa73"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ08I_NVFULL.bmp",
+        "sha256": "9d9fb949dbfed7a2b50f25df292722e877d52121ae809c7d80612ad45bd91c86"
+      }
+    },
+    {
+      "case": 9,
+      "width": 800,
+      "height": 664,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "mean_absolute_channel_error": 0.0,
+      "max_channel_error": 0,
+      "win98": {
+        "file": "build/nv40-win98-99-iq-corner-fixed-artifacts/Quality_IQ09I_NV98CF.bmp",
+        "sha256": "18e54b2fc9000bcde5f9c43bda50bc0b7bc1aaf19ef5dbc01b2cdd1e2aec68b1"
+      },
+      "xp": {
+        "file": "build/nv40-xp99-full-saved-artifacts/Quality_IQ09I_NVFULL.bmp",
+        "sha256": "18e54b2fc9000bcde5f9c43bda50bc0b7bc1aaf19ef5dbc01b2cdd1e2aec68b1"
+      }
+    }
+  ]
+}
