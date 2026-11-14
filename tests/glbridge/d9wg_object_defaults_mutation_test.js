@@ -11,7 +11,7 @@ const assert = require("node:assert/strict"), fs = require("node:fs"), path = re
         ["SDK8 alpha", "header", "case 2u: return 0x3F800000u;", "case 2u: return 0x3F800000u;\n        case 3u: return 0x3F800000u;"],
         ["SDK8 ambient", "header", "case 2u: return 0x3F800000u;", "case 2u: return 0x3F800000u;\n        case 4u: return 0x3F800000u;"],
         ["zero clip planes", "header", "const uint32_t zero = 0;", "const uint32_t zero = 0x3f800000u;"],
-        ["Reset objects", "source", "d9wg_object_defaults(9, &device->material, device->clip_planes, D9_MAX_CLIP_PLANES);", "/* retain old objects */"],
+        ["Reset objects", "source", "d9wg_object_defaults(api, &device->material, device->clip_planes, D9_MAX_CLIP_PLANES);", "/* retain old objects */"],
         ["Reset low light definitions", "source", "ZeroMemory(device->light_set, sizeof(device->light_set));", "/* retain definitions */"],
         ["Reset low light enables", "source", "ZeroMemory(device->light_enabled, sizeof(device->light_enabled));", "/* retain enables */"],
         ["Reset sparse lights", "source", "d9wg_light_free(&device->extra_lights);\n    ZeroMemory(device->lights", "/* retain sparse lights */\n    ZeroMemory(device->lights"],

@@ -6,7 +6,7 @@
         const {
             D9WG, RESOURCE_BUFFER_INDEX, BUFFER_USAGE_INDEX, BUFFER_USAGE_COPY_DST, BUFFER_USAGE_VERTEX,
             alignUp, D3DFMT_INDEX32, D3DUSAGE_DEPTHSTENCIL, isFourCCDepthFormat, D3DUSAGE_RENDERTARGET,
-            D9WG_USAGE_DDRAW_INDEXED, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
+            D9WG_USAGE_DDRAW_INDEXED, D9WG_USAGE_DDRAW_XRGB_BITS, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
             DEPTH_FORMAT, formatToGPU, isRenderableGPUFormat, srgbSiblingOf, TEXTURE_USAGE_RENDER_ATTACHMENT,
             TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_COPY_DST, TEXTURE_USAGE_COPY_SRC, isCompressedFormat, RESOURCE_TEXTURE_2D,
             gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, bcNeedsExpansion, expandBCBlocks, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,
@@ -443,6 +443,7 @@
                     multisampleType, multisampleQuality,
                     gpuBytesPerTexel: ddIndexed ? 1 : bcExpanded ? 4 : gpuBytesPerTexel(format),
                     ddIndexed,
+                    ddXrgbBits: (usage & D9WG_USAGE_DDRAW_XRGB_BITS) !== 0 && format === 22,
                     textureDescriptor,
                     levelCount: Math.max(1, levelCount),
                     // A subresource the guest never initializes has undefined
@@ -572,7 +573,7 @@
                             expandRowToGPU(resource.format, source,
                                 slice * slicePitch + row * rowPitch, width,
                                 expanded, slice * expandedSlicePitch +
-                                    row * width * gpuBpp, palette);
+                                    row * width * gpuBpp, palette, resource.ddXrgbBits);
                         }
                     }
                     payload = expanded;
@@ -648,6 +649,7 @@
                     format, usage, width: edge, height: edge, layerCount: 6,
                     gpuBytesPerTexel: ddIndexed ? 1 : bcExpanded ? 4 : gpuBytesPerTexel(format),
                     ddIndexed,
+                    ddXrgbBits: (usage & D9WG_USAGE_DDRAW_XRGB_BITS) !== 0 && format === 22,
                     textureDescriptor,
                     levelCount: textureDescriptor.mipLevelCount,
                     // Keyed by level*6+face, so the incomplete-mip warning counts a

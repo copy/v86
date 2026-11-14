@@ -401,6 +401,7 @@
     }
 
     function samplingSwizzle(format) {
+        if (format === D3DFMT_X8R8G8B8) return "rgb1";
         if (format === D3DFMT_R16F || format === D3DFMT_R32F) return "r111";
         if (format === D3DFMT_G16R16F || format === D3DFMT_G32R32F) return "rg11";
         if (format === D3DFMT_ATI1N) return "rrrr";
@@ -514,7 +515,7 @@
     }
 
     function packGPUReadbackRow(format, gpuFormat, source, sourceOffset,
-            width, destination, destinationOffset) {
+            width, destination, destinationOffset, preserveXrgbBits = false) {
         if ((format === D3DFMT_R16F || format === D3DFMT_G16R16F || format === D3DFMT_A16B16G16R16F)
                 && gpuFormat === formatToGPU(format)) {
             const bytes = width * d3dBytesPerTexel(format);
@@ -585,7 +586,7 @@
                 destination[destinationAt] = unorm(b, 255);
                 destination[destinationAt + 1] = unorm(g, 255);
                 destination[destinationAt + 2] = unorm(r, 255);
-                destination[destinationAt + 3] = format === D3DFMT_A8R8G8B8
+                destination[destinationAt + 3] = format === D3DFMT_A8R8G8B8 || preserveXrgbBits
                     ? unorm(a, 255) : 0xff;
                 break;
             case D3DFMT_R5G6B5:
@@ -734,7 +735,7 @@
     const UNORM6 = Uint8Array.from({ length: 64 }, (_, v) => expandUNorm8(v, 6));
     const UNORM3 = Uint8Array.from({ length: 8 }, (_, v) => expandUNorm8(v, 3));
     function expandRowToGPU(format, source, sourceOffset, count, dest,
-            destOffset, palette) {
+            destOffset, palette, preserveXrgbBits = false) {
         if (format === D3DFMT_A8R8G8B8 || format === D3DFMT_R16F || format === D3DFMT_G16R16F ||
                 format === D3DFMT_A16B16G16R16F || format === D3DFMT_R32F || format === D3DFMT_G32R32F ||
                 format === D3DFMT_A32B32G32R32F) {
@@ -884,7 +885,8 @@
                     (source[sourceOffset + i * 4 + 3] << 24);
                 b = value & 0xff; g = (value >>> 8) & 0xff;
                 r = (value >>> 16) & 0xff;
-                a = format === D3DFMT_A8R8G8B8 ? (value >>> 24) & 0xff : 0xff;
+                a = format === D3DFMT_A8R8G8B8 || preserveXrgbBits
+                    ? (value >>> 24) & 0xff : 0xff;
                 break;
             }
             case D3DFMT_R5G6B5: {
@@ -1012,11 +1014,11 @@
 
     // DirectDraw COLORFILL carries the surface's packed native pixel. Reuse
     // upload conversion so channel defaults and narrow UNORM replication agree.
-    function nativeFillRGBA(format, value) {
+    function nativeFillRGBA(format, value, preserveXrgbBits = false) {
         const source = new Uint8Array(4);
         new DataView(source.buffer).setUint32(0, value, true);
         const converted = new Uint8Array(gpuBytesPerTexel(format));
-        expandRowToGPU(format, source, 0, 1, converted, 0);
+        expandRowToGPU(format, source, 0, 1, converted, 0, null, preserveXrgbBits);
         if (formatToGPU(format) === "bgra8unorm")
             return [converted[2] / 255, converted[1] / 255, converted[0] / 255, converted[3] / 255];
         if (isHalfFloatExpansionFormat(format)) {

@@ -32,7 +32,7 @@ const S = require("../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"), refer
     const fresh = executor.devices.get(32);
     assert.deepEqual(fresh.material, S.materialDefaults(9)); assert.deepEqual(fresh.clipPlanes, Array.from({length: 6}, () => [0, 0, 0, 0])); assert.equal(fresh.lights.size, 0); assert.equal(fresh.lightEnabled.size, 0);
     function extract(name) {
-        const m = new RegExp("static void " + name + "\\([^;]*?\\)\\s*\\{").exec(source); assert(m, name);
+        const m = new RegExp("static (?:void|UINT) " + name + "\\([^;]*?\\)\\s*\\{").exec(source); assert(m, name);
         let at = source.indexOf("{", m.index) + 1, depth = 1;
         for (; depth; ++at) { assert(at < source.length); if (source[at] === "{") ++depth; if (source[at] === "}") --depth; }
         return source.slice(m.index, at);
@@ -63,11 +63,14 @@ static void release_light(void *p){++freed;free(p);}
 typedef struct {float MaxPointSize;} D3DCAPS9;
 static void fill_caps(D3DCAPS9 *c){c->MaxPointSize=256;}
 static void d9wg_clip_status_init(UINT *p){*p=0;}
-typedef struct {UINT current_palette,clip_status;BOOL clip_status_valid;
+typedef struct {UINT compatibility_api;} D9Parent;
+typedef struct {D9Parent *parent;UINT current_palette,clip_status;BOOL clip_status_valid;
  DWORD render_states[256],texture_stage_states[8][33],sampler_states[20][14];
  float material[17],clip_planes[6][4];Light lights[8];BOOL light_set[8],light_enabled[8];D9WGLightState *extra_lights;
  struct {UINT frequency;} streams[16];float transforms[512][16];struct {BOOL EnableAutoDepthStencil;} present;
 } D9Device;
+${extract("device_compatibility_api")}
+${extract("device_init_states_for_api")}
 ${extract("device_init_states")}
 static UINT emitted,attempts;static BOOL fail;static D9WGSetMaterial command;
 static BOOL emit_command(uint16_t op,const void *p,uint32_t n){++attempts;if(fail)return FALSE;if(op!=D9WG_OP_SET_MATERIAL||n!=sizeof(command))return FALSE;++emitted;memcpy(&command,p,n);return TRUE;}
@@ -83,7 +86,7 @@ int main(void){
  UINT before=emitted;CHECK(emit_object_default_patches(77,m.material));CHECK(emitted-before==(api==8));
  if(api==8){CHECK(command.device_handle==77&&!memcmp(command.diffuse,refs[1],68));fail=TRUE;UINT old=attempts;CHECK(!emit_object_default_patches(77,m.material)&&attempts==old+1);fail=FALSE;CHECK(!memcmp(m.material,refs[1],68));}}
  CHECK(emitted==1&&attempts==2);
- static D9Device d;memset(&d,0x5a,sizeof(d));d.extra_lights=0;CHECK(d9wg_light_get(&d.extra_lights,8,1)&&d9wg_light_get(&d.extra_lights,0xffffffffu,1));
+ static D9Device d;D9Parent parent={9};memset(&d,0x5a,sizeof(d));d.parent=&parent;d.extra_lights=0;CHECK(d9wg_light_get(&d.extra_lights,8,1)&&d9wg_light_get(&d.extra_lights,0xffffffffu,1));
  device_init_states(&d);CHECK(!d.extra_lights&&freed==2);CHECK(zero(d.material,sizeof(d.material))&&zero(d.clip_planes,sizeof(d.clip_planes)));
  CHECK(zero(d.lights,sizeof(d.lights))&&zero(d.light_set,sizeof(d.light_set))&&zero(d.light_enabled,sizeof(d.light_enabled)));
  device_init_states(&d);CHECK(!d.extra_lights&&freed==2);

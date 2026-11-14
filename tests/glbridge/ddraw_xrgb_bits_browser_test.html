@@ -1,0 +1,56 @@
+<!doctype html><meta charset="utf-8"><title>DirectDraw XRGB native bits</title><canvas id="screen" width="4" height="1"></canvas><pre id="result">RUNNING</pre>
+<script src="../../src/browser/glbridge/webgpu_host.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_wire.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_formats.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_resources.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d9wg_present.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js"></script>
+<script src="../../src/browser/glbridge/d3d9-webgpu/ddraw_ops.js"></script>
+<script>
+(async()=>{
+'use strict';const P=D9WGProtocol,C=P.C,observations=[];let gpu,request=0;
+const check=(v,m)=>{if(!v)throw Error(m)},cmd=(n,p,blobs)=>({opcode:P.OP[n],payload:p,...(blobs?{blobs}: {})});
+const words=a=>new Uint8Array(new Uint32Array(a).buffer),upload=(h,a,face=0)=>cmd('UPDATE_TEXTURE',{resource_handle:h,width:4,height:1,depth:1,z:face,row_pitch:16,data_bytes:16},[{field:'data_offset',data:words(a)}]);
+const texture=(h,format,raw,target=false,cube=false)=>cmd(cube?'CREATE_TEXTURE_CUBE':'CREATE_TEXTURE_2D',{device_handle:1,resource_handle:h,...(cube?{edge_length:4}:{width:4,height:1}),level_count:1,format,usage:(raw?C.D9WG_USAGE_DDRAW_XRGB_BITS:0)|(target?1:0)});
+const blit=(src,dst,flags=0,face=0)=>cmd('DD_BLT',{device_handle:1,source_handle:src,destination_handle:dst,source_face:face,source_rect:[0,0,4,1],destination_rect:[0,0,4,1],flags});
+async function send(commands){await gpu.submit(P.encodeBatch(commands),{ownerToken:84,writeGuestMemory(){}});await gpu.checkpointIdle();}
+async function read(h,format=22,face=0){let result=null;const id=++request;await gpu.submit(P.encodeBatch([cmd('READBACK_SURFACE',{device_handle:1,texture_handle:h,level:0,format,width:4,height:1,row_count:1,destination_pitch:16,destination_bytes:16,response_offset:C.D9WG_READBACK_REGION_OFFSET,request_id:id,face})]),{ownerToken:84,writeGuestMemory(address,bytes){if(bytes.length!==32)return;const v=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);if(v.getUint32(0,true)!==id)return;check(v.getUint32(P.F.ReadbackResponse.status,true)===C.D9WG_RESPONSE_OK,'readback rejected');result=Array.from({length:4},(_,i)=>v.getUint32(16+4*i,true));}});await gpu.checkpointIdle();check(result,'Missing GPU readback');return result;}
+async function expect(name,h,wanted,format=22,face=0){const actual=await read(h,format,face);observations.push({name,actual,wanted});check(JSON.stringify(actual)===JSON.stringify(wanted.map(x=>x>>>0)),name+' '+actual.map(x=>x.toString(16)));}
+try{
+ gpu=new D3D9WebGPUExecutor(document.querySelector('#screen'),{strict:true,useShaderWorker:false});await gpu.initialize();
+ await send([cmd('CREATE_DEVICE',{device_handle:1,width:4,height:1}),texture(2,22,true),texture(3,22,true),texture(4,21,false),texture(5,22,false),texture(6,22,true,false,true),texture(12,22,true,true),texture(13,21,false,true)]);
+ const source=[0x77010203,0x00010203,0x77ff00ff,0x00ff00ff],filled=[0xcccccccc,0xcccccccc,0xcccccccc,0xcccccccc];
+ await send([upload(2,source),upload(3,filled),cmd('DD_SET_COLOR_KEY',{surface_handle:2,key_kind:0,color_low:0xff00ff,color_high:0xff00ff,present:1}),blit(2,3,C.D9WG_DDBLT_KEY_SOURCE)]);
+ await expect('Keyed GPU blit preserves source X and untouched destination X',3,[source[0],source[1],filled[2],filled[3]]);
+ await send([blit(2,3)]);await expect('Exact native XRGB GPU copy',3,source);
+ await send([blit(2,4)]);await expect('XRGB to ARGB converts alpha to opaque',4,source.map(v=>(v|0xff000000)>>>0),21);
+ await send([upload(4,source),blit(4,3)]);await expect('ARGB to XRGB ignores input alpha',3,source.map(v=>(v|0xff000000)>>>0));
+ await send([upload(5,source)]);await expect('Ordinary D3D9 XRGB retains opaque storage policy',5,source.map(v=>(v|0xff000000)>>>0));
+ await send([upload(6,source,3),blit(6,3,0,3)]);await expect('Cube upload preserves X byte',3,source);
+ await send([cmd('DD_BLT',{device_handle:1,destination_handle:3,destination_rect:[0,0,4,1],flags:C.D9WG_DDBLT_COLOR_FILL,fill_color:0x17aabbcc})]);await expect('Packed DirectDraw fill retains unused byte',3,[0x17aabbcc,0x17aabbcc,0x17aabbcc,0x17aabbcc]);
+ // Exercise the actual fixed-function shader and target-alpha blend mapping.
+ const verts=new Float32Array([0,0,0.5,1,0,0,4,0,0.5,1,1,0,0,1,0.5,1,0,1,4,1,0.5,1,1,1]);
+ const elements=new Uint8Array([...P.encode('VertexElement',{stream:0,offset:0,type:3,usage:9}),...P.encode('VertexElement',{stream:0,offset:16,type:1,usage:5})]);
+ const fvf=P.encode('SetFVF',{device_handle:1,fvf:0x104,element_count:2}),fvfPayload=new Uint8Array(fvf.length+elements.length);fvfPayload.set(fvf);fvfPayload.set(elements,fvf.length);
+ const rs=(state,value)=>cmd('SET_RENDER_STATE',{device_handle:1,state,value}),ts=(state,value)=>cmd('SET_TEXTURE_STAGE_STATE',{device_handle:1,stage:0,state,value});
+ const draw=[cmd('DRAW_PRIMITIVE',{device_handle:1,primitive_type:5,primitive_count:2})];
+ await send([upload(2,[0x00223344,0x17223344,0x77223344,0xcc223344]),cmd('CREATE_BUFFER',{device_handle:1,resource_handle:20,resource_kind:1,byte_count:verts.byteLength}),cmd('UPDATE_BUFFER',{resource_handle:20,byte_count:verts.byteLength},[{field:'data_offset',data:new Uint8Array(verts.buffer)}]),{opcode:P.OP.SET_FVF,payload:fvfPayload},cmd('SET_STREAM_SOURCE',{device_handle:1,buffer_handle:20,stride:24}),cmd('SET_VIEWPORT',{device_handle:1,width:4,height:1,max_z:1}),cmd('SET_TEXTURE',{device_handle:1,stage:0,texture_handle:2}),ts(1,2),ts(2,2),ts(4,2),ts(5,2),rs(7,0),rs(22,1),rs(137,0),rs(27,0),cmd('SET_DEPTH_STENCIL_SURFACE_LEVEL',{device_handle:1,depth_texture_handle:0}),cmd('SET_RENDER_TARGET',{device_handle:1,color_texture_handle:13}),...draw]);
+ await expect('XRGB fixed-function texture sampling supplies alpha one',13,[0xff223344,0xff223344,0xff223344,0xff223344],21);
+ await send([upload(12,[0x00111111,0x17111111,0x77111111,0xcc111111]),cmd('SET_RENDER_TARGET',{device_handle:1,color_texture_handle:12}),rs(27,1),rs(19,7),rs(20,1),...draw]);
+ await expect('XRGB destination alpha remains logically one for blending',12,[0xff223344,0xff223344,0xff223344,0xff223344]);
+ check(!gpu.stats.commandsFailed&&!gpu.stats.droppedDraws&&!gpu.stats.renderTargetReadbackFailures&&!gpu.gpuErrors.errors.length&&!gpu.hostErrors.length,'GPU or host errors');
+ await gpu.endOwnerSessions(84);await gpu.checkpointIdle();
+ await fetch('/__test_file?name=ddraw-xrgb-bits.json',{method:'POST',body:JSON.stringify({observations,stats:gpu.stats,gpuErrors:gpu.gpuErrors.errors,hostErrors:gpu.hostErrors},null,2)});
+ document.querySelector('#result').textContent='PASS DirectDraw XRGB: '+observations.length+' exact GPU readbacks, raw/opaque/cube/copy/key/fill/FFP/target-alpha paths';
+}catch(e){await fetch('/__test_file?name=ddraw-xrgb-bits.json',{method:'POST',body:JSON.stringify({failed:true,error:String(e.stack),observations,stats:gpu&&gpu.stats,gpuErrors:gpu&&gpu.gpuErrors.errors,hostErrors:gpu&&gpu.hostErrors},null,2)});document.querySelector('#result').textContent='FAIL '+e.stack;}
+})();
+</script>

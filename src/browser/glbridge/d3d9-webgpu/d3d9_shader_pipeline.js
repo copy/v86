@@ -484,6 +484,7 @@
 
     function sampleSwizzleExpression(expression, swizzle) {
         if (!swizzle) return expression;
+        if (swizzle === "rgb1") return "vec4<f32>((" + expression + ").rgb, 1.0)";
         if (swizzle === "r111") return "vec4<f32>((" + expression + ").r, 1.0, 1.0, 1.0)";
         if (swizzle === "rg11") return "vec4<f32>((" + expression + ").rg, 1.0, 1.0)";
         if (swizzle === "rrrr") return "vec4<f32>((" + expression + ").r)";

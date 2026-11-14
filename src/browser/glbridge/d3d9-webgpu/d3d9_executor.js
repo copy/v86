@@ -300,6 +300,7 @@
     // because DirectDraw blits P8 into P8 and a later palette change must
     // still change those pixels' colour.
     const D9WG_USAGE_DDRAW_INDEXED = D9WG.C.D9WG_USAGE_DDRAW_INDEXED;
+    const D9WG_USAGE_DDRAW_XRGB_BITS = D9WG.C.D9WG_USAGE_DDRAW_XRGB_BITS;
     const D3DMULTISAMPLE_NONE = 0;
     const D3DMULTISAMPLE_4_SAMPLES = 4;
 
@@ -2744,7 +2745,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     for (let row = 0; row < rowCount; ++row)
                         packGPUReadbackRow(format, gpuFormat, mappedBytes,
                             row * gpuRowPitch, width, packed,
-                            row * destinationPitch);
+                            row * destinationPitch, !!(resource && resource.ddXrgbBits));
                     if (stencilReadback) {
                         const mask = format === 73 ? 1 : format === 79 ? 15 : 255;
                         for (let row = 0; row < rowCount; ++row)
@@ -6798,7 +6799,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
     const resourceMethods = resourceFactory.createMethods({
         D9WG, RESOURCE_BUFFER_INDEX, BUFFER_USAGE_INDEX, BUFFER_USAGE_COPY_DST, BUFFER_USAGE_VERTEX,
         alignUp, D3DFMT_INDEX32, D3DUSAGE_DEPTHSTENCIL, isFourCCDepthFormat, D3DUSAGE_RENDERTARGET,
-        D9WG_USAGE_DDRAW_INDEXED, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
+        D9WG_USAGE_DDRAW_INDEXED, D9WG_USAGE_DDRAW_XRGB_BITS, isPalettizedFormat, sampleCountForD3D, D3DUSAGE_AUTOGENMIPMAP, fullMipLevelCount, autoGenMipsSupported, autoGenDefaultFilter,
         DEPTH_FORMAT, formatToGPU, isRenderableGPUFormat, srgbSiblingOf, TEXTURE_USAGE_RENDER_ATTACHMENT,
         TEXTURE_USAGE_TEXTURE_BINDING, TEXTURE_USAGE_COPY_DST, TEXTURE_USAGE_COPY_SRC, isCompressedFormat, RESOURCE_TEXTURE_2D,
         gpuBytesPerTexel, expandRowToGPU, blockAlignedCopyExtent, bcNeedsExpansion, expandBCBlocks, RESOURCE_TEXTURE_CUBE, RESOURCE_TEXTURE_VOLUME,

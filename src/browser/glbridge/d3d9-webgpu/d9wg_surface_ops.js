@@ -166,7 +166,9 @@ fn d9dd_vs_main(@builtin(vertex_index) index: u32) -> D9DDBlitOutput {
             } else if (indexedDestination)
                 body.push("    return vec4<u32>(index, 0u, 0u, 0u);");
             else if (variant.paletteResolve)
-                body.push("    return d9dd_palette.entries[index];");
+                body.push(variant.forceOpaqueAlpha
+                    ? "    return vec4<f32>(d9dd_palette.entries[index].rgb, 1.0);"
+                    : "    return d9dd_palette.entries[index];");
             else
                 // Native unkeyed P8 -> RGB surface copies use a grey ramp.
                 // This also supplies the fallback for a missing palette in
@@ -189,6 +191,7 @@ fn d9dd_vs_main(@builtin(vertex_index) index: u32) -> D9DDBlitOutput {
     }`);
             body.push(indexedDestination
                 ? "    return vec4<u32>(u32(round(color.r * 255.0)), 0u, 0u, 0u);"
+                : variant.forceOpaqueAlpha ? "    return vec4<f32>(color.rgb, 1.0);"
                 : "    return color;");
         }
         lines.push(`
@@ -1172,6 +1175,7 @@ struct Params { source: vec4<f32>, destination: vec4<f32> };
                         sourceSize: [sourceWidth, sourceHeight],
                         viewport: clipped.viewport,
                         colorKey: sourceColorKey,
+                        forceOpaqueAlpha: !!source.ddXrgbBits,
                         destinationColorKey,
                         destinationTexture: sourceTexture,
                         destinationLevel: 0,
@@ -1192,6 +1196,7 @@ struct Params { source: vec4<f32>, destination: vec4<f32> };
                 const key = [variant.destinationFormat, variant.sourceKind,
                     variant.destinationKind, variant.colorKey ? "key" : "-", variant.keyToAlpha ? "alpha" : "-",
                     variant.destinationKey ? "dest-key" : "-",
+                    variant.forceOpaqueAlpha ? "opaque" : "-",
                     variant.paletteResolve ? "pal" : "-",
                     variant.filterPoint ? "point" : "linear"].join("|");
                 if (!this.ddBlitPipelines) this.ddBlitPipelines = new Map();
@@ -1260,6 +1265,7 @@ struct Params { source: vec4<f32>, destination: vec4<f32> };
                     destinationFormat: op.destinationView
                         ? op.destinationFormat : this.format,
                     colorKey: !!op.colorKey, keyToAlpha: !!op.keyToAlpha,
+                    forceOpaqueAlpha: !!op.forceOpaqueAlpha,
                     destinationKey: !!op.destinationColorKey,
                     paletteResolve: !!op.paletteBuffer,
                     filterPoint: !!op.filterPoint,

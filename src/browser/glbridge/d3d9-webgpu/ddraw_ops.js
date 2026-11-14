@@ -237,7 +237,7 @@
                     fill: destinationIndexed ? null : formats.nativeFillRGBA(
                         destination ? destination.format :
                             state.ddDisplayMode && state.ddDisplayMode.bitsPerPixel === 16 ? 23 : 22,
-                        fillColor),
+                        fillColor, !!(destination && destination.ddXrgbBits)),
                     fillIndex: destinationIndexed ? (fillColor & 0xff) : 0,
                     destinationColorKey,
                     destinationTexture: destination
@@ -338,6 +338,13 @@
                 sourceLevel === destinationLevel &&
                 sourceFace === destinationFace);
 
+            const sameXrgbBits = !!(source && destination &&
+                source.ddXrgbBits && destination.ddXrgbBits &&
+                source.format === destination.format);
+            const forceOpaqueAlpha = !sameXrgbBits && !!(
+                (source && source.ddXrgbBits) ||
+                (destination && destination.ddXrgbBits));
+
             // The straight copy: nothing to key, nothing to mirror, no scale,
             // no format change, and two real textures. copyTextureToTexture is
             // both cheaper and exact, and it works for r8uint where a render
@@ -345,7 +352,7 @@
             const scaled = width !== clipped.viewport[2] ||
                 height !== clipped.viewport[3];
             if (!colorKey && !destinationColorKey && !mirrorX && !mirrorY &&
-                    !scaled && source && !selfBlt &&
+                    !scaled && !forceOpaqueAlpha && source && !selfBlt &&
                     destination && sourceFormat === destinationFormat &&
                     [src.left, src.top, width, height].every(Number.isInteger)) {
                 const frame = this.ensureFrame();
@@ -402,6 +409,7 @@
                 sourceSize: [sourceWidth, sourceHeight],
                 viewport: clipped.viewport,
                 colorKey: colorKey || null,
+                forceOpaqueAlpha,
                 destinationColorKey,
                 destinationTexture: destination
                     ? destination.gpuTexture : this.deviceBackBuffer(state),

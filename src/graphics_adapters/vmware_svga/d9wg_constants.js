@@ -4,7 +4,7 @@
 
 export const D9WG_MAGIC = 0x47573944;
 export const D9WG_VERSION_MAJOR = 1;
-export const D9WG_VERSION_MINOR = 9;
+export const D9WG_VERSION_MINOR = 10;
 
 /** The batch flag that makes the executor submit the frame's GPU work */
 export const D9WG_BATCH_FLAG_PRESENT = 1;

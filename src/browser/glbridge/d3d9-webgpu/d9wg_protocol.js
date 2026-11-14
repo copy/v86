@@ -46,7 +46,7 @@
     ] },
     { define: "D9WG_MAGIC", c: "0x47573944u", text: ["#define D9WG_MAGIC 0x47573944u /* \"D9WG\" */"] },
     { define: "D9WG_VERSION_MAJOR", c: "1u", text: ["#define D9WG_VERSION_MAJOR 1u"] },
-    { define: "D9WG_VERSION_MINOR", c: "9u", text: ["#define D9WG_VERSION_MINOR 9u"] },
+    { define: "D9WG_VERSION_MINOR", c: "10u", text: ["#define D9WG_VERSION_MINOR 10u"] },
     { raw: [
         "",
     ] },
@@ -383,6 +383,8 @@
         " * sprite landed. Colour keying on such a surface compares indices too.",
         " */",
     ] },
+    { comment: ["/* Ordinary DirectDraw XRGB surfaces retain the unused byte across GPU", " * blits/readback. Texture sampling still supplies opaque alpha. */"] },
+    { define: "D9WG_USAGE_DDRAW_XRGB_BITS", c: "0x40000000u", text: ["#define D9WG_USAGE_DDRAW_XRGB_BITS 0x40000000u"] },
     { define: "D9WG_USAGE_DDRAW_INDEXED", c: "0x80000000u", text: ["#define D9WG_USAGE_DDRAW_INDEXED 0x80000000u"] },
     { raw: [
         "",
