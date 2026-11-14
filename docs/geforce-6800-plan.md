@@ -1517,3 +1517,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   拒绝。CPU 回归检查全部枚举与不兼容组合，真实 GPU 验证每个倍率传入
   sampler、sRGB/alpha 过滤值和恢复普通状态。完整 GPU 回归与 Closure
   构建通过；宿主采样核仍是硬件精度偏差，完整参考帧门禁继续后续验证。
+
+- G3 benchmark 工具续修：原生 XP 启动器保留尾随命令行参数，已用于
+  03 的原版命令行自动测试；可选 `/iq` 通过可见、可用的原生控件
+  逐项切换 99 测试列表、点击实际确定按钮，检查摘要只剩两项 IQ
+  后才开始 benchmark。失败/超时不启动测试；Welcome 仍按正常
+  Enter 进入新项目。严格 MinGW 编译和实际客体的“0 of 2 / Image
+  Quality 1”通过，详见 `g3-xp-native-benchmark-launcher.json`；18 个
+  原始 BMP 的完整比较继续进行。

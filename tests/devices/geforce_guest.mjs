@@ -98,7 +98,7 @@ export async function run_geforce_guest(win98)
         const launcher=path.join(out,"NVLAUNCH.EXE");
         run("i686-w64-mingw32-gcc",["-Os","-nostdlib","-fno-builtin","-fno-stack-protector","-mno-stack-arg-probe",
             "-Wall","-Wextra","-Werror","-Wl,--entry,_entry@0","-Wl,--subsystem,console",
-            path.join(root,"tests/devices/geforce_benchmark.c"),"-lkernel32","-o",launcher]);
+            path.join(root,"tests/devices/geforce_benchmark.c"),"-lkernel32","-luser32","-o",launcher]);
         files["NVLAUNCH.EXE"]=fs.readFileSync(launcher);
     }
     if(win98)

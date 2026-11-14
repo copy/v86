@@ -1,0 +1,34 @@
+{
+  "stage": "G3 native benchmark launcher automation",
+  "scope": "XP compatibility test helper only; no replacement of native graphics APIs or disk EXE/DLL patches",
+  "features": [
+    "forward original trailing command-line arguments with bounded quoted EXE construction",
+    "/iq selects only the two original 99 Image Quality tests through native visible/enabled UI controls",
+    "one manual checkbox handler per poll, actual confirmation button, verify summary before starting; stop automation on mismatch or timeout"
+  ],
+  "validation": {
+    "strict_mingw_compile": "-Wall -Wextra -Werror",
+    "native_IQ_run": "build/nv40-xp99-iq-visible",
+    "snapshot_before_quality_completion": "build/nv40-xp99-iq-visible/checkpoint-visible-ui.state",
+    "launcher_marker": "UI_VERSION=5",
+    "ui_log_sha256": "9c8bb8780d2b11593ce184e629a4507cc4241808200ecba8b145aa66a76e980f",
+    "toggle_control_ids": [
+      1067,
+      1068,
+      1073,
+      1066,
+      1072,
+      1071,
+      1051,
+      1075
+    ],
+    "post_selection_summary": "UI_IQ_APPLIED_2_TESTS; UI_IQ_BENCHMARK_REQUESTED",
+    "screenshot": "capture-0084.png: Image Quality 1; Tests completed 0 of 2",
+    "trailing_arguments": "Native XP03 production run started through nvlaunch.exe with -nosysteminfo -nosplash e:\\NV03.3DR and entered GT1"
+  },
+  "limits": [
+    "99 Welcome New Benchmark is still activated with the normal Enter key before the helper selects tests.",
+    "The launcher is used for reproducible native testing; this fixture is not benchmark completion or IQ image acceptance.",
+    "The first UI experiments changed checkbox appearance or targeted inactive controls without applying the test selection; those 26-test attempts are not IQ-only evidence."
+  ]
+}
