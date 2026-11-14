@@ -259,6 +259,37 @@ export async function run_geforce_guest(win98)
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = process.env.NV_TRACE !== "0";
         clock_start = cpu.clock.now();
+        if(process.env.NV_WATCH_DMA_WRITE)
+        {
+            const first=Number(process.env.NV_WATCH_DMA_WRITE),size=Number(process.env.NV_WATCH_DMA_BYTES||4096);
+            assert(Number.isSafeInteger(first) && first>=0 && Number.isSafeInteger(size) && size>0 && size<=1048576 && first+size<=nv.vram_size);
+            const engine=nv.graph.engine2d,method=engine.method.bind(engine),write=nv.dma.write.bind(nv.dma),captures=[],seen=new Set();
+            let active=null;
+            engine.method=(object,at,value)=>{active={object,at,value};try{return method(object,at,value);}finally{active=null;}};
+            nv.dma.write=(dma,offset,bytes)=>{
+                const at=((dma.pte&0xFFFFF000)>>>0)+dma.adjust+offset;
+                if(!dma.target && dma.linear && at<first+size && first<at+bytes.length && captures.length<64)
+                {
+                    let destination=null,sourceRows=null;
+                    if(active)try {destination=engine.surface(active.object,[0x61,0x65,0x8A,0x308A].includes(active.object.class_id)?0x19C:0x198);}catch{}
+                    const key=JSON.stringify([active?.object.instance,active?.at,active?.object.methods.get(0x304),active?.object.methods.get(0x30C),
+                        active?.object.methods.get(0x408),destination]);
+                    if(!seen.has(key))
+                    {
+                        if(active && [0x77,0x89,0x3089].includes(active.object.class_id))try
+                        {
+                            const o=active.object,input=engine.dma(o,0x184),offset=o.methods.get(0x408)||0,pitch=o.methods.get(0x404)&65535;
+                            sourceRows=Array.from({length:4},(_,row)=>Array.from(nv.dma.read(input,offset+row*pitch,64)));
+                        }catch{}
+                        seen.add(key);captures.push({elapsed:elapsed(),address:at,bytes:bytes.length,data:Array.from(bytes.slice(0,64)),
+                            dma,destination,sourceRows,method:active?.at,value:active?.value,object:active?{channel:active.object.channel,instance:active.object.instance,
+                                class_id:active.object.class_id,methods:Array.from(active.object.methods)}:null});
+                        fs.writeFileSync(path.join(out,"dma-write-captures.json"),JSON.stringify(captures,null,2));
+                    }
+                }
+                return write(dma,offset,bytes);
+            };
+        }
         if(process.env.NV_DRAW_FAULTS && nv.graph.engine3d.backend)
         {
             const backend=nv.graph.engine3d.backend,draw=backend.draw.bind(backend),faults=[],seen=new Set();
@@ -289,9 +320,9 @@ export async function run_geforce_guest(win98)
             let count=0,bytes=0;fs.writeFileSync(file,"");
             backend.draw=(object,mode,words,indices,subc)=>{
                 const before=backend.stats.draws,result=draw(object,mode,words,indices,subc);
-                if(backend.stats.draws===before || backend.stats.draws<first || count>=limit || bytes>=budget)return result;
+                if(backend.stats.draws===before && !process.env.NV_DRAW_CAPTURE_SKIPS || backend.stats.draws<first || count>=limit || bytes>=budget)return result;
                 let capture={ordinal:count++,elapsed:elapsed(),draw:backend.stats.draws,mode,subc,channel:object.channel,instance:object.instance,
-                    indexCount:indices?.length,inlineWordCount:words?.length};
+                    submitted:backend.stats.draws!==before,indexCount:indices?.length,inlineWordCount:words?.length};
                 try
                 {
                     const program=engine.program(object),attributes=[...new Set(program.vertex.instructions.flatMap(instruction=>
@@ -303,6 +334,14 @@ export async function run_geforce_guest(win98)
                         engine.state.inline_vertices(object,words.slice(0,stride*64),inputs);
                     capture={...capture,program,methods:Array.from(object.methods),attributes,vertices:{count:vertices.count,stride:vertices.stride,
                         words:Array.from(new Uint32Array(vertices.bytes.buffer,vertices.bytes.byteOffset,vertices.bytes.byteLength/4))}};
+                    if(process.env.NV_DRAW_CAPTURE_TEXTURES)
+                    {
+                        capture.textures=[...new Set(program.fragment.instructions.filter(i=>["TEX","TXP","TXB","TXL","TXD"].includes(i.name)).map(i=>i.texture))].map(unit=>{
+                            const surface=backend.textures.describe(object,unit),images=backend.textures.images(surface);
+                            return {unit,surface,images:images.reduce((sum,bytes)=>sum+bytes.length,0)<=1048576?
+                                images.map(bytes=>Buffer.from(bytes).toString("base64")):null};
+                        });
+                    }
                 }
                 catch(captureError){capture.error=String(captureError);}
                 const line=JSON.stringify(capture)+"\n";if(bytes+line.length<=budget){fs.appendFileSync(file,line);bytes+=line.length;}
