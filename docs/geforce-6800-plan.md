@@ -1951,3 +1951,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   这不足以证明 HASH 本身是根因，故未添加强行命中、绕过页权限或修改时钟。
   语法检查及原生捕获通过，继续从测试前状态复跑；见
   `g6-native-first-fifo-fault.json`，运行超时门禁仍未通过。
+
+- G4 03 原生结果导出：CPU/feature 续跑正常退出（launcher exit 0），从只读
+  游戏盘的 overlay 导出原版 NV03.3DR 和其中 Result.xml；四游戏、两 CPU、
+  五 feature 共 11 项状态均为 0，文件记录 389 3DMarks / 18 CPUMarks。
+  本段 82,895 次绘制、GPU/PGRAPH 和非软件 FIFO 故障为零；三项 sound
+  在无声卡 harness 中明确为 Not supported。早期游戏阶段跨越多次修复，
+  不作为最终冷启动/图像/性能验收，继续完整复跑。见
+  `g4-xp-9371-03-cpu-features-completed.json`。

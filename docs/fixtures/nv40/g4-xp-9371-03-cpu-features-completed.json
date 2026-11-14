@@ -1,0 +1,253 @@
+{
+  "date": "2026-11-14",
+  "status": "Original 03 result file records all 11 graphics/CPU/feature tests and exit code zero. Final cold run and image gate remain open.",
+  "driver": "NVIDIA 93.71",
+  "benchmarkVersion": "3.6.0",
+  "run": {
+    "directory": "build/nv40-xp-mark03-cpu-draw-sample",
+    "continuation": true,
+    "seconds": 2410,
+    "GPU": {
+      "batches": 16869,
+      "draws": 82895,
+      "bytes": 24976847296,
+      "readbacks": 22860,
+      "failures": 0,
+      "uploads": 5571,
+      "uploadBytes": 8730509380
+    },
+    "graphFaults": [],
+    "nonSoftwareFifoFaults": [],
+    "imageUnchanged": true,
+    "game": {
+      "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/3dmark03.img",
+      "slot": "secondary-slave",
+      "imageUnchanged": true
+    },
+    "launcherExitCode": "0x00000000"
+  },
+  "results": [
+    {
+      "name": "3DMark Score",
+      "value": "389.000000000",
+      "unit": "3DMarks",
+      "base": "10",
+      "exponent": "0",
+      "category": "Game Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "GT1 - Wings of Fury",
+      "value": "4.744234085",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Game Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "GT2 - Battle of Proxycon",
+      "value": "2.543741465",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Game Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "GT3 - Troll's Lair",
+      "value": "2.801236868",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Game Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "GT4 - Mother Nature",
+      "value": "3.375453234",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Game Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "CPU Score",
+      "value": "18.000000000",
+      "unit": "CPUMarks",
+      "base": "10",
+      "exponent": "0",
+      "category": "CPU Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "CPU Test 1",
+      "value": "1.409244657",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "CPU Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "CPU Test 2",
+      "value": "0.442600965",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "CPU Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "Fill Rate (Single-Texturing)",
+      "value": "1397.823100471",
+      "unit": "texels/s",
+      "base": "10",
+      "exponent": "6",
+      "category": "Feature Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "Fill Rate (Multi-Texturing)",
+      "value": "3086.042616208",
+      "unit": "texels/s",
+      "base": "10",
+      "exponent": "6",
+      "category": "Feature Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "Vertex Shader",
+      "value": "0.657318115",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Feature Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "Pixel Shader 2.0",
+      "value": "11.747186661",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Feature Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "Ragtroll",
+      "value": "0.728903890",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Feature Tests",
+      "status": "0",
+      "statusText": ""
+    },
+    {
+      "name": "No sounds",
+      "value": "-1.000000000",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Sound Tests",
+      "status": "2",
+      "statusText": "Not supported"
+    },
+    {
+      "name": "24 sounds",
+      "value": "-1.000000000",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Sound Tests",
+      "status": "2",
+      "statusText": "Not supported"
+    },
+    {
+      "name": "60 sounds",
+      "value": "-1.000000000",
+      "unit": "FPS",
+      "base": "10",
+      "exponent": "0",
+      "category": "Sound Tests",
+      "status": "2",
+      "statusText": "Not supported"
+    }
+  ],
+  "artifacts": {
+    "NV03.3DR": {
+      "bytes": 3314,
+      "sha256": "35dbdb78d23cded71f4ef0595ed3ddd0b63ee53e9b04b5e17c65098571313f3f"
+    },
+    "Result.xml": {
+      "bytes": 25228,
+      "sha256": "9019a000b3aaa723ee8dd34847c999d549fad8782c9bc12dcc1b2e9b2f6f0c0a"
+    }
+  },
+  "screenshots": {
+    "capture-0021.png": {
+      "bytes": 592746,
+      "sha256": "29e35094c508c6a3cfa334c432244427213a31d59d4f5bfb3dd2f278a152e576"
+    },
+    "capture-0360.png": {
+      "bytes": 756729,
+      "sha256": "5468f7287244814825a9c1c25e70c3808e11d12774a3fdc18183a3599803d9b4"
+    },
+    "capture-0415.png": {
+      "bytes": 1431282,
+      "sha256": "2d00f1ded279245ff060fc2c57f5e63e7b7f6e7c0a85b8f6160e4ee08a59f8ae"
+    },
+    "capture-0421.png": {
+      "bytes": 1420729,
+      "sha256": "6d1e32c894cb38960060efcc6c26eddbb01579520544b0a3c17af1b84d47d5ce"
+    },
+    "capture-0435.png": {
+      "bytes": 1196837,
+      "sha256": "edb6d532eee65b32b6b36bf680eebc51afa0eb7f5e92507c6288e194bad02e19"
+    }
+  },
+  "bundle": {
+    "status": "complete",
+    "guest": "xp",
+    "vramMiB": 128,
+    "osImage": "/Users/renruisi/Desktop/Code/retro-gaming-site/windowsxp/windowsxp_multidisk_C_4G.img",
+    "gameImage": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/3dmark03.img",
+    "state": {
+      "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-xp-mark03-cpu-draw-sample.state",
+      "bytes": 1008258328,
+      "sha256": "a6821606479123a35b4fd9f455408590ac6499717fa6732791395d375759d10d"
+    },
+    "osOverlay": {
+      "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-xp-mark03-cpu-draw-sample-overlay.bin",
+      "bytes": 106315128,
+      "sha256": "aca7c6144f5a47e652106423139630b92d3d9950c461d378413cd753a6311174"
+    },
+    "gameOverlay": {
+      "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-xp-mark03-cpu-draw-sample-game-overlay.bin",
+      "bytes": 32026,
+      "sha256": "96e2482b099235ff01083f78769aa1db620ca8f32ba708326e03db68d49b897a"
+    }
+  },
+  "limitations": [
+    "Run resumed CPU/feature stages from matching native snapshots; earlier game stages span fixes and are not final clean image evidence.",
+    "The four game, two CPU and five feature results have status zero; three sound tests explicitly report Not supported in this harness with no sound device.",
+    "389 3DMarks and 18 CPUMarks document the native file, not performance acceptance; runs were concurrent.",
+    "A complete cold run with final code and fixed-frame reference comparisons is still required."
+  ],
+  "imageGate": false,
+  "performanceGate": false
+}
