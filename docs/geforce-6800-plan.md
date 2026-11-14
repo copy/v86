@@ -1917,3 +1917,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   trace 时也可使用。原生 03 CPU 续跑捕获了普通 selector-zero fence，
   目标 0 已有场景但当前扫描面仍黑；继续调查，未据此修改翻页或时钟。
   见 `g6-native-presentation-trace.json`。
+
+- G6 采样工具：`NV_CPU_PROFILE` 记录独立采样/计数窗口、Node 进程 CPU、
+  GPU/纹理/翻译计数、提交待完成墙钟时间与显示释放次数；
+  `tools/nv40_profile_report.mjs` 按实际采样时间加权，记录 V8 负 delta
+  并合并重叠，不把异步等待、CPU 和 GPU 时长相加。真实原生 03 的短窗
+  产生 1248 次绘制、421 批、3 次显示释放且无故障，分类合计 100%；
+  并行调查仅验证工具，不算性能门禁。06 重放另启默认关闭、有界 8 条
+  的无 GPU 提交时 FIFO 停滞诊断。见 `g6-native-profile-window.json`。
+  03 后续 CPU 场景已自行正常呈现，未修改翻页，先前黑屏不作为显示故障。

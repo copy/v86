@@ -213,7 +213,7 @@ export async function run_geforce_guest(win98)
     const launch = Number(process.env.NV_LAUNCH_SECONDS || (process.env.NV_STATE_LOAD ? 10 : 90));
     assert(Number.isFinite(seconds) && seconds > 0 && seconds <= 3600);
     let nv, error = null, launches = 0, next_launch = launch, cancelled = false, checkpoint = false, clock_start = 0;
-    let profiler=null,barrier_report=null;
+    let profiler=null,barrier_report=null,stall=null;
     const cancel = () => { cancelled = true; };
     process.on("SIGINT", cancel);
     vm.add_listener("emulator-error", e => { error = String(e); });
@@ -471,7 +471,44 @@ export async function run_geforce_guest(win98)
         {
             const {Session}=await import("node:inspector"),session=new Session();session.connect();
             const post=(method)=>new Promise((resolve,reject)=>session.post(method,(error,result)=>error?reject(error):resolve(result)));
-            profiler={session,post};await post("Profiler.enable");await post("Profiler.start");
+            const backend=nv.graph.engine3d.backend,pending=new Map();let pending_ms=0,releases=0;
+            const counters=()=>({gpu:backend?{...backend.stats}:null,
+                texture:backend?{...backend.textures.stats}:null,shader:{...nv.graph.engine3d.translation_stats},
+                graphFaults:nv.graph.faults.length,front:nv.display.front});
+            const close=item=>{
+                if(pending.has(item)){pending_ms+=performance.now()-pending.get(item);pending.delete(item);}
+            };
+            if(backend)
+            {
+                const flush=backend.flush.bind(backend),complete=backend.complete.bind(backend),fail=backend.fail.bind(backend);
+                backend.flush=()=>{
+                    const before=backend.pending,result=flush();
+                    if(!before && backend.pending)pending.set(backend.pending,performance.now());return result;
+                };
+                backend.complete=()=>{
+                    const item=backend.pending;
+                    if(item?.done && !item.requests.size && (!item.query || item.query.value!==null))close(item);
+                    return complete();
+                };
+                backend.fail=reason=>{close(backend.pending);return fail(reason);};
+            }
+            const release=nv.display.release_semaphore.bind(nv.display);
+            nv.display.release_semaphore=value=>{const result=release(value);releases++;return result;};
+            await post("Profiler.enable");const start_requested=performance.now();await post("Profiler.start");
+            const started=performance.now(),cpu_start=process.cpuUsage(),before=counters();
+            pending_ms=0;pending.clear();releases=0;if(backend?.pending)pending.set(backend.pending,started);
+            profiler={session,post,window:()=>({guest:win98?"win98":"xp",vramMiB:vram_mb,
+                build:release_build?"release":"debug",state:process.env.NV_STATE_LOAD||null,
+                wallMs:performance.now()-started,startHandshakeMs:started-start_requested,nodeCpuUs:process.cpuUsage(cpu_start),
+                backendPendingMs:pending_ms+[...pending.values()].reduce((sum,at)=>sum+performance.now()-at,0),
+                primarySemaphoreReleases:releases,before,after:counters(),
+                note:"Backend pending wall time includes transport, rendering and readback, and overlaps Node CPU time. Semaphore releases are not an FPS measurement."})};
+        }
+        if(process.env.NV_FIFO_STALL_SECONDS)
+        {
+            const seconds=Number(process.env.NV_FIFO_STALL_SECONDS);
+            assert(Number.isFinite(seconds) && seconds>=1 && seconds<=30,"invalid FIFO stall threshold");
+            stall={seconds,changed:elapsed(),progress:null,captures:[],seen:new Set()};
         }
         if(process.env.NV_WATCH_FLIP)
         {
@@ -514,6 +551,29 @@ export async function run_geforce_guest(win98)
         {
             await delay(capture_interval?Math.min(1000,Math.max(100,capture_interval*1000)):1000);
             cpu.devices.display.request_frame(true);
+            if(stall)
+            {
+                const reg=at=>nv.registers.get(at)||0,backend=nv.graph.engine3d.backend;
+                const progress=[reg(0x3244),reg(0x3270),backend?.stats.draws||0].join(":");
+                if(progress!==stall.progress){stall.progress=progress;stall.changed=elapsed();}
+                const queued=reg(0x3240)!==reg(0x3244) || reg(0x3210)!==reg(0x3270) || reg(0x3254)&0x10;
+                if(queued && !backend?.pending && elapsed()-stall.changed>=stall.seconds && stall.captures.length<8)
+                {
+                    const key=JSON.stringify([progress,reg(0x3204),reg(0x3254),nv.graph.flips,nv.graph.context]);
+                    if(!stall.seen.has(key))
+                    {
+                        stall.seen.add(key);let pushbuffer;
+                        try {
+                            const start=Math.max(0,reg(0x3244)-64),dma=nv.dma.descriptor(reg(0x322C)*16),bytes=nv.dma.read(dma,start,128);
+                            const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+                            pushbuffer={start,words:Array.from({length:32},(_,i)=>view.getUint32(i*4,true))};
+                        } catch(readError){pushbuffer={error:String(readError)};}
+                        stall.captures.push({elapsed:elapsed(),unchangedSeconds:elapsed()-stall.changed,pushbuffer,
+                            pendingBatch:backend?.batch?{draws:backend.batch.draws}:null,trace:trace_report()});
+                        fs.writeFileSync(path.join(out,"fifo-stalls.json"),JSON.stringify(stall.captures,null,2));
+                    }
+                }
+            }
             if(capture_interval && elapsed()>=next_capture && capture_index<capture_limit)
             {
                 next_capture=elapsed()+capture_interval;
@@ -608,8 +668,11 @@ export async function run_geforce_guest(win98)
         {
             try
             {
+                const window=profiler.window(),stop_started=performance.now();
                 const {profile}=await profiler.post("Profiler.stop");
+                window.stopHandshakeMs=performance.now()-stop_started;
                 fs.writeFileSync(path.join(out,"cpu-profile.cpuprofile"),JSON.stringify(profile));
+                fs.writeFileSync(path.join(out,"profile-window.json"),JSON.stringify(window,null,2)+"\n");
             }
             catch(e) {error=error || e.stack || String(e);}
             finally {profiler.session.disconnect();}

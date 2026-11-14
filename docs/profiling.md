@@ -267,6 +267,42 @@ Use the release build (`TEST_RELEASE_BUILD=1`): the source tree runs the debug
 wasm. Runs from one state differ by about 10% in frames per second; compare
 several of each.
 
+### Native NV40 guests
+
+`tests/devices/geforce_xp.mjs` and `geforce_win98.mjs` use the original
+NVIDIA driver and the remote WebGPU renderer. Set `TEST_RELEASE_BUILD=1`,
+`NV_GPU_RENDERER=chrome`, `NV_HOLD=1`, `NV_TRACE=0` and `NV_CPU_PROFILE=1`.
+Restore the same `NV_STATE_LOAD` with its matching `NV_OVERLAY_LOAD` and
+`NV_GAME_OVERLAY_LOAD`; bundle manifests verify RAM and disk hashes before
+the guest runs. `NV_SECONDS` includes harness setup, so use the recorded
+sampling window when comparing runs. Capture and progress PNG work appears
+separately in the profile; `NV_CAPTURE_SECONDS=0` disables periodic captures.
+
+At the end, `cpu-profile.cpuprofile` contains Node's weighted samples and
+`profile-window.json` records the actual counter window, Node CPU usage,
+GPU/texture/program counter snapshots, submitted-backend pending wall time
+and primary display-semaphore releases. Summarize an output directory with:
+
+```sh
+node tools/nv40_profile_report.mjs build/<native-run>
+```
+
+The resulting `profile-report.json` separates guest WASM/JIT, NV texture and
+vertex preparation, program preparation, scanout, capture, runtime and idle
+samples. These are host sampling categories, not GPU hardware timings.
+Backend pending time includes transport, rendering and readback and overlaps
+Node CPU work. Cache-byte deltas describe resident memory changes. Semaphore
+releases do not establish benchmark FPS or completed tests.
+Node process CPU includes worker threads and can exceed elapsed wall time.
+The report records non-monotonic V8 sample deltas, merges their timestamp
+overlap without adding elapsed time, and keeps profiler handshake times
+separate from the counter window.
+
+For performance acceptance, verify the scene and faults, run one guest at a
+time, record host conditions and compare repeated windows from the same
+checkpoint with the same cache-start conditions. Concurrent investigation
+profiles can locate expensive paths, but do not establish a performance gate.
+
 The harness itself costs the host about 5–8%: screenshots, logs, and the
 WebSocket channel to the renderer page in headless Chrome
 ([`tests/x64/gpu_remote_renderer.mjs`](../tests/x64/gpu_remote_renderer.mjs);

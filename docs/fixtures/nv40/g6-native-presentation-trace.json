@@ -17,5 +17,10 @@
   "graphFaults": [],
   "watchSha256": "9a85d89f51441bf6a57cbd75f363f7da393cf53f1649251cebbccdc98c0b1570",
   "observation": "Native CPU-test continuation renders a complete Troll scene in target 0 while scanout at 0x130000 remains black. Captured release traffic is currently ordinary selector-zero fence updates. This is diagnostic evidence, not a claimed presentation fix.",
-  "unchanged": "Guest graphics APIs, driver, clocks and benchmark binary are unchanged."
+  "unchanged": "Guest graphics APIs, driver, clocks and benchmark binary are unchanged.",
+  "laterObservation": {
+    "scope": "Same native CPU-test continuation later presents the library scene at time 17.60, frame 17. No flip implementation change was required. Earlier black scanout is not treated as a confirmed display defect.",
+    "screenshot": "build/nv40-xp-mark03-cpu-draw-sample/capture-0021.png",
+    "sha256": "29e35094c508c6a3cfa334c432244427213a31d59d4f5bfb3dd2f278a152e576"
+  }
 }

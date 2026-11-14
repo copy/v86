@@ -1,0 +1,267 @@
+{
+  "date": "2026-11-14",
+  "status": "Native diagnostic validates sampling/report tooling; not performance acceptance.",
+  "concurrentInvestigation": true,
+  "performanceGate": false,
+  "report": {
+    "directory": "build/nv40-native-profile-window-validation",
+    "build": "release",
+    "state": "build/nv40-xp-mark03-cpu-presentation.state",
+    "guest": "xp",
+    "vramMiB": 128,
+    "samplingWallMs": 39190.488,
+    "counterWindowMs": 38841.128749999996,
+    "stopHandshakeMs": 14.866833000000042,
+    "nodeCpuMs": {
+      "user": 55512.916,
+      "system": 2776.491
+    },
+    "backendPendingMs": 10986.27096600002,
+    "primarySemaphoreReleases": 3,
+    "gpu": {
+      "batches": 421,
+      "draws": 1248,
+      "bytes": 292311976,
+      "readbacks": 529,
+      "failures": 0,
+      "uploads": 522,
+      "uploadBytes": 111089044
+    },
+    "texture": {
+      "hits": 14955,
+      "misses": 1365,
+      "evictions": 1203,
+      "bytes": 66595760
+    },
+    "shader": {
+      "hits": 1233,
+      "misses": 15,
+      "evictions": 0
+    },
+    "graphFaults": 0,
+    "categories": [
+      {
+        "name": "Guest WASM and JIT",
+        "ms": 8611.464,
+        "percent": 21.973352309366497
+      },
+      {
+        "name": "Other NV device CPU",
+        "ms": 6909.407,
+        "percent": 17.630316315530443
+      },
+      {
+        "name": "NV texture preparation",
+        "ms": 6392.866,
+        "percent": 16.312289859723105
+      },
+      {
+        "name": "NV upload and attachment preparation",
+        "ms": 5681.339,
+        "percent": 14.49672941046307
+      },
+      {
+        "name": "Node and harness",
+        "ms": 3723.099,
+        "percent": 9.500006736328467
+      },
+      {
+        "name": "NV vertex fetch",
+        "ms": 2307.634,
+        "percent": 5.888250230515119
+      },
+      {
+        "name": "Node idle",
+        "ms": 1796.054,
+        "percent": 4.582882458621082
+      },
+      {
+        "name": "Garbage collection",
+        "ms": 1766.36,
+        "percent": 4.507114073190413
+      },
+      {
+        "name": "Guest runtime helpers",
+        "ms": 1093.186,
+        "percent": 2.7894166564090757
+      },
+      {
+        "name": "NV program decode and translation",
+        "ms": 593.39,
+        "percent": 1.5141174052234307
+      },
+      {
+        "name": "NV scanout",
+        "ms": 241.521,
+        "percent": 0.6162745409039051
+      },
+      {
+        "name": "PNG and capture",
+        "ms": 72.936,
+        "percent": 0.18610638377353197
+      },
+      {
+        "name": "Unsampled tail",
+        "ms": 1.232,
+        "percent": 0.0031436199518617884
+      }
+    ],
+    "topSelfFunctions": [
+      {
+        "name": "(anonymous) \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:209",
+        "ms": 4670.537,
+        "percent": 11.917527028497323
+      },
+      {
+        "name": "blocks \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:194",
+        "ms": 3207.988,
+        "percent": 8.185629125108113
+      },
+      {
+        "name": "run \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:91",
+        "ms": 2010.803,
+        "percent": 5.130844504921704
+      },
+      {
+        "name": "(idle) \u2014 :0",
+        "ms": 1796.054,
+        "percent": 4.582882458621082
+      },
+      {
+        "name": "(garbage collector) \u2014 :0",
+        "ms": 1766.36,
+        "percent": 4.507114073190413
+      },
+      {
+        "name": "decode \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:188",
+        "ms": 1430.881,
+        "percent": 3.651092581444763
+      },
+      {
+        "name": "(anonymous) \u2014 file:///Users/renruisi/Desktop/Code/v86/tests/x64/gpu_remote_renderer.mjs:44",
+        "ms": 1369.865,
+        "percent": 3.4954017413613223
+      },
+      {
+        "name": "_ZN3v863x645pages13execute_inner17h206e0952987cb769E \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 1101.882,
+        "percent": 2.8116057141212427
+      },
+      {
+        "name": "read \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:77",
+        "ms": 1094.984,
+        "percent": 2.7940045043583024
+      },
+      {
+        "name": "target \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:207",
+        "ms": 965.066,
+        "percent": 2.46250059453202
+      },
+      {
+        "name": "reg \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:80",
+        "ms": 895.505,
+        "percent": 2.285005994311681
+      },
+      {
+        "name": "inline_vertices \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:169",
+        "ms": 668.116,
+        "percent": 1.704791223829619
+      },
+      {
+        "name": "_ZN3v863gen11interpreter3run17h660101cb5936e44eE \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 660.895,
+        "percent": 1.6863658344851435
+      },
+      {
+        "name": "Q.read_blob_physical \u2014 file:///Users/renruisi/Desktop/Code/v86/build/libv86.mjs:1521",
+        "ms": 649.971,
+        "percent": 1.6584917238080832
+      },
+      {
+        "name": "nb \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:174",
+        "ms": 614.004,
+        "percent": 1.5667169033465467
+      },
+      {
+        "name": "(program) \u2014 :0",
+        "ms": 605.458,
+        "percent": 1.544910591570077
+      },
+      {
+        "name": "array_vertices \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:171",
+        "ms": 519.358,
+        "percent": 1.325214424479736
+      },
+      {
+        "name": "set \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:80",
+        "ms": 465.884,
+        "percent": 1.1887680500431634
+      },
+      {
+        "name": "x64_phys_resolve \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 449.555,
+        "percent": 1.1471023274831382
+      },
+      {
+        "name": "vertex_value \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:168",
+        "ms": 438.866,
+        "percent": 1.1198278521053373
+      },
+      {
+        "name": "method \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:294",
+        "ms": 407.758,
+        "percent": 1.0404514483208271
+      },
+      {
+        "name": "reorder \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:158",
+        "ms": 400.018,
+        "percent": 1.0207017580388384
+      },
+      {
+        "name": "_ZN3v863cpu3cpu22run_compat_instruction17hbea534ce7ecc02d0E \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 393.508,
+        "percent": 1.0040905844295687
+      },
+      {
+        "name": "ranges \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:76",
+        "ms": 359.68,
+        "percent": 0.917773721011078
+      },
+      {
+        "name": "post \u2014 node:inspector:115",
+        "ms": 339.649,
+        "percent": 0.8666618287580394
+      }
+    ],
+    "scope": "Weighted Node event-loop sampling, including idle; not Chrome/GPU hardware timings. Node process CPU includes worker threads and may exceed elapsed wall time. Pending wall time overlaps CPU samples. Isolation and scene correctness must be checked separately. No FPS or whole-suite acceptance is inferred.",
+    "nonMonotonicSamples": 1,
+    "backwardUs": 3,
+    "sampleDurationExcessUs": 0
+  },
+  "imageUnchanged": true,
+  "gameImageUnchanged": true,
+  "artifacts": {
+    "build/nv40-native-profile-window-validation/cpu-profile.cpuprofile": {
+      "bytes": 771354,
+      "sha256": "51ce32624d94ab851a75f94304b21d4db61361cd0a162a5ea2fbf0a2bd039376"
+    },
+    "build/nv40-native-profile-window-validation/profile-window.json": {
+      "bytes": 1334,
+      "sha256": "1cfaa45e369b2a68acfec35e76d5e566c4ed0748e647f7583540aaff3ed8e060"
+    },
+    "build/nv40-native-profile-window-validation/profile-report.json": {
+      "bytes": 6625,
+      "sha256": "f349fcb3bc6ff09e8bc03f2af584accfe6caa3ecabbe232195ca843430551f61"
+    },
+    "build/nv40-native-profile-window-validation/trace.json": {
+      "bytes": 522163,
+      "sha256": "23d2691cb175d52e6991bbb51f904ea563dca66fa4b27e77768ffd425b7ebe6b"
+    }
+  },
+  "observations": [
+    "Original native 03 continuation produced 1248 draws, 421 GPU batches, 3 primary display releases and no GPU/PGRAPH fault in the counter window.",
+    "Weighted categories total 100 percent. One real V8 delta of -3 us is merged at the monotonic timestamp frontier and explicitly reported.",
+    "The CPU-profile sampling duration includes a startup handshake before the counter window; windows and handshakes are reported separately. Node process CPU includes workers.",
+    "The default-off FIFO stall observer is enabled in the ongoing 06 replay, bounds metadata captures to eight and reads queued state only when no backend submission is pending. No stall fix or successful 06 run is claimed."
+  ]
+}
