@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-14",
+  "nativeProducer": "Original 3DMark06, XP 93.71, GT1",
+  "fault": {
+    "run": "build/nv40-xp-mark06-a16-fixed",
+    "elapsedSeconds": 703.838532625,
+    "code": "0x15 / A16L16",
+    "format": "0x1952E",
+    "unit": 1,
+    "size": [
+      256,
+      256
+    ],
+    "cube": true,
+    "crossbar": "0x694E",
+    "filter": "0x02024000"
+  },
+  "behavior": "Two unsigned normalized 16-bit components: low L in storage B and high A in storage A; apply the native crossbar before exact UNORM16 RGBA upload. Native crossbar maps the two components to R/G and constant one to B/A.",
+  "references": [
+    "https://github.com/envytools/envytools/blob/master/rnndb/graph/nv30-40_3d.xml",
+    "https://chromium.googlesource.com/chromium/deps/mesa/+/6da96107e2467063c72e1ec5804f0618a6ce83d3/src/gallium/drivers/nvfx/nvfx_fragtex.c"
+  ],
+  "tests": {
+    "cpu": "exact 16-bit lanes, padding, crossbar, six aligned cube faces",
+    "GPU": "independent two-channel bilinear sampling plus complete WebGPU regression",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "limitation": "Shared executor uses RGBA16F storage for normalized 16-bit uploads. A fresh native 06 run is required; later IFC invalid-surface errors occurred after this missing-format trap and are not independently resolved by this change.",
+  "logs": {
+    "build/nv40-a16l16-unit.log": {
+      "bytes": 641,
+      "sha256": "69859b2609c5d67080c9fca6c3bf1ebcc52e73ff79125d12b1a751c67102e446"
+    },
+    "build/nv40-a16l16-gpu.log": {
+      "bytes": 4513,
+      "sha256": "18aaaa6a81194d5069f516820d858e525a974865e290570526ec65338d2882a9"
+    },
+    "build/nv40-a16l16-closure.log": {
+      "bytes": 3020,
+      "sha256": "4e71c7bd7e46947fd2fca3badcb191779db51a5ab1a42b3f9b9f963ce8c05b81"
+    }
+  }
+}

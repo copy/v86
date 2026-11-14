@@ -1778,3 +1778,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   绘制重新读取客体数据。11 种格式与旧实现逐字节一致，修改可见性、
   后续非法索引、状态/完整 GPU/Closure 通过。相同宿主合成样例
   1683→126 ms，非客体 FPS，见 `g6-profiled-vertex-fetch.json`。
+
+- G4 原生 A16L16：06 GT1 随后的 cube 纹理使用 `0x15`、
+  crossbar `0x694E`，低/高 16-bit 分量分别进入 R/G，B/A
+  为 1。增加双通道 UNORM16 解码与原位 crossbar，沿用 checked
+  Morton、128-byte cube face 对齐及上传缓存。精确字节、padding、
+  六面 cube、真实 GPU 双线性和完整 GPU/Closure 通过，见
+  `g4-native-a16l16-texture.json`；新的测试前状态复跑继续，
+  缺失格式陷阱之后的 IFC 表面错误不单独称为已解决。

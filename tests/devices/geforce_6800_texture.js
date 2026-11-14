@@ -38,6 +38,17 @@ assert.deepEqual([...new Uint16Array(texture.read(texture.describe(scalar16,0)).
     [0,0,0,0,1,1,1,1,32768,32768,32768,32768,65535,65535,65535,65535],"A16 scalar can feed all four crossbar outputs");
 assert.throws(()=>texture.read({...a16,dma:{...a16.dma,limit:0x9008}}),/limit/,"last A16 row remains DMA checked");
 console.log("PASS: native A16 UNORM16 scalar, G storage component, crossbar replication, padding and DMA bounds");
+const pair16={methods:new Map(scalar16.methods)};
+for(const [at,value]of [[0x1A04,0x13529],[0x1A10,0x694E],[0x1840,12]])pair16.methods.set(at,value);
+new Uint16Array(vram.buffer,0x9000,10).set([1,65535,32768,2,0xDEAD,0xBEEF,65534,0,3,16384]);
+const la16=texture.describe(pair16,0);assert.equal(la16.bpp,4);assert.equal(la16.d3d,36);
+assert.deepEqual([...new Uint16Array(texture.read(la16).buffer)],
+    [1,65535,65535,65535,32768,2,65535,65535,65534,0,65535,65535,3,16384,65535,65535],"native A16L16 crossbar separates both 16-bit lanes and row padding");
+for(const [at,value]of [[0x1A04,0x1152D],[0x1A18,1<<16|1],[0x1840,4]])pair16.methods.set(at,value);
+for(let face=0;face<6;face++)new Uint16Array(vram.buffer,0x9000+face*128,2).set([face+1,65535-face]);
+assert.deepEqual(texture.images(texture.describe(pair16,0)).map(bytes=>[...new Uint16Array(bytes.buffer)].slice(0,2)),
+    Array.from({length:6},(_,face)=>[face+1,65535-face]),"A16L16 native cube faces retain 128-byte alignment");
+console.log("PASS: native A16L16 UNORM16 pair, crossbar, padded rows and aligned cube faces");
 for(const [code,bpp,format]of [[16,4,75],[18,2,80]])
 {
     const depth={methods:new Map([[0x184,0x10],[0x1A00,0x9000],[0x1A04,0x12021|code<<8],[0x1A08,0x60000303],

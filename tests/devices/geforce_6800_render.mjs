@@ -604,6 +604,13 @@ try
         method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0,0x3800,0,0x3C00],"native A16 green channel bilinear sampling retains UNORM precision");
         console.log("PASS: real WebGPU native A16 crossbar and bilinear filtering through UNORM16 upload");
+        method(0x1A04,0x13529);method(0x1A10,0x694E);method(0x1840,8);
+        new Uint16Array(vram.buffer,0x20000,4).set([0,65535,65535,0]);
+        method(0x1808,6);
+        for(const word of new Uint32Array(Float32Array.of(0,0,.5,.5,0,16,.5,.5,16,0,.5,.5).buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0x3800,0x3800,0x3C00,0x3C00],"A16L16 filters both independent UNORM16 channels");
+        console.log("PASS: real WebGPU native A16L16 crossbar and independent bilinear channels");
         for(const [code,values,expected]of [[27,[2,-1,.5,.25],[0x4000,0xBC00,0x3800,0x3400]],
             [28,[.5],[0x3800,0,0,0x3C00]]])
         {

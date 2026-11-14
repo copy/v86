@@ -3,7 +3,7 @@
 const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 // TEX_SWIZZLE fields are A/R/G/B from low to high (Mesa nv30_texture).
 const CROSSBAR_SHIFT=[2,4,6,0];
-const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[16,4],[18,2],[20,2],[26,8],[27,16],[28,4]]);
+const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[16,4],[18,2],[20,2],[21,4],[26,8],[27,16],[28,4]]);
 const BLOCK_BYTES=new Map([[6,8],[7,16],[8,16]]);
 const same_bytes=(a,b)=>{
     if(a.length!==b.length)return false;
@@ -89,8 +89,8 @@ export class NV40Texture
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,normalized,
             crossbar:get(o,at+16),srgb:gamma===7,anisotropy,wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:0,lod_min,lod_max,level_count:Math.min(levels,Math.ceil(lod_max)+1),
-            d3d:depthCompare?code===16?75:80:fullFloat?116:code===26?113:code===20?36:32,
-            upload_bpp:depthCompare?bpp:fullFloat?16:code===26 || code===20?8:4,depth_compare:depthCompare,
+            d3d:depthCompare?code===16?75:80:fullFloat?116:code===26?113:code===20 || code===21?36:32,
+            upload_bpp:depthCompare?bpp:fullFloat?16:code===26 || code===20 || code===21?8:4,depth_compare:depthCompare,
             bias:new Uint32Array(Float32Array.of((filter<<19>>19)/256).buffer)[0],border:get(o,at+28)};
     }
     images(texture)
@@ -203,7 +203,7 @@ export class NV40Texture
             }
             return result;
         }
-        if(texture.code===26 || texture.code===20)
+        if(texture.code===26 || texture.code===20 || texture.code===21)
         {
             const bytes=this.storage(texture,encoded),result=new Uint8Array(texture.width*texture.height*(texture.depth||1)*8),
                 source=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength),output=new DataView(result.buffer);
@@ -213,9 +213,12 @@ export class NV40Texture
                 if(select===3)throw new RangeError("NV40 invalid texture component selection");
                 // Mesa nv30_format routes the A16 scalar through storage
                 // component 1 (G), before the ordinary A/R/G/B crossbar.
-                // Expand to UNORM16 RGBA without quantizing it to 8 bits.
-                const value=texture.code===20?(component===1?source.getUint16(pixel*2,true):0):source.getUint16(pixel*8+component*2,true);
-                output.setUint16(pixel*8+channel*2,select===0?0:select===1?(texture.code===20?65535:0x3C00):value,true);
+                // A16L16 uses the A8L8 storage lanes: low L in B, high A in A.
+                // Expand UNORM16 RGBA without quantizing either lane to 8 bits.
+                const value=texture.code===20?(component===1?source.getUint16(pixel*2,true):0):
+                    texture.code===21?(component===0 || component===3?source.getUint16(pixel*4+(component===3?2:0),true):0):
+                        source.getUint16(pixel*8+component*2,true);
+                output.setUint16(pixel*8+channel*2,select===0?0:select===1?(texture.code===26?0x3C00:65535):value,true);
             }
             return result;
         }
