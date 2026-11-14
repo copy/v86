@@ -289,14 +289,18 @@ export async function run_geforce_guest(win98)
             let count=0,bytes=0;fs.writeFileSync(file,"");
             backend.draw=(object,mode,words,indices,subc)=>{
                 const before=backend.stats.draws,result=draw(object,mode,words,indices,subc);
-                if(backend.stats.draws===before || backend.stats.draws<first || count>=limit || bytes>=budget ||
-                    indices && indices.length>64 || words && words.length>256)return result;
-                let capture={ordinal:count++,elapsed:elapsed(),draw:backend.stats.draws,mode,subc,channel:object.channel,instance:object.instance};
+                if(backend.stats.draws===before || backend.stats.draws<first || count>=limit || bytes>=budget)return result;
+                let capture={ordinal:count++,elapsed:elapsed(),draw:backend.stats.draws,mode,subc,channel:object.channel,instance:object.instance,
+                    indexCount:indices?.length,inlineWordCount:words?.length};
                 try
                 {
                     const program=engine.program(object),attributes=[...new Set(program.vertex.instructions.flatMap(instruction=>
                         instruction.sources.filter(source=>source.type==="input").map(source=>source.index)))].sort((a,b)=>a-b);
-                    const inputs=attributes.map(attribute=>[attribute,[1,0]]),vertices=indices?engine.state.array_vertices(object,indices,inputs):engine.state.inline_vertices(object,words,inputs);
+                    const inputs=attributes.map(attribute=>[attribute,[1,0]]);
+                    const stride=indices?0:Array.from({length:16},(_,i)=>engine.state.vertex_layout(object.methods.get(0x1740+i*4)||0))
+                        .reduce((sum,layout)=>sum+Math.ceil(layout.bytes/4),0);
+                    const vertices=indices?engine.state.array_vertices(object,indices.slice(0,64),inputs):
+                        engine.state.inline_vertices(object,words.slice(0,stride*64),inputs);
                     capture={...capture,program,methods:Array.from(object.methods),attributes,vertices:{count:vertices.count,stride:vertices.stride,
                         words:Array.from(new Uint32Array(vertices.bytes.buffer,vertices.bytes.byteOffset,vertices.bytes.byteLength/4))}};
                 }
