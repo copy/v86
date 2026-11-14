@@ -124,6 +124,13 @@ try
     engine.backend.draw=draw;
     if(remote)
     {
+        const scanout=[];device.display={release_semaphore:value=>scanout.push({value,pixel:view.getUint32(0x10000,true)})};
+        method(0x1D6C,0x01000000);method(0x1808,6);
+        for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
+        method(0x1808,0);device.registers.set(0x90000,0x1D74);device.registers.set(0x90004,0x10000);device.registers.set(0x3270,0);device.registers.set(0x3210,4);
+        assert.equal(device.fifo.drain(),false);assert.equal(scanout.length,0,"display semaphore cannot precede GPU completion");
+        await engine.backend.wait();assert.equal(device.fifo.drain(),true);
+        assert.deepEqual(scanout,[{value:0x10000,pixel:0xFF336699}],"queued scanout sees the completed render target");method(0x1D6C,0x800);
         method(0x208,0x143);method(0x20C,16);
         method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
         method(0x1808,0);await engine.backend.wait();

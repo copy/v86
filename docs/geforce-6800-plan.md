@@ -1477,3 +1477,12 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   无 GPU/PGRAPH 故障，原盘未变，见 `g3-xp-9371-texture-routing.json`。
   CPU 纹理、168 个 Naga 模块、完整真实 GPU 回归与 Closure 构建通过。
   旧 99 IQ 文件仍是修复前证据，固定帧的完整复验继续进行。
+
+- G3 主显示头信号量：93.71 的 producer 从 head 表取索引，发送高位选择器
+  `1+2*head`，随后以 `TEXTURE_READ_RELEASE` 发送 framebuffer 字节地址。
+  接通精确的 `0x01000000` 主头/零偏移，等前序 GPU 读回完成后排队扫描地址，
+  在 vblank 切换 front；普通 DMA fence 不变，其他选择器继续拒绝。真实设备
+  快照、越界原子性、GPU 完成顺序与完整渲染回归通过，Closure 0 错误/警告。
+  XP 03 从冷启动已正常显示 GT1 加载图、无 PGRAPH/GPU 故障；客体长跑继续，
+  尚未接受完整 benchmark。语义依据是原版 producer 与显示证据的推断，
+  不把 hwtest 的合法位掩码当作语义说明，见 `g3-xp-9371-display-semaphore.json`。

@@ -167,6 +167,14 @@ export class NVDisplay
     }
 
     reg(offset) { return this.device.registers.get(offset) || 0; }
+    release_semaphore(value)
+    {
+        const mode=this.mode(),length=mode?(mode.height-1)*mode.pitch+mode.width*mode.bytes:4;
+        if(value&3 || value+length>this.device.vram_size)throw new RangeError("NV40 display semaphore outside VRAM");
+        // Queue head 0's byte address exactly like PCRTC_START. The scanout
+        // front remains unchanged until on_vblank, including across snapshots.
+        this.device.registers.set(0x600800,value);this.invalidate();
+    }
     raster()
     {
         const c=this.crtc,period=this.vblank_period();

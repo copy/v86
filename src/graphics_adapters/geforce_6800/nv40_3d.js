@@ -156,6 +156,10 @@ export class NV40_3D
         if(at === 0x1D70 || at === 0x1D74)
         {
             const offset = get(o, 0x1D6C);
+            // 93.71's display producer emits 1+2*head in the high selector
+            // and a framebuffer byte address with TEXTURE_READ_RELEASE.
+            // Only the primary CRT and its zero-offset selector are modeled.
+            if(at===0x1D74 && offset===0x01000000){this.device.display.release_semaphore(value);return true;}
             if(offset & ~0xFF0) throw new RangeError("NV40 fence selector is not implemented");
             if(!o.methods.has(0x1A4)) throw new RangeError("NV40 fence DMA unbound");
             const dma = this.device.dma.descriptor(get(o, 0x1A4) * 16), bytes = new Uint8Array(4);

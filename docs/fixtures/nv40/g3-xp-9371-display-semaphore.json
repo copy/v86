@@ -1,0 +1,43 @@
+{
+  "stage": "G3 primary-head display semaphore",
+  "finding": "93.71 emits FENCE_OFFSET 0x01000000 and TEXTURE_READ_RELEASE containing a framebuffer byte address. Route this exact selector to primary scanout, after preceding GPU work, and latch the queued address at vblank. Ordinary selector-zero DMA fences retain their checked memory writes.",
+  "evidence": {
+    "producer": "unmodified XP 93.71 nv4_disp.dll",
+    "producer_sha256": "4c68e517ba82cbf3db35633239abd016a1c5532fc2b841808306eeca0e552ad0",
+    "image_base": "0x10000",
+    "head_table_load_va": "0xD6E80",
+    "selector_1_plus_2_times_head_va": "0xD7142",
+    "framebuffer_address_release_va": "0xD7181..0xD71A1",
+    "interpretation": "Inferred from the native producer and observed scanout. The hwtest selector mask alone does not establish display semantics."
+  },
+  "production_run": {
+    "directory": "build/nv40-xp-mark03-production",
+    "starting_point": "cold boot from installed-driver OS overlay; original 3DMark03 EXE and native graphics DLLs",
+    "probe_id": 577,
+    "status": "ongoing; Loading Game Test 1 Wings of Fury visible",
+    "elapsed_seconds": 217.81,
+    "gpu": {
+      "batches": 133,
+      "draws": 209,
+      "bytes": 273970144,
+      "readbacks": 135,
+      "failures": 0,
+      "uploads": 87,
+      "uploadBytes": 271712256
+    },
+    "graph_faults": [],
+    "checkpoint": "build/nv40-xp-mark03-production/checkpoint-production-loading-gt1.state",
+    "diagnostic_method_overrides": false
+  },
+  "validation": [
+    "actual device snapshot serializer retains queued start and old front until vblank",
+    "unaligned and out-of-VRAM scanout rejected without mutation",
+    "unknown selector/head and high-selector ordinary FENCE rejected",
+    "full real WebGPU regression verifies release follows downloaded target pixels",
+    "Closure: zero errors/warnings"
+  ],
+  "limits": [
+    "Only primary-head zero-offset display selector 0x01000000 is connected.",
+    "Native benchmark completion and fixed-frame acceptance remain pending."
+  ]
+}
