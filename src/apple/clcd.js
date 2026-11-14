@@ -73,6 +73,7 @@ export class AppleCLCD
         this.regs[0x1038 >>> 2] = 0x100;
         this.update_irq();
         this.invalidate();
+        this.notify_screen_state();
     }
 
     write(offset, value)
@@ -143,6 +144,7 @@ export class AppleCLCD
         {
             this.panel_on = packet === 0x2905;
             this.invalidate();
+            this.notify_screen_state();
         }
         const lanes = this.dsi[4] >>> 1 & 15;
         this.dsi[0] = 0x100000 | this.ulps | (this.ulps & 0x200 ? 0 : 0x100) |
@@ -188,7 +190,14 @@ export class AppleCLCD
         {
             this.backlight = level;
             this.invalidate();
+            this.notify_screen_state();
         }
+    }
+
+    notify_screen_state()
+    {
+        this.cpu.bus?.send("ios-screen-state", { "awake": this.panel_on && this.backlight > 0,
+            "panel_on": this.panel_on, "backlight": this.backlight });
     }
 
     // Only a full-panel renderControl post is a scanout. Store its top-down
@@ -306,5 +315,6 @@ export class AppleCLCD
         this.panel_on = state[6] !== false;
         this.regs[0x1044 >>> 2] = 0;
         this.update_irq(); this.invalidate();
+        this.notify_screen_state();
     }
 }

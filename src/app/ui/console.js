@@ -484,6 +484,7 @@ function console_ui(layout, emulator, ctx)
         ...(options.virtio_disks || [])].some(d => d && d.disk_option === "read_write");
     let powered_off = false;
     let running = false;
+    let iphone_asleep = false;
 
     // ---- the status bar
     const stats = { started: 0, running_ms: 0, last_tick: 0, last_counter: 0, total: 0, ips: 0,
@@ -501,13 +502,15 @@ function console_ui(layout, emulator, ctx)
         status_parts.disk.textContent = stats.disk_read || stats.disk_written ? "Disk " + (stats.disk_busy ? "busy, " : "") +
             format_size(stats.disk_read) + " read, " + format_size(stats.disk_written) + " written" : "";
         status_parts.network.textContent = stats.net_in || stats.net_out ? "Network " + format_size(stats.net_in) + " in, " + format_size(stats.net_out) + " out" : "";
-        status_parts.display.textContent = stats.mode ? stats.mode + " " + stats.resolution : "";
+        status_parts.display.textContent = (stats.mode ? stats.mode + " " + stats.resolution : "") +
+            (iphone && iphone_asleep ? " · Screen asleep; press Home or Lock to wake" : "");
         status_parts.mouse.textContent = !stats.mouse_enabled ? "Mouse off" :
             stats.usb_tablet && !stats.pointer_locked ? "Mouse: USB tablet (absolute)" :
             stats.guest_mouse ? "Mouse: the guest's" + (stats.pointer_locked ? " (PS/2, locked)" : stats.absolute_mouse ? " (absolute)" : "") : "";
         if(details_open()) render_details();
     };
     ctx.set_renderer(render);
+    emulator.add_listener("ios-screen-state", state => { iphone_asleep = !state["awake"]; render(); });
     const tick = () =>
     {
         const now = Date.now();

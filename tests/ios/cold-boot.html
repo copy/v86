@@ -20,10 +20,12 @@ const artifact = async (name, body) => {
 let emulator, serial = "", line = "", power_on, samples = [], milestones = [];
 let options, config, frame, cycle = 0, first_frame = false, desktop = null, matched = 0, reference;
 let last_unlock = -10000, last_wake = -20000;
+let screen_asleep = false;
 const cycles = [];
 const interval = Math.max(1000, Number(query.get("sample_ms") || 10000));
 window.boot_test = { get emulator() { return emulator; }, samples, milestones };
 const elapsed = () => performance.now() - power_on;
+const console_closed = () => !!frame?.contentDocument.body.textContent.includes("Powered off.");
 async function capture(name)
 {
     const image = emulator.screen_make_screenshot();
@@ -63,6 +65,7 @@ async function sample()
             if(matched >= 2)
             {
                 desktop = { cycle, ms: elapsed(), icon_mean_error: score, reference: query.get("reference") };
+                cycles[cycle].desktop_ms = desktop.ms;
                 milestones.push({ ...desktop, event: "native-desktop-matches-reference" });
                 await capture("desktop-"+cycle);
                 await artifact("desktop.json",JSON.stringify(desktop,null,2));
@@ -75,7 +78,7 @@ async function sample()
 async function start()
 {
     power_on = performance.now();
-    first_frame = false; desktop = null; matched = 0; last_unlock = -10000; last_wake = -20000;
+    first_frame = false; desktop = null; matched = 0; screen_asleep = false; last_unlock = -10000; last_wake = -20000;
     cycles.push({ cycle, power_on: new Date(performance.timeOrigin + power_on).toISOString() });
     if(query.has("console"))
     {
@@ -95,6 +98,11 @@ async function start()
         if(/Darwin Kernel|BSD root:|mounted|QUICKCHECK|FIPS USER|install helper started|AppleMultitouch.*downloaded|syncdefaultsd|SpringBoard|DataMigrator/.test(line))
         { const m = { cycle, ms: elapsed(), event: line.trim() }; milestones.push(m); log(Math.round(m.ms / 1000) + "s " + m.event); }
         line = "";
+    });
+    emulator.add_listener("ios-screen-state", state => {
+        const asleep=!state["awake"];
+        if(asleep!==screen_asleep) milestones.push({cycle,ms:elapsed(),event:asleep ? "screen-asleep" : "screen-awake"});
+        screen_asleep=asleep;
     });
     if(!emulator.worker_controller?.ready) await new Promise((resolve, reject) => {
         emulator.add_listener("emulator-loaded", resolve);
@@ -142,10 +150,20 @@ try
     for(let n=0;n<Number(query.get("seconds") || 1200)*1000/interval;n++)
     {
         await sleep(interval);
-        const closed=emulator.worker_controller?.closed && frame?.contentDocument.body.textContent.includes("Powered off.");
+        const closed=console_closed();
         if(!closed) await sample();
         if(!closed && query.has("keepawake") && !first_frame && elapsed()-last_wake>20000)
         { document.getElementById("home").click(); last_wake=elapsed(); }
+        if(!closed && query.has("auto_wake") && first_frame && !desktop && screen_asleep && elapsed()-last_wake>5000)
+        {
+            if(frame)
+            {
+                if(!frame.contentDocument.body.textContent.includes("Screen asleep")) throw Error("Console did not explain the sleeping screen");
+                frame.contentDocument.getElementById("iphone_power").click();
+            }
+            else { emulator.ios_send_button("power",true);await sleep(100);emulator.ios_send_button("power",false); }
+            last_wake=elapsed();milestones.push({cycle,ms:elapsed(),event:"user-Lock-wakes-sleeping-screen"});
+        }
         if(!closed && query.has("auto_unlock") && first_frame && !desktop && elapsed()-last_unlock>5000)
         { await document.getElementById("unlock").onclick(); last_unlock=elapsed(); }
         const commands = await fetch("/" + probe + "/boot-command.json", { cache: "no-store" });
@@ -184,8 +202,12 @@ try
             }
         }
     }
-    if(!emulator.worker_controller?.closed) { await sample(); await emulator.stop(); }
-    document.getElementById("result").textContent = "PASS: measured cold boot; inspect screenshots to establish desktop readiness";
+    if(!console_closed()) { await sample(); await emulator.stop(); }
+    const limit=Number(query.get("max_desktop_ms") || 0);
+    if(limit && cycles.some(c => c.desktop_ms === undefined || c.desktop_ms > limit))
+        throw Error("Native desktop missed "+limit+"ms: "+cycles.map(c=>c.desktop_ms ?? "not observed").join(", "));
+    document.getElementById("result").textContent = limit ? "PASS: native cold desktops in "+cycles.map(c=>Math.round(c.desktop_ms)).join(", ")+"ms" :
+        "PASS: measured cold boot; inspect screenshots to establish desktop readiness";
 }
 catch(error)
 {
