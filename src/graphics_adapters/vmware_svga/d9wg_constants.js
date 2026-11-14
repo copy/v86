@@ -4,7 +4,7 @@
 
 export const D9WG_MAGIC = 0x47573944;
 export const D9WG_VERSION_MAJOR = 1;
-export const D9WG_VERSION_MINOR = 10;
+export const D9WG_VERSION_MINOR = 11;
 
 /** The batch flag that makes the executor submit the frame's GPU work */
 export const D9WG_BATCH_FLAG_PRESENT = 1;
@@ -260,6 +260,12 @@ export const FIELD_LAYOUT = {
         ["depth",12,"float",1],
         ["stencil",16,"uint32_t",1],
         ["rect_count",20,"uint32_t",1],
+    ] },
+    "ClearBounds": { bytes: 16, fields: [
+        ["x",0,"uint32_t",1],
+        ["y",4,"uint32_t",1],
+        ["width",8,"uint32_t",1],
+        ["height",12,"uint32_t",1],
     ] },
     "Rect": { bytes: 16, fields: [
         ["left",0,"int32_t",1],

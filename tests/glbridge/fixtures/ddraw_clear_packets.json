@@ -1,8 +1,8 @@
 {
   "description": "Actual extracted public C Clear packets plus independent original XP center-pixel observations; all rectangles cover the32x32 target.",
-  "frontSourceSha256": "c625eae667bbcb76b56013bdc43c5201709e9f95060d0ca981c3b972a0ce52f9",
-  "legacySourceSha256": "0f17fcce026e715c57d66da2c45dfd2e3ec5dc5669dfe2e7ab034f24d8c326ca",
-  "producerSha256": "1fccb007b2dd0ff1354cbacb63540ff66cc70bf200501a8e0fbe754e3bcb40dc",
+  "frontSourceSha256": "d18034ad7e35d0155477dc4a8f7785ab9431bd76969f1dca09d55023ec4bdd9e",
+  "legacySourceSha256": "2e2b965d2daeb990dec98af443889a7f29d3d901a22eb5d34579637bbe349a15",
+  "producerSha256": "ce78bc23ca47dda1d140774468bbe10ca85e6de01e04e7607cef59950fca8806",
   "nativeReferenceSha256": "6034bd5cdcfdeee08490051be9390cf26c7e2e8d5677faa8d43bd90111ab5acd",
   "scenarios": [
     {
@@ -61,6 +61,10 @@
           0
         ]
       ],
+      "packetFlags": [
+        0,
+        0
+      ],
       "expectedRgb": 65280,
       "nativeHresult": 0
     },
@@ -93,6 +97,9 @@
           0,
           0
         ]
+      ],
+      "packetFlags": [
+        0
       ],
       "expectedRgb": 16777215,
       "nativeHresult": 0
@@ -153,6 +160,10 @@
           0
         ]
       ],
+      "packetFlags": [
+        0,
+        0
+      ],
       "expectedRgb": 65280,
       "nativeHresult": 0
     },
@@ -185,6 +196,9 @@
           0,
           0
         ]
+      ],
+      "packetFlags": [
+        0
       ],
       "expectedRgb": 16777215,
       "nativeHresult": 2147942487
@@ -261,6 +275,10 @@
           0
         ]
       ],
+      "packetFlags": [
+        0,
+        0
+      ],
       "expectedRgb": 65280,
       "nativeHresult": 0
     },
@@ -293,6 +311,9 @@
           0,
           0
         ]
+      ],
+      "packetFlags": [
+        0
       ],
       "expectedRgb": 16777215,
       "nativeHresult": 2147942487
@@ -353,6 +374,10 @@
           0
         ]
       ],
+      "packetFlags": [
+        0,
+        0
+      ],
       "expectedRgb": 65280,
       "nativeHresult": 0
     },
@@ -399,8 +424,27 @@
           32,
           0,
           0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          32,
+          0,
+          0,
+          0,
+          32,
+          0,
+          0,
           0
         ]
+      ],
+      "packetFlags": [
+        1
       ],
       "expectedRgb": 16777215,
       "nativeHresult": null,
@@ -449,8 +493,27 @@
           32,
           0,
           0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          32,
+          0,
+          0,
+          0,
+          32,
+          0,
+          0,
           0
         ]
+      ],
+      "packetFlags": [
+        1
       ],
       "expectedRgb": 16777215,
       "nativeHresult": null,

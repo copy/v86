@@ -1,0 +1,19 @@
+'use strict';
+const assert=require('node:assert/strict'),path=require('node:path'),fs=require('node:fs'),P=require('../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js');
+if(process.env.DDRAW_CLEAR_EXECUTOR_SOURCE){const Module=require('node:module'),file=require.resolve('../../src/browser/glbridge/d3d9-webgpu/d3d9_executor.js'),m=new Module(file,module);m.filename=file;m.paths=Module._nodeModulePaths(path.dirname(file));m._compile(fs.readFileSync(process.env.DDRAW_CLEAR_EXECUTOR_SOURCE,'utf8'),file);require.cache[file]=m;}
+const {makeExecutor}=require('./d3d9_webgpu_executor_test.js');
+const cmd=(n,p)=>({opcode:P.OP[n],payload:p}),clear=(bounds,rects,headerFlags=bounds?P.C.D9WG_COMMAND_CLEAR_BOUNDS:0)=>{const parts=[P.encode('Clear',{device_handle:1,clear_flags:1,color:0x80663311,depth:.5,rect_count:rects.length}),...rects.map(r=>P.encode('Rect',{left:r[0],top:r[1],right:r[2],bottom:r[3]})),...(bounds?[P.encode('ClearBounds',{x:bounds[0],y:bounds[1],width:bounds[2],height:bounds[3]})]:[])],payload=new Uint8Array(parts.reduce((n,p)=>n+p.length,0));let at=0;for(const p of parts){payload.set(p,at);at+=p.length;}return{opcode:P.OP.CLEAR,flags:headerFlags,payload};};
+(async()=>{
+ const {executor,find}=makeExecutor(),metadata={writeGuestMemory(){}};const send=c=>executor.submit(P.encodeBatch(c),metadata);
+ await send([cmd('CREATE_DEVICE',{device_handle:1,width:8,height:8}),cmd('CREATE_TEXTURE_2D',{device_handle:1,resource_handle:2,width:8,height:8,level_count:1,format:21,usage:1}),cmd('SET_RENDER_TARGET',{device_handle:1,color_texture_handle:2}),cmd('SET_VIEWPORT',{device_handle:1,width:2,height:2,max_z:1}),cmd('SET_SCISSOR_RECT',{device_handle:1,left:0,top:0,right:1,bottom:1}),cmd('SET_RENDER_STATE',{device_handle:1,state:174,value:1})]);
+ const state=executor.devices.get(1),snapshot=()=>JSON.stringify({viewport:state.viewport,scissor:state.scissorRect,render:[...state.renderStates]}),before=snapshot();let checks=0;
+ for(let i=0;i<128;i++){
+  const b=i===127?[0xffffffff,0xffffffff,0xffffffff,0xffffffff]:[i%12,(i*3)%12,(i*5)%17,(i*7)%17],rects=[[-2,-3,5,6],[3,4,11,12],[7,7,3,4]],wanted=[];
+  for(const r of rects){const left=Math.max(0,b[0],r[0]),top=Math.max(0,b[1],r[1]),right=Math.min(8,b[0]+b[2],r[2]),bottom=Math.min(8,b[1]+b[3],r[3]);if(right>left&&bottom>top)wanted.push({left,top,right,bottom});}
+  const n=executor.frame?.ops.length||0;await send([clear(b,rects)]);const ops=executor.frame?.ops.slice(n)||[];
+  assert.equal(ops.length,wanted.length?1:0);if(wanted.length){assert.equal(ops[0].kind,'rect-clear');assert.deepEqual(ops[0].rects,wanted);assert.deepEqual(ops[0].color,{r:102/255,g:51/255,b:17/255,a:128/255});}assert.equal(snapshot(),before);checks++;
+ }
+ for(const flags of[0,2]){const n=executor.frame.ops.length;await send([clear(null,[[0,0,8,8]],flags)]);assert.deepEqual(executor.frame.ops[n].rects,[{left:0,top:0,right:1,bottom:1}]);checks++;}
+ executor.finishFrame(false);const passes=find("beginRenderPass").length;await send([clear(null,[],P.C.D9WG_COMMAND_CLEAR_BOUNDS)]);assert.equal(executor.frame,null);assert.equal(find("beginRenderPass").length,passes);assert(executor.lastBatchFailure,"Malformed bounds must produce a stream failure");assert.equal(executor.lastBatchFailure.constructor.name,"D9WGStreamError");assert.match(executor.lastBatchFailure.message,/Clear rectangles\/bounds overrun/);assert.equal(executor.stats.batchesFailed,1);assert.equal(snapshot(),before);assert.equal(executor.stats.malformedBatches,1);assert.equal(executor.stats.commandsFailed,0);assert.equal(executor.hostErrors.length,0);
+ console.log('PASS caller clear bounds '+checks+' cases; absolute intersections, zero/overflow-size bounds, independent current viewport/scissor, ordinary headers and malformed trailer rejection');
+})().catch(e=>{console.error(e);process.exitCode=1;});

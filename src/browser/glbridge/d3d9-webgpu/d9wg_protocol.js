@@ -46,7 +46,7 @@
     ] },
     { define: "D9WG_MAGIC", c: "0x47573944u", text: ["#define D9WG_MAGIC 0x47573944u /* \"D9WG\" */"] },
     { define: "D9WG_VERSION_MAJOR", c: "1u", text: ["#define D9WG_VERSION_MAJOR 1u"] },
-    { define: "D9WG_VERSION_MINOR", c: "10u", text: ["#define D9WG_VERSION_MINOR 10u"] },
+    { define: "D9WG_VERSION_MINOR", c: "11u", text: ["#define D9WG_VERSION_MINOR 11u"] },
     { raw: [
         "",
     ] },
@@ -491,6 +491,12 @@
         ["float", "depth"],
         ["uint32_t", "stencil"],
         ["uint32_t", "rect_count"],
+    ] },
+    { comment: ["/* Protocol1.11: CLEAR with this command-header flag appends ClearBounds", " * after its inline Rect list. This is a caller-owned viewport bound for", " * legacy Viewport.Clear; device viewport/scissor state remains untouched. */"] },
+    { define: "D9WG_COMMAND_CLEAR_BOUNDS", c: "1u", text: ["#define D9WG_COMMAND_CLEAR_BOUNDS 1u"] },
+    { struct: "ClearBounds", note: "16 bytes; optional CLEAR trailer", fields: [
+        ["uint32_t", "x"], ["uint32_t", "y"],
+        ["uint32_t", "width"], ["uint32_t", "height"],
     ] },
     { struct: "Rect", note: "16 bytes; inline Clear rectangle", fields: [
         ["int32_t", "left"], ["int32_t", "top"],

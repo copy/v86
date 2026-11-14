@@ -1724,7 +1724,8 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 try {
                     this.recordingOpcode = opcode;
                     const pending = this.dispatchCommand(opcode, bytes, view,
-                        payloadOffset, payloadBytes, metadata);
+                        payloadOffset, payloadBytes, metadata,
+                        view.getUint16(offset + D9WG.F.CommandHeader.flags, true));
                     if (pending && typeof pending.then === "function") {
                         if (timing) timing["sync"](timing["now"]() - segmentStart);
                         try { await pending; }
@@ -1786,7 +1787,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
         }
 
-        dispatchCommand(opcode, bytes, view, offset, length, metadata) {
+        dispatchCommand(opcode, bytes, view, offset, length, metadata, commandFlags = 0) {
             const handler = this.handlers[opcode];
             if (handler && length < D9WG_MIN_PAYLOAD[opcode]) {
                 ++this.stats.malformedBatches;
@@ -1801,7 +1802,7 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                     opcode.toString(16) + " skipped", { opcode });
                 return;
             }
-            return handler.call(this, bytes, view, offset, length, metadata);
+            return handler.call(this, bytes, view, offset, length, metadata, commandFlags);
         }
 
         uploadFrame(bytes) {
@@ -2786,7 +2787,21 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
             }
         }
 
-        onClear(bytes, view, offset, length) {
+        onClear(bytes, view, offset, length, metadata, commandFlags = 0) {
+            const rectCount = view.getUint32(offset + D9WG.F.Clear.rect_count, true);
+            const rectsEnd = D9WG.STRUCTS.Clear.size + rectCount * D9WG.STRUCTS.Rect.size;
+            const hasBounds = (commandFlags & D9WG.C.D9WG_COMMAND_CLEAR_BOUNDS) !== 0;
+            if (rectsEnd + (hasBounds ? D9WG.STRUCTS.ClearBounds.size : 0) > length) {
+                ++this.stats.malformedBatches;
+                throw new D9WGStreamError(hasBounds ? "D9WG Clear rectangles/bounds overrun the command" : "D9WG Clear rectangles overrun the command");
+            }
+            const boundsAt = offset + rectsEnd;
+            const callerBounds = hasBounds ? {
+                x: view.getUint32(boundsAt + D9WG.F.ClearBounds.x, true),
+                y: view.getUint32(boundsAt + D9WG.F.ClearBounds.y, true),
+                width: view.getUint32(boundsAt + D9WG.F.ClearBounds.width, true),
+                height: view.getUint32(boundsAt + D9WG.F.ClearBounds.height, true),
+            } : null;
             const deviceHandle = view.getUint32(offset + D9WG.F.Clear.device_handle, true);
             const flags = view.getUint32(offset + D9WG.F.Clear.clear_flags, true);
             const color = view.getUint32(offset + D9WG.F.Clear.color, true);
@@ -2826,14 +2841,9 @@ fn d9_ps_main() -> @location(0) vec4<f32> {
                 const frame = this.ensureFrame();
                 // D3D9 clears only inside the viewport, and inside the scissor
                 // rect while the scissor test is on (Wine's d3d9 clear_test)
-                const scissor = (state.renderStates.get(D3DRS_SCISSORTESTENABLE) || 0) !== 0 ?
+                const scissor = !hasBounds && (state.renderStates.get(D3DRS_SCISSORTESTENABLE) || 0) !== 0 ?
                     state.scissorRect : null;
-                const bounds = intersectRects(state.viewport, scissor, targets.width, targets.height);
-                const rectCount = view.getUint32(offset + D9WG.F.Clear.rect_count, true);
-                if (24 + rectCount * 16 > length) {
-                    ++this.stats.malformedBatches;
-                    throw new D9WGStreamError("D9WG Clear rectangles overrun the command");
-                }
+                const bounds = intersectRects(callerBounds || state.viewport, scissor, targets.width, targets.height);
                 const rects = [];
                 const clip = (left, top, right, bottom) => {
                     left = Math.max(left, bounds.x);
