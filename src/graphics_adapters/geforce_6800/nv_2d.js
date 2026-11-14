@@ -235,16 +235,20 @@ export class NV2D
         }
         this.render(o, this.surface(o, 0x198), this.bounds(x, y, w, h, clip), () => color, [0x188, 0x18C, 0x190, 0x194]);
     }
-    m2mf(o, value)
+    m2mf_plan(o)
     {
         const input = this.dma(o, 0x184), output = this.dma(o, 0x188);
         const width = m(o, 0x31C), height = m(o, 0x320), format = m(o, 0x324);
         if(format !== 0x101 || width * height > this.device.vram_size) throw new RangeError("NV M2MF invalid geometry");
-        const rows = [], destinations = [];
         // Notifier validity is part of validation, so a bad notifier cannot turn
         // a failed transfer into a partial copy with an apparent completion.
         const notifier = this.dma(o, 0x180);
         this.device.dma.ranges(notifier, 16, 16, true);
+        return {input,output,notifier,width,height};
+    }
+    m2mf(o, value)
+    {
+        const {input,output,width,height}=this.m2mf_plan(o),rows=[],destinations=[];
         for(let y = 0; y < height; y++)
         {
             const from = m(o, 0x30C) + (m(o, 0x314) | 0) * y, to = m(o, 0x310) + (m(o, 0x318) | 0) * y;

@@ -257,6 +257,31 @@ export class NV40Render
     barrier(o,method,value)
     {
         if(!this.batch)return false;
+        if(o.class_id===0x39)
+        {
+            if([0x180,0x184,0x188,0x30C,0x310,0x314,0x318,0x31C,0x320,0x324].includes(method))return false;
+            if(method===0x328)try
+            {
+                const {input,output,notifier,width,height}=this.device.graph.engine2d.m2mf_plan(o);
+                if(input.linear && output.linear && notifier.linear)
+                {
+                    const from=get(o,0x30C),to=get(o,0x310),srcPitch=get(o,0x314)|0,dstPitch=get(o,0x318)|0;
+                    for(let y=0;y<height;y++)
+                    {
+                        this.device.dma.ranges(input,from+srcPitch*y,width,false);
+                        this.device.dma.ranges(output,to+dstPitch*y,width,true);
+                    }
+                    const span=(dma,offset,pitch,rows,bytes)=>this.range({dma,offset:offset+Math.min(0,pitch*(rows-1)),
+                        width:bytes+Math.abs(pitch)*(rows-1),height:1,bpp:1,pitch:0});
+                    const reads=width&&height?[span(input,from,srcPitch,height,width)]:[];
+                    const writes=[span(notifier,16,0,1,16),...(width&&height?[span(output,to,dstPitch,height,width)]:[])];
+                    const overlaps=(range,target)=>{const other=this.range(target);return range.memory===other.memory && range.first<other.last && other.first<range.last;};
+                    if(![...this.batch.outputs.values()].some(({target})=>[...reads,...writes].some(range=>overlaps(range,target))) &&
+                        ![...this.batch.guards.values()].some(({target})=>writes.some(range=>overlaps(range,target))))return false;
+                }
+            }
+            catch(error) {if(!(error instanceof RangeError))throw error;}
+        }
         if([0x61,0x65,0x8A,0x308A].includes(o.class_id))
         {
             // IFC state changes do not touch memory. For data, share the exact

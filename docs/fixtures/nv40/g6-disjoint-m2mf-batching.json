@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-14",
+  "behavior": "Share checked M2MF geometry/notifier planning with the CPU engine. State changes preserve a queued GPU batch. A linear transfer proceeds only when source reads avoid queued outputs, and destination/notifier writes avoid both outputs and read-only attachment guards. Paged, invalid or overlapping transfers retain the existing wait. Row DMA permissions and the entire notifier are checked before permitting the transfer.",
+  "tests": {
+    "CPU2D": "Existing PCI M2MF, atomic completion and fault regression passed.",
+    "realWebGPU": "A disjoint M2MF update between 0.25/0.5 additive draws retains one batch/readback and produces RGBA191. GPU-source reads wait and copy RGBA128. Destination, notifier, paged DMA, invalid notifier permission and read-only depth aliases preserve barriers. Full GPU regression passed.",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "limitation": "No native FPS or watchdog recovery claim from the synthetic batching regression.",
+  "logs": {
+    "build/nv40-m2mf-batch-unit.log": {
+      "bytes": 547,
+      "sha256": "8b2e02a9384ebc736572a499539835c50bd18cb208f78d62104692438286f346"
+    },
+    "build/nv40-m2mf-batch-gpu.log": {
+      "bytes": 4804,
+      "sha256": "3d1dc354c47c7ce3fec274633dbc26b5ea552b915836430f8f86c104443cb314"
+    },
+    "build/nv40-m2mf-batch-closure.log": {
+      "bytes": 3020,
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7"
+    }
+  }
+}

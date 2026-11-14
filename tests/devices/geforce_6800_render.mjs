@@ -1359,6 +1359,49 @@ try
         }
         vram.set(savedUploadProgram,0x9000);vram.set(alternateProgram,0x49000);
         console.log("PASS: both fragment-input DMA rebindings preserve their own constants in one GPU batch/download");
+        // M2MF input uploads can run between draws only when their checked
+        // reads, writes and completion notifier cannot touch queued pixels.
+        ram.setUint32(0x6000,0x39,true);
+        ram.setUint32(0x1500,0x303D,true);ram.setUint32(0x1504,0xFFFFF,true);ram.setUint32(0x1508,0x80003,true);
+        const copy=graph.object(0,0x6000);
+        copy.methods=new Map([[0x180,0x150],[0x184,0x100],[0x188,0x100],[0x30C,0x9300],[0x310,0x9010],
+            [0x314,16],[0x318,16],[0x31C,16],[0x320,1],[0x324,0x101]]);
+        const copyMethod=(at,value)=>graph.method(0,2,0x6000,at,value);
+        for(let i=0;i<4;i++)view.setUint32(0x9300+i*4,floatWord(.5),true);
+        [0x01001E81,0x001DC802,0,0,...Array(4).fill(floatWord(.25))].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        method(0x8E4,0x9001);vram.fill(0,0x10000,0x10100);vram.fill(255,0x80010,0x80020);device.fifo.running=true;
+        const beforeCopy={...engine.backend.stats};drawInline();
+        assert.equal(copyMethod(0x314,16),true,"M2MF state changes retain the queued draw");
+        assert.equal(copyMethod(0x328,0),true);
+        assert.equal(view.getUint32(0x9010,true),floatWord(.5));
+        assert.equal(view.getUint32(0x80018,true),0,"M2MF notifier completes after its disjoint copy");
+        assert.equal(engine.backend.stats.batches,beforeCopy.batches);
+        drawInline();await engine.backend.wait();
+        assert.equal(engine.backend.stats.batches-beforeCopy.batches,1);
+        assert.equal(engine.backend.stats.readbacks-beforeCopy.readbacks,1);
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[191,191,191,191]);
+        copy.methods.set(0x31C,4);copy.methods.set(0x30C,0x10000);copy.methods.set(0x310,0x9400);
+        vram.fill(0,0x10000,0x10100);drawInline();
+        assert.equal(copyMethod(0x328,0),false,"M2MF reads wait for queued GPU writes");
+        await engine.backend.wait();assert.equal(copyMethod(0x328,0),true);
+        assert.equal(view.getUint32(0x9400,true),0x80808080,"copy reads authoritative rendered pixels");
+        copy.methods.set(0x30C,0x9300);copy.methods.set(0x310,0x10000);drawInline();
+        assert.equal(engine.backend.barrier(copy,0x328,0),true,"M2MF destination aliases retain the barrier");
+        copy.methods.set(0x310,0x9400);
+        ram.setUint32(0x1600,0x303D,true);ram.setUint32(0x1604,0xFFFFF,true);ram.setUint32(0x1608,0x10003,true);
+        copy.methods.set(0x180,0x160);
+        assert.equal(engine.backend.barrier(copy,0x328,0),true,"M2MF notifier aliases retain the barrier");
+        copy.methods.set(0x180,0x150);ram.setUint32(0x1500,0x103D,true);
+        assert.equal(engine.backend.barrier(copy,0x328,0),true,"paged M2MF remains conservative");
+        ram.setUint32(0x1500,0x303D,true);
+        ram.setUint32(0x1500,0x703D,true);
+        assert.equal(engine.backend.barrier(copy,0x328,0),true,"invalid M2MF notifier permission retires earlier work before trapping");
+        ram.setUint32(0x1500,0x303D,true);await engine.backend.wait();
+        method(0xA74,1);copy.methods.set(0x310,0x24000);drawInline();
+        assert.equal(engine.backend.barrier(copy,0x328,0),true,"CPU copy writes wait for read-only depth attachment readers");
+        await engine.backend.wait();method(0xA74,0);device.fifo.running=false;
+        vram.set(savedUploadProgram,0x9000);
+        console.log("PASS: disjoint checked M2MF uploads share a GPU batch; read/write/notifier/depth aliases retain ordering");
         method(0x310,0);method(0x8E4,0x9001);vram.fill(0,0x10000,0x10100);
         [23<<24|1<<13|15<<9|128|1,7<<18|0x1C801,0,0].forEach((word,i)=>view.setUint32(0x9100+i*4,word,true));
         queued.length=0;queuedDraw();

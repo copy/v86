@@ -1843,3 +1843,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   的原版 API 拒绝仍保留记录。该运行在第 60 秒保存成套检查点，
   之后再执行矩阵至第 150 秒，结束后 RAM/OS/game 三份输出仍与
   定时 manifest 的尺寸和 SHA 完全相符，验证后续执行未覆盖磁盘。
+
+- G6 M2MF 上传批处理：复用 CPU 引擎的 geometry/notifier 校验，
+  仅允许源读取不碰待写附件、目标和 notifier 写入不碰附件及只读
+  深度 guard 的线性复制保持批次。分页、非法和重叠访问仍等待。
+  真实 GPU 的 shader 常量复制产生 RGBA191、仅一次颜色回读；
+  GPU 源读取取得已完成的 RGBA128，目标/notifier/深度别名均阻挡。
+  CPU 2D、完整 GPU 与 Closure 通过，见 `g6-disjoint-m2mf-batching.json`；
+  原生 06 超时与独立性能验收仍继续。
