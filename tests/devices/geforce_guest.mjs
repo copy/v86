@@ -278,6 +278,14 @@ export async function run_geforce_guest(win98)
         const cpu = vm.v86.cpu;
         nv = cpu.devices.graphics_adapter.device["nv"];
         nv.trace.enabled = process.env.NV_TRACE !== "0";
+        if(process.env.NV_TEXTURE_CACHE_MIB || process.env.NV_TEXTURE_CACHE_ENTRIES)
+        {
+            const cache=nv.graph.engine3d.backend?.textures;assert(cache,"texture cache comparison needs a renderer");
+            if(process.env.NV_TEXTURE_CACHE_MIB)
+            {const mib=Number(process.env.NV_TEXTURE_CACHE_MIB);assert([64,128,256].includes(mib));cache.cache_limit=mib*1048576;}
+            if(process.env.NV_TEXTURE_CACHE_ENTRIES)
+            {const entries=Number(process.env.NV_TEXTURE_CACHE_ENTRIES);assert([256,512,1024].includes(entries));cache.cache_entries=entries;}
+        }
         clock_start = cpu.clock.now();
         if(process.env.NV_WATCH_DMA_WRITE)
         {
@@ -499,6 +507,7 @@ export async function run_geforce_guest(win98)
             pending_ms=0;pending.clear();releases=0;if(backend?.pending)pending.set(backend.pending,started);
             profiler={session,post,window:()=>({guest:win98?"win98":"xp",vramMiB:vram_mb,
                 build:release_build?"release":"debug",state:process.env.NV_STATE_LOAD||null,
+                textureCache:backend?{bytes:backend.textures.cache_limit,entries:backend.textures.cache_entries}:null,
                 wallMs:performance.now()-started,startHandshakeMs:started-start_requested,nodeCpuUs:process.cpuUsage(cpu_start),
                 backendPendingMs:pending_ms+[...pending.values()].reduce((sum,at)=>sum+performance.now()-at,0),
                 primarySemaphoreReleases:releases,before,after:counters(),
@@ -556,7 +565,7 @@ export async function run_geforce_guest(win98)
                 const reg=at=>nv.registers.get(at)||0,backend=nv.graph.engine3d.backend;
                 const progress=[reg(0x3244),reg(0x3270),backend?.stats.draws||0].join(":");
                 if(progress!==stall.progress){stall.progress=progress;stall.changed=elapsed();}
-                const queued=reg(0x3240)!==reg(0x3244) || reg(0x3210)!==reg(0x3270) || reg(0x3254)&0x10;
+                const queued=reg(0x3240)!==reg(0x3244) || reg(0x3210)!==reg(0x3270) || reg(0x3254)&0x10 || nv.graph.flips.some(f=>!!f[3]);
                 if(queued && !backend?.pending && elapsed()-stall.changed>=stall.seconds && stall.captures.length<8)
                 {
                     const key=JSON.stringify([progress,reg(0x3204),reg(0x3254),nv.graph.flips,nv.graph.context]);

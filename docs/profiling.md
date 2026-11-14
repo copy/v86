@@ -303,6 +303,21 @@ time, record host conditions and compare repeated windows from the same
 checkpoint with the same cache-start conditions. Concurrent investigation
 profiles can locate expensive paths, but do not establish a performance gate.
 
+The decoded-texture cache retains actual source bytes and decoded results,
+bounded by twice guest VRAM with a 64–256 MiB range and 1024 mip/face entries.
+For controlled comparisons, the test harness accepts `NV_TEXTURE_CACHE_MIB`
+(64/128/256) and `NV_TEXTURE_CACHE_ENTRIES` (256/512/1024); the sampling report
+records the chosen limits. A captured VRAM-only texture access sequence can
+also compare the old and current budgets without running a guest:
+
+```sh
+node tools/nv40_texture_workset.mjs <state> <draw-captures.jsonl> <report.json>
+```
+
+This replay hashes every returned image across three passes and compares
+miss/eviction counts against fixed snapshot VRAM. It does not reproduce
+evolving render targets or establish benchmark FPS.
+
 The harness itself costs the host about 5–8%: screenshots, logs, and the
 WebSocket channel to the renderer page in headless Chrome
 ([`tests/x64/gpu_remote_renderer.mjs`](../tests/x64/gpu_remote_renderer.mjs);

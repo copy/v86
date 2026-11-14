@@ -1,0 +1,80 @@
+{
+  "date": "2026-11-14",
+  "nativeEvidence": {
+    "guest": "XP 93.71, 128 MiB VRAM, 03 GT4",
+    "draws": 162,
+    "textureBindings": 611,
+    "uniqueFaceMipVariants": 422,
+    "retainedSourceAndDecodedBytes": 161943232
+  },
+  "policy": "Host-only decoded-texture cache: twice guest VRAM, minimum 64 MiB, maximum 256 MiB, 1024 face/mip entries. Every use still reads and validates guest source bytes.",
+  "replay": {
+    "state": "build/nv40-xp-mark03-native-fan-fixed/checkpoint-gt4-alpha-black-quad.state",
+    "captures": "build/nv40-xp-mark03-alpha-capture/draw-captures.jsonl",
+    "vramMiB": 128,
+    "draws": 162,
+    "textureBindings": 611,
+    "configurations": [
+      {
+        "mib": 64,
+        "entries": 256,
+        "rounds": [
+          {
+            "hits": 4742,
+            "misses": 568,
+            "evictions": 312,
+            "bytes": 63214608
+          },
+          {
+            "hits": 4748,
+            "misses": 562,
+            "evictions": 562,
+            "bytes": 0
+          },
+          {
+            "hits": 4748,
+            "misses": 562,
+            "evictions": 562,
+            "bytes": 0
+          }
+        ],
+        "residentBytes": 63214608,
+        "outputSha256": "c1476e6ad79d29f33155bd17bd6af35002b76192f6a3b0fd264d03ae6a1e37a5"
+      },
+      {
+        "mib": 256,
+        "entries": 1024,
+        "rounds": [
+          {
+            "hits": 4888,
+            "misses": 422,
+            "evictions": 0,
+            "bytes": 161943232
+          },
+          {
+            "hits": 5310,
+            "misses": 0,
+            "evictions": 0,
+            "bytes": 0
+          },
+          {
+            "hits": 5310,
+            "misses": 0,
+            "evictions": 0,
+            "bytes": 0
+          }
+        ],
+        "residentBytes": 161943232,
+        "outputSha256": "c1476e6ad79d29f33155bd17bd6af35002b76192f6a3b0fd264d03ae6a1e37a5"
+      }
+    ],
+    "scope": "Captured native access order against fixed snapshot VRAM. No GPU or guest execution, evolving render-to-texture data or benchmark FPS is inferred."
+  },
+  "performanceGate": false,
+  "scope": "Recorded native access order against fixed snapshot VRAM; no FPS, evolving render-to-texture correctness or 06 timeout fix is inferred.",
+  "checks": [
+    "Native replay: all returned bytes match across three complete passes; old warm passes each miss 562 times, new warm passes miss zero times.",
+    "Texture suite: CPU edits, DMA/PTE permissions, exact source comparisons and bounded LRU eviction pass.",
+    "Release/Closure build: zero errors and warnings."
+  ]
+}

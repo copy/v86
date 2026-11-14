@@ -33,7 +33,12 @@ const same_bytes=(a,b)=>{
 };
 export class NV40Texture
 {
-    constructor(state) {this.state=state;this.cache=new Map();this.cache_limit=64<<20;this.cache_entries=256;
+    constructor(state) {this.state=state;this.cache=new Map();
+        // A native 128 MiB GT4 frame visits 422 face/mip variants occupying
+        // 154 MiB after decode plus retained source bytes. Bound host-only
+        // residency by twice guest VRAM, capped at 256 MiB, so that compressed
+        // native working sets survive across frames without changing uploads.
+        this.cache_limit=Math.min(256<<20,Math.max(64<<20,state.device.vram_size*2));this.cache_entries=1024;
         this.cache_bytes=0;this.stats={hits:0,misses:0,evictions:0,bytes:0};}
     clear() {this.cache.clear();this.cache_bytes=0;this.stats={hits:0,misses:0,evictions:0,bytes:0};}
     vertex(o,unit)

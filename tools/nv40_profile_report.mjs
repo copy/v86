@@ -59,7 +59,7 @@ const total=Math.max(duration,sampled),tail=Math.max(0,duration-sampled);
 if(tail)categories.set("Unsampled tail",tail);
 const rows=[...categories].map(([name,us])=>({name,ms:us/1000,percent:100*us/total})).sort((a,b)=>b.ms-a.ms);
 const delta=(before,after)=>after?Object.fromEntries(Object.entries(after).map(([key,value])=>[key,value-(before?.[key]||0)])):null;
-const result={directory,build:window.build,state:window.state,guest:window.guest,vramMiB:window.vramMiB,
+const result={directory,build:window.build,state:window.state,guest:window.guest,vramMiB:window.vramMiB,textureCache:window.textureCache,
     samplingWallMs:duration/1000,counterWindowMs:window.wallMs,startHandshakeMs:window.startHandshakeMs,stopHandshakeMs:window.stopHandshakeMs,
     nodeCpuMs:{user:window.nodeCpuUs.user/1000,system:window.nodeCpuUs.system/1000},
     backendPendingMs:window.backendPendingMs,primarySemaphoreReleases:window.primarySemaphoreReleases,
