@@ -169,3 +169,18 @@ AAC fixture 是自行生成的 44.1 kHz 双声道正弦音（左 1000 Hz、右 1
 [AMC 模型](https://github.com/samhenrigold/qemu-ios/blob/main/hw/arm/ipod_touch_amc.c) 与
 [A4 CDMA 模型](https://github.com/samhenrigold/qemu-ios/blob/main/hw/arm/s5l8930_cdma.c)，
 并用机主提供的 10B329 驱动实际访问复核；新实现及生成音频测试位于本仓库。
+
+### 正式构建的原生 AAC 验证
+
+重新从已安装 NAND 冷启动后，通过控制台 Install IPA → Open application 启动游戏；
+第一次请求时桌面尚未准备完毕，后续在解锁后的 UI 重试成功。游戏显示了原生推送通知
+提示，关闭后开始播放启动电影。未使用内存快照或临时设备覆盖。
+
+运行采样中 AMC 累计处理 77 个压缩输入、3,397,632 个声道样本，向原生 DRAM 交付
+13,574,144 bytes PCM，I2S 消费 2,501,689 个立体声帧；错误数 0、完成中断均已应答。
+这验证了 AAC 多帧队列、CDMA、汇总中断和原生音频消费持续前进。浏览器中的可听音质
+尚未独立录音验收。启动电影目前显示 QuickTime 占位画面，继续检查电影结束后的游戏
+场景；这不是可游玩或帧率通过的证据。
+
+本地证据保存在 `build/ios/infinity-amc/` 的 `native-audio-success.json` 和
+`acceptance/amc-running.png`、`after-push.png`，不提交游戏资源或持久盘。
