@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-14",
+  "change": "Bounded-capacity receive-buffer growth/compaction replaces repeated whole-prefix concatenation in the native test GPU transport. Single-frame messages keep one owned payload copy.",
+  "nativeProfileEvidence": {
+    "fixture": "g6-xp-9371-06-isolated-window.json",
+    "selfMs": 23096.866,
+    "samplingPercent": 7.56535735131991,
+    "function": "tests/x64/gpu_remote_renderer.mjs frame_reader socket callback"
+  },
+  "microbenchmark": {
+    "scope": "Masked 4 MiB GPU-write-shaped messages split into 64 KiB socket chunks. Transport microbenchmark, not guest FPS.",
+    "messageBytes": 4194309,
+    "messagesPerTrial": 10,
+    "trials": 5,
+    "sha256": "add06272c42efea82dc14f87a3ba99365bee1a97443a51b0bd43f6e447184cec",
+    "beforeMs": [
+      244.22541599999988,
+      217.06316700000002,
+      180.12020899999993,
+      241.47574999999983,
+      293.71791699999994
+    ],
+    "afterMs": [
+      170.91545900000006,
+      65.09370899999999,
+      95.43191700000011,
+      112.85783300000003,
+      341.80716699999994
+    ],
+    "beforeMedianMs": 241.47574999999983,
+    "afterMedianMs": 112.85783300000003
+  },
+  "validation": [
+    "node tests/x64/gpu_remote_frame_reader_test.mjs: all short-header two-way cuts, byte chunks, masked/unmasked and continuation/control/close frames, 64-bit 4 MiB payloads, compaction and independent byte ownership",
+    "NV_GPU_RENDERER=chrome node tests/devices/geforce_6800_render.mjs: complete real GPU pixel/readback/fence/alias suite passed"
+  ],
+  "limits": [
+    "Test transport only; no device method, driver, guest clock or completion semantics changed.",
+    "Microbenchmark ran with other investigation guests active; no native FPS or timeout-resolution claim."
+  ]
+}

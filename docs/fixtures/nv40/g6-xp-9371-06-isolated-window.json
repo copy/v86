@@ -1,0 +1,351 @@
+{
+  "date": "2026-11-14",
+  "status": "Single-native-guest release window measured; no benchmark or image/performance acceptance inferred.",
+  "isolation": {
+    "otherGeForceGuestProcessesExited": true,
+    "otherRunsSavedAsMatchingBundles": true,
+    "idleHostClaimed": false
+  },
+  "phase": "Original default 06 loading and initial graphics workload; stopped at a five-minute sampling boundary before suite completion.",
+  "report": {
+    "directory": "build/nv40-xp-mark06-isolated-profile",
+    "build": "release",
+    "state": "build/nv40-xp-mark06-batching-default/checkpoint-advanced-ready-defaults.state",
+    "guest": "xp",
+    "vramMiB": 256,
+    "textureCache": {
+      "bytes": 268435456,
+      "entries": 1024
+    },
+    "samplingWallMs": 305297.753,
+    "counterWindowMs": 305261.86425000004,
+    "startHandshakeMs": 34.57783299999937,
+    "stopHandshakeMs": 50.87816699995892,
+    "nodeCpuMs": {
+      "user": 600166.943,
+      "system": 22223.792
+    },
+    "backendPendingMs": 109228.1575600001,
+    "primarySemaphoreReleases": 379,
+    "gpu": {
+      "batches": 2340,
+      "draws": 5904,
+      "bytes": 3711008560,
+      "readbacks": 6404,
+      "failures": 0,
+      "uploads": 3053,
+      "uploadBytes": 2476087328
+    },
+    "texture": {
+      "hits": 69832,
+      "misses": 4727,
+      "evictions": 4181,
+      "bytes": 266251711
+    },
+    "shader": {
+      "hits": 5659,
+      "misses": 245,
+      "evictions": 117
+    },
+    "graphFaults": 0,
+    "categories": [
+      {
+        "name": "Guest WASM and JIT",
+        "ms": 90666.291,
+        "percent": 29.69766076201681
+      },
+      {
+        "name": "NV upload and attachment preparation",
+        "ms": 50454.66,
+        "percent": 16.526377775207536
+      },
+      {
+        "name": "Node and harness",
+        "ms": 38455.617,
+        "percent": 12.596102205835757
+      },
+      {
+        "name": "Other NV device CPU",
+        "ms": 30532.664,
+        "percent": 10.000946191045173
+      },
+      {
+        "name": "NV texture preparation",
+        "ms": 30343.106,
+        "percent": 9.938856641372006
+      },
+      {
+        "name": "NV vertex fetch",
+        "ms": 24722.246,
+        "percent": 8.097749084972794
+      },
+      {
+        "name": "NV scanout",
+        "ms": 11586.971,
+        "percent": 3.795301762342155
+      },
+      {
+        "name": "Garbage collection",
+        "ms": 10217.509,
+        "percent": 3.346735735719614
+      },
+      {
+        "name": "Node idle",
+        "ms": 7170.133,
+        "percent": 2.348570511752178
+      },
+      {
+        "name": "PNG and capture",
+        "ms": 5834.019,
+        "percent": 1.9109275920546982
+      },
+      {
+        "name": "Guest runtime helpers",
+        "ms": 3291.067,
+        "percent": 1.077985988321375
+      },
+      {
+        "name": "NV program decode and translation",
+        "ms": 2022.414,
+        "percent": 0.6624398575249258
+      },
+      {
+        "name": "Unsampled tail",
+        "ms": 1.056,
+        "percent": 0.00034589183497855616
+      }
+    ],
+    "topSelfFunctions": [
+      {
+        "name": "(anonymous) \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:208",
+        "ms": 44037.795,
+        "percent": 14.424539508484362
+      },
+      {
+        "name": "(anonymous) \u2014 file:///Users/renruisi/Desktop/Code/v86/tests/x64/gpu_remote_renderer.mjs:44",
+        "ms": 23096.866,
+        "percent": 7.56535735131991
+      },
+      {
+        "name": "blocks \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:193",
+        "ms": 16411.599,
+        "percent": 5.375604254774846
+      },
+      {
+        "name": "vertex_value \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:167",
+        "ms": 11772.633,
+        "percent": 3.8561151807756673
+      },
+      {
+        "name": "(garbage collector) \u2014 :0",
+        "ms": 10217.509,
+        "percent": 3.346735735719614
+      },
+      {
+        "name": "read \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:77",
+        "ms": 9975.405,
+        "percent": 3.2674347917654014
+      },
+      {
+        "name": "(idle) \u2014 :0",
+        "ms": 7170.133,
+        "percent": 2.348570511752178
+      },
+      {
+        "name": "upload \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:265",
+        "ms": 6540.409,
+        "percent": 2.142304991022977
+      },
+      {
+        "name": "array_vertices \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:170",
+        "ms": 6248.826,
+        "percent": 2.046797245834954
+      },
+      {
+        "name": "target \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:206",
+        "ms": 6170.809,
+        "percent": 2.0212428487804823
+      },
+      {
+        "name": "_ZN3v863x645pages11step_result17hbd6245f0f32857fbE \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 5738.163,
+        "percent": 1.8795300468523264
+      },
+      {
+        "name": "_ZN3v863x645pages13execute_inner17h206e0952987cb769E \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 5736.536,
+        "percent": 1.8789971244891541
+      },
+      {
+        "name": "decode \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:187",
+        "ms": 5663.988,
+        "percent": 1.8552340933868583
+      },
+      {
+        "name": "_ZN3v863cpu3cpu22run_compat_instruction17hbea534ce7ecc02d0E \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 5315.71,
+        "percent": 1.7411559527593379
+      },
+      {
+        "name": "x64_page_step \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 4529.466,
+        "percent": 1.4836224490653227
+      },
+      {
+        "name": "_ZN3v863gen11interpreter3run17h660101cb5936e44eE \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 4383.856,
+        "percent": 1.4359280266304482
+      },
+      {
+        "name": "(program) \u2014 :0",
+        "ms": 4262.815,
+        "percent": 1.3962811576932896
+      },
+      {
+        "name": "nb \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:173",
+        "ms": 3986.987,
+        "percent": 1.3059339483576218
+      },
+      {
+        "name": "ranges \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:76",
+        "ms": 3849.26,
+        "percent": 1.2608215953688988
+      },
+      {
+        "name": "x64_pagel32_bfa6b000 \u2014 wasm://wasm/00081ce2:1",
+        "ms": 3045.714,
+        "percent": 0.9976208373862483
+      },
+      {
+        "name": "_ZN3v863cpu3cpu12get_phys_eip17hb1841c75cdecd01aE \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 2956.442,
+        "percent": 0.9683798753671141
+      },
+      {
+        "name": "get_eflags \u2014 wasm://wasm/v86.wasm-00b9425e:1",
+        "ms": 2895.856,
+        "percent": 0.9485349864333918
+      },
+      {
+        "name": "vram \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:401",
+        "ms": 2810.163,
+        "percent": 0.9204663225936026
+      },
+      {
+        "name": "render \u2014 file:///Users/renruisi/Desktop/Code/v86/build/v86-geforce-6800.js:70",
+        "ms": 2723.942,
+        "percent": 0.8922247128363241
+      },
+      {
+        "name": "_copyActual \u2014 node:buffer:270",
+        "ms": 2598.387,
+        "percent": 0.8510992873242667
+      }
+    ],
+    "scope": "Weighted Node event-loop sampling, including idle; not Chrome/GPU hardware timings. Node process CPU includes worker threads and may exceed elapsed wall time. Pending wall time overlaps CPU samples. Isolation and scene correctness must be checked separately. No FPS or whole-suite acceptance is inferred.",
+    "nonMonotonicSamples": 11,
+    "backwardUs": 18,
+    "sampleDurationExcessUs": 0
+  },
+  "window": {
+    "guest": "xp",
+    "vramMiB": 256,
+    "build": "release",
+    "state": "build/nv40-xp-mark06-batching-default/checkpoint-advanced-ready-defaults.state",
+    "textureCache": {
+      "bytes": 268435456,
+      "entries": 1024
+    },
+    "wallMs": 305261.86425000004,
+    "startHandshakeMs": 34.57783299999937,
+    "nodeCpuUs": {
+      "user": 600166943,
+      "system": 22223792
+    },
+    "backendPendingMs": 109228.1575600001,
+    "primarySemaphoreReleases": 379,
+    "before": {
+      "gpu": {
+        "batches": 0,
+        "draws": 0,
+        "bytes": 0,
+        "readbacks": 0,
+        "failures": 0,
+        "uploads": 0,
+        "uploadBytes": 0
+      },
+      "texture": {
+        "hits": 0,
+        "misses": 0,
+        "evictions": 0,
+        "bytes": 0
+      },
+      "shader": {
+        "hits": 0,
+        "misses": 0,
+        "evictions": 0
+      },
+      "graphFaults": 0,
+      "front": 0
+    },
+    "after": {
+      "gpu": {
+        "batches": 2340,
+        "draws": 5904,
+        "bytes": 3711008560,
+        "readbacks": 6404,
+        "failures": 0,
+        "uploads": 3053,
+        "uploadBytes": 2476087328
+      },
+      "texture": {
+        "hits": 69832,
+        "misses": 4727,
+        "evictions": 4181,
+        "bytes": 266251711
+      },
+      "shader": {
+        "hits": 5659,
+        "misses": 245,
+        "evictions": 117
+      },
+      "graphFaults": 0,
+      "front": 5242880
+    },
+    "note": "Backend pending wall time includes transport, rendering and readback, and overlaps Node CPU time. Semaphore releases are not an FPS measurement.",
+    "stopHandshakeMs": 50.87816699995892
+  },
+  "graphFaults": [],
+  "nonSoftwareFifoFaults": [],
+  "imageUnchanged": true,
+  "game": {
+    "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/3dmark06.img",
+    "slot": "secondary-slave",
+    "imageUnchanged": true
+  },
+  "artifacts": {
+    "cpu-profile.cpuprofile": {
+      "bytes": 3865675,
+      "sha256": "0e276913f6c6ac6c035c27872a644aee92de04177344b234036edab0f76783d6"
+    },
+    "profile-window.json": {
+      "bytes": 1491,
+      "sha256": "e72b56ad11826a94943d46c126dece996230b25a86ad8c5bb3a231a02161df7d"
+    },
+    "profile-report.json": {
+      "bytes": 6754,
+      "sha256": "9ce95c59b5fcb157e88b2b6b187c169247852f40d9db0f9de2b0f95a6b603dea"
+    },
+    "final.png": {
+      "bytes": 3890,
+      "sha256": "7e974c6c9361c9aab1a31bd1648c1253577354de4a1a6f39e0261f3b739fad05"
+    }
+  },
+  "limits": [
+    "The window includes loading-screen presents; 379 display semaphore releases are not 379 benchmark frames.",
+    "Node process CPU includes worker threads and can exceed wall time.",
+    "Backend pending wall time includes transport/GPU/readback and overlaps CPU samples.",
+    "No profiler, driver or clock timeout was changed; original default settings and NVIDIA 93.71 remain.",
+    "Later driver teardown has not been resolved and SM2/HDR scores remain pending."
+  ]
+}

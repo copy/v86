@@ -38,29 +38,48 @@ function frame(payload)
  * The messages in what the client sent so far (masked frames, maybe
  * fragmented); keeps what is incomplete
  */
-function frame_reader(on_message)
+export function frame_reader(on_message)
 {
-    let pending = Buffer.alloc(0), fragments = [];
+    let pending = Buffer.alloc(65536), start = 0, end = 0, fragments = [];
     return chunk => {
-        pending = Buffer.concat([pending, chunk]);
+        // Readbacks arrive in many socket chunks. Recopying the entire
+        // incomplete frame on each chunk makes a large image quadratic.
+        const used=end-start;
+        if(pending.length-end<chunk.length)
+        {
+            if(pending.length>=used+chunk.length)pending.copy(pending,0,start,end);
+            else
+            {
+                const next=Buffer.allocUnsafe(Math.max(pending.length*2,used+chunk.length));
+                pending.copy(next,0,start,end);pending=next;
+            }
+            start=0;end=used;
+        }
+        chunk.copy(pending,end);end+=chunk.length;
         for(;;)
         {
-            if(pending.length < 2) return;
-            const fin = pending[0] & 0x80, opcode = pending[0] & 0xF, masked = pending[1] & 0x80;
-            let length = pending[1] & 0x7F, at = 2;
-            if(length === 126) { if(pending.length < 4) return; length = pending.readUInt16BE(2); at = 4; }
-            else if(length === 127) { if(pending.length < 10) return; length = Number(pending.readBigUInt64BE(2)); at = 10; }
+            const available=end-start;
+            if(available < 2) return;
+            const fin = pending[start] & 0x80, opcode = pending[start] & 0xF, masked = pending[start+1] & 0x80;
+            let length = pending[start+1] & 0x7F, at = start+2;
+            if(length === 126) { if(available < 4) return; length = pending.readUInt16BE(start+2); at = start+4; }
+            else if(length === 127) { if(available < 10) return; length = Number(pending.readBigUInt64BE(start+2)); at = start+10; }
             const mask = masked ? pending.subarray(at, at + 4) : null;
             if(masked) at += 4;
-            if(pending.length < at + length) return;
+            if(end < at + length) return;
             const payload = Buffer.from(pending.subarray(at, at + length));
             if(mask) for(let i = 0; i < payload.length; i++) payload[i] ^= mask[i & 3];
-            pending = pending.subarray(at + length);
+            start=at+length;
+            if(start===end)start=end=0;
             if(opcode === 8) { on_message(null); return; }
             if(opcode === 0 || opcode === 1 || opcode === 2)
             {
                 fragments.push(payload);
-                if(fin) { on_message(Buffer.concat(fragments)); fragments = []; }
+                if(fin)
+                {
+                    const message=fragments.length===1?fragments[0]:Buffer.concat(fragments);
+                    fragments=[];on_message(message);
+                }
             }
         }
     };

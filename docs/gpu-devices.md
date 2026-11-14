@@ -291,6 +291,38 @@ some other register paths still store values. See
 [NV40 deviations](gpu-deviations.md#geforce-6800-gt) and the
 [implementation plan](geforce-6800-plan.md) for current limits and evidence.
 
+### Performance
+
+The first single-native-guest release sampling window for XP 93.71 and
+3DMark06 covered 305.30 seconds of the original default loading and initial
+graphics workload. Other GeForce harness guests were saved and exited;
+this does not imply an otherwise idle host. It completed 5,904 draws,
+2,340 batches and 6,404 readbacks without GPU, PGRAPH or non-software FIFO
+faults. This window stopped before benchmark completion and provides no
+SM2/HDR score or image/performance acceptance.
+
+| Node sampling category | Time share |
+| --- | ---: |
+| Guest WASM and JIT | 29.70% |
+| NV upload and attachment preparation | 16.53% |
+| Node and harness | 12.60% |
+| Other NV device CPU | 10.00% |
+| Texture preparation | 9.94% |
+| Vertex fetch | 8.10% |
+| Scanout | 3.80% |
+| Garbage collection | 3.35% |
+| Node idle | 2.35% |
+| PNG and capture | 1.91% |
+| Guest runtime helpers | 1.08% |
+| Program decode and translation | 0.66% |
+
+The 109.23 seconds with a backend submission pending include transport,
+rendering and readback, and overlap the CPU samples. Node process CPU also
+includes worker threads. The 379 display semaphore releases include loading
+pages and are not a benchmark FPS count. The [window and raw-artifact hashes](fixtures/nv40/g6-xp-9371-06-isolated-window.json)
+preserve the actual counter boundaries; [profiling.md](profiling.md) explains
+how to reproduce the report. Later driver teardown remains under investigation.
+
 ## Architecture
 
 ```text
