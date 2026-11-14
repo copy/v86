@@ -279,9 +279,12 @@ records the remaining pixel differences from the proxy reference. Win98's
 [corrected native IQ rerun](fixtures/nv40/g3-win98-8198-99-iq-corner-fixed.json)
 removed the substantial IQ06 upload error; eight of its nine images match
 XP exactly outside the metadata band, and the ninth differs at one pixel.
-The game frames share small residuals against the proxy reference. A fresh
-corrected Win98 full run, completion of 3DMark2000 and later versions, and the
-3DMark06 performance report remain under investigation. The unmodified
+The game frames share small residuals against the proxy reference. A cold XP
+[3DMark2000 run](fixtures/nv40/g3-xp-9371-2000-full-clean.json) also completed
+all 22 selected tests without GPU/PGRAPH faults and exported its project and
+eighteen IQ BMPs after normal shutdown. Its game-frame image differences
+remain unresolved. A fresh corrected Win98 full run, Win98 3DMark2000,
+later versions and the 3DMark06 performance report remain under investigation. The unmodified
 NVIDIA driver advertises SM3.0 capabilities beyond the validated subset;
 known unsupported draw states and instructions produce bounded faults;
 some other register paths still store values. See
