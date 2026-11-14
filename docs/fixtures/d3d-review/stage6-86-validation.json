@@ -1,0 +1,2491 @@
+{
+  "batch": "stage6-86",
+  "date": "2026-11-14",
+  "status": "System texture graph memory and layout replacement implemented; overall applicable Wine remains incomplete.",
+  "pinnedWineCommit": "415a275e3844c252ad385b46023095e9401ca234",
+  "nativeSources": {
+    "glbridge/d3d8proxy/d3d8_protocol.h": "3f050aa9ad3733a2163b953c654178f8a4e8a32f2b397e846cf206f6a5180496",
+    "glbridge/d3d9proxy/d3d9_protocol.h": "a1d97e464d013ffae37b9930a825c2e22fe1fc285a28988cabc50fcce3c49265",
+    "glbridge/ddrawproxy/build.sh": "59fdeff88c8ce3228d06339af3c03552cabaf3a474800425b3c3df4777a8e7eb",
+    "glbridge/ddrawproxy/d3d7_proxy.inc": "b3324bd4b845a36e1cd52f0de0804025d45714103f1b29de4b27aa3be93ced88",
+    "glbridge/ddrawproxy/d3d_legacy_proxy.inc": "2e2b965d2daeb990dec98af443889a7f29d3d901a22eb5d34579637bbe349a15",
+    "glbridge/ddrawproxy/ddraw.def": "fa7bb987f8660deefbbdb75964ee64a461cef1408c30622a94fb8046a4766478",
+    "glbridge/ddrawproxy/ddraw_bc_codec.h": "7b67a414247d5b0241bbe1ba7722d9cea4813ae83527509ee8237b681dd29543",
+    "glbridge/ddrawproxy/ddraw_depth_layout.h": "469bd5352b236efd55cdbdf3459a621c1df4cb348fff05152a9736d8c8e22abd",
+    "glbridge/ddrawproxy/ddraw_platform_control.inc": "15c75d0aeb9cc380b7c1d88c0583e8f62768c04736b8c1d0add109dbdfff9025",
+    "glbridge/ddrawproxy/ddraw_protocol.h": "19021a046d390adc23ca662ec4eb2b45cbe1569516a8990ff3b8757a41a20ba3",
+    "glbridge/ddrawproxy/ddraw_proxy.c": "32d36c2469e6d6bf7c08c452b6b7ba153dd5a4f9c7813daf4a5e5f0209c5f410",
+    "glbridge/ddrawproxy/ddraw_surface_control.inc": "944cf8d042c6ff2145da855d50a32dd4208be7fbf5ecaf9e5799569fcfcc6b97",
+    "glbridge/ddrawproxy/ddraw_version.rc": "93aa339f125ffcf9fbc81b10bfb8fc740b6cd2195eabfc94ffc2c7c562f16bd7",
+    "glbridge/diagnostic_trace.h": "e5797f59252998392fbe4cea69441ad0a9a845b20e027de03ee88a3b1a4e07a0",
+    "glbridge/openglproxy/v86gl_ioctl.h": "b9132b0ec1938414f1ad03805dc94956b2201636c10ba123d24b7ed1f83a879e",
+    "glbridge/runtime/build.sh": "aeddb0a37ef9fdcc4da148051feb8b4dbe7c14a4de05d9c83200ea253bda1148",
+    "glbridge/runtime/d9wg_blend.c": "93b00e722c9ae92a2fd3b36bbea517f7499bdc59f52f2ee81d5979831ebca856",
+    "glbridge/runtime/d9wg_blend.h": "5a66686cf17d9fdd28e04c7709b10c46fa0037dee0f9ff4bb6b0817d88be208f",
+    "glbridge/runtime/d9wg_buffer_lock.c": "7fddcc6432c082ea3e8e3630571421cdef0a13eacb3334ec1fd7cf6987334f43",
+    "glbridge/runtime/d9wg_buffer_lock.h": "b11602a194ad28c145f031747b0a991913be62dffec8f0fe82601104fd3fd4d2",
+    "glbridge/runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
+    "glbridge/runtime/d9wg_clip.h": "8d4f1852cb8d43967d581890d897b61d6d1146e55999e7c5fd0bc243e0e0a9ed",
+    "glbridge/runtime/d9wg_clip_draw.c": "8165363125e96beff66d5a3e94263e32dfe73ba59cf9f1f674594a99dc070068",
+    "glbridge/runtime/d9wg_clip_draw.h": "5bf38f9ecd683d42c441b025848776045e8a6fa5098cff80d0294b7078054c69",
+    "glbridge/runtime/d9wg_ddraw_color_key.h": "a8d5b6556cc192bc37bd7566de283100f8c884496427fef42b81f71937509500",
+    "glbridge/runtime/d9wg_declaration8_policy.h": "6d85ec040699475dae6fc8286fc7e321513f2ebbeae4944ef580f285e088d830",
+    "glbridge/runtime/d9wg_exclusive_window.c": "952345a6935109e4a44ac514eff77079f5fa1a5329a6cd07ea4bf5cd8c9c0127",
+    "glbridge/runtime/d9wg_exclusive_window.h": "387f9fc41330d91714b179b3efcd7c3f4a1f47439a6f09eba1dc1c950b7a4055",
+    "glbridge/runtime/d9wg_format_layouts.h": "2eff964c5ad834ed29d266785f6509ca419548e9f44e4dd434e9d892153cc9f5",
+    "glbridge/runtime/d9wg_fpu.c": "980ac46edbbee1ef7ea98420785334cac59b5a5b39ce5bc5fce139e42fdf37cb",
+    "glbridge/runtime/d9wg_fpu.h": "3e527bd5f2fb286d71837235843a1f4fbbd3a6b79f38ff3df0907cb47a33d6ff",
+    "glbridge/runtime/d9wg_fvf.c": "53158c1190f037d8d67c35493e145594380453d65962479658569ffd3e597d80",
+    "glbridge/runtime/d9wg_fvf.h": "b4eb6839c94b6dae66d6cfbf114fb00992a0589f1d9a4f991148c850715ecbd3",
+    "glbridge/runtime/d9wg_host_caps.h": "2574cba1d1ddad434f8b56900c64aac597e8063f784ecc067591dbc77fbf5a60",
+    "glbridge/runtime/d9wg_legacy_device_defaults.h": "80230e9811c879b75d467f47fe6c478ea6653cc1aa872c0bb1c740cf17c0338c",
+    "glbridge/runtime/d9wg_legacy_viewport.h": "2fdfd2ad17a3cfe5d50997a9671e2f066e509e6d9c953bab1c9c8e3fb9b8b943",
+    "glbridge/runtime/d9wg_light_state.h": "2d61763e98cba86fbe796caf434cf13a13441372c0b8909c5d7c2385e89143a7",
+    "glbridge/runtime/d9wg_lighting.c": "623369156d25847f676e3b316c9d3c1d47a4b89cece270dee6103e794bf6cd79",
+    "glbridge/runtime/d9wg_lighting.h": "4073ed5e4362cf245b441bfc8846737f557d1eb9bfc3a76cb4dd0875ed8b0def",
+    "glbridge/runtime/d9wg_lighting_bridge.h": "77ca02faa6b6dc46a279d1aebcadd324a7f649b4840011129d2673730588982e",
+    "glbridge/runtime/d9wg_lighting_profiles.c": "f28d8423e86f8195afc39a6e05054a86fac3e7af07b7ab8910e5e543423bc25f",
+    "glbridge/runtime/d9wg_lighting_profiles.h": "f93557eb65e60aeaac855f815c5324a823c079e75c5075b4d00891bd694d2341",
+    "glbridge/runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+    "glbridge/runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+    "glbridge/runtime/d9wg_present_pacing.c": "2d4162feeeba458b925ee6fb281ed6a5f4f4cc18564db2458ae053db4a8951fb",
+    "glbridge/runtime/d9wg_present_pacing.h": "4242319df86e7666d625b79b38b33d503bfe8a6b50af02b15ec69b5e0530d851",
+    "glbridge/runtime/d9wg_private_data.c": "51f35158629e2fbe3dc21bcef7b72ad3eca5ae51a0a3477a373357ccb215024c",
+    "glbridge/runtime/d9wg_private_data.h": "6acefe7d3f269243601d131f3e72433e5eb2af435115fb7d2f20e47f48e47720",
+    "glbridge/runtime/d9wg_process.c": "6ce8a28eca62d3bb3e12235f049f1ca186f79017dd414e4fb837223c0d55fe74",
+    "glbridge/runtime/d9wg_process.h": "cbe050a47c3d18452f70599a3a7c032c8dcc5d31b1979177e43423b141946daf",
+    "glbridge/runtime/d9wg_process_aliases.h": "bfa186b2f8bd7b9f63cc805dba37e5ed94e794d6c6839764366710c8a8235168",
+    "glbridge/runtime/d9wg_reset.h": "c31a0dc0cdde7dccb495df6483c0cbc9196bbfd5929304de6b9ea5dbdc55bad9",
+    "glbridge/runtime/d9wg_runtime.c": "d8178e7fa7af63f6fe5bf0a646b5d2ed1550c04539fef287f8d3aafe461937f5",
+    "glbridge/runtime/d9wg_runtime.h": "5b1722c05918cfaa511a25bf44c7ce5fa7606b6eec73c988a1d7de13db6d9196",
+    "glbridge/runtime/d9wg_screen_clip_cache.h": "21fc567d5ff1df5e58e32afd6eab4b719d39b243291209c16e174de0cbcd6676",
+    "glbridge/runtime/d9wg_state_bridge8.h": "5f50917c2b7b8ab022f5a257d07f516286ed15b47cc0e8ef6b356fb49ebb3edb",
+    "glbridge/runtime/d9wg_state_defaults.h": "dc479a49aad241deed78208ea656bdadf8b093f4d4f3b9cd4130503252336bba",
+    "glbridge/runtime/d9wg_surface_readback.c": "77214570a082b1e2d0079ed1c39cd634ef12444ee63327afe27adc7b514a930d",
+    "glbridge/runtime/d9wg_surface_readback.h": "a0f8ef0c089f5248d6066591ca729f6a848b0026b09d14f4433e75b061ec89b7",
+    "glbridge/runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
+    "glbridge/runtime/d9wg_tnl_math.h": "8cd101ee7ba0765acf6b85dc254a3226219b988ee32f40828fadf0f1352eaf75",
+    "glbridge/runtime/d9wg_transport.c": "ef63cf0f19da41a7302c4d19b8b400bb7e8c40158e126382418c48ea4f4304ab",
+    "glbridge/runtime/d9wg_transport.h": "223597b8da9fa7f92b1cb5cd3192be462233d36fddcca5bb086454cb19fabc38",
+    "glbridge/runtime/d9wg_upload_bridge.h": "52f4233d5f374e41392988c2e08c12389d79cc0b0e6088b83d3de3cf5966b29e",
+    "glbridge/runtime/d9wg_vertex.c": "3db1bddc8e8c1f5f1040763e64edff58c05a9c76c15de3671cf411b48baa9f96",
+    "glbridge/runtime/d9wg_vertex.h": "d4aad5fe2587ca0c7bebbd3913991a85969f5532323dce8bddf9a95d04dcadf3",
+    "glbridge/runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+    "glbridge/runtime/d9wg_vertex_windows.h": "eaa23d2c09ba0c8ffd726a6dd1dd9668e8f2c23ef619c54b3793da208e6051d6",
+    "glbridge/runtime/d9wg_window_geometry.c": "e16c129b4b4bc6c14e31639b755773bee03b4a9d65ee4deee3838e9ecc544b7c",
+    "glbridge/runtime/d9wg_window_probe.c": "81ca22962480598602f9a0b4d1154b8c888727bd55de665a919bc51ca069817b",
+    "glbridge/runtime/d9wg_window_probe.h": "da48ec8b32f8b3d7861064ab45bea340f56e4353bbc60a8b41036206237d3408",
+    "glbridge/runtime/d9wg_window_state.c": "49a67a2d57cc88df8c679dbb95c3ceac498c45d981b37e63425ab7835accf45a",
+    "glbridge/runtime/d9wg_window_state.h": "d0d64fa0ae341a6c3ffbb9254b3432534b014329cb8646889a40a91b82cbf60e",
+    "glbridge/runtime/d9wg_window_watch.c": "f105d0f511b48951776adbd2349fd5ed3269933ded0d22801274838efb155d68",
+    "glbridge/runtime/d9wg_window_watch.h": "ce3346cabd1274f8154fd708b7368faa26a87c6fd3b1991e70dc12e3212d5a6a",
+    "glbridge/window_region.h": "cc3e4bbcbb755ae262223d4da4da6a6379a40f0d86cea93c73065b9e50112804"
+  },
+  "hostSources": {
+    "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "dda9a5a29aa6b8fed9e93b829fd89c691269129f7d8e6f6c9d55933bbd6e47b8",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "cf20426a37b594576a69ab1012c9fcbe40cfc16bf69919460920bd087a137b97",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "fd831efa64a539b115ead57ac3ba91e49f22206a232af38389adc191690857ed",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "bfc821fd0abd5054a49e8ee9ff6571e45a751361f28bb8238b4b45a2c69265b7",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "b7ca19df5fbfe083d17f9c0d14d51365d99ef5b8b65fc49e2c7a6da51ea03627",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "25751de75886f46217426ce153ed31f8553edc4b5bc04d4a3beea46b89e3f483",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "476bca6520c80dc09bafe436e76223c93183a9742003f58ea0f6fc4f2b8039d8",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "93b73d5ac22da456f68af400d020c8ab57634543e3fbbae9de42bea7f72adf41",
+    "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "8c02f056a955c2551aea464ea8da219c4777bad6e64a1fd557d6c02283243162"
+  },
+  "hostProjectInputs": {
+    "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "93b73d5ac22da456f68af400d020c8ab57634543e3fbbae9de42bea7f72adf41",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "dda9a5a29aa6b8fed9e93b829fd89c691269129f7d8e6f6c9d55933bbd6e47b8",
+    "src/browser/glbridge/d3d9-webgpu/d3d9_shader_worker.js": "9ef42bf9b48a54ea5b6f894712998a88ac5165a88e9a7f5eb8462d2eeeedb6a0",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_diagnostics.js": "cf327d0e966b8e7a67ff949b3ca8b62d18165baf7ddb37e93c8560498a73e4f1",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "fd831efa64a539b115ead57ac3ba91e49f22206a232af38389adc191690857ed",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "476bca6520c80dc09bafe436e76223c93183a9742003f58ea0f6fc4f2b8039d8",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "25751de75886f46217426ce153ed31f8553edc4b5bc04d4a3beea46b89e3f483",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "cf20426a37b594576a69ab1012c9fcbe40cfc16bf69919460920bd087a137b97",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "bfc821fd0abd5054a49e8ee9ff6571e45a751361f28bb8238b4b45a2c69265b7",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "b7ca19df5fbfe083d17f9c0d14d51365d99ef5b8b65fc49e2c7a6da51ea03627",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+    "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+    "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "8c02f056a955c2551aea464ea8da219c4777bad6e64a1fd557d6c02283243162",
+    "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418"
+  },
+  "compilationInputs": {
+    "directory": "stage6-86r2-source-final",
+    "files": {
+      "compiler-dependencies.json": "41fad0ddf90711dd2e07acd95ab115f902cea6a7b5f8553680ef41f57ceb62da",
+      "glbridge/d3d8proxy/d3d8_protocol.h": "3f050aa9ad3733a2163b953c654178f8a4e8a32f2b397e846cf206f6a5180496",
+      "glbridge/d3d9proxy/d3d9_protocol.h": "a1d97e464d013ffae37b9930a825c2e22fe1fc285a28988cabc50fcce3c49265",
+      "glbridge/ddrawproxy/ddraw_bc_codec.h": "7b67a414247d5b0241bbe1ba7722d9cea4813ae83527509ee8237b681dd29543",
+      "glbridge/ddrawproxy/ddraw_depth_layout.h": "469bd5352b236efd55cdbdf3459a621c1df4cb348fff05152a9736d8c8e22abd",
+      "glbridge/ddrawproxy/ddraw_protocol.h": "19021a046d390adc23ca662ec4eb2b45cbe1569516a8990ff3b8757a41a20ba3",
+      "glbridge/ddrawproxy/ddraw_proxy.c": "32d36c2469e6d6bf7c08c452b6b7ba153dd5a4f9c7813daf4a5e5f0209c5f410",
+      "glbridge/diagnostic_trace.h": "e5797f59252998392fbe4cea69441ad0a9a845b20e027de03ee88a3b1a4e07a0",
+      "glbridge/openglproxy/v86gl_ioctl.h": "b9132b0ec1938414f1ad03805dc94956b2201636c10ba123d24b7ed1f83a879e",
+      "glbridge/runtime/d9wg_blend.c": "93b00e722c9ae92a2fd3b36bbea517f7499bdc59f52f2ee81d5979831ebca856",
+      "glbridge/runtime/d9wg_blend.h": "5a66686cf17d9fdd28e04c7709b10c46fa0037dee0f9ff4bb6b0817d88be208f",
+      "glbridge/runtime/d9wg_buffer_lock.c": "7fddcc6432c082ea3e8e3630571421cdef0a13eacb3334ec1fd7cf6987334f43",
+      "glbridge/runtime/d9wg_buffer_lock.h": "b11602a194ad28c145f031747b0a991913be62dffec8f0fe82601104fd3fd4d2",
+      "glbridge/runtime/d9wg_clip.c": "87f6a4400533d9db1fa55580a5dd73e8793636c4d00a5fa8a59e6e7f6a7c33ab",
+      "glbridge/runtime/d9wg_clip.h": "8d4f1852cb8d43967d581890d897b61d6d1146e55999e7c5fd0bc243e0e0a9ed",
+      "glbridge/runtime/d9wg_clip_draw.c": "8165363125e96beff66d5a3e94263e32dfe73ba59cf9f1f674594a99dc070068",
+      "glbridge/runtime/d9wg_clip_draw.h": "5bf38f9ecd683d42c441b025848776045e8a6fa5098cff80d0294b7078054c69",
+      "glbridge/runtime/d9wg_ddraw_color_key.h": "a8d5b6556cc192bc37bd7566de283100f8c884496427fef42b81f71937509500",
+      "glbridge/runtime/d9wg_declaration8_policy.h": "6d85ec040699475dae6fc8286fc7e321513f2ebbeae4944ef580f285e088d830",
+      "glbridge/runtime/d9wg_exclusive_window.c": "952345a6935109e4a44ac514eff77079f5fa1a5329a6cd07ea4bf5cd8c9c0127",
+      "glbridge/runtime/d9wg_exclusive_window.h": "387f9fc41330d91714b179b3efcd7c3f4a1f47439a6f09eba1dc1c950b7a4055",
+      "glbridge/runtime/d9wg_format_layouts.h": "2eff964c5ad834ed29d266785f6509ca419548e9f44e4dd434e9d892153cc9f5",
+      "glbridge/runtime/d9wg_fpu.c": "980ac46edbbee1ef7ea98420785334cac59b5a5b39ce5bc5fce139e42fdf37cb",
+      "glbridge/runtime/d9wg_fpu.h": "3e527bd5f2fb286d71837235843a1f4fbbd3a6b79f38ff3df0907cb47a33d6ff",
+      "glbridge/runtime/d9wg_fvf.c": "53158c1190f037d8d67c35493e145594380453d65962479658569ffd3e597d80",
+      "glbridge/runtime/d9wg_fvf.h": "b4eb6839c94b6dae66d6cfbf114fb00992a0589f1d9a4f991148c850715ecbd3",
+      "glbridge/runtime/d9wg_host_caps.h": "2574cba1d1ddad434f8b56900c64aac597e8063f784ecc067591dbc77fbf5a60",
+      "glbridge/runtime/d9wg_legacy_device_defaults.h": "80230e9811c879b75d467f47fe6c478ea6653cc1aa872c0bb1c740cf17c0338c",
+      "glbridge/runtime/d9wg_legacy_viewport.h": "2fdfd2ad17a3cfe5d50997a9671e2f066e509e6d9c953bab1c9c8e3fb9b8b943",
+      "glbridge/runtime/d9wg_light_state.h": "2d61763e98cba86fbe796caf434cf13a13441372c0b8909c5d7c2385e89143a7",
+      "glbridge/runtime/d9wg_lighting.c": "623369156d25847f676e3b316c9d3c1d47a4b89cece270dee6103e794bf6cd79",
+      "glbridge/runtime/d9wg_lighting.h": "4073ed5e4362cf245b441bfc8846737f557d1eb9bfc3a76cb4dd0875ed8b0def",
+      "glbridge/runtime/d9wg_lighting_bridge.h": "77ca02faa6b6dc46a279d1aebcadd324a7f649b4840011129d2673730588982e",
+      "glbridge/runtime/d9wg_lighting_profiles.c": "f28d8423e86f8195afc39a6e05054a86fac3e7af07b7ab8910e5e543423bc25f",
+      "glbridge/runtime/d9wg_lighting_profiles.h": "f93557eb65e60aeaac855f815c5324a823c079e75c5075b4d00891bd694d2341",
+      "glbridge/runtime/d9wg_math.c": "ff7b53efb5d68551817866fdd7d42d30e580e56085b778397fb0b0bb5896b94f",
+      "glbridge/runtime/d9wg_math.h": "9a2bb1ceab2e46ef05a19b274913dda45160d66bbfa084915f1ce0b709baed73",
+      "glbridge/runtime/d9wg_present_pacing.c": "2d4162feeeba458b925ee6fb281ed6a5f4f4cc18564db2458ae053db4a8951fb",
+      "glbridge/runtime/d9wg_present_pacing.h": "4242319df86e7666d625b79b38b33d503bfe8a6b50af02b15ec69b5e0530d851",
+      "glbridge/runtime/d9wg_private_data.c": "51f35158629e2fbe3dc21bcef7b72ad3eca5ae51a0a3477a373357ccb215024c",
+      "glbridge/runtime/d9wg_private_data.h": "6acefe7d3f269243601d131f3e72433e5eb2af435115fb7d2f20e47f48e47720",
+      "glbridge/runtime/d9wg_process.c": "6ce8a28eca62d3bb3e12235f049f1ca186f79017dd414e4fb837223c0d55fe74",
+      "glbridge/runtime/d9wg_process.h": "cbe050a47c3d18452f70599a3a7c032c8dcc5d31b1979177e43423b141946daf",
+      "glbridge/runtime/d9wg_process_aliases.h": "bfa186b2f8bd7b9f63cc805dba37e5ed94e794d6c6839764366710c8a8235168",
+      "glbridge/runtime/d9wg_reset.h": "c31a0dc0cdde7dccb495df6483c0cbc9196bbfd5929304de6b9ea5dbdc55bad9",
+      "glbridge/runtime/d9wg_runtime.c": "d8178e7fa7af63f6fe5bf0a646b5d2ed1550c04539fef287f8d3aafe461937f5",
+      "glbridge/runtime/d9wg_runtime.h": "5b1722c05918cfaa511a25bf44c7ce5fa7606b6eec73c988a1d7de13db6d9196",
+      "glbridge/runtime/d9wg_screen_clip_cache.h": "21fc567d5ff1df5e58e32afd6eab4b719d39b243291209c16e174de0cbcd6676",
+      "glbridge/runtime/d9wg_state_bridge8.h": "5f50917c2b7b8ab022f5a257d07f516286ed15b47cc0e8ef6b356fb49ebb3edb",
+      "glbridge/runtime/d9wg_state_defaults.h": "dc479a49aad241deed78208ea656bdadf8b093f4d4f3b9cd4130503252336bba",
+      "glbridge/runtime/d9wg_surface_readback.c": "77214570a082b1e2d0079ed1c39cd634ef12444ee63327afe27adc7b514a930d",
+      "glbridge/runtime/d9wg_surface_readback.h": "a0f8ef0c089f5248d6066591ca729f6a848b0026b09d14f4433e75b061ec89b7",
+      "glbridge/runtime/d9wg_tnl_math.c": "e26fc5db1a9fc3cf5ae94e3d61c3e0a86c1251db854640496b116e689213d8b6",
+      "glbridge/runtime/d9wg_tnl_math.h": "8cd101ee7ba0765acf6b85dc254a3226219b988ee32f40828fadf0f1352eaf75",
+      "glbridge/runtime/d9wg_transport.c": "ef63cf0f19da41a7302c4d19b8b400bb7e8c40158e126382418c48ea4f4304ab",
+      "glbridge/runtime/d9wg_transport.h": "223597b8da9fa7f92b1cb5cd3192be462233d36fddcca5bb086454cb19fabc38",
+      "glbridge/runtime/d9wg_upload_bridge.h": "52f4233d5f374e41392988c2e08c12389d79cc0b0e6088b83d3de3cf5966b29e",
+      "glbridge/runtime/d9wg_vertex.c": "3db1bddc8e8c1f5f1040763e64edff58c05a9c76c15de3671cf411b48baa9f96",
+      "glbridge/runtime/d9wg_vertex.h": "d4aad5fe2587ca0c7bebbd3913991a85969f5532323dce8bddf9a95d04dcadf3",
+      "glbridge/runtime/d9wg_vertex_format.h": "89422e253d032fcccca39f9103683b6c0e783737d5a86c047e4980599a39ae8f",
+      "glbridge/runtime/d9wg_vertex_windows.h": "eaa23d2c09ba0c8ffd726a6dd1dd9668e8f2c23ef619c54b3793da208e6051d6",
+      "glbridge/runtime/d9wg_window_geometry.c": "e16c129b4b4bc6c14e31639b755773bee03b4a9d65ee4deee3838e9ecc544b7c",
+      "glbridge/runtime/d9wg_window_probe.c": "81ca22962480598602f9a0b4d1154b8c888727bd55de665a919bc51ca069817b",
+      "glbridge/runtime/d9wg_window_probe.h": "da48ec8b32f8b3d7861064ab45bea340f56e4353bbc60a8b41036206237d3408",
+      "glbridge/runtime/d9wg_window_state.c": "49a67a2d57cc88df8c679dbb95c3ceac498c45d981b37e63425ab7835accf45a",
+      "glbridge/runtime/d9wg_window_state.h": "d0d64fa0ae341a6c3ffbb9254b3432534b014329cb8646889a40a91b82cbf60e",
+      "glbridge/runtime/d9wg_window_watch.c": "f105d0f511b48951776adbd2349fd5ed3269933ded0d22801274838efb155d68",
+      "glbridge/runtime/d9wg_window_watch.h": "ce3346cabd1274f8154fd708b7368faa26a87c6fd3b1991e70dc12e3212d5a6a",
+      "glbridge/window_region.h": "cc3e4bbcbb755ae262223d4da4da6a6379a40f0d86cea93c73065b9e50112804",
+      "native-source-selected17.json": "1e4ae01dfdf7b958b46449367d5d836e8b9d8887a52f460661ab0ed9d860974a",
+      "native-source.json": "ddbdb52186be451be557dee338bfc3a81905decb352642667be6993bc15c4ccb"
+    },
+    "dependencies": {
+      "scope": "Project-owned shipping and diagnostic preprocessing dependencies plus runtime compilation units and build/resource definitions; SDK/toolchain are recorded by version, not included in this project-source closure.",
+      "units": [
+        {
+          "source": "glbridge/runtime/d9wg_blend.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_blend.c",
+            "glbridge/runtime/d9wg_blend.h",
+            "glbridge/runtime/d9wg_clip.h",
+            "glbridge/runtime/d9wg_lighting.h",
+            "glbridge/runtime/d9wg_math.h",
+            "glbridge/runtime/d9wg_vertex.h",
+            "glbridge/runtime/d9wg_vertex_format.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_buffer_lock.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_buffer_lock.c",
+            "glbridge/runtime/d9wg_buffer_lock.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_clip.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_clip.c",
+            "glbridge/runtime/d9wg_clip.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_clip_draw.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_clip.h",
+            "glbridge/runtime/d9wg_clip_draw.c",
+            "glbridge/runtime/d9wg_clip_draw.h",
+            "glbridge/runtime/d9wg_lighting.h",
+            "glbridge/runtime/d9wg_math.h",
+            "glbridge/runtime/d9wg_vertex.h",
+            "glbridge/runtime/d9wg_vertex_format.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_exclusive_window.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_exclusive_window.c",
+            "glbridge/runtime/d9wg_exclusive_window.h",
+            "glbridge/runtime/d9wg_reset.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_fpu.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_fpu.c",
+            "glbridge/runtime/d9wg_fpu.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_fvf.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_fvf.c",
+            "glbridge/runtime/d9wg_fvf.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_lighting.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_lighting.c",
+            "glbridge/runtime/d9wg_lighting.h",
+            "glbridge/runtime/d9wg_math.h",
+            "glbridge/runtime/d9wg_tnl_math.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_lighting_profiles.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_lighting.h",
+            "glbridge/runtime/d9wg_lighting_profiles.c",
+            "glbridge/runtime/d9wg_lighting_profiles.h",
+            "glbridge/runtime/d9wg_tnl_math.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_math.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_math.c",
+            "glbridge/runtime/d9wg_math.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_present_pacing.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_present_pacing.c",
+            "glbridge/runtime/d9wg_present_pacing.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_private_data.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_private_data.c",
+            "glbridge/runtime/d9wg_private_data.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_process.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_process.c",
+            "glbridge/runtime/d9wg_process.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_runtime.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_runtime.c",
+            "glbridge/runtime/d9wg_runtime.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_surface_readback.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_process.h",
+            "glbridge/runtime/d9wg_surface_readback.c",
+            "glbridge/runtime/d9wg_surface_readback.h",
+            "glbridge/runtime/d9wg_transport.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_tnl_math.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_tnl_math.c",
+            "glbridge/runtime/d9wg_tnl_math.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_transport.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/openglproxy/v86gl_ioctl.h",
+            "glbridge/runtime/d9wg_host_caps.h",
+            "glbridge/runtime/d9wg_process.h",
+            "glbridge/runtime/d9wg_runtime.h",
+            "glbridge/runtime/d9wg_transport.c",
+            "glbridge/runtime/d9wg_transport.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_vertex.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_blend.h",
+            "glbridge/runtime/d9wg_clip.h",
+            "glbridge/runtime/d9wg_clip_draw.h",
+            "glbridge/runtime/d9wg_fvf.h",
+            "glbridge/runtime/d9wg_lighting.h",
+            "glbridge/runtime/d9wg_math.h",
+            "glbridge/runtime/d9wg_tnl_math.h",
+            "glbridge/runtime/d9wg_vertex.c",
+            "glbridge/runtime/d9wg_vertex.h",
+            "glbridge/runtime/d9wg_vertex_format.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_window_geometry.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_window_geometry.c",
+            "glbridge/runtime/d9wg_window_probe.h",
+            "glbridge/runtime/d9wg_window_state.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_window_probe.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_window_probe.c",
+            "glbridge/runtime/d9wg_window_probe.h",
+            "glbridge/runtime/d9wg_window_state.h",
+            "glbridge/window_region.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_window_state.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/runtime/d9wg_window_state.c",
+            "glbridge/runtime/d9wg_window_state.h"
+          ]
+        },
+        {
+          "source": "glbridge/runtime/d9wg_window_watch.c",
+          "flags": [],
+          "files": [
+            "glbridge/runtime/d9wg_runtime.h",
+            "glbridge/runtime/d9wg_window_watch.c",
+            "glbridge/runtime/d9wg_window_watch.h"
+          ]
+        },
+        {
+          "source": "glbridge/ddrawproxy/ddraw_proxy.c",
+          "flags": [],
+          "files": [
+            "glbridge/d3d8proxy/d3d8_protocol.h",
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/ddrawproxy/d3d7_proxy.inc",
+            "glbridge/ddrawproxy/d3d_legacy_proxy.inc",
+            "glbridge/ddrawproxy/ddraw_bc_codec.h",
+            "glbridge/ddrawproxy/ddraw_depth_layout.h",
+            "glbridge/ddrawproxy/ddraw_platform_control.inc",
+            "glbridge/ddrawproxy/ddraw_protocol.h",
+            "glbridge/ddrawproxy/ddraw_proxy.c",
+            "glbridge/ddrawproxy/ddraw_surface_control.inc",
+            "glbridge/openglproxy/v86gl_ioctl.h",
+            "glbridge/runtime/d9wg_blend.h",
+            "glbridge/runtime/d9wg_clip.h",
+            "glbridge/runtime/d9wg_clip_draw.h",
+            "glbridge/runtime/d9wg_ddraw_color_key.h",
+            "glbridge/runtime/d9wg_declaration8_policy.h",
+            "glbridge/runtime/d9wg_format_layouts.h",
+            "glbridge/runtime/d9wg_fvf.h",
+            "glbridge/runtime/d9wg_legacy_device_defaults.h",
+            "glbridge/runtime/d9wg_legacy_viewport.h",
+            "glbridge/runtime/d9wg_light_state.h",
+            "glbridge/runtime/d9wg_lighting.h",
+            "glbridge/runtime/d9wg_lighting_bridge.h",
+            "glbridge/runtime/d9wg_lighting_profiles.h",
+            "glbridge/runtime/d9wg_math.h",
+            "glbridge/runtime/d9wg_process.h",
+            "glbridge/runtime/d9wg_process_aliases.h",
+            "glbridge/runtime/d9wg_runtime.h",
+            "glbridge/runtime/d9wg_screen_clip_cache.h",
+            "glbridge/runtime/d9wg_state_bridge8.h",
+            "glbridge/runtime/d9wg_state_defaults.h",
+            "glbridge/runtime/d9wg_transport.h",
+            "glbridge/runtime/d9wg_upload_bridge.h",
+            "glbridge/runtime/d9wg_vertex.h",
+            "glbridge/runtime/d9wg_vertex_format.h",
+            "glbridge/runtime/d9wg_vertex_windows.h",
+            "glbridge/runtime/d9wg_window_probe.h",
+            "glbridge/runtime/d9wg_window_state.h",
+            "glbridge/runtime/d9wg_window_watch.h"
+          ]
+        },
+        {
+          "source": "glbridge/ddrawproxy/ddraw_proxy.c",
+          "flags": [
+            "-DDDWG_DIAGNOSTIC_TRACE=1"
+          ],
+          "files": [
+            "glbridge/d3d8proxy/d3d8_protocol.h",
+            "glbridge/d3d9proxy/d3d9_protocol.h",
+            "glbridge/ddrawproxy/d3d7_proxy.inc",
+            "glbridge/ddrawproxy/d3d_legacy_proxy.inc",
+            "glbridge/ddrawproxy/ddraw_bc_codec.h",
+            "glbridge/ddrawproxy/ddraw_depth_layout.h",
+            "glbridge/ddrawproxy/ddraw_platform_control.inc",
+            "glbridge/ddrawproxy/ddraw_protocol.h",
+            "glbridge/ddrawproxy/ddraw_proxy.c",
+            "glbridge/ddrawproxy/ddraw_surface_control.inc",
+            "glbridge/diagnostic_trace.h",
+            "glbridge/openglproxy/v86gl_ioctl.h",
+            "glbridge/runtime/d9wg_blend.h",
+            "glbridge/runtime/d9wg_clip.h",
+            "glbridge/runtime/d9wg_clip_draw.h",
+            "glbridge/runtime/d9wg_ddraw_color_key.h",
+            "glbridge/runtime/d9wg_declaration8_policy.h",
+            "glbridge/runtime/d9wg_format_layouts.h",
+            "glbridge/runtime/d9wg_fvf.h",
+            "glbridge/runtime/d9wg_legacy_device_defaults.h",
+            "glbridge/runtime/d9wg_legacy_viewport.h",
+            "glbridge/runtime/d9wg_light_state.h",
+            "glbridge/runtime/d9wg_lighting.h",
+            "glbridge/runtime/d9wg_lighting_bridge.h",
+            "glbridge/runtime/d9wg_lighting_profiles.h",
+            "glbridge/runtime/d9wg_math.h",
+            "glbridge/runtime/d9wg_process.h",
+            "glbridge/runtime/d9wg_process_aliases.h",
+            "glbridge/runtime/d9wg_runtime.h",
+            "glbridge/runtime/d9wg_screen_clip_cache.h",
+            "glbridge/runtime/d9wg_state_bridge8.h",
+            "glbridge/runtime/d9wg_state_defaults.h",
+            "glbridge/runtime/d9wg_transport.h",
+            "glbridge/runtime/d9wg_upload_bridge.h",
+            "glbridge/runtime/d9wg_vertex.h",
+            "glbridge/runtime/d9wg_vertex_format.h",
+            "glbridge/runtime/d9wg_vertex_windows.h",
+            "glbridge/runtime/d9wg_window_probe.h",
+            "glbridge/runtime/d9wg_window_state.h",
+            "glbridge/runtime/d9wg_window_watch.h"
+          ]
+        }
+      ],
+      "dllSha256": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+      "toolchain": {
+        "i686-w64-mingw32-gcc": "i686-w64-mingw32-gcc (GCC) 16.1.0",
+        "i686-w64-mingw32-windres": "GNU windres (GNU Binutils) 2.46.1",
+        "i686-w64-mingw32-ar": "GNU ar (GNU Binutils) 2.46.1"
+      }
+    }
+  },
+  "hostCompilationInputs": {
+    "directory": "stage6-86r2-host-final",
+    "files": {
+      "host-project-source.json": "eaf2df7e7fce579f953a86eb154d92ddb0d74c554f642a5ad704a9046ee10c8d",
+      "host-source.json": "e7f153babe9b4aa7853267a927d0d84854a1f58628e655d05b05c1c4f54b2f8c",
+      "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "93b73d5ac22da456f68af400d020c8ab57634543e3fbbae9de42bea7f72adf41",
+      "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "dda9a5a29aa6b8fed9e93b829fd89c691269129f7d8e6f6c9d55933bbd6e47b8",
+      "src/browser/glbridge/d3d9-webgpu/d3d9_shader_worker.js": "9ef42bf9b48a54ea5b6f894712998a88ac5165a88e9a7f5eb8462d2eeeedb6a0",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_diagnostics.js": "cf327d0e966b8e7a67ff949b3ca8b62d18165baf7ddb37e93c8560498a73e4f1",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "fd831efa64a539b115ead57ac3ba91e49f22206a232af38389adc191690857ed",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "476bca6520c80dc09bafe436e76223c93183a9742003f58ea0f6fc4f2b8039d8",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "25751de75886f46217426ce153ed31f8553edc4b5bc04d4a3beea46b89e3f483",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "cf20426a37b594576a69ab1012c9fcbe40cfc16bf69919460920bd087a137b97",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "bfc821fd0abd5054a49e8ee9ff6571e45a751361f28bb8238b4b45a2c69265b7",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "b7ca19df5fbfe083d17f9c0d14d51365d99ef5b8b65fc49e2c7a6da51ea03627",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+      "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+      "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "8c02f056a955c2551aea464ea8da219c4777bad6e64a1fd557d6c02283243162",
+      "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418"
+    }
+  },
+  "platformIsolation": {
+    "coreCommit": "3d5aa6096e7d6fb934cd362def05fe46b47f1e6f",
+    "runtimeInputs": {
+      "src/pci.js": "cbeb0a1801b4474fd0617ab4d28833e0344c0368fa86181b933093372196fa2c",
+      "src/graphics_adapters/vga_core.js": "37ddb3b0cc59d2540e3fba613d346bbd1e06e71167140075dcd50256d1512ccf",
+      "bios/seabios.bin": "73e3f359102e3a9982c35fce98eb7cd08f18303ac7f1ba6ebfbe6cdc1c244d98",
+      "bios/vgabios.bin": "a4bc0d80cc3ca028c73dafa8fee396b8d054ce87ebd8abfbd31b06b437607880",
+      "build/v86-debug.wasm": "417f21bbc7eb4cf79ee7992a1eab8a97401ee8903186737147b121feb6e94f8b"
+    },
+    "testInputs": {
+      "tests/glbridge/d3d_wine_full_xp.mjs": "473b79a70ac92615fd361b074c9bace8cf307e932e74a091d4d03daf9757969c",
+      "tests/lib/xp_ram_probe.mjs": "354c9acf5a8dd4bc88719152d0db080775c7c0e02ec90e6772adcb9f65a071a3",
+      "tests/glbridge/ddraw_native_rgb_sphere_xp.mjs": "3a1b0817c56d7e369c63dd758319bed92edfda4a18e177f81158632efe55e765",
+      "tests/glbridge/wine_native_rgb_sphere.c": "83a23ea681da616b1a41ef1f1f9dbd470b9c481ba07784ff94650c3ebdd09537",
+      "tests/glbridge/wine_xp_desktop_prepare.c": "9e49997b6bf8184e56c9bb78237ea899748e8cf6c1a8f2dfd64d60b39a4ade9a",
+      "tests/glbridge/fixtures/ddraw_native_rgb_spheres.json": "2955b952a7417861d14c385a834f2ebcc62f90fe7945dd17291b86f98feed5c3",
+      "tests/glbridge/fixtures/ddraw_native_rgb_sphere_reference.c": "4e4949619af14794fa971ed77152adfd6c7a093528aeef5fdf115ac6a70fafa5",
+      "tests/glbridge/ddraw_memory_descriptor_xp.mjs": "d56558186201d6cf3475171cf50c410b1c8a87eaa0fe0ac9758c5f675ebdeca1",
+      "tests/glbridge/fixtures/ddraw_native_memory_descriptors.json": "b00b70a105bf34a85b11aae15788a20ec23bca610dd3f49ab6ea4a5d9108cc56"
+    },
+    "scope": "Same accepted isolated CPU/PCI/VGA/Wasm as prior batch;18 current host project modules frozen/copied before the cohort, including previous shared NV additions. This does not certify concurrent newer main-checkout CPU/NV work."
+  },
+  "integration": {
+    "upstreamCommit": "8a826ca9",
+    "scope": "Current protocol1.12 NV target-blend extension copied to isolated18 host modules between VM executions; generated native header aligned before rebuilding this candidate. No NV production source authored or staged by this batch. Earlier86 first DDraw7 used previous1.11 host, completed with4hard/5flaky then source-stability gate stopped before next VM; retained, not substituted for current cohort. Earlier57/42 targeted observations also retained as separate previous-combination evidence."
+  },
+  "priorHostAttempt": {
+    "sourceArchive": "stage6-86-host-final",
+    "nativeArchive": "stage6-86-source-final",
+    "shippingArchive": "stage6-86-shipping",
+    "fullWine": {
+      "directory": "stage6-wine-ddraw7-memory-graph-final",
+      "files": {
+        "AFTER.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+        "AFTER1.TXT": "1e6a8d8e418c586bcbc4a8d33c1bee237ae625f32d5b3e46422e87de2c30812a",
+        "AFTER2.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+        "PREP1.TXT": "b6518aeba51c80507771673db8695fa4f4293942e01006769e698b7f518e0bfe",
+        "PREP2.TXT": "c639755bc5c7c93b061d35e548015220348e000534d6c5ff25d3a0d0c1dfb1a1",
+        "PREPARE.EXE": "0d2dd0b1057237bb90383e577a5fa14dfeaf9cba49430963898c2ed575a6f934",
+        "PREPARE.TXT": "c639755bc5c7c93b061d35e548015220348e000534d6c5ff25d3a0d0c1dfb1a1",
+        "SELECT.TXT": "0db20feb86a2350133a7bbfb960cafd7980b04b289153d62ff2aa151ef7a9218",
+        "START.TXT": "3bc8f2eedb31c4e5301946071e4b0f22f100c12a32ec5fe6bf4f505f3bc8491c",
+        "WINE.EXE": "9ecf819d9e43eccd08a8c8b82b7e526640fcf56aff270400f1bd3592d0267369",
+        "WINE.TXT": "c35597b0772c7f9296674489b81986baae07cd9c238de1588e6a60d4a85aec4d",
+        "WINE1.TXT": "c0e8a33ed30b04f8e9bbe55b5834375d92752844895fc887354bc95dc1f2b9e2",
+        "WINE2.TXT": "c35597b0772c7f9296674489b81986baae07cd9c238de1588e6a60d4a85aec4d",
+        "audit-groups.json": "9639e32cd4e45045f5c68014cfa5d09cdc00f4846909fa9043d2f7f5163e1e2b",
+        "ddraw.dll": "6cc7dd458eb16722f0ebe0b7a4e48199c0ba93379b2748e520b812f564751fd1",
+        "environment-attempts.json": "c4692a2cfc47966dd2e183ee092e531057df60d315bc7a38d59e816aa9708e31",
+        "live-gpu.json": "a58e2850c2702db302e4bbbf64ac8029f979b55447e97b456cb2a3701ba05347",
+        "native-source.json": "03961dab7f3dad2607b50533b6f082bdcf300e56803873d8800e703c342058f4",
+        "probe-desktop.png": "a4f6d37c6f14abab36ff0709f0611ba2a2e7434ba03dce73b959aa01da258ad0",
+        "probe-failure.json": "a61c7fa6e403e0dda6efa78c81151696deba89f6e20a97afdd5d7a0c8ddfc13f",
+        "probe-failure.png": "91276e3255593571dd0ac98141caa6ee651954c8384b1116284b7c786236baeb",
+        "probe-progress.png": "b4e353a58d86889b843bd2201ee9f862d5d594b92b83ee2f36f159491859438a",
+        "source.json": "33095ceb9d80a723959a8a542538d208dc6212f1d4c6bc9b23a47ad36fa37881",
+        "wine-runner.mjs": "473b79a70ac92615fd361b074c9bace8cf307e932e74a091d4d03daf9757969c",
+        "wine_xp_desktop_prepare.c": "9e49997b6bf8184e56c9bb78237ea899748e8cf6c1a8f2dfd64d60b39a4ade9a"
+      }
+    },
+    "graph": {
+      "directory": "stage6-86-proxy-memory-graph-final",
+      "files": {
+        "AFTER.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+        "AFTER1.TXT": "1e6a8d8e418c586bcbc4a8d33c1bee237ae625f32d5b3e46422e87de2c30812a",
+        "AFTER2.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+        "G1.TXT": "eabae0bd18417e673761282831910a4d8256258a12c0b0569608dda70d79e31d",
+        "G2.TXT": "eabae0bd18417e673761282831910a4d8256258a12c0b0569608dda70d79e31d",
+        "GRAPH.EXE": "df5cd266334d26b4d6bbc202e6ebf3533f1060b12d6d45a541e293049a2a92d6",
+        "GRAPH.TXT": "eabae0bd18417e673761282831910a4d8256258a12c0b0569608dda70d79e31d",
+        "PREP.TXT": "423dc1edefa855e76d90c30eb808c6cc159cfaab1ad03d6af1138fb5ef3a9f37",
+        "PREP1.TXT": "b41d22a24617a10ac8349eba8267ef788c62a01f57c37c3c28f92529abf99f73",
+        "PREP2.TXT": "423dc1edefa855e76d90c30eb808c6cc159cfaab1ad03d6af1138fb5ef3a9f37",
+        "PREPARE.EXE": "e7b9658c3a71d3b9c262e9e4a717f8f1a779306237e85902c37830ff9832e981",
+        "SELECT.TXT": "0db20feb86a2350133a7bbfb960cafd7980b04b289153d62ff2aa151ef7a9218",
+        "START.TXT": "85a89608c3d72cd295566614d5e3d843d26f3bbd1c23e24cf5310779a2640042",
+        "comparison.json": "d963208ce0b259ec911a24f0c582c43f074bf62010c20954b7af294727693841",
+        "graph.c": "989d4e686238eec1dcbd4ed4ddbd4bd8027a4e9a2d3e851f68556af8f06f4c98",
+        "graphics.bin": "7e8aced7fdd450aa50722d9d951a68addf1aab4edb371908a84633b84eb00cc1",
+        "live-gpu.json": "4f1bea3cb7dcc5a8482a94da0838753b5967acd30a58e59216384a32a91f19c0",
+        "prepare.c": "9e49997b6bf8184e56c9bb78237ea899748e8cf6c1a8f2dfd64d60b39a4ade9a",
+        "probe-complete.png": "438b0166011813f57d0dfbb5ed2e40508b145d09b83524cb9b1db36e9d84c339",
+        "probe-desktop.png": "66964946bd03a318782babb427ae68f1e29ff9f22e1d035788d80414c818a0bb",
+        "probe-progress.png": "9321ac9893f6f641c78823ea15c2eb46c748e38180a9d89e256c537d12e77e54",
+        "probe-result.json": "dc41179e6a8ea8711c376154b573c1393b54e63a35ebd6a1ee32ca799cec96f4",
+        "runner.mjs": "7f6c2a481df2284cfe59d24154a6f3cd865c613306b73bf59d234c24a0ef5aa5",
+        "source.json": "77abc506c05af4d10fdde053c25a9c50e7b0171885fdb4ad9dd5574e34cfeef9"
+      }
+    },
+    "metadata": {
+      "directory": "stage6-86-proxy-memory-descriptors-final",
+      "files": {
+        "AFTER.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+        "AFTER1.TXT": "1e6a8d8e418c586bcbc4a8d33c1bee237ae625f32d5b3e46422e87de2c30812a",
+        "AFTER2.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+        "M1.TXT": "202af079ce3e6e78653a098e6e446f48effefb0235187a4f8985127d656614bb",
+        "M2.TXT": "202af079ce3e6e78653a098e6e446f48effefb0235187a4f8985127d656614bb",
+        "MEMDESC.EXE": "543c44477eb5929b7f9c72a1323207b5b4ad4fa776ef383d7cf4b449522c33f0",
+        "MEMDESC.TXT": "202af079ce3e6e78653a098e6e446f48effefb0235187a4f8985127d656614bb",
+        "PREP.TXT": "14cfa202784b4e464b852a4fc2c60b6d4f85cd27810249cf76b149b79df2ceaf",
+        "PREP1.TXT": "eb0017d9183fda97939823d2d0f4a464c9987841bd413c3bdbc4ccc78259b5ec",
+        "PREP2.TXT": "14cfa202784b4e464b852a4fc2c60b6d4f85cd27810249cf76b149b79df2ceaf",
+        "PREPARE.EXE": "5364a682e91d8bb6ca2e4f0040b8c9f6a767f814c925c69931cb46a72a2a2ad4",
+        "SELECT.TXT": "0db20feb86a2350133a7bbfb960cafd7980b04b289153d62ff2aa151ef7a9218",
+        "START.TXT": "59321b69474462172fb6056467182a7225ff94d0235e61403cf155af658be9b1",
+        "comparison.json": "cf69e2099fb8750ceffedd2ec6168b709c959e144a52f0f34091b9a31b3f4606",
+        "ddraw_surface_memory_reference.c": "7eef7fb023ea54a057ec2d4973cf2df0e264f46368b93e4362e8c46b9de44e63",
+        "environment-attempts.json": "aab876ea1285341c941025bef3d8b1f773969e426b286fcb5de9c9d5e87b2b63",
+        "probe-complete.png": "9036f43d2bf5cc10ebd75ec7cb566cb8dc2a89239ed436ba22c4224ca36d5ed0",
+        "probe-desktop.png": "e13b8c89d9e0abe8ae1cf2efc6d8ba0a71770bb9ab45dd92fa19ad268534a5a6",
+        "probe-progress.png": "c29d0d591cfbf5c98fd205eb8b2abf56b55cb40f214c48fd0461d10a030ade69",
+        "probe-result.json": "e4de1bd8bdb6fcc3343ed5580c1a65dc3d63d2e4f2adfabf323288af744b4788",
+        "reference.json": "b642dfea567489480eacce3b2835ec32af6ebfeb7d120ddeb504e3efe974d0f2",
+        "runner.mjs": "d56558186201d6cf3475171cf50c410b1c8a87eaa0fe0ac9758c5f675ebdeca1",
+        "source.json": "20177db51ba5dc611510cc8ed0bac679b69b98f12885f10221f11b6292c9cbf7",
+        "wine_xp_desktop_prepare.c": "9e49997b6bf8184e56c9bb78237ea899748e8cf6c1a8f2dfd64d60b39a4ade9a"
+      }
+    }
+  },
+  "launchHarness": {
+    "directory": "stage6-86r2-harness-paced",
+    "files": {
+      "driver.json": "8d086fd595f013087f460b9bca9c67fab4ede3cdf047e1d65eafc22b6e1fb6eb",
+      "launch-policy.log": "cce68bd2da33a99c1c5b3119d5d6d6b81445e82da45ad6de0af72be136a75336",
+      "prepare-policy.log": "0712b3e0b2b4bbbd307746ad9c8842e6c8edac9e515eb7dc081a3cd701cb27a8",
+      "source.json": "8e3eb451d5c68fa9c15c83e9ac88da54ef82adf30b95e2997e6a9c3b896d95b4",
+      "tests/glbridge/d3d_wine_full_xp.mjs": "63dbf8d33b330c6417195679ee38d41725800264e70ee31b595dd59f3f1b54c4",
+      "tests/glbridge/ddraw_memory_descriptor_xp.mjs": "97107137016c521f2e471ea8c8a688ffb31d15f5e19babde4eedc8a04e7a9432",
+      "tests/glbridge/ddraw_memory_graph_xp.mjs": "3e344f26247a29b2d192b498a61509304b0e0a122bdfc9d9a67d114224085946",
+      "tests/glbridge/wine_xp_desktop_prepare.c": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+      "tests/glbridge/xp_desktop_prepare_test.mjs": "630e407dad9c43114a5cfa0cbfa9af8256274c542138c71ef511e30b5038ada6",
+      "tests/glbridge/xp_probe_launch_test.mjs": "67f3db0abde6cca984ea19a58e5692db81dd1ee13d993f5c20e50745c4de4334",
+      "tests/lib/d3d_live_renderer.mjs": "5432be1990896b04190e0769a9011a006909b2ae6169ff68d6217297f91e00bd",
+      "tests/lib/wine_test_result.mjs": "deb02216c34b9b640ae7642929ebd5bdbc3dede627429da994fb71d4bf44fd7f",
+      "tests/lib/xp_probe_launch.mjs": "c47281eae7b691f54e19ad7d25183f6b257fc54455cb3a236b1e73d703773f4b",
+      "tests/lib/xp_ram_probe.mjs": "a09c8f2d374ea6d86ef8a14b4c135b0050f36d0465d49fe2109de8825a7733d1",
+      "tests/smp/disk_fixture.mjs": "b0c3d0fa4bc1a00c977819b2431d37c4977817593fbf7f12ac66acc78deaf170"
+    },
+    "inputs": {
+      "tests/lib/xp_ram_probe.mjs": "a09c8f2d374ea6d86ef8a14b4c135b0050f36d0465d49fe2109de8825a7733d1",
+      "tests/lib/xp_probe_launch.mjs": "c47281eae7b691f54e19ad7d25183f6b257fc54455cb3a236b1e73d703773f4b",
+      "tests/glbridge/xp_probe_launch_test.mjs": "67f3db0abde6cca984ea19a58e5692db81dd1ee13d993f5c20e50745c4de4334",
+      "tests/lib/d3d_live_renderer.mjs": "5432be1990896b04190e0769a9011a006909b2ae6169ff68d6217297f91e00bd",
+      "tests/lib/wine_test_result.mjs": "deb02216c34b9b640ae7642929ebd5bdbc3dede627429da994fb71d4bf44fd7f",
+      "tests/smp/disk_fixture.mjs": "b0c3d0fa4bc1a00c977819b2431d37c4977817593fbf7f12ac66acc78deaf170",
+      "tests/glbridge/ddraw_memory_descriptor_xp.mjs": "97107137016c521f2e471ea8c8a688ffb31d15f5e19babde4eedc8a04e7a9432",
+      "tests/glbridge/ddraw_memory_graph_xp.mjs": "3e344f26247a29b2d192b498a61509304b0e0a122bdfc9d9a67d114224085946",
+      "tests/glbridge/d3d_wine_full_xp.mjs": "63dbf8d33b330c6417195679ee38d41725800264e70ee31b595dd59f3f1b54c4",
+      "tests/glbridge/wine_xp_desktop_prepare.c": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+      "tests/glbridge/xp_desktop_prepare_test.mjs": "630e407dad9c43114a5cfa0cbfa9af8256274c542138c71ef511e30b5038ada6"
+    },
+    "scope": "Two-minute missed-launch interval; graphics, flushed logs, tools-disk writes or a new central window prohibit duplicate execution. Startup detection and paced key delivery changed, not Wine assertions or execution deadlines. Pure launch-activity checks pass; initial failed launch retained."
+  },
+  "truncatedRunInput": {
+    "directory": "stage6-wine-ddraw7-memory-graph-current-host-final",
+    "files": {
+      "PREPARE.EXE": "e98ea5827fc5a96dd10462f67ca652c90e7f0f077eda22b5e8514ff809f42ed1",
+      "WINE.EXE": "e4f66592564c6ff9d80aa95eec81a675a509c392245d21721e72c1446b53e33d",
+      "aborted-startup.log": "b29adbc309279d654c3b1b66ea5e0a67fe7ac19781bc086de5d6957028495827",
+      "aborted-startup.png": "302035cf618fdee0e9e93c01c2cef8bc741481a3ba7e56699178ac2b8b31f0bb",
+      "ddraw.dll": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+      "launch-policy.mjs": "0058bff601ee23d17cee44b0aeb99da209f849d0524a56964fb22fd674943162",
+      "launcher.mjs": "4523259cc7f43aa681328c2a6200f43185c686c74788b016e805921cfe386e23",
+      "native-source.json": "ddbdb52186be451be557dee338bfc3a81905decb352642667be6993bc15c4ccb",
+      "probe-desktop.png": "407c40a891600e1bb1056b62f2bc0ca47ad5bead3b5aff3708b02ae4aa5b8377",
+      "probe-progress.png": "302035cf618fdee0e9e93c01c2cef8bc741481a3ba7e56699178ac2b8b31f0bb",
+      "source.json": "2f9d9cdd8635f092de774a2dbe8983b9c307cdb7f26f2cc79d4121cffcfa5759",
+      "startup-aborted.json": "a5b96710ab1e2ab514bf00ddb3fe92f9380269a262d91dc5cae41c800632d3a3",
+      "wine-runner.mjs": "63dbf8d33b330c6417195679ee38d41725800264e70ee31b595dd59f3f1b54c4",
+      "wine_xp_desktop_prepare.c": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca"
+    }
+  },
+  "targetedHarnessPrior": {
+    "directory": "stage6-86r2-harness-settle",
+    "files": {
+      "driver.json": "8d086fd595f013087f460b9bca9c67fab4ede3cdf047e1d65eafc22b6e1fb6eb",
+      "launch-policy.log": "40d2b48efca753220b34e26ada2763a70d697ab251362346a52a4abccb8effd3",
+      "prepare-policy.log": "0712b3e0b2b4bbbd307746ad9c8842e6c8edac9e515eb7dc081a3cd701cb27a8",
+      "source.json": "983deca0419f86dadf018a3aa2dcc696dad94bd74bb282cde1c3e48af013864a",
+      "tests/glbridge/d3d_wine_full_xp.mjs": "63dbf8d33b330c6417195679ee38d41725800264e70ee31b595dd59f3f1b54c4",
+      "tests/glbridge/ddraw_memory_descriptor_xp.mjs": "97107137016c521f2e471ea8c8a688ffb31d15f5e19babde4eedc8a04e7a9432",
+      "tests/glbridge/ddraw_memory_graph_xp.mjs": "3e344f26247a29b2d192b498a61509304b0e0a122bdfc9d9a67d114224085946",
+      "tests/glbridge/wine_xp_desktop_prepare.c": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+      "tests/glbridge/xp_desktop_prepare_test.mjs": "630e407dad9c43114a5cfa0cbfa9af8256274c542138c71ef511e30b5038ada6",
+      "tests/glbridge/xp_probe_launch_test.mjs": "4582884eced7cd76c6dfc6c02fd7f4858a239e13aaa299d9808ab0d5418dbf8c",
+      "tests/lib/d3d_live_renderer.mjs": "5432be1990896b04190e0769a9011a006909b2ae6169ff68d6217297f91e00bd",
+      "tests/lib/wine_test_result.mjs": "deb02216c34b9b640ae7642929ebd5bdbc3dede627429da994fb71d4bf44fd7f",
+      "tests/lib/xp_probe_launch.mjs": "0058bff601ee23d17cee44b0aeb99da209f849d0524a56964fb22fd674943162",
+      "tests/lib/xp_ram_probe.mjs": "4523259cc7f43aa681328c2a6200f43185c686c74788b016e805921cfe386e23",
+      "tests/smp/disk_fixture.mjs": "b0c3d0fa4bc1a00c977819b2431d37c4977817593fbf7f12ac66acc78deaf170"
+    }
+  },
+  "runInputRepair": {
+    "scope": "Wait5s for Run, select the field and send separate paced make/break including Shift. Earlier startup was aborted with0graphics and empty log records; original screenshots/launcher/stdout retained; no Wine assertion executed.",
+    "informedBy": "ee6685d4 native guest input repair"
+  },
+  "failedLaunch": {
+    "directory": "stage6-86r2-proxy-memory-descriptors-final",
+    "files": {
+      "AFTER.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "AFTER1.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "AFTER2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "M1.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "M2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "MEMDESC.EXE": "c8649ce43ead78045906a81921f911cd1dc4d674a9121644fa799d493d7fdbf7",
+      "MEMDESC.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "PREP.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "PREP1.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "PREP2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "PREPARE.EXE": "9796f9bc704f15e5f0ab393cb5e877e351e5f3f1d2bd9e73f5353ac964bdfb65",
+      "SELECT.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "START.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ddraw_surface_memory_reference.c": "7eef7fb023ea54a057ec2d4973cf2df0e264f46368b93e4362e8c46b9de44e63",
+      "launcher-original.mjs": "354c9acf5a8dd4bc88719152d0db080775c7c0e02ec90e6772adcb9f65a071a3",
+      "probe-desktop.png": "9947fc2a24f4f01db6d559a4481d32e75f8e636d8c325a2bdf9f2c7ee54e91df",
+      "probe-failure.json": "b6bd12f87ec97c4eecf0acd4e08008d873f56bd68b6d2dfb8c1609f47ad87f19",
+      "probe-failure.png": "23837035546b7f49a25b524e428f6f73d00a027754cff098bd2c4c28ae266852",
+      "runner.mjs": "d56558186201d6cf3475171cf50c410b1c8a87eaa0fe0ac9758c5f675ebdeca1",
+      "source.json": "294da22fbfc57c191349ce133908ae505546028928b1bbd2641e0750e8848c5e",
+      "wine_xp_desktop_prepare.c": "9e49997b6bf8184e56c9bb78237ea899748e8cf6c1a8f2dfd64d60b39a4ade9a"
+    },
+    "stdoutScope": "The external /tmp stdout filename was reused by the resumed metadata step. The original failure JSON, desktop/progress/failure images, executable/source inputs and original launcher are preserved; no original stdout archive is claimed. No descriptor or Wine assertion was reached in this failed startup."
+  },
+  "preparationFailure": {
+    "directory": "stage6-86r2-proxy-memory-descriptors-ready-final",
+    "files": {
+      "AFTER.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "AFTER1.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "AFTER2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "M1.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "M2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "MEMDESC.EXE": "7e8392ea0da1ffc7addbc06bdd48102e915245fba7aaa446c380db9a796d0164",
+      "MEMDESC.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "PREP.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "PREP1.TXT": "e671d4798c1fb07a03c885749c37ce8e25478842bee2c61804ff03ea4e65a6d1",
+      "PREP2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "PREPARE.EXE": "fc88bd8e5b34c75eaed958240e31b879ccd7e578d840f3b225a430a723835848",
+      "SELECT.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "START.TXT": "59321b69474462172fb6056467182a7225ff94d0235e61403cf155af658be9b1",
+      "ddraw_surface_memory_reference.c": "7eef7fb023ea54a057ec2d4973cf2df0e264f46368b93e4362e8c46b9de44e63",
+      "probe-desktop.png": "62667a30a16cf09bd01c5bda5d99d8410afa3c33c621f3e7656dc6fc2be30d6d",
+      "probe-failure.json": "c262fdba3070d198d7271069cb979e1f8ab9bbf419e49097fb8d1633e75c7e3c",
+      "probe-failure.png": "06a68171c9b0ce5ee9a0a873f8d36f2acc1fdf0fec4a4e25168122741ca0a102",
+      "probe-progress.png": "c02e125f23043f23ac934b587832108cbce54f2cb7dcb5b5ad18c333fc6cf6f6",
+      "runner.mjs": "d56558186201d6cf3475171cf50c410b1c8a87eaa0fe0ac9758c5f675ebdeca1",
+      "source.json": "96cea895c525f1f80812b08e9ad827e1cf58737c29b6c8001e340a41fdc87568",
+      "startup.log": "aca90f1f0d4223d156571d5364d1296bc9d0a8233a51c33abdfb3e490a72b37c",
+      "wine_xp_desktop_prepare.c": "9e49997b6bf8184e56c9bb78237ea899748e8cf6c1a8f2dfd64d60b39a4ade9a"
+    }
+  },
+  "preparationPolicy": {
+    "timeoutMs": 180000,
+    "quietMsUnchanged": 10000,
+    "scope": "Only own Wine/descriptor/graph runners opt into longer cold-PnP preparation; helper default60s and immediate strict postcheck remain. Original applicable assertions/tolerances untouched. Actual main-C policy tests cover default/extended late-ready, busy/error, popup and postcheck gates."
+  },
+  "changes": [
+    "SetSurfaceDesc permits unmanaged system-memory implicit texture nodes; primary/video/managed/nontexture implicit restrictions remain. Pointer-only replacement retains shared mip/cube storage while distinct pixel memory is replaced. True DuplicateSurface memory aliases split their texture backing.",
+    "Layout changes allocate standalone2D backing and retain the original public mip/cube role and attachment graph. Storage records the logical mip mapped to physical0. Upload, Blt source/destination, presentation, readback and color/depth target bindings use physical mip/face helpers.",
+    "Memory/storage allocations occur before public changes; allocation failure preserves object, input, references and transport. Client-owned memory is not freed. Deferred host create/upload retains the accepted description and retry debt.",
+    "Old fixtures explicitly model undetached subresources and retain every old assertion. New graph C tests execute real memory/storage refcounts, SetSurfaceDesc and remapping helpers;557 assertions and10 compiled runtime mutants. New realXP/GPU probe covers42 complete-surface comparisons, actual Blt/readbacks and owner cleanup; no simulated replies or CPU pixel substitution."
+  ],
+  "checks": {
+    "stage6-86r2-checks-final": {
+      "directory": "stage6-86r2-checks-final",
+      "files": {
+        "d7wg_legacy_defaults_mutation_test.log": "0ea60b4b63b47a7c248b8f8507ded17de713386ce714f84c26d852ff5dd93971",
+        "d7wg_legacy_light_mutation_test.log": "e7272b11f7ba0fcf59d347ba17cdc22adfa5c7a7cbf073a2cdaa8de494bff83f",
+        "d7wg_legacy_light_test.log": "216caf8631bb839386dabe32662eb0509baf55222066e5f04ac5032ac62d9905",
+        "d7wg_legacy_viewport_mutation_test.log": "0b20c1355d73400c5a7cf4298c96606555c1c50c83763ddefd8b59b0769c6177",
+        "d7wg_legacy_viewport_test.log": "fbe79648ab8c63234d62c63fe911ded30f14ce14541b7471f3023591e629ead6",
+        "d7wg_light_state_mutation_test.log": "ae82985be3109d6b73774fd8c6af652e424beaf540b44971404a42b27a95f0e9",
+        "d7wg_light_state_test.log": "c9c6019f9570caf5105dca434a2354e47a74c12cba00a956bc2ca70b28a4e79f",
+        "d7wg_state_block_mutation_test.log": "f9fad0c8f56ecc3ff78e52103fd689717ce2933f240e17ab084e1334f2bca5a5",
+        "d7wg_state_block_test.log": "d255d2af90f2968c0cffbdd97e5a5cc87a034d8f6196daca79f941fa33e5b2c6",
+        "d7wg_texture_caps_mutation_test.log": "5e29f09a500b4e577d8eb7ca7ae252d2aae7cbe934a9e2d9fe6389224a598991",
+        "d7wg_texture_caps_test.log": "4543982c92b799a6051664f4f9af611a4b4eef56810f74de530201287fed3f11",
+        "d7wg_texture_load_mutation_test.log": "722fea0ba531c8f76c7c4c6e990850b491545cc82460541cf6ea4c04550916ae",
+        "d7wg_texture_load_test.log": "31b26461f4b48d7d0f52a3a0ce1d72fd312d6604bae5e8a4572a8c854e1a2f6a",
+        "ddraw_attachment_contract_mutation_test.log": "25be34ab6c78b7169bdeb577966658f942adb38dfc692f38683430a678c7c5ae",
+        "ddraw_attachment_contract_test.log": "c4a3c03f6cf4640a4197ecde0b2f1e5032bea9d2b1e1f3cbfd0db3f03ce1cd4c",
+        "ddraw_attachment_query_mutation_test.log": "c042432b8fa11c0b60dcc6da6198ed1bb44301a1b513bb750f56b82576025128",
+        "ddraw_attachment_query_test.log": "001e596fd00d9ec074994c97961738c1d1ec83aeb34884dfe8aafb61fae09d1c",
+        "ddraw_attenuation_mutation_test.log": "ed5ba53703f889c5713f6add2d1ce1558ed3078a8b3462a10abbdac4f32536b1",
+        "ddraw_bc_codec_test.log": "ad6c73e62cce6957157b5511517adbaa4940e4c2bbccd9ff6d5b6b82b53a6bfc",
+        "ddraw_caps_profile_test.log": "667ff86b91f24e76aa2cc40bda3f3fb831890a88e4825b492a3d3ae578c0e1aa",
+        "ddraw_channel_expansion_test.log": "fc41d9643f29e34779f09a32a78651a6f58c89082384d02580516a973fb83227",
+        "ddraw_class_factory_test.log": "574e540b920054cb40d5c1620cfeded0dcb5d4726b3f7465b2ba737bb3ef9824",
+        "ddraw_clipper_mutation_test.log": "187a9dbd1ca42ca81e1d8800a13be0826b4fbf7204bc51b2a8f4a1af473e2fc6",
+        "ddraw_clipper_test.log": "0f9767beb330c4dbac3c6a7fbb0a1cdbfbcd04173d0ab59de6273df086c8d392",
+        "ddraw_color_fill_memory_mutation_test.log": "c60d6d5f6b673063cd5ab0404b2961b1534cff99ff1b1270a0954b5b426e09ec",
+        "ddraw_color_fill_memory_test.log": "3be0b7b13327fab6404a21956b7067c0f1d14fc66a73cbe04c003924974665ca",
+        "ddraw_color_key_mutation_test.log": "08619f1b9ac01053cf85d1d073178d45e3aac669bf2604c57ed04bd4106750ce",
+        "ddraw_color_key_test.log": "e25eb4b3af7dbc575540fa3d915847856ba92de89fab9cab982f2c9e8fcdaa09",
+        "ddraw_compat_metadata_mutation_test.log": "a636b410849d85e3a17425002dc3e876c4ed5029fb0c07c1e3c0c417587bd0ca",
+        "ddraw_compressed_blt_mutation_test.log": "ad2f3001e61336c391a5ea64aeca8e0abfb90152830106e5403429c468681838",
+        "ddraw_compressed_blt_test.log": "ee140746164ada2a1b0f83f0fb45444b7e99e1eb58ff810a9b70581b4e6bb63c",
+        "ddraw_d3d7_vtable_test.log": "70fca67c11630552ef8d684f7d6bf2144fd693ebcf3dcac3c40753377f467610",
+        "ddraw_d3d_legacy_vtable_test.log": "db61e85a8efcbb83905835f60c6b8adbeaa3ed2f6ead7d8e18f48f3452ba32cc",
+        "ddraw_depth_memory_mutation_test.log": "4f9d0df370aea1a6226d635fb93af7af02a3691bef3e217b92f8483de9285ebf",
+        "ddraw_depth_memory_test.log": "a088aa9d82283d226d5ff750e549018d27155c6978e2c332f518cf919d0a6e10",
+        "ddraw_depth_transfer_mutation_test.log": "cd0115e75e121062e8f16c5a7d974e5285ed92acba2533184783aaf5bf8113c0",
+        "ddraw_depth_transfer_test.log": "8c43d9693ed86d7654b3dec3a01d5292ce3d304245b0f735ae54cb2678aacacc",
+        "ddraw_desc_policy_test.log": "0f549f8f6e7a25e3db0bceb075a0adeb0d68a6557c722ab51cd45c42cccab7c7",
+        "ddraw_descriptor_bridge_mutation_test.log": "9150639430bfacb4cacaabdab703d6829ffb9e27ceafb8f4fa5b0177016ec65b",
+        "ddraw_descriptor_bridge_test.log": "886e42ff627f81c98724964e0abbe0b4cf0c06e35353269e8751bc43430f5296",
+        "ddraw_device_context_mutation_test.log": "ef86ff02c346a7bb13930a7a4424c699a1655769ebdb02bdbdd61d03f9b063c0",
+        "ddraw_device_context_test.log": "8d1353a8868698d9ce157e720e558545f4c5f2a0dea7e04c012c27c5161cb27a",
+        "ddraw_display_mode_shape_mutation_test.log": "1c508442a74a2dbe6e600b09c7e8ec2371e23b7cf045035a716c6b6cf30940b6",
+        "ddraw_display_mode_shape_test.log": "bf4d7c4c310fc4f2e0a0b0da036b67e7ec56b221c351788016d8868f287fa13b",
+        "ddraw_draw_lighting_mutation_test.log": "5e98e3fdeb808980c2de9347bea5a4f4919a74a54271b198ad2d43d530333489",
+        "ddraw_draw_lighting_test.log": "1b16e797794bcd2a01ab4589a879d73796f66e77f0cb0198ab2aee3410a60c73",
+        "ddraw_empty_draw_mutation_test.log": "c04f4b5e12a5b5f2d6061d1a7c9e6e68704e5be3ecadfe82f8392104844ef336",
+        "ddraw_empty_draw_test.log": "c9fa16636565edc4940e738f3e13bf57f998e61a236e953c3c800df21bbc29ab",
+        "ddraw_enum_mutation_test.log": "65950bd8e946914b1b581ab0d90912b0f43a659d6b731756b73583348f72aaa1",
+        "ddraw_enum_test.log": "05f3917fc07c90a9b8f80c44a2bf72de0435b095c97ae8731a1ef51b76fd10bd",
+        "ddraw_execute_buffer_mutation_test.log": "11f028781691a87f603144bff31fd53b8b0e391d35683670c5fc2df060a05c06",
+        "ddraw_execute_buffer_test.log": "bab5c8f8186aa90cd0f9665fa1dcf0cbad00f75aa1ee958192c8fa025b6b49b1",
+        "ddraw_factory_entry_mutation_test.log": "5ef3e977ab8ba9d3d845836444ae3f48af4b5dfe7d8d34d3a8175290489f0579",
+        "ddraw_gdi_identity_test.log": "1d684b1280060f104927f2405e06dec2fff7057861a1633a7dba734be121f350",
+        "ddraw_indexed_span_test.log": "dd70859d0a09c3a9c55815a37532a8f79e5fe77b004f4b400d3cb7ef68ee04b7",
+        "ddraw_legacy_binding_mutation_test.log": "bc7cb4f42f2af0c841d8dadab880b957e3a0f4838b32abd8ec125880d1311a79",
+        "ddraw_legacy_binding_test.log": "f4d2db7ac72d737c1446d6360e26e4e97da7e34b32502fe250d53007905a586d",
+        "ddraw_legacy_caps_mutation_test.log": "7479d6561ae2f4ea2a12285d903a88576e7574805e11adea341fe5562a58020f",
+        "ddraw_legacy_caps_test.log": "ff6731c22e6dde6f03e80157ad9285fc78631c5e419a2fcc93380e7972664c41",
+        "ddraw_legacy_handles_mutation_test.log": "38c5e22364983947529b43fe5157ef29f29575c6988e02952ae6db8d8311f56f",
+        "ddraw_legacy_handles_test.log": "d600b7407b15d35cfc18f42818bf19e26fd1570ad2284feab1aa967a518cdde8",
+        "ddraw_legacy_viewport_test.log": "a8b8dc212eda3e6c83a21b89b7035f78f8aa2a5b5a8f95e465e646f3d39dd128",
+        "ddraw_lock_preservation_mutation_test.log": "f996c4a3505dbcd490e89e84cccf11564a2dcbf3c4c66b2aa36eaef42ccb4947",
+        "ddraw_lock_preservation_test.log": "116a6e079ed1a3b0e09ba465e9eaa17092b6f8394379a5e6bd3987564a9d9eb6",
+        "ddraw_material_lifetime_mutation_test.log": "788157591c3c27d687207c0f5b48a749b0890f5c387e15fad3d895a5faafe2bc",
+        "ddraw_material_lifetime_test.log": "ce8aad02175067a089464b18f0492ae8e9cc0a330c2de2ba5781039cc5f8bc48",
+        "ddraw_memory_blt_mutation_test.log": "8b00cd894871a992c9d64fcbbfd4f7d42bfc879597994c673d2a122fd143b81f",
+        "ddraw_memory_blt_test.log": "e931e36c503e063a7eb5e28f25b28c3574adc6a02e2de0e9091990d6c197c872",
+        "ddraw_memory_graph_mutation_test.log": "cf06cc4948f834f4fc68961e42be60d0d85c21c902ef54d1eae5d162acc88e8f",
+        "ddraw_memory_graph_test.log": "b5ebf3489033df8e2fd2f1090b58c259442f90af48e13a0cf05ecb628341a89a",
+        "ddraw_multiple_devices_mutation_test.log": "20f48876660659b5fae7a8f3ce6cee740cf837264118301d3524ed8dd4cc58a7",
+        "ddraw_multiple_devices_test.log": "ff75e33bcc4030b80ce528ddfb85f654333c37d7b0486647e5a718ecffb2a780",
+        "ddraw_native_gdi_dc_mutation_test.log": "c54781b3ff42733499f1564a45767455eedaa62c1ec131e5db48cb5b2b0678c5",
+        "ddraw_native_gdi_dc_test.log": "0b06824be9ab3cd15e30ecef31a822297a132f190c328aeab426a7994b7a649f",
+        "ddraw_normal_profiles_mutation_test.log": "ec82c8a3d94cb27909e3dbf441b666fb84c7052461efb6930b08bb75a8cd17cb",
+        "ddraw_overlay_contract_mutation_test.log": "44f48f347e72c96e46297eb142df72712c35ea387779945e485c1134975422f5",
+        "ddraw_overlay_contract_test.log": "6ccf8bce8e780e45d7b6a56912db82ef1935b9fdae2274995b2b21102dd58e21",
+        "ddraw_overlay_flip_mutation_test.log": "64b64812d8179750372e71cf8159bd37caefd971bff6bd220c932f037ce8852f",
+        "ddraw_overlay_flip_test.log": "bfb78b48772ec20bf7c217ae7f557645e044bc9276fcb75e0b51c3d739f124a6",
+        "ddraw_ownership_mutation_test.log": "4287b16d21ab7b11dd6f501dc6eb4d066e7cc250099657ca89eeef1a1b94ec4a",
+        "ddraw_ownership_test.log": "3bd4af2e3aa5a7aa1aef96e9e202a7b98a3886177ce8b436f07f5eff611e53a6",
+        "ddraw_palette_presentation_mutation_test.log": "455a362b96dd4449e1dc58f05e50b88d924adf379b2cd242094a9e28b5dafad9",
+        "ddraw_palette_presentation_test.log": "877809955a99ed7ee51a4ca65dd37960552eca2322b337faec3cb51835f16801",
+        "ddraw_platform_control_mutation_test.log": "eb5b849b27aa4f9874f7a37852dbe6cd5d2d81870c03a1f27d554ad9bb0b551f",
+        "ddraw_platform_control_test.log": "12b39dac68f0f751c6885b9a4e604fd74a6e6ae79147197e9db94e95c2b3d28a",
+        "ddraw_primary_write_mutation_test.log": "f3dcff33dd215f6c2f74b8ae1ff1003ea8f0d431d17b6534dec29687fc1dc61f",
+        "ddraw_primary_write_test.log": "f4b003356c70a1f7b55b231780ee292d9b6c053c7e241fbb5a7751022cecac69",
+        "ddraw_private_data_mutation_test.log": "e3d02bf416e5a3b7eab1fbda6da98c742d658ab9afc0f3be4e1dd2e1d0bc122b",
+        "ddraw_private_data_test.log": "8fc2127a472c4f9b8ab9b188391bff552e307de4934cf415a63c6ec97b703a54",
+        "ddraw_process_lighting_mutation_test.log": "94449a295fee883ac199a2d6debb842e097c7dd93732738c222d041d6ccabd88",
+        "ddraw_process_lighting_test.log": "57e7ecf7cda6f7cfa7ec644eefda3bf99569453d0d546eac30d90796523b4cd5",
+        "ddraw_protocol_consistency_test.log": "611576fd25345fbbf93f88bc877155c5d3b48e5a10c32c6f1a87941ad2241266",
+        "ddraw_render_target_mutation_test.log": "5df09c2db270d3be83c574d62cb4cc5a3cb6194dce40a73c26a15a4bb2fb8222",
+        "ddraw_render_target_test.log": "3c1e8346e6106e08cc39a4850ccf311399e711b6a32e8752439fd857eb142a35",
+        "ddraw_resource_metadata_mutation_test.log": "e267a376462e461e0a54688a7aae67c4f8b1a0c6e7a33be25e532522a3034f61",
+        "ddraw_resource_metadata_test.log": "2fd6ac4ace18bd8bc8ac99b992316e69cb8cb1bd437c8759582f220008158592",
+        "ddraw_rop_dc_mutation_test.log": "be56abc01e5e90e7c60cb3ef7613d880a3e855409b436e9dddbc73dfe962165b",
+        "ddraw_rop_dc_test.log": "c0a3694abaf7a8d64563194e0f8db98de6f6afb5e3afe6e72de909e15ef86d76",
+        "ddraw_screen_clip_cache_test.log": "bdcba15819a8464fa951fe1aa2ebc403197771a1f805d986e947e2794f4ed17e",
+        "ddraw_sphere_visibility_mutation_test.log": "53405f2bd0dc49856c4ee2eab6b1aaf5ce54d3a1fa211f40abda05e7bf85b411",
+        "ddraw_sphere_visibility_test.log": "b0f7be330da10c8cb68504c0907e55bb4fa7161297d9bad3c2b84edc003c69c0",
+        "ddraw_surface_control_mutation_test.log": "a06c9e63162baf217c88e78d335dda2de8f825a3b9d7d2b109f43ea6b9ab753b",
+        "ddraw_surface_control_test.log": "60d764e4ee4e9dcc11d3d4eb901030ed3d3f767a07e25f79ea7e6d1b40bde93d",
+        "ddraw_surface_creation_mutation_test.log": "b640fe92c0ec1dfc0e1c7e6a5012ffc24bfed0743984be9b03dbbcd1dee9a3c1",
+        "ddraw_surface_creation_test.log": "272297798c1d1edec1414e6bba15d0dd3439ea83e0f37f5f9fa0f5d9c5da1b54",
+        "ddraw_surface_dc_mutation_test.log": "34774f10b3bb5d0c1f4fd2a5febc54a302a36fb92749a4fa6f01486dbfdf4757",
+        "ddraw_surface_dc_test.log": "b33224b20acb2f049030878bde42a16418ec9fbce0d106816806b957fbb2e6bb",
+        "ddraw_surface_identity_mutation_test.log": "813faab79a5686bbf8aaf78794a2e120e39e76c0fd35d1d89ed9efd1ce31c2dd",
+        "ddraw_surface_identity_test.log": "301b599b4ffd6d684fdee026e125ff61adaf8c46fd24c3814d6187d9f2f614c5",
+        "ddraw_surface_memory_mutation_test.log": "c322e79b1e990e0e1bdf5c0fea1590a1cb18d63cd883979238d3808c1ed8bbe1",
+        "ddraw_surface_memory_test.log": "053bf31199360615dfd8480ba8a4f9a559d50b1134b50bf0f4cc34d1eb733502",
+        "ddraw_vertex_buffer_mutation_test.log": "87b11dda6373150064b259d9bea7527aa182a7f2887179728f1f4a65c5f0ed34",
+        "ddraw_vertex_buffer_test.log": "33f8d4291a6ffa7afefdc8c6a98b654532c2a58f86192f25638d8ed267b9682d",
+        "ddraw_vtable_layout_test.log": "81e5647331dd55baeecfc856b9e0556c06c6880752295673bc5f0a5d04e29b46",
+        "ddraw_yuv_surface_mutation_test.log": "013d65a4b00aa7f4a7ddcd0da867b5d10e4c2cbb2eb064bfa0863ed682637e4d",
+        "ddraw_yuv_surface_test.log": "142a16241490170bc83c9c5a8ef2cb03f616a31777b4f9489ce1471284a23887",
+        "exit-codes.json": "4991e601aef22c4e0435d78d4fdf641c9947e081f43cfab3e6a38c052e3a8ec8",
+        "site-integration.log": "0442dfd2655ad2d0c127ced3a817c857c1045717ace73180509da3057228677a",
+        "test-source.json": "b2f7cd4adeb2b38ee662ca1eb2e50cc94b72dcd55eadefbdad82cfa4aa90db17"
+      },
+      "exitCodes": {
+        "d7wg_legacy_defaults_mutation_test.js": 0,
+        "d7wg_legacy_light_mutation_test.js": 0,
+        "d7wg_legacy_light_test.js": 0,
+        "d7wg_legacy_viewport_mutation_test.js": 0,
+        "d7wg_legacy_viewport_test.js": 0,
+        "d7wg_light_state_mutation_test.js": 0,
+        "d7wg_light_state_test.js": 0,
+        "d7wg_state_block_mutation_test.js": 0,
+        "d7wg_state_block_test.js": 0,
+        "d7wg_texture_caps_mutation_test.js": 0,
+        "d7wg_texture_caps_test.js": 0,
+        "d7wg_texture_load_mutation_test.js": 0,
+        "d7wg_texture_load_test.js": 0,
+        "ddraw_attachment_contract_mutation_test.js": 0,
+        "ddraw_attachment_contract_test.js": 0,
+        "ddraw_attachment_query_mutation_test.js": 0,
+        "ddraw_attachment_query_test.js": 0,
+        "ddraw_attenuation_mutation_test.js": 0,
+        "ddraw_bc_codec_test.js": 0,
+        "ddraw_caps_profile_test.js": 0,
+        "ddraw_channel_expansion_test.js": 0,
+        "ddraw_class_factory_test.js": 0,
+        "ddraw_clipper_mutation_test.js": 0,
+        "ddraw_clipper_test.js": 0,
+        "ddraw_color_fill_memory_mutation_test.js": 0,
+        "ddraw_color_fill_memory_test.js": 0,
+        "ddraw_color_key_mutation_test.js": 0,
+        "ddraw_color_key_test.js": 0,
+        "ddraw_compat_metadata_mutation_test.js": 0,
+        "ddraw_compressed_blt_mutation_test.js": 0,
+        "ddraw_compressed_blt_test.js": 0,
+        "ddraw_d3d7_vtable_test.js": 0,
+        "ddraw_d3d_legacy_vtable_test.js": 0,
+        "ddraw_depth_memory_mutation_test.js": 0,
+        "ddraw_depth_memory_test.js": 0,
+        "ddraw_depth_transfer_mutation_test.js": 0,
+        "ddraw_depth_transfer_test.js": 0,
+        "ddraw_desc_policy_test.js": 0,
+        "ddraw_descriptor_bridge_mutation_test.js": 0,
+        "ddraw_descriptor_bridge_test.js": 0,
+        "ddraw_device_context_mutation_test.js": 0,
+        "ddraw_device_context_test.js": 0,
+        "ddraw_display_mode_shape_mutation_test.js": 0,
+        "ddraw_display_mode_shape_test.js": 0,
+        "ddraw_draw_lighting_mutation_test.js": 0,
+        "ddraw_draw_lighting_test.js": 0,
+        "ddraw_empty_draw_mutation_test.js": 0,
+        "ddraw_empty_draw_test.js": 0,
+        "ddraw_enum_mutation_test.js": 0,
+        "ddraw_enum_test.js": 0,
+        "ddraw_execute_buffer_mutation_test.js": 0,
+        "ddraw_execute_buffer_test.js": 0,
+        "ddraw_factory_entry_mutation_test.js": 0,
+        "ddraw_gdi_identity_test.js": 0,
+        "ddraw_indexed_span_test.js": 0,
+        "ddraw_legacy_binding_mutation_test.js": 0,
+        "ddraw_legacy_binding_test.js": 0,
+        "ddraw_legacy_caps_mutation_test.js": 0,
+        "ddraw_legacy_caps_test.js": 0,
+        "ddraw_legacy_handles_mutation_test.js": 0,
+        "ddraw_legacy_handles_test.js": 0,
+        "ddraw_legacy_viewport_test.js": 0,
+        "ddraw_lock_preservation_mutation_test.js": 0,
+        "ddraw_lock_preservation_test.js": 0,
+        "ddraw_material_lifetime_mutation_test.js": 0,
+        "ddraw_material_lifetime_test.js": 0,
+        "ddraw_memory_blt_mutation_test.js": 0,
+        "ddraw_memory_blt_test.js": 0,
+        "ddraw_memory_graph_mutation_test.js": 0,
+        "ddraw_memory_graph_test.js": 0,
+        "ddraw_multiple_devices_mutation_test.js": 0,
+        "ddraw_multiple_devices_test.js": 0,
+        "ddraw_native_gdi_dc_mutation_test.js": 0,
+        "ddraw_native_gdi_dc_test.js": 0,
+        "ddraw_normal_profiles_mutation_test.js": 0,
+        "ddraw_overlay_contract_mutation_test.js": 0,
+        "ddraw_overlay_contract_test.js": 0,
+        "ddraw_overlay_flip_mutation_test.js": 0,
+        "ddraw_overlay_flip_test.js": 0,
+        "ddraw_ownership_mutation_test.js": 0,
+        "ddraw_ownership_test.js": 0,
+        "ddraw_palette_presentation_mutation_test.js": 0,
+        "ddraw_palette_presentation_test.js": 0,
+        "ddraw_platform_control_mutation_test.js": 0,
+        "ddraw_platform_control_test.js": 0,
+        "ddraw_primary_write_mutation_test.js": 0,
+        "ddraw_primary_write_test.js": 0,
+        "ddraw_private_data_mutation_test.js": 0,
+        "ddraw_private_data_test.js": 0,
+        "ddraw_process_lighting_mutation_test.js": 0,
+        "ddraw_process_lighting_test.js": 0,
+        "ddraw_protocol_consistency_test.js": 0,
+        "ddraw_render_target_mutation_test.js": 0,
+        "ddraw_render_target_test.js": 0,
+        "ddraw_resource_metadata_mutation_test.js": 0,
+        "ddraw_resource_metadata_test.js": 0,
+        "ddraw_rop_dc_mutation_test.js": 0,
+        "ddraw_rop_dc_test.js": 0,
+        "ddraw_screen_clip_cache_test.js": 0,
+        "ddraw_sphere_visibility_mutation_test.js": 0,
+        "ddraw_sphere_visibility_test.js": 0,
+        "ddraw_surface_control_mutation_test.js": 0,
+        "ddraw_surface_control_test.js": 0,
+        "ddraw_surface_creation_mutation_test.js": 0,
+        "ddraw_surface_creation_test.js": 0,
+        "ddraw_surface_dc_mutation_test.js": 0,
+        "ddraw_surface_dc_test.js": 0,
+        "ddraw_surface_identity_mutation_test.js": 0,
+        "ddraw_surface_identity_test.js": 0,
+        "ddraw_surface_memory_mutation_test.js": 0,
+        "ddraw_surface_memory_test.js": 0,
+        "ddraw_vertex_buffer_mutation_test.js": 0,
+        "ddraw_vertex_buffer_test.js": 0,
+        "ddraw_vtable_layout_test.js": 0,
+        "ddraw_yuv_surface_mutation_test.js": 0,
+        "ddraw_yuv_surface_test.js": 0
+      },
+      "testSources": {
+        "glbridge/tests/d7wg_legacy_defaults_mutation_test.js": "58506ca6f479d8271829860070399f802bb6d096d27a06ebedb2c2cf836e8ad6",
+        "glbridge/tests/d7wg_legacy_light_mutation_test.js": "4a88b96dba5503775b87c0366333a638d24436c486f65086ec6a504dcd270425",
+        "glbridge/tests/d7wg_legacy_light_test.js": "29925bf2e4d172a98e69acb940880e244821b1ed8a30e8907f08ec9c78baff62",
+        "glbridge/tests/d7wg_legacy_viewport_mutation_test.js": "4f04c01447803c2251b81071a486f2fb9831c47947d34bbc57e004f6d35d112c",
+        "glbridge/tests/d7wg_legacy_viewport_test.js": "ff0d0b60d0fb2155eb10cc1371a73f66a5d7878c6f9f99cf665b69fc55335244",
+        "glbridge/tests/d7wg_light_state_mutation_test.js": "a77a6ad8592d162a26772522383fea1a689b74d39706a84c4a78e83d245fe6a9",
+        "glbridge/tests/d7wg_light_state_test.js": "5bfd1797bd008d18a76113f21a9983ec8d4adabfded34f2bf06bd56b5254fe51",
+        "glbridge/tests/d7wg_state_block_mutation_test.js": "0ccb6766f511e99b71ef9e713f8a55fc39bd1899911fc8184cdd8e3c779fe3cf",
+        "glbridge/tests/d7wg_state_block_test.js": "46b8a094904d9dc8504498e1d410ad1dc1bc518d68666a0a8185883700b624bd",
+        "glbridge/tests/d7wg_texture_caps_mutation_test.js": "e625f238b2957d4a19143c995e930551ab696049d876a3c39f3e8c639271b124",
+        "glbridge/tests/d7wg_texture_caps_test.js": "e17495fa01f497f98173bbf03ff43db113072a1105e8656c74f6b28f499f7d8e",
+        "glbridge/tests/d7wg_texture_load_mutation_test.js": "71755ceb456c815a56d44930b1e4cdf9aa9c1a515293d6524f656d41c501ea7e",
+        "glbridge/tests/d7wg_texture_load_test.js": "36132bf469a4d3fb7243e600f0f486a1501a70e9727face53b798bfe66c11194",
+        "glbridge/tests/ddraw_attachment_contract_mutation_test.js": "c8ed293b371de69fcc644fa1bca5b02c190aa9d6a954d783e620ca8d4330afbc",
+        "glbridge/tests/ddraw_attachment_contract_test.js": "3869d92068a4c468f0b084569a6d89c735ca10e34c770a47e7e09a798e980305",
+        "glbridge/tests/ddraw_attachment_query_mutation_test.js": "13adc686eb7581857e51ea5040248c9b01ba5ef86bd9dd56bd5ab348fe2d5333",
+        "glbridge/tests/ddraw_attachment_query_test.js": "952f32ffb169a1e9629752d9c988870e8451f4864c3f33fefc3dbf27aabd83d6",
+        "glbridge/tests/ddraw_attenuation_mutation_test.js": "80b677a361131f8107e9ee30f9d3328e04b55d77c62da2ff51e42558f7d40220",
+        "glbridge/tests/ddraw_bc_codec_test.js": "94c15eee161b34ce31f2bb7d962010f96f438ec602bfced7fd4ac57df8e3b19f",
+        "glbridge/tests/ddraw_caps_profile_test.js": "2a250d419c35201bdbd8dbf9bd2b74864443ba4b7daaaab0f0aac49d81966b7c",
+        "glbridge/tests/ddraw_channel_expansion_test.js": "d4565d76efc08d85c3977eaacb540d81783946f840c91a616a8dff27415124d6",
+        "glbridge/tests/ddraw_class_factory_test.js": "a43205f63d157d42df233caf185cc600e6e24bca58927c5835fdf1713f927d38",
+        "glbridge/tests/ddraw_clipper_mutation_test.js": "9cba7cbc1c714b9ff9f29c8a7f63f6941d434859d6ac25c8e457fa38c2ff4b19",
+        "glbridge/tests/ddraw_clipper_test.js": "06fffd4acfd82ce7636ced289759dd045d3051a63f1f8a4860744fdd607d5a0f",
+        "glbridge/tests/ddraw_color_fill_memory_mutation_test.js": "c70bfd6e8097597ffa976ab37ea4b364c035531845a46579c835a253f4454cc8",
+        "glbridge/tests/ddraw_color_fill_memory_test.js": "3d8cfd982009509e862a2187e3d46983c59da950ef4951cd1dae52705d4feaf3",
+        "glbridge/tests/ddraw_color_key_mutation_test.js": "c71b577ac324badbdc4f84e7e8a6ff0ff0622b648745b58a985adc399b526e7f",
+        "glbridge/tests/ddraw_color_key_test.js": "a900f0e36774e4587aa81a90e5cd4712840608e06fcf5b314946570c1a520e9f",
+        "glbridge/tests/ddraw_compat_metadata_mutation_test.js": "b96164eaa3f826faac5583a9fa8d8ce8bac2b0e0f93682d99d2ae2e07d1c0019",
+        "glbridge/tests/ddraw_compressed_blt_mutation_test.js": "404259ae60a05008c015038d54b26bc83a8b74ceb25eab23cfef05b2d017b1f0",
+        "glbridge/tests/ddraw_compressed_blt_test.js": "1c0c6d266aa7b24fe6dce0845aeaa76e9e15d2623eff5c1df11bec236f2a876f",
+        "glbridge/tests/ddraw_d3d7_vtable_test.js": "71f18adcb3e58612ff4f12e5591fdcc5c451e156357a550c68e3c2809b3f8913",
+        "glbridge/tests/ddraw_d3d_legacy_vtable_test.js": "39d8b5b4f61a5695c2b3759369210c0dd49ff79bfc9239a6ad23448a8270d977",
+        "glbridge/tests/ddraw_depth_memory_mutation_test.js": "88ac9b82a30f70d6fecf22c666323f71dd20365814c0a8afa3a6c3fe97fed9ef",
+        "glbridge/tests/ddraw_depth_memory_test.js": "7eb054cd854cca8d3b275503927f4d248377e701f304e84b94ee32b166f35ba8",
+        "glbridge/tests/ddraw_depth_transfer_mutation_test.js": "6694d66d45c7ad9843cc20f9778c9a0b47fd197f57b84f17ab81a8829a79c9e9",
+        "glbridge/tests/ddraw_depth_transfer_test.js": "b33b1806e178fc9a9b0e482594783e1878ee41ac65cc6dc03b18084b48e98e19",
+        "glbridge/tests/ddraw_desc_policy_test.js": "e335f532a4837fa49ac45cd33b130c6a103f795cafa4adee1e54b0950b11b147",
+        "glbridge/tests/ddraw_descriptor_bridge_mutation_test.js": "9736702a234b1a853c93a0b0a15cacc1150f56d73bb8d9e29fcd156ae34cee1e",
+        "glbridge/tests/ddraw_descriptor_bridge_test.js": "d8f676f1926fb0a5a60d7b1d683310a01433bd1cc9978d63c5d183748a59bd6d",
+        "glbridge/tests/ddraw_device_context_mutation_test.js": "47d88e6c82f3f4301feb13e096b0a3f1b7d503c05c6f52d77370c34d38319f37",
+        "glbridge/tests/ddraw_device_context_test.js": "c563af4242bd28baf2fa200cec786d01fd3703a46f22cd703e252eec9bfd4ea0",
+        "glbridge/tests/ddraw_display_mode_shape_mutation_test.js": "b4fe1661beccedeca0128d2ad9bad4f36121f3b57948a010a6a490835b3f7dc4",
+        "glbridge/tests/ddraw_display_mode_shape_test.js": "f5e17ef8e64cdaba2abb37e2042799a366383e5a87eaac200ea2b36103414b99",
+        "glbridge/tests/ddraw_draw_lighting_mutation_test.js": "1c44586bb2afd9f911e1b20325d566933e92bf1b50eba6cae6339a0ab0ffc42b",
+        "glbridge/tests/ddraw_draw_lighting_test.js": "5a7ab2d0c56afd48d5a7f43b0615e86917a2c32607781736b1436dd06215774d",
+        "glbridge/tests/ddraw_empty_draw_mutation_test.js": "4b8bd779cf9c267afff33b41ac463545c6d1f5682f8c3ba380b862297f74fd55",
+        "glbridge/tests/ddraw_empty_draw_test.js": "1ea7e660f5c438db97c652c135e2bac1ba8026e72741471cc246c01fd6151a03",
+        "glbridge/tests/ddraw_enum_mutation_test.js": "559b0ca43ee1768d5192c03a22399d3ec7b782e235824476f8f97c7f7744c527",
+        "glbridge/tests/ddraw_enum_test.js": "5c73cf7668148d7746c211a954bd2db3ab4f2e22dc1d64907df219f3ad7119d5",
+        "glbridge/tests/ddraw_execute_buffer_mutation_test.js": "090cb60b94659cf91d7c252ab266eeb9f389cf152fc6f8706bccfeb139bacb6e",
+        "glbridge/tests/ddraw_execute_buffer_test.js": "bd99f9952fccd42ed1ee0a36fafba8fb85edc17cd93e4af43f095424db0b07cf",
+        "glbridge/tests/ddraw_factory_entry_mutation_test.js": "bc9aff4cf003d949612c6583801d55eac7f7e83c44e517ef179d7ba2c4a5ab13",
+        "glbridge/tests/ddraw_gdi_identity_test.js": "209cb59f2682c32b834792a0daae7e26b075d20d14d6d7c5983af31ef4a1f681",
+        "glbridge/tests/ddraw_indexed_span_test.js": "114ab074fafc446d6e0f5aa4d8c4fa213bf8c2b591fe44ea99bd9e15ebec0417",
+        "glbridge/tests/ddraw_legacy_binding_mutation_test.js": "1c88ce2cd2ac474dc7a457f84f51251c73cd42f282909b39e3adb9b613aeb5cb",
+        "glbridge/tests/ddraw_legacy_binding_test.js": "58b44ac613f4a151de1c61bc4561c0edf550b855df6bf2ff09bdb03c4755a6da",
+        "glbridge/tests/ddraw_legacy_caps_mutation_test.js": "bb335713ab84d4fde9a069ec176c948d32d21947968fa85a4627517198470d7f",
+        "glbridge/tests/ddraw_legacy_caps_test.js": "2fd1c53aa6cc72058c0bb491ec00c3b29b5ab573227721a460511634ab926c17",
+        "glbridge/tests/ddraw_legacy_handles_mutation_test.js": "568d00f3bc195f2f2b90459df9e04f7835bc75439c824913d1e478438157a689",
+        "glbridge/tests/ddraw_legacy_handles_test.js": "bb083a22344495807f2d797aac4a1c311e2d66c141b516215d13c95824e058f1",
+        "glbridge/tests/ddraw_legacy_viewport_test.js": "337ac94aadac804f73f4194e819d6fc96334ff9294fd5f0d6038cee8ec166de6",
+        "glbridge/tests/ddraw_lock_preservation_mutation_test.js": "a7115683bbaaa4b3c11b5028eda9c3323d491ae27a7eee2799bbc4b532b5d4b6",
+        "glbridge/tests/ddraw_lock_preservation_test.js": "5b6f7dc204a231a6195bf1ac4f0985097ba5817e157e66379489445b70b94119",
+        "glbridge/tests/ddraw_material_lifetime_mutation_test.js": "50b9498610076bacbbb3f77fd059ce0d74e09f519ef75d67bf6b1cf081400c80",
+        "glbridge/tests/ddraw_material_lifetime_test.js": "d8d7892627c3e74e7720a99ca17367ed94cbcbf859f1736157a478a54012318d",
+        "glbridge/tests/ddraw_memory_blt_mutation_test.js": "c968699136b874e55e98511fe2b3644321a615d6c4396670b6e86e2c60c43721",
+        "glbridge/tests/ddraw_memory_blt_test.js": "95fa8a47d8070c091cec05d92066848103d5e283e187e7906f1db8aece2e7e4e",
+        "glbridge/tests/ddraw_memory_graph_mutation_test.js": "f77cf7494d638269c0a334eb37a491924e4ff6d659dfe7dbe84501a44f34ab65",
+        "glbridge/tests/ddraw_memory_graph_test.js": "48f4fc4d0b20dec01a938975f3ef93833463fd1ac94f42a68c11f18056734fbc",
+        "glbridge/tests/ddraw_multiple_devices_mutation_test.js": "ebbc382c1f12cc7302450c836373a2e6d949d8a657d12d1f46dc4db0857fcf20",
+        "glbridge/tests/ddraw_multiple_devices_test.js": "e908a5f7132e7c01e512fdf92f75c7701b75dad24c3a9538389c16683a9e9b5a",
+        "glbridge/tests/ddraw_native_gdi_dc_mutation_test.js": "6b7b5894a02a092ec732dcdc7499daeac53d0f8d5e10650e018190ad9c29e3ad",
+        "glbridge/tests/ddraw_native_gdi_dc_test.js": "985cb9c9fde5bc0d8fa4beabd225fda87dcf37ace71d4963b4c3724a5c2b9ded",
+        "glbridge/tests/ddraw_normal_profiles_mutation_test.js": "dfcfc6d6b6648efb2ea8d7edecf40e1429e76fa43066b359487af41d79888756",
+        "glbridge/tests/ddraw_overlay_contract_mutation_test.js": "b268c3d25364c3a18d3b08a8cc665bf35a443ef7f95efaab0a55b45680184e52",
+        "glbridge/tests/ddraw_overlay_contract_test.js": "3d6b3ed3255d64ff482e8a9158d83c86c948646bec30aa9db8c9bdb950ad8d23",
+        "glbridge/tests/ddraw_overlay_flip_mutation_test.js": "9495431f96d43644858a03a2e598a15cae212ca42a5062d51d98d3a66c9f1b06",
+        "glbridge/tests/ddraw_overlay_flip_test.js": "632e590160b47d1856e9e06da1b292cf9537116d93eee6b6a82c61801bc53789",
+        "glbridge/tests/ddraw_ownership_mutation_test.js": "b0d9eef351c6edcdaa739420df7a1891b2e8356d05192a51c5fcea71a612348f",
+        "glbridge/tests/ddraw_ownership_test.js": "169f1ff50c7ce0ed4ea5ff6836d4b09558ed35a3fcfa6f1d7a7eda4dcea8103c",
+        "glbridge/tests/ddraw_palette_presentation_mutation_test.js": "6323e11b68d995b5a30e6ddd33e53db1f121bd244e55a74e2c6b7a1e28c50685",
+        "glbridge/tests/ddraw_palette_presentation_test.js": "c772ffb7ecd6a68f5861f1e3f0b57cd600ae833c80af7046047bb5cd80d3026e",
+        "glbridge/tests/ddraw_platform_control_mutation_test.js": "3b54d38a51aec97a1e2da2179f4f9c15ec4a7b6680df5e5633b3ec24eed5cf46",
+        "glbridge/tests/ddraw_platform_control_test.js": "2e3aad27ed4ed7793a336ec319a5d2eedb62ea7222828bc16989edb7695fa53a",
+        "glbridge/tests/ddraw_primary_write_mutation_test.js": "25ddb10231568ce60bee0c3ef35afe19c311589aa54b841ad79d9462791603ce",
+        "glbridge/tests/ddraw_primary_write_test.js": "44888a2b436568a8b29f722f731d575e5727404ae386038dc05f671eaccb1dc6",
+        "glbridge/tests/ddraw_private_data_mutation_test.js": "c40173bb9d4c453edb92945c827fe22fa3e1a27531c19dc52355b9c8df9a422c",
+        "glbridge/tests/ddraw_private_data_test.js": "a73fbc086c49d46c639f1c960ab8539ee17106a8e353beb7eedfb855e31df1a7",
+        "glbridge/tests/ddraw_process_lighting_mutation_test.js": "5bf71437c82867f92507b9c2f9d5fe721fd81bdc842709171069f8e23f2c43e3",
+        "glbridge/tests/ddraw_process_lighting_test.js": "3f6bc1b447d6cab97bf20ae3fa55991ed8511032c6eecd95be30aaa0ba7e65e4",
+        "glbridge/tests/ddraw_protocol_consistency_test.js": "a2bc7568fab0c8e6b48918ee597ac6b51aa6f825a87491cccbe1bc8a5ba0090b",
+        "glbridge/tests/ddraw_render_target_mutation_test.js": "798bcd99d4f28b7e42aa9096b239fd13624c9139a3f8a050780953c263b772d5",
+        "glbridge/tests/ddraw_render_target_test.js": "96074662135304728c63f4402247f517e26d06d4071939ef41e141fcd2e36018",
+        "glbridge/tests/ddraw_resource_metadata_mutation_test.js": "f0d8f940db90274b1fb8751c2dea6ce9433b07dd116f2134208e5dd0a71e0366",
+        "glbridge/tests/ddraw_resource_metadata_test.js": "9b7a7235137789cc50a3f058f0d59195c3dfa56cbd5527e8c010ef4ac0810154",
+        "glbridge/tests/ddraw_rop_dc_mutation_test.js": "ba98a1ef5601e2704ef27ab2f0f207aebb9caae5e75bc373f571ae11a821ea49",
+        "glbridge/tests/ddraw_rop_dc_test.js": "3f969813b21219a7a499e15aeac259558913542913df3d43e4f262a148138e6f",
+        "glbridge/tests/ddraw_screen_clip_cache_test.js": "b1fa4faec13e9318ab6b4042b67000a7c13c6ff2ab51a8f525fb7a28a2b08241",
+        "glbridge/tests/ddraw_sphere_visibility_mutation_test.js": "881816eaf2a082872492f5ba251b155fd3f686775f33d42cdaeedf3c905362f5",
+        "glbridge/tests/ddraw_sphere_visibility_test.js": "d93fe6d9b7f79eceaae304686141100bedef3f598eac47bd6bb09192fe37bc81",
+        "glbridge/tests/ddraw_surface_control_mutation_test.js": "2840dbfcfb9da17995aac59db39202d4bd5089ef44149423206bb16f28a3d486",
+        "glbridge/tests/ddraw_surface_control_test.js": "0f1a4a1ba715af17656f2807b101582e9aad985aeaa7a925e51a74f491ecbf84",
+        "glbridge/tests/ddraw_surface_creation_mutation_test.js": "453e974651ddcdd87b4b01f5677fa57e43e3ef67889a9e49eca56bd24db2ea4a",
+        "glbridge/tests/ddraw_surface_creation_test.js": "759d1ea43a366fcac2838a1c2e15756aca84cb231143e972bcf29ee071a19c1b",
+        "glbridge/tests/ddraw_surface_dc_mutation_test.js": "91df664df410b6bd44193f79a08c4f43cc63fc2a10a33ca5b5dc82c41dcf187b",
+        "glbridge/tests/ddraw_surface_dc_test.js": "6d0988425f7315c56f0ae94c85f37a1df2f0a4bd081fd3296d73c287a98f0f9d",
+        "glbridge/tests/ddraw_surface_identity_mutation_test.js": "c94c9b525f5cab35f092ff2c9eb842382b35e1b3b10ea9a3fda7fb09b950ac17",
+        "glbridge/tests/ddraw_surface_identity_test.js": "5e27c30aa678c79e7d1fb85274eb58a0fe94151a76381565b5173afafb752816",
+        "glbridge/tests/ddraw_surface_memory_mutation_test.js": "58f53d80f491a85a748bc210c64a454fbe35ef1e6952d63f2e5c8c440a0cee8d",
+        "glbridge/tests/ddraw_surface_memory_test.js": "4a575c3ce71bc35dc21f629cd39f84b90c78aa0c780ebe3f6baf44e0d5b921dc",
+        "glbridge/tests/ddraw_vertex_buffer_mutation_test.js": "ea1e0248579b3e03f2d9df4248c268574ab80fb0df5c0cccedbbb3f65d76e686",
+        "glbridge/tests/ddraw_vertex_buffer_test.js": "174df4ce535ae6509cc2958821f5bd34b88273b7e5d5aa68ddfeb1e976b11107",
+        "glbridge/tests/ddraw_vtable_layout_test.js": "af435e506da395b0e26dfdeae447840d1447a1cdd66dad55a0a318b25ce28bff",
+        "glbridge/tests/ddraw_yuv_surface_mutation_test.js": "542a95167715b19572fe2b99275ef71f93629254eec20adfd26f6490f39395c0",
+        "glbridge/tests/ddraw_yuv_surface_test.js": "02b8ee12ed881af3e1e8b9967a358cf81f5ddedf4ec3aed3de3568c5a523db9e"
+      },
+      "allPassed": true
+    },
+    "stage6-86r2-core-checks": {
+      "directory": "stage6-86r2-core-checks",
+      "files": {
+        "d3d9_shader_pipeline_test.log": "d45ebbd05b8ccf61fd745fa58a40c68986dc9a46f675d7d0db267615ded053e4",
+        "d3d9_webgpu_executor_test.log": "c7444be81430ea110f70e22f2bf3f8374927f3a8c132d0acab782156cc85d98f",
+        "d9wg_alpha_reference_test.log": "e338fc44e1bf783581e879d7812bc8012c05b48a5fc5f2a710e628b59a0076c7",
+        "d9wg_default_consumers_test.log": "9b5b35821afbd120bcf1b652381ec2cb6e97eace12d21785be4d90e788bea9d4",
+        "d9wg_device_ownership_test.log": "0b608104a5cfd4cebab7c378f792d3afda4acd4d938408520ece4e6688dd155d",
+        "d9wg_ffp_cache_test.log": "d7b05231699a991ebcfcf403d71fbc399fc121dfd3b57bbf0eee54ecc7aaf6ef",
+        "d9wg_format_layouts_test.log": "5fe17ce45a61e91d1cf709eb76116128b1229e3696768f9cd28dc0b5affabb25",
+        "d9wg_formats_test.log": "0514d0ac82e5d1f66ee5e13be5a23ddfdf08ca9180f1f1d0ca0278abaedbd4bd",
+        "d9wg_host_caps_test.log": "80de783dbe175db710d70afe2a4b5fd7bc0c237c9a4c7bc96313b47f640fa59d",
+        "d9wg_object_defaults_mutation_test.log": "8cb0e3c372114ce74e1f40f0b7e6d1ef5d7599d127121e077c450b95e3c92a0a",
+        "d9wg_object_defaults_test.log": "e3643f390fc32de67e0d3659976c480eaca47dfb1117974c6384c0d2698999d0",
+        "d9wg_pipeline_state_test.log": "e740f3e74c35ee5584576fafbf4ab07cdebcb14787bd7ca4134df46bf19d8523",
+        "d9wg_program_cache_test.log": "4fdeeafdf7d93e5d67d80c150cad822a463310a0871cc845a2dfcf8618164dd5",
+        "d9wg_protocol_test.log": "4798e0e75bf1bf267e6b6d80de04f78fd6cfa0226c9e9644732eee81c5c869e0",
+        "d9wg_state_defaults_test.log": "067d92903914f3bb8514f0ae77b00576a5546ccff90784b84e0f4fa1dae63e02",
+        "d9wg_surface_ops_test.log": "e1907b3ff559d44b249692c1979213c4b8435ecceaf36d2739513c146e17028f",
+        "d9wg_texture_defaults_mutation_test.log": "a07f9f87f50eca53555de70c169c0ba4004697d221eba579a92845b953baf7ff",
+        "d9wg_texture_defaults_test.log": "8abe15943af9fc3980fe01c900c12e5ad2a411230c60206b0a3bbaa6f59d35a0",
+        "d9wg_uploads_test.log": "929d83c41869a321983ecddae7bb77e6f15f3e66d23bc9694d1d0d6efd0e8d40",
+        "d9wg_wire_test.log": "be53425ea733c8bf6b415e53a11a081fafe02be5f47dd479f76210a43b97e126",
+        "ddraw_clear_bounds_mutation_test.log": "474f90496a091654d84f543510b514fe22f18847cc69817a8d586ea16b16546c",
+        "ddraw_clear_bounds_test.log": "d87eb0d62e7cb57e91d91dede377d5320462409a2853fddc46374625d7a2259c",
+        "ddraw_xrgb_bits_mutation_test.log": "8bd52ae094f6d0e419049a5c6d6e8d2ce37ff324d4bf05da78e2d30a0b668caa",
+        "ddraw_xrgb_bits_test.log": "e3d3b3e5da6d236ffd091c4d4d719d1dddf407dca6d4532d8fc4ccb64c611828",
+        "exit-codes.json": "4ec72005fc7a7d9f78ab85068e86ea5060cdd3416d99ec4a7c4ff8be5992146f",
+        "test-source.json": "127a93174afcc14718c54172a6eb57560d4f48e4d99fc009434573421f0412aa"
+      },
+      "exitCodes": {
+        "d9wg_formats_test.js": 0,
+        "d9wg_format_layouts_test.js": 0,
+        "d9wg_protocol_test.js": 0,
+        "d9wg_wire_test.js": 0,
+        "d9wg_surface_ops_test.js": 0,
+        "d9wg_uploads_test.js": 0,
+        "d9wg_pipeline_state_test.js": 0,
+        "d9wg_ffp_cache_test.js": 0,
+        "d9wg_device_ownership_test.js": 0,
+        "d9wg_program_cache_test.js": 0,
+        "d9wg_alpha_reference_test.js": 0,
+        "d9wg_texture_defaults_test.js": 0,
+        "d9wg_object_defaults_test.js": 0,
+        "d9wg_state_defaults_test.js": 0,
+        "d9wg_default_consumers_test.js": 0,
+        "d9wg_host_caps_test.js": 0,
+        "d3d9_shader_pipeline_test.js": 0,
+        "ddraw_xrgb_bits_test.js": 0,
+        "ddraw_xrgb_bits_mutation_test.js": 0,
+        "ddraw_clear_bounds_test.js": 0,
+        "ddraw_clear_bounds_mutation_test.js": 0,
+        "d9wg_texture_defaults_mutation_test.js": 0,
+        "d9wg_object_defaults_mutation_test.js": 0,
+        "d3d9_webgpu_executor_test.js": 0
+      },
+      "testSources": {
+        "tests/glbridge/d9wg_formats_test.js": "bdeedd1662c61499cc4617ee2c852f5623e5646a6db9755bdf4b9af4e31a0a5b",
+        "tests/glbridge/d9wg_format_layouts_test.js": "d10ac8f0e15837c36221228cd4ef61dea631d33f044017e5dc4a889695c64d24",
+        "tests/glbridge/d9wg_protocol_test.js": "6c7e8fce0c07136788fc58ca6fa3863eea490c33c0bdf659fdfe7adcea4807b4",
+        "tests/glbridge/d9wg_wire_test.js": "6e30f0b7fa2a4384cb1c789212044c678f0674eb1572f3181e3fc2db8846b135",
+        "tests/glbridge/d9wg_surface_ops_test.js": "b285867a8a1dc339bc9a035ea707dd7db2ff96eb1eddf7671555adb6f73d901b",
+        "tests/glbridge/d9wg_uploads_test.js": "df5ff4d4b66bb2aa3bd6ef4b25ff4f5e62e36a5ae0b968a262967254badf49b7",
+        "tests/glbridge/d9wg_pipeline_state_test.js": "210bb36b262b5a723ad070674694b7f0af2cb98fc58ca505bf5221fb0995947d",
+        "tests/glbridge/d9wg_ffp_cache_test.js": "470ef3f85a2cac0e3585369730e1e783f737f6faf261444a1cceb3e9f44e6b9f",
+        "tests/glbridge/d9wg_device_ownership_test.js": "99c1d00397f2e510c22669a5e628c4126da51fb63828c7c05d1c70f8dd8c024e",
+        "tests/glbridge/d9wg_program_cache_test.js": "98b2a7a9c99601821e632ae4cb4205a7f514f458f57c95484df1ef0ac7c0a072",
+        "tests/glbridge/d9wg_alpha_reference_test.js": "0e94eaf45bc2477e5b8c8b7fea842e78a4471c5fbb4e929e72f1182eacbad4b0",
+        "tests/glbridge/d9wg_texture_defaults_test.js": "502b566cc1983358f1df8e05f9596609876f74f0dc247a5594c210432d7d331d",
+        "tests/glbridge/d9wg_object_defaults_test.js": "7b59163029e25f23eff387d85a2205297f695ff2125dd7d83fcfceeba48b327f",
+        "tests/glbridge/d9wg_state_defaults_test.js": "f49be7eb40873cf23b1bc601b6c71144bf1772008fbeaef5c41ef0b9c6449836",
+        "tests/glbridge/d9wg_default_consumers_test.js": "7a974bd9eff5bbca7c862a496bb9d39398ee21a4f08b0b32fb5fef9666888704",
+        "tests/glbridge/d9wg_host_caps_test.js": "6dcc33b22e659914f2c760dd5ba9318342607dd64a99acf68273a89b4072f0bf",
+        "tests/glbridge/d3d9_shader_pipeline_test.js": "06598871a21205763c9381bad2172df19bf1a158c05c2ab87f21338aaa5a8f05",
+        "tests/glbridge/ddraw_xrgb_bits_test.js": "0bfee765edad0b249f6d0333d5fc95b7c6f861dd25136e1cfb9c8015f1b0704e",
+        "tests/glbridge/ddraw_xrgb_bits_mutation_test.js": "244c0109f42f666b4cc43ff2b490f038857d5761df0b225fc6d11da71d4a5ac1",
+        "tests/glbridge/ddraw_clear_bounds_test.js": "b80ed782b1a2b84ef18847ac16bd7cd48ecd21371fbf7cf38f9f5b7f41ea14c5",
+        "tests/glbridge/ddraw_clear_bounds_mutation_test.js": "8b653c089a030fada974e5f30ebb2190680e87499dc94adcafebd1ef6cd9e549",
+        "tests/glbridge/d9wg_texture_defaults_mutation_test.js": "a69d4ef4d6c533972e8577b99800b08a51178bcd899826529568b78645c062e7",
+        "tests/glbridge/d9wg_object_defaults_mutation_test.js": "bfb35ec8e710ed2891eda218c446ce70c500b4459f7a6632c961efc1854ba953",
+        "tests/glbridge/d3d9_webgpu_executor_test.js": "df257d857a21703e4b6dd43ce8bdb3aaa5e0f641f225bdaa8b23c326d4bdd040"
+      },
+      "allPassed": true
+    },
+    "stage6-86r2-gpu-checks": {
+      "directory": "stage6-86r2-gpu-checks",
+      "files": {
+        "artifacts/ddraw-clear-bounds.json": "a66abbdf9b1f89802bbcf14f7d58bf4bc05caa70a81f5e95cf5d26774c8b1592",
+        "artifacts/ddraw-clear-gpu.json": "51eb4ac9bb9a6f3120117302a406fb69757fbb76a8afaffb40c15ee964477e41",
+        "artifacts/ddraw-color-key-guest.json": "c9ccd989ee16b2d0ef2dc48a44a9d6b931e321c3a88724145ad01674b82c7e26",
+        "artifacts/ddraw-lock-preservation-guest.json": "dbd3e49e9cb3ea0bfe23197c87a148b9ef0c2846d5340cbf6be7e9cb0d886344",
+        "artifacts/ddraw-p8-native-pixels.json": "1fbb05d620fef6f3e43e83a2761f2cf3bf4e009992f50294fb1fa10e8b9df466",
+        "artifacts/ddraw-xrgb-bits.json": "1626573b6554304a47705ce45cf943f188dd11c30523423e9f2d0f3d1cbafa42",
+        "d3d9_legacy_format_browser_test.html.log": "5ea8fa08f04ce94f1337b44bd8ddbe56bdf76a7c2063a87c121906cb52011d5f",
+        "ddraw_clear_browser_test.html/ddraw-clear-gpu.json": "51eb4ac9bb9a6f3120117302a406fb69757fbb76a8afaffb40c15ee964477e41",
+        "ddraw_clear_browser_test.html.log": "0fa9291d6e4fd481d23734a2a650708b7c51c68fc56f7604f498b806ca777208",
+        "ddraw_color_key_replay_browser_test.html/ddraw-color-key-guest.json": "c9ccd989ee16b2d0ef2dc48a44a9d6b931e321c3a88724145ad01674b82c7e26",
+        "ddraw_color_key_replay_browser_test.html.log": "fbed56d0a0559227099c34a5a3bb7e23ab053bb2cdb5c2b751837b4618480558",
+        "ddraw_depth_blit_browser_test.html.log": "7a9168af23e9b3a0e859ec8a9056fc30dccd00a87fb6714d99d91259587c0786",
+        "ddraw_lock_preservation_replay_browser_test.html/ddraw-lock-preservation-guest.json": "dbd3e49e9cb3ea0bfe23197c87a148b9ef0c2846d5340cbf6be7e9cb0d886344",
+        "ddraw_lock_preservation_replay_browser_test.html.log": "0e7aa5b365d7dd3df9e0fa67c7dd9304e15757b74378957f3ef2d2655decda96",
+        "ddraw_p8_conversion_browser_test.html/ddraw-p8-native-pixels.json": "1fbb05d620fef6f3e43e83a2761f2cf3bf4e009992f50294fb1fa10e8b9df466",
+        "ddraw_p8_conversion_browser_test.html.log": "bf3b5137b67f0a59af658c48eaa97cb1589b6818e60eac8725274e97b1ffbee6",
+        "ddraw_viewport_clear_bounds_browser_test.html/ddraw-clear-bounds.json": "a66abbdf9b1f89802bbcf14f7d58bf4bc05caa70a81f5e95cf5d26774c8b1592",
+        "ddraw_viewport_clear_bounds_browser_test.html.log": "01d955ca077efeff79f6c1da0e428054b275f0b9cd848c13e24506fe6c083e5d",
+        "ddraw_xrgb_bits_browser_test.html/ddraw-xrgb-bits.json": "1626573b6554304a47705ce45cf943f188dd11c30523423e9f2d0f3d1cbafa42",
+        "ddraw_xrgb_bits_browser_test.html.log": "a64e4d8a23ce9e28873400cb84e7436476a81ffbcf3c30914c3850cc19918858",
+        "exit-codes.json": "7f5422b93ce5fe14532b607638fadc2c265311e6942cadfbad30cc31d4bca3ac",
+        "test-source.json": "8a0c9689e2a19ab43ae077b2734cfc7cedc7550aab41d1f9d39dae612ffda1aa"
+      },
+      "exitCodes": {
+        "ddraw_xrgb_bits_browser_test.html": 0,
+        "ddraw_color_key_replay_browser_test.html": 0,
+        "ddraw_lock_preservation_replay_browser_test.html": 0,
+        "ddraw_p8_conversion_browser_test.html": 0,
+        "d3d9_legacy_format_browser_test.html": 0,
+        "ddraw_depth_blit_browser_test.html": 0,
+        "ddraw_viewport_clear_bounds_browser_test.html": 0,
+        "ddraw_clear_browser_test.html": 0
+      },
+      "testSources": {
+        "tests/glbridge/ddraw_xrgb_bits_browser_test.html": "e6ba71f56f682bbf42f0bed2ca334b29e1501f4c392e9080640dff402c74ba33",
+        "tests/glbridge/ddraw_color_key_replay_browser_test.html": "a9a05cb183ba5a8561acb4f37ec542ee57dc1ff7695165564110a232ab7cc654",
+        "tests/glbridge/ddraw_lock_preservation_replay_browser_test.html": "1f18ea5cd4a8e8961c7deba61f5ddf02c651b6e8c2b227defd297ab4cc8d094b",
+        "tests/glbridge/ddraw_p8_conversion_browser_test.html": "3375f19093215cd2dfb96e85e95bfa289ad946216031b5b774d13a25aa49b576",
+        "tests/glbridge/d3d9_legacy_format_browser_test.html": "4d3390404cba851ed5252e02e0dd3f227320e67e3284b1d45516ab27cf6ba871",
+        "tests/glbridge/ddraw_depth_blit_browser_test.html": "a3b435e298d1b1652e4062ae29136b16e07af84c5bf3594c4633d6d5a0eac074",
+        "tests/glbridge/ddraw_viewport_clear_bounds_browser_test.html": "d67738e45e1fbb4a611549a02e1383031b80e816939fae169ed7a35a07d16534",
+        "tests/glbridge/ddraw_clear_browser_test.html": "5f1d1772a3cee880bdc65cb320b5618eb65b81b44709a941162224f4ac854a14"
+      },
+      "allPassed": true
+    }
+  },
+  "finalMetadataReplay": {
+    "directory": "stage6-86r2-proxy-memory-descriptors-settle-final",
+    "files": {
+      "AFTER.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+      "AFTER1.TXT": "1e6a8d8e418c586bcbc4a8d33c1bee237ae625f32d5b3e46422e87de2c30812a",
+      "AFTER2.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+      "M1.TXT": "202af079ce3e6e78653a098e6e446f48effefb0235187a4f8985127d656614bb",
+      "M2.TXT": "202af079ce3e6e78653a098e6e446f48effefb0235187a4f8985127d656614bb",
+      "MEMDESC.EXE": "af4735f8865889030976e198175491c38f44caca57a693e447327a365335a827",
+      "MEMDESC.TXT": "202af079ce3e6e78653a098e6e446f48effefb0235187a4f8985127d656614bb",
+      "PREP.TXT": "53b6e2f157d964fd222f082874f890b25c735f1a3637bb0cf03d1bf5ca452f4b",
+      "PREP1.TXT": "3d9755a01f604739a53a6a5ac09ef11f8c272b0ec6c2965d68ac20a3496890ed",
+      "PREP2.TXT": "53b6e2f157d964fd222f082874f890b25c735f1a3637bb0cf03d1bf5ca452f4b",
+      "PREPARE.EXE": "b64b562375e5a5eb43de58e6f99d69a37d83a4a8660b845bac73ced038a985c1",
+      "SELECT.TXT": "0db20feb86a2350133a7bbfb960cafd7980b04b289153d62ff2aa151ef7a9218",
+      "START.TXT": "59321b69474462172fb6056467182a7225ff94d0235e61403cf155af658be9b1",
+      "comparison.json": "39e527bd5c9290720442cda0d8064f074b30e2a72760e145d8b29d14a554a7e5",
+      "ddraw_surface_memory_reference.c": "7eef7fb023ea54a057ec2d4973cf2df0e264f46368b93e4362e8c46b9de44e63",
+      "environment-attempts.json": "673c3ae6e172b8ef4de27eb003388e5e2407fd8f44021c7059c70a20eeb7fe4a",
+      "probe-complete.png": "6640b167e7c6154b27354df091d4e23ff6d4c799df9bd73a6ca30563a0a1a726",
+      "probe-desktop.png": "c61eabfc19bc97d0a831a94fe063ea664067056049dcc7031e2bb9609b245021",
+      "probe-progress.png": "e6b7114f185b735bc2a5822abdf41e6b6dddb73b8e99659307d43963e54801ad",
+      "probe-result.json": "9aef00167ac18a7aebbe5967187aeab13728df53682b04e8c3be0b7cb659b1a0",
+      "reference.json": "b642dfea567489480eacce3b2835ec32af6ebfeb7d120ddeb504e3efe974d0f2",
+      "runner.mjs": "97107137016c521f2e471ea8c8a688ffb31d15f5e19babde4eedc8a04e7a9432",
+      "source.json": "d4228952307867759052c5c095f682ab29ca0fd1892216713a90ff04f73d0a5f",
+      "wine_xp_desktop_prepare.c": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca"
+    },
+    "comparison": {
+      "passed": true,
+      "rows": 45,
+      "results": 12,
+      "dllSha256": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+      "nativeFixtureSha256": "b00b70a105bf34a85b11aae15788a20ec23bca610dd3f49ab6ea4a5d9108cc56",
+      "scope": "All original observed descriptor fields and HRESULTs match the final app-local DLL. Acknowledged metadata only, no pixel certificate."
+    }
+  },
+  "graphPixelProbe": {
+    "directory": "stage6-86r2-proxy-memory-graph-final",
+    "files": {
+      "AFTER.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+      "AFTER1.TXT": "1f19b95c2003a8be3e8db1806a0ac3c37e8aa18f4513a9d5855a50256ba8e4d8",
+      "AFTER2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "G1.TXT": "eabae0bd18417e673761282831910a4d8256258a12c0b0569608dda70d79e31d",
+      "G2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "GRAPH.EXE": "a046190737e3e74542b59f21df30f5798d150005233042e6e9225540286c2249",
+      "GRAPH.TXT": "eabae0bd18417e673761282831910a4d8256258a12c0b0569608dda70d79e31d",
+      "PREP.TXT": "beb2f9a90377e3a561cac71f3ad5edaab87c5d5f510385015a284c02f351f2ac",
+      "PREP1.TXT": "beb2f9a90377e3a561cac71f3ad5edaab87c5d5f510385015a284c02f351f2ac",
+      "PREP2.TXT": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "PREPARE.EXE": "65a1fa486c66af21e2c24b68241c07c4a84f5ca3c5405de8820f06e1c1a338b2",
+      "SELECT.TXT": "973f2070e3736d10f71c3357fa184ff3cfa8995ecabb1d60db31b0120fe8a6b7",
+      "START.TXT": "85a89608c3d72cd295566614d5e3d843d26f3bbd1c23e24cf5310779a2640042",
+      "comparison.json": "eb6303bf7ab6d326c411c26e43a405629fee2511b547ef984f2af9cd5f1c638b",
+      "graph.c": "989d4e686238eec1dcbd4ed4ddbd4bd8027a4e9a2d3e851f68556af8f06f4c98",
+      "graphics.bin": "dfca1d9c2567b9edf67a2d76e0fa7c98ba0f6694b87154e1d5a4fdc458965ce6",
+      "live-gpu.json": "d52c64cdf69ca5c7d6b0a67a791a1bcea887365287b2a66f57430f021a34a88a",
+      "prepare.c": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+      "probe-complete.png": "4f6716236537e6f0a1ed41f89e8aa969e5c22308325abae68156c834c94c7ba4",
+      "probe-desktop.png": "816ceb198159d148549ea5c2cfc90ce7876b98763f49cbd4cd08e1f314b94ec3",
+      "probe-progress.png": "ecce37f91a982f3d4b17c097a292843f0de33c720ad54adbeb67a89e548a41f4",
+      "probe-result.json": "de6e2d0b1ce005982cdc07e19e28106165f3e4609e45698aefedd0842f42f46d",
+      "runner.mjs": "3e344f26247a29b2d192b498a61509304b0e0a122bdfc9d9a67d114224085946",
+      "source.json": "cfe9f6ab55ae4974221a2741d1f0fa9563010ece23cc8d2877538b654870f890"
+    },
+    "comparison": {
+      "passed": true,
+      "observations": [
+        {
+          "name": "mip_initial",
+          "sub": 0,
+          "width": 16,
+          "height": 16,
+          "compared": 256,
+          "failed": 0
+        },
+        {
+          "name": "mip_initial",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "mip_initial",
+          "sub": 2,
+          "width": 4,
+          "height": 4,
+          "compared": 16,
+          "failed": 0
+        },
+        {
+          "name": "mip_initial",
+          "sub": 3,
+          "width": 2,
+          "height": 2,
+          "compared": 4,
+          "failed": 0
+        },
+        {
+          "name": "mip_initial",
+          "sub": 4,
+          "width": 1,
+          "height": 1,
+          "compared": 1,
+          "failed": 0
+        },
+        {
+          "name": "mip_pointer",
+          "sub": 0,
+          "width": 16,
+          "height": 16,
+          "compared": 256,
+          "failed": 0
+        },
+        {
+          "name": "mip_pointer",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "mip_pointer",
+          "sub": 2,
+          "width": 4,
+          "height": 4,
+          "compared": 16,
+          "failed": 0
+        },
+        {
+          "name": "mip_pointer",
+          "sub": 3,
+          "width": 2,
+          "height": 2,
+          "compared": 4,
+          "failed": 0
+        },
+        {
+          "name": "mip_pointer",
+          "sub": 4,
+          "width": 1,
+          "height": 1,
+          "compared": 1,
+          "failed": 0
+        },
+        {
+          "name": "mip_root_layout",
+          "sub": 0,
+          "width": 32,
+          "height": 32,
+          "compared": 1024,
+          "failed": 0
+        },
+        {
+          "name": "mip_root_layout",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "mip_root_layout",
+          "sub": 2,
+          "width": 4,
+          "height": 4,
+          "compared": 16,
+          "failed": 0
+        },
+        {
+          "name": "mip_root_layout",
+          "sub": 3,
+          "width": 2,
+          "height": 2,
+          "compared": 4,
+          "failed": 0
+        },
+        {
+          "name": "mip_root_layout",
+          "sub": 4,
+          "width": 1,
+          "height": 1,
+          "compared": 1,
+          "failed": 0
+        },
+        {
+          "name": "mip_child_layout",
+          "sub": 0,
+          "width": 32,
+          "height": 32,
+          "compared": 1024,
+          "failed": 0
+        },
+        {
+          "name": "mip_child_layout",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "mip_child_layout",
+          "sub": 2,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "mip_child_layout",
+          "sub": 3,
+          "width": 2,
+          "height": 2,
+          "compared": 4,
+          "failed": 0
+        },
+        {
+          "name": "mip_child_layout",
+          "sub": 4,
+          "width": 1,
+          "height": 1,
+          "compared": 1,
+          "failed": 0
+        },
+        {
+          "name": "cube_initial",
+          "sub": 0,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_initial",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_initial",
+          "sub": 2,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_initial",
+          "sub": 3,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_initial",
+          "sub": 4,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_initial",
+          "sub": 5,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_pointer",
+          "sub": 0,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_pointer",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_pointer",
+          "sub": 2,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_pointer",
+          "sub": 3,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_pointer",
+          "sub": 4,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_pointer",
+          "sub": 5,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_layout",
+          "sub": 0,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_layout",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_layout",
+          "sub": 2,
+          "width": 16,
+          "height": 16,
+          "compared": 256,
+          "failed": 0
+        },
+        {
+          "name": "cube_layout",
+          "sub": 3,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_layout",
+          "sub": 4,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "cube_layout",
+          "sub": 5,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "alias_initial",
+          "sub": 0,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "alias_initial",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "alias_detach",
+          "sub": 0,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        },
+        {
+          "name": "alias_detach",
+          "sub": 1,
+          "width": 8,
+          "height": 8,
+          "compared": 64,
+          "failed": 0
+        }
+      ],
+      "dllSha256": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+      "sourceSha256": "989d4e686238eec1dcbd4ed4ddbd4bd8027a4e9a2d3e851f68556af8f06f4c98",
+      "selected": 1,
+      "compared": 4548,
+      "scope": "Real GPU readback; includes root and implicit layout detach, peer preservation, cube faces, pointer-only replacements and duplicate aliases. Targeted evidence only."
+    },
+    "source": {
+      "sourceSha256": "989d4e686238eec1dcbd4ed4ddbd4bd8027a4e9a2d3e851f68556af8f06f4c98",
+      "dllSha256": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+      "executableSha256": "a046190737e3e74542b59f21df30f5798d150005233042e6e9225540286c2249",
+      "preparationSha256": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+      "preparationTimeoutMs": 180000,
+      "rendererSources": {
+        "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "dda9a5a29aa6b8fed9e93b829fd89c691269129f7d8e6f6c9d55933bbd6e47b8",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "cf20426a37b594576a69ab1012c9fcbe40cfc16bf69919460920bd087a137b97",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "fd831efa64a539b115ead57ac3ba91e49f22206a232af38389adc191690857ed",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "bfc821fd0abd5054a49e8ee9ff6571e45a751361f28bb8238b4b45a2c69265b7",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "b7ca19df5fbfe083d17f9c0d14d51365d99ef5b8b65fc49e2c7a6da51ea03627",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "25751de75886f46217426ce153ed31f8553edc4b5bc04d4a3beea46b89e3f483",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "476bca6520c80dc09bafe436e76223c93183a9742003f58ea0f6fc4f2b8039d8",
+        "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+        "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "93b73d5ac22da456f68af400d020c8ab57634543e3fbbae9de42bea7f72adf41",
+        "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "8c02f056a955c2551aea464ea8da219c4777bad6e64a1fd557d6c02283243162"
+      },
+      "scope": "Targeted 42 graph pixel observations through app-local DLL, actual XP and GPU; no full Wine or independent native certificate."
+    },
+    "scope": "Targeted app-local DLL evidence with actual GPU, independent patterned pixel oracle and captured command stream, not an independent native Windows certificate."
+  },
+  "audits": [
+    {
+      "directory": "stage6-wine-ddraw1-memory-graph-paced-final",
+      "summary": {
+        "checks": 23597,
+        "todos": 0,
+        "flaky": 15,
+        "failures": 0,
+        "skipped": 5
+      },
+      "exit": 0,
+      "failureGroups": {},
+      "gpuErrors": [],
+      "hostErrors": [],
+      "normalOwnerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 3,
+          "resources": 1,
+          "remainingResources": [
+            {
+              "handle": 1049057,
+              "kind": 3,
+              "deviceHandle": 1049056,
+              "format": 22,
+              "width": 800,
+              "height": 600
+            }
+          ],
+          "after": {
+            "devices": 0,
+            "resources": 0,
+            "pendingFrame": false,
+            "activeQuery": false
+          }
+        }
+      ],
+      "forcedOwnerCleanup": [],
+      "postOwnerCleanup": {
+        "devices": 0,
+        "resources": 0
+      },
+      "source": {
+        "suite": "ddraw_ddraw1",
+        "diagnostic": false,
+        "extraLogs": [],
+        "dllBuild": "provided",
+        "providedDll": "/Users/renruisi/Desktop/Code/v86/build/d3d-review/stage6-86r2-shipping/ddraw.dll",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw1.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw1.c",
+          "sha256": "d9e2c92d4df34bf1d43722e2118b860e6e6d243780933751296ebc347acea62a",
+          "gitBlob": "ca595964df2cd916460444fe6da7000ad2888b27"
+        },
+        "desktopPreparation": {
+          "minimumBootSeconds": 210,
+          "timeoutMs": 180000,
+          "sourceSha256": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+          "executableSha256": "b56e318ae074ccb16528bc5eb409f8f7558d1d658d2dc8c030e31a9501c6ea19",
+          "scope": "PnP idle and known-dialog checks before/after Wine; at most two executions in one RAM VM, retried only after explicit environment rejection of a completed suite; every attempt retained",
+          "maxEnvironmentAttempts": 2
+        },
+        "dllSha256": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+        "executableSha256": "ffb43615f49a2169c428342a67ecb6bbe0e5a1b0c73b0149593cdcda9f07c295",
+        "rendererPageSha256": "49893a0b7184687759be3bee09985cff5931556b011fd6ba858ffa92728fd7ef",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "dda9a5a29aa6b8fed9e93b829fd89c691269129f7d8e6f6c9d55933bbd6e47b8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "cf20426a37b594576a69ab1012c9fcbe40cfc16bf69919460920bd087a137b97",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "fd831efa64a539b115ead57ac3ba91e49f22206a232af38389adc191690857ed",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "bfc821fd0abd5054a49e8ee9ff6571e45a751361f28bb8238b4b45a2c69265b7",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "b7ca19df5fbfe083d17f9c0d14d51365d99ef5b8b65fc49e2c7a6da51ea03627",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "25751de75886f46217426ce153ed31f8553edc4b5bc04d4a3beea46b89e3f483",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "476bca6520c80dc09bafe436e76223c93183a9742003f58ea0f6fc4f2b8039d8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "93b73d5ac22da456f68af400d020c8ab57634543e3fbbae9de42bea7f72adf41",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "8c02f056a955c2551aea464ea8da219c4777bad6e64a1fd557d6c02283243162"
+        }
+      },
+      "files": {
+        "WINE.TXT": "3a064ee366fb7db47108907e0d9aeec7c1500ccbf6595ffc4acb787a1cb31b36",
+        "source.json": "cd4ee5982f6fdbcdaaba2dc416d8af98b228d9ecc44a282a6657033438244c93",
+        "live-gpu.json": "320c0339a766f2bcbf5ebc421b17e71417b4d63e90cf230a3da6ae7e44fee55a",
+        "audit-groups.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+      },
+      "completed": true,
+      "accepted": false,
+      "previousSummary": {
+        "checks": 23597,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 0,
+        "skipped": 5
+      },
+      "fewerFailures": 0,
+      "perGroupIncreases": {},
+      "perSourceLineIncreases": {},
+      "perContextIncreases": {},
+      "hardFailuresBySourceLine": {},
+      "hardFailuresByContext": [],
+      "unreviewedSkips": [
+        "ddraw_ddraw1.c:4138: Tests skipped: Following tests require two monitors.",
+        "ddraw_ddraw1.c:10917: Tests skipped: Failed to create a YV12 overlay, skipping test.",
+        "ddraw_ddraw1.c:11602: Tests skipped: Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+        "ddraw_ddraw1.c:16928: Tests skipped: format YV12: Failed to create surface, hr 0x88760091.",
+        "ddraw_ddraw1.c:16928: Tests skipped: format NV12: Failed to create surface, hr 0x88760091."
+      ],
+      "flakyRecords": [
+        "ddraw_ddraw1.c:3400: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3408: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3442: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3466: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3496: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3529: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3550: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3594: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3605: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3639: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3663: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3686: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3719: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3740: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+        "ddraw_ddraw1.c:3792: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480)."
+      ],
+      "environmentExecutions": {
+        "selected": 1,
+        "attempts": [
+          {
+            "attempt": 1,
+            "selected": true,
+            "preparation": "PNP readiness_api=cfgmgr32.dll\r\nPREPARE start=216230\r\nPNP pending_wait=00000000\r\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\r\r\n\r\r\nDo you want to restart your computer now? \r\nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\r\nPNP action=decline_restart\r\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10004\r\n",
+            "postcheck": "PNP readiness_api=cfgmgr32.dll\r\nCHECK pending_wait=00000000 restart=0 wizard=0\r\nCOMPLETE desktop_postcheck=1\r\n"
+          }
+        ],
+        "scope": "Identical original EXE/DLL. Only a completed execution rejected by the OS environment postcheck can trigger another; all raw Wine assertions and both execution logs are retained."
+      },
+      "rawWineExecutions": [
+        {
+          "file": "WINE.TXT",
+          "sha256": "3a064ee366fb7db47108907e0d9aeec7c1500ccbf6595ffc4acb787a1cb31b36",
+          "failures": [
+            "ddraw_ddraw1.c:3400: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3408: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3442: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3466: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3496: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3529: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3550: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3594: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3605: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3639: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3663: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3686: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3719: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3740: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3792: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "041c:ddraw1: 23597 tests executed (0 marked as todo, 15 as flaky, 0 failures), 5 skipped."
+          ]
+        },
+        {
+          "file": "WINE1.TXT",
+          "sha256": "3a064ee366fb7db47108907e0d9aeec7c1500ccbf6595ffc4acb787a1cb31b36",
+          "failures": [
+            "ddraw_ddraw1.c:3400: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3408: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3442: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3466: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3496: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3529: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3550: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3594: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3605: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3639: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3663: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3686: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3719: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3740: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "ddraw_ddraw1.c:3792: Test marked flaky: Expected (0,0)-(800,600), got (0,0)-(640,480).",
+            "041c:ddraw1: 23597 tests executed (0 marked as todo, 15 as flaky, 0 failures), 5 skipped."
+          ]
+        },
+        {
+          "file": "WINE2.TXT",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "failures": []
+        }
+      ],
+      "desktopPreparationLog": "PNP readiness_api=cfgmgr32.dll\nPREPARE start=216230\nPNP pending_wait=00000000\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\n\n\n\nDo you want to restart your computer now? \nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\nPNP action=decline_restart\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10004\n",
+      "desktopPostcheckLog": "PNP readiness_api=cfgmgr32.dll\nCHECK pending_wait=00000000 restart=0 wizard=0\nCOMPLETE desktop_postcheck=1\n"
+    },
+    {
+      "directory": "stage6-wine-ddraw2-memory-graph-paced-final",
+      "summary": {
+        "checks": 25780,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 0,
+        "skipped": 6
+      },
+      "exit": 0,
+      "failureGroups": {},
+      "gpuErrors": [],
+      "hostErrors": [],
+      "normalOwnerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 29,
+          "resources": 0,
+          "remainingResources": [],
+          "after": {
+            "devices": 0,
+            "resources": 0,
+            "pendingFrame": false,
+            "activeQuery": false
+          }
+        }
+      ],
+      "forcedOwnerCleanup": [],
+      "postOwnerCleanup": {
+        "devices": 0,
+        "resources": 0
+      },
+      "source": {
+        "suite": "ddraw_ddraw2",
+        "diagnostic": false,
+        "extraLogs": [],
+        "dllBuild": "provided",
+        "providedDll": "/Users/renruisi/Desktop/Code/v86/build/d3d-review/stage6-86r2-shipping/ddraw.dll",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw2.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw2.c",
+          "sha256": "0a9d07b1c376256b126ad24fa71271e6a0c4f1b2d91478db77080c01488d451e",
+          "gitBlob": "dfbd0003fb27db3864a3c2196b1ab2666cc80f22"
+        },
+        "desktopPreparation": {
+          "minimumBootSeconds": 210,
+          "timeoutMs": 180000,
+          "sourceSha256": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+          "executableSha256": "3e9b3d5c7ab981850d35f6d27d28361fd1aa54a062a9dcda1c9509e65522ae39",
+          "scope": "PnP idle and known-dialog checks before/after Wine; at most two executions in one RAM VM, retried only after explicit environment rejection of a completed suite; every attempt retained",
+          "maxEnvironmentAttempts": 2
+        },
+        "dllSha256": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+        "executableSha256": "c48d950308ff0702b6b0539f132a43eace2465d4e6d4ae44e2a99eb1e053dab6",
+        "rendererPageSha256": "49893a0b7184687759be3bee09985cff5931556b011fd6ba858ffa92728fd7ef",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "dda9a5a29aa6b8fed9e93b829fd89c691269129f7d8e6f6c9d55933bbd6e47b8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "cf20426a37b594576a69ab1012c9fcbe40cfc16bf69919460920bd087a137b97",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "fd831efa64a539b115ead57ac3ba91e49f22206a232af38389adc191690857ed",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "bfc821fd0abd5054a49e8ee9ff6571e45a751361f28bb8238b4b45a2c69265b7",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "b7ca19df5fbfe083d17f9c0d14d51365d99ef5b8b65fc49e2c7a6da51ea03627",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "25751de75886f46217426ce153ed31f8553edc4b5bc04d4a3beea46b89e3f483",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "476bca6520c80dc09bafe436e76223c93183a9742003f58ea0f6fc4f2b8039d8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "93b73d5ac22da456f68af400d020c8ab57634543e3fbbae9de42bea7f72adf41",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "8c02f056a955c2551aea464ea8da219c4777bad6e64a1fd557d6c02283243162"
+        }
+      },
+      "files": {
+        "WINE.TXT": "83529d99774e697801ef977405420ad8f60d7925bba51c280fe8159f5a87a6bf",
+        "source.json": "56e70406b301d8351fe22d8a9ce44481b0c5668f1f51143f27805b188070f267",
+        "live-gpu.json": "6ab549b9ba67904d94d7c9b3076f7fe5b295ef930861ada78c40e385c87ad2b7",
+        "audit-groups.json": "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+      },
+      "completed": true,
+      "accepted": false,
+      "previousSummary": {
+        "checks": 25780,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 2,
+        "skipped": 6
+      },
+      "fewerFailures": 2,
+      "perGroupIncreases": {},
+      "perSourceLineIncreases": {},
+      "perContextIncreases": {},
+      "hardFailuresBySourceLine": {},
+      "hardFailuresByContext": [],
+      "unreviewedSkips": [
+        "ddraw_ddraw2.c:4326: Tests skipped: Following tests require two monitors.",
+        "ddraw_ddraw2.c:11289: Tests skipped: Failed to create a YV12 overlay, skipping test.",
+        "ddraw_ddraw2.c:11974: Tests skipped: Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+        "ddraw_ddraw2.c:15957: Tests skipped: Failed to find a display mode with a different frequency.",
+        "ddraw_ddraw2.c:17260: Tests skipped: format YV12: Failed to create surface, hr 0x88760091.",
+        "ddraw_ddraw2.c:17260: Tests skipped: format NV12: Failed to create surface, hr 0x88760091."
+      ],
+      "flakyRecords": [],
+      "environmentExecutions": {
+        "selected": 1,
+        "attempts": [
+          {
+            "attempt": 1,
+            "selected": true,
+            "preparation": "PNP readiness_api=cfgmgr32.dll\r\nPREPARE start=218033\r\nPNP pending_wait=00000000\r\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\r\r\n\r\r\nDo you want to restart your computer now? \r\nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\r\nPNP action=decline_restart\r\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10085\r\n",
+            "postcheck": "PNP readiness_api=cfgmgr32.dll\r\nCHECK pending_wait=00000000 restart=0 wizard=0\r\nCOMPLETE desktop_postcheck=1\r\n"
+          }
+        ],
+        "scope": "Identical original EXE/DLL. Only a completed execution rejected by the OS environment postcheck can trigger another; all raw Wine assertions and both execution logs are retained."
+      },
+      "rawWineExecutions": [
+        {
+          "file": "WINE.TXT",
+          "sha256": "83529d99774e697801ef977405420ad8f60d7925bba51c280fe8159f5a87a6bf",
+          "failures": [
+            "02ec:ddraw2: 25780 tests executed (0 marked as todo, 0 as flaky, 0 failures), 6 skipped."
+          ]
+        },
+        {
+          "file": "WINE1.TXT",
+          "sha256": "83529d99774e697801ef977405420ad8f60d7925bba51c280fe8159f5a87a6bf",
+          "failures": [
+            "02ec:ddraw2: 25780 tests executed (0 marked as todo, 0 as flaky, 0 failures), 6 skipped."
+          ]
+        },
+        {
+          "file": "WINE2.TXT",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "failures": []
+        }
+      ],
+      "desktopPreparationLog": "PNP readiness_api=cfgmgr32.dll\nPREPARE start=218033\nPNP pending_wait=00000000\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\n\n\n\nDo you want to restart your computer now? \nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\nPNP action=decline_restart\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10085\n",
+      "desktopPostcheckLog": "PNP readiness_api=cfgmgr32.dll\nCHECK pending_wait=00000000 restart=0 wizard=0\nCOMPLETE desktop_postcheck=1\n"
+    },
+    {
+      "directory": "stage6-wine-ddraw4-memory-graph-paced-final",
+      "summary": {
+        "checks": 28895,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 4,
+        "skipped": 6
+      },
+      "exit": 4,
+      "failureGroups": {
+        "test_surface_format_conversion_alpha": 2,
+        "test_filling_convention": 2
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "normalOwnerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 2,
+          "resources": 2,
+          "remainingResources": [
+            {
+              "handle": 1051442,
+              "kind": 3,
+              "deviceHandle": 1051436,
+              "format": 21,
+              "width": 16,
+              "height": 16
+            },
+            {
+              "handle": 1051450,
+              "kind": 3,
+              "deviceHandle": 1051444,
+              "format": 21,
+              "width": 16,
+              "height": 16
+            }
+          ],
+          "after": {
+            "devices": 0,
+            "resources": 0,
+            "pendingFrame": false,
+            "activeQuery": false
+          }
+        }
+      ],
+      "forcedOwnerCleanup": [],
+      "postOwnerCleanup": {
+        "devices": 0,
+        "resources": 0
+      },
+      "source": {
+        "suite": "ddraw_ddraw4",
+        "diagnostic": false,
+        "extraLogs": [],
+        "dllBuild": "provided",
+        "providedDll": "/Users/renruisi/Desktop/Code/v86/build/d3d-review/stage6-86r2-shipping/ddraw.dll",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw4.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw4.c",
+          "sha256": "5788fe13e3e2a5d893688fc09f9bc97d1945ce72428378335cfcd69a935d5433",
+          "gitBlob": "be26a5a74e5f21a3d04acb71c266744d72bb6818"
+        },
+        "desktopPreparation": {
+          "minimumBootSeconds": 210,
+          "timeoutMs": 180000,
+          "sourceSha256": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+          "executableSha256": "36f3fd1fe7f7f3bdbdf8b7e1eb844fcb9ea56ee5c5c11e11f7fa8b70eb09ec8a",
+          "scope": "PnP idle and known-dialog checks before/after Wine; at most two executions in one RAM VM, retried only after explicit environment rejection of a completed suite; every attempt retained",
+          "maxEnvironmentAttempts": 2
+        },
+        "dllSha256": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+        "executableSha256": "68aaf9d003e140fad0d796a77d8885cc9fb592425b9f896bfc3e68edd6c91fcc",
+        "rendererPageSha256": "49893a0b7184687759be3bee09985cff5931556b011fd6ba858ffa92728fd7ef",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "dda9a5a29aa6b8fed9e93b829fd89c691269129f7d8e6f6c9d55933bbd6e47b8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "cf20426a37b594576a69ab1012c9fcbe40cfc16bf69919460920bd087a137b97",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "fd831efa64a539b115ead57ac3ba91e49f22206a232af38389adc191690857ed",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "bfc821fd0abd5054a49e8ee9ff6571e45a751361f28bb8238b4b45a2c69265b7",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "b7ca19df5fbfe083d17f9c0d14d51365d99ef5b8b65fc49e2c7a6da51ea03627",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "25751de75886f46217426ce153ed31f8553edc4b5bc04d4a3beea46b89e3f483",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "476bca6520c80dc09bafe436e76223c93183a9742003f58ea0f6fc4f2b8039d8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "93b73d5ac22da456f68af400d020c8ab57634543e3fbbae9de42bea7f72adf41",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "8c02f056a955c2551aea464ea8da219c4777bad6e64a1fd557d6c02283243162"
+        }
+      },
+      "files": {
+        "WINE.TXT": "44a9d91a89c0f65ce48a52e685686f75340c828d15cd02001ca2b0feb2450d55",
+        "source.json": "98b850f2453a6de0f4d0c479330791ede94fb91404df989fe0e7d319fcafd0ee",
+        "live-gpu.json": "80230605a81e29b90e51eaab84ebb83701fb5a486a9200005c8e0b184cda5b74",
+        "audit-groups.json": "7d7ab709659de8958fd213312886a5775f1f524d291558ce178cf2b02f46de8f"
+      },
+      "completed": true,
+      "accepted": false,
+      "previousSummary": {
+        "checks": 28894,
+        "todos": 0,
+        "flaky": 3,
+        "failures": 9,
+        "skipped": 6
+      },
+      "fewerFailures": 5,
+      "perGroupIncreases": {},
+      "perSourceLineIncreases": {},
+      "perContextIncreases": {},
+      "hardFailuresBySourceLine": {
+        "18675": 2,
+        "19746": 1,
+        "19748": 1
+      },
+      "hardFailuresByContext": [
+        {
+          "line": 18675,
+          "prefix": "Test (1, R5G5B5X1 -> R5G5B5A1), row 0,",
+          "coordinates": "",
+          "count": 1
+        },
+        {
+          "line": 18675,
+          "prefix": "Test (3, R5G5B5X1 -> R5G5B5A1), row 0,",
+          "coordinates": "",
+          "count": 1
+        },
+        {
+          "line": 19746,
+          "prefix": "",
+          "coordinates": "",
+          "count": 1
+        },
+        {
+          "line": 19748,
+          "prefix": "",
+          "coordinates": "",
+          "count": 1
+        }
+      ],
+      "unreviewedSkips": [
+        "ddraw_ddraw4.c:4554: Tests skipped: Following tests require two monitors.",
+        "ddraw_ddraw4.c:13258: Tests skipped: Failed to create a YV12 overlay, skipping test.",
+        "ddraw_ddraw4.c:14047: Tests skipped: Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+        "ddraw_ddraw4.c:19047: Tests skipped: Failed to find a display mode with a different frequency.",
+        "ddraw_ddraw4.c:20359: Tests skipped: format YV12: Failed to create surface, hr 0x88760091.",
+        "ddraw_ddraw4.c:20359: Tests skipped: format NV12: Failed to create surface, hr 0x88760091."
+      ],
+      "flakyRecords": [],
+      "environmentExecutions": {
+        "selected": 1,
+        "attempts": [
+          {
+            "attempt": 1,
+            "selected": true,
+            "preparation": "PNP readiness_api=cfgmgr32.dll\r\nPREPARE start=201339\r\nPNP pending_wait=00000000\r\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\r\r\n\r\r\nDo you want to restart your computer now? \r\nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\r\nPNP action=decline_restart\r\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10085\r\n",
+            "postcheck": "PNP readiness_api=cfgmgr32.dll\r\nCHECK pending_wait=00000000 restart=0 wizard=0\r\nCOMPLETE desktop_postcheck=1\r\n"
+          }
+        ],
+        "scope": "Identical original EXE/DLL. Only a completed execution rejected by the OS environment postcheck can trigger another; all raw Wine assertions and both execution logs are retained."
+      },
+      "rawWineExecutions": [
+        {
+          "file": "WINE.TXT",
+          "sha256": "44a9d91a89c0f65ce48a52e685686f75340c828d15cd02001ca2b0feb2450d55",
+          "failures": [
+            "ddraw_ddraw4.c:18675: Test failed: Test (1, R5G5B5X1 -> R5G5B5A1), row 0, unexpected surface data.",
+            "ddraw_ddraw4.c:18675: Test failed: Test (3, R5G5B5X1 -> R5G5B5A1), row 0, unexpected surface data.",
+            "ddraw_ddraw4.c:19746: Test failed: Got HEL flags 0x7df.",
+            "ddraw_ddraw4.c:19748: Test failed: Got device caps 0x55b.",
+            "0400:ddraw4: 28895 tests executed (0 marked as todo, 0 as flaky, 4 failures), 6 skipped."
+          ]
+        },
+        {
+          "file": "WINE1.TXT",
+          "sha256": "44a9d91a89c0f65ce48a52e685686f75340c828d15cd02001ca2b0feb2450d55",
+          "failures": [
+            "ddraw_ddraw4.c:18675: Test failed: Test (1, R5G5B5X1 -> R5G5B5A1), row 0, unexpected surface data.",
+            "ddraw_ddraw4.c:18675: Test failed: Test (3, R5G5B5X1 -> R5G5B5A1), row 0, unexpected surface data.",
+            "ddraw_ddraw4.c:19746: Test failed: Got HEL flags 0x7df.",
+            "ddraw_ddraw4.c:19748: Test failed: Got device caps 0x55b.",
+            "0400:ddraw4: 28895 tests executed (0 marked as todo, 0 as flaky, 4 failures), 6 skipped."
+          ]
+        },
+        {
+          "file": "WINE2.TXT",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "failures": []
+        }
+      ],
+      "desktopPreparationLog": "PNP readiness_api=cfgmgr32.dll\nPREPARE start=201339\nPNP pending_wait=00000000\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\n\n\n\nDo you want to restart your computer now? \nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\nPNP action=decline_restart\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10085\n",
+      "desktopPostcheckLog": "PNP readiness_api=cfgmgr32.dll\nCHECK pending_wait=00000000 restart=0 wizard=0\nCOMPLETE desktop_postcheck=1\n"
+    },
+    {
+      "directory": "stage6-wine-ddraw7-memory-graph-paced-final",
+      "summary": {
+        "checks": 35184,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 6,
+        "skipped": 6
+      },
+      "exit": 6,
+      "failureGroups": {
+        "test_texture_load_ckey": 1,
+        "test_draw_primitive": 1,
+        "test_map_synchronisation": 2,
+        "test_surface_format_conversion_alpha": 2
+      },
+      "gpuErrors": [],
+      "hostErrors": [],
+      "normalOwnerCleanup": [
+        {
+          "reason": "owner-released",
+          "devices": 0,
+          "resources": 0,
+          "remainingResources": [],
+          "after": {
+            "devices": 0,
+            "resources": 0,
+            "pendingFrame": false,
+            "activeQuery": false
+          }
+        }
+      ],
+      "forcedOwnerCleanup": [],
+      "postOwnerCleanup": {
+        "devices": 0,
+        "resources": 0
+      },
+      "source": {
+        "suite": "ddraw_ddraw7",
+        "diagnostic": false,
+        "extraLogs": [],
+        "dllBuild": "provided",
+        "providedDll": "/Users/renruisi/Desktop/Code/v86/build/d3d-review/stage6-86r2-shipping/ddraw.dll",
+        "commit": "415a275e3844c252ad385b46023095e9401ca234",
+        "source": {
+          "path": "ddraw_ddraw7.c",
+          "upstream": "https://github.com/wine-mirror/wine/blob/415a275e3844c252ad385b46023095e9401ca234/dlls/ddraw/tests/ddraw7.c",
+          "sha256": "61b49e1c0f28d1af3e15130f44c0369f88962973fac6bb9b352e15ffccde8623",
+          "gitBlob": "f58523e788b9923056f03b09a49a35f552a1b277"
+        },
+        "desktopPreparation": {
+          "minimumBootSeconds": 210,
+          "timeoutMs": 180000,
+          "sourceSha256": "2b1d46ea39eecf88eb0fbe23dbe6169a76645f33aa94d357f0b453272e3235ca",
+          "executableSha256": "6b639ecb39cbdc1dac2a956df662a5c70f92a282beb0ad53c73c38ce243260b5",
+          "scope": "PnP idle and known-dialog checks before/after Wine; at most two executions in one RAM VM, retried only after explicit environment rejection of a completed suite; every attempt retained",
+          "maxEnvironmentAttempts": 2
+        },
+        "dllSha256": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+        "executableSha256": "63e0543058ea7b9060e6ba996479b51c3914abcb3f07ffeb847721ff7ffab961",
+        "rendererPageSha256": "49893a0b7184687759be3bee09985cff5931556b011fd6ba858ffa92728fd7ef",
+        "rendererSources": {
+          "src/browser/glbridge/webgpu_host.js": "de015d10f7594c0c890f2cc9ec65dab2c4b27430b28c14167f15f57fbb4b3418",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_shader_pipeline.js": "dda9a5a29aa6b8fed9e93b829fd89c691269129f7d8e6f6c9d55933bbd6e47b8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js": "cf20426a37b594576a69ab1012c9fcbe40cfc16bf69919460920bd087a137b97",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_wire.js": "e8351f7d6076135723139fc307de91eadc8dee476b2ae67d2e5cdff9f7b76474",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_state.js": "e0ddd209e5a7bc175e0e814e7e5b991a2d0472acaebc5ef8e3baaf28a5cb13a3",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_formats.js": "fd831efa64a539b115ead57ac3ba91e49f22206a232af38389adc191690857ed",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_uploads.js": "b24c55e60cd656b50550fca67e2e7e5e00b8a28bd905d083a8d38b0668c01b2c",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_resources.js": "bfc821fd0abd5054a49e8ee9ff6571e45a751361f28bb8238b4b45a2c69265b7",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_surface_ops.js": "b7ca19df5fbfe083d17f9c0d14d51365d99ef5b8b65fc49e2c7a6da51ea03627",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_ffp.js": "49527851946d57505ce4bec32c555c73321c86fce3a022a04ac48785c20727a5",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_pipeline_state.js": "25751de75886f46217426ce153ed31f8553edc4b5bc04d4a3beea46b89e3f483",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_draw_recorder.js": "d79f8c33e5183a3c5034d9425940d65a13e0384bec51b12d136f60bd4c5accbc",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_frame_replayer.js": "476bca6520c80dc09bafe436e76223c93183a9742003f58ea0f6fc4f2b8039d8",
+          "src/browser/glbridge/d3d9-webgpu/d9wg_present.js": "3cc5856f44e8bff0c57eb7798a10684ba1e641c4465bfd4da4d30506e3abbbf3",
+          "src/browser/glbridge/d3d9-webgpu/d3d9_executor.js": "93b73d5ac22da456f68af400d020c8ab57634543e3fbbae9de42bea7f72adf41",
+          "src/browser/glbridge/d3d9-webgpu/ddraw_ops.js": "8c02f056a955c2551aea464ea8da219c4777bad6e64a1fd557d6c02283243162"
+        }
+      },
+      "files": {
+        "WINE.TXT": "5cd07bae10fc63e728bf044b0910f736489a17b74ee20408e5245fc54cb3991c",
+        "source.json": "294228553d901f522f8aa75d933d9b7aec736a5b1dba56098b0fab4d918cb012",
+        "live-gpu.json": "e2482fa3d62393901f452deb88e784e37f4b6bc7eeee15aed1cb2db0c7d5dbe5",
+        "audit-groups.json": "10140e4c5e63bf14890dd0269bd7c80ace56950dcc9b8feaf619cb0e31478890"
+      },
+      "completed": true,
+      "accepted": false,
+      "previousSummary": {
+        "checks": 35184,
+        "todos": 0,
+        "flaky": 0,
+        "failures": 19,
+        "skipped": 6
+      },
+      "fewerFailures": 13,
+      "perGroupIncreases": {},
+      "perSourceLineIncreases": {},
+      "perContextIncreases": {},
+      "hardFailuresBySourceLine": {
+        "2002": 1,
+        "14618": 1,
+        "16300": 2,
+        "18962": 2
+      },
+      "hardFailuresByContext": [
+        {
+          "line": 2002,
+          "prefix": "",
+          "coordinates": "",
+          "count": 1
+        },
+        {
+          "line": 14618,
+          "prefix": "",
+          "coordinates": "",
+          "count": 1
+        },
+        {
+          "line": 16300,
+          "prefix": "",
+          "coordinates": "",
+          "count": 2
+        },
+        {
+          "line": 18962,
+          "prefix": "Test (1, R5G5B5X1 -> R5G5B5A1), row 0,",
+          "coordinates": "",
+          "count": 1
+        },
+        {
+          "line": 18962,
+          "prefix": "Test (3, R5G5B5X1 -> R5G5B5A1), row 0,",
+          "coordinates": "",
+          "count": 1
+        }
+      ],
+      "unreviewedSkips": [
+        "ddraw_ddraw7.c:4422: Tests skipped: Following tests require two monitors.",
+        "ddraw_ddraw7.c:13519: Tests skipped: Failed to create a YV12 overlay, skipping test.",
+        "ddraw_ddraw7.c:14305: Tests skipped: Failed to create surface for format D3DFMT_A2R10G10B10 (hr 0x88760091), skipping tests.",
+        "ddraw_ddraw7.c:19581: Tests skipped: Failed to find a display mode with a different frequency.",
+        "ddraw_ddraw7.c:20913: Tests skipped: format YV12: Failed to create surface, hr 0x88760091.",
+        "ddraw_ddraw7.c:20913: Tests skipped: format NV12: Failed to create surface, hr 0x88760091."
+      ],
+      "flakyRecords": [],
+      "environmentExecutions": {
+        "selected": 1,
+        "attempts": [
+          {
+            "attempt": 1,
+            "selected": true,
+            "preparation": "PNP readiness_api=cfgmgr32.dll\r\nPREPARE start=201730\r\nPNP pending_wait=00000000\r\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\r\r\n\r\r\nDo you want to restart your computer now? \r\nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\r\nPNP action=decline_restart\r\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10064\r\n",
+            "postcheck": "PNP readiness_api=cfgmgr32.dll\r\nCHECK pending_wait=00000000 restart=0 wizard=0\r\nCOMPLETE desktop_postcheck=1\r\n"
+          }
+        ],
+        "scope": "Identical original EXE/DLL. Only a completed execution rejected by the OS environment postcheck can trigger another; all raw Wine assertions and both execution logs are retained."
+      },
+      "rawWineExecutions": [
+        {
+          "file": "WINE.TXT",
+          "sha256": "5cd07bae10fc63e728bf044b0910f736489a17b74ee20408e5245fc54cb3991c",
+          "failures": [
+            "ddraw_ddraw7.c:2002: Test failed: Got unexpected hr 0.",
+            "ddraw_ddraw7.c:14618: Test failed: Got unexpected hr 0.",
+            "ddraw_ddraw7.c:16300: Test failed: Expected unsynchronised map for flags 0x1000.",
+            "ddraw_ddraw7.c:16300: Test failed: Expected unsynchronised map for flags 0x3000.",
+            "ddraw_ddraw7.c:18962: Test failed: Test (1, R5G5B5X1 -> R5G5B5A1), row 0, unexpected surface data.",
+            "ddraw_ddraw7.c:18962: Test failed: Test (3, R5G5B5X1 -> R5G5B5A1), row 0, unexpected surface data.",
+            "03ec:ddraw7: 35184 tests executed (0 marked as todo, 0 as flaky, 6 failures), 6 skipped."
+          ]
+        },
+        {
+          "file": "WINE1.TXT",
+          "sha256": "5cd07bae10fc63e728bf044b0910f736489a17b74ee20408e5245fc54cb3991c",
+          "failures": [
+            "ddraw_ddraw7.c:2002: Test failed: Got unexpected hr 0.",
+            "ddraw_ddraw7.c:14618: Test failed: Got unexpected hr 0.",
+            "ddraw_ddraw7.c:16300: Test failed: Expected unsynchronised map for flags 0x1000.",
+            "ddraw_ddraw7.c:16300: Test failed: Expected unsynchronised map for flags 0x3000.",
+            "ddraw_ddraw7.c:18962: Test failed: Test (1, R5G5B5X1 -> R5G5B5A1), row 0, unexpected surface data.",
+            "ddraw_ddraw7.c:18962: Test failed: Test (3, R5G5B5X1 -> R5G5B5A1), row 0, unexpected surface data.",
+            "03ec:ddraw7: 35184 tests executed (0 marked as todo, 0 as flaky, 6 failures), 6 skipped."
+          ]
+        },
+        {
+          "file": "WINE2.TXT",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "failures": []
+        }
+      ],
+      "desktopPreparationLog": "PNP readiness_api=cfgmgr32.dll\nPREPARE start=201730\nPNP pending_wait=00000000\nPNP title=System Settings Change enabled=1 body=Windows has finished installing new devices. The software that supports your device requires that you restart your computer.You must restart your computer before the new settings will take effect.\n\n\n\nDo you want to restart your computer now? \nPNP control_id=7 caption_utf16=0026,004E,006F, match=1\nPNP action=decline_restart\nCOMPLETE desktop_prepare=1 dialogs_closed=1 actions=1 quiet_ms=10064\n",
+      "desktopPostcheckLog": "PNP readiness_api=cfgmgr32.dll\nCHECK pending_wait=00000000 restart=0 wizard=0\nCOMPLETE desktop_postcheck=1\n"
+    }
+  ],
+  "fewerFailures": 20,
+  "priorEvidence": {
+    "path": "docs/fixtures/d3d-review/stage6-85-validation.json",
+    "sha256": "4911ed6fe67faf7c2b8e33e82776b817487bd3db39a3acbaaeb9f021862d48e8"
+  },
+  "shipping": {
+    "ddraw": "aa331509cdf4419f2afe5ceef6d4ca24ac07e687f69bf1bad4f3419bff3f118b",
+    "ddrawDiagnostic": "a0aae84e4e5c10f871e4f725738bbddd8f810dd8cfb040d5d060758e508fe4ea",
+    "d3d9Unchanged": "c008d167ced145520c0cca183edf0fe057d84e1617e7a81700c043351cb4dc82",
+    "allFourSuitesExactSameDll": true
+  },
+  "groupingLimitation": "Historical audit grouping finds only static void functions; HRESULT enum callbacks can be attributed to the previous function (for example the two DDraw4 HEL caps assertions19746/19748 appear under filling_convention). Exact original source lines/contexts remain authoritative and are independently gated. These are caps enumeration failures, not pixel filling failures.",
+  "failureGroupingScope": "All original source-line/context/group hard counts gated against85; all raw attempts and flaky records retained. No original Wine source/assertion/tolerance modified. All23 skips remain unreviewed and outstanding.",
+  "remaining": [
+    "Remaining hard/flaky assertions and23 unreviewed skips; overall applicable Wine incomplete.",
+    "Remaining alpha/load-key/HEL-capability, indexed empty draw and unsynchronised mapping behavior, plus window/display flaky assertions.",
+    "3DMark comparisons remain paused."
+  ]
+}

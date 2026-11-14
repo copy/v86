@@ -1,8 +1,8 @@
 {
   "description": "Actual extracted public C Clear packets plus independent original XP center-pixel observations; all rectangles cover the32x32 target.",
-  "frontSourceSha256": "d18034ad7e35d0155477dc4a8f7785ab9431bd76969f1dca09d55023ec4bdd9e",
+  "frontSourceSha256": "b3324bd4b845a36e1cd52f0de0804025d45714103f1b29de4b27aa3be93ced88",
   "legacySourceSha256": "2e2b965d2daeb990dec98af443889a7f29d3d901a22eb5d34579637bbe349a15",
-  "producerSha256": "ce78bc23ca47dda1d140774468bbe10ca85e6de01e04e7607cef59950fca8806",
+  "producerSha256": "96074662135304728c63f4402247f517e26d06d4071939ef41e141fcd2e36018",
   "nativeReferenceSha256": "6034bd5cdcfdeee08490051be9390cf26c7e2e8d5677faa8d43bd90111ab5acd",
   "scenarios": [
     {

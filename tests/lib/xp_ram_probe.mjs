@@ -7,6 +7,7 @@ import { createRequire as create_require } from "node:module";
 import { setTimeout as delay } from "node:timers/promises";
 import { deflateSync as deflate_sync, crc32 } from "node:zlib";
 import { MemoryDisk, ReadOnlyOverlayDisk, make_fat16, read_fat16 } from "../smp/disk_fixture.mjs";
+import { probe_launch_activity, probe_run_scancodes } from "./xp_probe_launch.mjs";
 export async function run_xp_ram_probe({ root, image, out, files, result_file = "OWNER.TXT",
     success, log_files = [], log_completion = {}, binary_files = [], capture_graphics = false, expected_releases = null,
     rendering = "not exercised", simulated_host_features = null, observe_batch = null, graphics_renderer = null,
@@ -22,6 +23,10 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
     assert(simulated_host_features === null || (Number.isInteger(simulated_host_features) && simulated_host_features >= 0 && simulated_host_features <= 15));
     const caps_protocol = simulated_host_features === null ? null : create_require(import.meta.url)("../../src/browser/glbridge/d3d9-webgpu/d9wg_protocol.js");
     const tools = new MemoryDisk(make_fat16(files)), disk = new ReadOnlyOverlayDisk(image);
+    let tools_writes = 0;
+    const write_tools = tools.set.bind(tools);
+    tools.set = (...args) => { ++tools_writes; return write_tools(...args); };
+    const launch_attempts = [];
     const require = create_require(import.meta.url), { createV86GLDevice: create_device } = require("../../src/browser/glbridge/v86gl_device.js");
     const handlers = [null, null];
     // An asynchronous browser must own a copy before the guest reuses its DMA arena.
@@ -121,8 +126,17 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             const launchBatches = batches;
             console.log("launch RAM probe", elapsed(), "s", "attempt", attempt + 1);
             for(let cancel = 0; cancel < 3; cancel++) { await vm.keyboard_send_scancodes([1, 129], 30);await delay(1000); }
-            await vm.keyboard_send_scancodes([0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB], 30);await delay(2000);
-            await vm.keyboard_send_text("cmd /c for %d in (d e f g h i j k) do @if exist %d:\\probe.cmd %d:\\probe.cmd", 30);
+            const launchWrites = tools_writes, launchPicture = frame();
+            const launch = { attempt: attempt + 1, seconds: elapsed(), activity: null };
+            launch_attempts.push(launch);
+            // Under cold PnP load, immediate make/break pairs can be lost or
+            // sent before Run is ready. Use paced physical transitions, as in
+            // the native guest controls, and select the field before typing.
+            const command = probe_run_scancodes("cmd /c for %d in (d e f g h i j k) do @if exist %d:\\probe.cmd %d:\\probe.cmd");
+            await vm.keyboard_send_scancodes([184, 157, 170, 182, 0xE0, 0xDB, 0xE0, 0xDC], 30);
+            await vm.keyboard_send_scancodes([0xE0, 0x5B, 0x13, 0x93, 0xE0, 0xDB], 30);await delay(5000);
+            await vm.keyboard_send_scancodes([29, 30, 158, 157], 30);
+            await vm.keyboard_send_scancodes(command, 30);
             await vm.keyboard_send_scancodes([28, 156], 30);
             for(let poll = 0; poll < probe_timeout_seconds; poll++)
             {
@@ -130,10 +144,16 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
                 const logs = read_logs();
                 if(text.includes("FAIL ") || Object.values(logs).some(text => text.includes("FAIL ")))
                     throw new Error(JSON.stringify({ text, logs }));
-                // An open redirected log may not have a flushed FAT directory
-                // entry yet. Actual graphics traffic already proves the test
-                // launched; never start a second copy while it is running.
-                if(poll === 29 && batches === launchBatches && !text && Object.values(logs).every(text => !text)) break;
+                // Driver startup can precede both graphics traffic and the
+                // first FAT log flush. Wait two minutes before considering a
+                // missed launch, and retain disk/window activity as evidence
+                // that another invocation would duplicate a running command.
+                if(poll === 119) {
+                    launch.activity = probe_launch_activity({launchBatches, batches,
+                        launchWrites, writes: tools_writes, result: text, logs,
+                        before: launchPicture, after: frame()});
+                    if(!Object.values(launch.activity).some(Boolean)) break;
+                }
                 if(completed(text, logs)) break;
                 // A loader/modal error can leave a redirected log unchanged.
                 // Preserve a current guest picture so a long suite cannot hide
@@ -144,7 +164,8 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             }
             // Retry only a missed launch. Starting another process after an
             // active suite times out would corrupt its log and GPU ownership.
-            if(!completed(result_text(), read_logs()) && (batches > launchBatches || result_text() || Object.values(read_logs()).some(Boolean)))
+            if(!completed(result_text(), read_logs()) && (batches > launchBatches || result_text()
+                    || Object.values(read_logs()).some(Boolean) || launch.activity && Object.values(launch.activity).some(Boolean)))
                 throw new Error("XP probe execution timed out after starting");
         }
         const text = result_text();assert(completed(text, read_logs()), "Owner probe did not finish: " + text);
@@ -169,7 +190,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
             fs.writeFileSync(out + "/" + name, data);
             artifacts[name] = { bytes: data.length, crc32: crc32(data).toString(16).padStart(8, "0") };
         }
-        const result = { status: "PASS", seconds: elapsed(), batches, releases, owners: Array.from(owners),
+        const result = { status: "PASS", seconds: elapsed(), batches, releases, owners: Array.from(owners), launchAttempts: launch_attempts,
             text, logs: read_logs(), diskWrites: "RAM sector overlay only", rendering,
             ...(simulated_host_features === null ? {} : {simulatedHostFeatures: simulated_host_features}),
             ...(binary_files.length || capture_graphics ? { artifacts } : {}) };
@@ -180,7 +201,7 @@ export async function run_xp_ram_probe({ root, image, out, files, result_file = 
     catch(error)
     {
         save_frame("probe-failure.png", frame());
-        fs.writeFileSync(out + "/probe-failure.json", JSON.stringify({ text: result_text(), logs: read_logs() }, null, 2));
+        fs.writeFileSync(out + "/probe-failure.json", JSON.stringify({ text: result_text(), logs: read_logs(), launchAttempts: launch_attempts }, null, 2));
         throw error;
     }
     finally

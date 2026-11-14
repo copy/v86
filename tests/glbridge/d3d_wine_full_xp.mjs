@@ -46,7 +46,7 @@ execFileSync(cc,["-std=gnu99","-O1","-g","-DSTANDALONE","-DPSAPI_VERSION=1","-DD
 const desktopPrepare=root+"tests/glbridge/wine_xp_desktop_prepare.c";
 fs.copyFileSync(desktopPrepare,out+"/wine_xp_desktop_prepare.c");
 fs.copyFileSync(fileURLToPath(import.meta.url),out+"/wine-runner.mjs");
-execFileSync(cc,["-std=gnu99","-Os","-Wall","-Wextra","-Werror",desktopPrepare,
+execFileSync(cc,["-std=gnu99","-Os","-DXP_PREPARE_TIMEOUT_MS=180000u","-Wall","-Wextra","-Werror",desktopPrepare,
     "-o",out+"/PREPARE.EXE","-luser32"],{stdio:"inherit"});
 const providedDll=process.env.D3D_WINE_PROXY_DLL;
 if(providedDll)fs.copyFileSync(path.resolve(providedDll),out+"/"+api+".dll");
@@ -56,7 +56,7 @@ const rendererPage=root+"tests/glbridge/d3d_remote_renderer.html";
 const rendererSources=Object.fromEntries([...fs.readFileSync(rendererPage,"utf8").matchAll(/<script src="([^"]+)"/g)]
     .map(([,relative])=>{const file=path.resolve(path.dirname(rendererPage),relative);return [path.relative(root,file),sha256(file)];}));
 fs.writeFileSync(out+"/source.json",JSON.stringify({suite,diagnostic,extraLogs,dllBuild:providedDll?"provided":diagnostic?"diagnostic":"shipping",providedDll:providedDll?path.resolve(providedDll):null,commit:manifest.commit,source:manifest.files.find(f=>f.path===suite+".c"),
-    desktopPreparation:{minimumBootSeconds,sourceSha256:sha256(desktopPrepare),executableSha256:sha256(out+"/PREPARE.EXE"),scope:"PnP idle and known-dialog checks before/after Wine; at most two executions in one RAM VM, retried only after explicit environment rejection of a completed suite; every attempt retained",maxEnvironmentAttempts:2},dllSha256:sha256(out+"/"+api+".dll"),executableSha256:sha256(out+"/WINE.EXE"),rendererPageSha256:sha256(rendererPage),rendererSources},null,2)+"\n");
+    desktopPreparation:{minimumBootSeconds,timeoutMs:180000,sourceSha256:sha256(desktopPrepare),executableSha256:sha256(out+"/PREPARE.EXE"),scope:"PnP idle and known-dialog checks before/after Wine; at most two executions in one RAM VM, retried only after explicit environment rejection of a completed suite; every attempt retained",maxEnvironmentAttempts:2},dllSha256:sha256(out+"/"+api+".dll"),executableSha256:sha256(out+"/WINE.EXE"),rendererPageSha256:sha256(rendererPage),rendererSources},null,2)+"\n");
 if(process.env.D3D_WINE_BUILD_ONLY==="1")process.exit(0);
 
 const files={"V86GL.SYS":fs.readFileSync(site+"/glbridge/v86gl_driver/v86gl.sys"),

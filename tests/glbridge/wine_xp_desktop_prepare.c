@@ -6,6 +6,10 @@
 #include <string.h>
 #include <wchar.h>
 
+#ifndef XP_PREPARE_TIMEOUT_MS
+#define XP_PREPARE_TIMEOUT_MS 60000u
+#endif
+
 typedef struct Body { char text[4096]; unsigned used; } Body;
 typedef struct Button { BOOL restart; HWND found; } Button;
 typedef struct Boot { HWND restart, wizard; } Boot;
@@ -157,7 +161,7 @@ int main(int argc, char **argv)
     }
     printf("PREPARE start=%lu\n", began);
     flush_log();
-    while (GetTickCount() - began < 60000) {
+    while (GetTickCount() - began < XP_PREPARE_TIMEOUT_MS) {
         Boot boot = {NULL, NULL};
         EnumWindows(boot_window, (LPARAM)&boot);
         HWND window = boot.restart ? boot.restart : boot.wizard;
