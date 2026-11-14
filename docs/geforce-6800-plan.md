@@ -1024,6 +1024,8 @@ CI 运行 `make devices-test` 与 `make test-glbridge`，浏览器与客体测�
   | `NV_GPU_RENDERER=chrome` | 渲染器放在无头 Chrome 里 |
   | `NV_OUT` | 输出目录 |
   | `NV_TRACE=0` | 关闭方法/程序跟踪，保留故障、GPU 与翻译缓存计数；默认开启 |
+  | `NV_GRAPH_FAULTS=1` | 默认关闭；保存首 16 种 PGRAPH 错误与有界前序命令/对象/原始 pushbuffer |
+  | `NV_BATCH_BARRIERS=1` | 默认关闭；按 class/method 统计触发回读的屏障，最多 256 项 |
   | `TEST_RELEASE_BUILD` | 用 release 构建 |
 
   XP 的配置与 XP 性能门禁相同：i440FX、IDE、无 ACPI，内存 1024–2048 MB。
@@ -1864,3 +1866,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   绘图内存访问和非法方法仍保持屏障。真实 GPU 中换绑后 IFC
   读取新映射，两次绘制仍一批/一次回读、RGBA191；图形/2D、
   完整 GPU/Closure 通过，见 `g6-context-setter-batching.json`。
+
+- G6 屏障诊断：默认关闭的 `NV_BATCH_BARRIERS` 按 class/method
+  有界统计同步点，随 progress/final trace 和独立 JSON 导出；
+  03 release 原生续跑已捕获查询、信号量、surface DMA 与附件切换，
+  用于定位后续优化。首错诊断另保留 GET 附近 128-byte 原始命令。
+  见 `g6-batch-barrier-diagnostics.json`，不把并发运行计为独立性能报告。

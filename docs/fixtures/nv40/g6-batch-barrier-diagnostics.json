@@ -1,0 +1,51 @@
+{
+  "date": "2026-11-14",
+  "behavior": "Default-off NV_BATCH_BARRIERS counts barrier decisions by class/method in at most 256 entries plus an overflow count, exports through progress/final trace and batch-barriers.json. NV_GRAPH_FAULTS also reads at most 128 pushbuffer bytes around GET for each retained fault.",
+  "nativeCounterVerification": {
+    "elapsedSeconds": 153.67488591699998,
+    "gpu": {
+      "batches": 197,
+      "draws": 900,
+      "bytes": 1052537264,
+      "readbacks": 370,
+      "failures": 0,
+      "uploads": 504,
+      "uploadBytes": 282922804
+    },
+    "barriers": {
+      "methods": [
+        {
+          "class_id": 16535,
+          "method": 7536,
+          "count": 48
+        },
+        {
+          "class_id": 16535,
+          "method": 6144,
+          "count": 54
+        },
+        {
+          "class_id": 16535,
+          "method": 528,
+          "count": 10
+        },
+        {
+          "class_id": 12386,
+          "method": 392,
+          "count": 33
+        }
+      ],
+      "other": 0
+    },
+    "scope": "Native 03 release GT4 continuation before context-setter optimization; concurrent guests, no FPS comparison."
+  },
+  "tests": [
+    "node --check tests/devices/geforce_guest.mjs",
+    "Native XP 03 continuation records nonzero query/semaphore/surface context barrier counters and zero GPU/PGRAPH faults in the recorded interval."
+  ],
+  "limitation": "Concurrent diagnostic sample is not the isolated 06 performance report. The additional raw-pushbuffer field has syntax validation; a new native fault capture remains pending.",
+  "evidence": {
+    "file": "build/nv40-context-setter-native-barriers.json",
+    "sha256": "2a657aec6de067d3c6cc15965a3b1085a3a8fe13324fa0a887f54067a70a30f1"
+  }
+}

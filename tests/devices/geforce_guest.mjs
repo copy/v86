@@ -208,7 +208,7 @@ export async function run_geforce_guest(win98)
     const launch = Number(process.env.NV_LAUNCH_SECONDS || (process.env.NV_STATE_LOAD ? 10 : 90));
     assert(Number.isFinite(seconds) && seconds > 0 && seconds <= 3600);
     let nv, error = null, launches = 0, next_launch = launch, cancelled = false, checkpoint = false, clock_start = 0;
-    let profiler=null;
+    let profiler=null,barrier_report=null;
     const cancel = () => { cancelled = true; };
     process.on("SIGINT", cancel);
     vm.add_listener("emulator-error", e => { error = String(e); });
@@ -244,6 +244,7 @@ export async function run_geforce_guest(win98)
             segments:Array.from(vm.v86.cpu.segment_offsets),romHeader:Array.from(vm.v86.cpu.mem8.subarray(0xC0000,0xC0040)),romCode:Array.from(vm.v86.cpu.mem8.subarray(0xC1700,0xC1740))},
         pic:vm.v86.cpu.get_state_pic(),pirq:Array.from(vm.v86.cpu.devices.pci.isa_bridge_space8.slice(0x60,0x64)),
         gpu: nv.graph.engine3d.backend ? nv.graph.engine3d.backend.stats : null,
+        ...(barrier_report?{batchBarriers:barrier_report()}:{}),
         textureDecode: nv.graph.engine3d.backend ? nv.graph.engine3d.backend.textures.stats : null,
         shaderTranslation:{...nv.graph.engine3d.translation_stats,entries:nv.graph.engine3d.translated.size,bytes:nv.graph.engine3d.translation_bytes},
         scanout: sink.transitions,
@@ -304,6 +305,21 @@ export async function run_geforce_guest(win98)
                 return write(dma,offset,bytes);
             };
         }
+        if(process.env.NV_BATCH_BARRIERS && nv.graph.engine3d.backend)
+        {
+            const backend=nv.graph.engine3d.backend,barrier=backend.barrier.bind(backend),counts=new Map();let other=0;
+            backend.barrier=(object,at,value)=>{
+                const result=barrier(object,at,value);
+                if(result)
+                {
+                    const key=object.class_id+":"+at;
+                    if(counts.has(key) || counts.size<256)counts.set(key,(counts.get(key)||0)+1);
+                    else other++;
+                }
+                return result;
+            };
+            barrier_report=()=>({methods:Array.from(counts,([key,count])=>({class_id:Number(key.split(":")[0]),method:Number(key.split(":")[1]),count})),other});
+        }
         if(process.env.NV_GRAPH_FAULTS)
         {
             const graph=nv.graph,method=graph.method.bind(graph),bind=graph.bind.bind(graph),error=graph.error.bind(graph),history=new Array(256),captures=[],seen=new Set();
@@ -338,8 +354,14 @@ export async function run_geforce_guest(win98)
                 let objectRAMIN=null;
                 if(object)try {objectRAMIN=Array.from({length:4},(_,i)=>nv.dma.word(object.instance+i*4));}
                 catch(readError){objectRAMIN=String(readError);}
+                let pushbuffer=null;
+                try {
+                    const get=nv.registers.get(0x3244)||0,start=Math.max(0,get-64),dma=nv.dma.descriptor((nv.registers.get(0x322C)||0)*16);
+                    const bytes=nv.dma.read(dma,start,128),view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+                    pushbuffer={start,words:Array.from({length:32},(_,i)=>view.getUint32(i*4,true))};
+                } catch(readError){pushbuffer={error:String(readError)};}
                 captures.push({elapsed:elapsed(),channel,subc,method:at,value,source,status,reason:reason||"unimplemented PGRAPH method",
-                    object:describe(object),objectRAMIN,fifoRegisters,references,
+                    object:describe(object),objectRAMIN,fifoRegisters,pushbuffer,references,
                     history:Array.from({length:Math.min(total,256)},(_,i)=>history[(cursor-Math.min(total,256)+i)&255])});
                 fs.writeFileSync(path.join(out,"graph-fault-captures.json"),JSON.stringify(captures,null,2));
             };
@@ -554,6 +576,7 @@ export async function run_geforce_guest(win98)
         if(nv)
         {
             fs.writeFileSync(path.join(out, "trace.json"), JSON.stringify(trace_report(), null, 2) + "\n");
+            if(barrier_report)fs.writeFileSync(path.join(out,"batch-barriers.json"),JSON.stringify(barrier_report(),null,2)+"\n");
             if(process.env.NV_DUMP_PROGRAMS) fs.writeFileSync(path.join(out, "programs.json"),JSON.stringify(nv.graph.engine3d.programs(),null,2)+"\n");
             fs.writeFileSync(path.join(out, "ramin.bin"), nv.vram().subarray(nv.vram_size - (1 << 20)));
         }
