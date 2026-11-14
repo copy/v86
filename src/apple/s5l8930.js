@@ -9,6 +9,7 @@ import { AppleTimer } from "./timer.js";
 import { AppleUART } from "./uart.js";
 import { AppleVIC } from "./vic.js";
 import { AppleI2S } from "./audio.js";
+import { AppleAMC } from "./amc.js";
 import { AppleSPI } from "./spi.js";
 import { AppleMultitouch } from "./multitouch.js";
 import { AppleDART } from "./dart.js";
@@ -23,7 +24,7 @@ const spi_controllers = ["apple_spi0", "apple_spi1"];
 // Append new devices to preserve the order in snapshots.
 export const N90_DEVICE_ORDER = [
     "apple_uart", "apple_vectors", "apple_vic", "apple_timer", "apple_gpio", "apple_cdma", "apple_miu", "apple_clcd",
-    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers, "apple_multitouch", "apple_accelerometer", "apple_gyroscope", "apple_compass", "apple_light_sensor",
+    "apple_i2c0", "apple_i2c2", "apple_swi", "apple_dart1", "apple_dart2", "apple_sgx", "apple_iop", "apple_fmi0", "apple_fmi1", "apple_nand", ...auxiliary_uarts, ...audio_controllers, ...spi_controllers, "apple_multitouch", "apple_accelerometer", "apple_gyroscope", "apple_compass", "apple_light_sensor", "apple_amc",
 ];
 
 export function create_n90_devices(cpu, bus, screen, buffer)
@@ -71,6 +72,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     };
     auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
     audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i); });
+    devices.apple_amc = new AppleAMC(cpu, (n, level) => vic.set_line(0x56 + n, level));
     spi_controllers.forEach((name, i) => { devices[name] = new AppleSPI(cpu, i, level => vic.set_line(29 + i, level), undefined, dma); });
     clcd.translate = address => devices.apple_dart2.translate(address, 0);
     const touch = devices.apple_multitouch = new AppleMultitouch(() => gpio.pulse(21), ready => {

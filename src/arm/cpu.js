@@ -261,7 +261,7 @@ A64CPU.prototype.init = function(settings, device_bus)
     this.graphics_adapter_descriptor = settings.graphics_adapter;
     const adapter = this.graphics_adapter_descriptor;
     this.create_memory(memory_size, adapter ? Math.max(DEVICE_MEMORY_SIZE,
-        adapter["device_memory_size"]?.({ "test": settings.graphics_adapter_test }) || 0) : machine_type === "s5l8930" ? 4096 : 0);
+        adapter["device_memory_size"]?.({ "test": settings.graphics_adapter_test }) || 0) : machine_type === "s5l8930" ? 1 << 20 : 0);
     this.configure_extended_memory(settings.extended_memory_size || 0, settings.extended_memory_cache);
     this.device_bus = device_bus;
     if(machine_type === "s5l8930")
