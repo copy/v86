@@ -61,6 +61,24 @@ export class NVDMA
         return bytes;
     }
 
+    read32(dma, offset, little = true)
+    {
+        // The pusher consumes a DWORD at a time. Keep the same per-access
+        // PTE/permission checks, without another copied buffer and DataView
+        // for the usual single-page word. Adjusted cross-page words retain
+        // the general checked reader.
+        const ranges = this.ranges(dma, offset, 4, false);
+        if(ranges.length !== 1)
+        {
+            const bytes = this.read(dma, offset, 4);
+            return new DataView(bytes.buffer).getUint32(0, little);
+        }
+        const range = ranges[0], bytes = dma.target ? this.device.machine.read_physical(range.at, 4) : this.device.vram();
+        const at = dma.target ? 0 : range.at;
+        const word = bytes[at] | bytes[at + 1] << 8 | bytes[at + 2] << 16 | bytes[at + 3] << 24;
+        return (little ? word : word >>> 24 | word >>> 8 & 0xFF00 | word << 8 & 0xFF0000 | word << 24) >>> 0;
+    }
+
     write(dma, offset, bytes)
     {
         // Validate every page first: a fault never leaves a partial notification.

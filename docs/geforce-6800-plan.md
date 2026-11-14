@@ -1959,3 +1959,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   在无声卡 harness 中明确为 Not supported。早期游戏阶段跨越多次修复，
   不作为最终冷启动/图像/性能验收，继续完整复跑。见
   `g4-xp-9371-03-cpu-features-completed.json`。
+
+- G6 FIFO DWORD 读取：原生采样中 pusher run/read 占有可见 CPU 时间，
+  新增 checked 标量读取，常见单页命令省去额外四字节复制与 DataView；
+  每次仍验证真实 PTE、权限、limit 和 bus master，跨页保留通用读取。
+  捕获的原生 header 值构造的 50 万次读取微测中位 263.47→34.08 ms，
+  五轮校验和相同；这不是客体 FPS。VRAM/系统 RAM、大小端、跨页、
+  页表修改及 FIFO/快照/设备回归、Closure 通过，见
+  `g6-checked-dma-word-fetch.json`。

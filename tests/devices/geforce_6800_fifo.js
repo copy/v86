@@ -46,6 +46,14 @@ function fixture()
 const header = (method, count = 1, subc = 0, ni = false) => method | count << 18 | subc << 13 | (ni ? 0x40000000 : 0);
 
 {
+    const f = fixture(); f.fifo.select(0); f.regs.set(0x3224, 0x80000000);
+    f.push.setUint32(0, header(0x50), false); f.push.setUint32(4, 0x89ABCDEF, false);
+    f.fifo.write(0xC00040, 8);
+    assert.equal(f.fifo.read(0xC00048), 0x89ABCDEF, "big-endian DMA fetch decodes both header and data");
+    assert.equal(f.fifo.read(0xC00044), 8);
+    assert.equal(f.fifo.faults.length, 0);
+}
+{
     const f = fixture(); f.submit([header(0x50, 2, 0, true), 17, 23]);
     assert.equal(f.fifo.read(0xC00044), 12); assert.equal(f.fifo.read(0x800048), 23);
     assert.equal(f.ramin.getUint32(0x20004, true), 12, "GET saved to RAMFC");

@@ -210,8 +210,7 @@ export class NVFIFO
             if(method === 0x68)
             {
                 this.set(0x3268, value);
-                const bytes = this.device.dma.read(dma, ch.offset, 4);
-                if(new DataView(bytes.buffer).getUint32(0, true) !== (value >>> 0))
+                if(this.device.dma.read32(dma, ch.offset) !== (value >>> 0))
                 {
                     this.set(0x3250, this.reg(0x3250) | 0x10000);
                     this.set(0x3254, this.reg(0x3254) | 0x10);
@@ -252,8 +251,7 @@ export class NVFIFO
     {
         if(!(this.reg(0x3254) & 0x10)) return true;
         const ch = this.channel(this.active), dma = this.device.dma.descriptor(ch.dma);
-        const bytes = this.device.dma.read(dma, ch.offset, 4);
-        if(new DataView(bytes.buffer).getUint32(0, true) !== this.reg(0x3268)) return false;
+        if(this.device.dma.read32(dma, ch.offset) !== this.reg(0x3268)) return false;
         this.set(0x3250, this.reg(0x3250) & ~0x10000);
         this.set(0x3254, this.reg(0x3254) & ~0x10);
         return true;
@@ -288,8 +286,7 @@ export class NVFIFO
                     if(((this.reg(0x3210) - this.reg(0x3270)) & 0xFFF) === 0x800) break;
                     const get = this.reg(0x3244);
                     if(get & 3) { this.fault(6); break; }
-                    const bytes = this.device.dma.read(dma, get, 4);
-                    const word = new DataView(bytes.buffer).getUint32(0, !(this.reg(0x3224) & 0x80000000));
+                    const word = this.device.dma.read32(dma, get, !(this.reg(0x3224) & 0x80000000));
                     this.set(0x3244, get + 4);
                     let state = this.reg(0x3228), count = state >>> 18 & 0x7FF;
                     if(!count && this.device.trace.enabled)

@@ -1,0 +1,75 @@
+{
+  "date": "2026-11-14",
+  "change": "PFIFO DWORD reads retain full DMA range/PTE/permission validation and avoid an extra copied buffer and DataView on single-page words.",
+  "profileEvidence": {
+    "directory": "build/nv40-native-profile-window-validation",
+    "scope": "Concurrent native 03 diagnostic, not isolated acceptance",
+    "FIFO_run_self_ms": 2010.8,
+    "NVDMA_read_self_ms": 1094.98,
+    "samplingWallMs": 39190.488
+  },
+  "microbenchmark": {
+    "scope": "Checked system-memory scalar microbenchmark using original native command-header words; not guest FPS or performance acceptance.",
+    "words": 64,
+    "readsPerTrial": 500000,
+    "before": [
+      {
+        "ms": 226.62133300000005,
+        "checksum": 508638668
+      },
+      {
+        "ms": 254.34691699999996,
+        "checksum": 508638668
+      },
+      {
+        "ms": 263.4721670000001,
+        "checksum": 508638668
+      },
+      {
+        "ms": 266.7295419999998,
+        "checksum": 508638668
+      },
+      {
+        "ms": 273.439042,
+        "checksum": 508638668
+      }
+    ],
+    "after": [
+      {
+        "ms": 34.07949999999994,
+        "checksum": 508638668
+      },
+      {
+        "ms": 32.119249999999965,
+        "checksum": 508638668
+      },
+      {
+        "ms": 59.39383399999997,
+        "checksum": 508638668
+      },
+      {
+        "ms": 46.97900000000004,
+        "checksum": 508638668
+      },
+      {
+        "ms": 30.78712500000006,
+        "checksum": 508638668
+      }
+    ],
+    "beforeMedianMs": 263.4721670000001,
+    "afterMedianMs": 34.07949999999994
+  },
+  "validation": [
+    "node tests/devices/geforce_6800_dma.js: VRAM and system RAM, both endian modes, unaligned and discontiguous cross-page words, modified PTE, inclusive limit and bus-master/read permissions",
+    "node tests/devices/geforce_6800_fifo.js: big-endian command/data, flow, errors, acquire/release and snapshot recovery",
+    "node tests/devices/geforce_6800.js: device initialization, MMIO, display and snapshots",
+    "make build/v86-geforce-6800.js: Closure 0 errors/warnings"
+  ],
+  "limits": [
+    "Microbenchmark materializes original native header values in test memory; it is not a full guest execution or FPS result.",
+    "Cross-page words keep the general checked reader.",
+    "No page-table caching, invalid-PTE bypass, speculative completion or guest clock changes.",
+    "Already running native guests keep their loaded pre-optimization module; final fresh runs must use the rebuilt module."
+  ],
+  "performanceGate": false
+}

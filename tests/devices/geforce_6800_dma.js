@@ -69,4 +69,28 @@ engine.load_cache(0x500);
 assert.equal(device.registers.get(0x3230), 0x8002300C);
 assert.equal(device.registers.get(0x3234), 1023);
 assert.equal(device.registers.get(0x323C), 0x1002);
+
+// Scalar FIFO reads preserve byte order and adjusted, discontiguous mappings.
+for(const target of [0, 2])
+{
+    master = true;
+    d = object(0x600, 0xFFF0103D | target << 16, 7, 0x2003, 0x4003);
+    const memory = target ? ram : vram;
+    memory[0x2FFF] = 0x81; memory.set([0x23, 0x45, 0xE7, 0xAB, 0xCD, 0xEF, 0x09], 0x4000);
+    assert.equal(engine.read32(d, 0), 0xE7452381, "word split across two physical pages");
+    assert.equal(engine.read32(d, 0, false), 0x812345E7, "big-endian split word");
+    assert.equal(engine.read32(d, 1), 0xABE74523, "unaligned physical word within one page");
+    assert.equal(engine.read32(d, 1, false), 0x2345E7AB);
+    assert.throws(() => engine.read32(d, 5), /limit/);
+    ramin.setUint32(0x60C, 0x4000, true);
+    assert.throws(() => engine.read32(d, 0), /page access/, "PTE edits are checked on every scalar read");
+    ramin.setUint32(0x60C, 0x4003, true);
+    if(target)
+    {
+        master = false;
+        assert.throws(() => engine.read32(d, 1), /bus mastering/);
+    }
+}
+d = object(0x640, 0xB003, 7, 0x2003);
+assert.throws(() => engine.read32(d, 0), /access denied/);
 console.log("PASS: NV40 DMA inclusive limits, linear/paged mappings, permissions, PCI DMA and CACHE1 descriptor load");
