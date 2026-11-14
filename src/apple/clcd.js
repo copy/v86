@@ -14,6 +14,8 @@ export class AppleCLCD
         this.scanout_bytes = null;
         this.translate = address => address;
         this.shown = new Uint32Array(N90_VIDEO.width * N90_VIDEO.height);
+        this.blank = false;
+        this.next_blank_scan = 0;
         this.regs = new Uint32Array(0x7000 / 4);
         this.color = new Uint32Array(0x2000 / 4);
         this.dsi = new Uint32Array(0x1000 / 4);
@@ -54,6 +56,8 @@ export class AppleCLCD
         this.color[0x60 >>> 2] = (N90_VIDEO.width - 1) << 16 | (N90_VIDEO.height - 1);
         this.ulps = 0;
         this.panel_on = true;
+        this.blank = false;
+        this.next_blank_scan = 0;
         this.command = null;
         this.commands = [];
         // iBoot leaves the clock lane and all four N90 data lanes enabled.
@@ -165,7 +169,9 @@ export class AppleCLCD
                 for(const [offset, value] of command[4]) this.regs[offset >>> 2] = value;
                 this.regs[0x1048 >>> 2] = command[0];
                 this.regs[0x102C >>> 2] |= 0x100;
-                this.invalidate();
+                // The next scan compares the selected surface with shown.
+                // A tag or buffer flip does not change the color transform;
+                // reserve full recoloring for backlight/panel state changes.
             }
             this.regs[0x102C >>> 2] |= 1;
             this.update_irq();
@@ -208,6 +214,7 @@ export class AppleCLCD
             this.cpu.write_blob_physical(bytes.subarray(at, at + length), physical);
             at += length;
         }
+        this.next_blank_scan = 0;
     }
 
     surface_pages(base, length)
@@ -242,9 +249,9 @@ export class AppleCLCD
         return new Uint32Array(bytes.buffer, bytes.byteOffset, this.shown.length);
     }
 
-    render()
+    render(now = performance.now())
     {
-        if(!this.panel_on)
+        if(!this.panel_on || !this.backlight)
         {
             if(!this.dirty) return;
             this.rgba.fill(0);
@@ -253,13 +260,18 @@ export class AppleCLCD
             this.update_display();
             return;
         }
+        // A black boot surface has nothing to animate. Probe it at 10 Hz
+        // until pixels appear; real VBL/interrupts stay at 60 Hz. Explicit
+        // GPU posts and color changes request a scan immediately.
+        if(this.blank && !this.dirty && now < this.next_blank_scan) return;
         const base = this.regs[0x4044 >>> 2];
         const words = this.surface_words(base);
         if(!words) return;
-        let changed = this.dirty;
+        let changed = this.dirty, any = 0;
         for(let i = 0; i < words.length; i++)
         {
             const p = words[i];
+            any |= p;
             if(!this.dirty && p === this.shown[i]) continue;
             changed = true;
             this.shown[i] = p;
@@ -268,6 +280,8 @@ export class AppleCLCD
             this.rgba[i * 4 + 2] = (p & 255) * this.backlight / 2047;
             this.rgba[i * 4 + 3] = 255;
         }
+        this.blank = !(any & 0xFFFFFF);
+        this.next_blank_scan = now + 100;
         this.dirty = false;
         if(changed) this.update_display();
     }
