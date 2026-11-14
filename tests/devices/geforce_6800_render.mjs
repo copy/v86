@@ -457,6 +457,22 @@ try
             method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
             return [...vram.subarray(0x10000,0x10004)];
         };
+        const savedAlphaProgram=vram.slice(0x9000,0x9040);
+        [385916544,480102417,116736,116736,20987522,480102406,116736,116736,
+            ...Array(4).fill(0x3F800000),37756545,480102660,116992,116736].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        for(const [at,value]of [[0x208,0x144],[0x304,1],[0x308,0x204],[0x30C,2],[0x310,1],
+            [0x314,0x10051005],[0x318,0x10061006],[0x320,0x10001],[0x1A08,0x30303]])method(at,value);
+        for(const alpha of [0,1,2,3,128,255])
+        {
+            for(let at=0x10000;at<0x10100;at+=4)vram.set([10,20,30,255],at);
+            vram.set([90,60,30,alpha],0x20000);
+            const pixel=await gammaDraw();
+            const expected=alpha<=2?[10,20,30]:[90,60,30].map((value,i)=>Math.round(value*alpha/255+[10,20,30][i]*(1-alpha/255)));
+            expected.forEach((value,i)=>assert(Math.abs(pixel[i]-value)<=1,"native half TEX/MUL alpha test/blend into XRGB at alpha "+alpha+": "+pixel));
+        }
+        method(0x208,0x148);method(0x304,0);method(0x310,0);method(0x1A08,0x730303);
+        vram.set(savedAlphaProgram,0x9000);vram.set([128,64,32,200],0x20000);
+        console.log("PASS: native half TEX/MUL alpha cutouts and blending preserve XRGB background");
         const gammaPixel=await gammaDraw();
         [55,13,4,200].forEach((value,i)=>assert(Math.abs(gammaPixel[i]-value)<=1,"sRGB conversion preserves alpha: "+gammaPixel));
         method(0x1A18,2<<16|2);method(0x1840,8);method(0x1A14,0x02020000);

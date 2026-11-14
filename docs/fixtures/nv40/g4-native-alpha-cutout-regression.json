@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-14",
+  "trigger": "Native 03 GT4 shows a large black region near a butterfly. Draw 146 uses half TEX/MOV/MUL, alpha GREATER 2/255 and SRC_ALPHA blending; decoded butterfly texture contains transparent texels.",
+  "regression": "Hand-built matching half TEX/MUL operations with literal white modulation preserve an XRGB background at alpha 0/1/2 and blend alpha 3/128/255 correctly. Full real GPU suite passed.",
+  "isolatedNativeReplay": {
+    "source": "build/nv40-xp-mark03-alpha-capture/draw-captures.jsonl, ordinal 146",
+    "behavior": "Replay the original captured VP/FP, constants, vertices and decoded texture over a known background, with depth disabled for isolation.",
+    "changedPixels": 5601,
+    "blackPixels": 0,
+    "gpuFailures": 0,
+    "pgraphFaults": 0
+  },
+  "conclusion": "The isolated butterfly draw itself preserves transparent background; the full native black region remains unresolved and is not claimed fixed by this regression. Other draw/order/attachment paths still require investigation.",
+  "logs": {
+    "build/nv40-native-alpha-cutout-gpu.log": {
+      "bytes": 4963,
+      "sha256": "37ba9adb1d593b3f738499f4479f311562c9824447c0c740a0ab98836356dc4d"
+    },
+    "build/nv40-native-alpha-replay.log": {
+      "bytes": 187,
+      "sha256": "efa34ad5128b4eca972f42a1a7645df9317c253dbcf8d98d447d47ebea663f48"
+    },
+    "build/nv40-native-alpha-draw146.png": {
+      "bytes": 23848,
+      "sha256": "80cf14e89fd4a7af6d4e791471fd7a2b1a930764489f98231dcde236d410fea3"
+    }
+  }
+}

@@ -1888,3 +1888,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   四像素点的方位/覆盖、逐点尺寸覆盖常量、非法 R-mode 拒绝及
   完整 GPU/Closure 通过，见 `g4-native-point-sprites.json`。
   其他坐标替换/R-mode 组合明确拒绝，原生复跑继续。
+
+- G4 GT4 黑色区域调查：捕获的蝴蝶纹理有透明 alpha，驱动启用
+  GREATER 2/255 和 SRC_ALPHA 混合。对应半精度 TEX/MUL 的
+  XRGB GPU 回归正确拒绝 alpha 0/1/2、混合 3/128/255；将原始
+  VP/FP/常量/纹理单独重放得到 5601 个蝴蝶像素、零黑色像素。
+  完整 GT4 黑色区域仍未定位，不能据此称为修复，见
+  `g4-native-alpha-cutout-regression.json`。
