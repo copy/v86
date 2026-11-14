@@ -58,7 +58,12 @@ console.log("PASS: NV40 PGRAPH contexts, precise/atomic DMA notifiers, faults, I
 device.registers.set(0x400720,1);device.registers.set(0x400108,0);
 word(0x4200,0x4097);method(0,0x4200,0x1E9C,5);
 method(0,0x4200,0xB80,0x11111111);method(0,0x4200,0xB84,0x22222222);
+for(let unit=0;unit<16;unit++)method(0,0x4200,0xB00+4*unit,0x7DC0);
+for(const value of [0x20,0x100000,5<<15,7<<15])
+    assert.throws(()=>graph.engine3d.method(graph.object(0,0x4200),0xB3C,value),/filter optimization/);
+assert.equal(graph.object(0,0x4200).methods.get(0xB3C),0x7DC0,"invalid filter hints preserve the previous unit state");
 const curieSaved=graph.get_state();graph=new NVGraph(device);graph.set_state(curieSaved);
+for(let unit=0;unit<16;unit++)assert.equal(graph.object(0,0x4200).methods.get(0xB00+4*unit),0x7DC0,"all sixteen native filter hints survive snapshots");
 method(0,0x4200,0xB88,0x33333333);method(0,0x4200,0xB8C,0x44444444);
 method(0,0x4200,0xB90,0x55555555);
 assert.deepEqual([...graph.engine3d.vertex_program(graph.object(0,0x4200),5,2)],

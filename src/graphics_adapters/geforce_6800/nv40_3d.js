@@ -22,7 +22,7 @@ const STATE_RANGES = [
     [0xA00, 0xA04],
     [0xA0C, 0xA0C],
     [0xA1C, 0xA3C],
-    [0xA60, 0xB0C],
+    [0xA60, 0xB3C],
     [0xB40, 0xB5C],
     [0xB80, 0xBFC],
     [0x1428, 0x1430],
@@ -170,6 +170,11 @@ export class NV40_3D
         }
         if(at===0x1D94) {this.state.clear(o,value);return true;}
         if(!STATE_RANGES.some(([first, last]) => at >= first && at <= last) && !(at >= 0x1B00 && at <= 0x1BFC)) return false;
+        // Curie exposes sixteen filter-optimization words (Rankine has four).
+        // Keep their checked state; the host sampler supplies its own filter
+        // kernel rather than reproducing NV40's physical sampling optimizer.
+        if(at >= 0xB00 && at <= 0xB3C && (value & ~0x000FFFDF || (value >>> 15 & 7) > 4))
+            throw new RangeError("NV40 invalid texture filter optimization");
         if(at === 0x1D6C && (value & ~0x0F000FF0 || (value >>> 24) > 4)) throw new RangeError("NV40 invalid fence offset");
         if([0x1E9C, 0x1EA0, 0x1EFC].includes(at) && value >= 0x220) throw new RangeError("NV40 invalid vertex program address");
         if(at === 0x1E9C) o.methods.set(VP_WORD, value);
