@@ -34,11 +34,11 @@ still store values while implementation continues.
 | --- | --- |
 | Bus and firmware | NV40 is exposed on PCI with a repository-built SeaVGABIOS/NV ROM. XP 93.71 and Win98 81.98 initialize in PCI mode; AGP/GART, a second CRT and vendor option-ROM behavior are not validated. |
 | Host execution and snapshots | CPU GDI and checked DMA operate on guest VRAM. 3D is translated to D9WG/WebGPU, with GPU results read back before the guest resumes dependent FIFO work or saves a snapshot. This is more expensive than hardware scanout and does not model NV40 pipeline timing. |
-| Texture states | Depth comparison is single-level. FP32 textures support nearest sampling; FP32 linear filtering, anisotropy, signed formats, partial-channel gamma masks and compressed volume textures remain unconnected. |
+| Texture states | Depth comparison is single-level. FP32 textures support nearest sampling. Trilinear filterable 1D/2D/cube textures support host anisotropy from 2x to 16x; other anisotropic filter combinations, depth/volume anisotropy, FP32 linear filtering, signed formats, partial-channel gamma masks and compressed volume textures remain unconnected. Host anisotropic kernels are not an exact NV40 reconstruction. |
 | Render state | Two-sided stencil currently requires equal reference/read/write masks. Mixed RGB constant-color and constant-alpha factors need equal constant components. Independent MRT blending, depth bounds, polygon line/point mode and the other explicitly rejected raster states remain unconnected. |
 | Formats and outputs | FP16 attachments and FP32 fragment exports are tested. Unblended draws/readback support two RGBA32F or four R32F attachments within a 32-byte host attachment budget; FP32 blending and floating-point clears remain unconnected. TEX8/TEX9 routing uses the shared executor's twelve-output budget. |
 | AA GDI fonts | Packed I4/I8 uploads span rows correctly. The tested software DIB and NVIDIA INDEX path have different AA tone curves; non-AA RGB and AA coverage-rank comparisons pass. Exact AA RGB differences remain recorded in the [font fixture](fixtures/nv40/g2-xp-9371-aa-packed-index.json). |
-| Acceptance | DxDiag 7/8/9 passes in XP and Win98. 3DMark99 IQ still differs from the proxy reference, 3DMark2000 uses an unresolved high fence selector, and later benchmark/performance gates remain open. |
+| Acceptance | DxDiag 7/8/9 passes in XP and Win98. Fresh 3DMark99 IQ comparisons and 3DMark2000 completion remain pending. The primary-head display semaphore is connected and XP 3DMark03 has entered GT1; complete later benchmark/performance gates remain open. |
 
 The [implementation plan](geforce-6800-plan.md) records individual changes
 and native fixtures; these limits are not a claim of full NV40 compatibility.

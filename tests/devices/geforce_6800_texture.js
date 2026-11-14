@@ -36,6 +36,17 @@ for(const [code,bpp,format]of [[16,4,75],[18,2,80]])
     assert.deepEqual([...texture.read(surface)],Array.from({length:4*bpp},(_,i)=>i+17),"depth/stencil bits remain intact before comparison");
     depth.methods.set(0x1A04,0x22021|code<<8);assert.throws(()=>texture.describe(depth,0),/depth comparison mip/);
 }
+const anisotropic={methods:new Map(o.methods)};anisotropic.methods.set(0x1A14,0x02060000);
+for(const [code,expected]of [1,2,4,6,8,10,12,16].entries())
+{
+    anisotropic.methods.set(0x1A0C,0x80000000|code<<4);
+    assert.equal(texture.describe(anisotropic,0).anisotropy,expected,"native anisotropy encoding "+code);
+}
+for(const filter of [0x01060000,0x02050000,0x02020000])
+{
+    anisotropic.methods.set(0x1A14,filter);assert.throws(()=>texture.describe(anisotropic,0),/anisotropic/);
+}
+console.log("PASS: NV40 1x/2x/4x/6x/8x/10x/12x/16x trilinear anisotropy and incompatible-filter rejection");
 vram.set([0,0,255,255,0,255,0,255,99,98,97,96,255,0,0,255,255,255,255,255],0x1000);
 let t=texture.describe(o,0);assert.deepEqual([...texture.read(t)],[255,0,0,255,0,255,0,255,0,0,255,255,255,255,255,255]);
 vram.set([0x99,0x66,0x33,0xFF],0x1000);

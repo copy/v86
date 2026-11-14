@@ -39,7 +39,6 @@ export class NV40Texture
         const at=0x1A00+unit*32,format=get(o,at+4),size=get(o,at+24),code=format>>>8&31,selector=format&3;
         const dimension=format>>>4&15,width=size>>>16,height=dimension===1?1:size&65535,
             block=BLOCK_BYTES.get(code),bpp=BYTES.get(code)||block,pitch=get(o,0x1840+unit*4)&65535;
-        if(get(o,at+12)&0x70)throw new RangeError("NV40 anisotropic texture is not connected");
         if(!(get(o,at+12)&0x80000000))throw new RangeError("NV40 sampled texture is disabled");
         const cube=!!(format&4),volume=dimension===3;
         const depthCompare=code===16 || code===18;
@@ -67,11 +66,14 @@ export class NV40Texture
         const min=filter>>>16&15,mag=filter>>>24&15;
         if(min<1 || min>6 || mag<1 || mag>2)throw new RangeError("NV40 texture filter");
         const fullFloat=code===27 || code===28;
+        const anisotropy=[1,2,4,6,8,10,12,16][get(o,at+12)>>>4&7];
+        if(anisotropy>1 && (min!==6 || mag!==2 || depthCompare || volume || fullFloat))
+            throw new RangeError("NV40 anisotropic texture needs filterable 1D/2D/cube trilinear sampling");
         if(fullFloat && (mag!==1 || min!==1 && min!==3))throw new RangeError("NV40 FP32 texture filtering is not connected");
         const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
         const lod_min=Math.min(levels-1,minLod),lod_max=Math.min(levels-1,Math.max(minLod,maxLod));
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,normalized,
-            crossbar:get(o,at+16),srgb:gamma===7,wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
+            crossbar:get(o,at+16),srgb:gamma===7,anisotropy,wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:0,lod_min,lod_max,level_count:Math.min(levels,Math.ceil(lod_max)+1),
             d3d:depthCompare?code===16?75:80:fullFloat?116:code===26?113:32,
             upload_bpp:depthCompare?bpp:fullFloat?16:code===26?8:4,depth_compare:depthCompare,

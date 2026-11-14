@@ -352,6 +352,24 @@ try
         method(0x1A18,2<<16|2);method(0x1840,8);method(0x1A14,0x02020000);
         vram.set([0,0,0,200,255,255,255,200,255,255,255,200,0,0,0,200],0x20000);
         assert.deepEqual(await gammaDraw(),[128,128,128,200],"sRGB conversion precedes bilinear filtering");
+        const anisotropyStates=[],originalCommand=engine.backend.command;
+        engine.backend.command=function(op,fields){
+            if(op===OP.SET_SAMPLER_STATE && fields.state===10 && fields.sampler===0)anisotropyStates.push(fields.value);
+            return originalCommand.call(this,op,fields);
+        };
+        try
+        {
+            method(0x1A14,0x02060000);
+            for(let code=1;code<8;code++)
+            {
+                method(0x1A0C,0x80000000|code<<4);
+                assert.deepEqual(await gammaDraw(),[128,128,128,200],"native trilinear anisotropy retains filtered sRGB/alpha: "+code);
+            }
+            assert.deepEqual(anisotropyStates,[2,4,6,8,10,12,16],"all native anisotropy levels reach the shared GPU sampler");
+        }
+        finally {engine.backend.command=originalCommand;method(0x1A0C,0x80000000);}
+        console.log("PASS: real WebGPU native trilinear anisotropy from 2x to 16x and ordinary-sampler restore");
+
         method(0x1A08,0x30303);
         console.log("PASS: real WebGPU native RGB sRGB conversion, preserved alpha and filtering in linear space");
         method(0x1A04,0x12519);method(0x1A18,2<<16);method(0x1840,8);method(0x1A08,0x403);method(0x1A14,0x01010000);

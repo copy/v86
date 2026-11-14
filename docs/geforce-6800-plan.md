@@ -1510,3 +1510,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   扫描/纹理复制不是单一主导热点。调试构建仍有栈追踪成本；此调查
   不代替 release 构建的 06 性能门禁，等待根因继续调查。见
   `g6-win98-bump-cpu-profile.json`。
+
+- G4 各向异性过滤第一部分：按 Mesa/Envy 的原生枚举映射 2/4/6/8/10/12/16×，
+  通过既有 MAXANISOTROPY sampler 状态接通三线性、可过滤的 1D/2D/cube
+  纹理；不强改客体的 min/mag/mip 过滤，其他组合及深度/volume 继续明确
+  拒绝。CPU 回归检查全部枚举与不兼容组合，真实 GPU 验证每个倍率传入
+  sampler、sRGB/alpha 过滤值和恢复普通状态。完整 GPU 回归与 Closure
+  构建通过；宿主采样核仍是硬件精度偏差，完整参考帧门禁继续后续验证。
