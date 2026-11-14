@@ -2,7 +2,7 @@
 // Same endpoint rounding as the original guest adapter, outside ARM emulation.
 export function pvrtc_bytes(w, h, two)
 {
-    if(!w || !h || w > 4096 || h > 4096 || w & w - 1 || h & h - 1) return 0;
+    if(!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1 || w > 4096 || h > 4096 || w & w - 1 || h & h - 1) return 0;
     return Math.max(w, two ? 16 : 8) * Math.max(h, 8) / (two ? 4 : 2);
 }
 export function decode_pvrtc(w, h, data, two, alpha)

@@ -11,7 +11,7 @@ for(const [w, h, two, expected] of [[8, 8, false, 0xcd1aeb1b], [16, 32, false, 0
     const rgb = decode_pvrtc(w, h, data, two, false);
     for(let i = 3; i < rgb.length; i += 4) assert.equal(rgb[i], 255);
 }
-assert.equal(pvrtc_bytes(15, 4, true), 0);
+for(const w of [0, -2147483648, 15, 1.5, NaN, 8192]) assert.equal(pvrtc_bytes(w, 4, true), 0);
 assert.throws(() => decode_pvrtc(8, 8, new Uint8Array(2), false, true));
 console.log("PASS: host PVRTC matches reference hashes, alpha, rectangular wrapping and small mip levels");
 const { GLESHost } = await import("../../src/gles/gles_host.js");
