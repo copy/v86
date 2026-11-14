@@ -141,6 +141,14 @@ try
         method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
         method(0x1808,0);await engine.backend.wait();
         assert.equal(view.getUint16(0x10000,true),6<<11|25<<5|19,"RGB565 target stores red in the high bits, including host conversion/readback");
+        for(const format of [0x141,0x142])
+        {
+            method(0x208,format);
+            method(0x1808,6);for(const word of new Uint32Array(Float32Array.of(0,0,0,16,16,0).buffer))method(0x1818,word);
+            method(0x1808,0);await engine.backend.wait();
+            assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+            assert.equal(view.getUint16(0x10000,true)&0x7FFF,6<<10|12<<5|19,"native RGB555 target preserves RGB through shared host conversion");
+        }
         view.setUint32(0x9000,0x01001E01,true);method(0x1D60,64);
         new Float32Array(vram.buffer,0x9010,4).set([-2,.25,8,1]);
         for(const [format,pitch,expected]of [[0x14C,128,[-2,.25,8,1]],[0x14D,32,[-2]]])

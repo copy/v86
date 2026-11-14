@@ -1,0 +1,24 @@
+{
+  "date": "2026-11-14",
+  "trigger": "Native Win98 81.98 DirectDraw blit-format matrix used 3D-assisted RGB555 destination surfaces and exposed the missing D3DFMT_X1R5G5B5 target connection.",
+  "behavior": "Connect existing native surface format codes 1/2 (RGB555) to the shared D9WG target/upload/readback path. Preserve RGB at 5 bits per channel; padding bit is not used for color acceptance.",
+  "tests": {
+    "realGPU": "both native codes return R5/G5/B5=(6,12,19) from (.2,.4,.6); complete GPU suite passes",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "nativeRerun": "same matrix with connected RGB555 is running; earlier return codes from format conversions remain driver observations, not an all-pass assertion",
+  "logs": {
+    "build/nv40-rgb555-gpu.log": {
+      "bytes": 4513,
+      "sha256": "18aaaa6a81194d5069f516820d858e525a974865e290570526ec65338d2882a9"
+    },
+    "build/nv40-rgb555-closure.log": {
+      "bytes": 3020,
+      "sha256": "4e71c7bd7e46947fd2fca3badcb191779db51a5ab1a42b3f9b9f963ce8c05b81"
+    },
+    "build/nv40-win98-blt-matrix/NVBLT.TXT": {
+      "bytes": 3461,
+      "sha256": "0fc54b30b31c0779504532734a9280fd4cbc3730482ebc4aaea0c5994dbc9226"
+    }
+  }
+}

@@ -1801,3 +1801,9 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   overlay 不再被运行结束状态覆盖。真实 Win98 成套输出已逐项
   校验，见 `g6-checkpoint-disk-bundles.json`；旧单独检查点不追溯
   认定一致，之前原生错误也不据此一概归因。
+
+- G2/G3 RGB555 辅助目标：原生 81.98 Blit 格式矩阵暴露
+  已有 surface code 1/2 未接到渲染器目标白名单。现接通既有
+  D9WG X1R5G5B5 上传/回读，真实 GPU 验证两个编码的 R/G/B
+  5-bit 值和完整回归，Closure 通过，见 `g2-native-rgb555-target.json`。
+  同一原生矩阵继续复跑；跨格式 API 拒绝不以此一概称为已解决。
