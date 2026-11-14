@@ -213,10 +213,11 @@ export class NV40Texture
                 if(select===3)throw new RangeError("NV40 invalid texture component selection");
                 // Mesa nv30_format routes the A16 scalar through storage
                 // component 1 (G), before the ordinary A/R/G/B crossbar.
-                // A16L16 uses the A8L8 storage lanes: low L in B, high A in A.
+                // A16 exposes its scalar in G/A and one in B/R. A8L8 and
+                // A16L16 repeat low L in B/R and high A in G/A.
                 // Expand UNORM16 RGBA without quantizing either lane to 8 bits.
-                const value=texture.code===20?(component===1?source.getUint16(pixel*2,true):0):
-                    texture.code===21?(component===0 || component===3?source.getUint16(pixel*4+(component===3?2:0),true):0):
+                const value=texture.code===20?(component&1?source.getUint16(pixel*2,true):65535):
+                    texture.code===21?source.getUint16(pixel*4+(component&1?2:0),true):
                         source.getUint16(pixel*8+component*2,true);
                 output.setUint16(pixel*8+channel*2,select===0?0:select===1?(texture.code===26?0x3C00:65535):value,true);
             }
@@ -251,7 +252,7 @@ export class NV40Texture
             else if(texture.code===3)components=[(word&15)*17,(word>>>4&15)*17,(word>>>8&15)*17,(word>>>12)*17];
             else if(texture.code===4)components=[unit5(word&31),unit6(word>>>5&63),unit5(word>>>11),255];
             else if(texture.code===5)components=[word&255,word>>>8&255,word>>>16&255,word>>>24];
-            else components=[word&255,0,0,word>>>8];
+            else components=[word&255,word>>>8,word&255,word>>>8];
             for(let channel=0;channel<4;channel++)
             {
                 const shift=CROSSBAR_SHIFT[channel],select=texture.crossbar>>>(shift+8)&3,component=3-(texture.crossbar>>>shift&3);

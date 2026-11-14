@@ -1807,3 +1807,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   D9WG X1R5G5B5 上传/回读，真实 GPU 验证两个编码的 R/G/B
   5-bit 值和完整回归，Closure 通过，见 `g2-native-rgb555-target.json`。
   同一原生矩阵继续复跑；跨格式 API 拒绝不以此一概称为已解决。
+
+- G4 packed 通道别名：XP 2000 的原生 A8L8 `0x696C`
+  同时读取低 B/高 G；此前只暴露 B/A，遗漏 G 别名。现 A8L8
+  与 A16L16 的低分量重复到 B/R、高分量到 G/A；A16 的 G/A
+  为标量、B/R 为 1，修正此前合成用例对未使用分量补零的假定。
+  原生生产者、Mesa 路由和相关 Curie/RSX remap 交叉复核，完整
+  GPU/纹理/Closure 通过，见 `g4-packed-texture-lane-aliases.json`。
+  signed 转换及原生 06 图像仍继续验证。

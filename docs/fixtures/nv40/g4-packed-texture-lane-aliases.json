@@ -1,0 +1,36 @@
+{
+  "date": "2026-11-14",
+  "trigger": "Native XP 2000 A8L8 signed-texture crossbar 0x696C reads low B and high G. Earlier decoding exposed only B/A, producing zero for that G alias.",
+  "behavior": {
+    "A8L8": "B/R repeat the low byte, G/A repeat the high byte",
+    "A16": "G/A contain the scalar, B/R are constant one",
+    "A16L16": "B/R repeat the low 16 bits, G/A repeat the high 16 bits"
+  },
+  "evidence": [
+    "Native 0x696C producer selects both packed lanes through B/G.",
+    "Mesa nv30_format routes A8L8 through B/A and A16 through G.",
+    "Related Curie/RSX packed-format remapping in RPCS3 repeats both lanes and preserves A16 constant-one lanes."
+  ],
+  "reference": "https://github.com/RPCS3/rpcs3/blob/master/rpcs3/Emu/RSX/GL/GLTexture.cpp",
+  "tests": [
+    "A8L8 native B/G output gives (64,128,255,255).",
+    "A16 native remap yields (1,scalar,1,1), correcting the earlier synthetic zero-lane assumption.",
+    "A16L16 both aliases preserve exact UNORM16 bits.",
+    "Complete GPU, texture and Closure tests pass."
+  ],
+  "limitation": "Native 06 frames and signed interpretation still require reruns; related RSX implementation is corroborating evidence, not direct NV40 board capture.",
+  "logs": {
+    "build/nv40-packed-lane-alias-unit.log": {
+      "bytes": 641,
+      "sha256": "69859b2609c5d67080c9fca6c3bf1ebcc52e73ff79125d12b1a751c67102e446"
+    },
+    "build/nv40-packed-lane-alias-gpu.log": {
+      "bytes": 4513,
+      "sha256": "18aaaa6a81194d5069f516820d858e525a974865e290570526ec65338d2882a9"
+    },
+    "build/nv40-packed-lane-alias-closure.log": {
+      "bytes": 3020,
+      "sha256": "4e71c7bd7e46947fd2fca3badcb191779db51a5ab1a42b3f9b9f963ce8c05b81"
+    }
+  }
+}

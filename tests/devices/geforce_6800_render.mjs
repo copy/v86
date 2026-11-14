@@ -610,7 +610,7 @@ try
         method(0x1808,6);
         for(const word of new Uint32Array(Float32Array.of(0,0,.5,.5,0,16,.5,.5,16,0,.5,.5).buffer))method(0x1818,word);
         method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
-        assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0,0x3800,0,0x3C00],"native A16 green channel bilinear sampling retains UNORM precision");
+        assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0x3C00,0x3800,0x3C00,0x3C00],"native A16 green channel bilinear sampling retains UNORM precision and constant lanes");
         console.log("PASS: real WebGPU native A16 crossbar and bilinear filtering through UNORM16 upload");
         method(0x1A04,0x13529);method(0x1A10,0x694E);method(0x1840,8);
         new Uint16Array(vram.buffer,0x20000,4).set([0,65535,65535,0]);

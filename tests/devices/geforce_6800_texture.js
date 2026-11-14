@@ -32,7 +32,7 @@ const scalar16={methods:new Map([[0x184,0x10],[0x1A00,0x9000],[0x1A04,0x13429],[
 new Uint16Array(vram.buffer,0x9000,5).set([0,1,0xDEAD,32768,65535]);
 const a16=texture.describe(scalar16,0);assert.equal(a16.bpp,2);assert.equal(a16.d3d,36);assert.equal(a16.upload_bpp,8);
 assert.deepEqual([...new Uint16Array(texture.read(a16).buffer)],
-    [0,0,0,65535,0,1,0,65535,0,32768,0,65535,0,65535,0,65535],"native A16 crossbar retains every UNORM16 bit and skips row padding");
+    [65535,0,65535,65535,65535,1,65535,65535,65535,32768,65535,65535,65535,65535,65535,65535],"native A16 crossbar retains every UNORM16 bit, constant lanes and row padding");
 scalar16.methods.set(0x1A10,0xAAAA);
 assert.deepEqual([...new Uint16Array(texture.read(texture.describe(scalar16,0)).buffer)],
     [0,0,0,0,1,1,1,1,32768,32768,32768,32768,65535,65535,65535,65535],"A16 scalar can feed all four crossbar outputs");
@@ -44,6 +44,10 @@ new Uint16Array(vram.buffer,0x9000,10).set([1,65535,32768,2,0xDEAD,0xBEEF,65534,
 const la16=texture.describe(pair16,0);assert.equal(la16.bpp,4);assert.equal(la16.d3d,36);
 assert.deepEqual([...new Uint16Array(texture.read(la16).buffer)],
     [1,65535,65535,65535,32768,2,65535,65535,65534,0,65535,65535,3,16384,65535,65535],"native A16L16 crossbar separates both 16-bit lanes and row padding");
+pair16.methods.set(0x1A10,0xAA6C);
+assert.deepEqual([...new Uint16Array(texture.read(texture.describe(pair16,0)).buffer).slice(0,8)],
+    [1,65535,1,65535,32768,2,32768,2],"A16L16 exposes both aliases of each packed lane");
+pair16.methods.set(0x1A10,0x694E);
 for(const [at,value]of [[0x1A04,0x1152D],[0x1A18,1<<16|1],[0x1840,4]])pair16.methods.set(at,value);
 for(let face=0;face<6;face++)new Uint16Array(vram.buffer,0x9000+face*128,2).set([face+1,65535-face]);
 assert.deepEqual(texture.images(texture.describe(pair16,0)).map(bytes=>[...new Uint16Array(bytes.buffer)].slice(0,2)),
@@ -95,6 +99,9 @@ o.methods.set(0x1A04,0x12129);o.methods.set(0x1A10,0xA9FC);o.methods.set(0x1840,
 assert.deepEqual([...texture.read(texture.describe(o,0))],[128,128,128,255],"luminance and constant-one component selection");
 o.methods.set(0x1A04,0x12B29);o.methods.set(0x1A10,0xAAFC);o.methods.set(0x1840,2);vram.set([64,128],0x2000);
 assert.deepEqual([...texture.read(texture.describe(o,0))],[64,64,64,128],"A8L8 alpha occupies storage component 3");
+o.methods.set(0x1A10,0x696C);
+assert.deepEqual([...texture.read(texture.describe(o,0))],[64,128,255,255],"native A8L8 RG remap exposes the high-byte G alias");
+o.methods.set(0x1A10,0xAAFC);
 o.methods.set(0x1A0C,0);assert.throws(()=>texture.describe(o,0),/disabled/);o.methods.set(0x1A0C,0x80000000);
 o.methods.set(0x1A04,0x22B29);assert.throws(()=>texture.describe(o,0),/mip count/);
 o.methods.set(0x1A04,0x12B29);o.methods.set(0x1A14,0x11010000);assert.throws(()=>texture.describe(o,0),/signed/);
