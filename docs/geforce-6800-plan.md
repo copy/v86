@@ -1786,3 +1786,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   六面 cube、真实 GPU 双线性和完整 GPU/Closure 通过，见
   `g4-native-a16l16-texture.json`；新的测试前状态复跑继续，
   缺失格式陷阱之后的 IFC 表面错误不单独称为已解决。
+
+- G6 BC crossbar 分配收紧：03 GT4 profile 的纹理解码与 BC
+  blocks 各占约 11%/10% self 采样。已解压的 BC1/2/3 texel
+  不再逐像素分配 subarray 或读取未用 packed word，四个 crossbar
+  selector 每图预取。120 个随机/边缘尺寸/零一常量组合与旧实现
+  字节完全相同，纹理、完整 GPU 与 Closure 通过，见
+  `g6-bc-crossbar-allocation.json`；合成耗时不作为原生 FPS。

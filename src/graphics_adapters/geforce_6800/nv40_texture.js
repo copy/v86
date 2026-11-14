@@ -222,14 +222,31 @@ export class NV40Texture
             }
             return result;
         }
-        const source=texture.block?this.blocks(texture,encoded):this.storage(texture,encoded),result=new Uint8Array(texture.width*texture.height*(texture.depth||1)*4),view=new DataView(source.buffer);
+        if(texture.block)
+        {
+            const source=this.blocks(texture,encoded),result=new Uint8Array(source.length);
+            const channels=CROSSBAR_SHIFT.map(shift=>{
+                const select=texture.crossbar>>>(shift+8)&3;
+                if(select===3)throw new RangeError("NV40 invalid texture component selection");
+                return select===2?3-(texture.crossbar>>>shift&3):select===1?-1:-2;
+            });
+            // BC decoding already produced four storage bytes per texel.
+            // Hoist the immutable crossbar and avoid a view allocation and
+            // unused integer-word fetch for every decoded texel.
+            for(let at=0;at<source.length;at+=4)for(let channel=0;channel<4;channel++)
+            {
+                const component=channels[channel];
+                result[at+channel]=component>=0?source[at+component]:component===-1?255:0;
+            }
+            return result;
+        }
+        const source=this.storage(texture,encoded),result=new Uint8Array(texture.width*texture.height*(texture.depth||1)*4),view=new DataView(source.buffer);
         const unit5=value=>Math.round(value*255/31),unit6=value=>Math.round(value*255/63);
         for(let pixel=0;pixel<texture.width*texture.height*(texture.depth||1);pixel++)
         {
-            const at=pixel*(texture.block?4:texture.bpp),word=texture.bpp===1?source[at]:texture.bpp===2?view.getUint16(at,true):view.getUint32(at,true);
+            const at=pixel*texture.bpp,word=texture.bpp===1?source[at]:texture.bpp===2?view.getUint16(at,true):view.getUint32(at,true);
             let components;
-            if(texture.block)components=source.subarray(at,at+4);
-            else if(texture.code===1)components=[word,0,0,255];
+            if(texture.code===1)components=[word,0,0,255];
             else if(texture.code===2)components=[unit5(word&31),unit5(word>>>5&31),unit5(word>>>10&31),word&0x8000?255:0];
             else if(texture.code===3)components=[(word&15)*17,(word>>>4&15)*17,(word>>>8&15)*17,(word>>>12)*17];
             else if(texture.code===4)components=[unit5(word&31),unit6(word>>>5&63),unit5(word>>>11),255];
