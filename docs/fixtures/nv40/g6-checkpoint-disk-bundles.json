@@ -28,5 +28,30 @@
     "node --check tests/devices/geforce_guest.mjs",
     "Real Win98 control checkpoint wrote all three matching components and a complete manifest; all component sizes and streamed SHA-256 verified."
   ],
-  "limitation": "Earlier standalone checkpoint/overlay combinations are not retroactively validated. Existing native failures are not attributed to this mismatch without reproduction."
+  "limitation": "Earlier standalone checkpoint/overlay combinations are not retroactively validated. Existing native failures are not attributed to this mismatch without reproduction.",
+  "timedCheckpointVerification": {
+    "status": "pass",
+    "saveAtSeconds": 60,
+    "continuedRunSeconds": 150,
+    "workAfterCheckpoint": "Original DirectDraw Blit matrix launched after approximately 75 seconds and completed END. Final probe artifacts are later than the saved checkpoint.",
+    "manifest": "build/nv40-win98-blt-matrix-rgb555.state.bundle.json",
+    "components": {
+      "state": {
+        "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-win98-blt-matrix-rgb555.state",
+        "bytes": 573244064,
+        "sha256": "501599bad1888d67d624c160c8c9968065d9e55c97a0946f8f43b2f0ab88621f"
+      },
+      "osOverlay": {
+        "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-win98-blt-matrix-rgb555-overlay.bin",
+        "bytes": 198794712,
+        "sha256": "4b6173772612f4c010bf69af78f1af76401247ba8d18087f2187db3bca59ad69"
+      },
+      "gameOverlay": {
+        "file": "/Users/renruisi/Desktop/Code/v86/build/nv40-win98-blt-matrix-rgb555-game-overlay.bin",
+        "bytes": 3128,
+        "sha256": "1268c2bf315cf901e6b346ae5bc02936031cf11ae56c0cc83298f5c2fafb3914"
+      }
+    },
+    "verification": "All three component sizes and streamed SHA-256 still match the timed manifest after the continued native run."
+  }
 }

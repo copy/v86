@@ -6,7 +6,20 @@
     "realGPU": "both native codes return R5/G5/B5=(6,12,19) from (.2,.4,.6); complete GPU suite passes",
     "Closure": "0 errors, 0 warnings"
   },
-  "nativeRerun": "same matrix with connected RGB555 is running; earlier return codes from format conversions remain driver observations, not an all-pass assertion",
+  "nativeRerun": {
+    "status": "pass",
+    "directory": "build/nv40-win98-blt-matrix-rgb555",
+    "gpu": {
+      "draws": 9,
+      "failures": 0
+    },
+    "pgraphFaults": 0,
+    "probe": "NVBLT.TXT completed END; RGB555 video target copies no longer fault. Original API rejection of unsupported system-memory cross-format copies remains.",
+    "log": {
+      "bytes": 3461,
+      "sha256": "0fc54b30b31c0779504532734a9280fd4cbc3730482ebc4aaea0c5994dbc9226"
+    }
+  },
   "logs": {
     "build/nv40-rgb555-gpu.log": {
       "bytes": 4513,
