@@ -395,28 +395,54 @@ export class NV2D
         if(!width || !height || extent > this.device.vram_size || format < 1 || format > 9 ||
             ![1,2].includes(fmt>>>16&255) || fmt>>>24>1 ||
             (format === 5 || format === 6) && width & 1) throw new RangeError("NV SIFM invalid image");
-        const bytes = this.device.dma.read(this.dma(o, 0x184), m(o, 0x408), extent);
         const [x, y] = xy(m(o, 0x310)), [w, h] = wh(m(o, 0x314));
         const [cx, cy] = xy(m(o, 0x308)), [cw, ch] = wh(m(o, 0x30C));
         const rect = this.bounds(x, y, w, h, [cx, cy, cx + cw, cy + ch]);
         const dst = this.surface(o, 0x198), [u0, v0] = xy(m(o, 0x40C));
         const du = (m(o, 0x318) | 0) / 1048576, dv = (m(o, 0x31C) | 0) / 1048576;
+        if(!rect[2] || !rect[3])return;
+        const center=(fmt>>>16&255)===1,linear=!!(fmt>>>24&1);
+        const coordinate=(point,start,origin,step)=>origin/16+(point-start+(center?0.5:0))*step-(center?0.5:0);
+        const taps=(first,count,start,origin,step,limit,pairs=false)=>{
+            const indices=new Set(),add=value=>{
+                value=Math.max(0,Math.min(limit-1,value));
+                if(pairs){indices.add(value&~1);indices.add(value|1);}else indices.add(value);
+            };
+            for(let i=0;i<count;i++)
+            {
+                const value=Math.floor(coordinate(first+i,start,origin,step)+(linear?0:0.5));
+                add(value);if(linear)add(value+1);
+            }
+            return [...indices].sort((a,b)=>a-b);
+        };
+        const xs=taps(rect[0],rect[2],x,u0,du,width,format===5 || format===6),ys=taps(rect[1],rect[3],y,v0,dv,height);
+        const sx=xs[0],ex=xs[xs.length-1],sy=ys[0],ey=ys[ys.length-1],runs=[];
+        for(const col of xs)
+        {
+            const last=runs[runs.length-1];
+            if(last && last[1]+1===col)last[1]=col;else runs.push([col,col]);
+        }
+        const sampledWidth=ex-sx+1,sampledHeight=ey-sy+1,sampledPitch=sampledWidth*bpp;
+        const bytes=new Uint8Array(sampledPitch*sampledHeight),dma=this.dma(o,0x184),offset=m(o,0x408);
+        // SIZE clamps sampling; it is not an instruction to read every texel.
+        // Preload every used row before any destination write, preserving
+        // overlap and atomic faults without touching unmapped unused pages.
+        for(const row of ys)for(const [first,last]of runs)
+            bytes.set(this.device.dma.read(dma,offset+row*pitch+first*bpp,(last-first+1)*bpp),(row-sy)*sampledPitch+(first-sx)*bpp);
         const operation = m(o, 0x2FC); o.methods.set(0x2FC, m(o, 0x304));
         try
         {
             this.render(o, dst, rect, (px, py) => {
-                const center = (fmt >>> 16 & 255) === 1;
-                const u = u0 / 16 + (px - x + (center ? 0.5 : 0)) * du - (center ? 0.5 : 0);
-                const v = v0 / 16 + (py - y + (center ? 0.5 : 0)) * dv - (center ? 0.5 : 0);
+                const u = coordinate(px,x,u0,du)-sx,v=coordinate(py,y,v0,dv)-sy;
                 let rgba;
                 if(fmt >>> 24 & 1)
                 {
                     const ix = Math.floor(u), iy = Math.floor(v), fx = u - ix, fy = v - iy;
-                    const a = this.sample(bytes, width, height, pitch, format, ix, iy), b = this.sample(bytes, width, height, pitch, format, ix + 1, iy);
-                    const c = this.sample(bytes, width, height, pitch, format, ix, iy + 1), d = this.sample(bytes, width, height, pitch, format, ix + 1, iy + 1);
+                    const a = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, ix, iy), b = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, ix + 1, iy);
+                    const c = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, ix, iy + 1), d = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, ix + 1, iy + 1);
                     rgba = a.map((v, i) => Math.round((v * (1 - fx) + b[i] * fx) * (1 - fy) + (c[i] * (1 - fx) + d[i] * fx) * fy));
                 }
-                else rgba = this.sample(bytes, width, height, pitch, format, Math.floor(u + 0.5), Math.floor(v + 0.5));
+                else rgba = this.sample(bytes, sampledWidth, sampledHeight, sampledPitch, format, Math.floor(u + 0.5), Math.floor(v + 0.5));
                 return rgba;
             }, [0x188, 0x18C, 0x190, 0x194]);
         }

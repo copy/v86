@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-14",
+  "status": "native XP 03 SIFM DMA fault reproduced and fixed in standalone replay; full GT2 rerun pending",
+  "driver": "NVIDIA 93.71",
+  "sourceState": "build/nv40-xp-mark03-gt2-fixed2.state",
+  "method": {
+    "channel": 1,
+    "subc": 7,
+    "instance": 957536,
+    "class_id": "0x3089",
+    "trigger": "0x40C",
+    "value": "0x00080008",
+    "inputSize": "1024x1023",
+    "inputPitch": 1024,
+    "inputFormat": 4,
+    "sourceOffset": 7612480,
+    "outputSize": "256x256"
+  },
+  "oldFailure": {
+    "reason": "NV DMA page access fault",
+    "instance": 338464,
+    "offset": 7612480,
+    "length": 1047552,
+    "write": false,
+    "page": 2089,
+    "pte": 182026240,
+    "adjust": 0,
+    "linear": false,
+    "limit": 268435455
+  },
+  "cause": "The old path read the complete sampling clamp before clipping/sampling. The real copy uses a smaller footprint and the unused tail includes unmapped pages.",
+  "newBehavior": "Preload only the clamped texels selected by the clipped output, including all bilinear taps and complete YUV pairs; collect all source reads before any destination write. Preserve source overlap, sparse/negative steps and checked DMA permissions.",
+  "replay": {
+    "status": "REPLAY_SUCCESS",
+    "firstDestinationPixelBefore": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "expectedSourcePixel": [
+      53,
+      53,
+      53,
+      255
+    ],
+    "firstDestinationPixelAfter": [
+      53,
+      53,
+      53,
+      255
+    ]
+  },
+  "regression": "node tests/devices/geforce_6800_2d.js passes: nearest/bilinear/YUV, large unused clamp, exact sparse source reads, negative steps and late source fault atomicity",
+  "logs": {
+    "build/nv40-xp03-2d-inspection.log": {
+      "sha256": "d4228c6b810454b357f6da1dafc81a567a478eb3e7002b26f08e08c6f4e07d67",
+      "bytes": 3452
+    },
+    "build/nv40-xp03-2d-inspection-fixed.log": {
+      "sha256": "4d81cb62f510773991929b56b22bb9590b522f0b55754bc69d8463171d94a9e2",
+      "bytes": 3359
+    }
+  }
+}

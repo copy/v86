@@ -110,8 +110,29 @@ for(let y=0;y<3;y++)for(let x=0;x<2;x++)assert.equal(view.getUint16(256+y*32+x*2
 scale.methods.set(0x404,1<<16);call(scale,0x40C,0);
 for(let y=0;y<3;y++)assert.equal(view.getUint16(256+y*32,true),0xF800,"zero source pitch repeats the row");
 word(0x1004,0x1006);const beforeShort=vram.slice(256,384);
+call(scale,0x40C,0);assert.deepEqual(vram.subarray(256,384),beforeShort,"unused clamp texels beyond DMA limit are not read");
+word(0x1004,0x1002);
 assert.throws(()=>call(scale,0x40C,0),/limit/);assert.deepEqual(vram.subarray(256,384),beforeShort,"source bounds are checked before any destination writes");
 word(0x1004,0x1FFF);target.methods.set(0x300,10);
+// A large clamp can describe unmapped texels outside the actual copy.
+for(const [at,value]of [[0x300,4],[0x400,1023<<16|1024],[0x404,1<<16|8],
+    [0x30C,2<<16|2],[0x314,2<<16|2],[0x318,0x100000],[0x31C,0x100000]])scale.methods.set(at,value);
+const footprintColors=[0xFF102030,0xFF405060,0xFF708090,0xFFA0B0C0];
+footprintColors.forEach((value,index)=>view.setUint32(0x1000+index*4,value,true));
+word(0x1004,0x100F);call(scale,0x40C,0);
+for(let y=0;y<2;y++)for(let x=0;x<2;x++)assert.equal(view.getUint32(256+y*32+x*4,true),footprintColors[y*2+x]);
+const footprintBefore=vram.slice(256,384);word(0x1004,0x100B);
+assert.throws(()=>call(scale,0x40C,0),/limit/);assert.deepEqual(vram.subarray(256,384),footprintBefore,"late sampled-row fault leaves earlier destination rows unchanged");
+word(0x1004,0x1113);scale.methods.set(0x404,2<<16|64);
+scale.methods.set(0x318,4<<20);scale.methods.set(0x31C,4<<20);
+const sparseOffsets=[0x1000,0x1010,0x1100,0x1110],sourceReads=[],dmaRead=device.dma.read.bind(device.dma);
+sparseOffsets.forEach((at,index)=>view.setUint32(at,footprintColors[index],true));
+device.dma.read=(dma,at,length)=>{if(at>=0x1000)sourceReads.push([at,length]);return dmaRead(dma,at,length);};
+try {call(scale,0x40C,0);}finally {device.dma.read=dmaRead;}
+assert.deepEqual(sourceReads,sparseOffsets.map(at=>[at,4]),"point sampling skips unused columns and rows inside its footprint");
+scale.methods.set(0x318,-(4<<20));call(scale,0x40C,64);
+for(let y=0;y<2;y++)for(let x=0;x<2;x++)assert.equal(view.getUint32(256+y*32+x*4,true),footprintColors[y*2+1-x],"negative source steps preserve reflected sampling");
+word(0x1004,0x1FFF);
 const swz = object(0x5800, 0x309E, [[0x184, 0x100], [0x300, 1 << 24 | 2 << 16 | 1], [0x304, 512]]);
 const upload = object(0x5900, 0x308A, [[0x19C, 0x580], [0x2FC, 3]]);
 engine.render(upload, engine.surface(upload, 0x19C), [0,0,4,2], (x,y) => x + y * 4, [0x18C, 0x190]);
