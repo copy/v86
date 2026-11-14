@@ -34,6 +34,7 @@ pub struct Inst32 {
 
 #[derive(Clone, Copy)]
 pub enum Kind {
+    Nop,
     /// the interpreter's execute (pages::a32_page_helper)
     Helper,
     /// B, BL, B<c>: to `target` (the page's offset, wrapping), when `cond`
@@ -228,6 +229,7 @@ pub enum NeonForm {
 /// (debugging) the kind's name, and a condition's
 pub fn kind_name(kind: &Kind) -> String {
     match kind {
+        Kind::Nop => "nop".into(),
         Kind::Helper => "helper".into(),
         Kind::Branch { cond, .. } => format!("branch/{}", cond),
         Kind::CompareBranch { .. } => "cbz".into(),
@@ -1202,6 +1204,7 @@ fn a32_native(word: u32) -> Option<Kind> {
     if cond == 15 {
         return None;
     }
+    if word & 0x0FFF_FFFF == 0x0320_F000 { return Some(Kind::Nop); }
     let rd = (word >> 12 & 15) as u8;
     if word & 0x0FFF_0FFF == 0x010F_0000 && rd != 15 {
         return Some(Kind::Status { rd, cond });
@@ -1495,6 +1498,9 @@ fn t32_data(op: u32, s: bool, rd: u8, rn: u8, op2: Operand) -> Option<Kind> {
 
 /// T32's native forms (outside IT blocks: the 16-bit forms set flags)
 fn t32_native(word: u32, length: u8) -> Option<Kind> {
+    if length == 2 && word == 0xBF00 || length == 4 && word == 0xF3AF_8000 {
+        return Some(Kind::Nop);
+    }
     if length == 2 {
         let hw = word;
         let r = |at: u32| (hw >> at & 7) as u8;
@@ -2150,6 +2156,7 @@ fn t32_return(word: u32, length: u8) -> Option<Kind> {
 fn t32_native_it(word: u32, length: u8, cond: u8) -> Option<Kind> {
     let mut kind = t32_native(word, length)?;
     match &mut kind {
+        Kind::Nop => {},
         Kind::Data { op, s, cond: c, .. } => {
             if length == 2 && !matches!(*op, CMP | CMN | TST) {
                 *s = false;
@@ -2394,22 +2401,26 @@ impl Emitter<'_> {
         self.b.or_i32();
         self.b.store_aligned_i32(0);
     }
-    /// Push R0-R14's current page-local low half.
+    /// Push X[n]'s low half, an i32 (R0-R14 in memory)
     fn r32(&mut self, n: u8) {
-        self.g(n as usize);
-        self.b.wrap_i64_to_i32();
+        if self.a32_gpr_locals {
+            self.g(n as usize);
+            self.b.wrap_i64_to_i32();
+        } else { self.load32(super::x_address(n as usize)); }
     }
     /// LR := the address after the instruction (T32's with bit 0 set)
     fn link(&mut self, offset: u16, length: u8) {
+        if !self.a32_gpr_locals { self.c32(super::x_address(14) as i32); }
         self.linear(offset as u64 + length as u64);
         self.c64(if self.env.isa == Isa::T32 { 1 } else { 0 });
         self.b.or_i64();
         self.c64(0xFFFF_FFFF);
         self.b.and_i64();
-        self.s(14);
+        if self.a32_gpr_locals { self.s(14); }
+        else { self.b.store_aligned_i64(0); }
     }
 
-    // ---- Native forms: GPRs in locals, NZCV in memory
+    // ---- Q6.2's native forms: the registers and NZCV in memory
 
     /// Push the PC as an operand: A32's instruction + 8, T32's Align(+ 4, 4)
     fn pc_operand(&mut self, offset: u16) {
@@ -2428,9 +2439,11 @@ impl Emitter<'_> {
     }
     /// R[n] := the i32 in local `l`
     fn set_r32(&mut self, n: u8, l: usize) {
+        if !self.a32_gpr_locals { self.c32(super::x_address(n as usize) as i32); }
         self.gi(l);
         self.b.extend_unsigned_i32_to_i64();
-        self.s(n as usize);
+        if self.a32_gpr_locals { self.s(n as usize); }
+        else { self.b.store_aligned_i64(0); }
     }
     /// Push NZCV (memory's)
     fn nzcv(&mut self) { self.load32(state::nzcv as u32); }
@@ -2866,8 +2879,10 @@ impl Emitter<'_> {
             if writeback {
                 self.set_r32(rn, A2);
             }
+            if !self.a32_gpr_locals { self.c32(super::x_address(rt as usize) as i32); }
             self.g(super::T1);
-            self.s(rt as usize);
+            if self.a32_gpr_locals { self.s(rt as usize); }
+            else { self.b.store_aligned_i64(0); }
         }
         else {
             self.operand(rt, offset);
@@ -2941,13 +2956,15 @@ impl Emitter<'_> {
         let mut at = 0;
         for r in (0..15u8).filter(|r| list & 1 << r != 0) {
             if load {
+                if !self.a32_gpr_locals { self.c32(super::x_address(r as usize) as i32); }
                 self.gi(super::HH);
                 if at != 0 {
                     self.c32(at);
                     self.b.add_i32();
                 }
                 self.load_value(2, false, true);
-                self.s(r as usize);
+                if self.a32_gpr_locals { self.s(r as usize); }
+                else { self.b.store_aligned_i64(0); }
             }
             else {
                 self.gi(super::HH);
@@ -3058,7 +3075,7 @@ impl Emitter<'_> {
     /// A helper call: the interpreter's execute of the instruction
     /// (pages::a32_page_helper), a refusal retried in the interpreter
     fn a32_helper(&mut self, word: u32, length: u8, offset: u16) {
-        self.writeback();
+        if self.a32_gpr_locals { self.writeback(); }
         self.c32(word as i32);
         self.linear(offset as u64);
         self.c32(length as i32);
@@ -3069,9 +3086,11 @@ impl Emitter<'_> {
                 &[WasmType::I32],
             ),
         );
-        self.si(super::ST);
-        self.load_registers();
-        self.gi(super::ST);
+        if self.a32_gpr_locals {
+            self.si(super::ST);
+            self.load_registers();
+            self.gi(super::ST);
+        }
         self.retry_if(offset);
     }
 
@@ -3535,13 +3554,15 @@ impl Emitter<'_> {
         self.si(super::HH);
         for (k, r) in [rt, rt2].into_iter().enumerate() {
             if load {
+                if !self.a32_gpr_locals { self.c32(super::x_address(r as usize) as i32); }
                 self.gi(super::HH);
                 if k != 0 {
                     self.c32(4);
                     self.b.add_i32();
                 }
                 self.load_value(2, false, true);
-                self.s(r as usize);
+                if self.a32_gpr_locals { self.s(r as usize); }
+                else { self.b.store_aligned_i64(0); }
             }
             else {
                 self.gi(super::HH);
@@ -3842,7 +3863,7 @@ impl Emitter<'_> {
                 m,
                 cond,
             } => self.when(cond, |e| e.fp_move(kind, double, d, n, m, offset)),
-            Kind::It => {},
+            Kind::It | Kind::Nop => {},
             Kind::Neon { form, q, d, n, m } => self.neon(form, q, d, n, m, offset),
             Kind::Transfer {
                 op,

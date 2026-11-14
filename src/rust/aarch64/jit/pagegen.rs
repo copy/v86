@@ -582,6 +582,8 @@ struct Emitter<'a> {
     levels: Vec<Level>,
     blocks: &'a [Block],
     env: CompileEnv,
+    /// Keep A32 GPRs local when a page has no ordinary helper calls.
+    a32_gpr_locals: bool,
     access: Option<u32>,
     step: StepAbi,
     /// the page's instruction words (helpers take theirs)
@@ -658,6 +660,8 @@ pub fn compile(bytes: &[u8], entries: &[u16], env: CompileEnv, name: String) -> 
         levels: Vec::new(),
         blocks: &blocks,
         env,
+        a32_gpr_locals: env.isa != Isa::A64 && (env.aligned_data || blocks.iter().all(|block|
+            block.insts32.iter().all(|(_, inst)| !matches!(inst.kind, a32::Kind::Helper)))),
         access: None,
         step: StepAbi {
             exit_code: state::a64_page_exit as u32,
@@ -727,9 +731,11 @@ impl Emitter<'_> {
     fn load_registers(&mut self) {
         // AArch32 keeps R0-R14 in locals too; its NZCV remains in memory.
         let a64 = self.env.isa == Isa::A64;
-        for i in 0..if a64 { 32 } else { 15 } {
-            self.load64(x_address(i));
-            self.s(i);
+        if a64 || self.a32_gpr_locals {
+            for i in 0..if a64 { 32 } else { 15 } {
+                self.load64(x_address(i));
+                self.s(i);
+            }
         }
         self.load64(state::pc as u32);
         self.s(PC);
@@ -744,7 +750,9 @@ impl Emitter<'_> {
     }
     fn writeback(&mut self) {
         if self.env.isa != Isa::A64 {
-            for i in 0..15 { self.store64_at(x_address(i), i); }
+            if self.a32_gpr_locals {
+                for i in 0..15 { self.store64_at(x_address(i), i); }
+            }
             self.store64_at(state::pc as u32, PC);
             return;
         }
