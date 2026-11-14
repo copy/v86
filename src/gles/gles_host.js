@@ -273,6 +273,17 @@ GLESHost.prototype.gl_call = function(conn, command, args, bytes)
 /** renderControl's call, and what the page or the guest waits on */
 GLESHost.prototype.rc_call = function(conn, command, args)
 {
+    if(command.name === "v86ReadIOSurface")
+    {
+        const [handle, y, rows, flip, pixels] = args, cb = this.rc.color_buffers.get(handle);
+        const owner = conn.puid === null ? "c" + conn.id : "p" + conn.puid;
+        if(!cb || !cb.iosurface || !cb.refs.has(owner) || flip > 1 || !rows ||
+            y > cb.height || rows > cb.height - y || pixels.size !== cb.width * rows * 4) return 0;
+        const request = this.request(pixels, true);
+        this.record(GLES.IOSURFACE_READ, [handle, y, rows, flip, request.id]);
+        this.flush();
+        return request.done.then(ok => ok ? 1 : 0);
+    }
     if(command.name === "rcReadColorBuffer")
     {
         const [color_buffer, x, y, width, height, format, type, pixels] = args;
@@ -392,9 +403,10 @@ GLESHost.prototype.throttle = function(value)
  * A read the page answers: its id, and the promise of its answer (the
  * bytes into `out`, zeros if the page has none)
  * @param {!Object} out an OutBuffer
+ * @param {boolean=} status resolve to whether the complete reply arrived
  * @return {{id: number, done: !Promise}}
  */
-GLESHost.prototype.request = function(out)
+GLESHost.prototype.request = function(out, status = false)
 {
     const id = this.next_request++;
     this.stats.reads++;
@@ -402,7 +414,7 @@ GLESHost.prototype.request = function(out)
     const done = new Promise(resolve => this.requests.set(id, bytes =>
     {
         if(bytes) out.data.set(bytes.subarray(0, out.size));
-        resolve(undefined);
+        resolve(status ? !!bytes && bytes.length === out.size : undefined);
     }));
     return { id, done };
 };

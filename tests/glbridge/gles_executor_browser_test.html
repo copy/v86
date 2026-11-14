@@ -247,6 +247,24 @@ const check = (value, message) => { if(!value) throw new Error(message); checks.
         check(bgra.every((v, i) => v === bytes[(i & ~3) + [2, 1, 0, 3][i & 3]]), "BGRA color-buffer reads preserve every pixel and alpha");
         check(await read_color_buffer(50, 4, 4, 0x1908, 0x8363) === null, "unsupported color-buffer packing fails explicitly");
         check((await read_color_buffer(50, 4, 4)).every((v, i) => v === bytes[i]), "BGRA packing leaves GPU storage unchanged");
+        for(const flip of [0, 1])
+        {
+            const id = request++;
+            record(GLES.IOSURFACE_READ, 50, 1, 2, flip, id);
+            await run();
+            const native = answers.get(id);
+            check(native && native.length === 32 && native.every((v, i) =>
+            {
+                const row = 1 + (flip ? 1 - (i / 16 | 0) : i / 16 | 0);
+                return v === bytes[row * 16 + (i % 16 & ~3) + [2, 1, 0, 3][i & 3]];
+            }), "native BGRA readback subrectangle, reversed rows=" + flip);
+        }
+        {
+            const id = request++;
+            record(GLES.IOSURFACE_READ, 50, 3, 2, 0, id);
+            await run();
+            check(answers.get(id) === null, "native readback rejects a rectangle outside its surface");
+        }
         record(GLES.IMAGE_CREATE, 60, 0, 0x3140, 50);
         const ext_text = "#extension GL_OES_EGL_image_external : require\nprecision mediump float; uniform samplerExternalOES tex; varying vec2 v_uv; " +
             "void main() { gl_FragColor = texture2D(tex, v_uv); }";

@@ -209,14 +209,25 @@ static int publish_bytes(struct binding *b)
     if(!w || w > 0x4000 || !h || h > 0x4000 || stride < 4 * w || stride > ~0u / h) return 0;
     unsigned rows = 1;
     while(rows <= h / 2 && rows * w <= (1u << 17)) rows *= 2;
-    unsigned char *rgba = malloc(rows * w * 4);
-    if(!rgba) return 0;
+    // A tight native surface can receive packed rows directly through the
+    // transport, including window row reversal on the host. Padded surfaces
+    // retain the copy path so their row padding is never overwritten.
+    unsigned char *rgba = stride == w * 4 ? 0 : malloc(rows * w * 4);
+    if(stride != w * 4 && !rgba) return 0;
     if(IOSurfaceLock(b->surface, 0, 0)) { free(rgba); return 0; }
     unsigned char *base = IOSurfaceGetBaseAddress(b->surface);
     int ok = base != 0;
     for(unsigned y = 0; ok && y < h; y += rows)
     {
         unsigned n = rows < h - y ? rows : h - y, bytes = n * w * 4;
+        if(stride == w * 4)
+        {
+            unsigned completed = 0, row = b->window ? h - y - n : y;
+            ok = SEND(b->lease, v86_ReadIOSurface, b->handle, y, n, !!b->window, bytes) &&
+                gles_read(b->lease, base + row * stride, bytes) &&
+                gles_read(b->lease, &completed, 4) && completed;
+            continue;
+        }
         ok = SEND(b->lease, rc_rcReadColorBuffer, b->handle, 0, y, w, n, 0x80e1, 0x1401, bytes) &&
             gles_read(b->lease, rgba, bytes);
         if(ok)

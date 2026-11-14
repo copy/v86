@@ -50,6 +50,17 @@ try
             }
     };
     await verifyCPU();
+    for(const flip of [0, 1])
+    {
+        const native = await reader.call("v86ReadIOSurface", reader.buffer, 1, 2, flip, 64 * 2 * 4);
+        assert.equal(native.ret, 1, "native status follows the actual GPU response");
+        for(let y = 0; y < 2; y++)
+            for(let x = 0; x < 64; x++)
+            {
+                const at = (64 * y + x) * 4;
+                assert.deepEqual([...native.outs[0].subarray(at, at + 4)], [x, 1 + (flip ? 1 - y : y), 200, 255]);
+            }
+    }
     writer.send("gles2:glClearColor", 0, 1, 0, 1);
     writer.send("gles2:glClear", 0x4000);
     writer.send("gles2:glEnable", 0xc11);

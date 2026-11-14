@@ -299,6 +299,21 @@ GLESExecutor.prototype.run = function(record)
                     this.answer(sink, record.request, rgba);
                 });
         }
+        case "IOSURFACE_READ":
+        {
+            const cb = this.rc.color_buffers.get(record.color_buffer);
+            if(!cb || record.flip > 1 || !record.height || record.y > cb.height || record.height > cb.height - record.y)
+                return this.answer_failed(record.request);
+            return this.read_texture(cb.texture, 0, record.y, cb.width, record.height, !!record.flip,
+                (rgba, sink) =>
+                {
+                    for(let i = 0; i < rgba.length; i += 4)
+                    {
+                        const r = rgba[i]; rgba[i] = rgba[i + 2]; rgba[i + 2] = r;
+                    }
+                    this.answer(sink, record.request, rgba);
+                });
+        }
         case "COLOR_BUFFER_BIND":
         {
             const conn = this.conns.get(record.conn);

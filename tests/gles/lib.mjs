@@ -18,6 +18,7 @@ export function fake_renderer(options = {})
 {
     let listener = null;
     const pending = [];
+    const color_widths = new Map();
     const channel = {
         batches: [], messages: [], restored: [], saves: 0,
         post(message)
@@ -44,8 +45,11 @@ export function fake_renderer(options = {})
                 const message = pending.shift();
                 for(const record of read_gles_batch(message.bytes))
                 {
-                    if(!["READ_PIXELS", "COLOR_BUFFER_READ", "BUFFER_READ", "QUERY_READ"].includes(record.name)) continue;
-                    const size = record.name === "BUFFER_READ" ? record.length : record.name === "QUERY_READ" ? 4 : record.width * record.height * 4;
+                    if(record.name === "COLOR_BUFFER_CREATE") color_widths.set(record.color_buffer, record.width);
+                    if(record.name === "COLOR_BUFFER_DESTROY") color_widths.delete(record.color_buffer);
+                    if(!["READ_PIXELS", "COLOR_BUFFER_READ", "IOSURFACE_READ", "BUFFER_READ", "QUERY_READ"].includes(record.name)) continue;
+                    const size = record.name === "BUFFER_READ" ? record.length : record.name === "QUERY_READ" ? 4 :
+                        (record.name === "IOSURFACE_READ" ? color_widths.get(record.color_buffer) : record.width) * record.height * 4;
                     const bytes = new Uint8Array(READBACK_HEADER_BYTES + size);
                     const view = new DataView(bytes.buffer);
                     view.setUint32(0, record.request, true);
@@ -137,7 +141,7 @@ export function recording_renderer(file)
             channel.bytes += message.bytes.length;
             for(const record of read_gles_batch(message.bytes))
             {
-                if(record.name !== "READ_PIXELS" && record.name !== "COLOR_BUFFER_READ") continue;
+                if(record.name !== "READ_PIXELS" && record.name !== "COLOR_BUFFER_READ" && record.name !== "IOSURFACE_READ") continue;
                 const bytes = new Uint8Array(READBACK_HEADER_BYTES);
                 new DataView(bytes.buffer).setUint32(0, record.request, true);
                 new DataView(bytes.buffer).setUint32(12, 2, true);

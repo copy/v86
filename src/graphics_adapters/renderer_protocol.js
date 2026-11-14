@@ -151,6 +151,7 @@ export const GLES = {
                             // before its glLinkProgram, which the page then links with it (it has no glslang)
     BUFFER_READ: 20,        // connection, request id, buffer, offset, length: a buffer's bytes the GPU wrote (glMapBufferRange's)
     QUERY_READ: 21,         // connection, request id, query: an occlusion query's result (a u32: whether a sample passed)
+    IOSURFACE_READ: 22,     // color buffer, y, rows, reverse rows, request id; tightly packed BGRA
 };
 
 /**

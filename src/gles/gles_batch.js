@@ -30,6 +30,7 @@ export const GLES_FIELDS = {
     PROGRAM_LINK: ["conn", "program", "length"],
     BUFFER_READ: ["conn", "request", "buffer", "offset", "length"],
     QUERY_READ: ["conn", "request", "query"],
+    IOSURFACE_READ: ["color_buffer", "y", "height", "flip", "request"],
 };
 
 /** Record names by opcode */

@@ -32,6 +32,12 @@ const DISPLAY = { width: 480, height: 800, dpi: 240 };
         (await call("v86AcquireIOSurface", id, w, h, fmt)).ret;
     const first = await open(ca, 7);
     assert.ok(first);
+    assert.equal((await cb("v86ReadIOSurface", first, 0, 1, 0, 256)).ret, 0, "unopened names cannot read native pixels");
+    for(const [y, rows, flip, size] of [[0, 0, 0, 0], [48, 1, 0, 256], [0, 1, 2, 256], [0, 1, 0, 4]])
+        assert.equal((await ca("v86ReadIOSurface", first, y, rows, flip, size)).ret, 0, "invalid native read rejected before a GPU request");
+    const direct = await ca("v86ReadIOSurface", first, 1, 2, 1, 512);
+    assert.equal(direct.ret, 1);
+    assert.equal(direct.outs[0].length, 512, "pixel reply precedes the native completion status");
     const bytes = new Uint8Array(64 * 48 * 4);
     assert.equal((await cb("v86UploadIOSurface", first, 0, bytes)).ret, 0, "an unopened kernel name cannot modify pixels");
     assert.equal((await ca("v86UploadIOSurface", first, 0, bytes.subarray(0, 4))).ret, 0);
