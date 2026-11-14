@@ -3174,9 +3174,10 @@ impl Emitter<'_> {
         let done = self.b.block_void();
         self.a32_fp_load(n, double, T0);
         self.a32_fp_load(m, double, T1);
-        // RMode RN and FZ 0 (FPCR), IXC already set (FPSR), the operands zero or normal
+        // RN, IXC already set, and zero/normal inputs. FZ/DN cannot affect
+        // these inputs or a non-tiny normal/exact-zero result.
         self.load32(state::fpcr as u32);
-        self.c32(0x01C0_0000);
+        self.c32(0x00C0_0000);
         self.b.and_i32();
         self.b.eqz_i32();
         self.load32(state::fpsr as u32);
@@ -3219,6 +3220,22 @@ impl Emitter<'_> {
         }
         self.fp_bits(T3, double);
         self.fp_ordinary(T3, double, true);
+        if matches!(op, 2 | 3 | 4) {
+            // A zero product/quotient from two nonzero inputs may have
+            // underflowed, even if Wasm rounded it all the way to zero.
+            // Retry it exactly so UFC (and FZ's result) are preserved.
+            let zero = |e: &mut Self, l| {
+                e.g(l);
+                e.c64(if double { 0x7FFF_FFFF_FFFF_FFFF } else { 0x7FFF_FFFF });
+                e.b.and_i64();
+                e.o(crate::wasmgen::wasm_opcodes::OP_I64EQZ);
+            };
+            zero(self, T3); self.b.eqz_i32();
+            zero(self, T0);
+            if op != 3 { zero(self, T1); self.b.or_i32(); }
+            self.b.or_i32();
+            self.b.and_i32();
+        }
         self.b.if_void();
         self.a32_fp_store(d, double, T3);
         self.b.br(done);
