@@ -1,0 +1,498 @@
+{
+  "date": "2026-11-14",
+  "status": "First non-software FIFO fault captured; runtime driver failure unresolved.",
+  "diagnostic": "NV_FIFO_FAULTS=1, default off",
+  "bounds": {
+    "uniqueFaults": 16,
+    "raminBytesPerFault": 1048576,
+    "MMIOBefore": 256,
+    "MMIOAfter": 512,
+    "pageUpdateEvents": 128
+  },
+  "firstFault": {
+    "kind": "dma",
+    "flags": 6,
+    "channel": 1,
+    "put": 3704732,
+    "get": 5814464,
+    "dma": 338464,
+    "state": 843524,
+    "reason": "NV DMA page access fault",
+    "dmaFault": {
+      "instance": 338464,
+      "offset": 5814464,
+      "length": 4,
+      "write": false,
+      "page": 1419,
+      "pte": 172949504,
+      "adjust": 0,
+      "linear": false,
+      "limit": 268435455
+    },
+    "commands": [
+      {
+        "channel": 1,
+        "get": 5813800,
+        "word": 312056
+      },
+      {
+        "channel": 1,
+        "get": 5813808,
+        "word": 312060
+      },
+      {
+        "channel": 1,
+        "get": 5813816,
+        "word": 1367804
+      },
+      {
+        "channel": 1,
+        "get": 5813840,
+        "word": 1367804
+      },
+      {
+        "channel": 1,
+        "get": 5813864,
+        "word": 1367804
+      },
+      {
+        "channel": 1,
+        "get": 5813888,
+        "word": 316456
+      },
+      {
+        "channel": 1,
+        "get": 5813896,
+        "word": 317772
+      },
+      {
+        "channel": 1,
+        "get": 5813904,
+        "word": 317776
+      },
+      {
+        "channel": 1,
+        "get": 5813912,
+        "word": 312240
+      },
+      {
+        "channel": 1,
+        "get": 5813920,
+        "word": 317388
+      },
+      {
+        "channel": 1,
+        "get": 5813928,
+        "word": 313972
+      },
+      {
+        "channel": 1,
+        "get": 5813936,
+        "word": 313964
+      },
+      {
+        "channel": 1,
+        "get": 5813944,
+        "word": 313968
+      },
+      {
+        "channel": 1,
+        "get": 5813952,
+        "word": 318840
+      },
+      {
+        "channel": 1,
+        "get": 5813960,
+        "word": 312192
+      },
+      {
+        "channel": 1,
+        "get": 5813968,
+        "word": 579624
+      },
+      {
+        "channel": 1,
+        "get": 5813980,
+        "word": 312168
+      },
+      {
+        "channel": 1,
+        "get": 5813988,
+        "word": 312100
+      },
+      {
+        "channel": 1,
+        "get": 5813996,
+        "word": 312176
+      },
+      {
+        "channel": 1,
+        "get": 5814004,
+        "word": 311840
+      },
+      {
+        "channel": 1,
+        "get": 5814012,
+        "word": 312080
+      },
+      {
+        "channel": 1,
+        "get": 5814020,
+        "word": 312172
+      },
+      {
+        "channel": 1,
+        "get": 5814028,
+        "word": 312252
+      },
+      {
+        "channel": 1,
+        "get": 5814036,
+        "word": 318900
+      },
+      {
+        "channel": 1,
+        "get": 5814044,
+        "word": 317500
+      },
+      {
+        "channel": 1,
+        "get": 5814052,
+        "word": 317488
+      },
+      {
+        "channel": 1,
+        "get": 5814060,
+        "word": 312068
+      },
+      {
+        "channel": 1,
+        "get": 5814068,
+        "word": 312064
+      },
+      {
+        "channel": 1,
+        "get": 5814076,
+        "word": 312248
+      },
+      {
+        "channel": 1,
+        "get": 5814084,
+        "word": 319200
+      },
+      {
+        "channel": 1,
+        "get": 5814092,
+        "word": 838240
+      },
+      {
+        "channel": 1,
+        "get": 5814108,
+        "word": 319208
+      },
+      {
+        "channel": 1,
+        "get": 5814116,
+        "word": 319204
+      },
+      {
+        "channel": 1,
+        "get": 5814124,
+        "word": 319200
+      },
+      {
+        "channel": 1,
+        "get": 5814132,
+        "word": 316536
+      },
+      {
+        "channel": 1,
+        "get": 5814140,
+        "word": 311684
+      },
+      {
+        "channel": 1,
+        "get": 5814148,
+        "word": 311708
+      },
+      {
+        "channel": 1,
+        "get": 5814156,
+        "word": 311684
+      },
+      {
+        "channel": 1,
+        "get": 5814164,
+        "word": 311708
+      },
+      {
+        "channel": 1,
+        "get": 5814172,
+        "word": 312104
+      },
+      {
+        "channel": 1,
+        "get": 5814180,
+        "word": 312136
+      },
+      {
+        "channel": 1,
+        "get": 5814188,
+        "word": 312108
+      },
+      {
+        "channel": 1,
+        "get": 5814196,
+        "word": 319476
+      },
+      {
+        "channel": 1,
+        "get": 5814204,
+        "word": 1105864
+      },
+      {
+        "channel": 1,
+        "get": 5814224,
+        "word": 319124
+      },
+      {
+        "channel": 1,
+        "get": 5814232,
+        "word": 1100320
+      },
+      {
+        "channel": 1,
+        "get": 5814252,
+        "word": 319136
+      },
+      {
+        "channel": 1,
+        "get": 5814260,
+        "word": 319472
+      },
+      {
+        "channel": 1,
+        "get": 5814268,
+        "word": 319428
+      },
+      {
+        "channel": 1,
+        "get": 5814276,
+        "word": 319224
+      },
+      {
+        "channel": 1,
+        "get": 5814284,
+        "word": 317200
+      },
+      {
+        "channel": 1,
+        "get": 5814292,
+        "word": 1365824
+      },
+      {
+        "channel": 1,
+        "get": 5814316,
+        "word": 1365632
+      },
+      {
+        "channel": 1,
+        "get": 5814340,
+        "word": 317204
+      },
+      {
+        "channel": 1,
+        "get": 5814348,
+        "word": 317204
+      },
+      {
+        "channel": 1,
+        "get": 5814356,
+        "word": 317204
+      },
+      {
+        "channel": 1,
+        "get": 5814364,
+        "word": 579612
+      },
+      {
+        "channel": 1,
+        "get": 5814376,
+        "word": 317448
+      },
+      {
+        "channel": 1,
+        "get": 5814384,
+        "word": 1074583588
+      },
+      {
+        "channel": 1,
+        "get": 5814400,
+        "word": 317448
+      },
+      {
+        "channel": 1,
+        "get": 5814408,
+        "word": 319228
+      },
+      {
+        "channel": 1,
+        "get": 5814416,
+        "word": 1105664
+      },
+      {
+        "channel": 1,
+        "get": 5814436,
+        "word": 1105664
+      },
+      {
+        "channel": 1,
+        "get": 5814456,
+        "word": 1105664
+      }
+    ],
+    "controlCommands": [
+      {
+        "channel": 1,
+        "get": 5543544,
+        "word": 8467202
+      },
+      {
+        "channel": 1,
+        "get": 8467920,
+        "word": 131072
+      },
+      {
+        "channel": 1,
+        "get": 5737332,
+        "word": 8398338
+      },
+      {
+        "channel": 1,
+        "get": 8398696,
+        "word": 131072
+      }
+    ],
+    "cache_get": 2272,
+    "subc": 6,
+    "method": 7932,
+    "value": 216,
+    "sequence": 337323
+  },
+  "firstPageUpdate": {
+    "elapsed": 74.967789,
+    "offset": 338472,
+    "size": 1,
+    "value": 0,
+    "eip": 2152567096,
+    "channel": 1,
+    "put": 3704732,
+    "get": 5814456,
+    "cachePut": 2308,
+    "cacheGet": 2272,
+    "graphBusy": true,
+    "backendPending": true,
+    "draws": 1028
+  },
+  "gpuAtFault": {
+    "batches": 340,
+    "draws": 1028,
+    "bytes": 971151528,
+    "readbacks": 858,
+    "failures": 0,
+    "uploads": 1195,
+    "uploadBytes": 757310804
+  },
+  "ramht": {
+    "config": 67305728,
+    "matches": []
+  },
+  "observation": [
+    "Same matched checkpoint replay can first fail in DMA, without a preceding HASH_FAILED.",
+    "The guest writes dummy invalid PTEs 0x0A4F0000 into the active pusher table before the DMA page fault.",
+    "At first captured PTE-byte update, backend work was pending, cache GET lagged PUT, and pusher GET had not reached submitted PUT.",
+    "The guest also removes RAMHT objects before later cache failures. These errors alone do not establish the original cause of driver teardown.",
+    "No HASH override, invalid-PTE bypass, clock adjustment, driver timeout change or completion fabrication was added.",
+    "The replay begins inside a previously active native run; a fresh pre-benchmark run remains necessary."
+  ],
+  "MMIOBeforeFault": [
+    {
+      "elapsed": 41.733388167,
+      "offset": 9472,
+      "size": 4,
+      "write": true,
+      "value": 0,
+      "eip": 2152567096,
+      "channel": 1,
+      "cacheGet": 4052,
+      "hash": 16836983
+    },
+    {
+      "elapsed": 41.733437625,
+      "offset": 12880,
+      "size": 4,
+      "write": true,
+      "value": 0,
+      "eip": 2152567096,
+      "channel": 1,
+      "cacheGet": 4052,
+      "hash": 16836983
+    },
+    {
+      "elapsed": 41.733444417,
+      "offset": 12888,
+      "size": 4,
+      "write": true,
+      "value": 0,
+      "eip": 2152567096,
+      "channel": 1,
+      "cacheGet": 4052,
+      "hash": 0
+    },
+    {
+      "elapsed": 41.733465083000006,
+      "offset": 12880,
+      "size": 4,
+      "write": true,
+      "value": 1,
+      "eip": 2152567096,
+      "channel": 1,
+      "cacheGet": 4052,
+      "hash": 0
+    },
+    {
+      "elapsed": 41.733483583,
+      "offset": 9472,
+      "size": 4,
+      "write": true,
+      "value": 1,
+      "eip": 2152567096,
+      "channel": 1,
+      "cacheGet": 4052,
+      "hash": 0
+    }
+  ],
+  "artifacts": {
+    "fifo-fault-captures.json": {
+      "bytes": 5124061,
+      "sha256": "e51336543c33b7d2667c7b23632ccfc088a830e058a22cd2358df8f9051cc69c"
+    },
+    "fifo-fault-00-ramin.bin": {
+      "bytes": 1048576,
+      "sha256": "849889574d8b24d49a7a0973c08e15e610a2d7a3501ce7d0c179a449db4310c3"
+    },
+    "fifo-page-updates.json": {
+      "bytes": 2308,
+      "sha256": "cf7140cc34bd2ce852e402d65848d889b0263e50e7ec3bdf3b0d81a9d3c51b0d"
+    },
+    "fifo-error-registers.json": {
+      "bytes": 4029,
+      "sha256": "60fde396337775d224254de6a19fd8c0b70cdb0fdde0c86684516c124a7585df"
+    }
+  },
+  "validation": [
+    "node --check tests/devices/geforce_guest.mjs",
+    "Native XP 93.71 matched-state replays captured first errors with full tracing enabled and disabled."
+  ],
+  "acceptance": false
+}

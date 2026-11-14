@@ -287,6 +287,56 @@ export async function run_geforce_guest(win98)
             {const entries=Number(process.env.NV_TEXTURE_CACHE_ENTRIES);assert([256,512,1024].includes(entries));cache.cache_entries=entries;}
         }
         clock_start = cpu.clock.now();
+        if(process.env.NV_FIFO_FAULTS)
+        {
+            const record=nv.fifo.record_fault.bind(nv.fifo),captures=[],seen=new Set(),history=[],pageUpdates=[];
+            const trace=nv.trace.record.bind(nv.trace);let faulted=false,after=0;
+            nv.trace.record=(space,offset,size,write,value,implemented)=>{
+                trace(space,offset,size,write,value,implemented);
+                const instance=(nv.registers.get(0x322C)||0)*16;
+                if(space==="ramin" && write && offset>=instance && offset<instance+16 && pageUpdates.length<128)
+                {
+                    const backend=nv.graph.engine3d.backend;
+                    pageUpdates.push({elapsed:elapsed(),offset,size,value,eip:cpu.instruction_pointer[0]>>>0,
+                        channel:nv.fifo.active,put:nv.registers.get(0x3240)||0,get:nv.registers.get(0x3244)||0,
+                        cachePut:nv.registers.get(0x3210)||0,cacheGet:nv.registers.get(0x3270)||0,
+                        graphBusy:nv.graph.busy,backendPending:!!backend?.pending,draws:backend?.stats.draws||0});
+                    fs.writeFileSync(path.join(out,"fifo-page-updates.json"),JSON.stringify(pageUpdates,null,2));
+                }
+                if(space!=="mmio" || ![0x2100,0x2140,0x2500,0x2504,0x3204,0x3220,0x3228,0x322C,0x3230,0x3250,0x3254,0x3258,0x3270].includes(offset) ||
+                    !write && offset!==0x3258 || faulted && after>=512)return;
+                history.push({elapsed:elapsed(),offset,size,write,value,eip:cpu.instruction_pointer[0]>>>0,channel:nv.fifo.active,
+                    cacheGet:nv.registers.get(0x3270)||0,hash:nv.registers.get(0x3258)||0});
+                if(faulted){after++;fs.writeFileSync(path.join(out,"fifo-error-registers.json"),JSON.stringify(history,null,2));}
+                else if(history.length>256)history.shift();
+            };
+            nv.fifo.record_fault=(kind,flags,reason,dmaFault)=>{
+                record(kind,flags,reason,dmaFault);
+                // Software DAC traps are expected driver callbacks. Preserve
+                // the first real cache/pusher errors before their ISR changes
+                // RAMHT entries or DMA mappings and obscures the producer.
+                if(kind==="cache" && flags===0x100 || captures.length>=16)return;
+                const fault=nv.fifo.faults.at(-1),key=JSON.stringify([kind,flags,fault.subc,fault.method,fault.value,reason]);
+                if(seen.has(key))return;seen.add(key);
+                faulted=true;
+                const config=nv.registers.get(0x2210)||0,bits=9+(config>>>16&3),base=(config&0x1F0)<<8,matches=[];
+                for(let index=0;index<2**bits;index++)
+                {
+                    const at=base+index*8,handle=nv.dma.word(at),context=nv.dma.word(at+4);
+                    if(context && handle===fault.value)matches.push({at,context,channel:context>>>23&31,instance:(context&0xFFFFF)*16,engine:context>>>20&7});
+                }
+                let pushbuffer;
+                try {
+                    const start=Math.max(0,fault.get-64),dma=nv.dma.descriptor(fault.dma),bytes=nv.dma.read(dma,start,128);
+                    const view=new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength);
+                    pushbuffer={start,words:Array.from({length:32},(_,i)=>view.getUint32(i*4,true))};
+                } catch(readError){pushbuffer={error:String(readError)};}
+                const ramin="fifo-fault-"+String(captures.length).padStart(2,"0")+"-ramin.bin";
+                fs.writeFileSync(path.join(out,ramin),nv.vram().subarray(nv.vram_size-(1<<20)));
+                captures.push({elapsed:elapsed(),fault,hash:{config,matches},pushbuffer,ramin,history:history.slice(),pageUpdates:pageUpdates.slice(),trace:trace_report()});
+                fs.writeFileSync(path.join(out,"fifo-fault-captures.json"),JSON.stringify(captures,null,2));
+            };
+        }
         if(process.env.NV_WATCH_DMA_WRITE)
         {
             const first=Number(process.env.NV_WATCH_DMA_WRITE),size=Number(process.env.NV_WATCH_DMA_BYTES||4096);
