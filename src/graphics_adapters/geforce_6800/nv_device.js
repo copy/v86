@@ -20,6 +20,11 @@ const RAMIN_BASE = 0xFC000000;
 // PTIMER's 56-bit counter occupies timestamp bits 5..60 (envytools bus/ptimer).
 const TIMER_MASK = (1n << 61n) - 32n;
 const TIMER_LOW = 0xFFFFFFE0n;
+// NV40 PTIMER counts HCLK edges, then exposes each tick shifted left five.
+// Model a fixed 66.67 MHz host clock: the native 93.71/81.98 ratio 3125/6667
+// then produces the conventional 31.25 MHz counter / nanosecond timestamp.
+// This is the emulated board's clock contract, not a measured physical board.
+const HCLK_TICKS_PER_MS = 66670;
 /** @param {bigint} value @return {!Array<number>} */
 const timer_pair = value => [Number(value & 0xFFFFFFFFn), Number(value >> 32n)];
 /** @param {!Array<number>} pair @return {bigint} */
@@ -412,7 +417,7 @@ export class NVDevice
     {
         const div = this.registers.get(0x9200) || 0;
         const mul = this.registers.get(0x9210) || 0;
-        const ticks = div ? Math.floor(Math.max(0, this.machine.now() - this.timer_epoch) * 1000000 * mul / div / 32) : 0;
+        const ticks = div ? Math.floor(Math.max(0, this.machine.now() - this.timer_epoch) * HCLK_TICKS_PER_MS * mul / div) : 0;
         return (this.timer_value + BigInt(ticks) * 32n) & TIMER_MASK;
     }
 

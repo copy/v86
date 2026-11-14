@@ -1548,3 +1548,13 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   早期全屏阶段三次 tick 为 5001/5001/5097 ms，QPC 同步推进约五秒，
   benchmark 已进入第 2 项加载；没有修改图形 API、GPU/驱动状态或原盘。
   这还不能证明后续 bump 阶段的时钟正常，细节保留在 timing fixture。
+
+- G0/G6 PTIMER 时钟续修：按 Envytools 的 NV40 HCLK tick 和时间戳左移
+  五位的编码修正换算；模拟板固定采用 66.67 MHz，驱动实际写入的
+  `CLOCK_MUL/DIV=3125/6667` 每毫秒恰好推进 1,000,000 时间戳单位。
+  此频率是模拟板的明确契约，不宣称已测得实体卡时钟树。回归覆盖比率
+  改写连续性、闹钟、停止计数及高位快照，设备、2D/PGRAPH/FIFO 和
+  Closure 构建通过。相同 Win98 bump 检查点的 90 秒诊断完成 13 次绘制、
+  无 GPU/PGRAPH 故障，长等待仍在，未宣称性能改善。硬件编码依据见
+  [PTIMER](https://envytools.readthedocs.io/en/latest/hw/bus/ptimer.html)，
+  实测数据追加到 `g6-win98-99-timing-investigation.json`。

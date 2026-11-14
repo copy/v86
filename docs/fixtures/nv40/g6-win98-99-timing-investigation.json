@@ -205,5 +205,34 @@
     "original_image_unchanged": true,
     "game_image_unchanged": true,
     "error": null
+  },
+  "ptimer_hclk_followup": {
+    "directory": "build/nv40-win98-bump-hclk",
+    "checkpoint": "build/nv40-win98-mark99-continue2/checkpoint-bump-timing.state",
+    "seconds": 91,
+    "clock": {
+      "mode": "normal",
+      "elapsedMs": 87624.80708756484,
+      "hostElapsedMs": 90295.62483300001,
+      "host_pause_count": 9,
+      "discarded_host_ms": 1132.5514589994855,
+      "host_backwards_count": 0,
+      "committed_instructions": 0,
+      "idle_ms": 0
+    },
+    "gpu": {
+      "batches": 13,
+      "draws": 13,
+      "bytes": 12286488,
+      "readbacks": 26,
+      "failures": 0,
+      "uploads": 30,
+      "uploadBytes": 10950760
+    },
+    "graph_faults": 0,
+    "error": null,
+    "image_unchanged": true,
+    "game_image_unchanged": true,
+    "interpretation": "No evidence that the corrected HCLK-to-timestamp conversion resolves the multi-second waits. Independent earlier 90 s runs produced 8 or 13 draws; concurrent workloads differ, so these are diagnostic observations, not an FPS improvement claim."
   }
 }

@@ -38,7 +38,8 @@ still store values while implementation continues.
 | Render state | Two-sided stencil currently requires equal reference/read/write masks. Mixed RGB constant-color and constant-alpha factors need equal constant components. Each MRT has an independent blend-enable bit with shared factors/equations. Depth bounds, polygon line/point mode and the other explicitly rejected raster states remain unconnected. |
 | Formats and outputs | FP16 attachments and FP32 fragment exports are tested. Unblended draws/readback support two RGBA32F or four R32F attachments within a 32-byte host attachment budget; FP32 blending and floating-point clears remain unconnected. TEX8/TEX9 routing uses the shared executor's twelve-output budget. |
 | AA GDI fonts | Packed I4/I8 uploads span rows correctly. The tested software DIB and NVIDIA INDEX path have different AA tone curves; non-AA RGB and AA coverage-rank comparisons pass. Exact AA RGB differences remain recorded in the [font fixture](fixtures/nv40/g2-xp-9371-aa-packed-index.json). |
-| Acceptance | DxDiag 7/8/9 passes in XP and Win98. Fresh 3DMark99 IQ comparisons and 3DMark2000 completion remain pending. The primary-head display semaphore is connected and XP 3DMark03 has entered GT1; complete later benchmark/performance gates remain open. |
+| PTIMER | Fixed 66.67 MHz HCLK is the emulated board clock. The native 3125/6667 ratio yields nanosecond timestamps; no physical board's clock tree or drift is reproduced. |
+| Acceptance | DxDiag 7/8/9 passes in XP and Win98. Fresh 3DMark99 IQ images are saved and compared; remaining pixel differences and the corrected full run are still open. 3DMark2000 completion remains pending. The primary-head display semaphore is connected and XP 3DMark03 has entered GT1; complete later benchmark/performance gates remain open. |
 
 The [implementation plan](geforce-6800-plan.md) records individual changes
 and native fixtures; these limits are not a claim of full NV40 compatibility.
