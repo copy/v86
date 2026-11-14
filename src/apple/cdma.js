@@ -43,16 +43,20 @@ export class AppleCDMA
             const n = offset >>> 12, reg = offset & 4095;
             if(n && reg === 0)
             {
-                if(value === 2 || (value & 1)) this.progress.delete(n);
+                const previous = this.channel[n * 8];
+                const pause = !!(value & 4), resume = !!(previous & 0x200000) && !pause;
+                if(value === 2 || (value & 1) && !pause && !resume) this.progress.delete(n);
                 if(value === 2) this.channel.fill(0, n * 8, n * 8 + 8);
                 else
                 {
                     const status = value & 1 ? 0 : this.channel[n * 8] & 0x1C0000 & ~value;
-                    if(value & 0xFFFF || !(value & 0x1C0000)) this.channel[n * 8] = status | (value & 0xFFFF);
+                    if(value & 0xFFFF || !(value & 0x1C0000)) this.channel[n * 8] = status | (value & 0xFFFF) | (pause ? 0x200000 : 0);
                     else this.channel[n * 8] &= ~(value & 0x1C0000);
                 }
                 this.signal(n, false);
-                if(value & 1)
+                // Pause acknowledges a stopped burst, not a completed transfer.
+                // Keep its descriptor position and remaining byte count intact.
+                if(value & 1 && !pause)
                 {
                     if(n <= 2) this.run_aes_pair();
                     else this.ports.get(this.channel[n * 8 + 2])?.();
