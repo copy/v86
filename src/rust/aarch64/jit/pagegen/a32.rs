@@ -1188,7 +1188,9 @@ fn multiple(
     cond: u8,
 ) -> Option<Kind> {
     let based = list & 1 << rn != 0;
-    if load && based || !load && based && writeback || rn == 15 || list & 1 << 13 != 0 {
+    // A32 permits SP in the list. Apple's memcpy uses it as another
+    // payload register; T32's decoder rejects its restricted SP lists.
+    if load && based || !load && based && writeback || rn == 15 {
         return None;
     }
     Some(Kind::Multiple {
