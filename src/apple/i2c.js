@@ -6,10 +6,11 @@ const D1815_RTC = 0x4C, D1815_RTC_OFFSET = 0x84;
 
 export class AppleI2C
 {
-    constructor(cpu, base, irq, vic, pmu, backlight = null, pmu_irq = null, slaves = null)
+    constructor(cpu, base, irq, vic, pmu, backlight = null, pmu_irq = null, slaves = null, power_off = null)
     {
         this.backlight = backlight;
         this.pmu_irq = pmu_irq;
+        this.power_off = power_off;
         this.slaves = slaves;
         this.irq = irq;
         this.vic = vic;
@@ -77,6 +78,9 @@ export class AppleI2C
                         if(reg >= D1815_RTC && reg < D1815_RTC + 4) continue;
                         const before = this.pmu[reg];
                         this.pmu[reg] = this.fifo[i];
+                        // D1815 OOCSHDWN: the native OS has already synced
+                        // and unmounted its volumes before requesting power.
+                        if(reg === 0x12 && this.pmu[reg] & 1 && !(before & 1)) this.power_off?.();
                         // D1815 software-start conversion. Unconnected analog
                         // inputs read zero; signal completion to the native PMU driver.
                         if(reg === 0x30 && (this.pmu[reg] & 0x10) && !(before & 0x10))

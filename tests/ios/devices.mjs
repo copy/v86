@@ -820,3 +820,18 @@ assert.deepEqual(pairTransfer(0x120100, blockKey, blockIV, encrypted), clear);
 const uid835 = pairTransfer(0x030100, Buffer.alloc(0), Buffer.alloc(16), Buffer.alloc(16, 1));
 assert.equal(uid835.toString("hex"), "75cbb019857f831fffd9e66d0110f2a9");
 console.log("PASS: paired CDMA AES-CBC encrypt/decrypt, fixed N90 UID derivation and both completion interrupts");
+
+let nativeOff = 0;
+const offPMU = new AppleI2C(cpu,0x83200000,19,vic,true,null,null,null,()=>nativeOff++);
+function offRegister(value)
+{
+    offPMU.write(0,0x74); offPMU.write(0x10,0x12); offPMU.write(0x18,1);
+    offPMU.write(0x20,value); offPMU.write(0x24,5);
+}
+offRegister(0x10); assert.equal(nativeOff,0);
+offRegister(0x11); assert.equal(nativeOff,1);
+offRegister(0x11); assert.equal(nativeOff,1,"a held OOCSHDWN bit does not request power twice");
+const offState=offPMU.get_state();offPMU.reset();offPMU.set_state(offState);
+assert.equal(nativeOff,1,"restoring registers does not replay a hardware write");
+offPMU.reset();offRegister(0x11);assert.equal(nativeOff,2);
+console.log("PASS: D1815 native shutdown edge, ordinary control writes and snapshot without replay");

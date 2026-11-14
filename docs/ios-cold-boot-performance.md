@@ -164,3 +164,28 @@ reference 必须是此前观察确认的原生 640×960 桌面截图，仅放在
 自动解锁使用相同的原生触摸手势；首次画面出现后停止周期 Home，避免把桌面切到 Spotlight。
 最终还需点击系统应用并审阅实际画面，确认输入与原生应用响应。
 原始串口、每秒诊断、代码散列和各次断电的起点均保留在测试产物中。
+
+## Step 12：原生关机与真正冷启动
+
+相同强制断电 NAND 的实测桌面时间已缩短至 203.821 秒，仍未达到 120 秒。
+此路径会触发 YAFTL 恢复和非日志 HFS 的完整检查。正常关机后的下一次
+全新机器测得 164.501 秒，但期间存在构建任务争用 CPU，不能作为最终性能结果。
+
+此前控制台的 Power off 直接销毁机器。原生 iPhone 关机还存在设备缺口：
+内核同步并卸载文件系统后写 D1815 的 OOCSHDWN（0x12）位 0，设备没有断电，
+导致 PEHaltRestart 返回并触发内核 panic。
+寄存器用途对照 [openiBoot A4 PMU 头文件](https://github.com/iDroid-Project/openiBoot/blob/master/plat-a4/includes/hardware/pmu.h)
+及[原生关机调用](https://github.com/iDroid-Project/openiBoot/blob/master/plat-a4/pmu.c)，未引入其实现代码。
+
+现在真实 PMU 写入会停止 CPU，下一条指令不会执行。控制台响应 S5，关闭并
+刷新 NAND、释放虚机锁。Power 菜单提供 Shut down iPhone，长按真实电源键，
+再由用户滑动系统原生关机滑块；直接切电明确标为 Force power off。
+不更改磁盘干净标志，不跳过文件系统检查，也不把恢复内存状态记作冷启动。
+
+设备单元测试覆盖关机位边沿、复位、快照加载不重复断电；真实 Wasm 测试覆盖
+MMIO 后的非法指令绝不执行、S5 与重新上电。浏览器测试增加 console=1，使用
+实际控制台菜单关闭系统，并重新创建 iframe/Worker/CPU，从同一个 NAND 启动。
+
+正式 Worker 的实际控制台复测：133.023 秒出现并匹配原生桌面（不使用计时封装）。
+随后通过上述菜单与原生滑块关机，PMU 断电、控制台 NAND 关闭成功，串口没有
+PEHaltRestart panic。仍需继续优化至 120 秒内。

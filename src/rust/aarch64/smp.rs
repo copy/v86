@@ -427,6 +427,9 @@ fn run_core(budget: u32) -> u32 {
     let mut next_tick = 1023;
     let mut boundary = true;
     while i < budget {
+        // A board may remove power during an MMIO instruction. Do not
+        // execute the instruction after it (PEHaltRestart cannot return).
+        if psci::request() != 0 { break; }
         if cfg!(feature = "parallel") && unsafe { crate::aarch64::isa_hooks::CORE_YIELD } != 0 {
             unsafe {
                 crate::aarch64::isa_hooks::CORE_YIELD = 0;

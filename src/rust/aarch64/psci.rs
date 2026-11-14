@@ -228,6 +228,9 @@ pub fn call() -> After {
 /// Whether the guest turned the machine off (the machine's power hook)
 #[no_mangle]
 pub fn a64_powered_off() -> bool { request() == 1 }
+/// A board's real power controller (N90's D1815), as distinct from PSCI.
+#[no_mangle]
+pub fn a64_request_power_off() { set_request(1); }
 /// SYSTEM_RESET was called (and is taken)
 #[no_mangle]
 pub fn a64_take_reset_request() -> bool {

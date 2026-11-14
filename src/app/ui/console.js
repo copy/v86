@@ -535,11 +535,16 @@ function console_ui(layout, emulator, ctx)
         interval = window.setInterval(tick, 1000);
         ctx.set_status("Running");
     });
-    emulator.add_listener("emulator-stopped", () =>
+    emulator.add_listener("emulator-stopped", async () =>
     {
         if(running) tick();
         running = false;
         clearInterval(interval);
+        if(iphone && !powered_off && await emulator.power_state() === "S5")
+        {
+            await power_off(false);
+            return;
+        }
         if(!powered_off) ctx.set_status("Paused");
     });
     emulator.add_listener("ide-read-start", () => { stats.disk_busy = true; });
@@ -633,6 +638,14 @@ function console_ui(layout, emulator, ctx)
         replace(layout.notice, h("p", null, "Powered off. ", h("a", { href: location.href }, "Power on again"), " or go back to the ",
             h("a", { href: location.pathname }, "library"), "."));
         ctx.set_status("Powered off");
+    };
+    const shutdown_iphone = async () =>
+    {
+        ctx.set_status("Opening iPhone shutdown...");
+        emulator.ios_send_button("power", true);
+        try { await new Promise(resolve => window.setTimeout(resolve, 4000)); }
+        finally { emulator.ios_send_button("power", false); }
+        if(!powered_off) ctx.set_status("Slide to power off on the iPhone");
     };
     const save_and_power_off = async () =>
     {
@@ -1229,7 +1242,8 @@ function console_ui(layout, emulator, ctx)
         power: () => [
             { label: running ? "Pause" : "Run", id: "menu_run", disabled: ipa_installer?.active(), action: () => running ? emulator.stop() : emulator.run() },
             { label: "Reset", id: "menu_reset", disabled: !!options.initial_state || ipa_installer?.active(), title: options.initial_state ? "Started from a saved state" : "", action: () => emulator.restart() },
-            { label: "Power off…", id: "menu_power_off", disabled: ipa_installer?.active(), action: () => power_off() },
+            ...(iphone ? [{ label: "Shut down iPhone…", id: "menu_iphone_shutdown", disabled: !running || ipa_installer?.active(), action: shutdown_iphone }] : []),
+            { label: iphone ? "Force power off…" : "Power off…", id: "menu_power_off", disabled: ipa_installer?.active(), action: () => power_off() },
             ...(ctx.config ? [{ label: "Suspend", id: "menu_suspend", disabled: ipa_installer?.active(), action: suspend }] : []),
             ...(written_back ? [{ label: "Save and power off", id: "menu_save_and_power_off", disabled: ipa_installer?.active(), action: save_and_power_off }] : []),
             "-",

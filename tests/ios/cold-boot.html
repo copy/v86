@@ -9,6 +9,7 @@ import { V86 } from "/build/libv86.mjs";
 import { reserve_disk, finish_disk } from "../../src/app/browser_disks.js";
 import { new_ios_config, config_to_options } from "../../src/app/vm_config.js";
 import { NAND_BYTES } from "../../src/apple/nand_geometry.js";
+import { VMStore } from "../../src/app/vm_store.js";
 const query = new URLSearchParams(location.search), probe = query.get("probe");
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const log = s => document.getElementById("log").textContent += s + "\n";
@@ -17,7 +18,7 @@ const artifact = async (name, body) => {
     if(!response.ok) throw Error("Cannot save " + name);
 };
 let emulator, serial = "", line = "", power_on, samples = [], milestones = [];
-let options, cycle = 0, first_frame = false, desktop = null, matched = 0, reference;
+let options, config, frame, cycle = 0, first_frame = false, desktop = null, matched = 0, reference;
 let last_unlock = -10000, last_wake = -20000;
 const cycles = [];
 const interval = Math.max(1000, Number(query.get("sample_ms") || 10000));
@@ -76,7 +77,18 @@ async function start()
     power_on = performance.now();
     first_frame = false; desktop = null; matched = 0; last_unlock = -10000; last_wake = -20000;
     cycles.push({ cycle, power_on: new Date(performance.timeOrigin + power_on).toISOString() });
-    emulator = new V86(options);
+    if(query.has("console"))
+    {
+        if(query.has("profile")) throw Error("Console acceptance uses the production CPU Worker");
+        frame=document.createElement("iframe");frame.width="1400";frame.height="1100";
+        frame.src="/index.html?vm="+config.id;document.getElementById("screen").replaceWith(frame);
+        await new Promise(resolve=>frame.onload=resolve);
+        const deadline=performance.now()+60000;
+        while(!frame.contentWindow.v86_console?.emulator)
+        { if(performance.now()>deadline)throw Error("Console did not create the phone");await sleep(10); }
+        emulator=frame.contentWindow.v86_console.emulator;
+    }
+    else emulator = new V86(options);
     emulator.add_listener("serial0-output-byte", byte => {
         const ch = String.fromCharCode(byte); serial += ch;
         if(ch !== "\n") { line += ch; return; }
@@ -84,12 +96,12 @@ async function start()
         { const m = { cycle, ms: elapsed(), event: line.trim() }; milestones.push(m); log(Math.round(m.ms / 1000) + "s " + m.event); }
         line = "";
     });
-    await new Promise((resolve, reject) => {
+    if(!emulator.worker_controller?.ready) await new Promise((resolve, reject) => {
         emulator.add_listener("emulator-loaded", resolve);
         emulator.add_listener("emulator-error", reject);
     });
     milestones.push({ cycle, ms: elapsed(), event: "emulator-loaded (no snapshot)" });
-    emulator.run();
+    if(!query.has("console")) emulator.run();
 }
 const touch = points => emulator.bus.send("touch", { width: 640, height: 960, touches: points });
 document.getElementById("home").onclick = async () => {
@@ -120,7 +132,8 @@ try
     await response.body.pipeTo(await file.createWritable());
     await finish_disk(disk.id, "Cold boot timing", { size: NAND_BYTES, ios: { model: "iPhone3,1", build: "10B329" } });
     log("NAND copy (excluded from power-on): " + Math.round(performance.now() - imported) + "ms");
-    const config = new_ios_config("Cold boot timing", { kind: "browser", id: disk.id, path: disk.path, size: NAND_BYTES, disk_option: "read_write" }, true);
+    config = new_ios_config("Cold boot timing", { kind: "browser", id: disk.id, path: disk.path, size: NAND_BYTES, disk_option: "read_write" }, true);
+    if(query.has("console")) { const store=await VMStore.open();config=await store.put(config);store.close(); }
     options = config_to_options(config, { debug: false, query_append: "", screen_container: document.getElementById("screen") });
     options.wasm_path = "/build/v86-arm64.wasm";
     options.cpu_worker_url = query.has("profile") ? "/build/ios-boot-profile-worker.js" : "/build/cpu-worker.js";
@@ -128,10 +141,12 @@ try
     await start();
     for(let n=0;n<Number(query.get("seconds") || 1200)*1000/interval;n++)
     {
-        await sleep(interval); await sample();
-        if(query.has("keepawake") && !first_frame && elapsed()-last_wake>20000)
+        await sleep(interval);
+        const closed=emulator.worker_controller?.closed && frame?.contentDocument.body.textContent.includes("Powered off.");
+        if(!closed) await sample();
+        if(!closed && query.has("keepawake") && !first_frame && elapsed()-last_wake>20000)
         { document.getElementById("home").click(); last_wake=elapsed(); }
-        if(query.has("auto_unlock") && first_frame && !desktop && elapsed()-last_unlock>5000)
+        if(!closed && query.has("auto_unlock") && first_frame && !desktop && elapsed()-last_unlock>5000)
         { await document.getElementById("unlock").onclick(); last_unlock=elapsed(); }
         const commands = await fetch("/" + probe + "/boot-command.json", { cache: "no-store" });
         if(commands.ok)
@@ -142,12 +157,26 @@ try
                 window.boot_test.last_command = command.id;
                 if(command.op === "home" || command.op === "unlock") document.getElementById(command.op).click();
                 else if(command.op === "tap") { touch([[1,command.x,command.y]]); await sleep(100); touch([]); }
+                else if(command.op === "shutdown")
+                {
+                    if(!frame)throw Error("Shutdown acceptance uses the actual console");
+                    const doc=frame.contentDocument;doc.getElementById("menu_power").click();
+                    doc.getElementById("menu_iphone_shutdown").click();
+                    await sleep(4600);await capture("native-shutdown-slider");
+                    for(let i=0;i<=24;i++){touch([[1,100+490*i/24,140]]);await sleep(40);}touch([]);
+                    const deadline=performance.now()+120000;
+                    while(!doc.body.textContent.includes("Powered off."))
+                    {if(performance.now()>deadline)throw Error("Native shutdown did not remove power");await sleep(250);}
+                    await artifact("native-shutdown.txt",serial);
+                    if(serial.includes("panic(cpu"))throw Error("Native shutdown panicked");
+                    log("Native PMU removed power; console flushed and closed NAND");
+                }
                 else if(command.op === "cold")
                 {
-                    await artifact("before-cold.png", await (await fetch(emulator.screen_make_screenshot().src)).blob());
-                    await emulator.stop(); await emulator.destroy();
+                    if(!closed) { await capture("before-cold"); await emulator.stop(); await emulator.destroy(); }
                     cycle++; serial += "\n--- POWER OFF; NEW MACHINE, SAME NAND; NO SNAPSHOT ---\n";
-                    options.screen.container.innerHTML = "<div></div><canvas></canvas>";
+                    if(frame) { const container=document.createElement("div");container.id="screen";frame.replaceWith(container);frame=null; }
+                    else options.screen.container.innerHTML = "<div></div><canvas></canvas>";
                     await start();
                 }
                 else if(command.op === "capture") await capture(command.name);
@@ -155,8 +184,7 @@ try
             }
         }
     }
-    await sample();
-    await emulator.stop();
+    if(!emulator.worker_controller?.closed) { await sample(); await emulator.stop(); }
     document.getElementById("result").textContent = "PASS: measured cold boot; inspect screenshots to establish desktop readiness";
 }
 catch(error)
