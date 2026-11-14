@@ -247,6 +247,29 @@ export class NV40Render
     barrier(o,method,value)
     {
         if(!this.batch)return false;
+        if([0x61,0x65,0x8A,0x308A].includes(o.class_id))
+        {
+            // IFC state changes do not touch memory. For data, share the exact
+            // next-DWORD footprint with the CPU engine; only a checked linear
+            // destination disjoint from every queued output can proceed.
+            if(method>=0x184 && method<=0x19C || method>=0x2F8 && method<=0x30C)return false;
+            if(method>=0x400 && method<0x2000 && !(method&3))try
+            {
+                const cpu=this.device.graph.engine2d,{dst,rect}=cpu.upload_plan(o),[x,y,width,height]=rect;
+                if(!width || !height)return false;
+                if(get(o,0x2FC,3)===3 && !dst.swizzle && dst.dma.linear)
+                {
+                    for(const at of [0x184,0x18C,0x190,0x194,0x198])if(o.methods.has(at))cpu.ref(o,at);
+                    const offset=cpu.row(dst,x,y,width,false);cpu.row(dst,x,y,width,true);
+                    const write=this.range({...dst,offset,width,height:1});
+                    if(![...this.batch.outputs.values()].some(({target})=>{
+                        const output=this.range(target);
+                        return write.memory===output.memory && write.first<output.last && output.first<write.last;
+                    }))return false;
+                }
+            }
+            catch(error) {if(!(error instanceof RangeError))throw error;}
+        }
         if(o.class_id!==0x4097 || method===0x100 && value || [0x104,0x108,0x110,0x17C8,0x17CC,0x1800,0x1D70,0x1D74,0x1D94].includes(method) || method>=0x120 && method<=0x130)return true;
         if(get(o,method)!==value && (method>=0x180 && method<=0x1B8 || method>=0x200 && method<=0x22C || method>=0x280 && method<=0x28C))return true;
         return false;

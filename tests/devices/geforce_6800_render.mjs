@@ -1203,6 +1203,53 @@ try
         assert.equal(device.registers.get(0x3248),0x76543210,"REF follows the combined readback");
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[128,128,128,128],"second draw blends against the first draw's GPU pixels");
         console.log("PASS: real FIFO batches two draws, preserves GPU blend history and orders REF after one download");
+        // A CPU IFC update of the next fragment constant is disjoint from the
+        // queued color target. It must reach VRAM immediately without retiring
+        // that draw, and the next draw must see the new checked shader bytes.
+        ram.setUint32(0x4000,0x3062,true);ram.setUint32(0x5000,0x65,true);
+        const uploadSurface=graph.object(0,0x4000),upload=graph.object(0,0x5000);
+        uploadSurface.methods=new Map([[0x184,0x100],[0x188,0x100],[0x300,10],[0x304,0x10001000],[0x30C,0x9000]]);
+        upload.methods=new Map([[0x19C,0x400],[0x2FC,3],[0x300,4],[0x304,4],[0x308,1<<16|1024],[0x30C,256<<16|1024]]);
+        const uploadMethod=(at,value)=>graph.method(0,1,0x5000,at,value);
+        const savedUploadProgram=vram.slice(0x9000,0x9040);
+        method(0x8E4,0x9001);method(0x1A0C,0);
+        [0x01001E81,0x001DC802,0,0,...Array(4).fill(floatWord(.25))].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+        vram.fill(0,0x10000,0x10100);
+        const drawInline=()=>{
+            method(0x1808,5);for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,16,0,0,1).buffer))method(0x1818,word);
+            method(0x1808,0);
+        };
+        device.fifo.running=true;
+        const beforeUpload={...engine.backend.stats};drawInline();
+        ram.setUint32(0x1800,0x303D,true);ram.setUint32(0x1804,0xFFFF,true);ram.setUint32(0x1808,0x10003,true);
+        uploadSurface.methods.set(0x188,0x180);uploadSurface.methods.set(0x30C,0);
+        assert.equal(engine.backend.barrier(upload,0x400,0),true,"different DMA descriptors can alias the queued target");
+        uploadSurface.methods.set(0x30C,0x9000);ram.setUint32(0x1808,3,true);
+        ram.setUint32(0x1800,0x103D,true);
+        assert.equal(engine.backend.barrier(upload,0x400,0),true,"paged IFC remains conservative");
+        ram.setUint32(0x1800,0x703D,true);
+        assert.equal(engine.backend.barrier(upload,0x400,0),true,"invalid write permission retires earlier work before trapping");
+        uploadSurface.methods.set(0x188,0x100);
+        assert.equal(uploadMethod(0x304,4),true);
+        for(let i=0;i<4;i++)assert.equal(uploadMethod(0x400,floatWord(.5)),true);
+        assert.equal(engine.backend.stats.batches,beforeUpload.batches,"disjoint IFC shader words keep the first draw queued");
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[0,0,0,0]);
+        assert.equal(view.getUint32(0x9010,true),floatWord(.5));
+        drawInline();await engine.backend.wait();
+        assert.equal(engine.backend.stats.batches-beforeUpload.batches,1);
+        assert.equal(engine.backend.stats.readbacks-beforeUpload.readbacks,1);
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[191,191,191,191]);
+        // The same IFC operation must wait when it aliases the color output.
+        uploadSurface.methods.set(0x30C,0x10000);uploadMethod(0x304,0);
+        drawInline();const beforeAlias=engine.backend.stats.batches;
+        assert.equal(uploadMethod(0x400,0xFF2468AC),false);
+        assert.equal(engine.backend.stats.batches,beforeAlias+1);
+        await engine.backend.wait();assert.equal(uploadMethod(0x400,0xFF2468AC),true);
+        assert.equal(view.getUint32(0x10000,true),0xFF2468AC);
+        device.fifo.running=false;
+        vram.set(savedUploadProgram,0x9000);
+        assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        console.log("PASS: disjoint IFC shader uploads preserve batching; overlapping CPU writes wait for authoritative pixels");
         method(0x310,0);method(0x8E4,0x9001);vram.fill(0,0x10000,0x10100);
         [23<<24|1<<13|15<<9|128|1,7<<18|0x1C801,0,0].forEach((word,i)=>view.setUint32(0x9100+i*4,word,true));
         queued.length=0;queuedDraw();

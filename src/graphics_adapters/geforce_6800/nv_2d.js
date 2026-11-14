@@ -270,25 +270,32 @@ export class NV2D
         o.methods.set(INDEX_PROGRESS,first+count);o.methods.delete(UPLOAD_COMMITTED);
         o.stream=[Math.floor((first+count)/width)];
     }
-    upload(o, value, indexed)
+    upload_plan(o)
     {
-        if(indexed)return this.indexed_upload(o,value);
         const base = 0x304, [width, height] = wh(m(o, base + 8));
         const input = m(o, 0x300);
         const bpp = input <= 3 ? 2 : 4;
         if(!width || !height || width * height * bpp > this.device.vram_size || input < 1 || input > 5)
             throw new RangeError("NV IFC invalid image");
         const stride = Math.ceil(width * bpp / 4) * 4;
-        if(!o.stream.length) o.stream = [0];
-        if(o.stream[0] >= height) throw new RangeError("NV IFC excess data");
+        const row = o.stream.length ? o.stream[0] : 0;
+        if(row >= height) throw new RangeError("NV IFC excess data");
         const committed = m(o, UPLOAD_COMMITTED);
-        for(let i = 0; i < 4; i++) o.stream.push(value >>> (i * 8) & 255);
         // CPU image methods retire each DWORD immediately. Drivers also use
         // this aperture for a few shader words in a much wider surface row.
-        const first = Math.min(width, committed / bpp), last = Math.min(width, (o.stream.length - 1) / bpp);
-        const row = o.stream[0], bytes = new Uint8Array(o.stream.slice(1)), [x, y] = xy(m(o, base));
+        const first = Math.min(width, committed / bpp), last = Math.min(width, (Math.max(0, o.stream.length - 1) + 4) / bpp);
+        const [x, y] = xy(m(o, base));
         const [outw, outh] = wh(m(o, base + 4)), dst = this.surface(o, 0x19C);
         const rect = this.bounds(x + first, y + row, Math.max(0, Math.min(last, outw) - first), row < outh ? 1 : 0, this.clip(o, 0x188));
+        return {input,bpp,stride,row,x,dst,rect};
+    }
+    upload(o, value, indexed)
+    {
+        if(indexed)return this.indexed_upload(o,value);
+        const {input,bpp,stride,row,x,dst,rect}=this.upload_plan(o);
+        if(!o.stream.length) o.stream = [0];
+        for(let i = 0; i < 4; i++) o.stream.push(value >>> (i * 8) & 255);
+        const bytes = new Uint8Array(o.stream.slice(1));
         const key = o.methods.has(0x184) ? this.ref(o, 0x184) : null;
         this.render(o, dst, rect, px => {
             const color = this.raw(bytes, (px - x) * bpp, bpp);

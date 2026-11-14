@@ -1,0 +1,56 @@
+{
+  "date": "2026-11-14",
+  "status": "checked disjoint linear IFC uploads retain queued draws; real WebGPU regression passes",
+  "scope": "IFC classes 0x61/0x65/0x8A/0x308A; source-copy data uploads only; state-only IFC methods do not force a download",
+  "correctness": {
+    "footprint": "CPU upload and renderer barrier share next-DWORD clipped rectangle calculation",
+    "validation": "Check actual destination read/write permissions and physical span before comparing every queued color/depth output",
+    "conservative": [
+      "overlap through the same or a different DMA descriptor",
+      "paged DMA",
+      "swizzled surface",
+      "non-source-copy operation",
+      "invalid DMA or context"
+    ],
+    "authority": "No host-only authoritative pixels are exposed to CPU writes; true aliases still download before CPU access"
+  },
+  "gpuRegression": {
+    "draws": 2,
+    "batches": 1,
+    "colorReadbacks": 1,
+    "firstConstant": 0.25,
+    "IFCUpdatedConstant": 0.5,
+    "finalRGBA": [
+      191,
+      191,
+      191,
+      191
+    ],
+    "overlappingUpload": "waited for GPU download before writing 0xFF2468AC",
+    "additionalChecks": [
+      "different-descriptor physical alias",
+      "paged upload",
+      "denied write permission"
+    ]
+  },
+  "tests": {
+    "cpu2d": "pass",
+    "fullRealChromeWebGPU": "pass",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "limitation": "Synthetic batching evidence; native 06 performance and whole-plan acceptance remain pending",
+  "logs": {
+    "build/nv40-ifc-footprint-2d.log": {
+      "sha256": "8b2e02a9384ebc736572a499539835c50bd18cb208f78d62104692438286f346",
+      "bytes": 547
+    },
+    "build/nv40-ifc-batch-gpu.log": {
+      "sha256": "a23dce5da09c3e3b7737057bf467bd925b1e2bc9fb01751fb768f65893195f6f",
+      "bytes": 4090
+    },
+    "build/nv40-ifc-batch-closure.log": {
+      "sha256": "4e71c7bd7e46947fd2fca3badcb191779db51a5ab1a42b3f9b9f963ce8c05b81",
+      "bytes": 3020
+    }
+  }
+}
