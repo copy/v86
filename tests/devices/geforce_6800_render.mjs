@@ -1241,6 +1241,25 @@ try
         assert.equal(device.registers.get(0x3248),0x76543210,"REF follows the combined readback");
         assert.deepEqual([...vram.subarray(0x10000,0x10004)],[128,128,128,128],"second draw blends against the first draw's GPU pixels");
         console.log("PASS: real FIFO batches two draws, preserves GPU blend history and orders REF after one download");
+        // Snapshot preparation commits the in-flight batch but leaves later
+        // FIFO commands and their fences to the resumed machine.
+        queued.length=0;queuedDraw();queuedDraw();queue(0x50,0x12344321);
+        queuedDraw();queuedDraw();queue(0x50,0x56788765);
+        const snapshotStart=device.registers.get(0x3270),beforeQuiesce={...engine.backend.stats};
+        vram.fill(0,0x10000,0x10100);
+        queued.forEach(([at,value],i)=>{const slot=(snapshotStart+i*4)&0xFFC,atCache=0x90000+(slot&0x7FC)*2;device.registers.set(atCache,at);device.registers.set(atCache+4,value);});
+        device.registers.set(0x3210,(snapshotStart+queued.length*4)&0xFFC);device.registers.set(0x2508,1);device.fifo.run();
+        await engine.backend.quiesce();
+        assert.equal(engine.backend.stats.draws-beforeQuiesce.draws,2,"snapshot does not submit the queued future draws");
+        assert.equal(engine.backend.stats.batches-beforeQuiesce.batches,1);
+        assert.equal(device.registers.get(0x3248),0x76543210,"unexecuted REF remains in the FIFO snapshot");
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[128,128,128,128],"submitted pixels are authoritative before saving");
+        assert.notEqual(device.registers.get(0x3270),device.registers.get(0x3210));
+        device.fifo.run();await engine.backend.wait();
+        assert.equal(engine.backend.stats.draws-beforeQuiesce.draws,4,"resume executes both remaining draws once");
+        assert.equal(device.registers.get(0x3248),0x56788765,"resume completes both ordered fences");
+        assert.deepEqual([...vram.subarray(0x10000,0x10004)],[255,255,255,255]);
+        console.log("PASS: snapshot quiescence commits only submitted GPU work and resumes queued draws/fences exactly once");
         // A CPU IFC update of the next fragment constant is disjoint from the
         // queued color target. It must reach VRAM immediately without retiring
         // that draw, and the next draw must see the new checked shader bytes.

@@ -457,7 +457,7 @@ export class NVDevice
         else this.machine.lower_irq();
     }
 
-    prepare_save() {return this.graph.engine3d.backend ? this.graph.engine3d.backend.wait() : Promise.resolve();}
+    prepare_save() {return this.graph.engine3d.backend ? this.graph.engine3d.backend.quiesce() : Promise.resolve();}
 
     get_state()
     {

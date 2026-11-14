@@ -1763,3 +1763,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   未见场景结构缺失，保留纹理和边缘精度残差。原始 SHA 与数值见
   `g3-native-99-cross-driver-iq.json`；跨驱动一致不替代代理参考
   的误差审查，也不将 IQ-only 复跑称为新鲜 Win98 全程。
+
+- G1/G6 快照 GPU 静止点：原生 03 GT4 保存时会在 CPU 停止后，
+  由 GPU 完成回调继续消费大量后续 FIFO 命令。`prepare_save`
+  现只完成已经提交的批次/查询，未提交命令保留 GET/PUT 与快照，
+  恢复后继续；普通 `wait` 的完整递归排空保持原义。真实 FIFO/GPU
+  验证两次绘制保存、余下两次恢复、两个 REF 顺序及像素值，
+  设备/完整 GPU/Closure 通过，见 `g6-snapshot-submitted-work.json`。

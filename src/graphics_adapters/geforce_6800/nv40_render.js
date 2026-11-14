@@ -130,7 +130,7 @@ export class NV40Render
         this.writer=new D9WGWriter(0x3034564E); // "NV40", separate resource namespace
         this.query=0;this.next=2;this.sequence=0;this.request=0;this.created=false;
         this.resources=new Map();this.shaders=new Map();this.declarations=new Map();
-        this.batch=null;this.pending=null;this.stats={batches:0,draws:0,bytes:0,readbacks:0,failures:0,uploads:0,uploadBytes:0};
+        this.batch=null;this.pending=null;this.quiescing=false;this.stats={batches:0,draws:0,bytes:0,readbacks:0,failures:0,uploads:0,uploadBytes:0};
         renderer["listen"](message=>this.receive(message));
     }
     reset()
@@ -141,6 +141,15 @@ export class NV40Render
         this.query=0;this.next=2;this.renderer["post"]({"type":"reset"});
     }
     wait() {this.flush();return this.pending?this.pending.promise.then(()=>this.wait()):Promise.resolve();}
+    async quiesce()
+    {
+        // A stopped CPU's snapshot needs only the already submitted GPU work.
+        // Unsubmitted FIFO commands are saved with GET/PUT and resume later;
+        // draining them here can render several queued frames during a save.
+        this.quiescing=true;
+        try {await this.wait();}
+        finally {this.quiescing=false;}
+    }
     command(op,fields={}) {return this.writer.command(op,{"device_handle":1,...fields});}
     initialize()
     {
@@ -494,7 +503,8 @@ export class NV40Render
                 const {object,value}=pending.query;
                 object.methods.set(QUERY_COUNT,(get(object,QUERY_COUNT)+value)>>>0);
             }
-            this.pending=null;pending.resolve();this.device.machine.wake();this.device.fifo.run();
+            this.pending=null;pending.resolve();this.device.machine.wake();
+            if(!this.quiescing)this.device.fifo.run();
         }
     }
 }

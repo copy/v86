@@ -1,0 +1,50 @@
+{
+  "date": "2026-11-14",
+  "trigger": "Native 3DMark03 GT4 snapshot waited while GPU completion callbacks kept executing queued FIFO draws after the CPU had stopped.",
+  "behavior": "Snapshot preparation sets a temporary quiescing guard, commits the submitted GPU batch and query, and leaves unsubmitted commands plus their GET/PUT positions in device state. Normal wait() retains recursive drain behavior. On resume, regular device/FIFO polling executes the remaining work.",
+  "gpuRegression": {
+    "commands": "Two additive draws, REF, two more additive draws, REF",
+    "atQuiescence": {
+      "draws": 2,
+      "batches": 1,
+      "RGBA": [
+        128,
+        128,
+        128,
+        128
+      ],
+      "REF": "previous value; queued REF not executed",
+      "FIFO": "GET != PUT"
+    },
+    "afterResume": {
+      "draws": 4,
+      "RGBA": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "REF": "0x56788765",
+      "ordering": "remaining draws/fences executed exactly once"
+    }
+  },
+  "tests": {
+    "deviceAndCPURender": "pass",
+    "fullRealWebGPU": "pass",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "logs": {
+    "build/nv40-quiesce-unit.log": {
+      "bytes": 579,
+      "sha256": "d7a2427f51574011bec47bc4c689a8f88d7655fe6b242439ceb0810c30d11d63"
+    },
+    "build/nv40-quiesce-gpu.log": {
+      "bytes": 4438,
+      "sha256": "0bf4fd6a99b1e95a1cb038d5089a1bed52e6c5703a6f2e2ac2e751fc8da447d4"
+    },
+    "build/nv40-quiesce-closure.log": {
+      "bytes": 3020,
+      "sha256": "4e71c7bd7e46947fd2fca3badcb191779db51a5ab1a42b3f9b9f963ce8c05b81"
+    }
+  }
+}
