@@ -1,0 +1,544 @@
+{
+  "date": "2026-11-14",
+  "status": "all 22 native selected tests completed with score; project and original IQ exported; clean/image gates remain open",
+  "driver": "NVIDIA 93.71",
+  "settings": "1024x768x16, 16-bit textures, Z16, triple buffer, hardware T&L, all 22 tests including both IQ groups",
+  "score": {
+    "3DMarks": 23,
+    "performanceGate": false
+  },
+  "runs": [
+    {
+      "directory": "build/nv40-xp-mark2000-production2",
+      "seconds": 3619,
+      "gpu": {
+        "batches": 10715,
+        "draws": 87500,
+        "bytes": 5002510760,
+        "readbacks": 21428,
+        "failures": 0,
+        "uploads": 19402,
+        "uploadBytes": 1515926192
+      },
+      "graphFaults": [],
+      "imageUnchanged": true,
+      "game": {
+        "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/3dmarklegacy.img",
+        "slot": "secondary-slave",
+        "imageUnchanged": true
+      }
+    },
+    {
+      "directory": "build/nv40-xp-mark2000-production3",
+      "seconds": 3212,
+      "gpu": {
+        "batches": 9061,
+        "draws": 50765,
+        "bytes": 7562101408,
+        "readbacks": 18121,
+        "failures": 0,
+        "uploads": 53307,
+        "uploadBytes": 4014774076
+      },
+      "graphFaults": [
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        },
+        {
+          "channel": 1,
+          "subc": 6,
+          "method": 6152,
+          "value": 0,
+          "source": 256,
+          "status": 16384,
+          "reason": "NV40 unsupported fragment opcode null",
+          "sequence": 0
+        }
+      ],
+      "imageUnchanged": true,
+      "game": {
+        "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/3dmarklegacy.img",
+        "slot": "secondary-slave",
+        "imageUnchanged": true
+      }
+    }
+  ],
+  "savedArtifacts": [
+    {
+      "file": "NV2000.3DP",
+      "name": "NV2000.3DP",
+      "bytes": 4809,
+      "sha256": "b47959ff58897a3eecbfa73ee162c4e59597293d3d583441c81eeaf1c3b16576"
+    },
+    {
+      "file": "Quality/IQ01I_NV2000.bmp",
+      "name": "Quality_IQ01I_NV2000.bmp",
+      "bytes": 249856,
+      "sha256": "9013df2843080d45e1d1a06276eb4e5dc708d4a8fa7897a99f8b7f9e95e44bf1"
+    },
+    {
+      "file": "Quality/IQ01T_NV2000.bmp",
+      "name": "Quality_IQ01T_NV2000.bmp",
+      "bytes": 16384,
+      "sha256": "73f01bc478ad38f5072245abb106b84a8211bc024aaafed0121a53d9b14cf8e3"
+    },
+    {
+      "file": "Quality/IQ02I_NV2000.bmp",
+      "name": "Quality_IQ02I_NV2000.bmp",
+      "bytes": 249856,
+      "sha256": "a3824c888535556fcd168789e3e3932ab4fcdefbcdf1cf35335ac2a06a51ce57"
+    },
+    {
+      "file": "Quality/IQ02T_NV2000.bmp",
+      "name": "Quality_IQ02T_NV2000.bmp",
+      "bytes": 16384,
+      "sha256": "61b644dcb080a9fdaae1ba27248edab7b1a6752671989d8671a6d83397d6358a"
+    },
+    {
+      "file": "Quality/IQ03I_NV2000.bmp",
+      "name": "Quality_IQ03I_NV2000.bmp",
+      "bytes": 249856,
+      "sha256": "70cc5b79626a263db10803db4a13a3c06ee1b742bae3b6a33cbf026dbb1549c9"
+    },
+    {
+      "file": "Quality/IQ03T_NV2000.bmp",
+      "name": "Quality_IQ03T_NV2000.bmp",
+      "bytes": 16384,
+      "sha256": "5686a82c8f579dffd9c7d4191cd15bb7b4c4243c0bd7877c2a8a7cdf6952fe53"
+    },
+    {
+      "file": "Quality/IQ04I_NV2000.bmp",
+      "name": "Quality_IQ04I_NV2000.bmp",
+      "bytes": 249856,
+      "sha256": "c978403856b9fa6e75ec820d05465e4f4f2766a65a6583c84d3f8059ddc89448"
+    },
+    {
+      "file": "Quality/IQ04T_NV2000.bmp",
+      "name": "Quality_IQ04T_NV2000.bmp",
+      "bytes": 16384,
+      "sha256": "6facf25a2be5c852e3bd864ff87a9461b7430333770e1386312ba92115a9d441"
+    },
+    {
+      "file": "Quality/IQ05I_NV2000.bmp",
+      "name": "Quality_IQ05I_NV2000.bmp",
+      "bytes": 249856,
+      "sha256": "1718091476349e6318cfdd747cf701b1d25b6f5cee38e29e9a4d723d68017338"
+    },
+    {
+      "file": "Quality/IQ05T_NV2000.bmp",
+      "name": "Quality_IQ05T_NV2000.bmp",
+      "bytes": 16384,
+      "sha256": "51a938f9ee46bab7f24c23d351ffcf2f1257a0ef257b08d4d184f7ff7af0dc2e"
+    },
+    {
+      "file": "Quality/IQ06I_NV2000.bmp",
+      "name": "Quality_IQ06I_NV2000.bmp",
+      "bytes": 249856,
+      "sha256": "c598d5f5efdd6964311b477153476a41379297e2b6b7ddbacb862a4d2f76cd53"
+    },
+    {
+      "file": "Quality/IQ06T_NV2000.bmp",
+      "name": "Quality_IQ06T_NV2000.bmp",
+      "bytes": 16384,
+      "sha256": "62d1f757cabd1074d1d660db47544549c7379ce1bbe2eae86e8b1e05950b1645"
+    },
+    {
+      "file": "Quality/IQ07I_NV2000.bmp",
+      "name": "Quality_IQ07I_NV2000.bmp",
+      "bytes": 249856,
+      "sha256": "a1a7884f85d1f13dcae9dbbbabd41c87333c9d95ae53677b5c67ed4f06e91ccd"
+    },
+    {
+      "file": "Quality/IQ07T_NV2000.bmp",
+      "name": "Quality_IQ07T_NV2000.bmp",
+      "bytes": 16384,
+      "sha256": "011d80de90bd626f027bc58d253efbc3b0fbe35fca0d336c3b0bee361997f634"
+    },
+    {
+      "file": "Quality/IQ08I_NV2000.bmp",
+      "name": "Quality_IQ08I_NV2000.bmp",
+      "bytes": 2560000,
+      "sha256": "a381df9819c4ca4232fc2f2ed3c1e23a14edce32b9ae053be25f12cb1569a334"
+    },
+    {
+      "file": "Quality/IQ08T_NV2000.bmp",
+      "name": "Quality_IQ08T_NV2000.bmp",
+      "bytes": 18496,
+      "sha256": "7f9dce50be30b2062a99aa308f248167af3447ec3bdf779f801adebe078e6952"
+    },
+    {
+      "file": "Quality/IQ09I_NV2000.bmp",
+      "name": "Quality_IQ09I_NV2000.bmp",
+      "bytes": 2560000,
+      "sha256": "b14c370f70914b3d9dd1861b0bbe4f23c6408994a3ac67771599048755d88215"
+    },
+    {
+      "file": "Quality/IQ09T_NV2000.bmp",
+      "name": "Quality_IQ09T_NV2000.bmp",
+      "bytes": 18496,
+      "sha256": "5d0b163f4494015797ba72620aff7179d10e435381cd01881800335ad1ab9f50"
+    }
+  ],
+  "comparison": [
+    {
+      "case": 1,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.0,
+      "max_channel_error": 0,
+      "exact_pixel_percent": 100.0,
+      "native_sha256": "9013df2843080d45e1d1a06276eb4e5dc708d4a8fa7897a99f8b7f9e95e44bf1",
+      "reference_sha256": "0da313c8b34fc7c4e08beb9cefa5a7c332d98086dc719abef4fe80f1a4c8d520"
+    },
+    {
+      "case": 2,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 0,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.0,
+      "max_channel_error": 0,
+      "exact_pixel_percent": 100.0,
+      "native_sha256": "a3824c888535556fcd168789e3e3932ab4fcdefbcdf1cf35335ac2a06a51ce57",
+      "reference_sha256": "c0f3de49a85e1e2b03e30140292cdc5a831cd5090d52da0ba186c017f3bd1bb9"
+    },
+    {
+      "case": 3,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 553,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.02008056640625,
+      "max_channel_error": 8,
+      "exact_pixel_percent": 99.15618896484375,
+      "native_sha256": "70cc5b79626a263db10803db4a13a3c06ee1b742bae3b6a33cbf026dbb1549c9",
+      "reference_sha256": "2c6b591c0d5ea4d299b7c5a63348502a82306cbcf5fa8af4ed34e6ed956d6d7d"
+    },
+    {
+      "case": 4,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 540,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.019999186197916668,
+      "max_channel_error": 8,
+      "exact_pixel_percent": 99.176025390625,
+      "native_sha256": "c978403856b9fa6e75ec820d05465e4f4f2766a65a6583c84d3f8059ddc89448",
+      "reference_sha256": "a5951c3c965c18c8dec33342d5414ca65deea79fbe1aef8deaadfb02307c451c"
+    },
+    {
+      "case": 5,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 617,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.020772298177083332,
+      "max_channel_error": 8,
+      "exact_pixel_percent": 99.05853271484375,
+      "native_sha256": "1718091476349e6318cfdd747cf701b1d25b6f5cee38e29e9a4d723d68017338",
+      "reference_sha256": "621317632376c082714ca4117bcd6181ca161f3a2a5c9f591e463b705a41dd83"
+    },
+    {
+      "case": 6,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 554,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.019999186197916668,
+      "max_channel_error": 8,
+      "exact_pixel_percent": 99.1546630859375,
+      "native_sha256": "c598d5f5efdd6964311b477153476a41379297e2b6b7ddbacb862a4d2f76cd53",
+      "reference_sha256": "d324ed6b6e7281769a857904bb2457ed92cc5fc01338cde89a9f2e0d97df9e77"
+    },
+    {
+      "case": 7,
+      "width": 256,
+      "height": 320,
+      "roi_y": 64,
+      "different_pixels": 375,
+      "pixels": 65536,
+      "mean_absolute_rgb_error": 0.00762939453125,
+      "max_channel_error": 4,
+      "exact_pixel_percent": 99.42779541015625,
+      "native_sha256": "a1a7884f85d1f13dcae9dbbbabd41c87333c9d95ae53677b5c67ed4f06e91ccd",
+      "reference_sha256": "77d76eb60967406651b15c61a2e459ded9f5ac0d0aa5f186c72c73b2577c0d6b"
+    },
+    {
+      "case": 8,
+      "width": 1024,
+      "height": 832,
+      "roi_y": 64,
+      "different_pixels": 333674,
+      "pixels": 786432,
+      "mean_absolute_rgb_error": 6.551495022243923,
+      "max_channel_error": 176,
+      "exact_pixel_percent": 57.571156819661454,
+      "native_sha256": "a381df9819c4ca4232fc2f2ed3c1e23a14edce32b9ae053be25f12cb1569a334",
+      "reference_sha256": "fb969ac1941880a20d186f2ef8e392365f995460f2c2cccb943caf7014fa85af"
+    },
+    {
+      "case": 9,
+      "width": 1024,
+      "height": 832,
+      "roi_y": 64,
+      "different_pixels": 92887,
+      "pixels": 786432,
+      "mean_absolute_rgb_error": 4.00303480360243,
+      "max_channel_error": 248,
+      "exact_pixel_percent": 88.18880716959634,
+      "native_sha256": "b14c370f70914b3d9dd1861b0bbe4f23c6408994a3ac67771599048755d88215",
+      "reference_sha256": "16d5837ce7630b87f7bb9c9f9208bd7de01dc7886cf62c4287fb866710a56866"
+    }
+  ],
+  "comparisonMethod": "Direct original RGB against existing proxy reference stage6-2000-first; exclude only top 64 metadata rows. No shifts, resampling or channel swaps.",
+  "observations": [
+    "The original Congratulations window is visible before the idle Windows XP logo screensaver; waking restores the same 23-point result window.",
+    "Two bounded PGRAPH unknown-opcode faults were observed in production3; the exact failing instruction was no longer resident in the later state. Their timing relative to the benchmark is not proven, so this is not recorded as a clean full run.",
+    "IQ 1/2 are exact, 3-7 have small residuals; larger 8/9 differences remain.",
+    "The project was saved with Save Image Quality pictures checked. A normal shutdown was requested; offline export verifies the actual project and eighteen complete BMP payloads.",
+    "A fresh current-build all-22 rerun is in progress with instruction-word fault capture."
+  ],
+  "screenshots": {
+    "build/nv40-xp-mark2000-production3/capture-0430.png": {
+      "sha256": "3b9620dea364527763e6b5f3420a6987bfd33876e72e351ba80299536dfc585b",
+      "bytes": 56305
+    },
+    "build/nv40-xp-mark2000-wake/capture-0019.png": {
+      "sha256": "68dad138f9e479c919956b718d12431a45c907ff30c82ed58f8ac814d9bfba39",
+      "bytes": 56304
+    },
+    "build/nv40-xp-mark2000-wake/capture-0051.png": {
+      "sha256": "af03b39f951b955ae4dca3bc41ce7bfcd0fd091dfb6680d44002dfabe631ff46",
+      "bytes": 33332
+    },
+    "build/nv40-xp-mark2000-wake/capture-0075.png": {
+      "sha256": "ffbedb55ac66237f51efb45618de461f298920d8885db4c09a6cbf0c0e80e711",
+      "bytes": 31830
+    }
+  }
+}
