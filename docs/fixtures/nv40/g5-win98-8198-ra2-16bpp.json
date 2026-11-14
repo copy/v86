@@ -1,0 +1,124 @@
+{
+  "date": "2026-11-14",
+  "status": "native Win98 16bpp DirectDraw game spot-check passed; remaining G5 benchmark/image gates open",
+  "driver": "NVIDIA 81.98",
+  "game": "Command & Conquer: Red Alert 2 v1.006 from original ra2.img",
+  "nativePath": "E:\\C&CRA~1\\RA2.EXE",
+  "setup": "No DDRAW/D3D wrapper DLL was present in the game directory. Unmodified existing launcher and game execute through the official NVIDIA driver; original images remain read-only.",
+  "verified": [
+    "Main menu and loading screen at 1024x768 RGB565 / pitch 2048",
+    "Started the default Isle of War skirmish; vehicles, infantry, terrain/fog and HUD visible with correct colors",
+    "Opened native Game Controls, Abort Mission / Quit, returned through menus, clicked Exit Game and its OK confirmation",
+    "Restored 1024x768x32 / pitch 4096 desktop"
+  ],
+  "runs": {
+    "nv40-win98-ra2-native": {
+      "seconds": 909,
+      "build": {
+        "javascript": "release",
+        "wasm": "/Users/renruisi/Desktop/Code/v86/build/v86.wasm"
+      },
+      "imageUnchanged": true,
+      "game": {
+        "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/ra2.img",
+        "slot": "secondary-slave",
+        "imageUnchanged": true
+      },
+      "gpu": {
+        "batches": 14,
+        "draws": 14,
+        "bytes": 8552856,
+        "readbacks": 14,
+        "failures": 0,
+        "uploads": 8,
+        "uploadBytes": 8396800
+      },
+      "graphFaults": [],
+      "finalMode": {
+        "width": 1024,
+        "height": 768,
+        "pitch": 2048,
+        "bytes": 2,
+        "rgb565": true
+      }
+    },
+    "nv40-win98-ra2-native-exit": {
+      "seconds": 185,
+      "build": {
+        "javascript": "release",
+        "wasm": "/Users/renruisi/Desktop/Code/v86/build/v86.wasm"
+      },
+      "imageUnchanged": true,
+      "game": {
+        "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/ra2.img",
+        "slot": "secondary-slave",
+        "imageUnchanged": true
+      },
+      "gpu": {
+        "batches": 3,
+        "draws": 3,
+        "bytes": 4064648,
+        "readbacks": 3,
+        "failures": 0,
+        "uploads": 3,
+        "uploadBytes": 4030464
+      },
+      "graphFaults": [],
+      "finalMode": {
+        "width": 1024,
+        "height": 768,
+        "pitch": 2048,
+        "bytes": 2,
+        "rgb565": true
+      }
+    },
+    "nv40-win98-ra2-native-exit2": {
+      "seconds": 183,
+      "build": {
+        "javascript": "release",
+        "wasm": "/Users/renruisi/Desktop/Code/v86/build/v86.wasm"
+      },
+      "imageUnchanged": true,
+      "game": {
+        "path": "/Users/renruisi/Desktop/Code/retro-gaming-site/game/ra2.img",
+        "slot": "secondary-slave",
+        "imageUnchanged": true
+      },
+      "gpu": {
+        "batches": 3,
+        "draws": 3,
+        "bytes": 4064648,
+        "readbacks": 3,
+        "failures": 0,
+        "uploads": 3,
+        "uploadBytes": 4030464
+      },
+      "graphFaults": [],
+      "finalMode": {
+        "width": 1024,
+        "height": 768,
+        "pitch": 4096,
+        "bytes": 4,
+        "rgb565": false
+      }
+    }
+  },
+  "screenshots": {
+    "build/nv40-win98-ra2-native/capture-0045.png": {
+      "sha256": "ac263e0cf8c2a63b5b59eefa2f826cd205010223064590dfba7acf84d4c138bd",
+      "bytes": 314201
+    },
+    "build/nv40-win98-ra2-native/capture-0096.png": {
+      "sha256": "4a4cee67c223283d182acbfd873b9608c995fdd5b5a78811c64ba1251f09838e",
+      "bytes": 453757
+    },
+    "build/nv40-win98-ra2-native-exit2/capture-0055.png": {
+      "sha256": "9a3462e8c5f48a6d214d46817de70e4859f42d202e96ec4cf8665c56261da837",
+      "bytes": 12724
+    }
+  },
+  "limits": [
+    "Visual DirectDraw spot-check, not a pixel-exact physical hardware comparison or performance score.",
+    "StarCraft covers 8bpp separately; Win98 99 IQ residuals and later benchmark gates remain open."
+  ]
+}
