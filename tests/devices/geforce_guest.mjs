@@ -304,6 +304,46 @@ export async function run_geforce_guest(win98)
                 return write(dma,offset,bytes);
             };
         }
+        if(process.env.NV_GRAPH_FAULTS)
+        {
+            const graph=nv.graph,method=graph.method.bind(graph),bind=graph.bind.bind(graph),error=graph.error.bind(graph),history=new Array(256),captures=[],seen=new Set();
+            let cursor=0,total=0;
+            const describe=object=>object?{channel:object.channel,instance:object.instance,class_id:object.class_id,
+                methods:Array.from(object.methods).filter(([at])=>at<0x2000 || at>=0x40000&&at<0x40010 || at>=0x50000&&at<0x50008),
+                streamWords:object.stream.length,streamHead:object.stream.slice(0,32)}:null;
+            graph.method=(channel,subc,instance,at,value)=>{
+                const object=graph.bindings.get(channel+":"+subc);
+                history[cursor++&255]=[channel,subc,instance,object?.class_id??null,at,value,object?.stream.length??0];total++;
+                return method(channel,subc,instance,at,value);
+            };
+            graph.bind=(channel,subc,instance)=>{
+                const object=bind(channel,subc,instance);
+                history[cursor++&255]=[channel,subc,instance,object.class_id,0,instance,object.stream.length];total++;
+                return object;
+            };
+            graph.error=(channel,subc,at,value,source=0x40,status=0x4000,reason="unimplemented PGRAPH method")=>{
+                error(channel,subc,at,value,source,status,reason);
+                const object=graph.bindings.get(channel+":"+subc),key=JSON.stringify([channel,subc,object?.class_id,at,reason]);
+                if(captures.length>=16 || seen.has(key))return;
+                seen.add(key);
+                const references=[];
+                if(object)for(let field=0x180;field<=0x1B8;field+=4)if(object.methods.has(field))
+                {
+                    const instance=object.methods.get(field)*16,entry={field,instance,loaded:describe(graph.objects.get(channel+":"+instance))};
+                    try {entry.ramin=Array.from({length:4},(_,i)=>nv.dma.word(instance+i*4));}
+                    catch(readError){entry.error=String(readError);}
+                    references.push(entry);
+                }
+                const fifoRegisters=[0x3204,0x3210,0x3228,0x322C,0x3240,0x3244,0x3270,0x3280,0x32A8,0x32AC].map(at=>[at,nv.registers.get(at)||0]);
+                let objectRAMIN=null;
+                if(object)try {objectRAMIN=Array.from({length:4},(_,i)=>nv.dma.word(object.instance+i*4));}
+                catch(readError){objectRAMIN=String(readError);}
+                captures.push({elapsed:elapsed(),channel,subc,method:at,value,source,status,reason:reason||"unimplemented PGRAPH method",
+                    object:describe(object),objectRAMIN,fifoRegisters,references,
+                    history:Array.from({length:Math.min(total,256)},(_,i)=>history[(cursor-Math.min(total,256)+i)&255])});
+                fs.writeFileSync(path.join(out,"graph-fault-captures.json"),JSON.stringify(captures,null,2));
+            };
+        }
         if(process.env.NV_DRAW_FAULTS && nv.graph.engine3d.backend)
         {
             const backend=nv.graph.engine3d.backend,draw=backend.draw.bind(backend),faults=[],seen=new Set();

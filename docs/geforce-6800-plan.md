@@ -1830,3 +1830,10 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   0.25/0.5 常量，两次加法绘制共用一个批次与一次颜色回读，RGBA
   为 191；完整 GPU/Closure 通过，见 `g6-input-dma-batching.json`。
   附件 DMA 与同步屏障保留，不据此宣称原生超时或帧率已解决。
+
+- G4 首错诊断：增加默认关闭的 `NV_GRAPH_FAULTS`，有界保存
+  首 16 种 PGRAPH 错误及前 256 条命令、对象/输入引用；后续版本
+  增加 SET_OBJECT、内部 primitive 和 FIFO 寄存器。原生 03
+  重放首次错误为 BEGIN `0x1015`，早于顶点流和 M2MF 连锁错误；
+  根因继续调查，未将该运行计为通过。见
+  `g4-first-pgraph-fault-diagnostics.json`，语法检查与原生捕获通过。

@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-14",
+  "behavior": "Opt-in NV_GRAPH_FAULTS records a bounded 256-command ring and the first 16 distinct PGRAPH failures, including object methods, inline stream, DMA references and raw RAMIN words. Latest diagnostics also include SET_OBJECT, private primitive/upload state and FIFO registers. Default execution remains unchanged.",
+  "nativeEvidence": {
+    "file": "build/nv40-xp-mark03-first-context-fault/graph-fault-captures.json",
+    "bytes": 1197200,
+    "sha256": "bdd08701f9ad9361e427a5be81402d24a3f38e038d0af99c7368ad90cd5fe546",
+    "first": {
+      "elapsed": 545.524245834,
+      "channel": 1,
+      "subc": 6,
+      "method": 6152,
+      "value": 4117,
+      "source": 256,
+      "status": 16384,
+      "reason": "NV40 nested/invalid BEGIN"
+    },
+    "observed": "BEGIN 0x1015 precedes invalid vertex stream and END-without-BEGIN. Later M2MF-like commands reach cached IFC class 0x65. Root cause unresolved; this is diagnostic evidence, not 03 acceptance.",
+    "scope": "Native replay used the initial diagnostic version without SET_OBJECT/private-state/FIFO-register additions."
+  },
+  "tests": [
+    "node --check tests/devices/geforce_guest.mjs",
+    "Native release XP 03 replay captured the first frontend failure before its later cascade."
+  ],
+  "originalImagesUnchanged": true
+}
