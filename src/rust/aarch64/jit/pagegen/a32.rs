@@ -66,6 +66,8 @@ pub enum Kind {
     },
     /// MRS of CPSR/APSR, excluding the execution-state T/IT bits.
     Status { rd: u8, cond: u8 },
+    /// BFI/BFC and signed/unsigned bitfield extraction; rn NONE clears.
+    Bitfield { rd: u8, rn: u8, lsb: u8, width: u8, insert: bool, signed: bool, cond: u8 },
     /// LDR, STR and their byte, halfword and signed forms: a size of
     /// 1 << `size` bytes; `index`: the offset address accessed, `writeback`
     /// to Rn; Rn 15: a literal (no writeback); never of the PC
@@ -237,6 +239,7 @@ pub fn kind_name(kind: &Kind) -> String {
         Kind::Data { cond, s, .. } => format!("data{}/{}", if *s { "s" } else { "" }, cond),
         Kind::Wide { cond, .. } => format!("wide/{}", cond),
         Kind::Status { cond, .. } => format!("status/{}", cond),
+        Kind::Bitfield { cond, .. } => format!("bitfield/{}", cond),
         Kind::Mem { cond, .. } => format!("mem/{}", cond),
         Kind::Multiple { .. } => "multiple".into(),
         Kind::Multiply { cond, .. } => format!("mul/{}", cond),
@@ -1362,6 +1365,17 @@ fn a32_native(word: u32) -> Option<Kind> {
         },
         0b010 | 0b011 => {
             if word & 1 << 25 != 0 && word & 1 << 4 != 0 {
+                let form = word & 0x0FE0_0070;
+                if matches!(form, 0x07A0_0050 | 0x07E0_0050 | 0x07C0_0010) {
+                    let lsb = (word >> 7 & 31) as u8;
+                    let limit = (word >> 16 & 31) as u8;
+                    let insert = form == 0x07C0_0010;
+                    if rd == 15 || !insert && rm == 15 || insert && limit < lsb { return None; }
+                    let width = if insert { limit - lsb + 1 } else { limit + 1 };
+                    if lsb as u32 + width as u32 > 32 { return None; }
+                    return Some(Kind::Bitfield { rd, rn: if rm == 15 { NONE } else { rm }, lsb, width,
+                        insert, signed: form == 0x07A0_0050, cond });
+                }
                 // REV, REV16, REVSH
                 let bits = match word & 0x0FFF_0FF0 {
                     0x06BF_0F30 => Some(1),
@@ -1768,6 +1782,17 @@ fn t32_native32(hw1: u32, hw2: u32, rn: u8, rd: u8, rt: u8, rm: u8, s: bool) -> 
         }
         // the plain binary immediates: ADDW, SUBW (ADR with the PC), MOVW, MOVT
         let imm12 = (hw1 >> 10 & 1) << 11 | (hw2 >> 12 & 7) << 8 | hw2 & 0xFF;
+        let op = hw1 >> 4 & 31;
+        if matches!(op, 0b10100 | 0b11100 | 0b10110) {
+            let insert = op == 0b10110;
+            let lsb = ((hw2 >> 10 & 0x1C) | (hw2 >> 6 & 3)) as u8;
+            let limit = (hw2 & 31) as u8;
+            if rd == 13 || rd == 15 || rn == 13 || !insert && rn == 15 || insert && limit < lsb { return None; }
+            let width = if insert { limit - lsb + 1 } else { limit + 1 };
+            if lsb as u32 + width as u32 > 32 { return None; }
+            return Some(Kind::Bitfield { rd, rn: if rn == 15 { NONE } else { rn }, lsb, width,
+                insert, signed: op == 0b10100, cond: 14 });
+        }
         if rd == 15 || rd == 13 && rn != 13 {
             return None;
         }
@@ -2165,6 +2190,7 @@ fn t32_native_it(word: u32, length: u8, cond: u8) -> Option<Kind> {
         },
         Kind::Wide { cond: c, .. }
         | Kind::Status { cond: c, .. }
+        | Kind::Bitfield { cond: c, .. }
         | Kind::Multiply { cond: c, .. }
         | Kind::MultiplyLong { cond: c, .. }
         | Kind::Extend { cond: c, .. }
@@ -3759,6 +3785,21 @@ impl Emitter<'_> {
                 e.b.or_i32();
                 e.si(A2);
                 e.set_r32(rd, A2);
+            }),
+            Kind::Bitfield { rd, rn, lsb, width, insert, signed, cond } => self.when(cond, |e| {
+                if insert {
+                    let mask = if width == 32 { u32::MAX } else { ((1u32 << width) - 1) << lsb };
+                    e.r32(rd); e.c32(!mask as i32); e.b.and_i32();
+                    if rn != NONE {
+                        e.r32(rn); e.c32(lsb as i32); e.b.shl_i32();
+                        e.c32(mask as i32); e.b.and_i32(); e.b.or_i32();
+                    }
+                } else {
+                    e.r32(rn); e.c32((32 - lsb - width) as i32); e.b.shl_i32();
+                    e.c32((32 - width) as i32);
+                    if signed { e.b.shr_s_i32(); } else { e.b.shr_u_i32(); }
+                }
+                e.si(A2); e.set_r32(rd, A2);
             }),
             Kind::Mem {
                 load,
