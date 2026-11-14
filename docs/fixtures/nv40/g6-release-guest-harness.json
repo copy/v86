@@ -1,0 +1,64 @@
+{
+  "stage": "G6 release guest harness validation",
+  "scope": "Native Win98 bump checkpoint and release device regression. Does not establish full benchmark completion or an isolated 3DMark06 performance result.",
+  "directory": "build/nv40-win98-bump-release",
+  "checkpoint": "build/nv40-win98-mark99-continue2/checkpoint-bump-timing.state",
+  "build": {
+    "javascript": "release",
+    "wasm": "/Users/renruisi/Desktop/Code/v86/build/v86.wasm"
+  },
+  "hashes": {
+    "build/libv86.mjs": "d93618810c8ace28d9316be9863105cc7a884cfd43b375f63bfc57ff9f8b0255",
+    "build/v86.wasm": "c4dd578873c73db9b6bc63e5dfc2135dfb4657568f364d5bead73e8a2e42c2dc",
+    "build/v86-geforce-6800.js": "8cb55dcbf7cd188178fdbf6b512a9e02569d28eab39fe04260460fc414e60427",
+    "build/nv40-win98-bump-release/cpu-profile.cpuprofile": "18d9837d4ea3975106ee76a719cc4c145aaadac3abefd0d122af5a5836bc7c5e"
+  },
+  "seconds": 92,
+  "clock": {
+    "mode": "normal",
+    "elapsedMs": 86659.48529236298,
+    "hostElapsedMs": 90720.419041,
+    "host_pause_count": 9,
+    "discarded_host_ms": 1132.5514589994855,
+    "host_backwards_count": 0,
+    "committed_instructions": 0,
+    "idle_ms": 0
+  },
+  "gpu": {
+    "batches": 8,
+    "draws": 8,
+    "bytes": 10332440,
+    "readbacks": 16,
+    "failures": 0,
+    "uploads": 27,
+    "uploadBytes": 9147624
+  },
+  "graph_faults": [],
+  "self_sample_seconds": {
+    "(idle)": 62.548434,
+    "(program)": 4.66283,
+    "(garbage collector)": 0.963775,
+    "_ZN3v863gen11interpreter3run17h660101cb5936e44eE": 0.87409,
+    "writeSync": 0.733988,
+    "processTimers": 0.598018,
+    "listOnTimeout": 0.593499,
+    "ranges": 0.560125,
+    "render": 0.536472,
+    "read": 0.497713,
+    "x64_pagel32_c0003000": 0.463306,
+    "apic_take_core_events": 0.419442,
+    "_ZN3v863x645pages13execute_inner17h206e0952987cb769E": 0.41742,
+    "": 0.361688,
+    "main_loop": 0.358829
+  },
+  "idle_sample_fraction": 0.7221631937329028,
+  "error": null,
+  "original_image_unchanged": true,
+  "game_image_unchanged": true,
+  "validation": [
+    "Release JS/WASM build: zero Closure errors/warnings",
+    "TEST_RELEASE_BUILD=1 node tests/devices/geforce_6800.js",
+    "Native checkpoint restore, compiled IDE secondary-slave disk attachment, actual GPU rendering, CPU profile, shutdown and read-only image checks"
+  ],
+  "finding": "The release run still has multi-second submission intervals and approximately 72% idle self samples; source/debug tracing is not the sole cause. Concurrent native workloads prevent an isolated FPS claim."
+}

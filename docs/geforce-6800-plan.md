@@ -1558,3 +1558,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   无 GPU/PGRAPH 故障，长等待仍在，未宣称性能改善。硬件编码依据见
   [PTIMER](https://envytools.readthedocs.io/en/latest/hw/bus/ptimer.html)，
   实测数据追加到 `g6-win98-99-timing-investigation.json`。
+
+- G6 release harness：修正此前固定导入源码的客体工具，实际响应
+  `TEST_RELEASE_BUILD=1`，同时选择 release JS/WASM 并记录构建路径。
+  游戏盘使用当前核心自带的 IDE 类，不混入源码/debug 设备实现。
+  release 寄存器/快照回归及真实 Win98 检查点恢复、GPU 绘制、profile、
+  退出和原盘只读检查通过；90 秒仍只有 8 次绘制、约 72% idle，
+  长等待尚未解决，也未据并行负载下的结果宣称帧率改善。构建与 profile
+  SHA 见 `g6-release-guest-harness.json`，最终 06 报告仍需独立测量。

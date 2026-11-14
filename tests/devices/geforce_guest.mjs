@@ -10,9 +10,9 @@ import { MemoryDisk, ReadOnlyOverlayDisk, read_fat16 } from "../smp/disk_fixture
 import { make_esp } from "../lib/fat.mjs";
 import { PictureSink, save_png } from "../lib/picture_sink.mjs";
 import { site_directory } from "../lib/site.mjs";
-import { V86 } from "../../src/main.js";
-import { IDEInterface } from "../../src/ide.js";
 import { read_fat32_file } from "../lib/fat32_reader.mjs";
+const release_build = !!+process.env.TEST_RELEASE_BUILD;
+const { V86 } = await import(release_build ? "../../build/libv86.mjs" : "../../src/main.js");
 
 // A canvas clips transient layers during VGA mode switches. Keep the headless
 // screenshot sink equally bounded when an old layer arrives after a resize.
@@ -173,7 +173,8 @@ export async function run_geforce_guest(win98)
         remote=await create_remote_renderer({on_log:line=>console.log("NV40 GPU:",line)});
     }
     const vram_mb=Number(process.env.NV_VRAM_MB || 128);assert([128,256].includes(vram_mb));
-    const vm = new V86({ ...(remote?{graphics_adapter_renderer_channel:remote.renderer}:{}), disable_jit:!!process.env.NV_DISABLE_JIT, ...(process.env.NV_WASM ? {wasm_path:path.resolve(process.env.NV_WASM)} : {}), graphics_adapter: "geforce_6800", vram_size: vram_mb << 20,
+    const wasm_path=path.resolve(process.env.NV_WASM || path.join(root,"build",release_build?"v86.wasm":"v86-debug.wasm"));
+    const vm = new V86({ ...(remote?{graphics_adapter_renderer_channel:remote.renderer}:{}), disable_jit:!!process.env.NV_DISABLE_JIT, wasm_path, graphics_adapter: "geforce_6800", vram_size: vram_mb << 20,
         bios: { url: root + "bios/seabios.bin" },
         ...(process.env.NV_ROM ? { vga_bios: { url: path.resolve(process.env.NV_ROM) } } : {}),
         hda: disk, hdb: tools, boot_order: 0x213, memory_size: (win98 ? 256 : 1024) << 20,
@@ -217,7 +218,10 @@ export async function run_geforce_guest(win98)
         if(game)
         {
             const channel=vm.v86.cpu.devices.ide.secondary;
-            channel.slave=new IDEInterface(channel,1,game,false);
+            // Use the active core's IDE implementation in both source and
+            // release runs, rather than injecting a source/debug device.
+            const Interface=channel.slave.constructor;
+            channel.slave=new Interface(channel,1,game,false);
         }
         if(process.env.NV_STATE_LOAD)
         {
@@ -419,6 +423,7 @@ export async function run_geforce_guest(win98)
     const initialized = win98 ? /DEVICE .* problem=0 cm=0 started=1 .*driver=\S+ description=NVIDIA GeForce 6800/m.test(text) :
         /DEVICE .* problem=0 cm=0 started=1 service=nv(?:\s|$)/m.test(text);
     const result = { status: initialized ? "INITIALIZED" : "BLOCKED", seconds: Math.round(elapsed()),
+        build: {javascript:release_build?"release":"source",wasm:wasm_path},
         guest: win98 ? "win98" : "xp", driver, rom: process.env.NV_ROM || "v86 G0 SeaVGABIOS",
         error, probe: text, trace: "trace.json", imageUnchanged: true,
         ...(game_path?{game:{path:game_path,slot:"secondary-slave",imageUnchanged:true}}:{}),
