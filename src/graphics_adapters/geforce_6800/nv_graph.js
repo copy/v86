@@ -281,6 +281,11 @@ export class NVGraph
         {
             if(!(error instanceof RangeError)) throw error;
             this.error(channel, subc, method, value, 0x100, 0x4000, error.message);
+            // Preserve the checked page and object that actually faulted;
+            // the driver may rebind this subchannel before diagnostics run.
+            const fault=this.faults[this.faults.length-1];
+            if(error["nv_dma"])fault["dmaFault"]=error["nv_dma"];
+            if(object){fault["instance"]=object.instance;fault["class_id"]=object.class_id;}
         }
         if(object) this.device.trace.record_method(channel, subc, instance, object.class_id, method, value, accepted);
         // A trapped method has reached PGRAPH and is consumed. FIFO access is

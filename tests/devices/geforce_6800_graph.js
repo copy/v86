@@ -47,6 +47,12 @@ assert.equal(device.registers.get(0x400708), 0x1234);
 assert.equal(device.registers.get(0x400108), 0x40, "unknown method raises ILLEGAL_MTHD");
 assert.equal(graph.faults.at(-1).method,0x666);assert.match(graph.faults.at(-1).reason,/unimplemented/);
 assert.equal(graph.faults.at(-2).source,0x100,"DMA exceptions and method traps share the bounded diagnostic history");
+device.registers.set(0x400720,1);word(0x4104,31);word(0x4108,0x8000);
+method(0,0x4000,0x104,0);
+assert.deepEqual(graph.faults.at(-1).dmaFault,{instance:0x4100,offset:0,length:16,write:true,page:0,pte:0x8000,adjust:0,linear:true,limit:31});
+assert.equal(graph.faults.at(-1).instance,0x4000);assert.equal(graph.faults.at(-1).class_id,0x19);
+assert.deepEqual([...vram.subarray(0x8000,0x8010)],new Array(16).fill(255),"page diagnostic preserves the original atomic DMA fault");
+word(0x4108,0x8002);
 // Reusing an instance for another class must not retain the old clip state.
 word(0x4000, 0x43); assert.equal(graph.object(0, 0x4000).methods.size, 0);
 device.registers.set(0x400324, 17); device.registers.set(0x400328, 0xC001);
