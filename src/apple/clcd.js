@@ -170,7 +170,9 @@ export class AppleCLCD
             this.regs[0x102C >>> 2] |= 1;
             this.update_irq();
         }
-        this.render();
+        // Retrace drives guest interrupts and command completion. The
+        // presenter requests pixels separately; scanning here as well
+        // reads the entire panel twice per displayed frame.
     }
     invalidate() { this.dirty = true; }
 
