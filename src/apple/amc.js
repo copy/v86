@@ -91,8 +91,9 @@ export class AppleAMC
 
     update_irq()
     {
-        const active = (this.pending[0] & this.mask[0]) | (this.pending[1] & this.mask[1]);
-        for(let n = 0; n < 23; n++) this.signal(n, !!(active & 1 << n));
+        // Source bits belong to the controller's shared status handler;
+        // they are not individual external VIC line numbers.
+        for(let c = 0; c < 2; c++) this.signal(c, !!(this.pending[c] & this.mask[c]));
     }
 
     reset()

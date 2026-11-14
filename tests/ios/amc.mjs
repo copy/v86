@@ -26,11 +26,11 @@ for(const bank of [0, 0x20, 0x100, 0x180, 0x240, 0x280, 0x2c0])
 assert.ok([...irq.values()].every(value => !value), "engine reset manufactures no audio completion");
 amc.complete(4);
 assert.equal(regs.read(0xa98), 4);
-assert.equal(irq.get(2), false, "masked completion stays pending without an IRQ");
+assert.equal(irq.get(0), false, "masked completion stays pending without an IRQ");
 regs.write(0xa8c, 4, 4);
-assert.equal(irq.get(2), true);
+assert.equal(irq.get(0), true, "source 2 raises controller 0's aggregate output");
 regs.write(0xc48, 4, 4);
-assert.equal(irq.get(2), false);
+assert.equal(irq.get(0), false);
 assert.equal(regs.read(0xc4c), 4);
 amc.memory().set([11, 22, 33], 0x20400);
 amc.memory(1)[3] = 17;
