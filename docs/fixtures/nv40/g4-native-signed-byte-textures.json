@@ -1,0 +1,52 @@
+{
+  "date": "2026-11-14",
+  "producer": "Original XP 93.71 3DMark2000 all-22 run",
+  "firstFault": {
+    "run": "build/nv40-xp-2000-all22-final",
+    "elapsedSeconds": 2433.444687541,
+    "textureUnit": 1,
+    "format": "0x18B2A / A8L8",
+    "filter": "0xC2044000",
+    "crossbar": "0x696C",
+    "size": [
+      512,
+      512
+    ]
+  },
+  "behavior": "Decode signed normalized byte channels before packed lane aliases and crossbar. Filter bits B/G/R/A select the corresponding stored components; L8/A8L8 use their logical R and A signed selectors. Clamp -128 to -1. Upload signed/mixed byte textures as RGBA16F so negative values survive filtering.",
+  "scope": [
+    "L8",
+    "A8R8G8B8",
+    "A8L8"
+  ],
+  "references": [
+    "https://github.com/envytools/envytools/blob/master/rnndb/graph/nv30-40_3d.xml",
+    "https://chromium.googlesource.com/external/gitlab.freedesktop.org/mesa/mesa.git/+/28806e5e8245/src/gallium/drivers/nouveau/nv30/nv30_format.c"
+  ],
+  "tests": [
+    "Native low/high signed pair -> (-1,1,1,1).",
+    "Signed -1/127 and mixed signed L/unsigned A preserved.",
+    "All 256 byte values with both signed/mixed modes match independent Float16Array binary16 rounding on Node 25.",
+    "Real GPU bilinear opposite endpoints -> (0,0,1,1); full GPU suite passes.",
+    "Texture CPU and Closure pass."
+  ],
+  "limitations": [
+    "Signed non-byte formats and signed/gamma combinations remain rejected.",
+    "RGBA16F sampling precision is retained as a host difference.",
+    "The affected native whole run must restart with these fixes and matched checkpoints."
+  ],
+  "logs": {
+    "build/nv40-signed-byte-unit.log": {
+      "bytes": 641,
+      "sha256": "69859b2609c5d67080c9fca6c3bf1ebcc52e73ff79125d12b1a751c67102e446"
+    },
+    "build/nv40-signed-byte-gpu.log": {
+      "bytes": 4603,
+      "sha256": "1f26aad1cbe6a2d2dbe48ae22198a2681b38fb83c2bcff74e9a6e2f5f0f80746"
+    },
+    "build/nv40-signed-byte-closure.log": {
+      "bytes": 3020,
+      "sha256": "4e71c7bd7e46947fd2fca3badcb191779db51a5ab1a42b3f9b9f963ce8c05b81"
+    }
+  }
+}

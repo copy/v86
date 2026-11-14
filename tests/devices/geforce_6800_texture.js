@@ -104,7 +104,26 @@ assert.deepEqual([...texture.read(texture.describe(o,0))],[64,128,255,255],"nati
 o.methods.set(0x1A10,0xAAFC);
 o.methods.set(0x1A0C,0);assert.throws(()=>texture.describe(o,0),/disabled/);o.methods.set(0x1A0C,0x80000000);
 o.methods.set(0x1A04,0x22B29);assert.throws(()=>texture.describe(o,0),/mip count/);
-o.methods.set(0x1A04,0x12B29);o.methods.set(0x1A14,0x11010000);assert.throws(()=>texture.describe(o,0),/signed/);
+o.methods.set(0x1A04,0x12B29);o.methods.set(0x1A14,0xC1010000);o.methods.set(0x1A10,0x696C);
+vram.set([128,127],0x2000);const signedPair=texture.describe(o,0);
+assert.equal(signedPair.d3d,113);assert.equal(signedPair.upload_bpp,8);
+assert.deepEqual([...new Uint16Array(texture.read(signedPair).buffer)],[0xBC00,0x3C00,0x3C00,0x3C00],"native signed L/A convert before their B/G aliases and crossbar constants");
+vram.set([255,0],0x2000);const signedValues=new Uint16Array(texture.read(signedPair).buffer);
+assert.equal(signedValues[0],0xA008,"signed -1/127 retains its negative half value");assert.equal(signedValues[1],0);
+o.methods.set(0x1A14,0x41010000);vram.set([128,255],0x2000);
+assert.deepEqual([...new Uint16Array(texture.read(texture.describe(o,0)).buffer)],[0xBC00,0x3C00,0x3C00,0x3C00],"mixed signed L and unsigned A retain their separate interpretations");
+const allBytes=Uint8Array.from({length:512},(_,i)=>i&1?255-(i>>>1):i>>>1);
+for(const signed of typeof Float16Array==="function"?[4,12]:[])
+{
+    const converted=texture.decode({...signedPair,width:256,height:1,pitch:512,u:8,v:0,signed},allBytes),bits=new Uint16Array(converted.buffer);
+    for(let value=0;value<256;value++)
+    {
+        const reference=Float16Array.of(Math.max(-1,(value<<24>>24)/127),signed&8?Math.max(-1,((255-value)<<24>>24)/127):(255-value)/255,1,1);
+        assert.deepEqual(bits.slice(value*4,value*4+4),new Uint16Array(reference.buffer),"normalized byte conversion matches independent IEEE binary16 rounding");
+    }
+}
+o.methods.set(0x1A04,0x13A29);o.methods.set(0x1840,8);assert.throws(()=>texture.describe(o,0),/signed/);
+o.methods.set(0x1A04,0x12B29);o.methods.set(0x1840,2);o.methods.set(0x1A10,0xAAFC);o.methods.set(0x1A14,0x01010000);
 const invalid={...t,dma:{...t.dma,limit:0x100F}};assert.throws(()=>texture.read(invalid),/limit/);
 o.methods.set(0x1A04,0x30529);o.methods.set(0x1A18,4<<16|2);o.methods.set(0x1A10,0xAA6C);
 o.methods.set(0x1A0C,0x80010000);o.methods.set(0x1A14,0x01050080);

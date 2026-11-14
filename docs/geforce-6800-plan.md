@@ -1815,3 +1815,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   原生生产者、Mesa 路由和相关 Curie/RSX remap 交叉复核，完整
   GPU/纹理/Closure 通过，见 `g4-packed-texture-lane-aliases.json`。
   signed 转换及原生 06 图像仍继续验证。
+
+- G3/G4 signed-byte 纹理：XP 2000 后段原生 A8L8 使用
+  `FILTER=0xC2044000`、crossbar `0x696C`。增加 L8、RGBA8、
+  A8L8 的逐逻辑通道 SNORM8/UNORM8 解码，在别名/crossbar 前
+  转换并通过 RGBA16F 过滤，-128 钳到 -1。全部 256 值的 signed/
+  mixed 两种模式与独立 IEEE half 参考一致，跨零 GPU 双线性及
+  完整 GPU/纹理/Closure 通过，见 `g4-native-signed-byte-textures.json`。
+  非 byte signed/gamma 组合仍明确拒绝，受影响全跑须重新开始。

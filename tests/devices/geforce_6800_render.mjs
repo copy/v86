@@ -619,6 +619,13 @@ try
         method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0x3800,0x3800,0x3C00,0x3C00],"A16L16 filters both independent UNORM16 channels");
         console.log("PASS: real WebGPU native A16L16 crossbar and independent bilinear channels");
+        method(0x1A04,0x12B29);method(0x1A10,0x696C);method(0x1840,4);method(0x1A14,0xC2020000);
+        vram.set([128,127,127,128],0x20000);
+        method(0x1808,6);
+        for(const word of new Uint32Array(Float32Array.of(0,0,.5,.5,0,16,.5,.5,16,0,.5,.5).buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0,0,0x3C00,0x3C00],"native signed L/A filter across zero and preserve crossbar one constants");
+        console.log("PASS: real WebGPU signed normalized byte pairs, native B/G aliases and bilinear filtering");
         for(const [code,values,expected]of [[27,[2,-1,.5,.25],[0x4000,0xBC00,0x3800,0x3400]],
             [28,[.5],[0x3800,0,0,0x3C00]]])
         {

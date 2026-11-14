@@ -5,6 +5,20 @@ const get=(o,at,fallback=0)=>o.methods.has(at)?o.methods.get(at):fallback;
 const CROSSBAR_SHIFT=[2,4,6,0];
 const BYTES=new Map([[1,1],[2,2],[3,2],[4,2],[5,4],[11,2],[16,4],[18,2],[20,2],[21,4],[26,8],[27,16],[28,4]]);
 const BLOCK_BYTES=new Map([[6,8],[7,16],[8,16]]);
+// Normalized byte ratios have odd denominators, so none land on a binary16
+// rounding tie. Precompute their nearest half values once, including -128's
+// SNORM clamp, instead of losing negative channels through an UNORM upload.
+const byte_half=(value,signed)=>{
+    const number=signed?Math.max(-1,(value<<24>>24)/127):value/255;
+    if(number===0)return 0;
+    const magnitude=Math.abs(number),exponent=Math.floor(Math.log2(magnitude));
+    return (number<0?0x8000:0)+Math.round(magnitude/2**exponent*1024)+(exponent+14)*1024;
+};
+const UNORM8_HALF=new Uint16Array(256),SNORM8_HALF=new Uint16Array(256);
+for(let value=0;value<256;value++)
+{
+    UNORM8_HALF[value]=byte_half(value,false);SNORM8_HALF[value]=byte_half(value,true);
+}
 const same_bytes=(a,b)=>{
     if(a.length!==b.length)return false;
     const words=a.length>>>2;
@@ -76,7 +90,8 @@ export class NV40Texture
         const gamma=wrap>>>20&15;
         if(gamma && (gamma!==7 || depthCompare || [26,27,28].includes(code)))
             throw new RangeError("NV40 per-component/float texture gamma is not connected");
-        if(filter&0xF0000000)throw new RangeError("NV40 signed texture is not connected");
+        const signed=filter>>>28;
+        if(signed && (![1,5,11].includes(code) || gamma))throw new RangeError("NV40 signed texture format/gamma is not connected");
         const min=filter>>>16&15,mag=filter>>>24&15;
         if(min<1 || min>6 || mag<1 || mag>2)throw new RangeError("NV40 texture filter");
         const fullFloat=code===27 || code===28;
@@ -87,10 +102,10 @@ export class NV40Texture
         const enable=get(o,at+12),minLod=(enable>>>19&4095)/256,maxLod=(enable>>>7&4095)/256;
         const lod_min=Math.min(levels-1,minLod),lod_max=Math.min(levels-1,Math.max(minLod,maxLod));
         return {dma:this.state.dma(o,selector===1?0x184:0x188),offset:get(o,at),width,height,depth,bpp,pitch,swizzle,u,v,w,code,block,cube,volume,normalized,
-            crossbar:get(o,at+16),srgb:gamma===7,anisotropy,wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
+            crossbar:get(o,at+16),signed,srgb:gamma===7,anisotropy,wrap_s:s,wrap_t:t,wrap_r:r,min:min&1?1:2,mag,mip:min<=2?0:min<=4?1:2,
             levels,min_lod:0,lod_min,lod_max,level_count:Math.min(levels,Math.ceil(lod_max)+1),
-            d3d:depthCompare?code===16?75:80:fullFloat?116:code===26?113:code===20 || code===21?36:32,
-            upload_bpp:depthCompare?bpp:fullFloat?16:code===26 || code===20 || code===21?8:4,depth_compare:depthCompare,
+            d3d:depthCompare?code===16?75:80:fullFloat?116:code===26 || signed?113:code===20 || code===21?36:32,
+            upload_bpp:depthCompare?bpp:fullFloat?16:code===26 || signed || code===20 || code===21?8:4,depth_compare:depthCompare,
             bias:new Uint32Array(Float32Array.of((filter<<19>>19)/256).buffer)[0],border:get(o,at+28)};
     }
     images(texture)
@@ -163,7 +178,7 @@ export class NV40Texture
         // Morton/BC/component conversion is cached, with exact comparisons.
         const source=this.encoded(texture),key=JSON.stringify([texture.dma,texture.offset,texture.width,texture.height,texture.depth,
             texture.bpp,texture.pitch,texture.swizzle,texture.u,texture.v,texture.w,texture.code,texture.block,
-            texture.crossbar,texture.vertex,texture.depth_compare,texture.volume]),entry=this.cache.get(key);
+            texture.crossbar,texture.signed,texture.vertex,texture.depth_compare,texture.volume]),entry=this.cache.get(key);
         if(entry && same_bytes(entry.source,source))
         {
             this.stats.hits++;this.cache.delete(key);this.cache.set(key,entry);return entry.result;
@@ -185,6 +200,31 @@ export class NV40Texture
     decode(texture,encoded)
     {
         if(texture.vertex || texture.depth_compare)return this.storage(texture,encoded);
+        if(texture.signed)
+        {
+            const bytes=this.storage(texture,encoded),pixels=texture.width*texture.height*(texture.depth||1),result=new Uint8Array(pixels*8),output=new DataView(result.buffer);
+            const convert=(value,mask)=>(texture.signed&mask?SNORM8_HALF:UNORM8_HALF)[value];
+            for(let pixel=0;pixel<pixels;pixel++)
+            {
+                const at=pixel*texture.bpp;let components;
+                if(texture.code===1)
+                {
+                    const value=convert(bytes[at],4);components=[value,value,value,0x3C00];
+                }
+                else if(texture.code===11)
+                {
+                    const low=convert(bytes[at],4),high=convert(bytes[at+1],8);components=[low,high,low,high];
+                }
+                else components=[1,2,4,8].map((mask,component)=>convert(bytes[at+component],mask));
+                for(let channel=0;channel<4;channel++)
+                {
+                    const shift=CROSSBAR_SHIFT[channel],select=texture.crossbar>>>(shift+8)&3;
+                    if(select===3)throw new RangeError("NV40 invalid texture component selection");
+                    output.setUint16(pixel*8+channel*2,select===0?0:select===1?0x3C00:components[3-(texture.crossbar>>>shift&3)],true);
+                }
+            }
+            return result;
+        }
         if(texture.code===27 || texture.code===28)
         {
             const pixels=texture.width*texture.height*(texture.depth||1);
