@@ -17,7 +17,10 @@ const artifact = async (name, body) => {
     if(!response.ok) throw Error("Cannot save " + name);
 };
 let emulator, serial = "", line = "", power_on, samples = [], milestones = [];
-let options, cycle = 0;
+let options, cycle = 0, first_frame = false, desktop = null, matched = 0, reference;
+let last_unlock = -10000, last_wake = -20000;
+const cycles = [];
+const interval = Math.max(1000, Number(query.get("sample_ms") || 10000));
 window.boot_test = { get emulator() { return emulator; }, samples, milestones };
 const elapsed = () => performance.now() - power_on;
 async function capture(name)
@@ -30,14 +33,49 @@ async function sample()
     const diagnostics = await emulator.get_diagnostics();
     const value = { cycle, ms: elapsed(), ...diagnostics };
     samples.push(value);
-    await artifact("profile.json", JSON.stringify({ power_on: new Date(performance.timeOrigin + power_on).toISOString(), milestones, samples }, null, 2));
+    await artifact("profile.json", JSON.stringify({ cycles, milestones, samples }, null, 2));
     await artifact("serial.txt", serial);
     await capture("current");
+    const canvas = emulator.screen_adapter.get_graphics_canvas();
+    const context = canvas.getContext("2d");
+    if(context && canvas.width === 640 && canvas.height === 960)
+    {
+        const pixels = context.getImageData(0,0,640,960).data;
+        let lit = 0, total = 0;
+        for(let p=0;p<pixels.length;p+=64) { total++; if(pixels[p]+pixels[p+1]+pixels[p+2]>90) lit++; }
+        if(!first_frame && lit > total * 0.6)
+        {
+            first_frame = true;
+            milestones.push({ cycle, ms: elapsed(), event: "first-visible-frame" });
+            await capture("first-visible-"+cycle);
+        }
+        if(reference && !desktop)
+        {
+            // Compare only four native app icons, excluding the changing
+            // clock/calendar. A lock screen or boot console cannot match.
+            let error = 0, count = 0;
+            for(const [x,y] of [[33,67],[492,595],[33,803],[492,803]])
+                for(let row=y;row<y+112;row+=4) for(let col=x;col<x+112;col+=4)
+                    for(let c=0;c<3;c++) { const p=(row*640+col)*4+c; error+=Math.abs(pixels[p]-reference[p]);count++; }
+            const score = error/count;
+            matched = score < 12 ? matched+1 : 0;
+            if(matched >= 2)
+            {
+                desktop = { cycle, ms: elapsed(), icon_mean_error: score, reference: query.get("reference") };
+                milestones.push({ ...desktop, event: "native-desktop-matches-reference" });
+                await capture("desktop-"+cycle);
+                await artifact("desktop.json",JSON.stringify(desktop,null,2));
+                log("DESKTOP "+Math.round(desktop.ms)+"ms");
+            }
+        }
+    }
     log(Math.round(elapsed() / 1000) + "s retired=" + diagnostics.retired + " NAND=" + diagnostics.nand?.bytes_read);
 }
 async function start()
 {
     power_on = performance.now();
+    first_frame = false; desktop = null; matched = 0; last_unlock = -10000; last_wake = -20000;
+    cycles.push({ cycle, power_on: new Date(performance.timeOrigin + power_on).toISOString() });
     emulator = new V86(options);
     emulator.add_listener("serial0-output-byte", byte => {
         const ch = String.fromCharCode(byte); serial += ch;
@@ -59,11 +97,20 @@ document.getElementById("home").onclick = async () => {
 };
 document.getElementById("unlock").onclick = async () => {
     for(let i=0;i<=20;i++) { touch([[1,100+450*i/20,860]]); await sleep(40); } touch([]);
-    milestones.push({ ms: elapsed(), event: "user-unlock" });
+    milestones.push({ cycle, ms: elapsed(), event: "user-unlock" });
 };
 try
 {
     if(!probe || !/^build\/ios\/[a-zA-Z0-9_-]+$/.test(probe)) throw Error("Use a disposable local NAND probe");
+    if(query.has("reference"))
+    {
+        const name = query.get("reference");
+        if(!/^build\/ios\/[a-zA-Z0-9_/-]+\.png$/.test(name) || name.includes("..")) throw Error("Use an observed local native desktop reference");
+        const image = await createImageBitmap(await(await fetch("/"+name)).blob());
+        if(image.width!==640 || image.height!==960) throw Error("Wrong native desktop reference geometry");
+        const canvas = new OffscreenCanvas(640,960), context = canvas.getContext("2d");
+        context.drawImage(image,0,0); reference = context.getImageData(0,0,640,960).data; image.close();
+    }
     const imported = performance.now(), disk = await reserve_disk(4 * 1024 ** 3);
     let dir = await navigator.storage.getDirectory();
     for(const name of ["v86", "disks"]) dir = await dir.getDirectoryHandle(name, { create: true });
@@ -79,10 +126,13 @@ try
     options.cpu_worker_url = query.has("profile") ? "/build/ios-boot-profile-worker.js" : "/build/cpu-worker.js";
     options.autostart = false;
     await start();
-    for(let n=0;n<Number(query.get("seconds") || 1200)/10;n++)
+    for(let n=0;n<Number(query.get("seconds") || 1200)*1000/interval;n++)
     {
-        await sleep(10000); await sample();
-        if(query.has("keepawake") && n % 2 === 1) document.getElementById("home").click();
+        await sleep(interval); await sample();
+        if(query.has("keepawake") && !first_frame && elapsed()-last_wake>20000)
+        { document.getElementById("home").click(); last_wake=elapsed(); }
+        if(query.has("auto_unlock") && first_frame && !desktop && elapsed()-last_unlock>5000)
+        { await document.getElementById("unlock").onclick(); last_unlock=elapsed(); }
         const commands = await fetch("/" + probe + "/boot-command.json", { cache: "no-store" });
         if(commands.ok)
         {
@@ -91,6 +141,7 @@ try
             {
                 window.boot_test.last_command = command.id;
                 if(command.op === "home" || command.op === "unlock") document.getElementById(command.op).click();
+                else if(command.op === "tap") { touch([[1,command.x,command.y]]); await sleep(100); touch([]); }
                 else if(command.op === "cold")
                 {
                     await artifact("before-cold.png", await (await fetch(emulator.screen_make_screenshot().src)).blob());
