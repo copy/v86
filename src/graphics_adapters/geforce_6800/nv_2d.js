@@ -5,6 +5,7 @@ const hi = v => v >> 16;
 const xy = v => [lo(v), hi(v)];
 const wh = v => [v & 65535, v >>> 16];
 const UPLOAD_COMMITTED = 0x40000;
+const INDEX_PROGRESS = 0x40004;
 const m = (o, at, fallback = 0) => o.methods.has(at) ? o.methods.get(at) : fallback;
 
 export class NV2D
@@ -236,11 +237,45 @@ export class NV2D
         for(let y = 0; y < height; y++) this.device.dma.write(output, destinations[y], rows[y]);
         this.graph.notification(o, 16, value === 1);
     }
+    indexed_upload(o, value)
+    {
+        const [width,height]=wh(m(o,0x3FC)),input=m(o,0x3E8),format=m(o,0x3EC),bpp=format?0.5:1;
+        if(!width || !height || width*height*bpp>this.device.vram_size || input<1 || input>5 || format>1)
+            throw new RangeError("NV INDEX invalid image/format");
+        // INDEX is a packed image stream: a DWORD can cross row boundaries.
+        // Old snapshots retained a row and bytes already committed in it.
+        const first=m(o,INDEX_PROGRESS,(o.stream[0]||0)*width+m(o,UPLOAD_COMMITTED)/bpp);
+        if(first>=width*height)throw new RangeError("NV INDEX excess data");
+        const count=Math.min(format?8:4,width*height-first),lutBpp=input<=3?2:4;
+        const lut=this.device.dma.read(this.dma(o,0x184),m(o,0x3F0),(format?16:256)*lutBpp);
+        const [x,y]=xy(m(o,0x3F4)),[outw,outh]=wh(m(o,0x3F8)),clip=this.clip(o,0x18C),dst=this.surface(o,0x1A0),jobs=[];
+        const key=o.methods.has(0x188)?this.ref(o,0x188):null;
+        for(let consumed=0;consumed<count;)
+        {
+            const pixel=first+consumed,row=Math.floor(pixel/width),column=pixel%width,n=Math.min(count-consumed,width-column);
+            const rect=this.bounds(x+column,y+row,Math.max(0,Math.min(n,outw-column)),row<outh?1:0,clip);
+            if(rect[2] && rect[3])this.row(dst,rect[0],rect[1],rect[2],true);
+            jobs.push({rect,column,consumed});consumed+=n;
+        }
+        const operation=m(o,0x2FC);o.methods.set(0x2FC,m(o,0x3E4));
+        try
+        {
+            for(const {rect,column,consumed}of jobs)this.render(o,dst,rect,px=>{
+                const pixel=consumed+px-x-column,shift=format?(pixel>>>1)*8+((pixel&1)^1)*4:pixel*8;
+                const index=value>>>shift&(format?15:255),color=this.raw(lut,index*lutBpp,lutBpp);
+                return key && color===m(key,0x304)?null:this.input_color(color,input);
+            },[0x190,0x194,0x198,0x19C]);
+        }
+        finally {o.methods.set(0x2FC,operation);}
+        o.methods.set(INDEX_PROGRESS,first+count);o.methods.delete(UPLOAD_COMMITTED);
+        o.stream=[Math.floor((first+count)/width)];
+    }
     upload(o, value, indexed)
     {
-        const base = indexed ? 0x3F4 : 0x304, [width, height] = wh(m(o, base + 8));
-        const input = m(o, indexed ? 0x3E8 : 0x300), indexFormat = m(o, 0x3EC);
-        const bpp = indexed ? indexFormat ? 0.5 : 1 : input <= 3 ? 2 : 4;
+        if(indexed)return this.indexed_upload(o,value);
+        const base = 0x304, [width, height] = wh(m(o, base + 8));
+        const input = m(o, 0x300);
+        const bpp = input <= 3 ? 2 : 4;
         if(!width || !height || width * height * bpp > this.device.vram_size || input < 1 || input > 5)
             throw new RangeError("NV IFC invalid image");
         const stride = Math.ceil(width * bpp / 4) * 4;
@@ -252,27 +287,14 @@ export class NV2D
         // this aperture for a few shader words in a much wider surface row.
         const first = Math.min(width, committed / bpp), last = Math.min(width, (o.stream.length - 1) / bpp);
         const row = o.stream[0], bytes = new Uint8Array(o.stream.slice(1)), [x, y] = xy(m(o, base));
-        const [outw, outh] = wh(m(o, base + 4)), dst = this.surface(o, indexed ? 0x1A0 : 0x19C);
-        const rect = this.bounds(x + first, y + row, Math.max(0, Math.min(last, outw) - first), row < outh ? 1 : 0, this.clip(o, indexed ? 0x18C : 0x188));
-        let lut = null;
-        if(indexed)
-        {
-            if(indexFormat > 1) throw new RangeError("NV INDEX invalid format");
-            lut = this.device.dma.read(this.dma(o, 0x184), m(o, 0x3F0), (indexFormat ? 16 : 256) * (input <= 3 ? 2 : 4));
-        }
-        const key = o.methods.has(indexed ? 0x188 : 0x184) ? this.ref(o, indexed ? 0x188 : 0x184) : null;
-        const operation = m(o, 0x2FC);
-        if(indexed) o.methods.set(0x2FC, m(o, 0x3E4));
-        try
-        {
-            this.render(o, dst, rect, px => {
-                const pixel = px - x, index = indexFormat ? bytes[pixel >>> 1] >>> (((pixel & 1) ^ 1) * 4) & 15 : bytes[pixel];
-                const color = lut ? this.raw(lut, index * (input <= 3 ? 2 : 4), input <= 3 ? 2 : 4) : this.raw(bytes, pixel * bpp, bpp);
-                if(key && color === m(key, 0x304)) return null;
-                return this.input_color(color, input);
-            }, indexed ? [0x190, 0x194, 0x198, 0x19C] : [0x18C, 0x190, 0x194, 0x198]);
-        }
-        finally { if(indexed) o.methods.set(0x2FC, operation); }
+        const [outw, outh] = wh(m(o, base + 4)), dst = this.surface(o, 0x19C);
+        const rect = this.bounds(x + first, y + row, Math.max(0, Math.min(last, outw) - first), row < outh ? 1 : 0, this.clip(o, 0x188));
+        const key = o.methods.has(0x184) ? this.ref(o, 0x184) : null;
+        this.render(o, dst, rect, px => {
+            const color = this.raw(bytes, (px - x) * bpp, bpp);
+            if(key && color === m(key, 0x304)) return null;
+            return this.input_color(color, input);
+        }, [0x18C, 0x190, 0x194, 0x198]);
         o.methods.set(UPLOAD_COMMITTED, o.stream.length - 1);
         if(o.stream.length - 1 >= stride)
         {
@@ -518,7 +540,7 @@ export class NV2D
         if(type === 0x39 && at === 0x328) this.m2mf(o, value);
         else if((type === 0x5F || type === 0x9F) && at === 0x308) this.blit(o);
         else if(type === 0x4A && (at >= 0x400 && at < 0x500 || at >= 0x600 && at < 0x700) && at & 4) this.rectangle(o, at);
-        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && (at === 0x304 || at === 0x30C) || indexed && (at === 0x3F4 || at === 0x3FC) || sifc && at === 0x318) { o.stream = [0]; o.methods.delete(UPLOAD_COMMITTED); }
+        else if(type === 0x4A && (at === 0x7FC || at === 0xBFC) || ifc && (at === 0x304 || at === 0x30C) || indexed && (at === 0x3F4 || at === 0x3FC) || sifc && at === 0x318) { o.stream = [0]; o.methods.delete(UPLOAD_COMMITTED); o.methods.delete(INDEX_PROGRESS); }
         else if(type === 0x4A && at >= 0x800 && at < 0xA00) this.monochrome(o, value, false);
         else if(type === 0x4A && at >= 0xC00 && at < 0xE00) this.monochrome(o, value, true);
         else if(type===0x4A && at>=0x1000 && at<0x1400)

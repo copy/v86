@@ -202,3 +202,30 @@ graph.object(0,0x5100).methods.set(0x300,0x66);call(restoredFonts,0x1804,0x101);
 assert.equal(view.getUint32(1800,true),0x11DD33BB);assert.equal(view.getUint32(1804,true),0x11223344,"font zero bits remain transparent under ROP");
 for(const pitch of [0,2,10,15])assert.throws(()=>call(restoredFonts,0xFF0,pitch<<28),/pitch/);
 console.log("PASS: GDI font DMA F/G records, signed origins, sixteen-bit indices, clipping, bit order, snapshots and atomic faults");
+
+// Native AA glyphs use I4 widths such as 12/14/18: only the complete image
+// is padded to a DWORD. Each word can finish one row and start the next.
+const packedTarget=graph.object(0,0x5000);
+packedTarget.methods.set(0x300,4);packedTarget.methods.set(0x304,0x200020);packedTarget.methods.set(0x30C,3000);
+for(let i=0;i<16;i++)view.setUint16(0x1000+i*2,i*0x1111,true);
+const packed=object(0x6200,0x3064,[[0x184,0x130],[0x1A0,0x500],[0x3E4,3],[0x3E8,1],[0x3EC,1],[0x3F0,0],[0x3F8,3<<16|5]]);
+call(packed,0x3FC,3<<16|6);call(packed,0x3F4,0);vram.fill(0,3000,3096);
+const indices=Array.from({length:24},(_,i)=>i<18?i%15+1:15);
+const indexWords=Array.from({length:3},(_,i)=>indices.slice(i*8,i*8+8).reduce((word,index,n)=>word|index<<((n>>>1)*8+((n&1)^1)*4),0)>>>0);
+const packedBefore=vram.slice(3000,3096);word(0x1004,3032);
+assert.throws(()=>call(packed,0x400,indexWords[0]),/limit/);
+assert.deepEqual(vram.slice(3000,3096),packedBefore,"a cross-row INDEX DWORD validates every destination before writing");word(0x1004,4095);
+call(packed,0x400,indexWords[0]);assert.equal(view.getUint16(3034,true),8*0x1111,"first DWORD already reaches the next INDEX row");
+const packedSnapshot=graph.get_state();graph.set_state(packedSnapshot);const packedRestored=graph.object(0,0x6200);
+call(packedRestored,0x404,indexWords[1]);call(packedRestored,0x408,indexWords[2]);
+for(let y=0;y<3;y++)for(let x=0;x<6;x++)assert.equal(view.getUint16(3000+y*32+x*2,true),x<5?indices[y*6+x]*0x1111:0,"packed I4 rows, output crop and final DWORD padding");
+assert.throws(()=>call(packedRestored,0x400,0),/excess/);
+call(packedRestored,0x3EC,0);call(packedRestored,0x3F8,2<<16|3);call(packedRestored,0x3FC,2<<16|3);call(packedRestored,0x3F4,0);vram.fill(0,3000,3096);
+call(packedRestored,0x400,0x04030201);call(packedRestored,0x404,0xFFFF0605);
+for(let y=0;y<2;y++)for(let x=0;x<3;x++)assert.equal(view.getUint16(3000+y*32+x*2,true),(y*3+x+1)*0x1111,"I8 DWORDs also span packed image rows");
+// Compatibility with a snapshot made by the previous per-row implementation.
+call(packedRestored,0x3FC,2<<16|6);call(packedRestored,0x3F8,2<<16|6);call(packedRestored,0x3F4,0);
+packedRestored.stream=[0,1,2,3,4];packedRestored.methods.set(0x40000,4);vram.fill(0,3000,3096);
+call(packedRestored,0x400,0x08070605);
+assert.equal(view.getUint16(3008,true),5*0x1111);assert.equal(view.getUint16(3034,true),8*0x1111,"old partial-row snapshots resume at their committed pixel");
+console.log("PASS: packed I4/I8 cross-row INDEX words, crop, snapshot continuation, final padding and atomic faults");

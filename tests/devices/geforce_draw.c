@@ -9,6 +9,20 @@ static void detail(void (*mark)(const char*),const char *label,DWORD value)
     for(int i=7;i>=0;i--)text[n++]=hex[value>>(i*4)&15];text[n]=0;mark(text);
 }
 #ifdef NV_GDI_FONT_TEST
+static unsigned int font_tones(const BYTE *pixels,unsigned int count,DWORD *tones)
+{
+    unsigned int used=0;
+    for(unsigned int i=0;i<count;i++)
+    {
+        DWORD color=*(const DWORD*)(pixels+i*4)&0xFFFFFF;unsigned int at=0;
+        while(at<used && tones[at]<color)at++;
+        if(at<used && tones[at]==color)continue;
+        if(used==256)return 0;
+        for(unsigned int j=used;j>at;j--)tones[j]=tones[j-1];
+        tones[at]=color;used++;
+    }
+    return used;
+}
 static void font_bitmap(unsigned int index,char kind,const BITMAPINFOHEADER *info,const BYTE *pixels)
 {
     char name[MAX_PATH];GetModuleFileNameA(0,name,MAX_PATH);
@@ -37,10 +51,11 @@ static DWORD font_probe(HDC screen,void (*mark)(const char*))
     if(!BitBlt(saved,0,0,width,height,screen,left,top,SRCCOPY))failures|=128;
     HBRUSH brush=CreateSolidBrush(RGB(0xD4,0xD0,0xC8));
     const int sizes[]={16,32,48,20,36};const char *faces[]={"Arial","Arial","Arial","Tahoma","Times New Roman"};
-    for(unsigned int test=0;test<5;test++)
+    for(unsigned int test=0;test<10;test++)
     {
-        HFONT font=CreateFontA(sizes[test],0,0,0,test?FW_BOLD:FW_NORMAL,test?TRUE:FALSE,FALSE,FALSE,DEFAULT_CHARSET,
-            OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,NONANTIALIASED_QUALITY,DEFAULT_PITCH,faces[test]);
+        const unsigned int kind=test%5;
+        HFONT font=CreateFontA(sizes[kind],0,0,0,kind?FW_BOLD:FW_NORMAL,kind?TRUE:FALSE,FALSE,FALSE,DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,test<5?NONANTIALIASED_QUALITY:ANTIALIASED_QUALITY,DEFAULT_PITCH,faces[kind]);
         if(!font){failures|=128;continue;}
         HGDIOBJ screenFont=SelectObject(screen,font),referenceFont=SelectObject(reference,font);
         const int screenMode=SetBkMode(screen,TRANSPARENT),referenceMode=SetBkMode(reference,TRANSPARENT);
@@ -53,7 +68,27 @@ static DWORD font_probe(HDC screen,void (*mark)(const char*))
         for(int pixel=0;pixel<width*height;pixel++)
             if(expected[pixel*4]!=observed[pixel*4] || expected[pixel*4+1]!=observed[pixel*4+1] || expected[pixel*4+2]!=observed[pixel*4+2])differences++;
         char label[]="GDI_FONT_0_DIFF";label[9]=(char)('0'+test);detail(mark,label,differences);
-        if(differences){failures|=64;font_bitmap(test,'R',&info.bmiHeader,expected);font_bitmap(test,'G',&info.bmiHeader,observed);}
+        if(test<5 && differences)failures|=64;
+        if(test>=5)
+        {
+            // ANTIALIASED_QUALITY leaves smoothing to each device. Compare
+            // glyph coverage independently of its palette's tone curve;
+            // still report and save all exact RGB differences above.
+            DWORD referenceTones[256],actualTones[256];
+            unsigned int referenceCount=font_tones(expected,width*height,referenceTones),actualCount=font_tones(observed,width*height,actualTones);
+            DWORD rankDifferences=0;
+            if(!referenceCount || referenceCount!=actualCount)rankDifferences=width*height;
+            else for(int pixel=0;pixel<width*height;pixel++)
+            {
+                DWORD a=*(DWORD*)(expected+pixel*4)&0xFFFFFF,b=*(DWORD*)(observed+pixel*4)&0xFFFFFF;
+                unsigned int ar=0,br=0;while(ar<referenceCount && referenceTones[ar]!=a)ar++;
+                while(br<actualCount && actualTones[br]!=b)br++;
+                if(ar!=br)rankDifferences++;
+            }
+            char rankLabel[]="GDI_FONT_0_RANK_DIFF";rankLabel[9]=(char)('0'+test);detail(mark,rankLabel,rankDifferences);
+            if(rankDifferences)failures|=64;
+        }
+        if(differences){font_bitmap(test,'R',&info.bmiHeader,expected);font_bitmap(test,'G',&info.bmiHeader,observed);}
         SetTextColor(screen,screenColor);SetTextColor(reference,referenceColor);SetBkMode(screen,screenMode);SetBkMode(reference,referenceMode);
         SelectObject(screen,screenFont);SelectObject(reference,referenceFont);DeleteObject(font);
     }

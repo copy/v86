@@ -1,0 +1,69 @@
+{
+  "stage": "G2 packed INDEX image streams and native AA glyph coverage",
+  "driver": "XP 93.71",
+  "probe_lines": [
+    "PROBE_ID 571",
+    "GDI_FONT_0_DIFF=00000000",
+    "GDI_FONT_1_DIFF=00000000",
+    "GDI_FONT_2_DIFF=00000000",
+    "GDI_FONT_3_DIFF=00000000",
+    "GDI_FONT_4_DIFF=00000000",
+    "GDI_FONT_5_DIFF=00000000",
+    "GDI_FONT_5_RANK_DIFF=00000000",
+    "GDI_FONT_6_DIFF=000002c1",
+    "GDI_FONT_6_RANK_DIFF=00000000",
+    "GDI_FONT_7_DIFF=00000431",
+    "GDI_FONT_7_RANK_DIFF=00000000",
+    "GDI_FONT_8_DIFF=00000000",
+    "GDI_FONT_8_RANK_DIFF=00000000",
+    "GDI_FONT_9_DIFF=0000030f",
+    "GDI_FONT_9_RANK_DIFF=00000000",
+    "GDI_TEST failures=0"
+  ],
+  "scope": "NAA fonts compare exact RGB; AA fonts additionally compare the ordered palette rank at every pixel. Exact AA RGB differences are reported and saved, not treated as color-fidelity acceptance.",
+  "artifact_directory": "build/nv40-xp-font-coverage",
+  "seconds": 110,
+  "original_image_unchanged": true,
+  "graph_faults": [],
+  "dma_faults": [],
+  "before": {
+    "artifact_directory": "build/nv40-xp-font-aa",
+    "exact_rgb_differences": {
+      "6": 1672,
+      "7": 3608,
+      "9": 1212
+    },
+    "finding": "Large AA glyphs were diagonally shredded; small/NAA glyphs passed."
+  },
+  "capture": {
+    "artifact": "build/nv40-xp-font-index-capture/indexed-captures.json",
+    "sha256": "1349cd814e1d08209068b7bbdaf68d4d2b0dc8cf513cf90adbc48c3a74fcae93",
+    "glyph_example": {
+      "width": 12,
+      "height": 20,
+      "format": "I4",
+      "driver_dwords": 30,
+      "incorrect_per_row_dword_count": 40
+    }
+  },
+  "after": {
+    "exact_rgb_differences": {
+      "6": 705,
+      "7": 1073,
+      "9": 783
+    },
+    "all_aa_palette_rank_differences": 0,
+    "all_naa_exact_rgb_differences": 0,
+    "remaining_difference": "AA edge tones differ from the software DIB; the 16 coverage levels occur at identical pixel positions and in the same order."
+  },
+  "probe_sha256": "effbf5fa6656a8f92ff5b6bcd5bd499f0d3b7ceebb5292d2f23b638d9255c861",
+  "tests": [
+    "geforce_6800_2d",
+    "geforce_6800_dma",
+    "geforce_6800_graph",
+    "geforce_6800_fifo",
+    "geforce_6800",
+    "full real WebGPU NV40 render regression",
+    "Closure plugin: zero errors/warnings"
+  ]
+}
