@@ -405,16 +405,24 @@ const { AppleH2FMI } = await import("../../src/apple/h2fmi.js");
 const budgets = [], hostOps = new Map([[0, {}]]);
 const pollingCPU = { io: { register_mmio() {} }, wm: { exports: {
     a32_iop_remap() {},
-    a32_iop_slice(budget) { budgets.push(budget); if(hostOps.size) iop.wait_for_io(hostOps); },
+    a32_iop_slice(budget) { budgets.push(budget); if(hostOps.size) iop.wait_for_io(hostOps); return true; },
 } } };
 const iop = new AppleIOP(pollingCPU);
 iop.running = true;
 iop.wait_for_io(hostOps); // a read by the application CPU
-iop.run();
-iop.run();
+assert.equal(iop.run(), false, "pending host I/O yields rather than busy-polling");
+assert.equal(iop.run(), false);
 hostOps.clear();
-iop.run();
+assert.equal(iop.run(), true, "the IOP remains runnable after exhausting its budget");
 assert.deepEqual(budgets, [4096, 32, 4096]);
+let iop_wakes = 0;
+pollingCPU.stop_idling = () => iop_wakes++;
+iop.vic.signal(true, false);
+iop.vic.signal(true, false);
+assert.equal(iop_wakes, 1, "a new IOP interrupt wakes the machine, a held level does not reschedule it");
+iop.vic.signal(false, false);
+iop.vic.signal(false, true);
+assert.equal(iop_wakes, 2);
 
 const fmi = new AppleH2FMI(cpu, 0x81200000);
 const ids = new Uint8Array(256);

@@ -16,7 +16,11 @@ export class AppleIOP
         this.fiq = false;
         this.pending_reset = false;
         this.running = false;
-        this.vic = new AppleVIC(cpu, 0xBF300000, (irq, fiq) => { this.irq = irq; this.fiq = fiq; });
+        this.vic = new AppleVIC(cpu, 0xBF300000, (irq, fiq) => {
+            const wake = irq && !this.irq || fiq && !this.fiq;
+            this.irq = irq; this.fiq = fiq;
+            if(wake) cpu.stop_idling?.();
+        });
         cpu.io.register_mmio(0x86300000, 0x1000, {
             name: "arm7m",
             read: offset => this.regs[offset >>> 2],
@@ -63,7 +67,7 @@ export class AppleIOP
 
     run()
     {
-        if(!this.running) return;
+        if(!this.running) return false;
         if(this.pending_reset)
         {
             this.core["a32_iop_reset"]();
@@ -72,7 +76,11 @@ export class AppleIOP
         const budget = this.polling?.size ? 32 : 4096;
         this.polling = null;
         this.in_slice = true;
-        try { this.core["a32_iop_slice"](budget, this.irq, this.fiq); }
+        try
+        {
+            const busy = this.core["a32_iop_slice"](budget, this.irq, this.fiq);
+            return !!busy && !this.polling?.size;
+        }
         finally { this.in_slice = false; }
     }
 

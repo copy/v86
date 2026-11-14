@@ -694,12 +694,16 @@ A64CPU.prototype.run_machine_core = function()
     this.in_cpu = true;
     try
     {
-        if(this.devices.apple_iop) this.devices.apple_iop.run();
+        const iop = this.devices.apple_iop;
+        const iop_busy = iop?.run();
         const devices = this.run_hardware_timers(null, this.clock.now());
         const next = Math.min(run(this.clock.now()), devices);
         // (PSCI SYSTEM_RESET: the machine resets and boots again, P4.8)
         if(this.wm.exports["a64_take_reset_request"]()) this.reboot_internal("restart");
-        return next;
+        // The application core can be in WFI while the ARM7 still handles
+        // its flash request. Sleeping for the AP's timer then throttles
+        // an independent runnable processor (and every NAND transaction).
+        return iop_busy || iop?.running && (iop.irq || iop.fiq) ? 0 : next;
     }
     finally
     {

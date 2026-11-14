@@ -178,7 +178,7 @@ pub fn a32_iop_reset() {
 }
 
 #[no_mangle]
-pub fn a32_iop_slice(budget: u32, irq: bool, fiq: bool) {
+pub fn a32_iop_slice(budget: u32, irq: bool, fiq: bool) -> bool {
     use crate::aarch64::jit::pages::{self, Ran};
     a32_iop_select(true);
     if fiq && cpu::get_pstate() & cpu::PSTATE_F == 0 {
@@ -188,6 +188,7 @@ pub fn a32_iop_slice(budget: u32, irq: bool, fiq: bool) {
         crate::aarch64::a32_system::take_interrupt(false);
     }
     let mut executed = 0;
+    let mut iop_waited = false;
     let mut boundary = true;
     while executed < budget {
         let flow = if boundary && unsafe { pages::ENABLED } {
@@ -213,10 +214,12 @@ pub fn a32_iop_slice(budget: u32, irq: bool, fiq: bool) {
         };
         if matches!(flow, Flow::Jump(_) | Flow::Set) { boundary = true; }
         if matches!(flow, Flow::Off | Flow::Wait(_)) {
+            iop_waited = true;
             break;
         }
     }
     a32_iop_select(false);
+    !iop_waited && executed >= budget
 }
 
 static mut IOP_NATIVE: u64 = 0;
