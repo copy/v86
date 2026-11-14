@@ -597,6 +597,13 @@ try
         method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
         assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0x4200,0,0x3A00,0x3800],"bilinear FP16 texture sampling retains HDR and signed values");
         console.log("PASS: real WebGPU FP16 render targets, additive blending, exact VRAM half bits and HDR bilinear textures");
+        for(const [at,value]of [[0x1A04,0x13429],[0x1A18,2<<16|1],[0x1A10,0xA9EE],[0x1A14,0x02020000],[0x1840,4]])method(at,value);
+        new Uint16Array(vram.buffer,0x20000,2).set([0,65535]);
+        method(0x1808,6);
+        for(const word of new Uint32Array(Float32Array.of(0,0,.5,.5,0,16,.5,.5,16,0,.5,.5).buffer))method(0x1818,word);
+        method(0x1808,0);await engine.backend.wait();assert.equal(engine.backend.stats.failures,0,JSON.stringify(graph.faults));
+        assert.deepEqual([...new Uint16Array(vram.buffer,0x10000,4)],[0,0x3800,0,0x3C00],"native A16 green channel bilinear sampling retains UNORM precision");
+        console.log("PASS: real WebGPU native A16 crossbar and bilinear filtering through UNORM16 upload");
         for(const [code,values,expected]of [[27,[2,-1,.5,.25],[0x4000,0xBC00,0x3800,0x3400]],
             [28,[.5],[0x3800,0,0,0x3C00]]])
         {

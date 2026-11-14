@@ -27,6 +27,17 @@ assert.equal(texture.vertex(vertexObject,0).d3d,114);
 vertexObject.methods.set(0x904,0x1BA21);assert.throws(()=>texture.vertex(vertexObject,0),/format/);
 assert.throws(()=>texture.vertex(vertexObject,4),/unit/);
 console.log("PASS: four linear FP32 vertex texture units, 1D height, padded mip chains and DMA bounds");
+const scalar16={methods:new Map([[0x184,0x10],[0x1A00,0x9000],[0x1A04,0x13429],[0x1A08,0x30303],
+    [0x1A0C,0x80000000],[0x1A10,0xA9EE],[0x1A14,0x02020000],[0x1A18,2<<16|2],[0x1840,6]])};
+new Uint16Array(vram.buffer,0x9000,5).set([0,1,0xDEAD,32768,65535]);
+const a16=texture.describe(scalar16,0);assert.equal(a16.bpp,2);assert.equal(a16.d3d,36);assert.equal(a16.upload_bpp,8);
+assert.deepEqual([...new Uint16Array(texture.read(a16).buffer)],
+    [0,0,0,65535,0,1,0,65535,0,32768,0,65535,0,65535,0,65535],"native A16 crossbar retains every UNORM16 bit and skips row padding");
+scalar16.methods.set(0x1A10,0xAAAA);
+assert.deepEqual([...new Uint16Array(texture.read(texture.describe(scalar16,0)).buffer)],
+    [0,0,0,0,1,1,1,1,32768,32768,32768,32768,65535,65535,65535,65535],"A16 scalar can feed all four crossbar outputs");
+assert.throws(()=>texture.read({...a16,dma:{...a16.dma,limit:0x9008}}),/limit/,"last A16 row remains DMA checked");
+console.log("PASS: native A16 UNORM16 scalar, G storage component, crossbar replication, padding and DMA bounds");
 for(const [code,bpp,format]of [[16,4,75],[18,2,80]])
 {
     const depth={methods:new Map([[0x184,0x10],[0x1A00,0x9000],[0x1A04,0x12021|code<<8],[0x1A08,0x60000303],

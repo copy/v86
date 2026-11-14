@@ -1,0 +1,44 @@
+{
+  "date": "2026-11-14",
+  "nativeProducer": "XP 93.71, original 3DMark06 Return To Proxycon",
+  "capturedFault": {
+    "run": "build/nv40-xp-mark06-default-fixed",
+    "elapsedSeconds": 325.428341708,
+    "textureUnit": 4,
+    "format": "0x1942A",
+    "code": "0x14 / A16",
+    "crossbar": "0xA9EE",
+    "width": 1024,
+    "height": 128,
+    "filter": "0x02065FD6",
+    "storage": "swizzled 16-bit unsigned normalized scalar"
+  },
+  "behavior": "Store the scalar in component G before the native crossbar; expand to D3DFMT_A16B16G16R16, preserving all guest UNORM16 bits in upload bytes. Native crossbar produces (0,scalar,0,1).",
+  "sources": [
+    "https://github.com/envytools/envytools/blob/master/rnndb/graph/nv30-40_3d.xml",
+    "https://chromium.googlesource.com/external/gitlab.freedesktop.org/mesa/mesa.git/+/28806e5e8245/src/gallium/drivers/nouveau/nv30/nv30_format.c"
+  ],
+  "tests": {
+    "cpu": "UNORM16 values 0,1,32768,65535; native crossbar and four-channel replication; padding; last-row DMA fault",
+    "gpu": "native crossbar and bilinear 0/65535 sampling returns RGBA (0,.5,0,1); complete WebGPU suite passes",
+    "Closure": "0 errors, 0 warnings"
+  },
+  "limitations": [
+    "Shared D9WG UNORM16 texture expansion uses a host RGBA16F texture; upload bits are exact, host normalized sampling has half-float precision.",
+    "Native 06 full rerun and image acceptance remain pending."
+  ],
+  "logs": {
+    "build/nv40-a16-texture-unit.log": {
+      "bytes": 562,
+      "sha256": "135cc142cdd2f560ce198d6a488fe4a5fea65289a98d97284186ffed0baae69a"
+    },
+    "build/nv40-a16-texture-gpu.log": {
+      "bytes": 4335,
+      "sha256": "81e6ab3c9ac9cffb1fe5a93aa2619e6e5b98d0c3ce0f8f9168df1d3271dd4f91"
+    },
+    "build/nv40-a16-texture-closure.log": {
+      "bytes": 3020,
+      "sha256": "66498845576b3c76aee8d34ae8d66d20b7ebdf817163199fbc8696fcf17d2ff7"
+    }
+  }
+}

@@ -1748,3 +1748,11 @@ G1 之后，2D（G2）与程序翻译器（`nv40_program.js` 与它的单元测�
   深度/stencil 写入的既有往返回归保持通过，完整 GPU 与 Closure
   验证见 `g6-read-only-depth-downloads.json`。尚不将此合成结果计为
   06 原生帧率或全程性能验收。
+
+- G4 原生 A16 纹理：06 GT1 首次使用的 `0x14` 为 16-bit
+  UNORM scalar，先进入存储 G，再应用 A/R/G/B crossbar；
+  `0xA9EE` 得到 `(0,scalar,0,1)`。通过既有 D9WG UNORM16
+  RGBA 格式上传，不截成 8-bit。CPU 精确字节、padding/DMA、
+  真实 GPU 双线性和完整 GPU/Closure 通过，见
+  `g4-native-a16-texture.json`。共享执行器当前以 RGBA16F 存放
+  UNORM16，采样精度保留为偏差；06 全程将重新运行。
