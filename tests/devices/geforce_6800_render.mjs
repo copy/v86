@@ -287,6 +287,8 @@ try
         const colorlessObject=graph.object(0,0x2000),untouchedColor=vram.slice(0x10000,0x10100);
         method(0x220,0);colorlessObject.methods.delete(0x194);
         method(0x20C,0);method(0x210,0xFFFFFFFF);
+        const savedFragment=view.getUint32(0x9000,true);
+        view.setUint32(0x9000,savedFragment|0x40000000,true); // Native depth-only FP writes no color register.
         for(const [at,value]of [[0xA74,1],[0xA70,1],[0xA6C,8],[0x328,0]])method(at,value);
         for(let at=0x24000;at<0x24100;at+=4)view.setUint32(at,0xFFFFFF5A,true);
         const colorlessReadbacks=engine.backend.stats.readbacks;
@@ -316,6 +318,7 @@ try
         assert.equal(view.getUint32(0x818,true),64,"colorless draw without Z still counts occlusion samples");
         assert.equal(engine.backend.stats.readbacks,queryOnlyReadbacks,"scratch attachment never downloads to guest memory");
         assert.deepEqual(vram.slice(0x10000,0x10100),untouchedColor,"disabled color DMA and bogus pitch/offset are never accessed");
+        view.setUint32(0x9000,savedFragment,true);
         for(const [at,value]of [[0x220,1],[0x194,0x100],[0x198,0x100],[0x20C,32],[0x210,0x10000],
             [0x214,0x24000],[0x22C,32],[0x17CC,0]])method(at,value);
         console.log("PASS: real WebGPU colorless D16/D24/stencil, inactive color DMA, query-only draws and atomic depth faults");

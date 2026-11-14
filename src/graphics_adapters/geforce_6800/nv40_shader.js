@@ -771,8 +771,9 @@ export function translate_fragment_program(program,options={})
     }
     if(calls){shader.body=prefix;shader.emit(OP.CALL,src(18,0));}
     if(calls)written.add(0); // Unwritten result registers are undefined; choose zero.
-    if(!written.has(0)) throw new RangeError("NV40 fragment color output is not written");
-    for(let color=0;color<(options.targets||1);color++)
+    const targets=options.targets===undefined?1:options.targets;
+    if(targets && !written.has(0)) throw new RangeError("NV40 fragment color output is not written");
+    for(let color=0;color<targets;color++)
     {
         // R1 is reserved for depth. Color 1/2/3 use R2/R3/R4, or their
         // corresponding even half registers H4/H6/H8.

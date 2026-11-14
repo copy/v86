@@ -290,7 +290,7 @@ export class NV40Render
             return [16,18].includes(code)?{compare:get(o,at+8)>>>28,crossbar:get(o,at+16)}:null;
         });
         const control=get(o,0x1D60);
-        const shaders=this.engine.shaders(o,{viewport,targets:active && enable&16?4:1,depth:!!(control&14),fp32_outputs:!!(control&64),
+        const shaders=this.engine.shaders(o,{viewport,targets:active?(enable&16?4:1):0,depth:!!(control&14),fp32_outputs:!!(control&64),
             samplers,sampler_1d,texture_sizes,vertex_textures,depth_samplers});
         const textures=shaders.fragment.samplers.map(([unit])=>{
             const surface=this.textures.describe(o,unit),bytes=this.textures.images(surface);
