@@ -208,3 +208,17 @@ SHA-256 `e45d263fdde3f1d9e11eccf626e6768cba21266bc65d50f81fb08468c93930c3`）。
 
 旧运行还观察到 depth/stencil renderbuffer 未分配，导致游戏 draw 被拒绝；正在新一轮
 冷启中采集原始调用参数继续解决，仍未验收可玩场景或 60 fps。
+
+### 核对实际加载的适配器
+
+原已安装游戏的依赖是 `/usr/lib/libv86gles.dylib`，所以仅更新数据卷路径不足以启用
+新解压器。隔离测试盘的系统卷空余不足以原子保留两份库；通过原生文件系统对自有
+库原位替换、fsync 并重新挂为只读，实际 write 返回 76,336 bytes。原固件和测试盘备份
+均保留；未删除系统提示音或其他无关文件。含系统库更新的测试盘另存为
+`system-adapter-updated.packed`，SHA-256
+`0633b011ba2bf0c40b3732abd77bd27ed57467597260da1b15503b95767d0942`。
+
+新的隔离验收目录为 `build/ios/infinity-play/`，从上述盘重新冷启动；未恢复内存覆盖。
+`node tests/ios/gl-scalar.mjs <10B329 cache>` 的 76 个原始 OpenGLES 入口全部发出
+正确协议参数。原始 renderbuffer 失败记录中的 format 为 `0x88f0`，但 width/height
+为指针/返回地址，说明必须核查实际加载的桥接库及其 ABI，不能改成忽略深度缓冲。
