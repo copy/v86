@@ -5,6 +5,7 @@ import { N90_VIDEO } from "./clcd.js";
 import { macho_parse, CPU_TYPE_ARM } from "./macho.js";
 import { dt_parse, dt_serialize, dt_find, dt_name, dt_property, dt_strings, dt_set } from "./devicetree.js";
 import { IOS_TRUST_ARENA_BYTES, IOS_STATIC_TRUST_HEAD } from "../ios/runtime_trust.js";
+import { n90_i2c_counters } from "./n90_compat.js";
 
 const PHYS = 0x40000000, VIRT = 0x80000000;
 const page = n => Math.ceil(n / 4096) * 4096;
@@ -155,6 +156,7 @@ export function load_n90_kernel(ram, kernelcache, devicetree, ramdisk, cmdline, 
         ram.set(kernelcache.subarray(s.fileoff, s.fileoff + s.filesize), offset);
         ram.fill(0, offset + s.filesize, offset + s.vmsize);
     }
+    n90_i2c_counters(ram, kernel);
     if(ramdisk) ram.set(ramdisk, disk);
     ram.set(dt, treeOffset);
     ram.fill(0, args, args + 4096);
