@@ -134,11 +134,12 @@ export class AppleCDMA
             visited.add(descriptor);
             const d = new DataView(this.cpu.mem8.buffer, this.cpu.mem8.byteOffset + at, 16);
             const flags = d.getUint32(4, true), addr = d.getUint32(8, true), size = d.getUint32(12, true);
+            const current = descriptor;
             descriptor = d.getUint32(0, true);
             // The raw medium currently stores bytes before NAND encryption.
             if((this.channel[i] & 0xF00) && (flags & 3) === 2) continue;
             if(!(flags & 1) || !size || size > count - total || this.cpu.ram_offset(addr, size) < 0) break;
-            segments.push([addr, size, descriptor]);
+            segments.push([addr, size, descriptor, current]);
             total += size;
             if(flags & 0x100) return allow_refill || total === count ? segments : null;
         }
@@ -178,9 +179,24 @@ export class AppleCDMA
                 const next = position[0][position[1] - 1][2];
                 if(next !== undefined) this.channel[i + 5] = next;
             }
+            const current = position[0][position[1]];
+            if(this.channel[i] & 0x10 && current)
+            {
+                this.channel[i + 4] = current[0] + position[2];
+                if(current[3] !== undefined) this.channel[i + 5] = current[3];
+            }
             const batch_done = position[1] === position[0].length;
             if(batch_done)
             {
+                if(this.channel[i] & 0x10)
+                {
+                    const descriptor = this.channel[i + 5], at = this.cpu.ram_offset(descriptor, 16);
+                    if(at >= 0)
+                    {
+                        const d = new DataView(this.cpu.mem8.buffer, this.cpu.mem8.byteOffset + at, 16);
+                        this.channel[i + 4] = d.getUint32(8, true);
+                    }
+                }
                 this.progress.delete(n);
                 this.channel[i] = (this.channel[i] & ~1) | 0x80000;
                 this.signal(n, true);

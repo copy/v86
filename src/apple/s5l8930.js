@@ -43,7 +43,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
     const nand = buffer ? new AppleNAND(cpu, buffer) : null;
     const iop = new AppleIOP(cpu);
     const wait_for_io = pending => iop.wait_for_io(pending);
-    const dma = new AppleCDMA(cpu, (n, level) => (n <= 2 || n === 18 || n === 19 ? vic : iop.vic).set_line(0x30 + n, level));
+    const dma = new AppleCDMA(cpu, (n, level) => (n <= 2 || n === 18 || n === 19 || n >= 23 ? vic : iop.vic).set_line(0x30 + n, level));
     const devices = {
         display,
         apple_fmi0: new AppleH2FMI(cpu, 0x81200000, 0, nand, level => iop.vic.set_line(34, level), dma, wait_for_io),
@@ -71,7 +71,7 @@ export function create_n90_devices(cpu, bus, screen, buffer)
         apple_sgx: new AppleRegisterWindow(cpu, "sgx", 0x85100000, 0x1000),
     };
     auxiliary_uarts.forEach((name, i) => { devices[name] = new AppleUART(cpu, bus, i + 1); });
-    audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i); });
+    audio_controllers.forEach((name, i) => { devices[name] = new AppleI2S(cpu, i, bus, dma); });
     devices.apple_amc = new AppleAMC(cpu, (n, level) => vic.set_line(0x56 + n, level), dma);
     spi_controllers.forEach((name, i) => { devices[name] = new AppleSPI(cpu, i, level => vic.set_line(29 + i, level), undefined, dma); });
     clcd.translate = address => devices.apple_dart2.translate(address, 0);

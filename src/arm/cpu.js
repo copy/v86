@@ -697,6 +697,9 @@ A64CPU.prototype.run_machine_core = function()
         const iop = this.devices.apple_iop;
         const iop_busy = iop?.run();
         this.devices.apple_amc?.poll();
+        this.devices.apple_i2s0?.poll();
+        this.devices.apple_i2s1?.poll();
+        this.devices.apple_i2s2?.poll();
         const devices = this.run_hardware_timers(null, this.clock.now());
         const next = Math.min(run(this.clock.now()), devices);
         // (PSCI SYSTEM_RESET: the machine resets and boots again, P4.8)
