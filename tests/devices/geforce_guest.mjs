@@ -429,6 +429,44 @@ export async function run_geforce_guest(win98)
                 return result;
             };
         }
+        if(process.env.NV_DIAGNOSTIC_DRAW_PIXEL && nv.graph.engine3d.backend)
+        {
+            const [x,y]=process.env.NV_DIAGNOSTIC_DRAW_PIXEL.split(",").map(Number);
+            assert([x,y].every(value=>Number.isInteger(value)&&value>=0&&value<4096),"invalid diagnostic pixel");
+            const engine=nv.graph.engine3d,backend=engine.backend,draw=backend.draw.bind(backend),flush=backend.flush.bind(backend),complete=backend.complete.bind(backend);
+            const metadata=new Map(),events=[],file=path.join(out,"draw-pixel-history.json");let current=null,ordinal=0;
+            backend.draw=(object,mode,words,indices,subc)=>{
+                if(ordinal>=256){current=null;return draw(object,mode,words,indices,subc);}
+                current={ordinal:ordinal++,mode,subc,instance:object.instance,methods:Array.from(object.methods),program:engine.program(object)};
+                const before=backend.stats.draws,result=draw(object,mode,words,indices,subc);
+                if(process.env.NV_DIAGNOSTIC_DRAW_FLUSH && backend.stats.draws!==before)backend.flush();
+                return result;
+            };
+            backend.flush=()=>{
+                const before=backend.pending,result=flush();
+                if(!before && backend.pending)metadata.set(backend.pending,current);
+                return result;
+            };
+            backend.complete=()=>{
+                const pending=backend.pending;
+                if(pending && pending.done && !pending.requests.size && (!pending.query || pending.query.value!==null))
+                {
+                    const item=metadata.get(pending);
+                    if(events.length<256 && item)for(const {target,bytes}of pending.outputs)
+                    {
+                        if(events.length>=256)break;
+                        if(target.bpp!==4 || x>=target.width || y>=target.height)continue;
+                        const offset=(y*target.width+x)*4,after=Array.from(bytes.subarray(offset,offset+4));
+                        const before=Array.from(nv.dma.read(target.dma,target.offset+y*target.pitch+x*4,4));
+                        if(before.some((value,index)=>value!==after[index]))events.push({elapsed:elapsed(),x,y,target:target.offset,before,after,
+                            draw:item?.ordinal,mode:item?.mode,fragment:item?.methods.find(([at])=>at===0x8E4)?.[1],
+                            ...(after.slice(0,3).every(value=>value===0)&&before.slice(0,3).some(Boolean)?{cause:item}:{})});
+                    }
+                    metadata.delete(pending);fs.writeFileSync(file,JSON.stringify(events,null,2));
+                }
+                return complete();
+            };
+        }
         if(process.env.NV_CPU_PROFILE)
         {
             const {Session}=await import("node:inspector"),session=new Session();session.connect();

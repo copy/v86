@@ -1,0 +1,71 @@
+{
+  "date": "2026-11-14",
+  "trigger": "03 GT4 large black foreground region. Per-draw pixel history identifies original draw 142 replacing BGR [30,33,26] with black before butterfly draws 146/147.",
+  "diagnostic": {
+    "pixel": [
+      512,
+      600
+    ],
+    "firstBlackDraw": 142,
+    "fragment": "0x46cd3c2",
+    "mode": 5,
+    "bounded": {
+      "drawHeaders": 256,
+      "pixelChanges": 256
+    },
+    "forcedFlush": "Investigation only; not used for performance acceptance.",
+    "history": {
+      "bytes": 257255,
+      "sha256": "fb17a4ed32a09be582fd827b699ef4065139497213b70abfcd7cb77b522488c8"
+    }
+  },
+  "rootCause": "Native VP DP3 writes large negative lighting values into raw TBUF3, routed to primary color. Missing normalization of dedicated color interpolators lets those values reach half ADDs and DST_COLOR/ZERO multiplication, turning the rock black.",
+  "implementation": "Saturate only the final routed front/back primary/secondary color outputs before rasterization. Keep raw TBUF arithmetic and texture-coordinate interpolators unrestricted.",
+  "sources": [
+    {
+      "url": "https://learn.microsoft.com/en-us/windows/win32/direct3dhlsl/dx9-graphics-reference-asm-ps-registers-ps-1-x",
+      "supports": "Legacy pixel color inputs saturate to [0,1]."
+    },
+    {
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/gallium/drivers/nouveau/nv30/nv30_screen.c",
+      "supports": "NV30/40 driver does not advertise unclamped vertex colors; API-to-native mapping is corroborating evidence, not a newly decoded hardware control bit."
+    }
+  ],
+  "regression": "Real GPU primary and secondary colors clamp endpoint values -1/3 before interpolation (pixels 12,52 after quarter-scale); texture-coordinate route preserves signed and >1 values (pixels 0,143). Entire real GPU suite and Closure passed.",
+  "nativeRerun": {
+    "directory": "build/nv40-xp-mark03-gt4-color-clamped",
+    "source": "Same coherent GT4 checkpoint used by pixel diagnosis",
+    "seconds": 182,
+    "gpu": {
+      "batches": 1219,
+      "draws": 2544,
+      "bytes": 2497394640,
+      "readbacks": 1425,
+      "failures": 0,
+      "uploads": 1499,
+      "uploadBytes": 1072710068
+    },
+    "graphFaults": [],
+    "imageUnchanged": true,
+    "gameImageUnchanged": true,
+    "observation": "Foreground rock texture visible beneath butterfly; large black region removed. Full 03 image/reference gate remains open."
+  },
+  "artifacts": {
+    "build/nv40-xp-mark03-gt4-color-clamped/capture-0004.png": {
+      "bytes": 1170202,
+      "sha256": "4483d0d5ea2b46b01b12d0f1e1bc5a620e712263ded3427df5e87d90970341cc"
+    },
+    "build/nv40-xp-mark03-gt4-color-clamped/capture-0032.png": {
+      "bytes": 972,
+      "sha256": "441da7236f6ffdd8fb4cdfa2d9ce7b8d8df8cf2f7a8e82c530714d92266ce613"
+    },
+    "build/nv40-color-interpolator-gpu.log": {
+      "bytes": 5166,
+      "sha256": "5ab43ac5d7ccce00bfdd7d90a1c93e6a5d44fc8154e73b78f96fb2d635ab3af2"
+    },
+    "build/nv40-color-clamp-build.log": {
+      "bytes": 13106,
+      "sha256": "b67f57a18812541dd64a3c06e462abb5d2ccb98bcaa73ecaf59cd00fe2898412"
+    }
+  }
+}

@@ -1061,11 +1061,42 @@ try
         method(0x1EFC,0);
         [...new Uint32Array(Float32Array.of(-1,0,1,NaN,.25,.25,.25,.25,.75,.75,.75,.75).buffer)].forEach((word,i)=>method(0x1F00+(i%4)*4,word));
         const base=decode_vertex_program(Uint32Array.of(0x401F9C6C,0x0040000D,0x81000000,0x0001EF81)).instructions[0];
-        let vertexProgram=null;const nativeShaders=engine.shaders;
+        let vertexProgram=null,vertexRoutes=[[0,0,-1,true],[1,1,-1,true]];const nativeShaders=engine.shaders;
         engine.shaders=function(o,options){return {...nativeShaders.call(this,o,options),vertex:translate_vertex_program(vertexProgram,
-            {...options,result_map:[[0,0,-1,true],[1,1,-1,true]]})};};
+            {...options,result_map:vertexRoutes})};};
         try
         {
+            const routedPosition=structuredClone(base),routedColor=structuredClone(base);
+            routedColor.vector={name:"MAD",type:"output",index:1,mask:15};
+            routedColor.sources=[{...base.sources[0],swizzle:[0,0,0,0]},
+                {...base.sources[0],type:"constant",index:0},{...base.sources[0],type:"constant",index:1}];
+            vertexProgram={instructions:[routedPosition,routedColor]};
+            method(0x1EFC,0);
+            new Uint32Array(Float32Array.of(.5,.5,.5,.5,-1,-1,-1,-1).buffer)
+                .forEach((word,i)=>method(0x1F00+(i%4)*4,word));
+            for(const [semantic,input]of [[1,1],[2,2],[7,4]])
+            {
+                vertexRoutes=[[0,0,-1,true],[semantic,1,-1,true]];
+                // Native MUL of the interpolated value by 1/4 makes values
+                // above one observable for the unrestricted texture route.
+                [2<<24|input<<13|15<<9|128|1,7<<18|0x1C801,0x1C802,0,
+                    ...new Uint32Array(Float32Array.of(.25,.25,.25,.25).buffer)]
+                    .forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+                method(0x1808,5);
+                for(const word of new Uint32Array(Float32Array.of(0,0,0,1,0,16,0,1,8,0,0,1).buffer))method(0x1818,word);
+                method(0x1808,0);await engine.backend.wait();
+                // Endpoint values are -1 and 3. Clamp each color endpoint
+                // before interpolation. This decoded test position samples
+                // at x+0.5: the color at x=1 is (1.5/8)/4.
+                for(const [x,color,texture]of [[1,12,0],[6,52,143]])
+                {
+                    const pixel=[...vram.subarray(0x10000+x*4,0x10000+(x+1)*4)];
+                    assert.deepEqual(pixel,Array(4).fill(semantic===7?texture:color),"routed interpolator "+semantic+" clamps before interpolation only for colors at "+x);
+                }
+            }
+            vertexRoutes=[[0,0,-1,true],[1,1,-1,true]];
+            [1<<24|1<<13|15<<9|128|1,7<<18|0x1C801,0,0].forEach((word,i)=>view.setUint32(0x9000+i*4,word,true));
+            console.log("PASS: real WebGPU routed primary/secondary colors clamp before interpolation while texture coordinates retain signed values");
             const vertexTextureDraw=async(unit,coordinate)=>{
                 const position=structuredClone(base),color=structuredClone(base);
                 color.vector={name:"TXL",type:"output",index:1,mask:15};color.texture=unit;

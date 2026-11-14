@@ -445,7 +445,10 @@ export function translate_vertex_program(program,options={})
     for(const [semantic,register,component,enabled]of routes)
     {
         if(enabled===false || !raw.has(register) || semantic===0 && options.viewport)continue;
-        shader.emit(OP.MOV,dst(6,shader.output(semantic),component<0?15:1),
+        // The dedicated front/back color interpolators are normalized before
+        // rasterization. Texture-coordinate routes carry unrestricted floats.
+        // Keep this at the routed output, after all writes to the raw TBUF.
+        shader.emit(OP.MOV,dst(6,shader.output(semantic),component<0?15:1,semantic>=1 && semantic<=4),
             src(0,raw.get(register),component<0?[0,1,2,3]:Array(4).fill(component)));
     }
     const viewport_constants=[];
