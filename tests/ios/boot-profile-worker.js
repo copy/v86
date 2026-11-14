@@ -43,16 +43,20 @@ A64CPU.prototype.get_diagnostics = function()
 {
     const lcd = this.devices.apple_clcd;
     const iop = this.devices.apple_iop;
-    let iop_pc;
+    let iop_pc, iop_system;
     if(iop?.running && !iop.pending_reset)
     {
         iop.core.a32_iop_select(true);
-        try { iop_pc = this.read_pc(); }
+        try {
+            iop_pc = this.read_pc();
+            const bank = new DataView(this.wasm_memory.buffer, this.state_base, 4096);
+            iop_system = { pstate: bank.getUint32(332, true), sctlr: Number(bank.getBigUint64(920, true)) };
+        }
         finally { iop.core.a32_iop_select(false); }
     }
     return { ...diagnostics.call(this), profile: structuredClone(timings), steps: this.step_stats(15),
         delays: { ...delays }, iop: iop ? { pc: iop_pc, irq: iop.irq, fiq: iop.fiq,
-            polling: iop.polling?.size || 0, native: iop.core.a32_iop_native?.() } : null,
+            polling: iop.polling?.size || 0, native: iop.core.a32_iop_native?.(), ...iop_system } : null,
         lcd: lcd ? { panel_on: lcd.panel_on, backlight: lcd.backlight, base: lcd.regs[0x4044 >>> 2] } : null };
 };
 start_cpu_worker();

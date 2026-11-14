@@ -198,7 +198,7 @@ fn aarch32_mode(mode: u32) -> bool {
 fn mode() -> u32 {
     if cpu::aarch32() {
         let isa = if cpu::get_pstate() & cpu::PSTATE_T != 0 { MODE_T32 } else { MODE_A32 };
-        let iop = bus::iop_active() && cpu::sctlr() & cpu::SCTLR_M == 0;
+        let iop = bus::iop_active();
         return isa | (cpu::el() != 0) as u32 | if iop { MODE_IOP } else { 0 };
     }
     let el1 = cpu::el() != 0;
