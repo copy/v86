@@ -105,6 +105,12 @@ export function VGAScreen(cpu, bus, screen, vga_memory_size)
     this.screen_height = 0;
 
     /**
+     * Bits per pixel last reported through screen-set-size in graphical mode
+     * @type {number}
+     */
+    this.screen_bpp = 0;
+
+    /**
      * Logical width in pixels of virtual buffer available for panning
      * @type {number}
      */
@@ -535,6 +541,7 @@ VGAScreen.prototype.set_state = function(state)
     // Ensure set_size_graphical/set_size_graphical_text will update
     this.screen_width = 0;
     this.screen_height = 0;
+    this.screen_bpp = 0;
 
     if(this.graphical_mode)
     {
@@ -1146,6 +1153,8 @@ VGAScreen.prototype.set_size_text = function(cols_count, rows_count)
     dbg_assert(!this.graphical_mode);
     this.max_cols = cols_count;
     this.max_rows = rows_count;
+    // Report the graphical size again when switching back to graphical mode
+    this.screen_bpp = 0;
 
     this.screen.set_size_text(cols_count, rows_count);
     this.bus.send("screen-set-size", [cols_count, rows_count, 0]);
@@ -1187,6 +1196,11 @@ VGAScreen.prototype.set_size_graphical = function(width, height, virtual_width, 
         }
 
         this.screen.set_size_graphical(width, height, virtual_width, virtual_height);
+    }
+
+    if(needs_update || this.screen_bpp !== bpp)
+    {
+        this.screen_bpp = bpp;
         this.bus.send("screen-set-size", [width, height, bpp]);
     }
 };
