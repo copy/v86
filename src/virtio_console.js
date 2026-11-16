@@ -234,7 +234,7 @@ VirtioConsole.prototype.SendWindowSize = function(port, cols = undefined, rows =
     cols = cols || this.cols;
     const bufchain = this.virtio.queues[2].pop_request();
     const buf = new Uint8Array(12);
-    marshall.Marshall(["w", "h", "h", "h", "h"], [port, VIRTIO_CONSOLE_RESIZE, 0, rows, cols], buf, 0);
+    marshall.Marshall(["w", "h", "h", "h", "h"], [port, VIRTIO_CONSOLE_RESIZE, 0, cols, rows], buf, 0);
     this.Send(2, bufchain, buf);
 };
 
