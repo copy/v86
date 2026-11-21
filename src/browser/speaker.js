@@ -467,6 +467,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
     this.enabled = false;
     this.sampling_rate = 48000;
 
+    // Number of buffers sent to the worklet
+    this.sent_count = 0;
+
     // Worklet
 
     function worklet()
@@ -509,6 +512,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             self.queue_length = 0;
             self.queue_size = self.queue_data.length;
             self.queued_samples = 0;
+
+            // Number of buffers received from the main thread
+            self.received_count = 0;
 
             // Buffers being actively consumed
             /** @type{Array<Float32Array>} */
@@ -695,12 +701,15 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
                 this.port.postMessage(
                 {
                     type: "pump",
+                    value: this.received_count,
                 });
             }
         };
 
         DACProcessor.prototype.queue_push = function(item)
         {
+            this.received_count++;
+
             if(this.queue_length < this.queue_size)
             {
                 this.queue_data[this.queue_end] = item;
@@ -793,7 +802,7 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
             switch(event.data.type)
             {
                 case "pump":
-                    this.pump();
+                    this.pump(event.data.value);
                     break;
                 case "debug-log":
                     dbg_log("SpeakerWorkletDAC - Worklet: " + event.data.value);
@@ -866,12 +875,24 @@ SpeakerWorkletDAC.prototype.queue = function(data)
         type: "queue",
         value: data,
     }, [data[0].buffer, data[1].buffer]);
+    this.sent_count++;
 };
 
-SpeakerWorkletDAC.prototype.pump = function()
+/**
+ * @param {number} received_count
+ */
+SpeakerWorkletDAC.prototype.pump = function(received_count)
 {
     if(!this.enabled)
     {
+        return;
+    }
+    if(received_count !== this.sent_count)
+    {
+        // The worklet asked before it saw the data already sent. It keeps
+        // asking while starved, so after the main thread is blocked many
+        // requests are pending; serving each would advance the DMA past
+        // what the guest has had time to refill.
         return;
     }
     this.bus.send("dac-request-data");
