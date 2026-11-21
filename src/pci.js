@@ -362,11 +362,6 @@ PCI.prototype.pci_write16 = function(address, written)
     var space = new Uint16Array(device_space.buffer);
     var device = this.devices[bdf];
 
-    if(!space)
-    {
-        return;
-    }
-
     if(addr >= 0x10 && addr < 0x2C)
     {
         // Bochs bios
