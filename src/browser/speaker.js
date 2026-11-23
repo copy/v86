@@ -67,10 +67,10 @@ export function SpeakerAdapter(bus)
 
 SpeakerAdapter.prototype.destroy = function()
 {
+    this.dac && this.dac.destroy();
+    this.dac = null;
     this.audio_context && this.audio_context.close();
     this.audio_context = null;
-    this.dac && this.dac.node_processor && this.dac.node_processor.port.close();
-    this.dac = null;
 };
 
 /**
@@ -772,6 +772,9 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
     /** @type {AudioWorkletNode} */
     this.node_processor = null;
 
+    // Set by destroy(); the worklet module may finish loading after that.
+    this.destroyed = false;
+
     // Placeholder pass-through node to connect to, when worklet node is not ready yet.
     this.node_output = this.audio_context.createGain();
 
@@ -781,6 +784,11 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         .then(() =>
     {
         URL.revokeObjectURL(worklet_url);
+
+        if(this.destroyed)
+        {
+            return;
+        }
 
         this.node_processor = new AudioWorkletNode(this.audio_context, "dac-processor",
         {
@@ -857,6 +865,22 @@ function SpeakerWorkletDAC(bus, audio_context, mixer)
         this.debugger = new SpeakerDACDebugger(this.audio_context, this.node_output);
     }
 }
+
+SpeakerWorkletDAC.prototype.destroy = function()
+{
+    this.destroyed = true;
+
+    if(this.node_processor)
+    {
+        // Chromium keeps an AudioWorkletNode alive as a pending activity even after its
+        // AudioContext is closed. Its port handler holds this DAC, the bus and with them
+        // the whole emulator, so it has to be dropped explicitly.
+        this.node_processor.port.onmessage = null;
+        this.node_processor.port.close();
+        this.node_processor.disconnect();
+        this.node_processor = null;
+    }
+};
 
 SpeakerWorkletDAC.prototype.queue = function(data)
 {
@@ -960,6 +984,11 @@ function SpeakerBufferSourceDAC(bus, audio_context, mixer)
         this.debugger = new SpeakerDACDebugger(this.audio_context, this.node_output);
     }
 }
+
+SpeakerBufferSourceDAC.prototype.destroy = function()
+{
+    // Nothing outlives the AudioContext here; closing it (in SpeakerAdapter.destroy) is enough.
+};
 
 SpeakerBufferSourceDAC.prototype.queue = function(data)
 {
