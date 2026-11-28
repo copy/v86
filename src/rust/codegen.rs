@@ -24,6 +24,17 @@ pub fn gen_get_eip(builder: &mut WasmBuilder) {
     builder.load_fixed_i32(global_pointers::instruction_pointer as u32);
 }
 
+pub fn escape_if_could_wrap_ip(ctx: &mut JitContext, start_addr: u32, stop_addr: u32) {
+    gen_get_eip(ctx.builder);
+    ctx.builder.const_i32(0xFFFF);
+    ctx.builder.and_i32();
+    ctx.builder.const_i32((stop_addr - start_addr) as i32);
+    ctx.builder.add_i32();
+    ctx.builder.const_i32(!0xFFFF);
+    ctx.builder.and_i32();
+    ctx.builder.br_if(ctx.exit_label);
+}
+
 pub fn gen_set_eip_to_after_current_instruction(ctx: &mut JitContext) {
     ctx.builder
         .const_i32(global_pointers::instruction_pointer as i32);
